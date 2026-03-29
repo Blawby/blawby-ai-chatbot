@@ -45,10 +45,6 @@ const INTAKE_TOOL = {
         opposingParty: { type: 'string', description: 'Name of the opposing person, company, or organization. Never extract descriptions, emotions, or circumstances (e.g. "at the hospital").' },
         city: { type: 'string' },
         state: { type: 'string', description: '2-letter US state code' },
-        postalCode: { type: 'string' },
-        country: { type: 'string' },
-        addressLine1: { type: 'string' },
-        addressLine2: { type: 'string' },
         desiredOutcome: { type: 'string', description: 'What the user wants to achieve, max 150 chars' },
         courtDate: { type: 'string', description: 'Court date or hard deadline in ISO 8601 format (YYYY-MM-DD). Omit if not explicitly stated as a specific date.' },
         hasDocuments: { type: 'boolean', description: 'Whether the user has mentioned having relevant documents' },
@@ -86,6 +82,7 @@ const buildIntakeConversationCtaInstruction = (
   mergedState: Record<string, unknown> | null,
   messageCount: number,
   submissionGate?: IntakeSubmissionGate | null,
+  isPlannerFinished?: boolean,
 ): string => {
   const hasCaseInfo = isCaseInfoComplete(mergedState);
   const isSubmissionReady = isIntakeSubmittable(mergedState, submissionGate);
@@ -94,7 +91,7 @@ const buildIntakeConversationCtaInstruction = (
   if (messageCount >= INTAKE_CLOSING_MESSAGE_THRESHOLD && isSubmissionReady) {
     return `\nYou have asked enough questions and have the required details. Briefly summarize what you know and ask if the user is ready to submit to the firm.`;
   }
-  if (isSubmissionReady && messageCount < INTAKE_CLOSING_MESSAGE_THRESHOLD) {
+  if (isSubmissionReady && isPlannerFinished && messageCount < INTAKE_CLOSING_MESSAGE_THRESHOLD) {
     return `\nYou have all the required details to proceed. Briefly offer a recap to confirm readiness and prepare the user to submit. Do NOT ask any new questions.`;
   }
   if (hasCaseInfo && paymentRequiredBeforeSubmit && !paymentCompleted) {
@@ -121,7 +118,7 @@ Conversation rules:
 - Never give legal advice
 - Never ask for contact info (name, email, phone) — already collected
 - Never output JSON, tool names, or structured data
-- If your question has 2-3 predictable short answers, end your response with a line formatted exactly as: QUICK_REPLIES: Option 1 | Option 2 | Option 3. Otherwise omit this line entirely.`;
+- If your question has 2-3 predictable short answers, end your response with a line formatted exactly as: QUICK_REPLIES: Option 1 | Option 2 | Option 3. Otherwise omit this line entirely. Never use QUICK_REPLIES for open-ended questions like description or desired outcome.`;
 };
 
 const buildIntakeConversationStatePrompt = (
@@ -156,7 +153,25 @@ const buildIntakeConversationStatePrompt = (
   const knownSection = compactKnownFields.length > 0
     ? `\nKNOWN SO FAR (do not ask for these again):\n${compactKnownFields.map((f) => `- ${f}`).join('\n')}${omittedKnownCount > 0 ? `\n- ...and ${omittedKnownCount} more known fields omitted` : ''}`
     : '';
-  return `${knownSection}${buildIntakeConversationCtaInstruction(mergedState, messageCount, submissionGate)}`.trim();
+
+  const plannerStep = planNextIntakeStep(mergedState, submissionGate);
+  const isSubmissionReady = isIntakeSubmittable(mergedState, submissionGate);
+  const isPlannerFinished = plannerStep?.nextField === null;
+  
+  const fieldLabels: Record<string, string> = {
+    description: 'what happened',
+    location: 'your city and state',
+    opposingParty: 'who the other party is',
+    urgency: 'how urgent this is',
+    desiredOutcome: 'what outcome you are hoping for',
+    hasDocuments: 'whether you have any documents',
+  };
+
+  const nextFieldHint = plannerStep && plannerStep.nextField && plannerStep.chips.length === 0 && !isSubmissionReady
+    ? `\nIMPORTANT: The next missing piece is: ${fieldLabels[plannerStep.nextField] ?? plannerStep.nextField}. Ask about this specifically.`
+    : '';
+
+  return `${knownSection}${nextFieldHint}${buildIntakeConversationCtaInstruction(mergedState, messageCount, submissionGate, isPlannerFinished)}`.trim();
 };
 
 export const buildIntakeConversationPrompt = (
@@ -178,15 +193,21 @@ const mergeIntakeState = (
   return { ...(base ?? {}), ...(patch ?? {}) };
 };
 
-const isCaseInfoComplete = (state: Record<string, unknown> | null): boolean => {
+const isMinimumViableBriefComplete = (state: Record<string, unknown> | null): boolean => {
   if (!state) return false;
   const hasDescription = hasNonEmptyStringField(state, 'description');
   const hasLocation = hasNonEmptyStringField(state, 'city') && hasNonEmptyStringField(state, 'state');
   const hasOpposingParty = hasNonEmptyStringField(state, 'opposingParty');
+  return hasDescription && hasLocation && hasOpposingParty;
+};
+
+const isCaseInfoComplete = (state: Record<string, unknown> | null): boolean => {
+  if (!isMinimumViableBriefComplete(state)) return false;
+  if (!state) return false;
   const hasUrgency = hasNonEmptyStringField(state, 'urgency');
   const hasDesiredOutcome = hasNonEmptyStringField(state, 'desiredOutcome');
   const hasDocumentAnswer = typeof state.hasDocuments === 'boolean';
-  return hasDescription && hasLocation && hasOpposingParty && hasUrgency && hasDesiredOutcome && hasDocumentAnswer;
+  return hasUrgency && hasDesiredOutcome && hasDocumentAnswer;
 };
 
 export interface IntakeSubmissionGate {
@@ -198,7 +219,7 @@ const isIntakeSubmittable = (
   state: Record<string, unknown> | null,
   submissionGate?: IntakeSubmissionGate | null,
 ): boolean => {
-  if (!isCaseInfoComplete(state)) return false;
+  if (!isMinimumViableBriefComplete(state)) return false;
   const paymentRequiredBeforeSubmit = submissionGate?.paymentRequiredBeforeSubmit === true;
   const paymentCompleted = submissionGate?.paymentCompleted === true;
   return !paymentRequiredBeforeSubmit || paymentCompleted;

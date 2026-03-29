@@ -146,10 +146,7 @@ export const isIntakeReadyForSubmission = (
   const hasDescription = hasNonEmptyString(state.description);
   const hasLocation = hasNonEmptyString(state.city) && hasNonEmptyString(state.state);
   const hasOpposingParty = hasNonEmptyString(state.opposingParty);
-  const hasUrgency = hasNonEmptyString(state.urgency);
-  const hasDesiredOutcome = hasNonEmptyString(state.desiredOutcome);
-  const hasDocumentAnswer = typeof state.hasDocuments === 'boolean';
-  return hasDescription && hasLocation && hasOpposingParty && hasUrgency && hasDesiredOutcome && hasDocumentAnswer;
+  return hasDescription && hasLocation && hasOpposingParty;
 };
 
 export const isIntakeSubmittable = (

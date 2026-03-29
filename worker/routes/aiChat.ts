@@ -120,10 +120,7 @@ const buildCompactIntakeContextForExtraction = (
   copyString('description', 220);
   copyString('city', 80);
   copyString('state', 2);
-  copyString('postalCode', 20);
-  copyString('country', 40);
-  copyString('addressLine1', 120);
-  copyString('addressLine2', 120);
+
   copyString('opposingParty', 120);
   copyString('urgency', 30);
   copyString('desiredOutcome', 180);
@@ -209,6 +206,7 @@ const extractIntakeFieldsForTurn = async (params: {
   body: {
     conversationId: string;
     extractionMessages: Array<{ role: 'user' | 'assistant'; content: string }>;
+    fullMessages?: Array<{ role: 'user' | 'assistant'; content: string }>;
   };
   deterministicIntakePatch: Record<string, unknown> | null;
   skipExtractionReason?: string | null;
@@ -264,90 +262,132 @@ const extractIntakeFieldsForTurn = async (params: {
     })(),
   ].filter(Boolean).join('\n\n');
 
-  const extractionPayload: Record<string, unknown> = {
-    model: params.model,
-    temperature: 0.1,
-    stream: false,
-    tools: [INTAKE_TOOL],
-    tool_choice: { type: 'function', function: { name: 'update_intake_fields' } },
-    parallel_tool_calls: false,
-    messages: [
-      { role: 'system', content: extractionSystemPrompt },
-      ...params.body.extractionMessages.map((m) => ({ role: m.role, content: m.content })),
-    ],
-  };
+  const attemptExtraction = async (
+    messagesWindow: Array<{ role: 'user' | 'assistant'; content: string }>
+  ): Promise<{ parsed: Record<string, unknown> | null; rawArgs?: string | null; finishReason?: string | null; contentPreview?: string; toolCallCount?: number } | null> => {
+    const extractionPayload: Record<string, unknown> = {
+      model: params.model,
+      temperature: 0.1,
+      stream: false,
+      tools: [INTAKE_TOOL],
+      tool_choice: { type: 'function', function: { name: 'update_intake_fields' } },
+      parallel_tool_calls: false,
+      messages: [
+        { role: 'system', content: extractionSystemPrompt },
+        ...messagesWindow.map((m) => ({ role: m.role, content: m.content })),
+      ],
+    };
 
-  const extractionController = new AbortController();
-  const extractionTimeoutId = setTimeout(() => extractionController.abort(), AI_TIMEOUT_MS);
-
-  try {
-    const extractionResponse = await params.aiClient.requestChatCompletions(extractionPayload, extractionController.signal);
-
-    if (!extractionResponse.ok) {
-      extractionOutcome = 'http_error';
-      Logger.warn('Intake extraction call failed', {
-        conversationId: params.body.conversationId,
-        status: extractionResponse.status,
-      });
-      return null;
-    }
-
-    const extractionData = await extractionResponse.json().catch(() => null) as {
-      choices?: Array<{
-        message?: {
-          tool_calls?: Array<{
-            function?: { name?: string; arguments?: string };
-          }>;
-          content?: string | null;
-        };
-        finish_reason?: string | null;
-      }>;
-    } | null;
-
-    const toolCallArgs = extractionData?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
-    const rawArgs = typeof toolCallArgs === 'string' && toolCallArgs.length > 0 ? toolCallArgs : null;
-
-    if (typeof rawArgs !== 'string' || rawArgs.length === 0) {
-      extractionOutcome = 'no_args';
-      Logger.warn('Intake extraction missing tool call arguments', {
-        conversationId: params.body.conversationId,
-        finishReason: extractionData?.choices?.[0]?.finish_reason ?? null,
-        toolCallCount: Array.isArray(extractionData?.choices?.[0]?.message?.tool_calls)
-          ? extractionData.choices[0].message.tool_calls.length
-          : 0,
-        ...(params.debugEnabled && typeof extractionData?.choices?.[0]?.message?.content === 'string'
-          ? { messageContentPreview: extractionData.choices[0].message.content.slice(0, 300) }
-          : {}),
-      });
-      return null;
-    }
+    const extractionController = new AbortController();
+    const extractionTimeoutId = setTimeout(() => extractionController.abort(), AI_TIMEOUT_MS);
 
     try {
-      let cleanArgs = rawArgs.trim();
-      const xmlMatch = cleanArgs.match(/<tool_call[^>]*>([\s\S]*?)<\/tool_call>/i);
-      if (xmlMatch) cleanArgs = xmlMatch[1].trim();
-      const fenceMatch = cleanArgs.match(/```(?:json)?\s*([\s\S]*?)```/i);
-      if (fenceMatch) cleanArgs = fenceMatch[1].trim();
-      const parsed = normalizeKeys(JSON.parse(cleanArgs)) as Record<string, unknown>;
-      return parsed;
-    } catch (parseError) {
-      extractionOutcome = 'parse_failed';
-      Logger.warn('Failed to parse extraction tool call arguments', {
+      const extractionResponse = await params.aiClient.requestChatCompletions(extractionPayload, extractionController.signal);
+
+      if (!extractionResponse.ok) {
+        extractionOutcome = 'http_error';
+        Logger.warn('Intake extraction call failed', {
+          conversationId: params.body.conversationId,
+          status: extractionResponse.status,
+        });
+        return null;
+      }
+
+      const extractionData = await extractionResponse.json().catch(() => null) as {
+        choices?: Array<{
+          message?: {
+            tool_calls?: Array<{
+              function?: { name?: string; arguments?: string };
+            }>;
+            content?: string | null;
+          };
+          finish_reason?: string | null;
+        }>;
+      } | null;
+
+      const toolCallArgs = extractionData?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
+      const rawArgs = typeof toolCallArgs === 'string' && toolCallArgs.length > 0 ? toolCallArgs : null;
+
+      if (typeof rawArgs !== 'string' || rawArgs.length === 0) {
+        extractionOutcome = 'no_args';
+        return {
+          parsed: null,
+          finishReason: extractionData?.choices?.[0]?.finish_reason ?? null,
+          toolCallCount: Array.isArray(extractionData?.choices?.[0]?.message?.tool_calls)
+            ? extractionData.choices[0].message.tool_calls.length
+            : 0,
+          rawArgs: null,
+          contentPreview: params.debugEnabled && typeof extractionData?.choices?.[0]?.message?.content === 'string'
+            ? extractionData.choices[0].message.content.slice(0, 300)
+            : undefined,
+        };
+      }
+
+      try {
+        let cleanArgs = rawArgs.trim();
+        const xmlMatch = cleanArgs.match(/<tool_call[^>]*>([\s\S]*?)<\/tool_call>/i);
+        if (xmlMatch) cleanArgs = xmlMatch[1].trim();
+        const fenceMatch = cleanArgs.match(/```(?:json)?\s*([\s\S]*?)```/i);
+        if (fenceMatch) cleanArgs = fenceMatch[1].trim();
+        const parsed = normalizeKeys(JSON.parse(cleanArgs)) as Record<string, unknown>;
+        return { parsed, rawArgs };
+      } catch (parseError) {
+        extractionOutcome = 'parse_failed';
+        Logger.warn('Failed to parse extraction tool call arguments', {
+          conversationId: params.body.conversationId,
+          error: parseError instanceof Error ? parseError.message : String(parseError),
+          ...(params.debugEnabled ? { rawToolArgsLength: rawArgs.length } : {}),
+        });
+        return null;
+      }
+    } catch (error) {
+      extractionOutcome = 'exception';
+      Logger.warn('Intake extraction failed', {
         conversationId: params.body.conversationId,
-        error: parseError instanceof Error ? parseError.message : String(parseError),
-        ...(params.debugEnabled ? { rawToolArgsPreview: rawArgs.slice(0, 800) } : {}),
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return null;
+    } finally {
+      clearTimeout(extractionTimeoutId);
+    }
+  };
+
+  try {
+    let result = await attemptExtraction(params.body.extractionMessages);
+
+    const isParsedEmpty = !result || !result.parsed || Object.keys(result.parsed).length === 0;
+    
+    if (isParsedEmpty && params.body.fullMessages && params.body.fullMessages.length > 2) {
+      const INTAKE_FIELDS_ALLOWLIST = ['practiceArea', 'description', 'urgency', 'opposingParty', 'city', 'state', 'desiredOutcome', 'courtDate', 'hasDocuments'];
+      const populatedFieldCount = params.storedIntakeState
+        ? Object.entries(params.storedIntakeState).filter(([k, v]) => INTAKE_FIELDS_ALLOWLIST.includes(k) && v !== null && v !== undefined && v !== '').length
+        : 0;
+        
+      if (populatedFieldCount < 3) {
+        if (params.debugEnabled) {
+          Logger.info('AI chat timing: intake extraction widening window and retrying', {
+            conversationId: params.body.conversationId,
+            populatedFieldCount,
+          });
+        }
+        extractionOutcome = 'ok';
+        const widerWindow = buildExtractionMessagesWindow(params.body.fullMessages, 4);
+        result = await attemptExtraction(widerWindow);
+      }
+    }
+
+    if (result && !result.parsed && result.rawArgs === null) {
+      Logger.warn('Intake extraction missing tool call arguments', {
+        conversationId: params.body.conversationId,
+        finishReason: result.finishReason,
+        toolCallCount: result.toolCallCount,
+        ...(result.contentPreview ? { messageContentLength: result.contentPreview.length } : {}),
       });
       return null;
     }
-  } catch (error) {
-    extractionOutcome = 'exception';
-    Logger.warn('Intake extraction failed', {
-      conversationId: params.body.conversationId,
-      error: error instanceof Error ? error.message : String(error),
-    });
-    return null;
+
+    return result?.parsed ?? null;
   } finally {
-    clearTimeout(extractionTimeoutId);
     if (params.metrics) {
       params.metrics.extractionElapsedMs = Date.now() - extractionStartedAt;
     }
@@ -360,21 +400,29 @@ const extractIntakeFieldsForTurn = async (params: {
 };
 
 const buildExtractionMessagesWindow = (
-  messages: Array<{ role: 'user' | 'assistant'; content: string }>
+  messages: Array<{ role: 'user' | 'assistant'; content: string }>,
+  windowSize = 2
 ): Array<{ role: 'user' | 'assistant'; content: string }> => {
   if (messages.length === 0) return [];
   const lastUserIndex = [...messages].reverse().findIndex((m) => m.role === 'user');
-  if (lastUserIndex === -1) return messages.slice(-1);
+  if (lastUserIndex === -1) return messages.slice(-windowSize);
   const absoluteLastUserIndex = messages.length - 1 - lastUserIndex;
-  const latestUser = messages[absoluteLastUserIndex];
-  const priorAssistant = messages
-    .slice(0, absoluteLastUserIndex)
-    .reverse()
-    .find((m) => m.role === 'assistant');
 
-  return priorAssistant
-    ? [priorAssistant, latestUser]
-    : [latestUser];
+  if (windowSize === 2) {
+    const latestUser = messages[absoluteLastUserIndex];
+    const priorAssistant = messages
+      .slice(0, absoluteLastUserIndex)
+      .reverse()
+      .find((m) => m.role === 'assistant');
+
+    return priorAssistant
+      ? [priorAssistant, latestUser]
+      : [latestUser];
+  }
+
+  const endIndex = absoluteLastUserIndex + 1;
+  const startIndex = Math.max(0, endIndex - windowSize);
+  return messages.slice(startIndex, endIndex);
 };
 
 const classifyExtractionNeed = (params: {
@@ -424,18 +472,14 @@ const resolveExtractionServicesForTurn = (
 
 const deriveQuickActionState = (params: {
   isOnboardingMode: boolean;
-  isIntakeMode: boolean;
   onboardingFields: Record<string, unknown> | null;
   details: Record<string, unknown> | null;
-  promptMergedIntakeState: Record<string, unknown> | null;
-  submissionGate?: IntakeSubmissionGate | null;
 }) => {
   let onboardingFields = params.onboardingFields;
   let quickReplies: string[] | null = null;
-  let quickRepliesSource: 'none' | 'planner_urgency' | 'planner_hasDocuments' | 'planner_payment' | 'planner_submit' | 'onboardingFields' = 'none';
+  let quickRepliesSource: 'none' | 'onboardingFields' | 'planner_urgency' | 'planner_hasDocuments' | 'planner_payment' | 'planner_submit' | 'self_annotation' = 'none';
   let onboardingProfile: Record<string, unknown> | null = null;
   let triggerEditModal: string | null = null;
-  let plannerStep: ReturnType<typeof planNextIntakeStep> | null = null;
 
   const fieldsForQuickReplies = params.isOnboardingMode ? onboardingFields : null;
   if (fieldsForQuickReplies && Array.isArray(fieldsForQuickReplies.quickReplies)) {
@@ -459,22 +503,6 @@ const deriveQuickActionState = (params: {
   if (params.isOnboardingMode) {
     onboardingProfile = buildOnboardingProfileMetadata(params.details, onboardingFields);
   }
-  if (params.isIntakeMode) {
-    plannerStep = planNextIntakeStep(params.promptMergedIntakeState, params.submissionGate);
-    if (plannerStep.nextField === null) {
-      quickReplies = ['__submit__'];
-      quickRepliesSource = 'planner_submit';
-    } else if (plannerStep.chips.length > 0) {
-      quickReplies = plannerStep.chips;
-      quickRepliesSource = plannerStep.chipSource === 'urgency'
-        ? 'planner_urgency'
-        : plannerStep.chipSource === 'hasDocuments'
-          ? 'planner_hasDocuments'
-          : plannerStep.chipSource === 'payment'
-            ? 'planner_payment'
-            : 'planner_hasDocuments';
-    }
-  }
 
   return {
     onboardingFields,
@@ -482,7 +510,6 @@ const deriveQuickActionState = (params: {
     triggerEditModal,
     quickReplies,
     quickRepliesSource,
-    plannerStep,
   };
 };
 
@@ -864,8 +891,6 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
     let accumulatedReply = '';
     let intakeFields: Record<string, unknown> | null = null;
     let onboardingFields: Record<string, unknown> | null = null;
-    let quickReplies: string[] | null = null;
-    let onboardingProfile: Record<string, unknown> | null = null;
     let emittedAnyToken = false;
     const debugEnabled = isDebugEnabled(env.DEBUG);
 
@@ -953,6 +978,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
             body: {
               conversationId: body.conversationId,
               extractionMessages,
+              fullMessages: body.messages,
             },
             deterministicIntakePatch,
             skipExtractionReason,
@@ -1120,68 +1146,87 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       // The model-authored quickReplies field no longer exists in INTAKE_TOOL.
       // ─────────────────────────────────────────────────────────────────────────
 
-      const quickActionState = deriveQuickActionState({
-        isOnboardingMode,
-        isIntakeMode,
-        onboardingFields,
-        details,
-        promptMergedIntakeState,
-        submissionGate: intakeSubmissionGate,
-      });
+      let onboardingProfile: Record<string, unknown> | null = null;
+      let triggerEditModal: string | null = null;
+      let quickReplies: string[] | null = null;
+      let quickRepliesSource: 'none' | 'onboardingFields' | 'planner_urgency' | 'planner_hasDocuments' | 'planner_payment' | 'planner_submit' | 'self_annotation' = 'none';
+      let plannerStep: ReturnType<typeof planNextIntakeStep> | null = null;
 
-      onboardingFields = quickActionState.onboardingFields;
-      onboardingProfile = quickActionState.onboardingProfile;
-      const triggerEditModal = quickActionState.triggerEditModal;
-      quickReplies = quickActionState.quickReplies;
-      const quickRepliesSource = quickActionState.quickRepliesSource;
-      const plannerStep = quickActionState.plannerStep;
+      if (isOnboardingMode) {
+        const quickActionState = deriveQuickActionState({
+          isOnboardingMode,
+          onboardingFields,
+          details,
+        });
 
+        onboardingFields = quickActionState.onboardingFields;
+        onboardingProfile = quickActionState.onboardingProfile;
+        triggerEditModal = quickActionState.triggerEditModal;
+        quickReplies = quickActionState.quickReplies;
+        quickRepliesSource = quickActionState.quickRepliesSource as typeof quickRepliesSource;
+      }
+      
       // --- Deterministic Intake Quick Action Override ---
       let intakeReady = false;
       if (isIntakeMode) {
-        // Ensure extraction results are fully loaded before computing actions
+        // ── Deterministic Intake Quick Action Planner ──────────────────────────
+        // Ensure extraction results are fully loaded and merged before planning
         intakeFields = intakeFieldsFromExtraction ?? await extractionPromise;
-
-        const mergedForReady = mergeIntakeState(storedIntakeState, intakeFields);
-        intakeReady = isIntakeSubmittable(mergedForReady, intakeSubmissionGate);
-
-        let finalQuickReplies: string[] | null = null;
-        let cleanedReply = accumulatedReply;
-
-        // Parse SELF-ANNOTATED quick replies first (stronger than regex/planner)
-        // Format: QUICK_REPLIES: Option 1 | Option 2 | Option 3
-        if (accumulatedReply.includes('QUICK_REPLIES:')) {
-          const qrParts = accumulatedReply.split(/QUICK_REPLIES:\s*/i);
-          if (qrParts.length > 1) {
-            const rawOptions = qrParts[1].split('\n')[0].trim();
-            const options = rawOptions
-              .split('|')
-              .map((s) => s.trim())
-              .filter((s) => s.length > 0 && s.length < 30)
-              .slice(0, 3);
-            
-            if (options.length > 0) {
-              finalQuickReplies = options;
-              // Strip the metadata line from the text users see
-              cleanedReply = (qrParts[0].trim() + '\n' + qrParts[1].split('\n').slice(1).join('\n')).trim();
+        const mergedForPlanner = mergeIntakeState(storedIntakeState, intakeFields);
+        plannerStep = planNextIntakeStep(mergedForPlanner, intakeSubmissionGate);
+        intakeReady = isIntakeSubmittable(mergedForPlanner, intakeSubmissionGate);
+        
+        if (intakeReady) {
+          quickReplies = ['__submit__'];
+          quickRepliesSource = 'planner_submit';
+          
+          // Strip hallucinated QUICK_REPLIES if model produced them
+          if (accumulatedReply.includes('QUICK_REPLIES:')) {
+            const qrParts = accumulatedReply.split(/QUICK_REPLIES:\s*/i);
+            if (qrParts.length > 1) {
+              accumulatedReply = (qrParts[0].trim() + '\n' + qrParts[1].split('\n').slice(1).join('\n')).trim();
+            }
+          }
+        } else {
+          // 1. Foundation: Deterministic Planner Chips
+          if (plannerStep.chips.length > 0) {
+            quickReplies = plannerStep.chips;
+            quickRepliesSource = plannerStep.chipSource === 'urgency'
+              ? 'planner_urgency'
+              : plannerStep.chipSource === 'hasDocuments'
+                ? 'planner_hasDocuments'
+                : plannerStep.chipSource === 'payment'
+                  ? 'planner_payment'
+                  : 'planner_hasDocuments';
+          }
+          
+          // 2. Override: Self-Annotated
+          // Format: QUICK_REPLIES: Option 1 | Option 2 | Option 3
+          if (accumulatedReply.includes('QUICK_REPLIES:')) {
+            const qrParts = accumulatedReply.split(/QUICK_REPLIES:\s*/i);
+            if (qrParts.length > 1) {
+              const rawOptions = qrParts[1].split('\n')[0].trim();
+              const options = rawOptions
+                .split('|')
+                .map((s) => s.trim())
+                .filter((s) => s.length > 0 && s.length < 30)
+                .slice(0, 3);
+              
+              if (options.length > 0) {
+                quickReplies = options;
+                quickRepliesSource = 'self_annotation';
+              }
+              // Strip the metadata line from the text users see for persistence/UI
+              accumulatedReply = (qrParts[0].trim() + '\n' + qrParts[1].split('\n').slice(1).join('\n')).trim();
             }
           }
         }
 
-        if (intakeReady) {
-          quickReplies = ['__submit__'];
-        } else {
-          // Use parsed chips if available, otherwise clear to avoid drift from planner
-          quickReplies = finalQuickReplies;
-        }
-
-        // Apply cleaning to accumulatedReply for persistence
-        accumulatedReply = cleanedReply;
-
-        Logger.info('Quick replies derived via self-annotation', {
+        Logger.info('Quick replies applied for intake', {
           conversationId: body.conversationId,
-          quickReplies: finalQuickReplies,
-          replyPreview: accumulatedReply.slice(0, 120),
+          source: quickRepliesSource,
+          quickRepliesCount: quickReplies?.length ?? 0,
+          replyLength: accumulatedReply.length,
         });
 
         // HEURISTIC: Strip common extraction hallucinations (e.g. user circumstances captured as names)
@@ -1198,7 +1243,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
           if (looksLikeHallucination) {
             Logger.warn('Stripping suspected opposingParty hallucination', {
               conversationId: body.conversationId,
-              originalValue,
+              originalValueLength: originalValue.length,
               reason: hitCount >= 2 ? 'multiple_keywords' : 'keyword_and_sentence_structure',
               hitCount
             });
