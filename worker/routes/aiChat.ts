@@ -1172,7 +1172,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         // ── Deterministic Intake Quick Action Planner ──────────────────────────
         // Ensure extraction results are fully loaded and merged before planning
         intakeFields = intakeFieldsFromExtraction ?? await extractionPromise;
-        const mergedForPlanner = mergeIntakeState(storedIntakeState, intakeFields);
+        const mergedForPlanner = mergeIntakeState(intakeFields, storedIntakeState);
         plannerStep = planNextIntakeStep(mergedForPlanner, intakeSubmissionGate);
         intakeReady = isIntakeSubmittable(mergedForPlanner, intakeSubmissionGate);
         
@@ -1210,10 +1210,10 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
                 .split('|')
                 .map((s) => s.trim())
                 .filter((s) => s.length > 0 && s.length < 30)
-                .slice(0, 3);
+                .filter((s) => !/^__\w+__$/.test(s)); // Sentinel filter
               
-              if (options.length > 0) {
-                quickReplies = options;
+              if (options.length > 0 && !quickReplies) {
+                quickReplies = options.slice(0, 3);
                 quickRepliesSource = 'self_annotation';
               }
               // Strip the metadata line from the text users see for persistence/UI
