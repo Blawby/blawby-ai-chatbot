@@ -312,7 +312,11 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
           setReplyTarget(null);
           return;
         }
-        // Fallback to standard submission if no explicit payment request is attached
+        // If no explicit payment request is found, we should NOT proceed to submission.
+        console.warn('[Chat] __continue_payment__ received but no payment request found in recent messages.');
+        setInputValue('');
+        setReplyTarget(null);
+        return;
       }
 
       (async () => {
