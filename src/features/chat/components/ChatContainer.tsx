@@ -295,24 +295,48 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     }) && intakeConversationState?.ctaResponse !== 'ready';
     const normalized = message.trim();
     const { affirmative, negative } = getChatPatterns('en'); // TODO: Pass actual language when available
-    const isAffirmative = affirmative.test(normalized);
+    const isPatternAffirmative = affirmative.test(normalized);
     const isNegative = negative.test(normalized);
 
-    if (canHandleCta && onIntakeCtaResponse) {
-      if (isAffirmative) {
-        (async () => {
+    // Treat either the affirmative regex pattern OR a literal sentinel string as actionable.
+    // Ensure we only process these if the intake is actually submittable (canHandleCta).
+    const isSubmitSentinel = normalized === '__submit__';
+    const isContinuePaymentSentinel = normalized === '__continue_payment__';
+    
+    if (canHandleCta && onIntakeCtaResponse && (isSubmitSentinel || isContinuePaymentSentinel || isPatternAffirmative)) {
+      if (isContinuePaymentSentinel) {
+        const lastMsgWithPayment = [...messages].reverse().find(m => !m.isUser && m.paymentRequest);
+        if (lastMsgWithPayment?.paymentRequest) {
+          handleOpenPayment(lastMsgWithPayment.paymentRequest);
+          setInputValue('');
+          setReplyTarget(null);
+          return;
+        }
+        // If no explicit payment request is found, we should NOT proceed to submission.
+        console.warn('[Chat] __continue_payment__ received but no payment request found in recent messages.');
+        setInputValue('');
+        setReplyTarget(null);
+        return;
+      }
+
+      (async () => {
+        try {
           await handleSubmitNowAction();
-        })();
-        setInputValue('');
-        setReplyTarget(null);
-        return;
-      }
-      if (isNegative) {
-        onIntakeCtaResponse('not_yet');
-        setInputValue('');
-        setReplyTarget(null);
-        return;
-      }
+          setInputValue('');
+          setReplyTarget(null);
+        } catch (error) {
+          console.error('[ChatContainer] Intake finalization failed:', error);
+          // Retain state so user can retry or see what they sent
+        }
+      })();
+      return;
+    }
+
+    if (canHandleCta && onIntakeCtaResponse && isNegative) {
+      onIntakeCtaResponse('not_yet');
+      setInputValue('');
+      setReplyTarget(null);
+      return;
     }
 
     // Send message to API
