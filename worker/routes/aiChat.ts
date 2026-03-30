@@ -355,9 +355,9 @@ const extractIntakeFieldsForTurn = async (params: {
   try {
     let result = await attemptExtraction(params.body.extractionMessages);
 
-    const isParsedEmpty = !result || !result.parsed || Object.keys(result.parsed).length === 0;
+    const isSemanticallyEmptyExtraction = !!result?.parsed && Object.keys(result.parsed).length === 0;
     
-    if (isParsedEmpty && params.body.fullMessages && params.body.fullMessages.length > 2) {
+    if (isSemanticallyEmptyExtraction && params.body.fullMessages && params.body.fullMessages.length > 2) {
       const INTAKE_FIELDS_ALLOWLIST = ['practiceArea', 'description', 'urgency', 'opposingParty', 'city', 'state', 'desiredOutcome', 'courtDate', 'hasDocuments'];
       const populatedFieldCount = params.storedIntakeState
         ? Object.entries(params.storedIntakeState).filter(([k, v]) => INTAKE_FIELDS_ALLOWLIST.includes(k) && v !== null && v !== undefined && v !== '').length
@@ -1172,7 +1172,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         // ── Deterministic Intake Quick Action Planner ──────────────────────────
         // Ensure extraction results are fully loaded and merged before planning
         intakeFields = intakeFieldsFromExtraction ?? await extractionPromise;
-        const mergedForPlanner = mergeIntakeState(intakeFields, storedIntakeState);
+        const mergedForPlanner = mergeIntakeState(storedIntakeState, intakeFields);
         plannerStep = planNextIntakeStep(mergedForPlanner, intakeSubmissionGate);
         intakeReady = isIntakeSubmittable(mergedForPlanner, intakeSubmissionGate);
         
