@@ -202,9 +202,7 @@ export function parseAuthSessionPayload(
           ? dataPayload.active_membership_role
           : typeof responseRecord.active_membership_role === 'string'
             ? responseRecord.active_membership_role
-            : typeof user.role === 'string'
-              ? user.role
-              : typeof sessionRecord?.activeMembershipRole === 'string'
+            : typeof sessionRecord?.activeMembershipRole === 'string'
                 ? sessionRecord.activeMembershipRole
                 : typeof sessionRecord?.active_membership_role === 'string'
                   ? sessionRecord.active_membership_role
@@ -239,8 +237,6 @@ export function parseAuthSessionPayload(
           typeof dataPayload?.active_membership_role === 'string' ? dataPayload.active_membership_role : null,
         responseActiveMembershipRole:
           typeof responseRecord.active_membership_role === 'string' ? responseRecord.active_membership_role : null,
-        userRole:
-          typeof user.role === 'string' ? user.role : null,
         sessionActiveMembershipRole:
           typeof sessionRecord?.activeMembershipRole === 'string' ? sessionRecord.activeMembershipRole : null,
         sessionSnakeActiveMembershipRole:

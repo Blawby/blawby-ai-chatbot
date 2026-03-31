@@ -687,7 +687,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
         
         <NavRail
           items={navItems}
-          activeHref={view === 'home' ? '#home' : '#list'}
+          activeHref={view === 'home' ? '/home' : '/list'}
           variant="bottom"
           hidden={!showWidgetBottomNav}
           className="mt-auto"

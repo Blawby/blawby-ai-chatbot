@@ -26,7 +26,7 @@ describe('auth middleware membership resolution', () => {
           activeOrganizationId: 'practice-1',
         },
         routing: {
-          active_membership_role: 'owner',
+          active_membership_role: ' OwNeR ',
         },
       },
     });

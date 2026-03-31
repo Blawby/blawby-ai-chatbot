@@ -435,95 +435,80 @@ export class RemoteApiService {
       created_at: number | null;
     }>;
   }> {
-    type PracticeMemberPayload = {
+    type PracticePayload = {
+      practice?: { seats?: number | null };
+      data?: {
+        seats?: number | null;
+        practice?: { seats?: number | null };
+      };
+      seats?: number | null;
+    };
+    type OrganizationMemberPayload = {
       id?: string;
-      user_id?: string;
       userId?: string;
-      email?: string | null;
+      user_id?: string;
       role?: string | null;
-      name?: string | null;
-      image?: string | null;
+      createdAt?: string | number | null;
+      created_at?: string | number | null;
       user?: {
         id?: string;
+        email?: string | null;
         name?: string | null;
         image?: string | null;
-        email?: string | null;
       };
-      created_at?: string | number | null;
-      createdAt?: string | number | null;
-      joined_at?: string | number | null;
-      joinedAt?: string | number | null;
     };
-    const response = await this.fetchFromRemoteApi(env, `/api/practice/${practiceId}`, request);
-    const data = await response.json() as {
-      practice?: { members?: PracticeMemberPayload[]; seats?: number | null };
-      data?: {
-        members?: PracticeMemberPayload[];
-        seats?: number | null;
-        practice?: { members?: PracticeMemberPayload[]; seats?: number | null };
-      };
-      members?: PracticeMemberPayload[];
-      seats?: number | null;
+
+    const [practiceResponse, membersResponse] = await Promise.all([
+      this.fetchFromRemoteApi(env, `/api/practice/${practiceId}`, request),
+      this.fetchFromRemoteApi(
+        env,
+        `/api/auth/organization/list-members?organizationId=${encodeURIComponent(practiceId)}`,
+        request
+      )
+    ]);
+
+    const practiceData = await practiceResponse.json() as PracticePayload;
+    const membersData = await membersResponse.json() as {
+      members?: OrganizationMemberPayload[];
     };
 
     const practiceRecord =
-      data.practice ??
-      data.data?.practice ??
-      data.data ??
-      data;
-
-    const members =
-      practiceRecord.members ??
-      data.data?.members ??
-      data.members;
+      practiceData.practice ??
+      practiceData.data?.practice ??
+      practiceData.data ??
+      practiceData;
 
     const seatsValue = typeof practiceRecord.seats === 'number'
       ? practiceRecord.seats
-      : (typeof data.seats === 'number' ? data.seats : null);
+      : (typeof practiceData.seats === 'number' ? practiceData.seats : null);
 
-    if (!Array.isArray(members)) {
-      return {
-        seats: seatsValue,
-        members: [],
-      };
-    }
+    const members = Array.isArray(membersData.members) ? membersData.members : [];
 
     return {
       seats: seatsValue,
       members: members
-      .filter((m): m is PracticeMemberPayload =>
-        typeof m.userId === 'string'
-        || typeof m.user_id === 'string'
-        || typeof m.id === 'string'
-        || typeof m.user?.id === 'string'
-      )
-      .map((m) => ({
-        user_id: (
-          typeof m.userId === 'string'
-            ? m.userId
-            : typeof m.user_id === 'string'
-              ? m.user_id
-              : typeof m.user?.id === 'string'
-                ? m.user.id
-                : m.id
-        ) as string,
-        email: typeof m.email === 'string'
-          ? m.email
-          : (typeof m.user?.email === 'string' ? m.user.email : undefined),
-        role: m.role,
-        name: typeof m.name === 'string'
-          ? m.name
-          : (typeof m.user?.name === 'string' ? m.user.name : undefined),
-        image: typeof m.image === 'string'
-          ? m.image
-          : (typeof m.user?.image === 'string' ? m.user.image : undefined),
-        created_at: this.normalizeMembershipTimestamp(
-          m.createdAt ??
-          m.created_at ??
-          m.joinedAt ??
-          m.joined_at
-        ),
-      })),
+        .filter((member): member is OrganizationMemberPayload => (
+          typeof member.userId === 'string'
+          || typeof member.user_id === 'string'
+          || typeof member.user?.id === 'string'
+        ))
+        .map((member) => ({
+          user_id: (
+            typeof member.userId === 'string'
+              ? member.userId
+              : typeof member.user_id === 'string'
+                ? member.user_id
+                : member.user?.id
+          ) as string,
+          email: typeof member.user?.email === 'string' ? member.user.email : undefined,
+          role: typeof member.role === 'string' ? member.role : null,
+          name: typeof member.user?.name === 'string' ? member.user.name : undefined,
+          image: typeof member.user?.image === 'string' ? member.user.image : undefined,
+          created_at: this.normalizeMembershipTimestamp(
+            member.createdAt ??
+            member.created_at
+          ),
+        })),
     };
   }
 

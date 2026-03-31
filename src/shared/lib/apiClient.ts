@@ -485,6 +485,74 @@ function toNullableString(value: unknown): string | null {
   return null;
 }
 
+function toNullableTimestamp(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    const numeric = Number(trimmed);
+    if (Number.isFinite(numeric)) {
+      return numeric;
+    }
+    const parsed = Date.parse(trimmed);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  if (value instanceof Date) {
+    const timestamp = value.getTime();
+    return Number.isFinite(timestamp) ? timestamp : null;
+  }
+  return null;
+}
+
+function normalizeInvitationStatus(value: unknown): 'pending' | 'accepted' | 'declined' | null {
+  const normalized = toNullableString(value)?.toLowerCase();
+  if (normalized === 'pending' || normalized === 'accepted') {
+    return normalized;
+  }
+  if (normalized === 'declined' || normalized === 'rejected' || normalized === 'canceled' || normalized === 'cancelled') {
+    return 'declined';
+  }
+  return null;
+}
+
+function normalizePracticeInvitationPayload(payload: unknown): Record<string, unknown> | null {
+  if (!isRecord(payload)) {
+    return null;
+  }
+
+  const id = toNullableString(payload.id);
+  const practiceId = toNullableString(payload.practiceId ?? payload.practice_id ?? payload.organizationId ?? payload.organization_id);
+  const email = toNullableString(payload.email);
+  const role = toNullableString(payload.role);
+  const status = normalizeInvitationStatus(payload.status);
+  const invitedBy = toNullableString(payload.invitedBy ?? payload.invited_by ?? payload.inviterId ?? payload.inviter_id);
+  const expiresAt = toNullableTimestamp(payload.expiresAt ?? payload.expires_at);
+  const createdAt = toNullableTimestamp(payload.createdAt ?? payload.created_at);
+
+  if (!id || !practiceId || !email || !role || !status || !invitedBy || expiresAt === null || createdAt === null) {
+    return null;
+  }
+
+  return {
+    id,
+    practiceId,
+    practiceName: toNullableString(
+      payload.practiceName ??
+      payload.practice_name ??
+      payload.organizationName ??
+      payload.organization_name
+    ) ?? undefined,
+    email,
+    role,
+    status,
+    invitedBy,
+    expiresAt,
+    createdAt
+  };
+}
+
 function normalizePracticePayload(payload: unknown): Practice {
   if (!isRecord(payload)) {
     throw new Error('Invalid practice payload');
@@ -718,17 +786,22 @@ export async function listPracticeInvitations(
     throw new Error('practiceId is required');
   }
   const response = await apiClient.get(
-    `/api/practice/${encodeURIComponent(practiceId)}/invitations`,
-    { signal: config?.signal }
+    '/api/auth/organization/list-invitations',
+    {
+      params: { organizationId: practiceId },
+      signal: config?.signal
+    }
   );
   const payload = unwrapApiData(response.data);
-  if (Array.isArray(payload)) {
-    return payload;
-  }
-  if (isRecord(payload) && Array.isArray(payload.invitations)) {
-    return payload.invitations as unknown[];
-  }
-  return [];
+  const invitations = Array.isArray(payload)
+    ? payload
+    : isRecord(payload) && Array.isArray(payload.invitations)
+      ? payload.invitations
+      : [];
+
+  return invitations
+    .map((invitation) => normalizePracticeInvitationPayload(invitation))
+    .filter((invitation): invitation is Record<string, unknown> => Boolean(invitation));
 }
 
 export async function createPracticeInvitation(
@@ -738,9 +811,13 @@ export async function createPracticeInvitation(
   if (!practiceId) {
     throw new Error('practiceId is required');
   }
+  const requestBody = {
+    ...payload,
+    organizationId: practiceId
+  };
   const response = await apiClient.post(
-    `/api/practice/${encodeURIComponent(practiceId)}/invitations`,
-    payload
+    '/api/auth/organization/invite-member',
+    requestBody
   );
   const data = unwrapApiData(response.data);
   if (!isRecord(data)) {
@@ -771,9 +848,22 @@ export async function respondToPracticeInvitation(
   invitationId: string,
   action: 'accept' | 'decline'
 ): Promise<void> {
+  if (!invitationId) {
+    throw new Error('invitationId is required');
+  }
   await apiClient.post(
-    `/api/practice/invitations/${encodeURIComponent(invitationId)}/${action}`
+    action === 'accept'
+      ? '/api/auth/organization/accept-invitation'
+      : '/api/auth/organization/reject-invitation',
+    { invitationId }
   );
+}
+
+export async function cancelPracticeInvitation(invitationId: string): Promise<void> {
+  if (!invitationId) {
+    throw new Error('invitationId is required');
+  }
+  await apiClient.post('/api/auth/organization/cancel-invitation', { invitationId });
 }
 
 export async function listPracticeMembers(practiceId: string): Promise<unknown[]> {
@@ -843,7 +933,6 @@ export async function listPracticeTeam(
         member !== null
         && member !== undefined
         && member.userId.trim().length > 0
-        && member.email.trim().length > 0
       )),
     summary: {
       seatsIncluded: typeof rawSummary.seatsIncluded === 'number'

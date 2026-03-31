@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'preact/hooks';
 import { useLocation } from 'preact-iso';
-import { ArrowLeftIcon, UserPlusIcon } from '@heroicons/react/24/outline';
+import { ArrowLeftIcon, UserPlusIcon, DocumentDuplicateIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import { Icon } from '@/shared/ui/Icon';
 import { usePracticeManagement, type Role } from '@/shared/hooks/usePracticeManagement';
 import { usePracticeTeam } from '@/shared/hooks/usePracticeTeam';
@@ -8,7 +8,7 @@ import { usePracticeInvitations } from '@/shared/hooks/usePracticeInvitations';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { usePaymentUpgrade } from '@/shared/hooks/usePaymentUpgrade';
 import { Button } from '@/shared/ui/Button';
-import { Input } from '@/shared/ui/input';
+import { EmailInput } from '@/shared/ui/input';
 import { FormLabel } from '@/shared/ui/form/FormLabel';
 import { Combobox } from '@/shared/ui/input/Combobox';
 import { useToastContext } from '@/shared/contexts/ToastContext';
@@ -22,6 +22,7 @@ import { ContentPageLayout } from '@/shared/ui/layout';
 import { SettingsNotice } from '@/features/settings/components/SettingsNotice';
 import { SettingsHelperText } from '@/features/settings/components/SettingsHelperText';
 import { buildSettingsPath, resolveSettingsBasePath } from '@/shared/utils/workspace';
+import { Avatar } from '@/shared/ui/profile';
 
 interface PracticeTeamPageProps {
   onNavigate?: (path: string) => void;
@@ -41,6 +42,7 @@ export const PracticeTeamPage = ({ onNavigate, className }: PracticeTeamPageProp
     sendInvitation: sendPracticeInvitation,
     acceptInvitation,
     declineInvitation,
+    cancelInvitation,
   } = usePracticeInvitations(currentPractice?.id ?? null);
   const { showSuccess, showError, showWarning } = useToastContext();
   const { openBillingPortal, submitting } = usePaymentUpgrade();
@@ -197,6 +199,30 @@ export const PracticeTeamPage = ({ onNavigate, className }: PracticeTeamPageProp
     }
   };
 
+  const handleCancelInvitation = async (invitationId: string) => {
+    try {
+      await cancelInvitation(invitationId);
+      showSuccess('Invitation canceled successfully!');
+    } catch (err) {
+      showError(err instanceof Error ? err.message : 'Failed to cancel invitation');
+    }
+  };
+
+  const buildInvitationLink = (invitationId: string) => {
+    const path = `/auth/accept-invitation?invitationId=${encodeURIComponent(invitationId)}`;
+    return origin ? `${origin}${path}` : path;
+  };
+
+  const copyInvitationLink = async (invitationId: string) => {
+    const link = buildInvitationLink(invitationId);
+    try {
+      await navigator.clipboard.writeText(link);
+      showSuccess('Invite link copied', link);
+    } catch (err) {
+      showError('Failed to copy invite link', err instanceof Error ? err.message : 'Unknown error');
+    }
+  };
+
   if (!currentPractice) {
     return (
       <div className="h-full flex items-center justify-center">
@@ -273,13 +299,20 @@ export const PracticeTeamPage = ({ onNavigate, className }: PracticeTeamPageProp
           <div className="space-y-3">
             {members.map((member) => (
               <div key={member.userId} className="flex items-center justify-between py-2">
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-input-text">
-                    {member.name || member.email}
-                  </p>
-                  <SettingsHelperText>
-                    {member.email} • {getPracticeRoleLabel(member.role)}
-                  </SettingsHelperText>
+                <div className="flex min-w-0 flex-1 items-center gap-3">
+                  <Avatar
+                    src={member.image ?? null}
+                    name={member.name || member.email || member.userId}
+                    size="md"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-input-text">
+                      {member.name || member.email || member.userId}
+                    </p>
+                    <SettingsHelperText className="truncate">
+                      {member.email || member.userId} • {getPracticeRoleLabel(member.role)}
+                    </SettingsHelperText>
+                  </div>
                 </div>
                 {isAdmin && member.role !== 'owner' && (
                   <Button
@@ -311,12 +344,12 @@ export const PracticeTeamPage = ({ onNavigate, className }: PracticeTeamPageProp
             <FormGrid>
               <div>
                 <FormLabel htmlFor="invite-email">Email Address</FormLabel>
-                <Input
-                  id="invite-email"
-                  type="email"
+                <EmailInput
                   value={inviteForm.email}
                   onChange={(value) => setInviteForm(prev => ({ ...prev, email: value }))}
                   placeholder="colleague@lawfirm.com"
+                  showValidation
+                  required
                 />
               </div>
 
@@ -394,21 +427,53 @@ export const PracticeTeamPage = ({ onNavigate, className }: PracticeTeamPageProp
             <div className="space-y-3">
               {invitations.map(inv => (
                 <div key={inv.id} className="flex items-center justify-between py-2">
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-input-text">
-                      {inv.practiceName || inv.practiceId}
-                    </p>
-                    <SettingsHelperText>
-                      Role: {getPracticeRoleLabel(inv.role)} • Expires: {formatDate(new Date(inv.expiresAt * 1000))}
-                    </SettingsHelperText>
+                  <div className="flex min-w-0 flex-1 items-center gap-3">
+                    <Avatar
+                      name={inv.email}
+                      size="md"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-input-text">
+                      {inv.email}
+                      </p>
+                      <SettingsHelperText className="truncate">
+                        Role: {getPracticeRoleLabel(inv.role)} • Expires: {formatDate(new Date(inv.expiresAt))}
+                      </SettingsHelperText>
+                    </div>
                   </div>
                   <div className="flex gap-2">
-                    <Button size="sm" onClick={() => handleAcceptInvitation(inv.id)}>
-                      Accept
-                    </Button>
-                    <Button size="sm" variant="secondary" onClick={() => handleDeclineInvitation(inv.id)}>
-                      Decline
-                    </Button>
+                    {inv.email.toLowerCase() === currentUserEmail.toLowerCase() ? (
+                      <>
+                        <Button size="sm" onClick={() => handleAcceptInvitation(inv.id)}>
+                          Accept
+                        </Button>
+                        <Button size="sm" variant="secondary" onClick={() => handleDeclineInvitation(inv.id)}>
+                          Decline
+                        </Button>
+                      </>
+                    ) : isAdmin ? (
+                      <>
+                        <Button
+                          variant="icon"
+                          size="icon-sm"
+                          onClick={() => void copyInvitationLink(inv.id)}
+                          aria-label={`Copy invite link for ${inv.email}`}
+                          title="Copy invite link"
+                          icon={DocumentDuplicateIcon}
+                          iconClassName="h-4 w-4"
+                        />
+                        <Button
+                          variant="icon"
+                          size="icon-sm"
+                          onClick={() => handleCancelInvitation(inv.id)}
+                          aria-label={`Cancel invitation for ${inv.email}`}
+                          title="Cancel invitation"
+                          icon={XMarkIcon}
+                          iconClassName="h-4 w-4"
+                        />
+                      </>
+                    ) : null
+                    }
                   </div>
                 </div>
               ))}

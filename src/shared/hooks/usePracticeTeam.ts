@@ -91,7 +91,7 @@ export const usePracticeTeam = (
         setIsLoading(false);
       }
     }
-  }, [cacheKey, enabled, practiceId]);
+  }, [cacheKey, enabled, practiceId, resolvedUserId]);
 
   useEffect(() => {
     if (!enabled || !practiceId || isLoaded) return;

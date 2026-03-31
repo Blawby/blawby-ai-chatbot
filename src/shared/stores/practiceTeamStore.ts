@@ -32,7 +32,7 @@ export const invalidatePracticeTeamForPractice = (practiceId: string) => {
   const next: StoreShape = {};
 
   for (const [key, value] of Object.entries(snapshot)) {
-    if (key.split(':').includes(practiceId)) {
+    if (key.split(':')[1] === practiceId) {
       nextLoaded.delete(key);
       continue;
     }
@@ -40,7 +40,7 @@ export const invalidatePracticeTeamForPractice = (practiceId: string) => {
   }
 
   for (const key of practiceTeamInFlight.keys()) {
-    if (key.split(':').includes(practiceId)) {
+    if (key.split(':')[1] === practiceId) {
       practiceTeamInFlight.delete(key);
     }
   }
