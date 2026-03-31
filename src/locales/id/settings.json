@@ -18,6 +18,7 @@
   },
   "practice": {
     "services": "Layanan",
+    "manageServices": "Kelola layanan",
     "team": "Anggota tim"
   },
   "general": {

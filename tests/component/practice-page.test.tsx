@@ -83,9 +83,11 @@ vi.mock('@/shared/i18n/hooks', () => ({
     t: (key: string) => {
       switch (key) {
         case 'settings:practice.services':
-          return 'Services';
+          return 'Services noun';
+        case 'settings:practice.manageServices':
+          return 'Manage services action';
         case 'settings:account.plan.manage':
-          return 'Manage';
+          return 'Manage verb';
         case 'settings:practice.team':
           return 'Team Members';
         default:
@@ -229,14 +231,14 @@ describe('PracticePage', () => {
   it('uses an action-oriented accessible name for the mobile services action', () => {
     render(<PracticePage />);
 
-    const servicesRow = screen.getByTestId('setting-row-Services');
+    const servicesRow = screen.getByTestId('setting-row-Services noun');
     const iconButton = within(servicesRow)
       .getAllByRole('button')
       .find((button) => button.getAttribute('data-icon-button') === 'true');
 
     expect(iconButton).toBeDefined();
-    expect(iconButton).toHaveAttribute('aria-label', 'Manage Services');
-    expect(iconButton).not.toHaveAttribute('aria-label', 'Services');
-    expect(iconButton).not.toHaveAttribute('aria-label', 'Manage');
+    expect(iconButton).toHaveAttribute('aria-label', 'Manage services action');
+    expect(iconButton).not.toHaveAttribute('aria-label', 'Services noun');
+    expect(iconButton).not.toHaveAttribute('aria-label', 'Manage verb Services noun');
   });
 });
