@@ -219,6 +219,37 @@ export function parseAuthSessionPayload(
           ? (responseRecord as Record<string, unknown>).previous_anon_user_id as string
           : null;
 
+  if (
+    typeof activeOrganizationId === 'string'
+    && activeOrganizationId.trim().length > 0
+    && !(typeof activeMembershipRole === 'string' && activeMembershipRole.trim().length > 0)
+  ) {
+    Logger.warn('[Auth] Session payload missing active membership role', {
+      topLevelKeys: Object.keys(responseRecord),
+      dataKeys: dataPayload ? Object.keys(dataPayload) : [],
+      userKeys: user ? Object.keys(user as Record<string, unknown>) : [],
+      sessionKeys: sessionRecord ? Object.keys(sessionRecord) : [],
+      routingKeys: routingRecord ? Object.keys(routingRecord) : [],
+      sessionRoutingKeys: sessionRoutingRecord ? Object.keys(sessionRoutingRecord) : [],
+      candidateRoleValues: {
+        routingActiveMembershipRole:
+          typeof routingRecord?.active_membership_role === 'string' ? routingRecord.active_membership_role : null,
+        sessionRoutingActiveMembershipRole:
+          typeof sessionRoutingRecord?.active_membership_role === 'string' ? sessionRoutingRecord.active_membership_role : null,
+        dataActiveMembershipRole:
+          typeof dataPayload?.active_membership_role === 'string' ? dataPayload.active_membership_role : null,
+        responseActiveMembershipRole:
+          typeof responseRecord.active_membership_role === 'string' ? responseRecord.active_membership_role : null,
+        userRole:
+          typeof user.role === 'string' ? user.role : null,
+        sessionActiveMembershipRole:
+          typeof sessionRecord?.activeMembershipRole === 'string' ? sessionRecord.activeMembershipRole : null,
+        sessionSnakeActiveMembershipRole:
+          typeof sessionRecord?.active_membership_role === 'string' ? sessionRecord.active_membership_role : null,
+      },
+    });
+  }
+
   return {
     user: {
       id: sessionData.user.id,
