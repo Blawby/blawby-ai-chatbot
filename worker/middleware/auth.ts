@@ -21,6 +21,7 @@ export interface AuthContext {
   cookie: string;
   isAnonymous?: boolean; // Flag for anonymous users (Better Auth anonymous plugin)
   activeOrganizationId?: string | null;
+  activeMembershipRole?: string | null;
   previousAnonUserId?: string | null;
 }
 
@@ -29,6 +30,7 @@ type CachedSession = {
     user: AuthenticatedUser;
     session: { id: string; expiresAt: Date };
     activeOrganizationId?: string | null;
+    activeMembershipRole?: string | null;
     previousAnonUserId?: string | null;
   };
   expiresAt: number;
@@ -97,7 +99,13 @@ function resolveBackendApiUrl(env: Env, context = 'backend API'): string {
 
 export function parseAuthSessionPayload(
   rawResponse: unknown
-): { user: AuthenticatedUser; session: { id: string; expiresAt: Date }; activeOrganizationId?: string | null; previousAnonUserId?: string | null } {
+): {
+  user: AuthenticatedUser;
+  session: { id: string; expiresAt: Date };
+  activeOrganizationId?: string | null;
+  activeMembershipRole?: string | null;
+  previousAnonUserId?: string | null;
+} {
   if (!rawResponse || typeof rawResponse !== 'object') {
     console.error('[Auth] Invalid session payload from Better Auth API:', rawResponse);
     throw HttpErrors.unauthorized('Invalid session data - empty response');
@@ -163,12 +171,25 @@ export function parseAuthSessionPayload(
   const sessionRecord = session && typeof session === 'object'
     ? session as Record<string, unknown>
     : null;
+  const routingRecord = dataPayload?.routing && typeof dataPayload.routing === 'object'
+    ? dataPayload.routing as Record<string, unknown>
+    : (responseRecord.routing && typeof responseRecord.routing === 'object'
+      ? responseRecord.routing as Record<string, unknown>
+      : null);
   const activeOrganizationId =
     typeof sessionRecord?.activeOrganizationId === 'string'
       ? sessionRecord.activeOrganizationId
       : typeof sessionRecord?.active_organization_id === 'string'
         ? sessionRecord.active_organization_id
         : null;
+  const activeMembershipRole =
+    typeof routingRecord?.active_membership_role === 'string'
+      ? routingRecord.active_membership_role
+      : typeof sessionRecord?.activeMembershipRole === 'string'
+        ? sessionRecord.activeMembershipRole
+        : typeof sessionRecord?.active_membership_role === 'string'
+          ? sessionRecord.active_membership_role
+          : null;
   const previousAnonUserId =
     typeof sessionRecord?.previous_anon_user_id === 'string'
       ? sessionRecord.previous_anon_user_id
@@ -201,6 +222,9 @@ export function parseAuthSessionPayload(
     activeOrganizationId: typeof activeOrganizationId === 'string' && activeOrganizationId.trim().length > 0
       ? activeOrganizationId.trim()
       : null,
+    activeMembershipRole: typeof activeMembershipRole === 'string' && activeMembershipRole.trim().length > 0
+      ? activeMembershipRole.trim().toLowerCase()
+      : null,
     previousAnonUserId: typeof previousAnonUserId === 'string' && previousAnonUserId.trim().length > 0
       ? previousAnonUserId.trim()
       : null
@@ -217,6 +241,7 @@ export async function validateSessionWithRemoteServer(
   user: AuthenticatedUser;
   session: { id: string; expiresAt: Date };
   activeOrganizationId?: string | null;
+  activeMembershipRole?: string | null;
   previousAnonUserId?: string | null;
 }> {
   const cacheKey = getSessionCacheKey(cookie);
@@ -366,6 +391,7 @@ export async function requireAuth(
     user: AuthenticatedUser;
     session: { id: string; expiresAt: Date };
     activeOrganizationId?: string | null;
+    activeMembershipRole?: string | null;
     previousAnonUserId?: string | null;
   };
 
@@ -393,6 +419,7 @@ export async function requireAuth(
       cookie: '',
       isAnonymous: true,
       activeOrganizationId: null,
+      activeMembershipRole: null,
       previousAnonUserId: null
     };
   };
@@ -444,6 +471,7 @@ export async function requireAuth(
     ...authResult,
     cookie: normalizedCookie,
     isAnonymous,
+    activeMembershipRole: authResult.activeMembershipRole ?? null,
     previousAnonUserId
   };
 }
@@ -623,31 +651,45 @@ async function requirePracticeMemberWithAuthContext(
   practiceId: string,
   minimumRole?: "owner" | "admin" | "attorney" | "paralegal"
 ): Promise<AuthContext & { memberRole: string }> {
+  const roleHierarchy: Record<string, number> = {
+    'paralegal': 1,
+    'attorney': 2,
+    'admin': 3,
+    'owner': 4
+  };
 
   // 1. Validate practiceId
   if (!practiceId || typeof practiceId !== 'string' || practiceId.trim() === '') {
     throw HttpErrors.badRequest("Invalid or missing practiceId");
   }
 
-  // 2. Fetch user's membership from remote API
+  const normalizedPracticeId = practiceId.trim();
+  const activeOrganizationId = authContext.activeOrganizationId?.trim() ?? null;
+  const claimedRole = authContext.activeMembershipRole?.trim().toLowerCase() ?? null;
+
+  // 2. Prefer Better Auth routing/session claims for the active org when available.
+  // This avoids re-deriving same-org membership from the remote practice payload for
+  // every protected write and keeps auth aligned with the current session context.
+  let userRole: string | null = null;
+  if (activeOrganizationId && activeOrganizationId === normalizedPracticeId && claimedRole) {
+    userRole = claimedRole;
+  }
+
+  // 3. Fall back to the remote membership lookup for non-active org contexts or
+  // sessions that do not yet include routing membership claims.
   try {
-    const userRole = await fetchMemberRoleFromRemote(
-      authContext.cookie,
-      env,
-      practiceId,
-      authContext.user.id,
-      authContext.user.email
-    );
+    if (!userRole) {
+      userRole = await fetchMemberRoleFromRemote(
+        authContext.cookie,
+        env,
+        normalizedPracticeId,
+        authContext.user.id,
+        authContext.user.email
+      );
+    }
 
-    // 3. Enforce role requirements if minimumRole is specified
+    // 4. Enforce role requirements if minimumRole is specified
     if (minimumRole) {
-      const roleHierarchy: Record<string, number> = {
-        'paralegal': 1,
-        'attorney': 2,
-        'admin': 3,
-        'owner': 4
-      };
-
       // Validate that userRole exists in hierarchy
       const userRoleLevel = roleHierarchy[userRole];
       if (userRoleLevel === undefined) {
@@ -665,7 +707,7 @@ async function requirePracticeMemberWithAuthContext(
       }
     }
 
-    // 4. Return authContext with actual memberRole
+    // 5. Return authContext with actual memberRole
     return {
       ...authContext,
       memberRole: userRole,
