@@ -226,7 +226,7 @@ vi.mock('@/shared/utils/practiceRoles', () => ({
 }));
 
 describe('PracticePage', () => {
-  it('uses a descriptive accessible name for the mobile services action', () => {
+  it('uses an action-oriented accessible name for the mobile services action', () => {
     render(<PracticePage />);
 
     const servicesRow = screen.getByTestId('setting-row-Services');
@@ -235,7 +235,8 @@ describe('PracticePage', () => {
       .find((button) => button.getAttribute('data-icon-button') === 'true');
 
     expect(iconButton).toBeDefined();
-    expect(iconButton).toHaveAttribute('aria-label', 'Services');
+    expect(iconButton).toHaveAttribute('aria-label', 'Manage Services');
+    expect(iconButton).not.toHaveAttribute('aria-label', 'Services');
     expect(iconButton).not.toHaveAttribute('aria-label', 'Manage');
   });
 });

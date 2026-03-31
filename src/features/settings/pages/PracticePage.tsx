@@ -205,6 +205,7 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
   const roleFromMembers = currentMember?.role ?? null;
   const currentUserRole = normalizePracticeRole(activeMemberRole) ?? roleFromMembers ?? 'member';
   const isOwner = currentUserRole === 'owner';
+  const manageServicesLabel = `${t('settings:account.plan.manage')} ${t('settings:practice.services')}`;
   const servicesList = useMemo(() => {
     const source = practiceDetails?.services ?? practice?.services;
     if (!Array.isArray(source)) return [];
@@ -736,7 +737,7 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
                     size="icon"
                     onClick={() => navigateTo(toSettingsPath('practice/services'))}
                     className="sm:hidden"
-                    aria-label={t('settings:practice.services')}
+                    aria-label={manageServicesLabel}
                     icon={ChevronRightIcon} iconClassName="w-5 h-5"
                   />
                 </div>
