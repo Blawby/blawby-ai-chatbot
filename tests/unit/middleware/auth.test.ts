@@ -106,7 +106,7 @@ describe('auth middleware membership resolution', () => {
     );
   });
 
-  it('matches remote practice membership when backend member payload uses nested user.id', async () => {
+  it('fetches active member role from Better Auth organization endpoint when session role is missing', async () => {
     const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input: RequestInfo | URL) => {
       const url = String(input);
       if (url === 'https://api.example.test/api/auth/get-session') {
@@ -129,20 +129,9 @@ describe('auth middleware membership resolution', () => {
         });
       }
 
-      if (url === 'https://api.example.test/api/practice/practice-nested') {
+      if (url === 'https://api.example.test/api/auth/organization/get-active-member-role?organizationId=practice-nested') {
         return new Response(JSON.stringify({
-          practice: {
-            members: [
-              {
-                id: 'membership-1',
-                role: 'owner',
-                user: {
-                  id: 'user-nested',
-                  email: 'owner@example.com',
-                },
-              },
-            ],
-          },
+          role: 'owner',
         }), {
           status: 200,
           headers: { 'Content-Type': 'application/json' },
@@ -165,7 +154,7 @@ describe('auth middleware membership resolution', () => {
     expect(fetchSpy).toHaveBeenCalledTimes(2);
     expect(fetchSpy).toHaveBeenNthCalledWith(
       2,
-      'https://api.example.test/api/practice/practice-nested',
+      'https://api.example.test/api/auth/organization/get-active-member-role?organizationId=practice-nested',
       expect.objectContaining({
         method: 'GET',
       })

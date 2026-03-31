@@ -2,7 +2,6 @@ import { Env, HttpError } from "../types";
 import { HttpErrors } from "../errorHandler";
 import { Logger } from "../utils/logger";
 import { extractWidgetTokenFromRequest, validateWidgetAuthToken } from "../utils/widgetAuthToken.js";
-import { RemoteApiService } from "../services/RemoteApiService.js";
 
 export interface AuthenticatedUser {
   id: string;
@@ -553,49 +552,51 @@ async function fetchMemberRoleFromRemote(
       if (!cookie || !cookie.trim()) {
         throw HttpErrors.unauthorized('Authentication required');
       }
-      const membershipRequest = new Request(`https://worker.invalid/api/practice/${encodeURIComponent(practiceId)}`, {
-        method: 'GET',
-        headers: {
-          Cookie: cookie,
-        },
-      });
-      const members = await RemoteApiService.getPracticeMembers(env, practiceId, membershipRequest);
-      const normalizedEmail = userEmail ? userEmail.toLowerCase() : undefined;
-      const match = members.find((member) => {
-        if (member.user_id === userId) {
-          return true;
+      const baseUrl = resolveBackendApiUrl(env, 'active member role verification');
+      const params = new URLSearchParams({ organizationId: practiceId });
+      const response = await fetch(
+        `${baseUrl}/api/auth/organization/get-active-member-role?${params.toString()}`,
+        {
+          method: 'GET',
+          headers: {
+            Cookie: cookie,
+            'Content-Type': 'application/json',
+          },
         }
-        if (normalizedEmail && typeof member.email === 'string' && member.email.toLowerCase() === normalizedEmail) {
-          return true;
-        }
-        return false;
-      });
+      );
 
-      Logger.warn('[Auth] Remote practice membership lookup', {
+      const payload = await response.json().catch(() => null) as { role?: string | null; message?: string | null } | null;
+
+      Logger.warn('[Auth] Active member role lookup', {
         practiceId,
         userId,
-        normalizedEmailPresent: Boolean(normalizedEmail),
-        memberCount: members.length,
-        memberUserIdsSample: members.slice(0, 10).map((member) => member.user_id),
-        matchedUserId: match?.user_id ?? null,
-        matchedRole: match?.role ?? null,
+        userEmailPresent: Boolean(userEmail),
+        status: response.status,
+        role: typeof payload?.role === 'string' ? payload.role : null,
+        message: typeof payload?.message === 'string' ? payload.message : null,
       });
 
-      if (!match) {
+      if (response.status === 403) {
         throw HttpErrors.forbidden('User is not a member of this practice');
       }
+      if (response.status === 404) {
+        throw HttpErrors.notFound('Practice not found');
+      }
+      if (!response.ok) {
+        throw HttpErrors.badGateway(`Failed to verify membership role (status ${response.status})`);
+      }
 
-      if (!match.role) {
+      if (!payload?.role || typeof payload.role !== 'string') {
         throw HttpErrors.forbidden('User membership is missing role information');
       }
 
       membershipCache.set(cacheKey, {
-        role: match.role,
+        role: payload.role,
         expiresAt: Date.now() + MEMBERSHIP_CACHE_TTL_MS
       });
       pruneMembershipCache();
 
-      return match.role;
+      return payload.role;
     } finally {
       membershipValidationInflight.delete(cacheKey);
     }
