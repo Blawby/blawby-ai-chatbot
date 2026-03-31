@@ -42,7 +42,7 @@ export const PracticeTeamPage = ({ onNavigate, className }: PracticeTeamPageProp
     acceptInvitation,
     declineInvitation,
   } = usePracticeInvitations(currentPractice?.id ?? null);
-  const { showSuccess, showError } = useToastContext();
+  const { showSuccess, showError, showWarning } = useToastContext();
   const { openBillingPortal, submitting } = usePaymentUpgrade();
   const { navigate: baseNavigate } = useNavigation();
   const { t } = useTranslation(['settings']);
@@ -136,10 +136,15 @@ export const PracticeTeamPage = ({ onNavigate, className }: PracticeTeamPageProp
 
     try {
       await updateMemberRole(currentPractice.id, editMemberData.userId, editMemberData.role);
-      await refetchTeam();
       showSuccess('Member role updated successfully!');
       setEditMemberData(null);
       setIsEditingMember(false);
+      try {
+        await refetchTeam();
+      } catch (refetchErr) {
+        console.warn('[PracticeTeamPage] Failed to refresh team — changes were saved.', refetchErr);
+        showWarning('Failed to refresh team — changes were saved.');
+      }
     } catch (err) {
       showError(err instanceof Error ? err.message : 'Failed to update member role');
     }
@@ -154,10 +159,15 @@ export const PracticeTeamPage = ({ onNavigate, className }: PracticeTeamPageProp
 
     try {
       await removeMember(currentPractice.id, member.userId);
-      await refetchTeam();
       showSuccess('Member removed successfully!');
       setEditMemberData(null);
       setIsEditingMember(false);
+      try {
+        await refetchTeam();
+      } catch (refetchErr) {
+        console.warn('[PracticeTeamPage] Failed to refresh team — changes were saved.', refetchErr);
+        showWarning('Failed to refresh team — changes were saved.');
+      }
     } catch (err) {
       showError(err instanceof Error ? err.message : 'Failed to remove member');
     }
@@ -166,8 +176,13 @@ export const PracticeTeamPage = ({ onNavigate, className }: PracticeTeamPageProp
   const handleAcceptInvitation = async (invitationId: string) => {
     try {
       await acceptInvitation(invitationId);
-      await refetchTeam();
       showSuccess('Invitation accepted!');
+      try {
+        await refetchTeam();
+      } catch (refetchErr) {
+        console.warn('[PracticeTeamPage] Failed to refresh team — changes were saved.', refetchErr);
+        showWarning('Failed to refresh team — changes were saved.');
+      }
     } catch (err) {
       showError(err instanceof Error ? err.message : 'Failed to accept invitation');
     }

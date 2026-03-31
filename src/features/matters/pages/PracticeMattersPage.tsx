@@ -437,8 +437,8 @@ export const PracticeMattersPage = ({
   }, [teamMembers]);
 
   const assigneeNameById = useMemo(
-    () => new Map(assigneeOptions.map((a) => [a.id, a.name])),
-    [assigneeOptions]
+    () => new Map(teamMembers.map((m) => [m.userId, m.name ?? m.email])),
+    [teamMembers]
   );
 
   const serviceNameById = useMemo(
