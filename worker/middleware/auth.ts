@@ -176,20 +176,39 @@ export function parseAuthSessionPayload(
     : (responseRecord.routing && typeof responseRecord.routing === 'object'
       ? responseRecord.routing as Record<string, unknown>
       : null);
+  const sessionRoutingRecord = sessionRecord?.routing && typeof sessionRecord.routing === 'object'
+    ? sessionRecord.routing as Record<string, unknown>
+    : null;
   const activeOrganizationId =
     typeof sessionRecord?.activeOrganizationId === 'string'
       ? sessionRecord.activeOrganizationId
       : typeof sessionRecord?.active_organization_id === 'string'
         ? sessionRecord.active_organization_id
+        : typeof dataPayload?.activeOrganizationId === 'string'
+          ? dataPayload.activeOrganizationId
+          : typeof dataPayload?.active_organization_id === 'string'
+            ? dataPayload.active_organization_id
+            : typeof responseRecord.activeOrganizationId === 'string'
+              ? responseRecord.activeOrganizationId
+              : typeof responseRecord.active_organization_id === 'string'
+                ? responseRecord.active_organization_id
         : null;
   const activeMembershipRole =
     typeof routingRecord?.active_membership_role === 'string'
       ? routingRecord.active_membership_role
-      : typeof sessionRecord?.activeMembershipRole === 'string'
-        ? sessionRecord.activeMembershipRole
-        : typeof sessionRecord?.active_membership_role === 'string'
-          ? sessionRecord.active_membership_role
-          : null;
+      : typeof sessionRoutingRecord?.active_membership_role === 'string'
+        ? sessionRoutingRecord.active_membership_role
+        : typeof dataPayload?.active_membership_role === 'string'
+          ? dataPayload.active_membership_role
+          : typeof responseRecord.active_membership_role === 'string'
+            ? responseRecord.active_membership_role
+            : typeof user.role === 'string'
+              ? user.role
+              : typeof sessionRecord?.activeMembershipRole === 'string'
+                ? sessionRecord.activeMembershipRole
+                : typeof sessionRecord?.active_membership_role === 'string'
+                  ? sessionRecord.active_membership_role
+                  : null;
   const previousAnonUserId =
     typeof sessionRecord?.previous_anon_user_id === 'string'
       ? sessionRecord.previous_anon_user_id
@@ -507,23 +526,30 @@ function extractMemberIdentifiers(member: RemoteMemberRecord): {
   email?: string;
   role?: string;
 } {
+  const nestedUser = isRecord(member.user) ? member.user : null;
   const userId =
     typeof member.user_id === 'string'
       ? member.user_id
       : typeof member.userId === 'string'
         ? member.userId
+        : typeof member.id === 'string'
+          ? member.id
+          : typeof nestedUser?.id === 'string'
+            ? nestedUser.id
         : undefined;
   const email =
     typeof member.email === 'string'
       ? member.email.toLowerCase()
-      : isRecord(member.user) && typeof member.user.email === 'string'
-        ? member.user.email.toLowerCase()
+      : typeof nestedUser?.email === 'string'
+        ? nestedUser.email.toLowerCase()
       : undefined;
   const role =
     typeof member.role === 'string'
       ? member.role
       : typeof member.permission === 'string'
         ? member.permission
+        : typeof member.memberRole === 'string'
+          ? member.memberRole
         : undefined;
 
   return { userId, email, role };
