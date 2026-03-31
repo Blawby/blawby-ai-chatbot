@@ -68,7 +68,7 @@ export const EmailInput = forwardRef<HTMLInputElement, EmailInputProps>(({
 
   const sizeClasses = {
     sm: 'px-2 py-1 text-sm',
-    md: 'px-3 py-2 text-sm',
+    md: 'px-3 py-2.5 text-sm',
     lg: 'px-4 py-3 text-base'
   };
 
@@ -128,7 +128,7 @@ export const EmailInput = forwardRef<HTMLInputElement, EmailInputProps>(({
       )}
       
       <div className="relative">
-        <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+        <div className="absolute inset-y-0 left-0 z-10 flex items-center pl-3 pointer-events-none">
           <Icon icon={EnvelopeIcon} className="w-4 h-4 text-input-placeholder"  />
         </div>
         
@@ -149,7 +149,7 @@ export const EmailInput = forwardRef<HTMLInputElement, EmailInputProps>(({
         />
         
         {showValidationIcon && (
-          <div className="absolute inset-y-0 right-0 flex items-center pr-3">
+          <div className="absolute inset-y-0 right-0 z-10 flex items-center pr-3">
             {isEmailValid ? (
               <Icon icon={CheckIcon} className="w-4 h-4 text-green-600 dark:text-green-400"  />
             ) : (
