@@ -3,6 +3,8 @@ import { HttpErrors } from "../errorHandler";
 import { Logger } from "../utils/logger";
 import { extractWidgetTokenFromRequest, validateWidgetAuthToken } from "../utils/widgetAuthToken.js";
 
+const AUTH_TIMEOUT_MS = 3000;
+
 export interface AuthenticatedUser {
   id: string;
   email?: string;
@@ -21,6 +23,7 @@ export interface AuthContext {
   cookie: string;
   isAnonymous?: boolean; // Flag for anonymous users (Better Auth anonymous plugin)
   activeOrganizationId?: string | null;
+  activeMembershipRole?: string | null;
   previousAnonUserId?: string | null;
 }
 
@@ -29,6 +32,7 @@ type CachedSession = {
     user: AuthenticatedUser;
     session: { id: string; expiresAt: Date };
     activeOrganizationId?: string | null;
+    activeMembershipRole?: string | null;
     previousAnonUserId?: string | null;
   };
   expiresAt: number;
@@ -97,7 +101,13 @@ function resolveBackendApiUrl(env: Env, context = 'backend API'): string {
 
 export function parseAuthSessionPayload(
   rawResponse: unknown
-): { user: AuthenticatedUser; session: { id: string; expiresAt: Date }; activeOrganizationId?: string | null; previousAnonUserId?: string | null } {
+): {
+  user: AuthenticatedUser;
+  session: { id: string; expiresAt: Date };
+  activeOrganizationId?: string | null;
+  activeMembershipRole?: string | null;
+  previousAnonUserId?: string | null;
+} {
   if (!rawResponse || typeof rawResponse !== 'object') {
     console.error('[Auth] Invalid session payload from Better Auth API:', rawResponse);
     throw HttpErrors.unauthorized('Invalid session data - empty response');
@@ -163,12 +173,42 @@ export function parseAuthSessionPayload(
   const sessionRecord = session && typeof session === 'object'
     ? session as Record<string, unknown>
     : null;
+  const routingRecord = dataPayload?.routing && typeof dataPayload.routing === 'object'
+    ? dataPayload.routing as Record<string, unknown>
+    : (responseRecord.routing && typeof responseRecord.routing === 'object'
+      ? responseRecord.routing as Record<string, unknown>
+      : null);
+  const sessionRoutingRecord = sessionRecord?.routing && typeof sessionRecord.routing === 'object'
+    ? sessionRecord.routing as Record<string, unknown>
+    : null;
   const activeOrganizationId =
     typeof sessionRecord?.activeOrganizationId === 'string'
       ? sessionRecord.activeOrganizationId
       : typeof sessionRecord?.active_organization_id === 'string'
         ? sessionRecord.active_organization_id
+        : typeof dataPayload?.activeOrganizationId === 'string'
+          ? dataPayload.activeOrganizationId
+          : typeof dataPayload?.active_organization_id === 'string'
+            ? dataPayload.active_organization_id
+            : typeof responseRecord.activeOrganizationId === 'string'
+              ? responseRecord.activeOrganizationId
+              : typeof responseRecord.active_organization_id === 'string'
+                ? responseRecord.active_organization_id
         : null;
+  const activeMembershipRole =
+    typeof routingRecord?.active_membership_role === 'string'
+      ? routingRecord.active_membership_role
+      : typeof sessionRoutingRecord?.active_membership_role === 'string'
+        ? sessionRoutingRecord.active_membership_role
+        : typeof dataPayload?.active_membership_role === 'string'
+          ? dataPayload.active_membership_role
+          : typeof responseRecord.active_membership_role === 'string'
+            ? responseRecord.active_membership_role
+            : typeof sessionRecord?.activeMembershipRole === 'string'
+                ? sessionRecord.activeMembershipRole
+                : typeof sessionRecord?.active_membership_role === 'string'
+                  ? sessionRecord.active_membership_role
+                  : null;
   const previousAnonUserId =
     typeof sessionRecord?.previous_anon_user_id === 'string'
       ? sessionRecord.previous_anon_user_id
@@ -177,6 +217,35 @@ export function parseAuthSessionPayload(
         : typeof (responseRecord as Record<string, unknown>).previous_anon_user_id === 'string'
           ? (responseRecord as Record<string, unknown>).previous_anon_user_id as string
           : null;
+
+  if (
+    typeof activeOrganizationId === 'string'
+    && activeOrganizationId.trim().length > 0
+    && !(typeof activeMembershipRole === 'string' && activeMembershipRole.trim().length > 0)
+  ) {
+    Logger.warn('[Auth] Session payload missing active membership role', {
+      topLevelKeys: Object.keys(responseRecord),
+      dataKeys: dataPayload ? Object.keys(dataPayload) : [],
+      userKeys: user ? Object.keys(user as Record<string, unknown>) : [],
+      sessionKeys: sessionRecord ? Object.keys(sessionRecord) : [],
+      routingKeys: routingRecord ? Object.keys(routingRecord) : [],
+      sessionRoutingKeys: sessionRoutingRecord ? Object.keys(sessionRoutingRecord) : [],
+      candidateRoleValues: {
+        routingActiveMembershipRole:
+          typeof routingRecord?.active_membership_role === 'string' ? routingRecord.active_membership_role : null,
+        sessionRoutingActiveMembershipRole:
+          typeof sessionRoutingRecord?.active_membership_role === 'string' ? sessionRoutingRecord.active_membership_role : null,
+        dataActiveMembershipRole:
+          typeof dataPayload?.active_membership_role === 'string' ? dataPayload.active_membership_role : null,
+        responseActiveMembershipRole:
+          typeof responseRecord.active_membership_role === 'string' ? responseRecord.active_membership_role : null,
+        sessionActiveMembershipRole:
+          typeof sessionRecord?.activeMembershipRole === 'string' ? sessionRecord.activeMembershipRole : null,
+        sessionSnakeActiveMembershipRole:
+          typeof sessionRecord?.active_membership_role === 'string' ? sessionRecord.active_membership_role : null,
+      },
+    });
+  }
 
   return {
     user: {
@@ -201,6 +270,9 @@ export function parseAuthSessionPayload(
     activeOrganizationId: typeof activeOrganizationId === 'string' && activeOrganizationId.trim().length > 0
       ? activeOrganizationId.trim()
       : null,
+    activeMembershipRole: typeof activeMembershipRole === 'string' && activeMembershipRole.trim().length > 0
+      ? activeMembershipRole.trim().toLowerCase()
+      : null,
     previousAnonUserId: typeof previousAnonUserId === 'string' && previousAnonUserId.trim().length > 0
       ? previousAnonUserId.trim()
       : null
@@ -217,6 +289,7 @@ export async function validateSessionWithRemoteServer(
   user: AuthenticatedUser;
   session: { id: string; expiresAt: Date };
   activeOrganizationId?: string | null;
+  activeMembershipRole?: string | null;
   previousAnonUserId?: string | null;
 }> {
   const cacheKey = getSessionCacheKey(cookie);
@@ -234,7 +307,6 @@ export async function validateSessionWithRemoteServer(
   }
 
   const authServerUrl = resolveBackendApiUrl(env, 'Better Auth session validation');
-  const AUTH_TIMEOUT_MS = 3000;
   const validationPromise = (async () => {
     try {
       const getSessionUrl = `${authServerUrl}/api/auth/get-session`;
@@ -366,6 +438,7 @@ export async function requireAuth(
     user: AuthenticatedUser;
     session: { id: string; expiresAt: Date };
     activeOrganizationId?: string | null;
+    activeMembershipRole?: string | null;
     previousAnonUserId?: string | null;
   };
 
@@ -393,6 +466,7 @@ export async function requireAuth(
       cookie: '',
       isAnonymous: true,
       activeOrganizationId: null,
+      activeMembershipRole: null,
       previousAnonUserId: null
     };
   };
@@ -444,61 +518,9 @@ export async function requireAuth(
     ...authResult,
     cookie: normalizedCookie,
     isAnonymous,
+    activeMembershipRole: authResult.activeMembershipRole ?? null,
     previousAnonUserId
   };
-}
-
-type RemoteMemberRecord = Record<string, unknown>;
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null;
-
-function extractMembersPayload(payload: unknown): RemoteMemberRecord[] {
-  if (Array.isArray(payload)) {
-    return payload.filter(isRecord);
-  }
-  if (isRecord(payload)) {
-    if (isRecord(payload.practice) && Array.isArray(payload.practice.members)) {
-      return payload.practice.members.filter(isRecord);
-    }
-    if (Array.isArray(payload.members)) {
-      return payload.members.filter(isRecord);
-    }
-    if (isRecord(payload.data) && isRecord(payload.data.practice) && Array.isArray(payload.data.practice.members)) {
-      return payload.data.practice.members.filter(isRecord);
-    }
-    if (isRecord(payload.data) && Array.isArray(payload.data.members)) {
-      return payload.data.members.filter(isRecord);
-    }
-  }
-  return [];
-}
-
-function extractMemberIdentifiers(member: RemoteMemberRecord): {
-  userId?: string;
-  email?: string;
-  role?: string;
-} {
-  const userId =
-    typeof member.user_id === 'string'
-      ? member.user_id
-      : typeof member.userId === 'string'
-        ? member.userId
-        : undefined;
-  const email =
-    typeof member.email === 'string'
-      ? member.email.toLowerCase()
-      : isRecord(member.user) && typeof member.user.email === 'string'
-        ? member.user.email.toLowerCase()
-      : undefined;
-  const role =
-    typeof member.role === 'string'
-      ? member.role
-      : typeof member.permission === 'string'
-        ? member.permission
-        : undefined;
-
-  return { userId, email, role };
 }
 
 async function fetchMemberRoleFromRemote(
@@ -523,81 +545,71 @@ async function fetchMemberRoleFromRemote(
   }
 
   const validationPromise = (async () => {
-    // ENV VAR: BACKEND_API_URL (worker/.dev.vars or wrangler.toml)
-    const baseUrl = resolveBackendApiUrl(env, 'practice membership verification');
-
     try {
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json'
-      };
       if (!cookie || !cookie.trim()) {
         throw HttpErrors.unauthorized('Authentication required');
       }
-      headers.Cookie = cookie;
-
+      const baseUrl = resolveBackendApiUrl(env, 'active member role verification');
+      const params = new URLSearchParams({ organizationId: practiceId });
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      const timeoutId = setTimeout(() => controller.abort(), AUTH_TIMEOUT_MS);
+      let response: Response;
       try {
-        const response = await fetch(
-          `${baseUrl}/api/practice/${encodeURIComponent(practiceId)}`,
+        response = await fetch(
+          `${baseUrl}/api/auth/organization/get-active-member-role?${params.toString()}`,
           {
             method: 'GET',
-            headers,
-            signal: controller.signal
+            headers: {
+              Cookie: cookie,
+              'Content-Type': 'application/json',
+            },
+            signal: controller.signal,
           }
         );
-        clearTimeout(timeoutId);
-
-        if (response.status === 404) {
-          throw HttpErrors.notFound('Practice not found');
-        }
-
-        if (!response.ok) {
-          throw HttpErrors.badGateway(`Failed to verify membership (status ${response.status})`);
-        }
-
-        const payload = await response.json().catch(() => ({}));
-        const members = extractMembersPayload(payload);
-        const normalizedEmail = userEmail ? userEmail.toLowerCase() : undefined;
-
-        const match = members.find((member) => {
-          const { userId: memberUserId, email } = extractMemberIdentifiers(member);
-          if (memberUserId && memberUserId === userId) {
-            return true;
-          }
-          if (email && normalizedEmail && email === normalizedEmail) {
-            return true;
-          }
-          return false;
-        });
-
-        if (!match) {
-          throw HttpErrors.forbidden('User is not a member of this practice');
-        }
-
-        const { role } = extractMemberIdentifiers(match);
-        if (!role) {
-          throw HttpErrors.forbidden('User membership is missing role information');
-        }
-
-        membershipCache.set(cacheKey, {
-          role,
-          expiresAt: Date.now() + MEMBERSHIP_CACHE_TTL_MS
-        });
-        pruneMembershipCache();
-
-        return role;
       } catch (error) {
-        clearTimeout(timeoutId);
         if (error instanceof Error && error.name === 'AbortError') {
-          throw HttpErrors.gatewayTimeout('Membership verification timed out');
+          throw HttpErrors.gatewayTimeout('Membership role verification timed out');
         }
-        if (error instanceof HttpError) {
-          throw error;
-        }
-        console.error('Error verifying practice membership via remote API:', error);
-        throw HttpErrors.badGateway('Failed to verify practice membership');
+        throw error;
+      } finally {
+        clearTimeout(timeoutId);
       }
+
+      const payload = await response.json().catch(() => null) as { role?: string | null; message?: string | null } | null;
+
+      Logger.warn('[Auth] Active member role lookup', {
+        practiceId,
+        userId,
+        userEmailPresent: Boolean(userEmail),
+        status: response.status,
+        role: typeof payload?.role === 'string' ? payload.role : null,
+        message: typeof payload?.message === 'string' ? payload.message : null,
+      });
+
+      if (response.status === 401) {
+        throw HttpErrors.unauthorized('Session expired or unauthorized');
+      }
+      if (response.status === 403) {
+        throw HttpErrors.forbidden('User is not a member of this practice');
+      }
+      if (response.status === 404) {
+        throw HttpErrors.notFound('Practice not found');
+      }
+      if (!response.ok) {
+        throw HttpErrors.badGateway(`Failed to verify membership role (status ${response.status})`);
+      }
+
+      if (!payload?.role || typeof payload.role !== 'string') {
+        throw HttpErrors.forbidden('User membership is missing role information');
+      }
+
+      membershipCache.set(cacheKey, {
+        role: payload.role,
+        expiresAt: Date.now() + MEMBERSHIP_CACHE_TTL_MS
+      });
+      pruneMembershipCache();
+
+      return payload.role;
     } finally {
       membershipValidationInflight.delete(cacheKey);
     }
@@ -623,31 +635,56 @@ async function requirePracticeMemberWithAuthContext(
   practiceId: string,
   minimumRole?: "owner" | "admin" | "attorney" | "paralegal"
 ): Promise<AuthContext & { memberRole: string }> {
+  const roleHierarchy: Record<string, number> = {
+    'paralegal': 1,
+    'attorney': 2,
+    'admin': 3,
+    'owner': 4
+  };
 
   // 1. Validate practiceId
   if (!practiceId || typeof practiceId !== 'string' || practiceId.trim() === '') {
     throw HttpErrors.badRequest("Invalid or missing practiceId");
   }
 
-  // 2. Fetch user's membership from remote API
+  const normalizedPracticeId = practiceId.trim();
+  const activeOrganizationId = authContext.activeOrganizationId?.trim() ?? null;
+  const claimedRole = authContext.activeMembershipRole?.trim().toLowerCase() ?? null;
+
+  // 2. Prefer Better Auth routing/session claims for the active org when available.
+  // This avoids re-deriving same-org membership from the remote practice payload for
+  // every protected write and keeps auth aligned with the current session context.
+  let userRole: string | null = null;
+  if (activeOrganizationId && activeOrganizationId === normalizedPracticeId && claimedRole) {
+    userRole = claimedRole;
+  }
+
+  Logger.warn('[Auth] requirePracticeMemberWithAuthContext start', {
+    practiceId: normalizedPracticeId,
+    userId: authContext.user.id,
+    isAnonymous: authContext.isAnonymous === true,
+    activeOrganizationId,
+    claimedRole,
+    usedClaimedRole: Boolean(userRole),
+    minimumRole: minimumRole ?? null,
+    hasCookie: authContext.cookie.trim().length > 0,
+  });
+
+  // 3. Fall back to the remote membership lookup for non-active org contexts or
+  // sessions that do not yet include routing membership claims.
   try {
-    const userRole = await fetchMemberRoleFromRemote(
-      authContext.cookie,
-      env,
-      practiceId,
-      authContext.user.id,
-      authContext.user.email
-    );
+    if (!userRole) {
+      userRole = await fetchMemberRoleFromRemote(
+        authContext.cookie,
+        env,
+        normalizedPracticeId,
+        authContext.user.id,
+        authContext.user.email
+      );
+    }
 
-    // 3. Enforce role requirements if minimumRole is specified
+    // 4. Enforce role requirements if minimumRole is specified
     if (minimumRole) {
-      const roleHierarchy: Record<string, number> = {
-        'paralegal': 1,
-        'attorney': 2,
-        'admin': 3,
-        'owner': 4
-      };
-
       // Validate that userRole exists in hierarchy
       const userRoleLevel = roleHierarchy[userRole];
       if (userRoleLevel === undefined) {
@@ -665,7 +702,7 @@ async function requirePracticeMemberWithAuthContext(
       }
     }
 
-    // 4. Return authContext with actual memberRole
+    // 5. Return authContext with actual memberRole
     return {
       ...authContext,
       memberRole: userRole,
@@ -703,9 +740,12 @@ export async function requirePracticeMemberRole(
   request: Request,
   env: Env,
   practiceId: string,
-  minimumRole?: "owner" | "admin" | "attorney" | "paralegal"
+  minimumRole?: "owner" | "admin" | "attorney" | "paralegal",
+  options?: { authContext?: AuthContext }
 ): Promise<AuthContext & { memberRole: string }> {
-  // Delegate to the primary implementation to prevent drift
+  if (options?.authContext) {
+    return requirePracticeMemberWithAuthContext(options.authContext, env, practiceId, minimumRole);
+  }
   return requirePracticeMember(request, env, practiceId, minimumRole);
 }
 

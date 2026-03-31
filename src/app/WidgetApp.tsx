@@ -499,6 +499,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
       </>
     );
   }, [closeButton, conversationStrengthAction, isEmbedded]);
+  const showWidgetBottomNav = view !== 'chat';
 
   useEffect(() => {
     const isDark = true; // Handle dark mode state if needed
@@ -684,13 +685,13 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
           </>
         )}
         
-        <div className="mt-auto">
-          <NavRail
-            items={navItems}
-            activeHref={view === 'home' ? '/home' : '/list'}
-            variant="bottom"
-          />
-        </div>
+        <NavRail
+          items={navItems}
+          activeHref={view === 'home' ? '#home' : '#list'}
+          variant="bottom"
+          hidden={!showWidgetBottomNav}
+          className="mt-auto"
+        />
       </div>
     </>
   );

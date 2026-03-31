@@ -7,6 +7,7 @@ import {
 } from '@/config/api';
 import type { Conversation } from '@/shared/types/conversation';
 import type { Address } from '@/shared/types/address';
+import type { PracticeTeamResponse } from '@/shared/types/team';
 import { getWorkerApiUrl, isWidgetTokenEligibleRequestUrl } from '@/config/urls';
 import {
   toMajorUnits,
@@ -15,6 +16,7 @@ import {
   assertMinorUnits,
   type MajorAmount
 } from '@/shared/utils/money';
+import { isTeamRole } from '@/shared/types/team';
 import { getWidgetAuthToken } from '@/shared/utils/widgetAuth';
 
 let cachedBaseUrl: string | null = null;
@@ -379,6 +381,7 @@ export type ConversationParticipant = {
   role?: string | null;
   name?: string | null;
   image?: string | null;
+  canMentionInternally?: boolean;
 };
 
 export async function getConversationParticipants(
@@ -414,6 +417,7 @@ export async function getConversationParticipants(
       role: typeof row.role === 'string' ? row.role : null,
       name: typeof row.name === 'string' ? row.name : null,
       image: typeof row.image === 'string' ? row.image : null,
+      canMentionInternally: row.canMentionInternally === true || row.can_mention_internally === true,
     }))
     .filter((row) => row.userId.trim().length > 0);
 }
@@ -479,6 +483,74 @@ function toNullableString(value: unknown): string | null {
     return trimmed.length > 0 ? trimmed : null;
   }
   return null;
+}
+
+function toNullableTimestamp(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    const numeric = Number(trimmed);
+    if (Number.isFinite(numeric)) {
+      return numeric;
+    }
+    const parsed = Date.parse(trimmed);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  if (value instanceof Date) {
+    const timestamp = value.getTime();
+    return Number.isFinite(timestamp) ? timestamp : null;
+  }
+  return null;
+}
+
+function normalizeInvitationStatus(value: unknown): 'pending' | 'accepted' | 'declined' | null {
+  const normalized = toNullableString(value)?.toLowerCase();
+  if (normalized === 'pending' || normalized === 'accepted') {
+    return normalized;
+  }
+  if (normalized === 'declined' || normalized === 'rejected' || normalized === 'canceled' || normalized === 'cancelled') {
+    return 'declined';
+  }
+  return null;
+}
+
+function normalizePracticeInvitationPayload(payload: unknown): Record<string, unknown> | null {
+  if (!isRecord(payload)) {
+    return null;
+  }
+
+  const id = toNullableString(payload.id);
+  const practiceId = toNullableString(payload.practiceId ?? payload.practice_id ?? payload.organizationId ?? payload.organization_id);
+  const email = toNullableString(payload.email);
+  const role = toNullableString(payload.role);
+  const status = normalizeInvitationStatus(payload.status);
+  const invitedBy = toNullableString(payload.invitedBy ?? payload.invited_by ?? payload.inviterId ?? payload.inviter_id);
+  const expiresAt = toNullableTimestamp(payload.expiresAt ?? payload.expires_at);
+  const createdAt = toNullableTimestamp(payload.createdAt ?? payload.created_at);
+
+  if (!id || !practiceId || !email || !role || !status || !invitedBy || expiresAt === null || createdAt === null) {
+    return null;
+  }
+
+  return {
+    id,
+    practiceId,
+    practiceName: toNullableString(
+      payload.practiceName ??
+      payload.practice_name ??
+      payload.organizationName ??
+      payload.organization_name
+    ) ?? undefined,
+    email,
+    role,
+    status,
+    invitedBy,
+    expiresAt,
+    createdAt
+  };
 }
 
 function normalizePracticePayload(payload: unknown): Practice {
@@ -714,17 +786,22 @@ export async function listPracticeInvitations(
     throw new Error('practiceId is required');
   }
   const response = await apiClient.get(
-    `/api/practice/${encodeURIComponent(practiceId)}/invitations`,
-    { signal: config?.signal }
+    '/api/auth/organization/list-invitations',
+    {
+      params: { organizationId: practiceId },
+      signal: config?.signal
+    }
   );
   const payload = unwrapApiData(response.data);
-  if (Array.isArray(payload)) {
-    return payload;
-  }
-  if (isRecord(payload) && Array.isArray(payload.invitations)) {
-    return payload.invitations as unknown[];
-  }
-  return [];
+  const invitations = Array.isArray(payload)
+    ? payload
+    : isRecord(payload) && Array.isArray(payload.invitations)
+      ? payload.invitations
+      : [];
+
+  return invitations
+    .map((invitation) => normalizePracticeInvitationPayload(invitation))
+    .filter((invitation): invitation is Record<string, unknown> => Boolean(invitation));
 }
 
 export async function createPracticeInvitation(
@@ -734,9 +811,13 @@ export async function createPracticeInvitation(
   if (!practiceId) {
     throw new Error('practiceId is required');
   }
+  const requestBody = {
+    ...payload,
+    organizationId: practiceId
+  };
   const response = await apiClient.post(
-    `/api/practice/${encodeURIComponent(practiceId)}/invitations`,
-    payload
+    '/api/auth/organization/invite-member',
+    requestBody
   );
   const data = unwrapApiData(response.data);
   if (!isRecord(data)) {
@@ -767,28 +848,82 @@ export async function respondToPracticeInvitation(
   invitationId: string,
   action: 'accept' | 'decline'
 ): Promise<void> {
+  if (!invitationId) {
+    throw new Error('invitationId is required');
+  }
   await apiClient.post(
-    `/api/practice/invitations/${encodeURIComponent(invitationId)}/${action}`
+    action === 'accept'
+      ? '/api/auth/organization/accept-invitation'
+      : '/api/auth/organization/reject-invitation',
+    { invitationId }
   );
 }
 
-export async function listPracticeMembers(practiceId: string): Promise<unknown[]> {
+export async function cancelPracticeInvitation(invitationId: string): Promise<void> {
+  if (!invitationId) {
+    throw new Error('invitationId is required');
+  }
+  await apiClient.post('/api/auth/organization/cancel-invitation', { invitationId });
+}
+
+export async function listPracticeTeam(
+  practiceId: string,
+  config?: Pick<AxiosRequestConfig, 'signal'>
+): Promise<PracticeTeamResponse> {
   if (!practiceId) {
     throw new Error('practiceId is required');
   }
-  const response = await apiClient.get(`/api/practice/${encodeURIComponent(practiceId)}`);
+
+  const response = await apiClient.get(
+    `/api/practice/${encodeURIComponent(practiceId)}/team`,
+    { signal: config?.signal }
+  );
   const payload = unwrapApiData(response.data);
-  const practiceRecord = isRecord(payload) && isRecord(payload.practice) ? payload.practice : payload;
-  if (isRecord(practiceRecord) && Array.isArray(practiceRecord.members)) {
-    return practiceRecord.members as unknown[];
+  if (!isRecord(payload)) {
+    throw new Error('Invalid practice team response');
   }
-  if (Array.isArray(payload)) {
-    return payload;
-  }
-  if (isRecord(payload) && Array.isArray(payload.members)) {
-    return payload.members as unknown[];
-  }
-  return [];
+
+  const members = Array.isArray(payload.members) ? payload.members : [];
+  const rawSummary = isRecord(payload.summary) ? payload.summary : {};
+
+  return {
+    members: members
+      .filter((member): member is Record<string, unknown> => isRecord(member))
+      .map<PracticeTeamResponse['members'][number] | null>((member) => {
+        const role = isTeamRole(member.role) ? member.role : null;
+        if (role === null) {
+          return null;
+        }
+
+        return {
+          userId: typeof member.userId === 'string'
+            ? member.userId
+            : (typeof member.user_id === 'string' ? member.user_id : ''),
+          email: typeof member.email === 'string' ? member.email : '',
+          name: typeof member.name === 'string' ? member.name : undefined,
+          image: typeof member.image === 'string' ? member.image : null,
+          role,
+          createdAt: typeof member.createdAt === 'number'
+            ? member.createdAt
+            : (typeof member.created_at === 'number' ? member.created_at : null),
+          canAssignToMatter: member.canAssignToMatter === true || member.can_assign_to_matter === true,
+          canMentionInternally: member.canMentionInternally === true || member.can_mention_internally === true,
+        };
+      })
+      .filter((member): member is PracticeTeamResponse['members'][number] => (
+        member !== null
+        && member !== undefined
+        && member.userId.trim().length > 0
+      )),
+    summary: {
+      seatsIncluded: typeof rawSummary.seatsIncluded === 'number'
+        ? rawSummary.seatsIncluded
+        : (typeof rawSummary.seats_included === 'number' ? rawSummary.seats_included : 1),
+      seatsUsed: typeof rawSummary.seatsUsed === 'number'
+        ? rawSummary.seatsUsed
+        : (typeof rawSummary.seats_used === 'number' ? rawSummary.seats_used : 0),
+    }
+  };
 }
 
 export async function updatePracticeMemberRole(

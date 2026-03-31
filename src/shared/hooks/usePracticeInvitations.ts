@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'preact/hooks';
 import {
+  cancelPracticeInvitation,
   createPracticeInvitation,
   listPracticeInvitations,
   respondToPracticeInvitation,
@@ -16,6 +17,7 @@ interface UsePracticeInvitationsReturn {
   sendInvitation: (email: string, role: Role) => Promise<void>;
   acceptInvitation: (invitationId: string) => Promise<void>;
   declineInvitation: (invitationId: string) => Promise<void>;
+  cancelInvitation: (invitationId: string) => Promise<void>;
 }
 
 export const usePracticeInvitations = (practiceId: string | null | undefined): UsePracticeInvitationsReturn => {
@@ -106,6 +108,11 @@ export const usePracticeInvitations = (practiceId: string | null | undefined): U
     await fetchInvitations();
   }, [fetchInvitations]);
 
+  const cancelInvitation = useCallback(async (invitationId: string) => {
+    await cancelPracticeInvitation(invitationId);
+    await fetchInvitations();
+  }, [fetchInvitations]);
+
   useEffect(() => {
     const controller = new AbortController();
     void fetchInvitations(controller.signal);
@@ -120,5 +127,6 @@ export const usePracticeInvitations = (practiceId: string | null | undefined): U
     sendInvitation,
     acceptInvitation,
     declineInvitation,
+    cancelInvitation,
   };
 };

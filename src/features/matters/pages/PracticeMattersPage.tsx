@@ -44,7 +44,7 @@ import { UnbilledSummaryCard } from '@/features/matters/components/billing/Unbil
 import { MatterSummaryCards } from '@/features/matters/components/MatterSummaryCards';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { useToastContext } from '@/shared/contexts/ToastContext';
-import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
+import { usePracticeTeam } from '@/shared/hooks/usePracticeTeam';
 import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
 import { asMajor, getMajorAmountValue, safeAdd, safeDivide, safeMultiply, type MajorAmount } from '@/shared/utils/money';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
@@ -314,9 +314,10 @@ export const PracticeMattersPage = ({
   }, [basePath]);
 
   // ── External hooks ────────────────────────────────────────────────────────
-  const { getMembers, fetchMembers } = usePracticeManagement({
-    autoFetchPractices: false,
-    fetchPracticeDetails: false
+  const {
+    members: teamMembers,
+  } = usePracticeTeam(activePracticeId, session?.user?.id ?? null, {
+    enabled: Boolean(activePracticeId)
   });
   const {
     details: practiceDetails,
@@ -424,9 +425,8 @@ export const PracticeMattersPage = ({
   }, [practiceDetails?.services]);
 
   const assigneeOptions = useMemo<MatterOption[]>(() => {
-    if (!activePracticeId) return [];
-    return getMembers(activePracticeId)
-      .filter((m) => m.role !== 'member' && m.role !== 'client')
+    return teamMembers
+      .filter((member) => member.canAssignToMatter)
       .map((m) => ({
         id: m.userId,
         name: m.name ?? m.email,
@@ -434,11 +434,11 @@ export const PracticeMattersPage = ({
         image: m.image ?? undefined,
         role: m.role
       }));
-  }, [activePracticeId, getMembers]);
+  }, [teamMembers]);
 
   const assigneeNameById = useMemo(
-    () => new Map(assigneeOptions.map((a) => [a.id, a.name])),
-    [assigneeOptions]
+    () => new Map(teamMembers.map((m) => [m.userId, m.name ?? m.email])),
+    [teamMembers]
   );
 
   const serviceNameById = useMemo(
@@ -464,14 +464,14 @@ export const PracticeMattersPage = ({
   }, [clientNameById, selectedMatterDetailState, serviceNameById]);
 
   const membersById = useMemo(() => {
-    if (!activePracticeId) return new Map<string, { name: string; email?: string | null; image?: string | null }>();
+    if (teamMembers.length === 0) return new Map<string, { name: string; email?: string | null; image?: string | null }>();
     return new Map(
-      getMembers(activePracticeId).map((m) => [
+      teamMembers.map((m) => [
         m.userId,
         { name: m.name ?? '', email: m.email ?? null, image: m.image }
       ])
     );
-  }, [activePracticeId, getMembers]);
+  }, [teamMembers]);
 
   const matterContext = useMemo(() => ({
     title: selectedMatterDetail?.title ?? null,
@@ -545,12 +545,6 @@ export const PracticeMattersPage = ({
       buildNoteTimelineItem(note, resolvePerson),
     [resolvePerson]
   );
-
-  // ── Data fetching: members ────────────────────────────────────────────────
-  useEffect(() => {
-    if (!activePracticeId) return;
-    void fetchMembers(activePracticeId, { force: false });
-  }, [activePracticeId, fetchMembers]);
 
   // ── Data fetching: people (paginated) ─────────────────────────────────────
   const buildClientOption = useCallback((detail: UserDetailRecord): MatterOption => ({

@@ -129,6 +129,32 @@ export class ConversationService {
     }
   }
 
+  private async getAssignableTeamMemberIds(
+    practiceId: string,
+    request?: Request
+  ): Promise<Set<string>> {
+    const team = await RemoteApiService.getPracticeTeam(this.env, practiceId, request);
+    return new Set(
+      team.members
+        .filter((member) => member.canAssignToMatter)
+        .map((member) => member.userId)
+        .filter((userId) => typeof userId === 'string' && userId.trim().length > 0)
+    );
+  }
+
+  private async getMentionableTeamMemberIds(
+    practiceId: string,
+    request?: Request
+  ): Promise<Set<string>> {
+    const team = await RemoteApiService.getPracticeTeam(this.env, practiceId, request);
+    return new Set(
+      team.members
+        .filter((member) => member.canMentionInternally)
+        .map((member) => member.userId)
+        .filter((userId) => typeof userId === 'string' && userId.trim().length > 0)
+    );
+  }
+
   private readTrimmedString(value: unknown): string | null {
     if (typeof value !== 'string') return null;
     const trimmed = value.trim();
@@ -841,11 +867,14 @@ export class ConversationService {
     if (updates.assignedTo !== undefined) {
       if (updates.assignedTo && updates.assignedTo.trim()) {
         const trimmedId = updates.assignedTo.trim();
-        // Verify user is a member of the practice
-        const members = await RemoteApiService.getPracticeMembers(this.env, practiceId, options?.request);
-        const isMember = members.some(m => m.user_id === trimmedId);
-        if (!isMember) {
-          throw HttpErrors.badRequest(`User ${trimmedId} is not a member of practice ${practiceId}`);
+        const assignableMemberIds = await this.getAssignableTeamMemberIds(practiceId, options?.request);
+        Logger.debug('[ConversationService] Assignee team validation', {
+          practiceId,
+          requestedAssigneeUserId: trimmedId,
+          assignableMemberIds: Array.from(assignableMemberIds),
+        });
+        if (!assignableMemberIds.has(trimmedId)) {
+          throw HttpErrors.badRequest(`User ${trimmedId} is not an assignable team member of practice ${practiceId}`);
         }
         updatesList.push('assigned_to = ?');
         bindings.push(trimmedId);
@@ -942,12 +971,8 @@ export class ConversationService {
       )
     );
 
-    // Fetch practice members to validate mentions
-    const members = await RemoteApiService.getPracticeMembers(this.env, practiceId, options?.request);
-    const memberIds = new Set(members.map(m => m.user_id));
-    
-    // Filter to only include valid members
-    const normalizedMentionUserIds = rawMentionUserIds.filter(id => memberIds.has(id));
+    const mentionableMemberIds = await this.getMentionableTeamMemberIds(practiceId, options?.request);
+    const normalizedMentionUserIds = rawMentionUserIds.filter(id => mentionableMemberIds.has(id));
 
     const conversation = await this.getConversation(conversationId, practiceId);
     const metadata = { ...(conversation.user_info ?? {}) } as Record<string, unknown>;

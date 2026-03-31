@@ -4,12 +4,13 @@ import { HttpErrors } from '../errorHandler.js';
 import { HttpError, type Env } from '../types.js';
 import { ConversationService } from '../services/ConversationService.js';
 import { RemoteApiService } from '../services/RemoteApiService.js';
-import { optionalAuth, requirePracticeMember, checkPracticeMembership } from '../middleware/auth.js';
+import { optionalAuth, requirePracticeMember, requirePracticeMemberRole, checkPracticeMembership } from '../middleware/auth.js';
 import type { AuthContext } from '../middleware/auth.js';
 import { withPracticeContext, getPracticeId } from '../middleware/practiceContext.js';
 import { Logger } from '../utils/logger.js';
 import { SessionAuditService } from '../services/SessionAuditService.js';
 import { handleSubmitIntake } from './submitIntake.js';
+import { isTeamRole } from '../../src/shared/types/team.js';
 
 const SYSTEM_MESSAGE_ALLOWLIST = new Set([
   'system-intro',
@@ -864,6 +865,16 @@ export async function handleConversations(request: Request, env: Env): Promise<R
       || body.internalNotes !== undefined;
 
     if (isTriageUpdate) {
+      Logger.warn('[Conversations] Triage update auth check', {
+        conversationId,
+        practiceId,
+        authContextUserId: authContext.user.id,
+        authContextActiveOrganizationId: authContext.activeOrganizationId ?? null,
+        authContextActiveMembershipRole: authContext.activeMembershipRole ?? null,
+        assignedToPresent: body.assignedTo !== undefined,
+        priorityPresent: body.priority !== undefined,
+        internalNotesPresent: body.internalNotes !== undefined,
+      });
       if (body.assignedTo !== undefined && body.assignedTo !== null && typeof body.assignedTo !== 'string') {
         throw HttpErrors.badRequest('assignedTo must be a string or null');
       }
@@ -874,7 +885,7 @@ export async function handleConversations(request: Request, env: Env): Promise<R
       if (authContext.isAnonymous) {
         throw HttpErrors.unauthorized('Authentication required');
       }
-      await requirePracticeMember(request, env, practiceId, 'paralegal');
+      await requirePracticeMemberRole(request, env, practiceId, 'paralegal', { authContext });
     } else {
       if (body.metadata && 'mentionedUserIds' in body.metadata) {
         delete body.metadata.mentionedUserIds;
@@ -985,18 +996,20 @@ export async function handleConversations(request: Request, env: Env): Promise<R
       ...conversation.participants.filter((id) => typeof id === 'string' && id.trim().length > 0),
       ...(conversation.user_id ? [conversation.user_id] : [])
     ]));
-    const staffMemberIds = members
-      .filter((member) => member.role !== 'client')
-      .map((member) => member.user_id)
-      .filter((id) => typeof id === 'string' && id.trim().length > 0);
+    const mentionableStaffIds = members
+      .filter((member) => isTeamRole(member.role) && typeof member.user_id === 'string' && member.user_id.trim().length > 0)
+      .map((member) => member.user_id);
     const mentionableUserIds = callerIsStaff
       ? Array.from(new Set([
         ...participantIds,
-        ...staffMemberIds
+        ...mentionableStaffIds
       ]))
       : participantIds;
-    const memberById = new Map(members.map((member) => [member.user_id, member]));
-
+    const memberById = new Map<string, {
+      role?: string | null;
+      name?: string | null;
+      image?: string | null;
+    }>(members.map((member) => [member.user_id, member]));
     const participants = mentionableUserIds.map((participantUserId) => {
       const member = memberById.get(participantUserId);
       return {
@@ -1004,6 +1017,7 @@ export async function handleConversations(request: Request, env: Env): Promise<R
         role: member?.role ?? null,
         name: member?.name ?? null,
         image: member?.image ?? null,
+        canMentionInternally: isTeamRole(member?.role),
       };
     });
 

@@ -38,6 +38,7 @@ import { resolveConversationDisplayTitle } from '@/shared/utils/conversationDisp
 import { resolveConsultationState } from '@/shared/utils/consultationState';
 import { formatLongDate } from '@/shared/utils/dateFormatter';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
+import { usePracticeTeam } from '@/shared/hooks/usePracticeTeam';
 import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
 import { useMattersData } from '@/shared/hooks/useMattersData';
 import { useClientsData } from '@/shared/hooks/useClientsData';
@@ -893,7 +894,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     };
   }, [practiceLogo, practiceName, conversationPreviews, resolvedConversations, filteredMessages]);
 
-  const { currentPractice, updatePractice, getMembers, fetchMembers } = usePracticeManagement({ fetchOnboardingStatus: false });
+  const { currentPractice, updatePractice } = usePracticeManagement({ fetchOnboardingStatus: false });
   const { showSuccess, showError } = useToastContext();
   const handleOnboardingMessageError = useCallback((error: unknown) => {
     const message = error instanceof Error ? error.message : 'Onboarding chat error';
@@ -1074,11 +1075,16 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     forcePreviewReload();
   }, [forcePreviewReload, updateSetupDetails]);
 
-  const organizationId = currentPractice?.id ?? null;
-  const practiceMembers = useMemo(() => getMembers(practiceId), [getMembers, practiceId]);
+  const workspacePracticeId = practiceId ?? currentPractice?.id ?? null;
+  const organizationId = practiceId ?? currentPractice?.id ?? null;
+  const { members: practiceMembers } = usePracticeTeam(
+    workspacePracticeId,
+    session?.user?.id ?? null,
+    { enabled: isPracticeWorkspace && Boolean(workspacePracticeId) }
+  );
   const conversationMemberOptions = useMemo(
     () => practiceMembers
-      .filter((member) => member.role !== 'client')
+      .filter((member) => member.canMentionInternally)
       .map((member) => ({
         userId: member.userId,
         name: member.name?.trim() ?? '',
@@ -1096,13 +1102,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     })),
     [conversationMemberOptions]
   );
-
-  useEffect(() => {
-    if (!isPracticeWorkspace || !practiceId) return;
-    void fetchMembers(practiceId).catch((error) => {
-      console.warn('[WorkspacePage] Failed to fetch members for inspector', error);
-    });
-  }, [fetchMembers, isPracticeWorkspace, practiceId]);
   const [stripeStatus, setStripeStatus] = useState<StripeConnectStatus | null>(null);
   const [isStripeLoading, setIsStripeLoading] = useState(false);
   const [isStripeSubmitting, setIsStripeSubmitting] = useState(false);
@@ -1815,7 +1814,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       key={`${inspectorTarget.entityType}:${inspectorTarget.entityId}`}
       entityType={inspectorTarget.entityType}
       entityId={inspectorTarget.entityId}
-      practiceId={practiceId}
+      practiceId={workspacePracticeId}
       conversation={selectedConversation}
       conversationMembers={isPracticeWorkspace ? conversationMemberOptions : []}
       isClientView={!isPracticeWorkspace}
@@ -1828,7 +1827,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       onConversationAssignedToChange={isPracticeWorkspace ? async (assignedTo) => {
         if (!selectedConversation?.id) return;
         try {
-          await updateConversationTriage(selectedConversation.id, practiceId, { assignedTo });
+          await updateConversationTriage(selectedConversation.id, workspacePracticeId, { assignedTo });
           await refreshConversations();
         } catch (error) {
           console.error('[WorkspacePage] Failed to update assignment:', error);
@@ -1838,7 +1837,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       onConversationPriorityChange={isPracticeWorkspace ? async (priority) => {
         if (!selectedConversation?.id) return;
         try {
-          await updateConversationTriage(selectedConversation.id, practiceId, { priority });
+          await updateConversationTriage(selectedConversation.id, workspacePracticeId, { priority });
           await refreshConversations();
         } catch (error) {
           console.error('[WorkspacePage] Failed to update priority:', error);
@@ -1854,10 +1853,10 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
           const toRemove = [...current].filter((tag) => !next.has(tag));
           
           for (const tag of toAdd) {
-            await addConversationTag(selectedConversation.id, practiceId, tag);
+            await addConversationTag(selectedConversation.id, workspacePracticeId, tag);
           }
           for (const tag of toRemove) {
-            await removeConversationTag(selectedConversation.id, practiceId, tag);
+            await removeConversationTag(selectedConversation.id, workspacePracticeId, tag);
           }
           
           await refreshConversations();

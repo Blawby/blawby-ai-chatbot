@@ -9,6 +9,7 @@ import {
   handleConfig,
   handleNotifications,
   handlePracticeDetails,
+  handlePracticeTeam,
   handleWidgetPracticeDetails,
   handlePractices,
   handleAuthProxy,
@@ -68,6 +69,8 @@ async function handleRequestInternal(request: Request, env: Env, _ctx: Execution
 
     if (path.startsWith('/api/auth')) {
       response = await handleAuthProxy(request, env);
+    } else if (/^\/api\/practice\/[^/]+\/team$/.test(path)) {
+      response = await handlePracticeTeam(request, env);
     } else if (
       path.startsWith('/api/onboarding') ||
       path.startsWith('/api/matters') ||

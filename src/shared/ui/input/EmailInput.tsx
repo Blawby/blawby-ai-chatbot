@@ -5,6 +5,7 @@ import { cn } from '@/shared/utils/cn';
 import { useUniqueId } from '@/shared/hooks/useUniqueId';
 
 export interface EmailInputProps {
+  id?: string;
   value?: string;
   onChange?: (value: string) => void;
   placeholder?: string;
@@ -26,6 +27,7 @@ export interface EmailInputProps {
 }
 
 export const EmailInput = forwardRef<HTMLInputElement, EmailInputProps>(({
+  id,
   value = '',
   onChange,
   placeholder,
@@ -46,7 +48,8 @@ export const EmailInput = forwardRef<HTMLInputElement, EmailInputProps>(({
   'data-testid': dataTestId
 }, ref) => {
   // Generate stable unique IDs for accessibility
-  const inputId = useUniqueId('email-input');
+  const generatedInputId = useUniqueId('email-input');
+  const inputId = id || generatedInputId;
   const descriptionId = useUniqueId('email-description');
   const validationErrorId = useUniqueId('email-validation-error');
   const externalErrorId = useUniqueId('email-external-error');
@@ -65,7 +68,7 @@ export const EmailInput = forwardRef<HTMLInputElement, EmailInputProps>(({
 
   const sizeClasses = {
     sm: 'px-2 py-1 text-sm',
-    md: 'px-3 py-2 text-sm',
+    md: 'px-3 py-2.5 text-sm',
     lg: 'px-4 py-3 text-base'
   };
 
@@ -125,8 +128,8 @@ export const EmailInput = forwardRef<HTMLInputElement, EmailInputProps>(({
       )}
       
       <div className="relative">
-        <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-          <Icon icon={EnvelopeIcon} className="w-4 h-4 text-gray-400 dark:text-gray-500"  />
+        <div className="absolute inset-y-0 left-0 z-10 flex items-center pl-3 pointer-events-none">
+          <Icon icon={EnvelopeIcon} className="w-4 h-4 text-input-placeholder"  />
         </div>
         
         <input
@@ -146,7 +149,7 @@ export const EmailInput = forwardRef<HTMLInputElement, EmailInputProps>(({
         />
         
         {showValidationIcon && (
-          <div className="absolute inset-y-0 right-0 flex items-center pr-3">
+          <div className="absolute inset-y-0 right-0 z-10 flex items-center pr-3 pointer-events-none">
             {isEmailValid ? (
               <Icon icon={CheckIcon} className="w-4 h-4 text-green-600 dark:text-green-400"  />
             ) : (
