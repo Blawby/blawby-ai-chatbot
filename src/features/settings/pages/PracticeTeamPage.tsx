@@ -3,10 +3,10 @@ import { useLocation } from 'preact-iso';
 import { ArrowLeftIcon, UserPlusIcon } from '@heroicons/react/24/outline';
 import { Icon } from '@/shared/ui/Icon';
 import { usePracticeManagement, type Role } from '@/shared/hooks/usePracticeManagement';
+import { usePracticeTeam } from '@/shared/hooks/usePracticeTeam';
 import { usePracticeInvitations } from '@/shared/hooks/usePracticeInvitations';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { usePaymentUpgrade } from '@/shared/hooks/usePaymentUpgrade';
-import { normalizeSeats } from '@/shared/utils/subscription';
 import { Button } from '@/shared/ui/Button';
 import { Input } from '@/shared/ui/input';
 import { FormLabel } from '@/shared/ui/form/FormLabel';
@@ -32,8 +32,6 @@ export const PracticeTeamPage = ({ onNavigate, className }: PracticeTeamPageProp
   const { session, activeMemberRole, activeMemberRoleLoading } = useSessionContext();
   const {
     currentPractice,
-    getMembers,
-    fetchMembers,
     updateMemberRole,
     removeMember,
     loading
@@ -54,9 +52,16 @@ export const PracticeTeamPage = ({ onNavigate, className }: PracticeTeamPageProp
   const toSettingsPath = (subPath?: string) => buildSettingsPath(settingsBasePath, subPath);
 
   const currentUserEmail = session?.user?.email || '';
-  const members = useMemo(
-    () => (currentPractice ? getMembers(currentPractice.id) : []),
-    [currentPractice, getMembers]
+  const {
+    members,
+    summary,
+    isLoading: teamLoading,
+    error: teamError,
+    refetch: refetchTeam,
+  } = usePracticeTeam(
+    currentPractice?.id ?? null,
+    session?.user?.id ?? null,
+    { enabled: Boolean(currentPractice?.id) }
   );
 
   const currentMember = useMemo(() => {
@@ -98,11 +103,9 @@ export const PracticeTeamPage = ({ onNavigate, className }: PracticeTeamPageProp
   }, [location.query]);
 
   useEffect(() => {
-    if (!currentPractice) return;
-    fetchMembers(currentPractice.id).catch((err) => {
-      showError(err?.message || String(err) || 'Failed to fetch practice members');
-    });
-  }, [currentPractice, fetchMembers, showError]);
+    if (!teamError) return;
+    showError(teamError);
+  }, [showError, teamError]);
 
   if (currentPractice && !activeMemberRoleLoading && !isMember) {
     return (
@@ -133,6 +136,7 @@ export const PracticeTeamPage = ({ onNavigate, className }: PracticeTeamPageProp
 
     try {
       await updateMemberRole(currentPractice.id, editMemberData.userId, editMemberData.role);
+      await refetchTeam();
       showSuccess('Member role updated successfully!');
       setEditMemberData(null);
       setIsEditingMember(false);
@@ -150,6 +154,7 @@ export const PracticeTeamPage = ({ onNavigate, className }: PracticeTeamPageProp
 
     try {
       await removeMember(currentPractice.id, member.userId);
+      await refetchTeam();
       showSuccess('Member removed successfully!');
       setEditMemberData(null);
       setIsEditingMember(false);
@@ -161,6 +166,7 @@ export const PracticeTeamPage = ({ onNavigate, className }: PracticeTeamPageProp
   const handleAcceptInvitation = async (invitationId: string) => {
     try {
       await acceptInvitation(invitationId);
+      await refetchTeam();
       showSuccess('Invitation accepted!');
     } catch (err) {
       showError(err instanceof Error ? err.message : 'Failed to accept invitation');
@@ -207,7 +213,7 @@ export const PracticeTeamPage = ({ onNavigate, className }: PracticeTeamPageProp
               Manage access to your practice workspace.
             </p>
             <SettingsHelperText className="mt-2">
-              Seats used: {members.length} / {normalizeSeats(currentPractice?.seats)}
+              Seats used: {summary.seatsUsed} / {summary.seatsIncluded}
             </SettingsHelperText>
           </div>
           {isAdmin && (
@@ -222,10 +228,10 @@ export const PracticeTeamPage = ({ onNavigate, className }: PracticeTeamPageProp
         </div>
       </div>
 
-        {members.length > normalizeSeats(currentPractice?.seats) && (
+        {summary.seatsUsed > summary.seatsIncluded && (
           <SettingsNotice variant="warning" className="mb-4" role="status" aria-live="polite">
             <p className="text-sm">
-              You&apos;re using {members.length} seats but your plan includes {normalizeSeats(currentPractice?.seats)}. The billing owner can increase seats in Stripe.
+              You&apos;re using {summary.seatsUsed} seats but your plan includes {summary.seatsIncluded}. The billing owner can increase seats in Stripe.
               {isOwner && (
                 <Button
                   variant="ghost"
@@ -246,7 +252,7 @@ export const PracticeTeamPage = ({ onNavigate, className }: PracticeTeamPageProp
           </SettingsNotice>
         )}
 
-      {members.length === 0 && loading ? (
+      {members.length === 0 && (loading || teamLoading) ? (
         <SettingsHelperText>Loading members...</SettingsHelperText>
       ) : members.length > 0 ? (
           <div className="space-y-3">

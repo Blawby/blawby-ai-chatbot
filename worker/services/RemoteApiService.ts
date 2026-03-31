@@ -3,6 +3,7 @@ import { HttpError } from '../types.js';
 import { HttpErrors } from '../errorHandler.js';
 import { Logger } from '../utils/logger.js';
 import { warnIfNotMinorUnits } from '../utils/money.js';
+import { canAssignTeamMemberToMatter, isTeamRole, type PracticeTeamResponse } from '../../src/shared/types/team.js';
 
 /**
  * Service for fetching practice and subscription data from the remote API.
@@ -15,6 +16,7 @@ import { warnIfNotMinorUnits } from '../utils/money.js';
  */
 export class RemoteApiService {
   private static readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+  private static readonly DEFAULT_SEAT_COUNT = 1;
   /** Per-isolate cache for practice data - resets when isolate is evicted */
   private static practiceCache = new Map<string, { data: PracticeOrWorkspace; timestamp: number }>();
   /** Per-isolate cache for conversation config - resets when isolate is evicted */
@@ -370,6 +372,69 @@ export class RemoteApiService {
     practiceId: string,
     request?: Request
   ): Promise<Array<{ user_id: string; email?: string | null; role?: string | null; name?: string | null; image?: string | null }>> {
+    const practice = await this.getPracticeMembershipData(env, practiceId, request);
+    return practice.members;
+  }
+
+  static async getPracticeTeam(
+    env: Env,
+    practiceId: string,
+    request?: Request
+  ): Promise<PracticeTeamResponse> {
+    const practice = await this.getPracticeMembershipData(env, practiceId, request);
+    const members = practice.members
+      .filter((member): member is typeof practice.members[number] & {
+        role: import('../../src/shared/types/team.js').TeamRole;
+        email: string;
+      } => (
+        isTeamRole(member.role)
+        && typeof member.user_id === 'string'
+        && member.user_id.trim().length > 0
+        && typeof member.email === 'string'
+        && member.email.trim().length > 0
+      ))
+      .map((member) => ({
+        userId: member.user_id,
+        email: member.email,
+        name: member.name ?? undefined,
+        image: member.image ?? null,
+        role: member.role,
+        createdAt: member.created_at,
+        canAssignToMatter: canAssignTeamMemberToMatter(member.role),
+        canMentionInternally: true,
+      }));
+
+    return {
+      members,
+      summary: {
+        seatsIncluded: this.normalizeSeats(practice.seats),
+        seatsUsed: members.length,
+      },
+    };
+  }
+
+  private static normalizeSeats(seats?: number | null): number {
+    const seatsValue = seats ?? 0;
+    return Number.isFinite(seatsValue) && seatsValue > 0
+      ? seatsValue
+      : this.DEFAULT_SEAT_COUNT;
+  }
+
+  private static async getPracticeMembershipData(
+    env: Env,
+    practiceId: string,
+    request?: Request
+  ): Promise<{
+    seats: number | null;
+    members: Array<{
+      user_id: string;
+      email?: string | null;
+      role: string | null;
+      name?: string | null;
+      image?: string | null;
+      created_at: number | null;
+    }>;
+  }> {
     type PracticeMemberPayload = {
       user_id?: string;
       userId?: string;
@@ -382,28 +447,48 @@ export class RemoteApiService {
         image?: string | null;
         email?: string | null;
       };
+      created_at?: string | number | null;
+      createdAt?: string | number | null;
+      joined_at?: string | number | null;
+      joinedAt?: string | number | null;
     };
     const response = await this.fetchFromRemoteApi(env, `/api/practice/${practiceId}`, request);
     const data = await response.json() as {
-      practice?: { members?: PracticeMemberPayload[] };
+      practice?: { members?: PracticeMemberPayload[]; seats?: number | null };
       data?: {
         members?: PracticeMemberPayload[];
-        practice?: { members?: PracticeMemberPayload[] };
+        seats?: number | null;
+        practice?: { members?: PracticeMemberPayload[]; seats?: number | null };
       };
       members?: PracticeMemberPayload[];
+      seats?: number | null;
     };
 
+    const practiceRecord =
+      data.practice ??
+      data.data?.practice ??
+      data.data ??
+      data;
+
     const members =
-      data.practice?.members ??
-      data.data?.practice?.members ??
+      practiceRecord.members ??
       data.data?.members ??
       data.members;
 
+    const seatsValue = typeof practiceRecord.seats === 'number'
+      ? practiceRecord.seats
+      : (typeof data.seats === 'number' ? data.seats : null);
+
     if (!Array.isArray(members)) {
-      return [];
+      return {
+        seats: seatsValue,
+        members: [],
+      };
     }
 
-    return members
+    return {
+      seats: seatsValue,
+      members: members
       .filter((m): m is PracticeMemberPayload => typeof m.userId === 'string' || typeof m.user_id === 'string')
       .map((m) => ({
         user_id: (typeof m.userId === 'string' ? m.userId : m.user_id) as string,
@@ -417,7 +502,31 @@ export class RemoteApiService {
         image: typeof m.image === 'string'
           ? m.image
           : (typeof m.user?.image === 'string' ? m.user.image : undefined),
-      }));
+        created_at: this.normalizeMembershipTimestamp(
+          m.createdAt ??
+          m.created_at ??
+          m.joinedAt ??
+          m.joined_at
+        ),
+      })),
+    };
+  }
+
+  private static normalizeMembershipTimestamp(value: unknown): number | null {
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return value;
+    }
+    if (typeof value === 'string' && value.trim()) {
+      const numericValue = Number(value);
+      if (Number.isFinite(numericValue)) {
+        return numericValue;
+      }
+      const parsedDate = Date.parse(value);
+      if (Number.isFinite(parsedDate)) {
+        return parsedDate;
+      }
+    }
+    return null;
   }
 
   /**

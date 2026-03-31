@@ -15,3 +15,4 @@ export { handleNotifications } from './notifications';
 export { handlePDF } from './pdf';
 export { handleDebug } from './debug';
 export { handleWidgetBootstrap } from './widget';
+export { handlePracticeTeam } from './practiceTeam';

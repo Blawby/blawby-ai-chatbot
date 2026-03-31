@@ -8,6 +8,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { Icon } from '@/shared/ui/Icon';
 import { usePracticeManagement, type Practice } from '@/shared/hooks/usePracticeManagement';
+import { usePracticeTeam } from '@/shared/hooks/usePracticeTeam';
 import { Button } from '@/shared/ui/Button';
 import { FormActions } from '@/shared/ui/form';
 import type { Address } from '@/shared/types/address';
@@ -146,13 +147,11 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
   const { session, isPending: sessionPending, activeMemberRole } = useSessionContext();
   const { 
     currentPractice,
-    getMembers,
     loading, 
     error,
     updatePractice,
     createPractice,
     deletePractice,
-    fetchMembers,
     refetch,
   } = usePracticeManagement({ fetchPracticeDetails: true });
   const activePracticeId = currentPractice?.id ?? null;
@@ -192,7 +191,14 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
 
   const practice = currentPractice ?? null;
   const hasPractice = !!practice;
-  const members = useMemo(() => practice ? getMembers(practice.id) : [], [practice, getMembers]);
+  const {
+    members,
+    refetch: refetchTeam,
+  } = usePracticeTeam(
+    practice?.id ?? null,
+    session?.user?.id ?? null,
+    { enabled: Boolean(practice?.id) }
+  );
   
   // Better approach - get role directly from current practice context
   const currentMember = useMemo(() => {
@@ -316,21 +322,19 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
 
   // Current user email is now derived from session - removed redirect to keep practice settings accessible
 
-  // Initialize form with current practice data
-  // Note: usePracticeManagement already fetches practice details during initialization,
-  // so we only need to fetch members here. Details are available via practiceDetailsStore.
+  // Initialize form with current practice data. Practice details are hydrated elsewhere.
   usePracticeMembersSync({
     practice,
-    setEditPracticeForm,
-    fetchMembers,
-    showError
+    setEditPracticeForm
   });
 
   // Refetch after return from portal
   usePracticeSyncParamRefetch({
     location,
     practiceId: practice?.id ?? null,
-    refetch,
+    refetch: async () => {
+      await Promise.all([refetch(), refetchTeam()]);
+    },
     showSuccess
   });
 

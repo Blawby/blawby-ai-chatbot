@@ -516,7 +516,7 @@ export function MainApp({
       try {
         const participants = await getConversationParticipants(activeConversationId, practiceId, { signal: controller.signal });
         const nextMentionCandidates = participants
-          .filter((participant) => participant.role !== 'client')
+          .filter((participant) => participant.canMentionInternally === true)
           .map((participant) => ({
             userId: participant.userId,
             name: (participant.name ?? '').trim(),

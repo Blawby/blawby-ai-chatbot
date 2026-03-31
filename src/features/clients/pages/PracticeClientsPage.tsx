@@ -14,6 +14,8 @@ import { ActivityTimeline, type TimelineItem } from '@/shared/ui/activity/Activi
 import { formatDate } from '@/shared/utils/dateTime';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { useToastContext } from '@/shared/contexts/ToastContext';
+import { useSessionContext } from '@/shared/contexts/SessionContext';
+import { usePracticeTeam } from '@/shared/hooks/usePracticeTeam';
 import type { Address } from '@/shared/types/address';
 import {
   listUserDetailMemos,
@@ -333,15 +335,13 @@ export const PracticeClientsPage = ({
   showDetailBackButton?: boolean;
 }) => {
   const location = useLocation();
-  const { currentPractice, fetchMembers, getMembers } = usePracticeManagement();
+  const { currentPractice } = usePracticeManagement();
+  const { session } = useSessionContext();
   const { showError, showSuccess } = useToastContext();
   const [memoTimeline, setMemoTimeline] = useState<Record<string, TimelineItem[]>>({});
   const [memoSubmitting, setMemoSubmitting] = useState(false);
   const [memoActionId, setMemoActionId] = useState<string | null>(null);
   const [sendMessagePending, setSendMessagePending] = useState(false);
-  const [isFetchingMembers, setIsFetchingMembers] = useState(false);
-  const [teamMembersLoaded, setTeamMembersLoaded] = useState(false);
-  const [teamMembersError, setTeamMembersError] = useState<string | null>(null);
   const [hydratedAddressByDetailId, setHydratedAddressByDetailId] = useState<Record<string, unknown>>({});
   const processedDetailIdsRef = useRef<Set<string>>(new Set());
   const [addClientSubmitting, setAddClientSubmitting] = useState(false);
@@ -389,6 +389,12 @@ export const PracticeClientsPage = ({
   const listRef = useRef<HTMLDivElement>(null);
   const [currentLetter, setCurrentLetter] = useState('');
   const activePracticeId = routePracticeId === undefined ? (currentPractice?.id ?? null) : routePracticeId;
+  const {
+    members: teamMembersData,
+    isLoaded: teamMembersLoaded,
+    isLoading: isFetchingMembers,
+    error: teamMembersError,
+  } = usePracticeTeam(activePracticeId, session?.user?.id ?? null, { enabled: Boolean(activePracticeId) });
 
   const buildClientRecord = useCallback((detail: PersonRecord): DirectoryRecord => {
     const name = detail.user?.name?.trim() || detail.user?.email?.trim() || 'Unknown person';
@@ -470,10 +476,7 @@ export const PracticeClientsPage = ({
     };
   }, [activePracticeId, prefetchedItems]);
   const teamMembers = useMemo(() => {
-    if (!activePracticeId) return [];
-    return getMembers(activePracticeId)
-      .filter((member) => member.role !== 'client')
-      .map<DirectoryRecord>((member) => ({
+    return teamMembersData.map<DirectoryRecord>((member) => ({
         id: `team:${member.userId}`,
         kind: 'team',
         userId: member.userId,
@@ -482,30 +485,7 @@ export const PracticeClientsPage = ({
         phone: null,
         teamRole: member.role
       }));
-  }, [activePracticeId, getMembers]);
-  useEffect(() => {
-    if (!activePracticeId) {
-      setIsFetchingMembers(false);
-      setTeamMembersLoaded(false);
-      setTeamMembersError(null);
-      return;
-    }
-    setIsFetchingMembers(true);
-    setTeamMembersLoaded(false);
-    setTeamMembersError(null);
-    fetchMembers(activePracticeId)
-      .then(() => {
-        setTeamMembersLoaded(true);
-      })
-      .catch((error) => {
-        console.error('[People] Failed to load team members', error);
-        setTeamMembersLoaded(false);
-        setTeamMembersError(error instanceof Error ? error.message : 'Failed to load team members');
-      })
-      .finally(() => {
-        setIsFetchingMembers(false);
-      });
-  }, [activePracticeId, fetchMembers]);
+  }, [teamMembersData]);
   const clients = useMemo(() => {
     const peopleItems = prefetchedItems.map(buildClientRecord);
     if (isArchivedListRoute) {

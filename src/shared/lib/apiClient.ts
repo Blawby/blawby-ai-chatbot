@@ -7,6 +7,7 @@ import {
 } from '@/config/api';
 import type { Conversation } from '@/shared/types/conversation';
 import type { Address } from '@/shared/types/address';
+import type { PracticeTeamResponse } from '@/shared/types/team';
 import { getWorkerApiUrl, isWidgetTokenEligibleRequestUrl } from '@/config/urls';
 import {
   toMajorUnits,
@@ -15,6 +16,7 @@ import {
   assertMinorUnits,
   type MajorAmount
 } from '@/shared/utils/money';
+import { isTeamRole } from '@/shared/types/team';
 import { getWidgetAuthToken } from '@/shared/utils/widgetAuth';
 
 let cachedBaseUrl: string | null = null;
@@ -379,6 +381,7 @@ export type ConversationParticipant = {
   role?: string | null;
   name?: string | null;
   image?: string | null;
+  canMentionInternally?: boolean;
 };
 
 export async function getConversationParticipants(
@@ -414,6 +417,7 @@ export async function getConversationParticipants(
       role: typeof row.role === 'string' ? row.role : null,
       name: typeof row.name === 'string' ? row.name : null,
       image: typeof row.image === 'string' ? row.image : null,
+      canMentionInternally: row.canMentionInternally === true || row.can_mention_internally === true,
     }))
     .filter((row) => row.userId.trim().length > 0);
 }
@@ -789,6 +793,67 @@ export async function listPracticeMembers(practiceId: string): Promise<unknown[]
     return payload.members as unknown[];
   }
   return [];
+}
+
+export async function listPracticeTeam(
+  practiceId: string,
+  config?: Pick<AxiosRequestConfig, 'signal'>
+): Promise<PracticeTeamResponse> {
+  if (!practiceId) {
+    throw new Error('practiceId is required');
+  }
+
+  const response = await apiClient.get(
+    `/api/practice/${encodeURIComponent(practiceId)}/team`,
+    { signal: config?.signal }
+  );
+  const payload = unwrapApiData(response.data);
+  if (!isRecord(payload)) {
+    throw new Error('Invalid practice team response');
+  }
+
+  const members = Array.isArray(payload.members) ? payload.members : [];
+  const rawSummary = isRecord(payload.summary) ? payload.summary : {};
+
+  return {
+    members: members
+      .filter((member): member is Record<string, unknown> => isRecord(member))
+      .map<PracticeTeamResponse['members'][number] | null>((member) => {
+        const role = isTeamRole(member.role) ? member.role : null;
+        if (role === null) {
+          return null;
+        }
+
+        return {
+          userId: typeof member.userId === 'string'
+            ? member.userId
+            : (typeof member.user_id === 'string' ? member.user_id : ''),
+          email: typeof member.email === 'string' ? member.email : '',
+          name: typeof member.name === 'string' ? member.name : undefined,
+          image: typeof member.image === 'string' ? member.image : null,
+          role,
+          createdAt: typeof member.createdAt === 'number'
+            ? member.createdAt
+            : (typeof member.created_at === 'number' ? member.created_at : null),
+          canAssignToMatter: member.canAssignToMatter === true || member.can_assign_to_matter === true,
+          canMentionInternally: member.canMentionInternally === true || member.can_mention_internally === true,
+        };
+      })
+      .filter((member): member is PracticeTeamResponse['members'][number] => (
+        member !== null
+        && member !== undefined
+        && member.userId.trim().length > 0
+        && member.email.trim().length > 0
+      )),
+    summary: {
+      seatsIncluded: typeof rawSummary.seatsIncluded === 'number'
+        ? rawSummary.seatsIncluded
+        : (typeof rawSummary.seats_included === 'number' ? rawSummary.seats_included : 1),
+      seatsUsed: typeof rawSummary.seatsUsed === 'number'
+        ? rawSummary.seatsUsed
+        : (typeof rawSummary.seats_used === 'number' ? rawSummary.seats_used : 0),
+    }
+  };
 }
 
 export async function updatePracticeMemberRole(

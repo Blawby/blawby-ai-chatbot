@@ -23,6 +23,7 @@ import {
 } from '@/shared/lib/apiClient';
 import { normalizeSubscriptionStatus as normalizePracticeStatus } from '@/shared/utils/subscription';
 import { resetPracticeDetailsStore, setPracticeDetailsEntry } from '@/shared/stores/practiceDetailsStore';
+import { invalidatePracticeTeamForPractice, resetPracticeTeamStore } from '@/shared/stores/practiceTeamStore';
 import { asMajor, type MajorAmount } from '@/shared/utils/money';
 import { normalizePracticeRole, type PracticeRole } from '@/shared/utils/practiceRoles';
 
@@ -575,6 +576,7 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
   useEffect(() => {
     if (membersCacheUserId !== resolvedUserId) {
       resetMembersCache();
+      resetPracticeTeamStore();
       membersCacheUserId = resolvedUserId;
     }
   }, [resolvedUserId]);
@@ -1245,12 +1247,14 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
   // Update member role
   const updateMemberRole = useCallback(async (practiceId: string, userId: string, role: Role): Promise<void> => {
     await apiUpdatePracticeMemberRole(practiceId, { userId, role });
+    invalidatePracticeTeamForPractice(practiceId);
     await fetchMembers(practiceId, { force: true });
   }, [fetchMembers]);
 
   // Remove member
   const removeMember = useCallback(async (practiceId: string, userId: string): Promise<void> => {
     await apiDeletePracticeMember(practiceId, userId);
+    invalidatePracticeTeamForPractice(practiceId);
     await fetchMembers(practiceId, { force: true });
   }, [fetchMembers]);
 

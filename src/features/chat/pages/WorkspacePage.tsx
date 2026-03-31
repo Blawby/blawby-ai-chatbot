@@ -38,6 +38,7 @@ import { resolveConversationDisplayTitle } from '@/shared/utils/conversationDisp
 import { resolveConsultationState } from '@/shared/utils/consultationState';
 import { formatLongDate } from '@/shared/utils/dateFormatter';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
+import { usePracticeTeam } from '@/shared/hooks/usePracticeTeam';
 import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
 import { useMattersData } from '@/shared/hooks/useMattersData';
 import { useClientsData } from '@/shared/hooks/useClientsData';
@@ -893,7 +894,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     };
   }, [practiceLogo, practiceName, conversationPreviews, resolvedConversations, filteredMessages]);
 
-  const { currentPractice, updatePractice, getMembers, fetchMembers } = usePracticeManagement({ fetchOnboardingStatus: false });
+  const { currentPractice, updatePractice } = usePracticeManagement({ fetchOnboardingStatus: false });
   const { showSuccess, showError } = useToastContext();
   const handleOnboardingMessageError = useCallback((error: unknown) => {
     const message = error instanceof Error ? error.message : 'Onboarding chat error';
@@ -1075,10 +1076,14 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   }, [forcePreviewReload, updateSetupDetails]);
 
   const organizationId = currentPractice?.id ?? null;
-  const practiceMembers = useMemo(() => getMembers(practiceId), [getMembers, practiceId]);
+  const { members: practiceMembers } = usePracticeTeam(
+    practiceId,
+    session?.user?.id ?? null,
+    { enabled: isPracticeWorkspace && Boolean(practiceId) }
+  );
   const conversationMemberOptions = useMemo(
     () => practiceMembers
-      .filter((member) => member.role !== 'client')
+      .filter((member) => member.canMentionInternally)
       .map((member) => ({
         userId: member.userId,
         name: member.name?.trim() ?? '',
@@ -1096,13 +1101,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     })),
     [conversationMemberOptions]
   );
-
-  useEffect(() => {
-    if (!isPracticeWorkspace || !practiceId) return;
-    void fetchMembers(practiceId).catch((error) => {
-      console.warn('[WorkspacePage] Failed to fetch members for inspector', error);
-    });
-  }, [fetchMembers, isPracticeWorkspace, practiceId]);
   const [stripeStatus, setStripeStatus] = useState<StripeConnectStatus | null>(null);
   const [isStripeLoading, setIsStripeLoading] = useState(false);
   const [isStripeSubmitting, setIsStripeSubmitting] = useState(false);

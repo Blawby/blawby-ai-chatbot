@@ -21,6 +21,7 @@ export interface NavRailProps {
   activeHref: string;
   variant: 'rail' | 'bottom';
   showLabels?: boolean;
+  hidden?: boolean;
   className?: string;
   onItemActivate?: () => void;
 }
@@ -52,12 +53,14 @@ export const NavRail: FunctionComponent<NavRailProps> = ({
   activeHref,
   variant,
   showLabels = false,
+  hidden = false,
   className,
   onItemActivate,
 }) => {
   const location = useLocation();
   const { navigate } = useNavigation();
   const resolvedPath = normalizePath(activeHref || location.path);
+  if (hidden) return null;
   const activeItemId = items.reduce<{ id: string | null; score: number }>((best, item) => {
     if (item.isAction) return best;
     const score = getBestMatchScore(resolvedPath, item);
