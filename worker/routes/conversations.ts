@@ -4,7 +4,7 @@ import { HttpErrors } from '../errorHandler.js';
 import { HttpError, type Env } from '../types.js';
 import { ConversationService } from '../services/ConversationService.js';
 import { RemoteApiService } from '../services/RemoteApiService.js';
-import { optionalAuth, requirePracticeMember, checkPracticeMembership } from '../middleware/auth.js';
+import { optionalAuth, requirePracticeMember, requirePracticeMemberRole, checkPracticeMembership } from '../middleware/auth.js';
 import type { AuthContext } from '../middleware/auth.js';
 import { withPracticeContext, getPracticeId } from '../middleware/practiceContext.js';
 import { Logger } from '../utils/logger.js';
@@ -864,6 +864,16 @@ export async function handleConversations(request: Request, env: Env): Promise<R
       || body.internalNotes !== undefined;
 
     if (isTriageUpdate) {
+      Logger.warn('[Conversations] Triage update auth check', {
+        conversationId,
+        practiceId,
+        authContextUserId: authContext.user.id,
+        authContextActiveOrganizationId: authContext.activeOrganizationId ?? null,
+        authContextActiveMembershipRole: authContext.activeMembershipRole ?? null,
+        assignedToPresent: body.assignedTo !== undefined,
+        priorityPresent: body.priority !== undefined,
+        internalNotesPresent: body.internalNotes !== undefined,
+      });
       if (body.assignedTo !== undefined && body.assignedTo !== null && typeof body.assignedTo !== 'string') {
         throw HttpErrors.badRequest('assignedTo must be a string or null');
       }
@@ -874,7 +884,7 @@ export async function handleConversations(request: Request, env: Env): Promise<R
       if (authContext.isAnonymous) {
         throw HttpErrors.unauthorized('Authentication required');
       }
-      await requirePracticeMember(request, env, practiceId, 'paralegal');
+      await requirePracticeMemberRole(request, env, practiceId, 'paralegal', { authContext });
     } else {
       if (body.metadata && 'mentionedUserIds' in body.metadata) {
         delete body.metadata.mentionedUserIds;
@@ -986,13 +996,13 @@ export async function handleConversations(request: Request, env: Env): Promise<R
       ...conversation.participants.filter((id) => typeof id === 'string' && id.trim().length > 0),
       ...(conversation.user_id ? [conversation.user_id] : [])
     ]));
-    const staffMemberIds = team.members
-      .map((member) => member.userId)
-      .filter((id) => typeof id === 'string' && id.trim().length > 0);
+    const mentionableStaffIds = team.members
+      .filter((m) => typeof m.userId === 'string' && m.userId.trim().length > 0 && m.canMentionInternally === true)
+      .map((m) => m.userId);
     const mentionableUserIds = callerIsStaff
       ? Array.from(new Set([
         ...participantIds,
-        ...staffMemberIds
+        ...mentionableStaffIds
       ]))
       : participantIds;
     const memberById = new Map<string, {
@@ -1000,16 +1010,17 @@ export async function handleConversations(request: Request, env: Env): Promise<R
       name?: string | null;
       image?: string | null;
     }>(members.map((member) => [member.user_id, member]));
-    const teamMemberIds = new Set(team.members.map((member) => member.userId));
+    const teamMemberMap = new Map(team.members.map((member) => [member.userId, member]));
 
     const participants = mentionableUserIds.map((participantUserId) => {
       const member = memberById.get(participantUserId);
+      const teamMember = teamMemberMap.get(participantUserId);
       return {
         userId: participantUserId,
         role: member?.role ?? null,
         name: member?.name ?? null,
         image: member?.image ?? null,
-        canMentionInternally: teamMemberIds.has(participantUserId),
+        canMentionInternally: teamMember?.canMentionInternally ?? false,
       };
     });
 

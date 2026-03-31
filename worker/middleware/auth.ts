@@ -540,6 +540,16 @@ async function fetchMemberRoleFromRemote(
         return false;
       });
 
+      Logger.warn('[Auth] Remote practice membership lookup', {
+        practiceId,
+        userId,
+        normalizedEmailPresent: Boolean(normalizedEmail),
+        memberCount: members.length,
+        memberUserIdsSample: members.slice(0, 10).map((member) => member.user_id),
+        matchedUserId: match?.user_id ?? null,
+        matchedRole: match?.role ?? null,
+      });
+
       if (!match) {
         throw HttpErrors.forbidden('User is not a member of this practice');
       }
@@ -603,6 +613,17 @@ async function requirePracticeMemberWithAuthContext(
   if (activeOrganizationId && activeOrganizationId === normalizedPracticeId && claimedRole) {
     userRole = claimedRole;
   }
+
+  Logger.warn('[Auth] requirePracticeMemberWithAuthContext start', {
+    practiceId: normalizedPracticeId,
+    userId: authContext.user.id,
+    isAnonymous: authContext.isAnonymous === true,
+    activeOrganizationId,
+    claimedRole,
+    usedClaimedRole: Boolean(userRole),
+    minimumRole: minimumRole ?? null,
+    hasCookie: authContext.cookie.trim().length > 0,
+  });
 
   // 3. Fall back to the remote membership lookup for non-active org contexts or
   // sessions that do not yet include routing membership claims.
@@ -674,9 +695,12 @@ export async function requirePracticeMemberRole(
   request: Request,
   env: Env,
   practiceId: string,
-  minimumRole?: "owner" | "admin" | "attorney" | "paralegal"
+  minimumRole?: "owner" | "admin" | "attorney" | "paralegal",
+  options?: { authContext?: AuthContext }
 ): Promise<AuthContext & { memberRole: string }> {
-  // Delegate to the primary implementation to prevent drift
+  if (options?.authContext) {
+    return requirePracticeMemberWithAuthContext(options.authContext, env, practiceId, minimumRole);
+  }
   return requirePracticeMember(request, env, practiceId, minimumRole);
 }
 
