@@ -3,6 +3,8 @@ import { HttpErrors } from "../errorHandler";
 import { Logger } from "../utils/logger";
 import { extractWidgetTokenFromRequest, validateWidgetAuthToken } from "../utils/widgetAuthToken.js";
 
+const AUTH_TIMEOUT_MS = 3000;
+
 export interface AuthenticatedUser {
   id: string;
   email?: string;
@@ -305,7 +307,6 @@ export async function validateSessionWithRemoteServer(
   }
 
   const authServerUrl = resolveBackendApiUrl(env, 'Better Auth session validation');
-  const AUTH_TIMEOUT_MS = 3000;
   const validationPromise = (async () => {
     try {
       const getSessionUrl = `${authServerUrl}/api/auth/get-session`;
@@ -550,16 +551,29 @@ async function fetchMemberRoleFromRemote(
       }
       const baseUrl = resolveBackendApiUrl(env, 'active member role verification');
       const params = new URLSearchParams({ organizationId: practiceId });
-      const response = await fetch(
-        `${baseUrl}/api/auth/organization/get-active-member-role?${params.toString()}`,
-        {
-          method: 'GET',
-          headers: {
-            Cookie: cookie,
-            'Content-Type': 'application/json',
-          },
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), AUTH_TIMEOUT_MS);
+      let response: Response;
+      try {
+        response = await fetch(
+          `${baseUrl}/api/auth/organization/get-active-member-role?${params.toString()}`,
+          {
+            method: 'GET',
+            headers: {
+              Cookie: cookie,
+              'Content-Type': 'application/json',
+            },
+            signal: controller.signal,
+          }
+        );
+      } catch (error) {
+        if (error instanceof Error && error.name === 'AbortError') {
+          throw HttpErrors.gatewayTimeout('Membership role verification timed out');
         }
-      );
+        throw error;
+      } finally {
+        clearTimeout(timeoutId);
+      }
 
       const payload = await response.json().catch(() => null) as { role?: string | null; message?: string | null } | null;
 
@@ -572,6 +586,9 @@ async function fetchMemberRoleFromRemote(
         message: typeof payload?.message === 'string' ? payload.message : null,
       });
 
+      if (response.status === 401) {
+        throw HttpErrors.unauthorized('Session expired or unauthorized');
+      }
       if (response.status === 403) {
         throw HttpErrors.forbidden('User is not a member of this practice');
       }

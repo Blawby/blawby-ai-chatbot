@@ -51,6 +51,8 @@ export const usePracticeTeam = (
 
     const existing = practiceTeamInFlight.get(cacheKey);
     if (existing && !fetchOptions.force) {
+      setIsLoading(true);
+      setError(null);
       try {
         await existing;
       } catch (err) {
@@ -65,6 +67,10 @@ export const usePracticeTeam = (
         const message = err instanceof Error ? err.message : 'Failed to load team';
         setError(message);
         throw err;
+      } finally {
+        if (isMountedRef.current) {
+          setIsLoading(false);
+        }
       }
       return;
     }

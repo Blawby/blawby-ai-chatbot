@@ -440,7 +440,11 @@
         if (payload && payload.accentColor) {
           var colorBadge = document.createElement('div');
           colorBadge.className = 'badge';
-          colorBadge.innerHTML = '<span class="swatch" style="background:' + payload.accentColor + ';"></span>accentColor: ' + payload.accentColor;
+          var swatch = document.createElement('span');
+          swatch.className = 'swatch';
+          swatch.style.background = payload.accentColor;
+          colorBadge.appendChild(swatch);
+          colorBadge.appendChild(document.createTextNode('accentColor: ' + payload.accentColor));
           practiceFetchBadgesEl.appendChild(colorBadge);
         }
       }

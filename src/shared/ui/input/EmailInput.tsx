@@ -149,7 +149,7 @@ export const EmailInput = forwardRef<HTMLInputElement, EmailInputProps>(({
         />
         
         {showValidationIcon && (
-          <div className="absolute inset-y-0 right-0 z-10 flex items-center pr-3">
+          <div className="absolute inset-y-0 right-0 z-10 flex items-center pr-3 pointer-events-none">
             {isEmailValid ? (
               <Icon icon={CheckIcon} className="w-4 h-4 text-green-600 dark:text-green-400"  />
             ) : (

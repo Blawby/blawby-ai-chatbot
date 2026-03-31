@@ -866,25 +866,6 @@ export async function cancelPracticeInvitation(invitationId: string): Promise<vo
   await apiClient.post('/api/auth/organization/cancel-invitation', { invitationId });
 }
 
-export async function listPracticeMembers(practiceId: string): Promise<unknown[]> {
-  if (!practiceId) {
-    throw new Error('practiceId is required');
-  }
-  const response = await apiClient.get(`/api/practice/${encodeURIComponent(practiceId)}`);
-  const payload = unwrapApiData(response.data);
-  const practiceRecord = isRecord(payload) && isRecord(payload.practice) ? payload.practice : payload;
-  if (isRecord(practiceRecord) && Array.isArray(practiceRecord.members)) {
-    return practiceRecord.members as unknown[];
-  }
-  if (Array.isArray(payload)) {
-    return payload;
-  }
-  if (isRecord(payload) && Array.isArray(payload.members)) {
-    return payload.members as unknown[];
-  }
-  return [];
-}
-
 export async function listPracticeTeam(
   practiceId: string,
   config?: Pick<AxiosRequestConfig, 'signal'>

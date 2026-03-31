@@ -77,6 +77,7 @@ export const PracticeTeamPage = ({ onNavigate, className }: PracticeTeamPageProp
   const currentUserRole = normalizedActiveRole ?? roleFromMembers ?? 'member';
   const isOwner = currentUserRole === 'owner';
   const isAdmin = currentUserRole === 'admin' || isOwner;
+  const isMembershipResolved = !teamLoading && !teamError;
   const isMember = Boolean(normalizedActiveRole ?? roleFromMembers);
   const teamRoleOptions = PRACTICE_ROLE_OPTIONS.filter(option => option.value !== 'owner');
 
@@ -109,7 +110,7 @@ export const PracticeTeamPage = ({ onNavigate, className }: PracticeTeamPageProp
     showError(teamError);
   }, [showError, teamError]);
 
-  if (currentPractice && !activeMemberRoleLoading && !isMember) {
+  if (currentPractice && !activeMemberRoleLoading && isMembershipResolved && !isMember) {
     return (
       <div className="h-full flex items-center justify-center">
         <p className="text-sm text-input-placeholder">You are not a member of this practice.</p>

@@ -10,6 +10,7 @@ import { withPracticeContext, getPracticeId } from '../middleware/practiceContex
 import { Logger } from '../utils/logger.js';
 import { SessionAuditService } from '../services/SessionAuditService.js';
 import { handleSubmitIntake } from './submitIntake.js';
+import { isTeamRole } from '../../src/shared/types/team.js';
 
 const SYSTEM_MESSAGE_ALLOWLIST = new Set([
   'system-intro',
@@ -986,19 +987,18 @@ export async function handleConversations(request: Request, env: Env): Promise<R
       throw HttpErrors.forbidden('User is not authorized to view participants for this conversation');
     }
 
-    const [conversation, members, team] = await Promise.all([
+    const [conversation, members] = await Promise.all([
       conversationService.getConversation(conversationId, practiceId),
-      RemoteApiService.getPracticeMembers(env, practiceId, request),
-      RemoteApiService.getPracticeTeam(env, practiceId, request)
+      RemoteApiService.getPracticeMembers(env, practiceId, request)
     ]);
 
     const participantIds = Array.from(new Set([
       ...conversation.participants.filter((id) => typeof id === 'string' && id.trim().length > 0),
       ...(conversation.user_id ? [conversation.user_id] : [])
     ]));
-    const mentionableStaffIds = team.members
-      .filter((m) => typeof m.userId === 'string' && m.userId.trim().length > 0 && m.canMentionInternally === true)
-      .map((m) => m.userId);
+    const mentionableStaffIds = members
+      .filter((member) => isTeamRole(member.role) && typeof member.user_id === 'string' && member.user_id.trim().length > 0)
+      .map((member) => member.user_id);
     const mentionableUserIds = callerIsStaff
       ? Array.from(new Set([
         ...participantIds,
@@ -1010,17 +1010,14 @@ export async function handleConversations(request: Request, env: Env): Promise<R
       name?: string | null;
       image?: string | null;
     }>(members.map((member) => [member.user_id, member]));
-    const teamMemberMap = new Map(team.members.map((member) => [member.userId, member]));
-
     const participants = mentionableUserIds.map((participantUserId) => {
       const member = memberById.get(participantUserId);
-      const teamMember = teamMemberMap.get(participantUserId);
       return {
         userId: participantUserId,
         role: member?.role ?? null,
         name: member?.name ?? null,
         image: member?.image ?? null,
-        canMentionInternally: teamMember?.canMentionInternally ?? false,
+        canMentionInternally: isTeamRole(member?.role),
       };
     });
 

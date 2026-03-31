@@ -1075,8 +1075,8 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     forcePreviewReload();
   }, [forcePreviewReload, updateSetupDetails]);
 
-  const workspacePracticeId = currentPractice?.id ?? practiceId;
-  const organizationId = currentPractice?.id ?? null;
+  const workspacePracticeId = practiceId ?? currentPractice?.id ?? null;
+  const organizationId = practiceId ?? currentPractice?.id ?? null;
   const { members: practiceMembers } = usePracticeTeam(
     workspacePracticeId,
     session?.user?.id ?? null,

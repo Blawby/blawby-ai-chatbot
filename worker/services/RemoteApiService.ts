@@ -372,8 +372,7 @@ export class RemoteApiService {
     practiceId: string,
     request?: Request
   ): Promise<Array<{ user_id: string; email?: string | null; role?: string | null; name?: string | null; image?: string | null }>> {
-    const practice = await this.getPracticeMembershipData(env, practiceId, request);
-    return practice.members;
+    return this.getOrganizationMembers(env, practiceId, request);
   }
 
   static async getPracticeTeam(
@@ -443,6 +442,43 @@ export class RemoteApiService {
       };
       seats?: number | null;
     };
+    const [practiceResponse, members] = await Promise.all([
+      this.fetchFromRemoteApi(env, `/api/practice/${practiceId}`, request),
+      this.getOrganizationMembers(env, practiceId, request)
+    ]);
+
+    const practiceData = await practiceResponse.json() as PracticePayload;
+
+    const practiceRecord =
+      practiceData.practice ??
+      practiceData.data?.practice ??
+      practiceData.data ??
+      practiceData;
+
+    const seatsValue = typeof practiceRecord.seats === 'number'
+      ? practiceRecord.seats
+      : typeof practiceData.data?.seats === 'number'
+        ? practiceData.data.seats
+        : (typeof practiceData.seats === 'number' ? practiceData.seats : null);
+
+    return {
+      seats: seatsValue,
+      members,
+    };
+  }
+
+  private static async getOrganizationMembers(
+    env: Env,
+    practiceId: string,
+    request?: Request
+  ): Promise<Array<{
+    user_id: string;
+    email?: string | null;
+    role: string | null;
+    name?: string | null;
+    image?: string | null;
+    created_at: number | null;
+  }>> {
     type OrganizationMemberPayload = {
       id?: string;
       userId?: string;
@@ -458,58 +494,39 @@ export class RemoteApiService {
       };
     };
 
-    const [practiceResponse, membersResponse] = await Promise.all([
-      this.fetchFromRemoteApi(env, `/api/practice/${practiceId}`, request),
-      this.fetchFromRemoteApi(
-        env,
-        `/api/auth/organization/list-members?organizationId=${encodeURIComponent(practiceId)}`,
-        request
-      )
-    ]);
-
-    const practiceData = await practiceResponse.json() as PracticePayload;
+    const membersResponse = await this.fetchFromRemoteApi(
+      env,
+      `/api/auth/organization/list-members?organizationId=${encodeURIComponent(practiceId)}`,
+      request
+    );
     const membersData = await membersResponse.json() as {
       members?: OrganizationMemberPayload[];
     };
-
-    const practiceRecord =
-      practiceData.practice ??
-      practiceData.data?.practice ??
-      practiceData.data ??
-      practiceData;
-
-    const seatsValue = typeof practiceRecord.seats === 'number'
-      ? practiceRecord.seats
-      : (typeof practiceData.seats === 'number' ? practiceData.seats : null);
-
     const members = Array.isArray(membersData.members) ? membersData.members : [];
 
-    return {
-      seats: seatsValue,
-      members: members
-        .filter((member): member is OrganizationMemberPayload => (
+    return members
+      .filter((member): member is OrganizationMemberPayload => (
+        typeof member.userId === 'string'
+        || typeof member.user_id === 'string'
+        || typeof member.user?.id === 'string'
+      ))
+      .map((member) => ({
+        user_id: (
           typeof member.userId === 'string'
-          || typeof member.user_id === 'string'
-          || typeof member.user?.id === 'string'
-        ))
-        .map((member) => ({
-          user_id: (
-            typeof member.userId === 'string'
-              ? member.userId
-              : typeof member.user_id === 'string'
-                ? member.user_id
-                : member.user?.id
-          ) as string,
-          email: typeof member.user?.email === 'string' ? member.user.email : undefined,
-          role: typeof member.role === 'string' ? member.role : null,
-          name: typeof member.user?.name === 'string' ? member.user.name : undefined,
-          image: typeof member.user?.image === 'string' ? member.user.image : undefined,
-          created_at: this.normalizeMembershipTimestamp(
-            member.createdAt ??
-            member.created_at
-          ),
-        })),
-    };
+            ? member.userId
+            : typeof member.user_id === 'string'
+              ? member.user_id
+              : member.user?.id
+        ) as string,
+        email: typeof member.user?.email === 'string' ? member.user.email : undefined,
+        role: typeof member.role === 'string' ? member.role : null,
+        name: typeof member.user?.name === 'string' ? member.user.name : undefined,
+        image: typeof member.user?.image === 'string' ? member.user.image : undefined,
+        created_at: this.normalizeMembershipTimestamp(
+          member.createdAt ??
+          member.created_at
+        ),
+      }));
   }
 
   private static normalizeMembershipTimestamp(value: unknown): number | null {

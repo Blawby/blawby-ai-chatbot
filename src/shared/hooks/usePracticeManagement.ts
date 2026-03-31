@@ -1,6 +1,4 @@
 import axios, { type AxiosRequestConfig } from 'axios';
-import { atom } from 'nanostores';
-import { useStore } from '@nanostores/preact';
 import { useState, useCallback, useEffect, useRef, useContext } from 'preact/hooks';
 import { getPracticeWorkspaceEndpoint } from '@/config/api';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
@@ -16,7 +14,6 @@ import {
   getOnboardingStatusPayload,
   updatePracticeDetails as apiUpdatePracticeDetails,
   deletePractice as apiDeletePractice,
-  listPracticeMembers,
   updatePracticeMemberRole as apiUpdatePracticeMemberRole,
   deletePracticeMember as apiDeletePracticeMember,
   clearPublicPracticeDetailsCache
@@ -25,7 +22,7 @@ import { normalizeSubscriptionStatus as normalizePracticeStatus } from '@/shared
 import { resetPracticeDetailsStore, setPracticeDetailsEntry } from '@/shared/stores/practiceDetailsStore';
 import { invalidatePracticeTeamForPractice, resetPracticeTeamStore } from '@/shared/stores/practiceTeamStore';
 import { asMajor, type MajorAmount } from '@/shared/utils/money';
-import { normalizePracticeRole, type PracticeRole } from '@/shared/utils/practiceRoles';
+import { type PracticeRole } from '@/shared/utils/practiceRoles';
 
 const ENABLE_PAYOUT_STATUS = import.meta.env.VITE_ENABLE_PAYOUTS === 'true';
 
@@ -51,24 +48,6 @@ const resetSharedPracticeCache = () => {
   sharedPracticeIncludesDetails = false;
   practicesLoaded = false;
   practicesInFlight = null;
-};
-
-const membersStore = atom<Record<string, Member[]>>({});
-const membersLoaded = new Set<string>();
-const membersInFlight = new Map<string, Promise<Member[]>>();
-let membersCacheUserId: string | null = null;
-
-const resetMembersCache = () => {
-  membersStore.set({});
-  membersLoaded.clear();
-  membersInFlight.clear();
-  membersCacheUserId = null;
-};
-
-const setMembersForPractice = (practiceId: string, nextMembers: Member[]) => {
-  if (!practiceId) return;
-  const snapshot = membersStore.get();
-  membersStore.set({ ...snapshot, [practiceId]: nextMembers });
 };
 
 // Types
@@ -204,9 +183,6 @@ interface UsePracticeManagementReturn {
   updatePracticeDetails: (id: string, details: PracticeDetailsUpdate) => Promise<PracticeDetails | null>;
   deletePractice: (id: string) => Promise<void>;
   
-  // Team management
-  getMembers: (practiceId: string) => Member[];
-  fetchMembers: (practiceId: string, options?: { force?: boolean }) => Promise<void>;
   updateMemberRole: (practiceId: string, userId: string, role: Role) => Promise<void>;
   removeMember: (practiceId: string, userId: string) => Promise<void>;
   
@@ -552,7 +528,6 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
   const routePractice = useContext(RoutePracticeContext);
   const [practices, setPractices] = useState<Practice[]>([]);
   const [currentPractice, setCurrentPractice] = useState<Practice | null>(null);
-  const members = useStore(membersStore);
   const [workspaceData, setWorkspaceData] = useState<Record<string, Record<string, Record<string, unknown>[]>>>({});
   // Initialize loading to true when autoFetchPractices is enabled
   // This ensures the UI shows a loading state during the first render before the fetch effect runs
@@ -571,13 +546,13 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
   // Track if we've already fetched practices to prevent duplicate calls
   const practicesFetchedRef = useRef(false);
   const currentRequestRef = useRef<AbortController | null>(null);
+  const lastPracticeTeamUserIdRef = useRef<string | null>(null);
   const resolvedUserId = !session?.user || isAnonymous ? null : session.user.id;
 
   useEffect(() => {
-    if (membersCacheUserId !== resolvedUserId) {
-      resetMembersCache();
+    if (lastPracticeTeamUserIdRef.current !== resolvedUserId) {
       resetPracticeTeamStore();
-      membersCacheUserId = resolvedUserId;
+      lastPracticeTeamUserIdRef.current = resolvedUserId;
     }
   }, [resolvedUserId]);
 
@@ -624,12 +599,6 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
       throw error;
     }
   }, []);
-
-  // Helper functions to get data by practiceId
-  const getMembers = useCallback((practiceId: string): Member[] => {
-    return members[practiceId] || [];
-  }, [members]);
-
 
   const getWorkspaceData = useCallback((practiceId: string, resource: string): Record<string, unknown>[] => {
     return workspaceData[practiceId]?.[resource] || [];
@@ -1148,115 +1117,17 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
     await fetchPractices();
   }, [fetchPractices]);
 
-  // Fetch members
-  const fetchMembers = useCallback(async (
-    practiceId: string,
-    options: { force?: boolean } = {}
-  ): Promise<void> => {
-    if (!practiceId) return;
-
-    const force = options.force ?? false;
-    if (!force && membersLoaded.has(practiceId)) {
-      return;
-    }
-
-    const inFlight = membersInFlight.get(practiceId);
-    if (inFlight) {
-      await inFlight;
-      return;
-    }
-
-    const promise = (async () => {
-      const data = await listPracticeMembers(practiceId);
-      // Validate and normalize members manually
-    const validRoles: Role[] = ['owner', 'admin', 'attorney', 'paralegal', 'member', 'client'];
-
-      return (Array.isArray(data) ? data : [])
-        .map(m => {
-          if (!m || typeof m !== 'object') {
-            return null;
-          }
-          const member = m as Record<string, unknown>;
-          const userId = typeof member.userId === 'string'
-            ? member.userId
-            : (typeof member.user_id === 'string' ? member.user_id : null);
-          const normalizedRole = normalizePracticeRole(member.role);
-          const createdAtValue = member.createdAt ?? member.created_at ?? member.joined_at;
-          const createdAt = typeof createdAtValue === 'number'
-            ? createdAtValue
-            : (typeof createdAtValue === 'string' && createdAtValue.trim()
-              ? Number(createdAtValue)
-              : null);
-          const email = typeof member.email === 'string'
-            ? member.email
-            : (typeof (member.user as Record<string, unknown> | undefined)?.email === 'string'
-              ? (member.user as Record<string, unknown>).email as string
-              : '');
-          const userRecord = (member.user && typeof member.user === 'object')
-            ? (member.user as Record<string, unknown>)
-            : null;
-          const normalizedName = typeof member.name === 'string'
-            ? member.name
-            : (typeof userRecord?.name === 'string' ? userRecord.name : undefined);
-          const normalizedImage = typeof member.image === 'string'
-            ? member.image
-            : (typeof userRecord?.image === 'string' ? userRecord.image : undefined);
-
-          if (!userId) {
-            console.error('Invalid or missing member userId:', member);
-            return null;
-          }
-
-          if (!normalizedRole || !validRoles.includes(normalizedRole)) {
-            console.error('Invalid member role:', member.role, 'Expected one of:', validRoles, 'Member:', member);
-            return null;
-          }
-
-          if (typeof email !== 'string' || !email.trim()) {
-            console.error('Invalid or missing member email:', member.email, 'Member:', member);
-            return null;
-          }
-
-          return {
-            userId,
-            role: normalizedRole,
-            email,
-            name: normalizedName,
-            image: normalizedImage,
-            createdAt: Number.isFinite(createdAt ?? NaN) ? (createdAt as number) : Date.now(),
-          } as Member;
-        })
-        .filter((m): m is Member => m !== null);
-    })();
-
-    membersInFlight.set(practiceId, promise);
-    try {
-      const normalizedMembers = await promise;
-      membersLoaded.add(practiceId);
-      setMembersForPractice(practiceId, normalizedMembers);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch members');
-      membersLoaded.delete(practiceId);
-      setMembersForPractice(practiceId, []);
-      throw err;
-    } finally {
-      membersInFlight.delete(practiceId);
-    }
-  }, []);
-
   // Update member role
   const updateMemberRole = useCallback(async (practiceId: string, userId: string, role: Role): Promise<void> => {
     await apiUpdatePracticeMemberRole(practiceId, { userId, role });
     invalidatePracticeTeamForPractice(practiceId);
-    await fetchMembers(practiceId, { force: true });
-  }, [fetchMembers]);
+  }, []);
 
   // Remove member
   const removeMember = useCallback(async (practiceId: string, userId: string): Promise<void> => {
     await apiDeletePracticeMember(practiceId, userId);
     invalidatePracticeTeamForPractice(practiceId);
-    await fetchMembers(practiceId, { force: true });
-  }, [fetchMembers]);
+  }, []);
 
   // Fetch workspace data
   const fetchWorkspaceData = useCallback(async (practiceId: string, resource: string): Promise<void> => {
@@ -1311,8 +1182,6 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
     updatePractice,
     updatePracticeDetails,
     deletePractice,
-    getMembers,
-    fetchMembers,
     updateMemberRole,
     removeMember,
     getWorkspaceData,
