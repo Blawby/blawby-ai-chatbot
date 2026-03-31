@@ -25,7 +25,7 @@ interface UserCardProps {
   /** Optional badge text rendered as a pill (e.g. "Owner", "Admin") */
   badge?: string | null;
   /** Avatar size — defaults to 'md' */
-  size?: 'xs' | 'sm' | 'md' | 'lg';
+  size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
   /** Optional status dot on the avatar bubble */
   status?: 'active' | 'inactive';
   /** Trailing slot — action buttons, chevrons, etc. */
@@ -49,8 +49,8 @@ export const UserCard = ({
   onClick,
   ariaLabel
 }: UserCardProps) => {
-  const body = (
-    <div className={cn('flex items-center gap-3 min-w-0 w-full', className)}>
+  const clickableBody = (
+    <div className="flex items-center gap-3 min-w-0 w-full">
       <Avatar src={image} name={name} size={size} status={status} />
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 min-w-0">
@@ -69,22 +69,29 @@ export const UserCard = ({
           </p>
         )}
       </div>
+    </div>
+  );
+
+  const cardContent = (
+    <div className="flex items-center gap-3 min-w-0">
+      {onClick ? (
+        <button
+          type="button"
+          onClick={onClick}
+          aria-label={ariaLabel ?? `Select ${name}`}
+          className={cn(
+            'flex-1 text-left rounded-xl px-3 py-2 transition-colors hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500',
+            className
+          )}
+        >
+          {clickableBody}
+        </button>
+      ) : (
+        <div className={cn('flex-1 rounded-xl px-3 py-2', className)}>{clickableBody}</div>
+      )}
       {trailing && <div className="shrink-0">{trailing}</div>}
     </div>
   );
 
-  if (onClick) {
-    return (
-      <button
-        type="button"
-        onClick={onClick}
-        aria-label={ariaLabel ?? `Select ${name}`}
-        className="w-full text-left rounded-xl px-3 py-2 transition-colors hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500"
-      >
-        {body}
-      </button>
-    );
-  }
-
-  return <div className="px-3 py-2">{body}</div>;
+  return cardContent;
 };

@@ -278,13 +278,13 @@ export default function DebugStylesPage() {
         </p>
         <div className="glass-panel rounded-xl p-4">
           <div className="flex flex-wrap items-end gap-6">
-            {(['xs', 'sm', 'md', 'lg'] as const).map((size) => (
+            {(['xs', 'sm', 'md', 'lg', 'xl'] as const).map((size) => (
               <div key={size} className="flex flex-col items-center gap-2">
                 <Avatar name="Alice Chen" size={size} status="active" />
                 <code className="text-[10px] text-input-placeholder">{size} / active</code>
               </div>
             ))}
-            {(['xs', 'sm', 'md', 'lg'] as const).map((size) => (
+            {(['xs', 'sm', 'md', 'lg', 'xl'] as const).map((size) => (
               <div key={`${size}-inactive`} className="flex flex-col items-center gap-2">
                 <Avatar name="Bob Ramirez" size={size} status="inactive" />
                 <code className="text-[10px] text-input-placeholder">{size} / inactive</code>
