@@ -2,6 +2,7 @@ import { Env, HttpError } from "../types";
 import { HttpErrors } from "../errorHandler";
 import { Logger } from "../utils/logger";
 import { extractWidgetTokenFromRequest, validateWidgetAuthToken } from "../utils/widgetAuthToken.js";
+import { RemoteApiService } from "../services/RemoteApiService.js";
 
 export interface AuthenticatedUser {
   id: string;
@@ -495,66 +496,6 @@ export async function requireAuth(
   };
 }
 
-type RemoteMemberRecord = Record<string, unknown>;
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null;
-
-function extractMembersPayload(payload: unknown): RemoteMemberRecord[] {
-  if (Array.isArray(payload)) {
-    return payload.filter(isRecord);
-  }
-  if (isRecord(payload)) {
-    if (isRecord(payload.practice) && Array.isArray(payload.practice.members)) {
-      return payload.practice.members.filter(isRecord);
-    }
-    if (Array.isArray(payload.members)) {
-      return payload.members.filter(isRecord);
-    }
-    if (isRecord(payload.data) && isRecord(payload.data.practice) && Array.isArray(payload.data.practice.members)) {
-      return payload.data.practice.members.filter(isRecord);
-    }
-    if (isRecord(payload.data) && Array.isArray(payload.data.members)) {
-      return payload.data.members.filter(isRecord);
-    }
-  }
-  return [];
-}
-
-function extractMemberIdentifiers(member: RemoteMemberRecord): {
-  userId?: string;
-  email?: string;
-  role?: string;
-} {
-  const nestedUser = isRecord(member.user) ? member.user : null;
-  const userId =
-    typeof member.user_id === 'string'
-      ? member.user_id
-      : typeof member.userId === 'string'
-        ? member.userId
-        : typeof member.id === 'string'
-          ? member.id
-          : typeof nestedUser?.id === 'string'
-            ? nestedUser.id
-        : undefined;
-  const email =
-    typeof member.email === 'string'
-      ? member.email.toLowerCase()
-      : typeof nestedUser?.email === 'string'
-        ? nestedUser.email.toLowerCase()
-      : undefined;
-  const role =
-    typeof member.role === 'string'
-      ? member.role
-      : typeof member.permission === 'string'
-        ? member.permission
-        : typeof member.memberRole === 'string'
-          ? member.memberRole
-        : undefined;
-
-  return { userId, email, role };
-}
-
 async function fetchMemberRoleFromRemote(
   cookie: string,
   env: Env,
@@ -577,81 +518,43 @@ async function fetchMemberRoleFromRemote(
   }
 
   const validationPromise = (async () => {
-    // ENV VAR: BACKEND_API_URL (worker/.dev.vars or wrangler.toml)
-    const baseUrl = resolveBackendApiUrl(env, 'practice membership verification');
-
     try {
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json'
-      };
       if (!cookie || !cookie.trim()) {
         throw HttpErrors.unauthorized('Authentication required');
       }
-      headers.Cookie = cookie;
-
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000);
-      try {
-        const response = await fetch(
-          `${baseUrl}/api/practice/${encodeURIComponent(practiceId)}`,
-          {
-            method: 'GET',
-            headers,
-            signal: controller.signal
-          }
-        );
-        clearTimeout(timeoutId);
-
-        if (response.status === 404) {
-          throw HttpErrors.notFound('Practice not found');
+      const membershipRequest = new Request(`https://worker.invalid/api/practice/${encodeURIComponent(practiceId)}`, {
+        method: 'GET',
+        headers: {
+          Cookie: cookie,
+        },
+      });
+      const members = await RemoteApiService.getPracticeMembers(env, practiceId, membershipRequest);
+      const normalizedEmail = userEmail ? userEmail.toLowerCase() : undefined;
+      const match = members.find((member) => {
+        if (member.user_id === userId) {
+          return true;
         }
-
-        if (!response.ok) {
-          throw HttpErrors.badGateway(`Failed to verify membership (status ${response.status})`);
+        if (normalizedEmail && typeof member.email === 'string' && member.email.toLowerCase() === normalizedEmail) {
+          return true;
         }
+        return false;
+      });
 
-        const payload = await response.json().catch(() => ({}));
-        const members = extractMembersPayload(payload);
-        const normalizedEmail = userEmail ? userEmail.toLowerCase() : undefined;
-
-        const match = members.find((member) => {
-          const { userId: memberUserId, email } = extractMemberIdentifiers(member);
-          if (memberUserId && memberUserId === userId) {
-            return true;
-          }
-          if (email && normalizedEmail && email === normalizedEmail) {
-            return true;
-          }
-          return false;
-        });
-
-        if (!match) {
-          throw HttpErrors.forbidden('User is not a member of this practice');
-        }
-
-        const { role } = extractMemberIdentifiers(match);
-        if (!role) {
-          throw HttpErrors.forbidden('User membership is missing role information');
-        }
-
-        membershipCache.set(cacheKey, {
-          role,
-          expiresAt: Date.now() + MEMBERSHIP_CACHE_TTL_MS
-        });
-        pruneMembershipCache();
-
-        return role;
-      } catch (error) {
-        clearTimeout(timeoutId);
-        if (error instanceof Error && error.name === 'AbortError') {
-          throw HttpErrors.gatewayTimeout('Membership verification timed out');
-        }
-        if (error instanceof HttpError) {
-          throw error;
-        }
-        console.error('Error verifying practice membership via remote API:', error);
-        throw HttpErrors.badGateway('Failed to verify practice membership');
+      if (!match) {
+        throw HttpErrors.forbidden('User is not a member of this practice');
       }
+
+      if (!match.role) {
+        throw HttpErrors.forbidden('User membership is missing role information');
+      }
+
+      membershipCache.set(cacheKey, {
+        role: match.role,
+        expiresAt: Date.now() + MEMBERSHIP_CACHE_TTL_MS
+      });
+      pruneMembershipCache();
+
+      return match.role;
     } finally {
       membershipValidationInflight.delete(cacheKey);
     }

@@ -436,6 +436,7 @@ export class RemoteApiService {
     }>;
   }> {
     type PracticeMemberPayload = {
+      id?: string;
       user_id?: string;
       userId?: string;
       email?: string | null;
@@ -443,6 +444,7 @@ export class RemoteApiService {
       name?: string | null;
       image?: string | null;
       user?: {
+        id?: string;
         name?: string | null;
         image?: string | null;
         email?: string | null;
@@ -489,9 +491,22 @@ export class RemoteApiService {
     return {
       seats: seatsValue,
       members: members
-      .filter((m): m is PracticeMemberPayload => typeof m.userId === 'string' || typeof m.user_id === 'string')
+      .filter((m): m is PracticeMemberPayload =>
+        typeof m.userId === 'string'
+        || typeof m.user_id === 'string'
+        || typeof m.id === 'string'
+        || typeof m.user?.id === 'string'
+      )
       .map((m) => ({
-        user_id: (typeof m.userId === 'string' ? m.userId : m.user_id) as string,
+        user_id: (
+          typeof m.userId === 'string'
+            ? m.userId
+            : typeof m.user_id === 'string'
+              ? m.user_id
+              : typeof m.user?.id === 'string'
+                ? m.user.id
+                : m.id
+        ) as string,
         email: typeof m.email === 'string'
           ? m.email
           : (typeof m.user?.email === 'string' ? m.user.email : undefined),

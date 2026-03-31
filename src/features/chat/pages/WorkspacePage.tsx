@@ -1075,11 +1075,12 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     forcePreviewReload();
   }, [forcePreviewReload, updateSetupDetails]);
 
+  const workspacePracticeId = currentPractice?.id ?? practiceId;
   const organizationId = currentPractice?.id ?? null;
   const { members: practiceMembers } = usePracticeTeam(
-    practiceId,
+    workspacePracticeId,
     session?.user?.id ?? null,
-    { enabled: isPracticeWorkspace && Boolean(practiceId) }
+    { enabled: isPracticeWorkspace && Boolean(workspacePracticeId) }
   );
   const conversationMemberOptions = useMemo(
     () => practiceMembers
@@ -1813,7 +1814,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       key={`${inspectorTarget.entityType}:${inspectorTarget.entityId}`}
       entityType={inspectorTarget.entityType}
       entityId={inspectorTarget.entityId}
-      practiceId={practiceId}
+      practiceId={workspacePracticeId}
       conversation={selectedConversation}
       conversationMembers={isPracticeWorkspace ? conversationMemberOptions : []}
       isClientView={!isPracticeWorkspace}
@@ -1826,7 +1827,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       onConversationAssignedToChange={isPracticeWorkspace ? async (assignedTo) => {
         if (!selectedConversation?.id) return;
         try {
-          await updateConversationTriage(selectedConversation.id, practiceId, { assignedTo });
+          await updateConversationTriage(selectedConversation.id, workspacePracticeId, { assignedTo });
           await refreshConversations();
         } catch (error) {
           console.error('[WorkspacePage] Failed to update assignment:', error);
@@ -1836,7 +1837,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       onConversationPriorityChange={isPracticeWorkspace ? async (priority) => {
         if (!selectedConversation?.id) return;
         try {
-          await updateConversationTriage(selectedConversation.id, practiceId, { priority });
+          await updateConversationTriage(selectedConversation.id, workspacePracticeId, { priority });
           await refreshConversations();
         } catch (error) {
           console.error('[WorkspacePage] Failed to update priority:', error);
@@ -1852,10 +1853,10 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
           const toRemove = [...current].filter((tag) => !next.has(tag));
           
           for (const tag of toAdd) {
-            await addConversationTag(selectedConversation.id, practiceId, tag);
+            await addConversationTag(selectedConversation.id, workspacePracticeId, tag);
           }
           for (const tag of toRemove) {
-            await removeConversationTag(selectedConversation.id, practiceId, tag);
+            await removeConversationTag(selectedConversation.id, workspacePracticeId, tag);
           }
           
           await refreshConversations();
