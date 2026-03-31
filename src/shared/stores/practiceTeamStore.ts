@@ -26,14 +26,13 @@ export const setPracticeTeamForKey = (key: string, value: PracticeTeamResponse) 
 
 export const invalidatePracticeTeamForPractice = (practiceId: string) => {
   if (!practiceId) return;
-  const searchPattern = `:${practiceId}`;
   const snapshot = practiceTeamStore.get();
   const loadedSnapshot = practiceTeamLoaded.get();
   const nextLoaded = new Set(loadedSnapshot);
   const next: StoreShape = {};
 
   for (const [key, value] of Object.entries(snapshot)) {
-    if (key.includes(searchPattern)) {
+    if (key.split(':').includes(practiceId)) {
       nextLoaded.delete(key);
       continue;
     }
@@ -41,7 +40,7 @@ export const invalidatePracticeTeamForPractice = (practiceId: string) => {
   }
 
   for (const key of practiceTeamInFlight.keys()) {
-    if (key.includes(searchPattern)) {
+    if (key.split(':').includes(practiceId)) {
       practiceTeamInFlight.delete(key);
     }
   }
