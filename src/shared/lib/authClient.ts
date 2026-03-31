@@ -4,7 +4,7 @@ import { anonymousClient } from 'better-auth/client/plugins';
 import { stripeClient } from '@better-auth/stripe/client';
 import { useMemo } from 'preact/hooks';
 import { transformSessionUser, type BetterAuthSessionUser } from '@/shared/types/user';
-import { getBackendApiUrl } from '@/config/urls';
+import { getWorkerApiUrl } from '@/config/urls';
 
 // Type for the auth client (inferred from createAuthClient return type)
 type AuthClientType = ReturnType<typeof createAuthClient>;
@@ -25,13 +25,13 @@ type TypedSessionData = NonNullable<AuthSessionData> extends { user: unknown; se
   ) | Extract<AuthSessionData, null | undefined>
   : AuthSessionData;
 
-// Auth requests go directly to backend API to fix OAuth state_mismatch issues.
+// Auth requests are proxied through the Worker to keep session cookies same-origin.
 function getAuthBaseUrl(): string | undefined {
   if (typeof window === 'undefined') {
     return 'https://placeholder-auth-server.com';
   }
 
-  return getBackendApiUrl();
+  return getWorkerApiUrl();
 }
 
 // Cached auth client instance (only one is ever created and cached - the browser client)

@@ -7,6 +7,7 @@ import { DatePicker } from '@/shared/ui/input/DatePicker';
 import { Textarea } from '@/shared/ui/input/Textarea';
 import { UserCircleIcon } from '@heroicons/react/24/outline';
 import { Icon } from '@/shared/ui/Icon';
+import { Avatar, StackedAvatars, UserCard, type SelectableUser } from '@/shared/ui/profile';
 
 const buttonVariants = [
   'primary',
@@ -34,6 +35,14 @@ export default function DebugStylesPage() {
   const [currencyValue, setCurrencyValue] = useState<number | undefined>(325);
   const [dateValue, setDateValue] = useState('2026-02-19');
   const [textareaValue, setTextareaValue] = useState('Draft response and settlement options.');
+
+  const sampleUsers: SelectableUser[] = useMemo(() => [
+    { id: 'u1', name: 'Alice Chen', email: 'alice@lawfirm.com', role: 'owner' },
+    { id: 'u2', name: 'Bob Ramirez', email: 'bob@lawfirm.com', role: 'admin' },
+    { id: 'u3', name: 'Carol Singh', email: 'carol@lawfirm.com', role: 'member' },
+    { id: 'u4', name: 'David Kim', email: 'david@lawfirm.com', role: 'member' },
+    { id: 'u5', name: 'Eva Torres', email: 'eva@lawfirm.com', role: 'member' },
+  ], []);
 
   const selectOptions: ComboboxOption[] = useMemo(
     () => [
@@ -252,6 +261,108 @@ export default function DebugStylesPage() {
               multiple
               allowCustomValues
               leading={<Icon icon={UserCircleIcon} className="h-4 w-4 text-input-placeholder"  />}
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* ================================================================== */}
+      {/* Avatar & User Components                                            */}
+      {/* ================================================================== */}
+
+      <section className="space-y-3">
+        <h2 className="text-lg font-medium text-input-text">Avatar Sizes &amp; Status</h2>
+        <p className="text-sm text-input-placeholder">
+          Five sizes (<code>xs sm md lg xl</code>) with optional <code>status</code> dot (<code>active</code> = emerald, <code>inactive</code> = amber).
+          Image falls back to initials extracted from <code>name</code>.
+        </p>
+        <div className="glass-panel rounded-xl p-4">
+          <div className="flex flex-wrap items-end gap-6">
+            {(['xs', 'sm', 'md', 'lg', 'xl'] as const).map((size) => (
+              <div key={size} className="flex flex-col items-center gap-2">
+                <Avatar name="Alice Chen" size={size} status="active" />
+                <code className="text-[10px] text-input-placeholder">{size} / active</code>
+              </div>
+            ))}
+            {(['xs', 'sm', 'md', 'lg', 'xl'] as const).map((size) => (
+              <div key={`${size}-inactive`} className="flex flex-col items-center gap-2">
+                <Avatar name="Bob Ramirez" size={size} status="inactive" />
+                <code className="text-[10px] text-input-placeholder">{size} / inactive</code>
+              </div>
+            ))}
+            <div className="flex flex-col items-center gap-2">
+              <Avatar name="No Status" size="md" />
+              <code className="text-[10px] text-input-placeholder">md / none</code>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-lg font-medium text-input-text">StackedAvatars</h2>
+        <p className="text-sm text-input-placeholder">
+          Pass a <code>users</code> array and a <code>max</code> cap. Overflow renders a <code>+N</code> badge using the <code>glass-input</code> surface.
+        </p>
+        <div className="glass-panel rounded-xl p-4 flex flex-wrap items-center gap-8">
+          <div className="flex flex-col gap-1">
+            <StackedAvatars users={sampleUsers} size="sm" max={3} />
+            <code className="text-[10px] text-input-placeholder">size=sm max=3</code>
+          </div>
+          <div className="flex flex-col gap-1">
+            <StackedAvatars users={sampleUsers} size="md" max={4} />
+            <code className="text-[10px] text-input-placeholder">size=md max=4</code>
+          </div>
+          <div className="flex flex-col gap-1">
+            <StackedAvatars users={sampleUsers} size="lg" max={2} />
+            <code className="text-[10px] text-input-placeholder">size=lg max=2</code>
+          </div>
+          <div className="flex flex-col gap-1">
+            <StackedAvatars users={sampleUsers} size="md" max={10} showOverflow={false} />
+            <code className="text-[10px] text-input-placeholder">showOverflow=false</code>
+          </div>
+        </div>
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-lg font-medium text-input-text">UserCard</h2>
+        <p className="text-sm text-input-placeholder">
+          Combines Avatar + identity lines + optional <code>badge</code> pill + optional <code>trailing</code> action slot.
+          Pass <code>onClick</code> to make it a button (adds hover + focus ring).
+        </p>
+        <div className="grid gap-3 md:grid-cols-2">
+          <div className="glass-panel rounded-xl p-1">
+            <UserCard
+              name="Alice Chen"
+              secondary="alice@lawfirm.com"
+              badge="Owner"
+              size="md"
+              status="active"
+            />
+          </div>
+          <div className="glass-panel rounded-xl p-1">
+            <UserCard
+              name="Bob Ramirez"
+              secondary="bob@lawfirm.com"
+              badge="Admin"
+              size="md"
+              status="inactive"
+              trailing={<Button size="xs" variant="ghost">Manage</Button>}
+            />
+          </div>
+          <div className="glass-panel rounded-xl overflow-hidden">
+            <UserCard
+              name="Carol Singh"
+              secondary="carol@lawfirm.com"
+              size="sm"
+              onClick={() => alert('UserCard clicked')}
+            />
+          </div>
+          <div className="glass-panel rounded-xl overflow-hidden">
+            <UserCard
+              name="David Kim"
+              secondary="Member"
+              size="lg"
+              trailing={<Button size="xs" variant="secondary">Remove</Button>}
             />
           </div>
         </div>
