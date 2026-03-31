@@ -15,6 +15,15 @@ export const resetPracticeTeamStore = () => {
   practiceTeamCacheUserId = null;
 };
 
+export const ensurePracticeTeamCacheUserId = (userId: string | null) => {
+  if (practiceTeamCacheUserId !== userId) {
+    practiceTeamStore.set({});
+    practiceTeamLoaded.set(new Set());
+    practiceTeamInFlight.clear();
+    practiceTeamCacheUserId = userId;
+  }
+};
+
 export const markPracticeTeamCacheUserId = (userId: string | null) => {
   practiceTeamCacheUserId = userId;
 };

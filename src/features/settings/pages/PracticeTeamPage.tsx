@@ -345,6 +345,7 @@ export const PracticeTeamPage = ({ onNavigate, className }: PracticeTeamPageProp
               <div>
                 <FormLabel htmlFor="invite-email">Email Address</FormLabel>
                 <EmailInput
+                  id="invite-email"
                   value={inviteForm.email}
                   onChange={(value) => setInviteForm(prev => ({ ...prev, email: value }))}
                   placeholder="colleague@lawfirm.com"

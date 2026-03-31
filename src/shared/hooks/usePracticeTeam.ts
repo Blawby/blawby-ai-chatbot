@@ -3,12 +3,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks'
 import { listPracticeTeam } from '@/shared/lib/apiClient';
 import type { TeamSummary } from '@/shared/types/team';
 import {
-  markPracticeTeamCacheUserId,
-  practiceTeamCacheUserId,
+  ensurePracticeTeamCacheUserId,
   practiceTeamInFlight,
   practiceTeamLoaded,
   practiceTeamStore,
-  resetPracticeTeamStore,
   setPracticeTeamForKey,
 } from '@/shared/stores/practiceTeamStore';
 
@@ -48,15 +46,26 @@ export const usePracticeTeam = (
 
   const fetch = useCallback(async (fetchOptions: { force?: boolean; signal?: AbortSignal } = {}) => {
     if (!enabled || !practiceId) return;
-    if (practiceTeamCacheUserId !== resolvedUserId) {
-      resetPracticeTeamStore();
-      markPracticeTeamCacheUserId(resolvedUserId);
-    }
+    ensurePracticeTeamCacheUserId(resolvedUserId);
     if (!fetchOptions.force && practiceTeamLoaded.get().has(cacheKey)) return;
 
-    const inFlight = practiceTeamInFlight.get(cacheKey);
-    if (inFlight) {
-      await inFlight;
+    const existing = practiceTeamInFlight.get(cacheKey);
+    if (existing && !fetchOptions.force) {
+      try {
+        await existing;
+      } catch (err) {
+        if (!isMountedRef.current) return;
+        if (practiceTeamInFlight.get(cacheKey) !== existing) return;
+        if (err instanceof Error && err.name === 'AbortError') return;
+
+        const nextLoaded = new Set(practiceTeamLoaded.get());
+        nextLoaded.delete(cacheKey);
+        practiceTeamLoaded.set(nextLoaded);
+
+        const message = err instanceof Error ? err.message : 'Failed to load team';
+        setError(message);
+        throw err;
+      }
       return;
     }
 
@@ -68,7 +77,7 @@ export const usePracticeTeam = (
     try {
       const result = await promise;
       if (!isMountedRef.current) return;
-      if (!practiceTeamInFlight.has(cacheKey)) return;
+      if (practiceTeamInFlight.get(cacheKey) !== promise) return;
 
       const nextLoaded = new Set(practiceTeamLoaded.get());
       nextLoaded.add(cacheKey);
@@ -77,6 +86,7 @@ export const usePracticeTeam = (
     } catch (err) {
       if (!isMountedRef.current) return;
       if (err instanceof Error && err.name === 'AbortError') return;
+      if (practiceTeamInFlight.get(cacheKey) !== promise) return;
 
       const nextLoaded = new Set(practiceTeamLoaded.get());
       nextLoaded.delete(cacheKey);
@@ -86,7 +96,9 @@ export const usePracticeTeam = (
       setError(message);
       throw err;
     } finally {
-      practiceTeamInFlight.delete(cacheKey);
+      if (practiceTeamInFlight.get(cacheKey) === promise) {
+        practiceTeamInFlight.delete(cacheKey);
+      }
       if (isMountedRef.current) {
         setIsLoading(false);
       }

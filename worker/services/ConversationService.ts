@@ -867,22 +867,12 @@ export class ConversationService {
     if (updates.assignedTo !== undefined) {
       if (updates.assignedTo && updates.assignedTo.trim()) {
         const trimmedId = updates.assignedTo.trim();
-        const team = await RemoteApiService.getPracticeTeam(this.env, practiceId, options?.request);
-        Logger.warn('[ConversationService] Assignee team validation', {
+        const assignableMemberIds = await this.getAssignableTeamMemberIds(practiceId, options?.request);
+        Logger.debug('[ConversationService] Assignee team validation', {
           practiceId,
           requestedAssigneeUserId: trimmedId,
-          teamMembers: team.members.map((member) => ({
-            userId: member.userId,
-            role: member.role,
-            canAssignToMatter: member.canAssignToMatter,
-          })),
+          assignableMemberIds: Array.from(assignableMemberIds),
         });
-        const assignableMemberIds = new Set(
-          team.members
-            .filter((member) => member.canAssignToMatter)
-            .map((member) => member.userId)
-            .filter((userId) => typeof userId === 'string' && userId.trim().length > 0)
-        );
         if (!assignableMemberIds.has(trimmedId)) {
           throw HttpErrors.badRequest(`User ${trimmedId} is not an assignable team member of practice ${practiceId}`);
         }
