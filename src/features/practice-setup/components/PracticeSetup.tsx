@@ -56,7 +56,7 @@ interface ExtractedFields {
     postalCode?: string;
     country?: string;
   };
-  services?: Array<{ name: string; description?: string; key?: string }>;
+  services?: Array<{ name: string; key?: string }>;
   completionScore?: number;
   missingFields?: string[];
 }
@@ -106,7 +106,7 @@ const readErrorMessage = async (res: Response, fallback: string): Promise<string
 // ── URL detection ──────────────────────────────────────────────────────────────
 
 const URL_RE = /https?:\/\/[^\s]+|(?:www\.)[^\s]+\.[a-z]{2,}/i;
-const EMPTY_SERVICES: Array<{ name: string; description?: string; key?: string }> = [];
+const EMPTY_SERVICES: Array<{ name: string; key?: string }> = [];
 
 // ── Props ──────────────────────────────────────────────────────────────────────
 
@@ -121,7 +121,7 @@ interface PracticeSetupProps {
   logoUploadProgress: number | null;
   onLogoChange: (files: FileList | File[]) => void;
   onBasicsDraftChange?: (values: BasicsFormValues) => void;
-  onSaveServices?: (services: Array<{ name: string; description?: string; key?: string }>) => Promise<void>;
+  onSaveServices?: (services: Array<{ name: string; key?: string }>) => Promise<void>;
   onProgressChange?: (snapshot: OnboardingProgressSnapshot) => void;
   onSaveActionsChange?: (snapshot: OnboardingSaveActionsSnapshot) => void;
   chatAdapter?: PracticeSetupChatAdapter | null;
@@ -258,7 +258,7 @@ export const PracticeSetup = ({
     const website = (extracted.website ?? details?.website ?? practice?.website ?? '').trim();
     const contactPhone = (extracted.contactPhone ?? details?.businessPhone ?? practice?.businessPhone ?? '').trim();
     const businessEmail = (extracted.businessEmail ?? details?.businessEmail ?? practice?.businessEmail ?? '').trim();
-    const normalizeServiceRecords = (records: unknown): Array<{ name: string; description?: string; key?: string }> => {
+    const normalizeServiceRecords = (records: unknown): Array<{ name: string; key?: string }> => {
       if (!Array.isArray(records)) return EMPTY_SERVICES;
       return records.map((service) => {
         const row = (service ?? {}) as Record<string, unknown>;
@@ -268,8 +268,7 @@ export const PracticeSetup = ({
         const key = typeof row.key === 'string'
           ? row.key
           : (typeof row.id === 'string' ? row.id : undefined);
-        const description = typeof row.description === 'string' ? row.description : undefined;
-        return { name, key, description };
+        return { name, key };
       });
     };
     const detailServices = normalizeServiceRecords(details?.services);

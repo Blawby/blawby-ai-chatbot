@@ -12,26 +12,22 @@ describe('normalizeServices', () => {
     const services: Service[] = [
       {
         id: 'custom-1',
-        title: ' Mediation ',
-        description: ' Existing custom description '
+        title: ' Mediation '
       },
       {
         id: 'custom-2',
-        title: 'mediation',
-        description: 'Another custom description'
+        title: 'mediation'
       },
       {
         id: 'custom-blank',
-        title: '   ',
-        description: 'Blank title description'
+        title: '   '
       }
     ];
 
     expect(normalizeServices(services, SERVICE_CATALOG)).toEqual([
       {
         id: 'custom-1',
-        title: 'Mediation',
-        description: 'Existing custom description'
+        title: 'Mediation'
       }
     ]);
   });
@@ -40,16 +36,14 @@ describe('normalizeServices', () => {
     const services: Service[] = [
       {
         id: 'legacy-family-law',
-        title: 'family law',
-        description: 'Existing intake copy'
+        title: 'family law'
       }
     ];
 
     expect(normalizeServices(services, SERVICE_CATALOG)).toEqual([
       {
         id: 'legacy-family-law',
-        title: 'Family Law',
-        description: 'Existing intake copy'
+        title: 'Family Law'
       }
     ]);
   });
@@ -60,21 +54,18 @@ describe('getServiceDetailsForSave', () => {
     const services: Service[] = [
       {
         id: 'custom-1',
-        title: ' Mediation ',
-        description: ' Existing custom description '
+        title: ' Mediation '
       },
       {
         id: 'custom-2',
-        title: 'mediation',
-        description: 'Another custom description'
+        title: 'mediation'
       }
     ];
 
     expect(getServiceDetailsForSave(services)).toEqual([
       {
         id: 'custom-1',
-        title: 'Mediation',
-        description: 'Existing custom description'
+        title: 'Mediation'
       }
     ]);
   });
@@ -85,8 +76,7 @@ describe('mapSelectedServiceTitlesToServices', () => {
     const currentServices: Service[] = [
       {
         id: 'legacy-family-law',
-        title: 'family law',
-        description: 'Existing intake copy'
+        title: 'family law'
       }
     ];
 
@@ -95,8 +85,7 @@ describe('mapSelectedServiceTitlesToServices', () => {
     ).toEqual([
       {
         id: 'legacy-family-law',
-        title: 'Family Law',
-        description: 'Existing intake copy'
+        title: 'Family Law'
       }
     ]);
   });
@@ -110,12 +99,10 @@ describe('mapSelectedServiceTitlesToServices', () => {
 
     expect(selected[0]).toEqual({
       id: 'family-law',
-      title: 'Family Law',
-      description: 'Divorce, custody, adoption, and other family matters.'
+      title: 'Family Law'
     });
     expect(selected[1]).toMatchObject({
-      title: 'Tenant Advocacy',
-      description: ''
+      title: 'Tenant Advocacy'
     });
     expect(selected[1].id).toMatch(/^custom-/);
   });
@@ -130,8 +117,7 @@ describe('mapSelectedServiceTitlesToServices', () => {
     expect(selected).toEqual([
       {
         id: 'family-law',
-        title: 'Family Law',
-        description: 'Divorce, custody, adoption, and other family matters.'
+        title: 'Family Law'
       }
     ]);
   });

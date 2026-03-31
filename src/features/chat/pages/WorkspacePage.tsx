@@ -1059,13 +1059,12 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   };
 
   const handleSaveOnboardingServices = useCallback(async (
-    nextServices: Array<{ name: string; description?: string; key?: string }>
+    nextServices: Array<{ name: string; key?: string }>
   ) => {
     const apiServices = nextServices
       .map((service) => ({
         id: (service.key ?? service.name).trim(),
         name: service.name.trim(),
-        ...(service.description?.trim() ? { description: service.description.trim() } : {}),
       }))
       .filter((service) => service.id && service.name);
 

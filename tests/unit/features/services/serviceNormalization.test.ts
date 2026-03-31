@@ -8,18 +8,15 @@ describe('resolveServiceDetails', () => {
         services: [
           {
             id: 'custom-1',
-            name: ' Mediation ',
-            description: 'Existing custom description'
+            name: ' Mediation '
           },
           {
             id: 'custom-2',
-            name: 'mediation',
-            description: 'Another custom description'
+            name: 'mediation'
           },
           {
             id: 'custom-blank',
-            name: '   ',
-            description: 'Blank title description'
+            name: '   '
           }
         ]
       },
@@ -29,8 +26,7 @@ describe('resolveServiceDetails', () => {
     expect(resolved).toEqual([
       {
         id: 'custom-1',
-        title: 'Mediation',
-        description: 'Existing custom description'
+        title: 'Mediation'
       }
     ]);
   });
@@ -45,8 +41,7 @@ describe('resolveServiceDetails', () => {
         services: [
           {
             id: 'legacy-family-law',
-            name: 'family law',
-            description: 'Existing intake copy'
+            name: 'family law'
           }
         ]
       } as Parameters<typeof resolveServiceDetails>[1]
@@ -55,8 +50,7 @@ describe('resolveServiceDetails', () => {
     expect(resolved).toEqual([
       {
         id: 'legacy-family-law',
-        title: 'Family Law',
-        description: 'Existing intake copy'
+        title: 'Family Law'
       }
     ]);
   });

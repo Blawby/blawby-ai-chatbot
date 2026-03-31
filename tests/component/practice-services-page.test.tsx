@@ -33,8 +33,7 @@ const {
       services: [
         {
           id: 'custom-existing',
-          name: 'Existing Service',
-          description: 'Existing intake copy'
+          name: 'Existing Service'
         }
       ]
     } as { services?: Array<Record<string, unknown>> | null } | null
@@ -165,7 +164,7 @@ vi.mock('@/features/services/components/ServicesEditor', () => ({
     onChange
   }: {
     services: Array<{ title: string }>;
-    onChange: (services: Array<{ id: string; title: string; description: string }>) => void;
+    onChange: (services: Array<{ id: string; title: string }>) => void;
   }) => (
     <div>
       <div data-testid="services-props">
@@ -174,7 +173,7 @@ vi.mock('@/features/services/components/ServicesEditor', () => ({
       <button
         type="button"
         onClick={() => onChange([
-          { id: 'custom-a', title: 'Mediation', description: '' }
+          { id: 'custom-a', title: 'Mediation' }
         ])}
       >
         Save A
@@ -182,7 +181,7 @@ vi.mock('@/features/services/components/ServicesEditor', () => ({
       <button
         type="button"
         onClick={() => onChange([
-          { id: 'custom-b', title: 'Arbitration', description: '' }
+          { id: 'custom-b', title: 'Arbitration' }
         ])}
       >
         Save B
@@ -197,8 +196,7 @@ describe('PracticeServicesPage', () => {
       services: [
         {
           id: 'custom-existing',
-          name: 'Existing Service',
-          description: 'Existing intake copy'
+          name: 'Existing Service'
         }
       ]
     };
@@ -218,6 +216,14 @@ describe('PracticeServicesPage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Save A' }));
     await waitFor(() => expect(screen.getByTestId('services-props')).toHaveTextContent('Mediation'));
+    expect(mockUpdateDetailsRequest).toHaveBeenNthCalledWith(1, {
+      services: [
+        {
+          id: 'custom-a',
+          name: 'Mediation'
+        }
+      ]
+    });
 
     fireEvent.click(screen.getByRole('button', { name: 'Save B' }));
     await waitFor(() => expect(screen.getByTestId('services-props')).toHaveTextContent('Arbitration'));

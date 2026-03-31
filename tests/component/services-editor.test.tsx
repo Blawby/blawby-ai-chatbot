@@ -57,13 +57,11 @@ describe('ServicesEditor', () => {
         services={[
           {
             id: 'family-law',
-            title: 'Family Law',
-            description: 'Divorce, custody, adoption, and other family matters.'
+            title: 'Family Law'
           },
           {
             id: 'custom-123',
-            title: 'Mediation',
-            description: 'Existing custom description'
+            title: 'Mediation'
           }
         ]}
         onChange={vi.fn()}
@@ -88,13 +86,12 @@ describe('ServicesEditor', () => {
     expect(onChange).toHaveBeenLastCalledWith([
       {
         id: 'family-law',
-        title: 'Family Law',
-        description: 'Divorce, custody, adoption, and other family matters.'
+        title: 'Family Law'
       }
     ]);
   });
 
-  it('adds a custom free-text service with a generated id and blank description', () => {
+  it('adds a custom free-text service with a generated id', () => {
     const onChange = vi.fn();
 
     render(<ServicesEditor services={[]} onChange={onChange} />);
@@ -106,8 +103,7 @@ describe('ServicesEditor', () => {
     const nextSelection = onChange.mock.calls.at(-1)?.[0];
     expect(nextSelection).toHaveLength(1);
     expect(nextSelection[0]).toMatchObject({
-      title: 'Mediation',
-      description: ''
+      title: 'Mediation'
     });
     expect(nextSelection[0].id).toMatch(/^custom-/);
   });
@@ -120,13 +116,11 @@ describe('ServicesEditor', () => {
         services={[
           {
             id: 'family-law',
-            title: 'Family Law',
-            description: 'Divorce, custody, adoption, and other family matters.'
+            title: 'Family Law'
           },
           {
             id: 'custom-123',
-            title: 'Mediation',
-            description: 'Existing custom description'
+            title: 'Mediation'
           }
         ]}
         onChange={onChange}
@@ -139,8 +133,7 @@ describe('ServicesEditor', () => {
     expect(onChange).toHaveBeenLastCalledWith([
       {
         id: 'family-law',
-        title: 'Family Law',
-        description: 'Divorce, custody, adoption, and other family matters.'
+        title: 'Family Law'
       }
     ]);
   });
@@ -151,13 +144,11 @@ describe('ServicesEditor', () => {
         services={[
           {
             id: 'custom-123',
-            title: 'Mediation',
-            description: 'Existing custom description'
+            title: 'Mediation'
           },
           {
             id: 'custom-456',
-            title: 'mediation',
-            description: 'Another custom description'
+            title: 'mediation'
           }
         ]}
         onChange={vi.fn()}

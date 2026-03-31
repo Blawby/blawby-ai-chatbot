@@ -53,10 +53,9 @@ export const PracticeServicesPage = ({ onNavigate, className }: PracticeServices
     setServicesError(null);
     const serviceDetails = getServiceDetailsForSave(nextServices);
     const apiServices = serviceDetails
-      .map(({ id, title, description }) => ({
+      .map(({ id, title }) => ({
         id: id.trim(),
-        name: title.trim(),
-        ...(description.trim() ? { description: description.trim() } : {})
+        name: title.trim()
       }))
       .filter((service) => service.id && service.name);
     const payloadKey = JSON.stringify(apiServices);

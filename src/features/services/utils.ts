@@ -47,7 +47,6 @@ export function normalizeServices(
     const title = service.title?.trim() || '';
     if (!title) return [];
 
-    const description = service.description?.trim() || '';
     const titleKey = normalizeTitleKey(title);
     const template = (id && index.byId.get(id)) || (titleKey ? index.byTitle.get(titleKey) : undefined);
     const normalizedTitle = template?.title || title;
@@ -60,8 +59,7 @@ export function normalizeServices(
 
     return [{
       id: id || template?.id || createServiceId(),
-      title: normalizedTitle,
-      description: description || template?.description || ''
+      title: normalizedTitle
     }];
   });
 }
@@ -94,8 +92,7 @@ export function getServiceDetailsForSave(services: Service[]): Service[] {
     seen.add(key);
     result.push({
       id: service.id?.trim() || createServiceId(),
-      title,
-      description: service.description?.trim() || ''
+      title
     });
   });
 
@@ -135,16 +132,14 @@ export function mapSelectedServiceTitlesToServices(
     if (template) {
       nextServices.push({
         id: template.id,
-        title: template.title,
-        description: template.description
+        title: template.title
       });
       return;
     }
 
     nextServices.push({
       id: createServiceId('custom'),
-      title,
-      description: ''
+      title
     });
   });
 
