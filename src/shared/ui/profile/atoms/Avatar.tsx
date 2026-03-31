@@ -11,10 +11,15 @@ interface AvatarProps {
   name: string;
   size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
   className?: string;
+  /** Override the inner circle background. Defaults to 'glass-input'.
+   *  Pass a solid Tailwind class (e.g. 'bg-surface-overlay') when
+   *  rendering inside StackedAvatars to prevent backdrop-blur bleed-through.
+   */
+  bgClassName?: string;
   status?: 'active' | 'inactive';
 }
 
-export const Avatar = ({ src, name, size = 'md', className = '', status }: AvatarProps) => {
+export const Avatar = ({ src, name, size = 'md', className = '', bgClassName, status }: AvatarProps) => {
   const [hasImgError, setHasImgError] = useState(false);
 
   // Reset error state when src changes so new images can be attempted
@@ -77,7 +82,7 @@ export const Avatar = ({ src, name, size = 'md', className = '', status }: Avata
 
   return (
     <div className={`${sizeClasses[size]} relative flex-shrink-0 rounded-full ${className}`}>
-      <div className="glass-input h-full w-full rounded-full text-input-text flex items-center justify-center overflow-hidden">
+      <div className={`${bgClassName ?? 'glass-input'} h-full w-full rounded-full text-input-text flex items-center justify-center overflow-hidden`}>
         {sanitizedImageUrl && !hasImgError ? (
           <img 
             src={sanitizedImageUrl} 

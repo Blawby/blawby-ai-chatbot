@@ -12,7 +12,7 @@ import { Breadcrumbs } from '@/shared/ui/navigation';
 import { MarkdownUploadTextarea } from '@/shared/ui/input/MarkdownUploadTextarea';
 import { CurrencyInput } from '@/shared/ui/input';
 import { ActivityTimeline, type TimelineItem, type TimelinePerson } from '@/shared/ui/activity/ActivityTimeline';
-import { Avatar } from '@/shared/ui/profile';
+import { Avatar, UserCard } from '@/shared/ui/profile';
 import Modal from '@/shared/components/Modal';
 import {
   ChatBubbleLeftRightIcon,
@@ -1933,9 +1933,18 @@ export const PracticeMattersPage = ({
                             </div>
                             <div>
                               <p className="text-xs font-medium uppercase tracking-wide text-[rgb(var(--accent-foreground))]/70">Assigned</p>
-                              <p className="mt-1 text-sm text-[rgb(var(--accent-foreground))]">
-                                {assigneeNameById.get(selectedMatterDetail.responsibleAttorneyId ?? '') || 'Not set'}
-                              </p>
+                              {(() => {
+                                const attId = selectedMatterDetail.responsibleAttorneyId ?? '';
+                                const member = membersById.get(attId);
+                                const attName = assigneeNameById.get(attId);
+                                if (!attName) return <p className="mt-1 text-sm text-[rgb(var(--accent-foreground))]/60">Not set</p>;
+                                return (
+                                  <div className="mt-1 flex items-center gap-1.5">
+                                    <Avatar src={member?.image ?? null} name={attName} size="xs" />
+                                    <span className="text-sm text-[rgb(var(--accent-foreground))]">{attName}</span>
+                                  </div>
+                                );
+                              })()}
                             </div>
                             <div>
                               <p className="text-xs font-medium uppercase tracking-wide text-[rgb(var(--accent-foreground))]/70">Status</p>
@@ -2011,14 +2020,38 @@ export const PracticeMattersPage = ({
                         </div>
                         <div className="px-5 py-4">
                           <dt className="text-sm font-medium text-input-placeholder">Responsible attorney</dt>
-                          <dd className="mt-1 text-sm text-input-text">
-                            {assigneeNameById.get(selectedMatterDetail.responsibleAttorneyId ?? '') || 'Not set'}
+                          <dd className="mt-1">
+                            {membersById.get(selectedMatterDetail.responsibleAttorneyId ?? '') ? (
+                              <UserCard
+                                name={membersById.get(selectedMatterDetail.responsibleAttorneyId!)!.name || assigneeNameById.get(selectedMatterDetail.responsibleAttorneyId!) || ''}
+                                image={membersById.get(selectedMatterDetail.responsibleAttorneyId!)!.image}
+                                secondary={membersById.get(selectedMatterDetail.responsibleAttorneyId!)!.email}
+                                size="sm"
+                                className="-ml-3"
+                              />
+                            ) : (
+                              <span className="text-sm text-input-text">
+                                {assigneeNameById.get(selectedMatterDetail.responsibleAttorneyId ?? '') || 'Not set'}
+                              </span>
+                            )}
                           </dd>
                         </div>
                         <div className="px-5 py-4">
                           <dt className="text-sm font-medium text-input-placeholder">Originating attorney</dt>
-                          <dd className="mt-1 text-sm text-input-text">
-                            {assigneeNameById.get(selectedMatterDetail.originatingAttorneyId ?? '') || 'Not set'}
+                          <dd className="mt-1">
+                            {membersById.get(selectedMatterDetail.originatingAttorneyId ?? '') ? (
+                              <UserCard
+                                name={membersById.get(selectedMatterDetail.originatingAttorneyId!)!.name || assigneeNameById.get(selectedMatterDetail.originatingAttorneyId!) || ''}
+                                image={membersById.get(selectedMatterDetail.originatingAttorneyId!)!.image}
+                                secondary={membersById.get(selectedMatterDetail.originatingAttorneyId!)!.email}
+                                size="sm"
+                                className="-ml-3"
+                              />
+                            ) : (
+                              <span className="text-sm text-input-text">
+                                {assigneeNameById.get(selectedMatterDetail.originatingAttorneyId ?? '') || 'Not set'}
+                              </span>
+                            )}
                           </dd>
                         </div>
                       </dl>

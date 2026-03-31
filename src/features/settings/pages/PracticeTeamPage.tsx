@@ -22,7 +22,7 @@ import { ContentPageLayout } from '@/shared/ui/layout';
 import { SettingsNotice } from '@/features/settings/components/SettingsNotice';
 import { SettingsHelperText } from '@/features/settings/components/SettingsHelperText';
 import { buildSettingsPath, resolveSettingsBasePath } from '@/shared/utils/workspace';
-import { Avatar } from '@/shared/ui/profile';
+import { Avatar, UserCard } from '@/shared/ui/profile';
 
 interface PracticeTeamPageProps {
   onNavigate?: (path: string) => void;
@@ -301,19 +301,14 @@ export const PracticeTeamPage = ({ onNavigate, className }: PracticeTeamPageProp
             {members.map((member) => (
               <div key={member.userId} className="flex items-center justify-between py-2">
                 <div className="flex min-w-0 flex-1 items-center gap-3">
-                  <Avatar
-                    src={member.image ?? null}
+                  <UserCard
                     name={member.name || member.email || member.userId}
+                    image={member.image ?? null}
+                    secondary={`${member.email || member.userId} • ${getPracticeRoleLabel(member.role)}`}
+                    badge={member.role === 'owner' ? 'Owner' : undefined}
                     size="md"
+                    className="-ml-3"
                   />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-input-text">
-                      {member.name || member.email || member.userId}
-                    </p>
-                    <SettingsHelperText className="truncate">
-                      {member.email || member.userId} • {getPracticeRoleLabel(member.role)}
-                    </SettingsHelperText>
-                  </div>
                 </div>
                 {isAdmin && member.role !== 'owner' && (
                   <Button

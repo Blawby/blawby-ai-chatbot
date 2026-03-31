@@ -53,7 +53,7 @@ export const StackedAvatars = ({
   }
 
   return (
-    <div className={cn('flex overflow-hidden', config.overlap, className)}>
+    <div className={cn('flex', config.overlap, className)}>
       {visibleUsers.map((user) => (
         <Avatar
           key={user.id}
@@ -61,6 +61,7 @@ export const StackedAvatars = ({
           name={user.name}
           size={config.avatar}
           className={ringClasses}
+          bgClassName="bg-[rgb(var(--surface-overlay))]"
         />
       ))}
       {showOverflow && overflowCount > 0 && (
