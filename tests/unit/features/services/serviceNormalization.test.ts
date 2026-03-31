@@ -38,6 +38,11 @@ describe('resolveServiceDetails', () => {
         id: 'practice-1',
         name: 'Practice',
         slug: 'practice',
+        consultationFee: null,
+        paymentUrl: null,
+        businessPhone: null,
+        businessEmail: null,
+        calendlyUrl: null,
         services: [
           {
             id: 'legacy-family-law',
