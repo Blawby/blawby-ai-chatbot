@@ -315,6 +315,7 @@
       var baseUrlInput = document.getElementById('base-url');
       var primaryColorInput = document.getElementById('primary-color');
 
+      var MAX_DEBUG_EVENTS = 200;
       var debugState = {
         events: [],
         network: [],
@@ -362,6 +363,9 @@
           pushDataLayerOnChatStart: true,
           onEvent: function (eventPayload) {
             debugState.events.unshift(eventPayload);
+            if (debugState.events.length > MAX_DEBUG_EVENTS) {
+              debugState.events.pop();
+            }
             appendLog(eventLogEl, 'onEvent', eventPayload);
             if (eventPayload && eventPayload.type === 'theme_applied') {
               debugState.themeEvent = eventPayload;
@@ -415,7 +419,15 @@
         setText(containerCssVarEl, cssVar || 'Widget container not mounted yet');
 
         if (cssVar) {
-          resolvedThemeColorEl.innerHTML = '<span class="badge"><span class="swatch" style="background:' + cssVar + ';"></span>' + cssVar + '</span>';
+          resolvedThemeColorEl.textContent = '';
+          var badge = document.createElement('span');
+          badge.className = 'badge';
+          var swatch = document.createElement('span');
+          swatch.className = 'swatch';
+          swatch.style.background = cssVar;
+          badge.appendChild(swatch);
+          badge.appendChild(document.createTextNode(cssVar));
+          resolvedThemeColorEl.appendChild(badge);
         } else {
           setText(resolvedThemeColorEl, 'Waiting for widget…');
         }

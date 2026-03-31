@@ -384,17 +384,14 @@ export class RemoteApiService {
     const members = practice.members
       .filter((member): member is typeof practice.members[number] & {
         role: import('../../src/shared/types/team.js').TeamRole;
-        email: string;
       } => (
         isTeamRole(member.role)
         && typeof member.user_id === 'string'
         && member.user_id.trim().length > 0
-        && typeof member.email === 'string'
-        && member.email.trim().length > 0
       ))
       .map((member) => ({
         userId: member.user_id,
-        email: member.email,
+        email: member.email ?? '',
         name: member.name ?? undefined,
         image: member.image ?? null,
         role: member.role,

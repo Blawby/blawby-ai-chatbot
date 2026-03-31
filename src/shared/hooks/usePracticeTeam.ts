@@ -57,7 +57,8 @@ export const usePracticeTeam = (
         await existing;
       } catch (err) {
         if (!isMountedRef.current) return;
-        if (practiceTeamInFlight.get(cacheKey) !== existing) return;
+        const current = practiceTeamInFlight.get(cacheKey);
+        if (current !== undefined && current !== existing) return;
         if (err instanceof Error && err.name === 'AbortError') return;
 
         const nextLoaded = new Set(practiceTeamLoaded.get());

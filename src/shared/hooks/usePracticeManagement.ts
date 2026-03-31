@@ -20,7 +20,7 @@ import {
 } from '@/shared/lib/apiClient';
 import { normalizeSubscriptionStatus as normalizePracticeStatus } from '@/shared/utils/subscription';
 import { resetPracticeDetailsStore, setPracticeDetailsEntry } from '@/shared/stores/practiceDetailsStore';
-import { invalidatePracticeTeamForPractice, resetPracticeTeamStore } from '@/shared/stores/practiceTeamStore';
+import { ensurePracticeTeamCacheUserId, invalidatePracticeTeamForPractice, resetPracticeTeamStore } from '@/shared/stores/practiceTeamStore';
 import { asMajor, type MajorAmount } from '@/shared/utils/money';
 import { type PracticeRole } from '@/shared/utils/practiceRoles';
 
@@ -546,14 +546,10 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
   // Track if we've already fetched practices to prevent duplicate calls
   const practicesFetchedRef = useRef(false);
   const currentRequestRef = useRef<AbortController | null>(null);
-  const lastPracticeTeamUserIdRef = useRef<string | null>(null);
   const resolvedUserId = !session?.user || isAnonymous ? null : session.user.id;
 
   useEffect(() => {
-    if (lastPracticeTeamUserIdRef.current !== resolvedUserId) {
-      resetPracticeTeamStore();
-      lastPracticeTeamUserIdRef.current = resolvedUserId;
-    }
+    ensurePracticeTeamCacheUserId(resolvedUserId);
   }, [resolvedUserId]);
 
   // Helper for workspace/local endpoints still served by the Worker
