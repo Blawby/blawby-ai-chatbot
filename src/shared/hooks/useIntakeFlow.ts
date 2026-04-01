@@ -45,13 +45,32 @@ const INTAKE_FIELD_LABELS: Partial<Record<keyof IntakeFieldsPayload, string>> = 
   opposingParty: 'Opposing party',
   city: 'City',
   state: 'State',
-  postalCode: 'Postal code',
-  addressLine1: 'Address line 1',
   desiredOutcome: 'Desired outcome',
   courtDate: 'Court date',
-  income: 'Income',
-  householdSize: 'Household size',
   hasDocuments: 'Supporting documents',
+};
+
+const PERSISTED_INTAKE_FIELD_KEYS = [
+  'practiceArea',
+  'description',
+  'urgency',
+  'opposingParty',
+  'city',
+  'state',
+  'desiredOutcome',
+  'courtDate',
+  'hasDocuments',
+  'ctaShown',
+] as const satisfies ReadonlyArray<keyof IntakeConversationState & keyof IntakeFieldsPayload>;
+
+type PersistedIntakeFieldKey = (typeof PERSISTED_INTAKE_FIELD_KEYS)[number];
+
+const assignIntakeField = <K extends PersistedIntakeFieldKey>(
+  state: IntakeConversationState,
+  key: K,
+  value: IntakeConversationState[K]
+) => {
+  state[key] = value;
 };
 
 const WIDGET_ATTRIBUTION_STORAGE_KEY = 'blawby:widget:attribution';
@@ -235,14 +254,14 @@ export function useIntakeFlow({
     const next: IntakeConversationState = { ...current };
 
     const changedFields: string[] = [];
-    (Object.keys(payload) as Array<keyof IntakeFieldsPayload>).forEach(key => {
+    PERSISTED_INTAKE_FIELD_KEYS.forEach(key => {
       const val = payload[key];
       if (val !== undefined) {
-        if (current[key as keyof IntakeConversationState] !== val) {
+        if (current[key] !== val) {
           const label = INTAKE_FIELD_LABELS[key];
           if (label) changedFields.push(label);
         }
-        (next as unknown as Record<string, unknown>)[key] = val;
+        assignIntakeField(next, key, val);
       }
     });
     await updateConversationMetadata(

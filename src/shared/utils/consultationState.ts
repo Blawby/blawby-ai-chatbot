@@ -35,15 +35,6 @@ const normalizeNumberOrNull = (value: unknown): number | null => (
   typeof value === 'number' && Number.isFinite(value) ? value : null
 );
 
-const normalizeStringArrayOrNull = (value: unknown): string[] | null => {
-  if (!Array.isArray(value)) return null;
-  const next = value
-    .filter((item): item is string => typeof item === 'string')
-    .map((item) => item.trim())
-    .filter(Boolean);
-  return next.length > 0 ? next : null;
-};
-
 const hasNonEmptyString = (value: unknown): boolean => (
   typeof value === 'string' && value.trim().length > 0
 );
@@ -76,16 +67,9 @@ const mergeIntakeState = (
     opposingParty: normalized.opposingParty ?? fallback.opposingParty,
     city: normalized.city ?? fallback.city,
     state: normalized.state ?? fallback.state,
-    postalCode: normalized.postalCode ?? fallback.postalCode,
-    country: normalized.country ?? fallback.country,
-    addressLine1: normalized.addressLine1 ?? fallback.addressLine1,
-    addressLine2: normalized.addressLine2 ?? fallback.addressLine2,
     desiredOutcome: normalized.desiredOutcome ?? fallback.desiredOutcome,
     courtDate: normalized.courtDate ?? fallback.courtDate,
-    income: normalized.income ?? fallback.income,
-    householdSize: normalized.householdSize ?? fallback.householdSize,
     hasDocuments: normalized.hasDocuments ?? fallback.hasDocuments,
-    eligibilitySignals: normalized.eligibilitySignals?.length ? normalized.eligibilitySignals : fallback.eligibilitySignals,
     turnCount: normalized.turnCount > 0 ? normalized.turnCount : fallback.turnCount,
     ctaShown: normalized.ctaShown || fallback.ctaShown || false,
     ctaResponse: normalized.ctaResponse ?? fallback.ctaResponse,
@@ -175,16 +159,9 @@ export const normalizeIntakeConversationState = (value: unknown): IntakeConversa
     opposingParty: trimString(record.opposingParty) || null,
     city: trimString(record.city) || null,
     state: trimString(record.state) || null,
-    postalCode: trimString(record.postalCode) || null,
-    country: trimString(record.country) || null,
-    addressLine1: trimString(record.addressLine1) || null,
-    addressLine2: trimString(record.addressLine2) || null,
     desiredOutcome: trimString(record.desiredOutcome) || null,
     courtDate: trimString(record.courtDate) || null,
-    income: trimString(record.income) || null,
-    householdSize: normalizeNumberOrNull(record.householdSize),
     hasDocuments: typeof record.hasDocuments === 'boolean' ? record.hasDocuments : null,
-    eligibilitySignals: normalizeStringArrayOrNull(record.eligibilitySignals),
     turnCount: normalizeNumberOrNull(record.turnCount) ?? 0,
     ctaShown: typeof record.ctaShown === 'boolean' ? record.ctaShown : false,
     ctaResponse:

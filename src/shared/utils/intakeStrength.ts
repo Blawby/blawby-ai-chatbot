@@ -14,7 +14,6 @@ export const resolveStrengthTier = (state: IntakeConversationState | null): Stre
   const hasOpposingParty = Boolean(state.opposingParty?.trim());
   const hasDesiredOutcome = Boolean(state.desiredOutcome?.trim());
   const hasUrgency = Boolean(state.urgency);
-  const hasBasicAddress = Boolean(state.addressLine1?.trim());
 
   // Count how many unique pieces of information we have
   const signals = [
@@ -23,8 +22,7 @@ export const resolveStrengthTier = (state: IntakeConversationState | null): Stre
     hasLocation,
     hasOpposingParty,
     hasDesiredOutcome,
-    hasUrgency,
-    hasBasicAddress
+    hasUrgency
   ].filter(Boolean).length;
 
   // 1. None: Literally nothing shared yet

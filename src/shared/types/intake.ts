@@ -30,16 +30,9 @@ export interface IntakeConversationState {
   opposingParty: string | null;
   city: string | null;
   state: string | null;
-  postalCode: string | null;
-  country: string | null;
-  addressLine1: string | null;
-  addressLine2: string | null;
   desiredOutcome: string | null;
   courtDate: string | null;
-  income: string | null;
-  householdSize: number | null;
   hasDocuments: boolean | null;
-  eligibilitySignals: string[] | null;
   turnCount: number;
   ctaShown: boolean;
   ctaResponse: 'ready' | 'not_yet' | null;
@@ -69,16 +62,9 @@ export const initialIntakeState: IntakeConversationState = {
   opposingParty: null,
   city: null,
   state: null,
-  postalCode: null,
-  country: null,
-  addressLine1: null,
-  addressLine2: null,
   desiredOutcome: null,
   courtDate: null,
-  income: null,
-  householdSize: null,
   hasDocuments: null,
-  eligibilitySignals: null,
   turnCount: 0,
   ctaShown: false,
   ctaResponse: null,
@@ -101,17 +87,12 @@ export type IntakeFieldsPayload = {
   opposingParty?: string;
   city?: string;
   state?: string;
-  postalCode?: string;
-  country?: string;
-  addressLine1?: string;
-  addressLine2?: string;
   desiredOutcome?: string;
   courtDate?: string;
-  income?: string;
-  householdSize?: number;
   hasDocuments?: boolean;
-  eligibilitySignals?: string[];
   ctaShown?: boolean;
+  intakeReady?: boolean;
+  quickReplies?: string[] | null;
 };
 
 export type IntakeFieldChangeOptions = {
