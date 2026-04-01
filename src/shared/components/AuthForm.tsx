@@ -4,7 +4,6 @@ import { UserCircleIcon } from '@heroicons/react/24/outline';
 import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from '@/shared/ui/form';
 import { Input, EmailInput, PasswordInput } from '@/shared/ui/input';
 import { Button } from '@/shared/ui/Button';
-import { Avatar } from '@/shared/ui/profile';
 import { handleError } from '@/shared/utils/errorHandler';
 import { getClient } from '@/shared/lib/authClient';
 

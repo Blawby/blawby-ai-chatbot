@@ -5,7 +5,6 @@ import { Input } from '@/shared/ui/input/Input';
 import { CurrencyInput } from '@/shared/ui/input/CurrencyInput';
 import { DatePicker } from '@/shared/ui/input/DatePicker';
 import { Textarea } from '@/shared/ui/input/Textarea';
-import { Icon } from '@/shared/ui/Icon';
 import { Avatar, StackedAvatars, UserCard, type SelectableUser } from '@/shared/ui/profile';
 import { renderUserAvatar } from '@/shared/ui/profile';
 

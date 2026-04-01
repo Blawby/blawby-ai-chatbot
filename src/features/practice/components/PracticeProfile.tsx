@@ -1,4 +1,4 @@
-import { FaceSmileIcon, CheckBadgeIcon } from '@heroicons/react/24/outline';
+import { CheckBadgeIcon } from '@heroicons/react/24/outline';
 import { Icon } from '@/shared/ui/Icon';
 import { Avatar } from '@/shared/ui/profile';
 import { useTranslation } from 'react-i18next';

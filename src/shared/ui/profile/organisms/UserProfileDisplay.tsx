@@ -7,7 +7,6 @@
 
 import { useState, useEffect, useRef } from 'preact/hooks';
 import { useLocation } from 'preact-iso';
-import { Icon } from '@/shared/ui/Icon';
 import { Avatar } from '../atoms/Avatar';
 import { ProfileButton } from '../molecules/ProfileButton';
 import { ProfileDropdown } from '../molecules/ProfileDropdown';

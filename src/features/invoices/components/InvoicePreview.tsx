@@ -1,6 +1,6 @@
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import { formatLongDate } from '@/shared/utils/dateFormatter';
-import type { InvoiceDetail } from '@/features/invoices/types';
+import { getMajorAmountValue } from '@/shared/utils/money';
 import { Avatar } from '@/shared/ui/profile';
 import type { InvoiceLineItem } from '@/features/matters/types/billing.types';
 import { normalizePublicFileUrl } from '@/shared/lib/apiClient';
