@@ -151,7 +151,7 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 	const shouldShowPaymentCard = Boolean(paymentRequest && intakeStatus?.paymentReceived !== true);
 	const hasRenderableQuickReply = Boolean(quickReplies?.some((reply) => {
 		if (reply === '__submit__' || reply === '__continue_payment__') {
-			return Boolean(onSubmitNow || onIntakeCtaResponse || (onOpenPayment && paymentRequest));
+			return Boolean(onSubmitNow || onIntakeCtaResponse);
 		}
 		if (reply.startsWith('__pay__:')) {
 			return true;
@@ -320,16 +320,14 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 				<div className="mt-3 flex gap-2 overflow-x-auto pb-1">
 					{quickReplies.map((reply, idx) => (
 						reply === '__continue_payment__' ? (
-							(onSubmitNow || onIntakeCtaResponse || (onOpenPayment && paymentRequest)) ? (
+							(onSubmitNow || onIntakeCtaResponse) ? (
 								<Button
 									key="__continue_payment__"
 									variant="primary"
 									size="sm"
 									className="shrink-0"
 									onClick={() => {
-										if (onOpenPayment && paymentRequest) {
-											onOpenPayment(paymentRequest);
-										} else if (onSubmitNow) {
+										if (onSubmitNow) {
 											void onSubmitNow();
 										} else {
 											onIntakeCtaResponse?.('ready');

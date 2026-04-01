@@ -89,10 +89,10 @@ const buildIntakeConversationCtaInstruction = (
   const paymentRequiredBeforeSubmit = submissionGate?.paymentRequiredBeforeSubmit === true;
   const paymentCompleted = submissionGate?.paymentCompleted === true;
   if (messageCount >= INTAKE_CLOSING_MESSAGE_THRESHOLD && isSubmissionReady) {
-    return `\nYou have asked enough questions and have the required details. Briefly summarize what you know and ask if the user is ready to submit to the firm.`;
+    return `\nYou have all the required details. Briefly summarize what you know in 2-3 sentences, then ask: "Are you ready to submit your case to the firm?" Do not ask if they want to add anything else.`;
   }
   if (isSubmissionReady && isPlannerFinished && messageCount < INTAKE_CLOSING_MESSAGE_THRESHOLD) {
-    return `\nYou have all the required details to proceed. Briefly offer a recap to confirm readiness and prepare the user to submit. Do NOT ask any new questions.`;
+    return `\nYou have all the required details. Ask: "Are you ready to submit your case to the firm?" in one short sentence. Do not summarize again. Do not ask if they want to add anything else.`;
   }
   if (hasCaseInfo && paymentRequiredBeforeSubmit && !paymentCompleted) {
     return '\nYou already have the required case details. Do NOT ask for more case details. Briefly explain that payment is required before submission and ask the user to tap Continue to payment. Do NOT include raw URLs or placeholders like [Insert Payment Link].';
