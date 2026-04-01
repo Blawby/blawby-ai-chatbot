@@ -177,7 +177,10 @@ test.describe('Lead intake workflow', () => {
     await expect(messageInput).toBeEnabled({ timeout: 45000 });
     const bodyLocator = anonPage.locator('body');
     const submitNowButton = anonPage.getByRole('button', { name: /submit request/i });
-    const paymentContinueButton = anonPage.locator('button:visible').filter({ hasText: /^continue$/i }).first();
+    const paymentContinueButton = anonPage
+      .locator('button:visible')
+      .filter({ hasText: /continue(\s+to\s+payment)?|pay\s*(?:&|and)\s*submit/i })
+      .first();
     const buildBriefButton = anonPage.getByRole('button', { name: /build stronger brief/i });
     const aiTranscript: Array<{ prompt?: string; user: string; contentType: string; replyText: string }> = [];
 
