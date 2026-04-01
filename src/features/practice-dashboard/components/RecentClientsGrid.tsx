@@ -1,6 +1,7 @@
 import { EllipsisHorizontalIcon } from '@heroicons/react/24/outline';
 import { Icon } from '@/shared/ui/Icon';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/shared/ui/dropdown';
+import { Avatar } from '@/shared/ui/profile';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import { formatDate } from '@/shared/utils/dateTime';
 import type { RecentClient } from '@/features/practice-dashboard/hooks/usePracticeBillingData';
@@ -52,11 +53,12 @@ export const RecentClientsGrid = ({
           {clients.map((client) => (
             <li key={client.id} className="overflow-hidden rounded-xl outline outline-1 outline-line-glass/40">
               <div className="flex items-center gap-x-4 border-b border-line-glass/20 bg-surface-glass p-6">
-                <div className="h-12 w-12 rounded-lg bg-line-glass/20 ring-1 ring-line-glass/30" aria-hidden="true">
-                  {client.avatarUrl ? (
-                    <img src={client.avatarUrl} alt={client.name} className="h-12 w-12 rounded-lg object-cover" />
-                  ) : null}
-                </div>
+                <Avatar 
+                  src={client.avatarUrl} 
+                  name={client.name} 
+                  size="lg" 
+                  className="h-12 w-12 rounded-lg"
+                />
                 <div className="flex-1">
                   <p className="text-sm font-medium text-input-text">{client.name}</p>
                 </div>

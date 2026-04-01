@@ -20,10 +20,10 @@ import {
   CheckCircleIcon,
   ExclamationTriangleIcon,
   LockClosedIcon,
-  ShieldCheckIcon,
-  UserCircleIcon
+  ShieldCheckIcon
 } from '@heroicons/react/24/outline';
 import { Icon } from '@/shared/ui/Icon';
+import { UserIcon } from '@heroicons/react/24/outline';
 
 const maskStripeAccountId = (value?: string | null) => {
   if (!value) return 'Not created';
@@ -247,7 +247,7 @@ export const PayoutsPage = ({ className = '' }: { className?: string }) => {
             </div>
             <div className="flex items-start gap-3 text-sm text-input-placeholder">
               <span className="mt-0.5 flex h-8 w-8 items-center justify-center">
-                <Icon icon={UserCircleIcon} className="h-5 w-5 text-input-placeholder"  />
+                <Icon icon={UserIcon} className="h-5 w-5 text-input-placeholder"  />
               </span>
               <p>
                 It&apos;s recommended that the person filling out the information is either the owner of the business, or someone with a significant role in the business, such as a director or executive.

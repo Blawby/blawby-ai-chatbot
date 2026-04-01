@@ -1,9 +1,10 @@
 import { useEffect, useState, useCallback } from 'preact/hooks';
 import { useTranslation } from '@/shared/i18n/hooks';
-import { UserIcon } from '@heroicons/react/24/outline';
+import { UserCircleIcon } from '@heroicons/react/24/outline';
 import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from '@/shared/ui/form';
 import { Input, EmailInput, PasswordInput } from '@/shared/ui/input';
 import { Button } from '@/shared/ui/Button';
+import { Avatar } from '@/shared/ui/profile';
 import { handleError } from '@/shared/utils/errorHandler';
 import { getClient } from '@/shared/lib/authClient';
 
@@ -310,7 +311,7 @@ const AuthForm = ({
                           setFormData(prev => ({ ...prev, name: String(value) }));
                         }}
                         placeholder={t('signup.fullNamePlaceholder')}
-                        icon={UserIcon} iconClassName="h-5 w-5 text-input-placeholder"
+                        icon={UserCircleIcon} iconClassName="h-5 w-5 text-input-placeholder"
                         error={fieldError?.message}
                         data-testid="signup-name-input"
                       />

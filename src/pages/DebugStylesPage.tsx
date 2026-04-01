@@ -5,9 +5,9 @@ import { Input } from '@/shared/ui/input/Input';
 import { CurrencyInput } from '@/shared/ui/input/CurrencyInput';
 import { DatePicker } from '@/shared/ui/input/DatePicker';
 import { Textarea } from '@/shared/ui/input/Textarea';
-import { UserCircleIcon } from '@heroicons/react/24/outline';
 import { Icon } from '@/shared/ui/Icon';
 import { Avatar, StackedAvatars, UserCard, type SelectableUser } from '@/shared/ui/profile';
+import { renderUserAvatar } from '@/shared/ui/profile';
 
 const buttonVariants = [
   'primary',
@@ -236,7 +236,7 @@ export default function DebugStylesPage() {
               options={comboboxOptions}
               value={comboboxValue}
               onChange={setComboboxValue}
-              leading={<Icon icon={UserCircleIcon} className="h-4 w-4 text-input-placeholder"  />}
+              leading={renderUserAvatar({ name: 'Demo User' }, 'xs', 'h-4 w-4 text-input-placeholder')}
             />
           </div>
           <div className="glass-panel relative z-30 rounded-xl p-4 overflow-visible">
@@ -248,7 +248,7 @@ export default function DebugStylesPage() {
               onChange={setComboboxMultiOnlyValue}
               multiple
               searchable={false}
-              leading={<Icon icon={UserCircleIcon} className="h-4 w-4 text-input-placeholder"  />}
+              leading={renderUserAvatar({ name: 'Demo User' }, 'xs', 'h-4 w-4 text-input-placeholder')}
             />
           </div>
           <div className="glass-panel relative z-30 rounded-xl p-4 overflow-visible">
@@ -260,7 +260,7 @@ export default function DebugStylesPage() {
               onChange={setComboboxMultiValue}
               multiple
               allowCustomValues
-              leading={<Icon icon={UserCircleIcon} className="h-4 w-4 text-input-placeholder"  />}
+              leading={renderUserAvatar({ name: 'Demo User' }, 'xs', 'h-4 w-4 text-input-placeholder')}
             />
           </div>
         </div>

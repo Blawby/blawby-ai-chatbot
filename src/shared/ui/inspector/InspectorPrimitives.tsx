@@ -1,5 +1,6 @@
 import type { ComponentChildren, ComponentChild, ComponentType } from 'preact';
 import { Cog6ToothIcon } from '@heroicons/react/24/outline';
+import { Avatar } from '../profile/atoms/Avatar';
 
 type InfoRowProps = {
   label: string;
@@ -149,20 +150,15 @@ export const InspectorHeaderPerson = ({
   secondaryLine,
   avatarUrl,
 }: InspectorHeaderPersonProps) => {
-  const words = name.trim().split(/\s+/).filter(Boolean);
-  const initials = (words.length > 0
-    ? words.slice(0, 2).map((word) => word[0]).join('')
-    : '??').toUpperCase();
-
   return (
     <div className="flex flex-col items-center px-5 pb-4 pt-5">
-      <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-full bg-white/[0.08]">
-        {avatarUrl ? (
-          <img src={avatarUrl} alt={name} className="h-full w-full object-cover" />
-        ) : (
-          <span className="text-[18px] font-medium text-input-text">{initials}</span>
-        )}
-      </div>
+      <Avatar 
+        src={avatarUrl} 
+        name={name} 
+        size="xl" 
+        className="h-14 w-14"
+        bgClassName="bg-white/[0.08]"
+      />
       <p className="mt-3 text-[15px] font-semibold text-input-text">{name}</p>
       {secondaryLine ? (
         <p className="mt-0.5 text-[12px] text-input-placeholder">{secondaryLine}</p>
@@ -188,11 +184,6 @@ export const InspectorHeaderHero = ({
   phone,
   website,
 }: InspectorHeaderHeroProps) => {
-  const words = name.trim().split(/\s+/).filter(Boolean);
-  const initials = (words.length > 0
-    ? words.slice(0, 2).map((word) => word[0]).join('')
-    : '??').toUpperCase();
-
   const normalizeUrl = (url: string) => {
     if (url.startsWith('tel:') || url.startsWith('mailto:')) return url;
     if (!/^https?:\/\//i.test(url)) return `https://${url}`;
@@ -222,13 +213,15 @@ export const InspectorHeaderHero = ({
       <div className="absolute inset-0 bg-gradient-to-t from-surface-base/10 via-transparent to-white/5" />
       <div className="relative flex flex-col items-center px-5 pb-8 pt-10 text-center">
         {/* Avatar */}
-        <div className="relative flex h-24 w-24 items-center justify-center overflow-hidden rounded-full bg-white/[0.05] shadow-2xl ring-1 ring-white/10 ring-inset">
-          {avatarUrl ? (
-            <img src={avatarUrl} alt={name} className="h-full w-full object-cover" />
-          ) : (
-            <span className="text-3xl font-light tracking-tight text-white/90">{initials}</span>
-          )}
-          <div className="absolute inset-0 rounded-full border border-white/5" />
+        <div className="relative">
+          <Avatar 
+            src={avatarUrl} 
+            name={name} 
+            size="xl" 
+            className="h-24 w-24"
+            bgClassName="bg-white/[0.05] shadow-2xl ring-1 ring-white/10 ring-inset"
+          />
+          <div className="absolute inset-0 rounded-full border border-white/5 pointer-events-none" />
         </div>
 
         {/* Name & Description */}

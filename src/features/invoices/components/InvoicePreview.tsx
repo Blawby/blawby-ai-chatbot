@@ -1,6 +1,7 @@
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import { formatLongDate } from '@/shared/utils/dateFormatter';
-import { getMajorAmountValue } from '@/shared/utils/money';
+import type { InvoiceDetail } from '@/features/invoices/types';
+import { Avatar } from '@/shared/ui/profile';
 import type { InvoiceLineItem } from '@/features/matters/types/billing.types';
 import { normalizePublicFileUrl } from '@/shared/lib/apiClient';
 
@@ -24,20 +25,6 @@ type InvoicePreviewProps = {
   clientEmail?: string | null;
   /** Practice billing increment in minutes */
   billingIncrementMinutes?: number | null;
-};
-
-/** Initials chip shown when no logo is available */
-const InitialsChip = ({ name }: { name: string }) => {
-  const initials = name
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((w) => w[0]?.toUpperCase() ?? '')
-    .join('');
-  return (
-    <div className="flex h-14 w-14 items-center justify-center rounded-full bg-gray-200 text-lg font-semibold text-gray-600">
-      {initials || '?'}
-    </div>
-  );
 };
 
 export const InvoicePreview = ({
@@ -94,15 +81,12 @@ export const InvoicePreview = ({
             {/* Firm identity block (top-right) */}
             {hasFirmBlock && (
               <div className="flex items-center gap-3">
-                {normalizedLogoUrl ? (
-                  <img
-                    src={normalizedLogoUrl}
-                    alt={practiceName ?? 'Firm logo'}
-                    className="h-14 w-14 rounded-full object-cover"
-                  />
-                ) : practiceName ? (
-                  <InitialsChip name={practiceName} />
-                ) : null}
+                <Avatar 
+                  src={normalizedLogoUrl} 
+                  name={practiceName ?? 'Firm'} 
+                  size="lg" 
+                  className="h-14 w-14"
+                />
                 {practiceName && (
                   <span className="text-base font-semibold text-gray-900">{practiceName}</span>
                 )}

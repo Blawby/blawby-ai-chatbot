@@ -6,7 +6,7 @@ import { CurrencyInput } from '@/shared/ui/input/CurrencyInput';
 import { MarkdownUploadTextarea } from '@/shared/ui/input/MarkdownUploadTextarea';
 import { Combobox } from '@/shared/ui/input/Combobox';
 import { RadioGroupWithDescriptions } from '@/shared/ui/input/RadioGroupWithDescriptions';
-import { Avatar } from '@/shared/ui/profile';
+import { renderUserAvatar } from '@/shared/ui/profile';
 import { type MatterOption, type MatterMilestoneFormInput } from '@/features/matters/data/matterTypes';
 import { MATTER_STATUS_LABELS, MATTER_WORKFLOW_STATUSES, type MatterStatus } from '@/shared/types/matterStatus';
 import type { ComponentChildren } from 'preact';
@@ -233,15 +233,6 @@ const MatterFormModalInner = ({
     [assignees]
   );
 
-  const renderUserAvatar = (name?: string, image?: string | null, size: 'xs' | 'sm' = 'xs') => (
-    <Avatar
-      name={name?.trim() || 'User'}
-      src={image ?? null}
-      size={size}
-      className="glass-input"
-    />
-  );
-
   const [isMilestoneFormVisible, setIsMilestoneFormVisible] = useState(false);
   const [milestoneDraft, setMilestoneDraft] = useState({
     description: '',
@@ -359,7 +350,7 @@ const MatterFormModalInner = ({
               if (selectedOption) {
                 const client = clientById.get(selectedOption.value);
                 if (client) {
-                  return renderUserAvatar(client.name, client.image, 'sm');
+                  return renderUserAvatar({ name: client.name, image: client.image }, 'sm');
                 }
               }
               return buildLeadingIcon(<Icon icon={UserIcon} className="h-4 w-4"  />);
@@ -367,7 +358,7 @@ const MatterFormModalInner = ({
             optionLeading={(option) => {
               const client = clientById.get(option.value);
               if (!client) return null;
-              return renderUserAvatar(client.name, client.image, 'sm');
+              return renderUserAvatar({ name: client.name, image: client.image }, 'sm');
             }}
             optionMeta={(option) => {
               const client = clientById.get(option.value);
@@ -493,7 +484,7 @@ const MatterFormModalInner = ({
               optionLeading={(option) => {
                 const assignee = assigneeById.get(option.value);
                 if (!assignee) return null;
-                return renderUserAvatar(assignee.name, assignee.image, 'sm');
+                return renderUserAvatar({ name: assignee.name, image: assignee.image }, 'sm');
               }}
               optionMeta={(option) => option.meta}
               onChange={(value) => updateForm('responsibleAttorneyId', value)}
@@ -507,7 +498,7 @@ const MatterFormModalInner = ({
               optionLeading={(option) => {
                 const assignee = assigneeById.get(option.value);
                 if (!assignee) return null;
-                return renderUserAvatar(assignee.name, assignee.image, 'sm');
+                return renderUserAvatar({ name: assignee.name, image: assignee.image }, 'sm');
               }}
               optionMeta={(option) => option.meta}
               onChange={(value) => updateForm('originatingAttorneyId', value)}

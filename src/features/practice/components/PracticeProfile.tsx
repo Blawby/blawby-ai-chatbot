@@ -1,5 +1,6 @@
 import { FaceSmileIcon, CheckBadgeIcon } from '@heroicons/react/24/outline';
 import { Icon } from '@/shared/ui/Icon';
+import { Avatar } from '@/shared/ui/profile';
 import { useTranslation } from 'react-i18next';
 
 interface PracticeProfileProps {
@@ -23,17 +24,12 @@ export default function PracticeProfile({
 		<div className="flex flex-col items-center gap-2">
 			{/* Practice Logo */}
 			<div className="flex items-center justify-center">
-				{profileImage ? (
-					<img 
-						src={profileImage} 
-						alt={t('profile.logoAlt', { name })}
-						className="rounded-lg object-cover w-12 h-12"
-					/>
-				) : (
-					<div className="flex items-center justify-center rounded-lg bg-surface-subtle border border-line-glass/30 w-12 h-12">
-						<Icon icon={FaceSmileIcon} className="w-8 h-8 text-input-placeholder"  />
-					</div>
-				)}
+				<Avatar 
+					src={profileImage} 
+					name={name} 
+					size="lg" 
+					className="w-12 h-12 rounded-lg"
+				/>
 			</div>
 
 			{/* Practice Name with Verified Badge */}
