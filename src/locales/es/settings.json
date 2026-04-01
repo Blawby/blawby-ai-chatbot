@@ -290,6 +290,12 @@
         }
       },
       "submit": "Cambiar contraseña",
+      "addPassword": "Añadir contraseña",
+      "addDescription": "Añade una contraseña para gestionar cambios sensibles en la cuenta después de iniciar sesión con Google, Microsoft o Apple.",
+      "errorEmailUnavailable": {
+        "add": "No se puede añadir una contraseña porque tu correo electrónico no está disponible.",
+        "reset": "No se puede restablecer la contraseña porque tu correo electrónico no está disponible."
+      },
       "errors": {
         "missing": {
           "title": "Campos incompletos",

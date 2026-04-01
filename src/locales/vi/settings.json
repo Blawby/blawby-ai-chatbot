@@ -284,7 +284,13 @@
           "placeholder": "Xác nhận mật khẩu mới"
         }
       },
-      "submit": "Thay đổi mật khẩu",
+      "submit": "Đổi mật khẩu",
+      "addPassword": "Thêm mật khẩu",
+      "addDescription": "Thêm mật khẩu để quản lý các thay đổi nhạy cảm của tài khoản sau khi đăng nhập bằng Google, Microsoft hoặc Apple.",
+      "errorEmailUnavailable": {
+        "add": "Không thể thêm mật khẩu vì email của bạn không khả dụng.",
+        "reset": "Không thể đặt lại mật khẩu vì email của bạn không khả dụng."
+      },
       "errors": {
         "missing": {
           "title": "Thiếu trường",

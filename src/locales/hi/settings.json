@@ -93,7 +93,7 @@
         "unlimitedInvoices": "प्रति माह असीमित इनवॉइस",
         "users": "{{count}} उपयोगकर्ता",
         "storageGb": "{{size}} GB स्टोरेज",
-        "invoicesPerMonth": "{{count}} इनवॉइस प्रति महीना"
+        "invoicesPerMonth": "{{count}} इनवॉइस प्रति माह"
       },
       "toasts": {
         "upgrade": {
@@ -279,6 +279,12 @@
         }
       },
       "submit": "[NEEDS TRANSLATION] Change Password",
+      "addPassword": "पासवर्ड जोड़ें",
+      "addDescription": "Google, Microsoft, या Apple के साथ साइन इन करने के बाद संवेदनशील खाता परिवर्तनों को प्रबंधित करने के लिए एक पासवर्ड जोड़ें।",
+      "errorEmailUnavailable": {
+        "add": "आपका ईमेल उपलब्ध नहीं होने के कारण पासवर्ड जोड़ा नहीं जा सकता।",
+        "reset": "आपका ईमेल उपलब्ध नहीं होने के कारण पासवर्ड रीसेट नहीं किया जा सकता।"
+      },
       "errors": {
         "missing": {
           "title": "[NEEDS TRANSLATION] Missing fields",

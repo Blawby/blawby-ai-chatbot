@@ -283,6 +283,12 @@
         }
       },
       "submit": "[NEEDS TRANSLATION] Change Password",
+      "addPassword": "Додати пароль",
+      "addDescription": "Додайте пароль для керування чутливими змінами в акаунті після входу через Google, Microsoft або Apple.",
+      "errorEmailUnavailable": {
+        "add": "Не вдається додати пароль, оскільки ваша електронна пошта недоступна.",
+        "reset": "Не вдається скинути пароль, оскільки ваша електронна пошта недоступна."
+      },
       "errors": {
         "missing": {
           "title": "[NEEDS TRANSLATION] Missing fields",

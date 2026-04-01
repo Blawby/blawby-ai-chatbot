@@ -271,6 +271,12 @@
         }
       },
       "submit": "[NEEDS TRANSLATION] Change Password",
+      "addPassword": "เพิ่มรหัสผ่าน",
+      "addDescription": "เพิ่มรหัสผ่านเพื่อจัดการการเปลี่ยนแปลงที่ละเอียดอ่อนของบัญชีหลังจากล็อกอินด้วย Google, Microsoft หรือ Apple",
+      "errorEmailUnavailable": {
+        "add": "ไม่สามารถเพิ่มรหัสผ่านได้เนื่องจากอีเมลของคุณไม่พร้อมใช้งาน",
+        "reset": "ไม่สามารถรีเซ็ตรหัสผ่านได้เนื่องจากอีเมลของคุณไม่พร้อมใช้งาน"
+      },
       "errors": {
         "missing": {
           "title": "[NEEDS TRANSLATION] Missing fields",

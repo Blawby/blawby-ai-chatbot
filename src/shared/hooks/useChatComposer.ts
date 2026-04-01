@@ -159,7 +159,7 @@ export const useChatComposer = ({
   }, [enabled]);
 
   const ensureConversationId = useCallback(async () => {
-    if (!enabled) return '';
+    if (!enabled) throw new Error('Chat is suspended.');
     const existingConversationId = conversationIdRef.current?.trim();
     if (existingConversationId) return existingConversationId;
 

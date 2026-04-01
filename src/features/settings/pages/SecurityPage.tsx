@@ -318,18 +318,8 @@ export const SecurityPage = ({
         setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
         setIsChangingPassword(false);
       } else {
-        if (!session?.user?.email) {
-          const message = t('settings:security.errorEmailUnavailable.add');
-          setPasswordError(message);
-          showError(
-            t('settings:security.password.errors.failed.title'),
-            t('settings:security.errorEmailUnavailable.add')
-          );
-          return;
-        }
-
-        const { data: _data, error } = await authClient.requestPasswordReset({
-          email: session.user.email
+        const { data: _data, error } = await authClient.setPassword({
+          newPassword: passwordForm.newPassword
         });
         const errorMessage = getBetterAuthErrorMessage(
           { data: _data, error },
@@ -346,9 +336,10 @@ export const SecurityPage = ({
 
         setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
         setIsChangingPassword(false);
+        await reloadAuthAccounts();
         showSuccess(
-          t('settings:security.password.reset.title'),
-          t('settings:security.password.reset.body')
+          t('settings:security.password.success.title'),
+          t('settings:security.password.success.body')
         );
       }
     } catch (error) {
@@ -451,7 +442,7 @@ export const SecurityPage = ({
           >
             {isChangingPassword
               ? t('settings:security.password.cancelButton')
-              : (hasPasswordAccount ? t('settings:security.password.changeButton') : 'Add password')}
+              : (hasPasswordAccount ? t('settings:security.password.changeButton') : t('settings:security.password.addButton'))}
           </Button>
           {hasPasswordAccount && (
             <Button

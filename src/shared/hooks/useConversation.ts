@@ -838,12 +838,16 @@ export const useConversation = ({
     initSocketReadyPromise();
 
     const wsUrl = appendWidgetTokenToUrl(getConversationWsEndpoint(targetConversationId));
-    console.log('[WebSocket] Creating connection to', wsUrl);
+    if (import.meta.env.DEV) {
+      console.log('[WebSocket] Creating connection to', wsUrl);
+    }
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
 
     ws.addEventListener('open', () => {
-      console.log('[WebSocket] Connection opened');
+      if (import.meta.env.DEV) {
+        console.log('[WebSocket] Connection opened');
+      }
       reconnectAttemptRef.current = 0;
       clearReconnectTimer();
       ws.send(JSON.stringify({ type: 'auth', data: { protocol_version: CHAT_PROTOCOL_VERSION, client_info: { platform: 'web' } } }));
@@ -926,7 +930,9 @@ export const useConversation = ({
     });
 
     ws.addEventListener('close', () => {
-      console.log('[WebSocket] Connection closed');
+      if (import.meta.env.DEV) {
+        console.log('[WebSocket] Connection closed');
+      }
       if (socketSessionRef.current !== sessionId) return;
       isSocketReadyRef.current = false;
       rejectSocketReady(new Error('Chat connection closed'));

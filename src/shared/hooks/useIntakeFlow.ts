@@ -308,6 +308,7 @@ export function useIntakeFlow({
   }, [conversationId, enabled, practiceId, conversationMetadataRef, updateConversationMetadata, intakeConversationState]);
 
   const resetIntakeCta = useCallback(async () => {
+    if (!enabled) return;
     const current = consultation?.case ?? intakeConversationState;
     await updateConversationMetadata(
       applyConsultationPatchToMetadata(
@@ -318,9 +319,10 @@ export function useIntakeFlow({
         { mirrorLegacyFields: true }
       )
     );
-  }, [consultation, conversationMetadataRef, intakeConversationState, updateConversationMetadata]);
+  }, [consultation, conversationMetadataRef, enabled, intakeConversationState, updateConversationMetadata]);
 
   const handleSlimFormContinue = useCallback(async (draft: ContactData) => {
+    if (!enabled) return;
     const nextDraft: SlimContactDraft = {
       name: (draft.name ?? '').trim(),
       email: (draft.email ?? '').trim(),
@@ -389,12 +391,14 @@ export function useIntakeFlow({
     applyServerMessages,
     conversationId,
     conversationMetadataRef,
+    enabled,
     practiceId,
     updateConversationMetadata,
     normalizedPracticeSlug,
   ]);
 
   const handleBuildBrief = useCallback(async () => {
+    if (!enabled) return;
     const currentConsultation = resolveConsultationState(conversationMetadataRef.current);
     const current = currentConsultation?.case ?? intakeConversationState;
     const patch: ConversationMetadata = applyConsultationPatchToMetadata(
@@ -419,9 +423,10 @@ export function useIntakeFlow({
     } catch (error) {
       console.error('[Intake] Failed to start brief-building conversation', error);
     }
-  }, [conversationMetadataRef, intakeConversationState, sendMessage, updateConversationMetadata]);
+  }, [conversationMetadataRef, enabled, intakeConversationState, sendMessage, updateConversationMetadata]);
 
   const handleIntakeCtaResponse = useCallback(async (response: 'ready' | 'not_yet') => {
+    if (!enabled) return;
     const currentConsultation = resolveConsultationState(conversationMetadataRef.current);
     const current = currentConsultation?.case ?? intakeConversationState;
     if (response === 'ready') {
@@ -452,13 +457,14 @@ export function useIntakeFlow({
     } catch (error) {
       if (import.meta.env.DEV) console.warn('[Intake] Failed to send "Not yet" response', error);
     }
-  }, [conversationMetadataRef, intakeConversationState, sendMessage, updateConversationMetadata]);
+  }, [conversationMetadataRef, enabled, intakeConversationState, sendMessage, updateConversationMetadata]);
 
   /**
    * Phase 1 — validate contact, link user identity, persist practice slug.
    * Delegates straight to handleFinalizeSubmit.
    */
   const handleConfirmSubmit = useCallback(async () => {
+    if (!enabled) return;
     if (!conversationId || !practiceId) return;
     if (!resolvedSlimContactDraft) {
       if (import.meta.env.DEV) {
@@ -710,6 +716,7 @@ export function useIntakeFlow({
     conversationId,
     conversationMetadataRef,
     currentUserId,
+    enabled,
     isAnonymous,
     onError,
     practiceId,
@@ -725,6 +732,7 @@ export function useIntakeFlow({
    *   - by the payment UI's onSuccess callback after payment completes.
    */
   const handleFinalizeSubmit = useCallback(async (options?: { generatePaymentLinkOnly?: boolean }): Promise<{ paymentLinkUrl: string | null }> => {
+    if (!enabled) return { paymentLinkUrl: null };
     if (!conversationId || !practiceId) return { paymentLinkUrl: null };
 
     const existingSubmission = conversationMetadataRef.current?.submission as { intakeUuid?: string } | undefined;
@@ -830,6 +838,7 @@ export function useIntakeFlow({
     applyServerMessages,
     conversationId,
     conversationMetadataRef,
+    enabled,
     onError,
     practiceId,
     updateConversationMetadata,

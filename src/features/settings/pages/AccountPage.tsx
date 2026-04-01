@@ -986,7 +986,7 @@ export const AccountPage = ({
               onClick={handleDeleteAccount}
               data-testid="account-delete-action"
             >
-              Delete
+              {t('settings:account.delete.button')}
             </SettingsDangerButton>
           </SettingRow>
 
@@ -1112,10 +1112,10 @@ export const AccountPage = ({
           <div className="space-y-4">
             <div className="space-y-2">
               <p className="text-lg font-semibold text-input-text">
-                Add a password first
+                {t('settings:account.email.addPasswordFirst')}
               </p>
               <p className="text-sm text-input-placeholder">
-                Your account was created with Google, Microsoft, or Apple. To change your email, first add a password in Settings -&gt; Security -&gt; Password -&gt; Add.
+                {t('settings:account.email.oauthGatingExplanation')}
               </p>
             </div>
             <FormActions

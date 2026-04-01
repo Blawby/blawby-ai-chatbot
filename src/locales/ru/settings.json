@@ -283,6 +283,12 @@
         }
       },
       "submit": "[NEEDS TRANSLATION] Change Password",
+      "addPassword": "Добавить пароль",
+      "addDescription": "Добавьте пароль для управления чувствительными изменениями в аккаунте после входа через Google, Microsoft или Apple.",
+      "errorEmailUnavailable": {
+        "add": "Не удается добавить пароль, так как ваш адрес электронной почты недоступен.",
+        "reset": "Не удается сбросить пароль, так как ваш адрес электронной почты недоступен."
+      },
       "errors": {
         "missing": {
           "title": "[NEEDS TRANSLATION] Missing fields",

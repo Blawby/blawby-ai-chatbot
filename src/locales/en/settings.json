@@ -273,6 +273,8 @@
     "email": {
       "title": "Email",
       "receiveFeedback": "Receive feedback emails",
+      "addPasswordFirst": "Add a password first",
+      "oauthGatingExplanation": "Your account was created with Google, Microsoft, or Apple. To change your email, first add a password in Settings -> Security -> Password -> Add.",
       "changeSuccess": {
         "title": "Check your email",
         "body": "We sent instructions to confirm your new email address."

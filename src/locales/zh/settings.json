@@ -285,6 +285,12 @@
         }
       },
       "submit": "更改密码",
+      "addPassword": "添加密码",
+      "addDescription": "在使用 Google、Microsoft 或 Apple 登录后，添加密码以管理敏感的账户更改。",
+      "errorEmailUnavailable": {
+        "add": "由于您的电子邮件不可用，无法添加密码。",
+        "reset": "由于您的电子邮件不可用，无法重置密码。"
+      },
       "errors": {
         "missing": {
           "title": "缺少字段",

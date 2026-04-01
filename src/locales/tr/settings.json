@@ -90,7 +90,7 @@
       "limits": {
         "unlimited": "Sınırsız",
         "unlimitedUsers": "Sınırsız kullanıcı",
-        "unlimitedInvoices": "Aylık sınırsız fatura",
+        "unlimitedInvoices": "Sınırsız fatura",
         "users": "{{count}} kullanıcı",
         "storageGb": "{{size}} GB depolama",
         "invoicesPerMonth": "{{count}} fatura/ay"
@@ -272,7 +272,13 @@
           "placeholder": "Confirm new password"
         }
       },
-      "submit": "Change Password",
+      "submit": "[NEEDS TRANSLATION] Change Password",
+      "addPassword": "Şifre ekle",
+      "addDescription": "Google, Microsoft veya Apple ile giriş yaptıktan sonra hassas hesap değişikliklerini yönetmek için bir şifre ekleyin.",
+      "errorEmailUnavailable": {
+        "add": "E-postanız kullanılamadığı için şifre eklenemiyor.",
+        "reset": "E-postanız kullanılamadığı için şifre sıfırlanamıyor."
+      },
       "errors": {
         "missing": {
           "title": "Missing fields",

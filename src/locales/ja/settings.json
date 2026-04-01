@@ -285,6 +285,12 @@
         }
       },
       "submit": "パスワードを変更",
+      "addPassword": "パスワードを追加",
+      "addDescription": "Google、Microsoft、またはAppleでサインインした後、機密性の高いアカウント変更を管理するためにパスワードを追加します。",
+      "errorEmailUnavailable": {
+        "add": "メールアドレスが利用できないため、パスワードを追加できません。",
+        "reset": "メールアドレスが利用できないため、パスワードをリセットできません。"
+      },
       "errors": {
         "missing": {
           "title": "項目が不足しています",

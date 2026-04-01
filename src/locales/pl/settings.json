@@ -283,6 +283,12 @@
         }
       },
       "submit": "[NEEDS TRANSLATION] Change Password",
+      "addPassword": "Dodaj hasło",
+      "addDescription": "Dodaj hasło, aby zarządzać wrażliwymi zmianami w koncie po zalogowaniu się za pomocą Google, Microsoft lub Apple.",
+      "errorEmailUnavailable": {
+        "add": "Nie można dodać hasła, ponieważ Twój e-mail jest niedostępny.",
+        "reset": "Nie można zresetować hasła, ponieważ Twój e-mail jest niedostępny."
+      },
       "errors": {
         "missing": {
           "title": "[NEEDS TRANSLATION] Missing fields",

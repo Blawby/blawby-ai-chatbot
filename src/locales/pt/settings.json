@@ -279,6 +279,12 @@
         }
       },
       "submit": "Alterar Senha",
+      "addPassword": "Adicionar senha",
+      "addDescription": "Adicione uma senha para gerenciar alterações sensíveis da conta após entrar com Google, Microsoft ou Apple.",
+      "errorEmailUnavailable": {
+        "add": "Não é possível adicionar uma senha porque seu e-mail não está disponível.",
+        "reset": "Não é possível redefinir a senha porque seu e-mail não está disponível."
+      },
       "errors": {
         "missing": {
           "title": "Campos faltando",

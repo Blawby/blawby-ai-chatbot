@@ -273,6 +273,12 @@
         }
       },
       "submit": "[NEEDS TRANSLATION] Change Password",
+      "addPassword": "비밀번호 추가",
+      "addDescription": "Google, Microsoft 또는 Apple로 로그인한 후 민감한 계정 변경을 관리하기 위해 비밀번호를 추가하세요.",
+      "errorEmailUnavailable": {
+        "add": "이메일을 사용할 수 없어 비밀번호를 추가할 수 없습니다.",
+        "reset": "이메일을 사용할 수 없어 비밀번호를 재설정할 수 없습니다."
+      },
       "errors": {
         "missing": {
           "title": "[NEEDS TRANSLATION] Missing fields",

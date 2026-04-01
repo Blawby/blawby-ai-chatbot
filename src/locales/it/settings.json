@@ -279,6 +279,12 @@
         }
       },
       "submit": "[NEEDS TRANSLATION] Change Password",
+      "addPassword": "Aggiungi password",
+      "addDescription": "Aggiungi una password per gestire le modifiche sensibili dell'account dopo aver effettuato l'accesso con Google, Microsoft o Apple.",
+      "errorEmailUnavailable": {
+        "add": "Impossibile aggiungere una password perché la tua email non è disponibile.",
+        "reset": "Impossibile reimpostare la password perché la tua email non è disponibile."
+      },
       "errors": {
         "missing": {
           "title": "[NEEDS TRANSLATION] Missing fields",

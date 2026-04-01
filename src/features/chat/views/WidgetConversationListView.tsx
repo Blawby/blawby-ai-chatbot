@@ -21,7 +21,6 @@ interface WidgetConversationListViewProps {
   conversations: Conversation[];
   previews: Record<string, ConversationPreview | undefined>;
   practiceName?: string | null;
-  practiceLogo?: string | null;
   isLoading?: boolean;
   error?: unknown;
   onSelectConversation: (conversationId: string) => void;
@@ -34,7 +33,6 @@ const WidgetConversationListView: FunctionComponent<WidgetConversationListViewPr
   conversations,
   previews,
   practiceName,
-  practiceLogo,
   isLoading = false,
   error = null,
   onSelectConversation,
