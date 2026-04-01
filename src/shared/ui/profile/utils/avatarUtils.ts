@@ -65,7 +65,7 @@ export function createUserCardProps(
   }
 ) {
   return {
-    name: user.name,
+    name: user.name || user.email || 'Unknown User',
     image: user.image,
     secondary: options?.secondary ?? user.email,
     size: options?.size ?? 'md',
@@ -83,8 +83,8 @@ export function createUserCardProps(
 export function createStackedAvatarsData(users: (AvatarUser | null | undefined)[]): StackedAvatarUser[] {
   return users
     .filter((user): user is AvatarUser => user !== null && user !== undefined)
-    .map(user => ({
-      id: user.id ?? user.name ?? user.email ?? 'unknown',
+    .map((user, index) => ({
+      id: user.id ?? user.name ?? user.email ?? `unknown-${index}`,
       name: user.name,
       image: user.image
     }));

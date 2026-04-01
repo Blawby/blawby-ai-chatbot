@@ -2023,12 +2023,11 @@ export const PracticeMattersPage = ({
                           <dd className="mt-1">
                             {(() => {
                               const attorneyId = selectedMatterDetail.responsibleAttorneyId;
-                              if (!attorneyId) return null;
-                              const member = membersById.get(attorneyId);
+                              const member = attorneyId ? membersById.get(attorneyId) : undefined;
                               if (!member) {
                                 return (
                                   <span className="text-sm text-input-text">
-                                    {assigneeNameById.get(attorneyId) || 'Not set'}
+                                    {assigneeNameById.get(attorneyId || '') || 'Not set'}
                                   </span>
                                 );
                               }
@@ -2049,12 +2048,11 @@ export const PracticeMattersPage = ({
                           <dd className="mt-1">
                             {(() => {
                               const attorneyId = selectedMatterDetail.originatingAttorneyId;
-                              if (!attorneyId) return null;
-                              const member = membersById.get(attorneyId);
+                              const member = attorneyId ? membersById.get(attorneyId) : undefined;
                               if (!member) {
                                 return (
                                   <span className="text-sm text-input-text">
-                                    {assigneeNameById.get(attorneyId) || 'Not set'}
+                                    {assigneeNameById.get(attorneyId || '') || 'Not set'}
                                   </span>
                                 );
                               }
