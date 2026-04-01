@@ -87,6 +87,12 @@
       },
       "upgradeButton": "[NEEDS TRANSLATION] Upgrade to {{plan}}",
       "currentButton": "[NEEDS TRANSLATION] Current plan",
+      "limits": {
+        "unlimited": "Безлімітний",
+        "users": "{{count}} користувачів",
+        "storageGb": "{{size}} GB сховища",
+        "invoicesPerMonth": "{{count}} рахунків на місяць"
+      },
       "toasts": {
         "upgrade": {
           "title": "[NEEDS TRANSLATION] Upgrade",

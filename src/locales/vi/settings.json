@@ -87,6 +87,12 @@
       },
       "upgradeButton": "Nâng cấp lên {{plan}}",
       "currentButton": "Gói hiện tại",
+      "limits": {
+        "unlimited": "Không giới hạn",
+        "users": "{{count}} người dùng",
+        "storageGb": "{{size}} GB lưu trữ",
+        "invoicesPerMonth": "{{count}} hóa đơn mỗi tháng"
+      },
       "toasts": {
         "upgrade": {
           "title": "Nâng cấp",

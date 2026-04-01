@@ -85,8 +85,14 @@
         "business": "الخطة الحالية",
         "default": "الخطة الحالية"
       },
-      "upgradeButton": "الترقية إلى {{plan}}",
+      "upgradeButton": "ترقية إلى {{plan}}",
       "currentButton": "الخطة الحالية",
+      "limits": {
+        "unlimited": "غير محدود",
+        "users": "{{count}} مستخدمين",
+        "storageGb": "{{size}} GB تخزين",
+        "invoicesPerMonth": "{{count}} فواتير شهرياً"
+      },
       "toasts": {
         "upgrade": {
           "title": "ترقية",

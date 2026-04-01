@@ -68,6 +68,23 @@ const safeConvertLastPasswordChange = (value: unknown): Date | undefined => {
   return isNaN(date.getTime()) ? undefined : date;
 };
 
+type BetterAuthResult = {
+  data?: unknown;
+  error?: {
+    message?: string;
+  } | null;
+} | null | undefined;
+
+const getBetterAuthErrorMessage = (
+  result: BetterAuthResult,
+  fallbackMessage: string
+): string | null => {
+  if (!result?.error) {
+    return null;
+  }
+  return result.error.message || fallbackMessage;
+};
+
 export interface SecurityPageProps {
   isMobile?: boolean;
   onClose?: () => void;
@@ -276,27 +293,64 @@ export const SecurityPage = ({
       setPasswordSubmitting(true);
       setPasswordError(null);
       if (hasPasswordAccount) {
-        await authClient.changePassword({
+        const { data: _data, error } = await authClient.changePassword({
           currentPassword: passwordForm.currentPassword,
           newPassword: passwordForm.newPassword
         });
-      } else {
-        await authClient.setPassword({
-          newPassword: passwordForm.newPassword
-        });
-      }
+        const errorMessage = getBetterAuthErrorMessage(
+          { data: _data, error },
+          t('settings:security.password.errors.failed.body')
+        );
+        if (errorMessage) {
+          setPasswordError(errorMessage);
+          showError(
+            t('settings:security.password.errors.failed.title'),
+            errorMessage
+          );
+          return;
+        }
 
-      showSuccess(
-        hasPasswordAccount
-          ? t('settings:security.password.success.title')
-          : 'Password added',
-        hasPasswordAccount
-          ? t('settings:security.password.success.body')
-          : 'You can now use your password to manage account details.'
-      );
-      await reloadAuthAccounts();
-      setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
-      setIsChangingPassword(false);
+        showSuccess(
+          t('settings:security.password.success.title'),
+          t('settings:security.password.success.body')
+        );
+        await reloadAuthAccounts();
+        setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+        setIsChangingPassword(false);
+      } else {
+        if (!session?.user?.email) {
+          const message = 'Unable to add a password because your email is unavailable.';
+          setPasswordError(message);
+          showError(
+            t('settings:security.password.errors.failed.title'),
+            message
+          );
+          return;
+        }
+
+        const { data: _data, error } = await authClient.requestPasswordReset({
+          email: session.user.email
+        });
+        const errorMessage = getBetterAuthErrorMessage(
+          { data: _data, error },
+          t('settings:security.password.errors.failed.body')
+        );
+        if (errorMessage) {
+          setPasswordError(errorMessage);
+          showError(
+            t('settings:security.password.errors.failed.title'),
+            errorMessage
+          );
+          return;
+        }
+
+        setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+        setIsChangingPassword(false);
+        showSuccess(
+          t('settings:security.password.reset.title'),
+          t('settings:security.password.reset.body')
+        );
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : t('settings:security.password.errors.failed.body');
       setPasswordError(message);
@@ -319,9 +373,20 @@ export const SecurityPage = ({
     }
 
     try {
-      await authClient.requestPasswordReset({
+      const { data: _data, error } = await authClient.requestPasswordReset({
         email: session.user.email
       });
+      const errorMessage = getBetterAuthErrorMessage(
+        { data: _data, error },
+        t('settings:security.password.errors.failed.body')
+      );
+      if (errorMessage) {
+        showError(
+          t('settings:security.password.errors.failed.title'),
+          errorMessage
+        );
+        return;
+      }
       showSuccess(
         t('settings:security.password.reset.title'),
         t('settings:security.password.reset.body')

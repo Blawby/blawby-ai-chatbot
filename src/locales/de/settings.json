@@ -87,6 +87,12 @@
       },
       "upgradeButton": "Upgrade auf {{plan}}",
       "currentButton": "Aktueller Plan",
+      "limits": {
+        "unlimited": "Unbegrenzt",
+        "users": "{{count}} Benutzer",
+        "storageGb": "{{size}} GB Speicher",
+        "invoicesPerMonth": "{{count}} Rechnungen pro Monat"
+      },
       "toasts": {
         "upgrade": {
           "title": "Upgrade",

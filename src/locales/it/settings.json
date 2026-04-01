@@ -87,6 +87,12 @@
       },
       "upgradeButton": "[NEEDS TRANSLATION] Upgrade to {{plan}}",
       "currentButton": "[NEEDS TRANSLATION] Current plan",
+      "limits": {
+        "unlimited": "Illimitato",
+        "users": "{{count}} utenti",
+        "storageGb": "{{size}} GB di archiviazione",
+        "invoicesPerMonth": "{{count}} fatture al mese"
+      },
       "toasts": {
         "upgrade": {
           "title": "[NEEDS TRANSLATION] Upgrade",

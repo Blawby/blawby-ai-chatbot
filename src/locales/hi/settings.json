@@ -87,6 +87,12 @@
       },
       "upgradeButton": "[NEEDS TRANSLATION] Upgrade to {{plan}}",
       "currentButton": "[NEEDS TRANSLATION] Current plan",
+      "limits": {
+        "unlimited": "असीमित",
+        "users": "{{count}} उपयोगकर्ता",
+        "storageGb": "{{size}} GB स्टोरेज",
+        "invoicesPerMonth": "{{count}} इनवॉइस प्रति महीना"
+      },
       "toasts": {
         "upgrade": {
           "title": "[NEEDS TRANSLATION] Upgrade",

@@ -87,6 +87,12 @@
       },
       "upgradeButton": "升级至 {{plan}}",
       "currentButton": "当前套餐",
+      "limits": {
+        "unlimited": "无限",
+        "users": "{{count}} 用户",
+        "storageGb": "{{size}} GB 存储空间",
+        "invoicesPerMonth": "{{count}} 张发票/月"
+      },
       "toasts": {
         "upgrade": {
           "title": "升级",

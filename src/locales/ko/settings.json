@@ -87,6 +87,12 @@
       },
       "upgradeButton": "[NEEDS TRANSLATION] Upgrade to {{plan}}",
       "currentButton": "[NEEDS TRANSLATION] Current plan",
+      "limits": {
+        "unlimited": "무제한",
+        "users": "{{count}} 사용자",
+        "storageGb": "{{size}} GB 저장 공간",
+        "invoicesPerMonth": "{{count}} 청구서/월"
+      },
       "toasts": {
         "upgrade": {
           "title": "[NEEDS TRANSLATION] Upgrade",

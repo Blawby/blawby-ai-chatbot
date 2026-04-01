@@ -87,6 +87,12 @@
       },
       "upgradeButton": "Passer à {{plan}}",
       "currentButton": "Forfait actuel",
+      "limits": {
+        "unlimited": "Illimité",
+        "users": "{{count}} utilisateurs",
+        "storageGb": "{{size}} Go de stockage",
+        "invoicesPerMonth": "{{count}} factures par mois"
+      },
       "toasts": {
         "upgrade": {
           "title": "Mise à niveau",

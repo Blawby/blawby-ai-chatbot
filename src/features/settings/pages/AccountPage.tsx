@@ -303,13 +303,17 @@ export const AccountPage = ({
     }
     const limitFeatures = [
       typeof currentSubscription?.plan?.limits?.users === 'number'
-        ? `${currentSubscription.plan.limits.users < 0 ? 'Unlimited' : currentSubscription.plan.limits.users} users`
+        ? currentSubscription.plan.limits.users < 0 
+          ? t('settings:account.plan.limits.unlimited')
+          : t('settings:account.plan.limits.users', { count: currentSubscription.plan.limits.users })
         : null,
       typeof currentSubscription?.plan?.limits?.storageGb === 'number'
-        ? `${currentSubscription.plan.limits.storageGb} GB storage`
+        ? t('settings:account.plan.limits.storageGb', { size: currentSubscription.plan.limits.storageGb })
         : null,
       typeof currentSubscription?.plan?.limits?.invoicesPerMonth === 'number'
-        ? `${currentSubscription.plan.limits.invoicesPerMonth < 0 ? 'Unlimited' : currentSubscription.plan.limits.invoicesPerMonth} invoices per month`
+        ? currentSubscription.plan.limits.invoicesPerMonth < 0
+          ? t('settings:account.plan.limits.unlimited')
+          : t('settings:account.plan.limits.invoicesPerMonth', { count: currentSubscription.plan.limits.invoicesPerMonth })
         : null
     ].filter((value): value is string => Boolean(value));
 
@@ -957,10 +961,9 @@ export const AccountPage = ({
             </SettingsDangerButton>
           </SettingRow>
 
-      <SectionDivider />
-
       {showLinksSection && (
         <>
+          <SectionDivider />
           {/* Links Section */}
           <SettingSection title={t('settings:account.links.title')}>
             {/* Domain Selector */}

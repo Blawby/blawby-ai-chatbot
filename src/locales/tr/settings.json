@@ -85,8 +85,14 @@
         "business": "Current Plan",
         "default": "Current Plan"
       },
-      "upgradeButton": "Upgrade to {{plan}}",
-      "currentButton": "Current plan",
+      "upgradeButton": "Yükseltme {{plan}}",
+      "currentButton": "Mevcut plan",
+      "limits": {
+        "unlimited": "Sınırsız",
+        "users": "{{count}} kullanıcı",
+        "storageGb": "{{size}} GB depolama",
+        "invoicesPerMonth": "{{count}} fatura/ay"
+      },
       "toasts": {
         "upgrade": {
           "title": "Upgrade",

@@ -87,6 +87,12 @@
       },
       "upgradeButton": "[NEEDS TRANSLATION] Upgrade to {{plan}}",
       "currentButton": "[NEEDS TRANSLATION] Current plan",
+      "limits": {
+        "unlimited": "Tidak terbatas",
+        "users": "{{count}} pengguna",
+        "storageGb": "{{size}} GB penyimpanan",
+        "invoicesPerMonth": "{{count}} faktur per bulan"
+      },
       "toasts": {
         "upgrade": {
           "title": "[NEEDS TRANSLATION] Upgrade",

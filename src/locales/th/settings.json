@@ -85,6 +85,12 @@
       },
       "upgradeButton": "[NEEDS TRANSLATION] Upgrade to {{plan}}",
       "currentButton": "[NEEDS TRANSLATION] Current plan",
+      "limits": {
+        "unlimited": "ไม่จำกัด",
+        "users": "{{count}} ผู้ใช้",
+        "storageGb": "{{size}} GB พื้นที่จัดเก็บ",
+        "invoicesPerMonth": "{{count}} ใบแจ้งหนี้ต่อเดือน"
+      },
       "toasts": {
         "upgrade": {
           "title": "[NEEDS TRANSLATION] Upgrade",

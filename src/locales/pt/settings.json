@@ -87,6 +87,12 @@
       },
       "upgradeButton": "Fazer upgrade para {{plan}}",
       "currentButton": "Plano atual",
+      "limits": {
+        "unlimited": "Ilimitado",
+        "users": "{{count}} usuários",
+        "storageGb": "{{size}} GB de armazenamento",
+        "invoicesPerMonth": "{{count}} faturas por mês"
+      },
       "toasts": {
         "upgrade": {
           "title": "Upgrade",

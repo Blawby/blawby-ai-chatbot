@@ -87,6 +87,12 @@
       },
       "upgradeButton": "{{plan}} にアップグレード",
       "currentButton": "現在のプラン",
+      "limits": {
+        "unlimited": "無制限",
+        "users": "{{count}} ユーザー",
+        "storageGb": "{{size}} GB ストレージ",
+        "invoicesPerMonth": "{{count}} 請求書/月"
+      },
       "toasts": {
         "upgrade": {
           "title": "アップグレード",

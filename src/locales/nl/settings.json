@@ -87,6 +87,12 @@
       },
       "upgradeButton": "[NEEDS TRANSLATION] Upgrade to {{plan}}",
       "currentButton": "[NEEDS TRANSLATION] Current plan",
+      "limits": {
+        "unlimited": "Onbeperkt",
+        "users": "{{count}} gebruikers",
+        "storageGb": "{{size}} GB opslag",
+        "invoicesPerMonth": "{{count}} facturen per maand"
+      },
       "toasts": {
         "upgrade": {
           "title": "[NEEDS TRANSLATION] Upgrade",
