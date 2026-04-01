@@ -1,4 +1,4 @@
-import { expect, test } from './fixtures';
+import { expect, test } from './fixtures.public';
 import { randomUUID } from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';

@@ -34,9 +34,10 @@
     "test:conversation": "./scripts/tests/test-conversation-flow.sh",
     "test:e2e:api": "./scripts/tests/test-conversation-flow.sh",
     "test:stripe:integration": "./scripts/tests/test-stripe-integration.sh",
-    "test:e2e:all": "npm run test:e2e && npm run test:e2e:api",
-    "test:e2e": "playwright test",
-    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:all": "npm run test:e2e && npm run test:e2e:auth && npm run test:e2e:api",
+    "test:e2e": "playwright test -c playwright.public.config.ts",
+    "test:e2e:auth": "playwright test -c playwright.auth.config.ts",
+    "test:e2e:ui": "playwright test -c playwright.public.config.ts --ui",
     "smoke:ai-gateway": "tsx scripts/ai-gateway-smoke-test.ts",
     "deploy": "npx wrangler deploy",
     "deploy:preview": "npx wrangler deploy --env preview"

@@ -1,5 +1,5 @@
 import { chromium, type BrowserContext, type Page, type TestInfo } from '@playwright/test';
-import { expect, test } from './fixtures';
+import { expect, test } from './fixtures.auth';
 import { waitForSession } from './helpers/auth';
 import { AUTH_STATE_PATHS } from './helpers/authState';
 import { resolveBaseUrl } from './helpers/baseUrl';

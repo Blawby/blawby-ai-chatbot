@@ -1,4 +1,4 @@
-import { expect, test } from './fixtures';
+import { expect, test } from './fixtures.public';
 import { randomUUID } from 'crypto';
 import { loadE2EConfig } from './helpers/e2eConfig';
 import { waitForSession } from './helpers/auth';

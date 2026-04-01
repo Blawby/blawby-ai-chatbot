@@ -1,4 +1,4 @@
-import { expect, test } from './fixtures';
+import { expect, test } from './fixtures.public';
 import type { Request as PWRequest } from '@playwright/test';
 import { randomUUID } from 'crypto';
 

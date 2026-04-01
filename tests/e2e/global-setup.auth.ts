@@ -1,6 +1,6 @@
 import type { FullConfig } from '@playwright/test';
-import { runPublicGlobalSetup } from './globalSetupSupport';
+import { runAuthGlobalSetup } from './globalSetupSupport';
 
 export default async function globalSetup(config: FullConfig) {
-  await runPublicGlobalSetup(config);
+  await runAuthGlobalSetup(config);
 }

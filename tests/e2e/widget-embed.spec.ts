@@ -21,7 +21,7 @@
  *   E2E_BASE_URL=http://localhost:5137 npx playwright test tests/e2e/widget-embed.spec.ts --reporter=line
  */
 
-import { test, expect } from './fixtures';
+import { test, expect } from './fixtures.public';
 import { randomUUID } from 'crypto';
 
 const DEFAULT_WIDGET_SLUG = process.env.E2E_WIDGET_SLUG ?? process.env.E2E_PRACTICE_SLUG ?? 'paul-yahoo';
