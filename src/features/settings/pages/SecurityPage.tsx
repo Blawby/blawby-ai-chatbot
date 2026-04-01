@@ -314,7 +314,9 @@ export const SecurityPage = ({
           t('settings:security.password.success.title'),
           t('settings:security.password.success.body')
         );
-        await reloadAuthAccounts();
+        reloadAuthAccounts().catch((err) => {
+          console.error('Failed to reload auth accounts:', err);
+        });
         setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
         setIsChangingPassword(false);
       } else {
@@ -336,7 +338,9 @@ export const SecurityPage = ({
 
         setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
         setIsChangingPassword(false);
-        await reloadAuthAccounts();
+        reloadAuthAccounts().catch((err) => {
+          console.error('Failed to reload auth accounts:', err);
+        });
         showSuccess(
           t('settings:security.password.success.title'),
           t('settings:security.password.success.body')

@@ -272,7 +272,7 @@
           "placeholder": "Confirm new password"
         }
       },
-      "submit": "[NEEDS TRANSLATION] Change Password",
+      "submit": "Şifreyi Değiştir",
       "addPassword": "Şifre ekle",
       "addDescription": "Google, Microsoft veya Apple ile giriş yaptıktan sonra hassas hesap değişikliklerini yönetmek için bir şifre ekleyin.",
       "errorEmailUnavailable": {
