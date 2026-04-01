@@ -152,7 +152,7 @@ export const AppShell = ({
       {hasSidebar && (
         <aside
           className={cn(
-            'relative z-10 row-start-2 min-h-0 overflow-y-auto border-r border-line-glass/15 bg-transparent hidden lg:block',
+            'relative z-10 row-start-2 min-h-0 overflow-y-auto bg-transparent hidden lg:block',
             sidebarClassName
           )}
         >
@@ -164,7 +164,6 @@ export const AppShell = ({
         <aside
           className={cn(
             'relative z-10 row-start-2 min-h-0 overflow-y-auto bg-surface-nav-secondary hidden lg:block',
-            !hasListPanel ? 'border-r border-line-glass/15' : undefined,
             secondarySidebarColStartClass,
             secondarySidebarClassName
           )}
@@ -198,7 +197,7 @@ export const AppShell = ({
       {hasInspector && (
         <aside
           className={cn(
-            'relative z-10 row-start-2 min-h-0 overflow-y-auto border-l border-line-glass/15 hidden lg:block',
+            'relative z-10 row-start-2 min-h-0 overflow-y-auto bg-surface-nav-secondary hidden lg:block',
             inspectorColStartClass,
             inspectorClassName
           )}
@@ -219,7 +218,7 @@ export const AppShell = ({
           ) : (
             <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" />
           )}
-          <aside className="absolute right-0 top-0 h-dvh w-full max-w-2xl overflow-y-auto border-l border-line-glass/15 bg-surface-base">
+          <aside className="absolute right-0 top-0 h-dvh w-full max-w-2xl overflow-y-auto bg-surface-nav-secondary">
             {inspector}
           </aside>
         </div>
@@ -237,7 +236,7 @@ export const AppShell = ({
           ) : (
             <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" />
           )}
-          <aside className="absolute left-0 top-0 h-dvh w-full max-w-xs overflow-y-auto border-r border-line-glass/15 bg-surface-base">
+          <aside className="absolute left-0 top-0 h-dvh w-full max-w-xs overflow-y-auto bg-surface-nav-secondary">
             {secondarySidebar}
           </aside>
         </div>
