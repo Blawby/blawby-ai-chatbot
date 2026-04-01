@@ -173,9 +173,7 @@ export const usePaymentStatus = ({
       cancelled = true;
       controller.abort();
     };
-  // Run once on mount (and on conversation/practice change in case of navigation)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [conversationId, practiceId]);
+  }, [conversationId, practiceId, postPaymentConfirmation]);
 
   // ── backend payment reconciliation ────────────────────────────────────────
   // Runs whenever the latest intake submission changes — handles the case

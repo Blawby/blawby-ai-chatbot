@@ -358,7 +358,7 @@ export const SecurityPage = ({
     if (!session?.user?.email) {
       showError(
         t('settings:security.password.errors.failed.title'),
-        t('settings:security.errorEmailUnavailable.reset')
+        t('settings:security.password.errorEmailUnavailable.reset')
       );
       return;
     }
@@ -442,7 +442,7 @@ export const SecurityPage = ({
           >
             {isChangingPassword
               ? t('settings:security.password.cancelButton')
-              : (hasPasswordAccount ? t('settings:security.password.changeButton') : t('settings:security.password.addButton'))}
+              : (hasPasswordAccount ? t('settings:security.password.changeButton') : t('settings:security.password.addPassword'))}
           </Button>
           {hasPasswordAccount && (
             <Button

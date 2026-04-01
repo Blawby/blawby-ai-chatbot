@@ -554,7 +554,6 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
                 conversations={conversations}
                 previews={previews}
                 practiceName={practiceConfig.name}
-                practiceLogo={practiceConfig.profileImage}
                 isLoading={isConversationsLoading}
                 onSelectConversation={(id) => {
                    setConversationId(id);

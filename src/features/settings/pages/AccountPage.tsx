@@ -754,10 +754,16 @@ export const AccountPage = ({
     try {
       setEmailChangeSubmitting(true);
       setEmailChangeError(null);
-      await authClient.changeEmail({
+      const { data: _data, error } = await authClient.changeEmail({
         newEmail: trimmedEmail,
         callbackURL: `${origin}${toSettingsPath('account')}`
       });
+      if (error) {
+        const message = error.message ?? String(error);
+        setEmailChangeError(message);
+        showError('Unable to change email', message);
+        return;
+      }
       handleEmailModalClose();
       showSuccess(
         t('settings:account.email.changeSuccess.title'),

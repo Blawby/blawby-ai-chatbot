@@ -602,6 +602,9 @@ export function useIntakeFlow({
             clearTimeout(paymentPollingTimerRef.current);
             paymentPollingTimerRef.current = null;
           }
+          if (!enabled) {
+            return;
+          }
           paymentPollingCancelledRef.current = false;
           const POLL_INTERVAL_MS = 5_000;
           const POLL_TIMEOUT_MS = 10 * 60 * 1_000;
