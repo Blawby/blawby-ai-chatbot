@@ -6,12 +6,13 @@ import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import { formatDate } from '@/shared/utils/dateTime';
 import type { RecentClient } from '@/features/practice-dashboard/hooks/usePracticeBillingData';
 
+const neutralTone = 'ring-line-glass/20 bg-surface-overlay/80 text-input-placeholder';
 const statusTone: Record<string, string> = {
   paid: 'bg-emerald-500/10 text-emerald-700 ring-emerald-500/20 dark:text-emerald-300',
   overdue: 'bg-rose-500/10 text-rose-700 ring-rose-500/20 dark:text-rose-300',
-  draft: 'border border-line-glass/20 bg-surface-overlay/80 text-input-placeholder',
-  sent: 'border border-line-glass/20 bg-surface-overlay/80 text-input-placeholder',
-  pending: 'border border-line-glass/20 bg-surface-overlay/80 text-input-placeholder'
+  draft: neutralTone,
+  sent: neutralTone,
+  pending: neutralTone
 };
 
 type RecentClientsGridProps = {

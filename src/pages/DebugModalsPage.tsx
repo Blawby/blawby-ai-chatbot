@@ -1,5 +1,5 @@
 import type { ComponentChildren } from 'preact';
-import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import type { FileAttachment } from '../../worker/types';
 import Modal from '@/shared/components/Modal';
 import ConfirmationDialog from '@/shared/components/ConfirmationDialog';
@@ -455,12 +455,24 @@ function GalleryCard({ item }: { item: ModalInventoryItem }) {
 export default function DebugModalsPage({ previewId }: DebugModalsPageProps) {
   const { navigate } = useNavigation();
 
-  const previewItem = useMemo(
-    () => inventory.find((item) => item.previewId === previewId),
-    [previewId]
-  );
+  const previewItem = inventory.find((item) => item.previewId === previewId);
 
-  if (previewId && previewItem?.previewId) {
+  if (previewId && !previewItem) {
+    return (
+      <PreviewSurface>
+        <div className="mx-auto flex min-h-screen max-w-2xl items-center justify-center p-8">
+          <div className="w-full rounded-2xl border border-line-glass/30 bg-surface-overlay/80 p-8 text-center shadow-2xl backdrop-blur-xl">
+            <p className="text-lg font-semibold text-input-text">Preview not found</p>
+            <p className="mt-2 text-sm text-input-placeholder">
+              The requested modal preview does not exist.
+            </p>
+          </div>
+        </div>
+      </PreviewSurface>
+    );
+  }
+
+  if (previewItem?.previewId) {
     return (
       <PreviewSurface>
         <PreviewRenderer previewId={previewItem.previewId} />
