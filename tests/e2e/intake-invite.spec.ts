@@ -1,4 +1,4 @@
-import { expect, test } from './fixtures';
+import { expect, test } from './fixtures.auth';
 import type { APIRequestContext, BrowserContext } from '@playwright/test';
 import { randomUUID } from 'crypto';
 import { readFileSync } from 'fs';
