@@ -85,10 +85,12 @@
         "business": "Current Plan",
         "default": "Current Plan"
       },
-      "upgradeButton": "Yükseltme {{plan}}",
+      "upgradeButton": "{{plan}} planına geç",
       "currentButton": "Mevcut plan",
       "limits": {
         "unlimited": "Sınırsız",
+        "unlimitedUsers": "Sınırsız kullanıcı",
+        "unlimitedInvoices": "Aylık sınırsız fatura",
         "users": "{{count}} kullanıcı",
         "storageGb": "{{size}} GB depolama",
         "invoicesPerMonth": "{{count}} fatura/ay"

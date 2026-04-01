@@ -319,11 +319,11 @@ export const SecurityPage = ({
         setIsChangingPassword(false);
       } else {
         if (!session?.user?.email) {
-          const message = 'Unable to add a password because your email is unavailable.';
+          const message = t('settings:security.errorEmailUnavailable.add');
           setPasswordError(message);
           showError(
             t('settings:security.password.errors.failed.title'),
-            message
+            t('settings:security.errorEmailUnavailable.add')
           );
           return;
         }
@@ -367,7 +367,7 @@ export const SecurityPage = ({
     if (!session?.user?.email) {
       showError(
         t('settings:security.password.errors.failed.title'),
-        'Unable to reset password because your email is unavailable.'
+        t('settings:security.errorEmailUnavailable.reset')
       );
       return;
     }
@@ -441,7 +441,7 @@ export const SecurityPage = ({
         title={t('settings:security.password.sectionTitle')}
         description={hasPasswordAccount
           ? t('settings:security.password.description')
-          : 'Add a password to manage sensitive account changes after signing in with Google, Microsoft, or Apple.'}
+          : t('settings:security.password.addDescription')}
       >
         <div className="flex items-center justify-end gap-2 mb-4">
           <Button
@@ -482,7 +482,7 @@ export const SecurityPage = ({
           isLoading={passwordSubmitting}
           error={passwordError}
           showCurrentPassword={hasPasswordAccount}
-          submitText={hasPasswordAccount ? t('settings:security.password.submit') : 'Add password'}
+          submitText={hasPasswordAccount ? t('settings:security.password.submit') : t('settings:security.password.addPassword')}
         />
       </SettingSection>
 

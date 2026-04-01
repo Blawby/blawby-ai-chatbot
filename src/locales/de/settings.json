@@ -89,9 +89,14 @@
       "currentButton": "Aktueller Plan",
       "limits": {
         "unlimited": "Unbegrenzt",
+        "unlimitedUsers": "Unbegrenzte Benutzer",
+        "unlimitedInvoices": "Unbegrenzte Rechnungen pro Monat",
         "users": "{{count}} Benutzer",
         "storageGb": "{{size}} GB Speicher",
-        "invoicesPerMonth": "{{count}} Rechnungen pro Monat"
+        "invoicesPerMonth": {
+          "one": "{{count}} Rechnung pro Monat",
+          "other": "{{count}} Rechnungen pro Monat"
+        }
       },
       "toasts": {
         "upgrade": {

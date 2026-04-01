@@ -1,5 +1,6 @@
 import { FunctionComponent } from 'preact';
 import { Cog6ToothIcon } from '@heroicons/react/24/solid';
+import { cn } from '@/shared/utils/cn';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { Avatar } from '@/shared/ui/profile';
 
@@ -19,7 +20,7 @@ export const SettingsNavIcon: FunctionComponent<SettingsNavIconProps> = ({ class
         src={userImage} 
         name={userName} 
         size="sm"
-        className="h-5 w-5 flex-shrink-0"
+        className={cn("h-5 w-5 flex-shrink-0", className)}
       />
     );
   }

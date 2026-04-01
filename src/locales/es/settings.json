@@ -88,9 +88,17 @@
       "currentButton": "Plan actual",
       "limits": {
         "unlimited": "Ilimitado",
-        "users": "{{count}} usuarios",
+        "unlimitedUsers": "Usuarios ilimitados",
+        "unlimitedInvoices": "Facturas ilimitadas por mes",
+        "users": {
+          "one": "{{count}} usuario",
+          "other": "{{count}} usuarios"
+        },
         "storageGb": "{{size}} GB de almacenamiento",
-        "invoicesPerMonth": "{{count}} facturas por mes"
+        "invoicesPerMonth": {
+          "one": "{{count}} factura",
+          "other": "{{count}} facturas"
+        }
       },
       "toasts": {
         "upgrade": {

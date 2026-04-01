@@ -89,6 +89,8 @@
       "currentButton": "[NEEDS TRANSLATION] Current plan",
       "limits": {
         "unlimited": "Tidak terbatas",
+        "unlimitedUsers": "Pengguna tidak terbatas",
+        "unlimitedInvoices": "Faktur tidak terbatas per bulan",
         "users": "{{count}} pengguna",
         "storageGb": "{{size}} GB penyimpanan",
         "invoicesPerMonth": "{{count}} faktur per bulan"

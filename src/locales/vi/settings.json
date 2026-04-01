@@ -89,6 +89,8 @@
       "currentButton": "Gói hiện tại",
       "limits": {
         "unlimited": "Không giới hạn",
+        "unlimitedUsers": "Người dùng không giới hạn",
+        "unlimitedInvoices": "Hóa đơn không giới hạn mỗi tháng",
         "users": "{{count}} người dùng",
         "storageGb": "{{size}} GB lưu trữ",
         "invoicesPerMonth": "{{count}} hóa đơn mỗi tháng"

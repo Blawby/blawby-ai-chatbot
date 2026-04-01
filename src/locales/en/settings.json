@@ -180,6 +180,8 @@
       "currentButton": "Current plan",
       "limits": {
         "unlimited": "Unlimited",
+        "unlimitedUsers": "Unlimited users",
+        "unlimitedInvoices": "Unlimited invoices per month",
         "users": "{{count}} users",
         "storageGb": "{{size}} GB storage",
         "invoicesPerMonth": "{{count}} invoices per month"
@@ -418,6 +420,12 @@
         }
       },
       "submit": "Change Password",
+      "addDescription": "Add a password to manage sensitive account changes after signing in with Google, Microsoft, or Apple.",
+      "addPassword": "Add password",
+      "errorEmailUnavailable": {
+        "add": "Unable to add a password because your email is unavailable.",
+        "reset": "Unable to reset password because your email is unavailable."
+      },
       "errors": {
         "missing": {
           "title": "Missing fields",

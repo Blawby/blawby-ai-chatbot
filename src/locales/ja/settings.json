@@ -89,6 +89,8 @@
       "currentButton": "現在のプラン",
       "limits": {
         "unlimited": "無制限",
+        "unlimitedUsers": "ユーザー数無制限",
+        "unlimitedInvoices": "請求書数無制限/月",
         "users": "{{count}} ユーザー",
         "storageGb": "{{size}} GB ストレージ",
         "invoicesPerMonth": "{{count}} 請求書/月"

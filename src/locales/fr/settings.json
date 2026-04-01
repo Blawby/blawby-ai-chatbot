@@ -89,9 +89,17 @@
       "currentButton": "Forfait actuel",
       "limits": {
         "unlimited": "Illimité",
-        "users": "{{count}} utilisateurs",
+        "unlimitedUsers": "Utilisateurs illimités",
+        "unlimitedInvoices": "Factures illimitées par mois",
+        "users": {
+          "one": "{{count}} utilisateur",
+          "other": "{{count}} utilisateurs"
+        },
         "storageGb": "{{size}} Go de stockage",
-        "invoicesPerMonth": "{{count}} factures par mois"
+        "invoicesPerMonth": {
+          "one": "{{count}} facture par mois",
+          "other": "{{count}} factures par mois"
+        }
       },
       "toasts": {
         "upgrade": {

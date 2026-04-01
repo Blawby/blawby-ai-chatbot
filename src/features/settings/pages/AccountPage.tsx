@@ -59,6 +59,23 @@ const parsePeriodEndDate = (value: string | number | null | undefined): Date | n
   return isNaN(d.getTime()) ? null : d;
 };
 
+const normalizeErrorMessage = (value: unknown): string => {
+  if (value instanceof Error) {
+    return value.message;
+  }
+  if (typeof value === 'string') {
+    return value;
+  }
+  if (value && typeof value === 'object') {
+    try {
+      return JSON.stringify(value);
+    } catch {
+      return String(value);
+    }
+  }
+  return String(value);
+};
+
 export const AccountPage = ({
   isMobile: _isMobile = false,
   onClose: _onClose,
@@ -323,7 +340,17 @@ export const AccountPage = ({
     }));
   })();
   const emailAddress = emailSettings?.email ?? session?.user?.email ?? '';
-  const displayName = session?.user?.name ?? emailAddress;
+  const displayName = (() => {
+    const rawName = typeof session?.user?.name === 'string' ? session.user.name.trim() : '';
+    if (rawName) {
+      return rawName;
+    }
+    const rawEmail = typeof emailAddress === 'string' ? emailAddress.trim() : '';
+    if (rawEmail) {
+      return rawEmail;
+    }
+    return 'User';
+  })();
   const currentAvatarUrl = avatarPreviewUrl ?? session?.user?.image ?? null;
 
   const handleAvatarChange = useCallback(async (files: FileList | File[]) => {
@@ -776,7 +803,7 @@ export const AccountPage = ({
   }
 
   if (authAccountsError) {
-    throw new Error(authAccountsError);
+    throw new Error(normalizeErrorMessage(authAccountsError));
   }
 
   const currentPlanLabel = hasSubscription

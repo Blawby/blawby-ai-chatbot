@@ -89,9 +89,17 @@
       "currentButton": "[NEEDS TRANSLATION] Current plan",
       "limits": {
         "unlimited": "Onbeperkt",
-        "users": "{{count}} gebruikers",
+        "unlimitedUsers": "Onbeperkte gebruikers",
+        "unlimitedInvoices": "Onbeperkte facturen per maand",
+        "users": {
+          "one": "{{count}} gebruiker",
+          "other": "{{count}} gebruikers"
+        },
         "storageGb": "{{size}} GB opslag",
-        "invoicesPerMonth": "{{count}} facturen per maand"
+        "invoicesPerMonth": {
+          "one": "{{count}} factuur per maand",
+          "other": "{{count}} facturen per maand"
+        }
       },
       "toasts": {
         "upgrade": {

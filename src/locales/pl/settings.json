@@ -88,10 +88,22 @@
       "upgradeButton": "[NEEDS TRANSLATION] Upgrade to {{plan}}",
       "currentButton": "[NEEDS TRANSLATION] Current plan",
       "limits": {
-        "unlimited": "Nieograniczony",
-        "users": "{{count}} użytkowników",
+        "unlimited": "Nieograniczone",
+        "unlimitedUsers": "Nieograniczona liczba użytkowników",
+        "unlimitedInvoices": "Nieograniczona liczba faktur miesięcznie",
+        "users": {
+          "one": "{{count}} użytkownik",
+          "few": "{{count}} użytkownika",
+          "many": "{{count}} użytkowników",
+          "other": "{{count}} użytkowników"
+        },
         "storageGb": "{{size}} GB przechowywania",
-        "invoicesPerMonth": "{{count}} faktur miesięcznie"
+        "invoicesPerMonth": {
+          "one": "{{count}} faktura miesięcznie",
+          "few": "{{count}} faktury miesięcznie",
+          "many": "{{count}} faktur miesięcznie",
+          "other": "{{count}} faktur miesięcznie"
+        }
       },
       "toasts": {
         "upgrade": {

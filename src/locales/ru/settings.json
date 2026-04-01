@@ -89,9 +89,21 @@
       "currentButton": "[NEEDS TRANSLATION] Current plan",
       "limits": {
         "unlimited": "Безлимитный",
-        "users": "{{count}} пользователей",
+        "unlimitedUsers": "Безлимитные пользователи",
+        "unlimitedInvoices": "Безлимитные счета в месяц",
+        "users": {
+          "one": "{{count}} пользователь",
+          "few": "{{count}} пользователя",
+          "many": "{{count}} пользователей",
+          "other": "{{count}} пользователей"
+        },
         "storageGb": "{{size}} GB хранилища",
-        "invoicesPerMonth": "{{count}} счетов в месяц"
+        "invoicesPerMonth": {
+          "one": "{{count}} счёт в месяц",
+          "few": "{{count}} счёта в месяц",
+          "many": "{{count}} счётов в месяц",
+          "other": "{{count}} счётов в месяц"
+        }
       },
       "toasts": {
         "upgrade": {

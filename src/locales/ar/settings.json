@@ -89,6 +89,8 @@
       "currentButton": "الخطة الحالية",
       "limits": {
         "unlimited": "غير محدود",
+        "unlimitedUsers": "مستخدمون غير محدودين",
+        "unlimitedInvoices": "فواتير غير محدودة شهرياً",
         "users": "{{count}} مستخدمين",
         "storageGb": "{{size}} GB تخزين",
         "invoicesPerMonth": "{{count}} فواتير شهرياً"

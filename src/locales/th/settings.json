@@ -87,6 +87,8 @@
       "currentButton": "[NEEDS TRANSLATION] Current plan",
       "limits": {
         "unlimited": "ไม่จำกัด",
+        "unlimitedUsers": "ผู้ใช้ไม่จำกัด",
+        "unlimitedInvoices": "ใบแจ้งหนี้ไม่จำกัดต่อเดือน",
         "users": "{{count}} ผู้ใช้",
         "storageGb": "{{size}} GB พื้นที่จัดเก็บ",
         "invoicesPerMonth": "{{count}} ใบแจ้งหนี้ต่อเดือน"

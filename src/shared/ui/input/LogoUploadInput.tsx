@@ -103,6 +103,7 @@ export const LogoUploadInput = forwardRef<HTMLInputElement, LogoUploadInputProps
           role={triggerMode === 'avatar' ? 'button' : undefined}
           tabIndex={triggerMode === 'avatar' && !disabled ? 0 : undefined}
           aria-label={triggerMode === 'avatar' ? buttonLabel : undefined}
+          aria-disabled={triggerMode === 'avatar' && disabled ? 'true' : undefined}
         >
         {normalizedProgress !== null && (
           <svg

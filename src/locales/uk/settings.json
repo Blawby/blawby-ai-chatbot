@@ -89,9 +89,21 @@
       "currentButton": "[NEEDS TRANSLATION] Current plan",
       "limits": {
         "unlimited": "Безлімітний",
-        "users": "{{count}} користувачів",
+        "unlimitedUsers": "Безлімітні користувачі",
+        "unlimitedInvoices": "Безлімітні рахунки на місяць",
+        "users": {
+          "one": "{{count}} користувач",
+          "few": "{{count}} користувачі",
+          "many": "{{count}} користувачів",
+          "other": "{{count}} користувачів"
+        },
         "storageGb": "{{size}} GB сховища",
-        "invoicesPerMonth": "{{count}} рахунків на місяць"
+        "invoicesPerMonth": {
+          "one": "{{count}} рахунок на місяць",
+          "few": "{{count}} рахунки на місяць",
+          "many": "{{count}} рахунків на місяць",
+          "other": "{{count}} рахунків на місяць"
+        }
       },
       "toasts": {
         "upgrade": {

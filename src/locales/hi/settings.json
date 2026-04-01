@@ -89,6 +89,8 @@
       "currentButton": "[NEEDS TRANSLATION] Current plan",
       "limits": {
         "unlimited": "असीमित",
+        "unlimitedUsers": "असीमित उपयोगकर्ता",
+        "unlimitedInvoices": "प्रति माह असीमित इनवॉइस",
         "users": "{{count}} उपयोगकर्ता",
         "storageGb": "{{size}} GB स्टोरेज",
         "invoicesPerMonth": "{{count}} इनवॉइस प्रति महीना"
