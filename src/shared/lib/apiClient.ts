@@ -282,6 +282,11 @@ export interface CurrentSubscriptionPlan {
   yearlyPrice?: string | null;
   currency?: string | null;
   features?: string[] | null;
+  limits?: {
+    users?: number | null;
+    storageGb?: number | null;
+    invoicesPerMonth?: number | null;
+  } | null;
   isActive?: boolean | null;
 }
 
@@ -1887,24 +1892,43 @@ export async function getCurrentSubscription(
     throw new Error('Invalid /api/subscriptions/current payload: subscription must be an object or null.');
   }
 
-  const plan = isRecord(container.plan)
-    ? {
-      id: toNullableString(container.plan.id),
-      name: toNullableString(container.plan.name),
-      displayName: toNullableString(container.plan.display_name),
-      description: toNullableString(container.plan.description),
-      stripeProductId: toNullableString(container.plan.stripe_product_id),
-      stripeMonthlyPriceId: toNullableString(container.plan.stripe_monthly_price_id),
-      stripeYearlyPriceId: toNullableString(container.plan.stripe_yearly_price_id),
-      monthlyPrice: toNullableString(container.plan.monthly_price),
-      yearlyPrice: toNullableString(container.plan.yearly_price),
-      currency: toNullableString(container.plan.currency),
-      features: Array.isArray(container.plan.features)
-        ? container.plan.features.filter((feature): feature is string => typeof feature === 'string')
-        : null,
-      isActive: typeof container.plan.is_active === 'boolean' ? container.plan.is_active : null
-    }
-    : null;
+  if (!isRecord(container.plan)) {
+    throw new Error('Invalid /api/subscriptions/current payload: subscription is missing plan metadata.');
+  }
+
+  const planName = toNullableString(container.plan.name);
+  const planDisplayName = toNullableString(container.plan.display_name);
+  if (!planName && !planDisplayName) {
+    throw new Error('Invalid /api/subscriptions/current payload: subscription plan is missing name metadata.');
+  }
+
+  if (!Array.isArray(container.plan.features)) {
+    throw new Error('Invalid /api/subscriptions/current payload: subscription plan is missing features metadata.');
+  }
+
+  const plan = {
+    id: toNullableString(container.plan.id),
+    name: planName,
+    displayName: planDisplayName,
+    description: toNullableString(container.plan.description),
+    stripeProductId: toNullableString(container.plan.stripe_product_id),
+    stripeMonthlyPriceId: toNullableString(container.plan.stripe_monthly_price_id),
+    stripeYearlyPriceId: toNullableString(container.plan.stripe_yearly_price_id),
+    monthlyPrice: toNullableString(container.plan.monthly_price),
+    yearlyPrice: toNullableString(container.plan.yearly_price),
+    currency: toNullableString(container.plan.currency),
+    features: container.plan.features.filter((feature): feature is string => typeof feature === 'string'),
+    limits: isRecord(container.plan.limits)
+      ? {
+        users: typeof container.plan.limits.users === 'number' ? container.plan.limits.users : null,
+        storageGb: typeof container.plan.limits.storage_gb === 'number' ? container.plan.limits.storage_gb : null,
+        invoicesPerMonth: typeof container.plan.limits.invoices_per_month === 'number'
+          ? container.plan.limits.invoices_per_month
+          : null
+      }
+      : null,
+    isActive: typeof container.plan.is_active === 'boolean' ? container.plan.is_active : null
+  };
 
   return {
     id: toNullableString(container.id),

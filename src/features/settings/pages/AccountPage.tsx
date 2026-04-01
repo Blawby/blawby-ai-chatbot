@@ -10,16 +10,18 @@ import { useToastContext } from '@/shared/contexts/ToastContext';
 import { useNavigation } from '@/shared/utils/navigation';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { useWorkspace } from '@/shared/hooks/useWorkspace';
+import { usePracticeTeam } from '@/shared/hooks/usePracticeTeam';
+import { useAuthAccounts } from '@/shared/hooks/useAuthAccounts';
 import { signOut } from '@/shared/utils/auth';
 import { useTranslation } from '@/shared/i18n/hooks';
 import { usePaymentUpgrade } from '@/shared/hooks/usePaymentUpgrade';
 import { useLocation } from 'preact-iso';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { formatDate } from '@/shared/utils/dateTime';
-import { deleteUser, getSession, updateUser } from '@/shared/lib/authClient';
+import { authClient, deleteUser, getSession, updateUser } from '@/shared/lib/authClient';
 import { getCurrentSubscription, type CurrentSubscription } from '@/shared/lib/apiClient';
 import { uploadWithProgress } from '@/shared/services/upload/UploadTransport';
-import { ChevronDownIcon, XMarkIcon, GlobeAltIcon, PlusIcon } from '@heroicons/react/24/outline';
+import { ChevronDownIcon, ChevronRightIcon, XMarkIcon, GlobeAltIcon, PlusIcon } from '@heroicons/react/24/outline';
 import { CheckIcon } from '@heroicons/react/20/solid';
 import { Icon } from '@/shared/ui/Icon';
 import type { UserLinks, EmailSettings } from '@/shared/types/user';
@@ -32,6 +34,7 @@ import { SettingsDangerButton } from '@/features/settings/components/SettingsDan
 import { SettingsHelperText } from '@/features/settings/components/SettingsHelperText';
 import { getPreferencesCategory, updatePreferencesCategory } from '@/shared/lib/preferencesApi';
 import type { AccountPreferences } from '@/shared/types/preferences';
+import { normalizePracticeRole } from '@/shared/utils/practiceRoles';
 import { FormActions, FormLabel } from '@/shared/ui/form';
 import { buildSettingsPath, resolveSettingsBasePath } from '@/shared/utils/workspace';
 
@@ -63,11 +66,18 @@ export const AccountPage = ({
   const { showSuccess, showError } = useToastContext();
   const location = useLocation();
   const { navigate, navigateToPricing } = useNavigation();
-  const { t } = useTranslation(['settings', 'common']);
+  const { t } = useTranslation(['settings', 'common', 'pricing']);
   const { openBillingPortal, submitting } = usePaymentUpgrade();
   const { currentPractice, loading: practiceLoading, refetch } = usePracticeManagement();
   const { session, isPending, activeMemberRole } = useSessionContext();
-  const { canAccessPractice: _canAccessPractice } = useWorkspace();
+  const { canAccessPractice: _canAccessPractice, workspaceFromPath } = useWorkspace();
+  const {
+    members
+  } = usePracticeTeam(
+    currentPractice?.id ?? null,
+    session?.user?.id ?? null,
+    { enabled: Boolean(currentPractice?.id && session?.user?.id) }
+  );
   const settingsBasePath = resolveSettingsBasePath(location.path);
   const toSettingsPath = (subPath?: string) => buildSettingsPath(settingsBasePath, subPath);
   const [links, setLinks] = useState<UserLinks | null>(null);
@@ -78,6 +88,10 @@ export const AccountPage = ({
   const [subscriptionLoading, setSubscriptionLoading] = useState(true);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showDomainModal, setShowDomainModal] = useState(false);
+  const [showEmailModal, setShowEmailModal] = useState(false);
+  const [newEmail, setNewEmail] = useState('');
+  const [emailChangeSubmitting, setEmailChangeSubmitting] = useState(false);
+  const [emailChangeError, setEmailChangeError] = useState<string | null>(null);
   const [domainInput, setDomainInput] = useState('');
   const [domainError, setDomainError] = useState<string | null>(null);
   const [deleteVerificationSent, setDeleteVerificationSent] = useState(false);
@@ -86,6 +100,11 @@ export const AccountPage = ({
   const [avatarUploadProgress, setAvatarUploadProgress] = useState<number | null>(null);
   const [avatarPreviewUrl, setAvatarPreviewUrl] = useState<string | null>(null);
   const avatarObjectUrlRef = useRef<string | null>(null);
+  const {
+    hasPasswordAccount,
+    isLoading: authAccountsLoading,
+    error: authAccountsError
+  } = useAuthAccounts(Boolean(session?.user));
   
 
   // Get renewal date from subscription current_period_end first, then practice webhook period end.
@@ -116,10 +135,14 @@ export const AccountPage = ({
       setError(null);
       const prefs = await getPreferencesCategory<AccountPreferences>('account');
       const user = session.user;
+      if (prefs?.custom_domains !== undefined && prefs?.custom_domains !== null && !Array.isArray(prefs.custom_domains)) {
+        throw new Error('Invalid account preferences: custom_domains must be an array when present.');
+      }
       const customDomains = Array.isArray(prefs?.custom_domains) ? prefs?.custom_domains : [];
+      const selectedDomain = typeof prefs?.selected_domain === 'string' ? prefs.selected_domain.trim() : '';
       
       const linksData: UserLinks = {
-        selectedDomain: prefs?.selected_domain || 'Select a domain',
+        selectedDomain,
         linkedinUrl: null,
         githubUrl: null,
         customDomains: customDomains.map((domain) => ({
@@ -153,21 +176,18 @@ export const AccountPage = ({
     }
   }, [loadAccountData, practiceLoading, currentPractice, session?.user]);
 
-  // Detect OAuth vs password users based on lastLoginMethod
-  const userWithExtendedProps = session?.user as typeof session.user & {
-    lastLoginMethod?: string;
-  };
-  const normalizedLoginMethod = userWithExtendedProps?.lastLoginMethod
-    ? String(userWithExtendedProps.lastLoginMethod).toLowerCase()
-    : null;
-  const loginMethodRequiresPassword = normalizedLoginMethod
-    ? ['email', 'credential', 'password'].includes(normalizedLoginMethod)
-    : false;
-  const requiresPassword = passwordRequiredOverride ?? loginMethodRequiresPassword;
+  const requiresPassword = passwordRequiredOverride ?? hasPasswordAccount;
   const isOAuthUser = !requiresPassword;
+  const shouldGateEmailManagement = isOAuthUser;
+  const currentUserEmail = typeof session?.user?.email === 'string' ? session.user.email.trim().toLowerCase() : '';
+  const currentMember = members.find((member) =>
+    (member.email && member.email.toLowerCase() === currentUserEmail) || member.userId === session?.user?.id
+  ) ?? null;
+  const resolvedRole = normalizePracticeRole(activeMemberRole) ?? normalizePracticeRole(currentMember?.role) ?? null;
 
-  const isOwner = activeMemberRole === 'owner';
+  const isOwner = resolvedRole === 'owner';
   const canManageBilling = isOwner;
+  const isClientWorkspace = workspaceFromPath === 'client';
 
   const subscriptionStatus = (currentSubscription?.status ?? 'none').toLowerCase();
   const subscriptionEnd = parsePeriodEndDate(currentSubscription?.currentPeriodEnd) || 
@@ -282,15 +302,35 @@ export const AccountPage = ({
   const currentPlanFeatures = (() => {
     const backendFeatures = currentSubscription?.plan?.features;
     if (!Array.isArray(backendFeatures)) {
-      return [] as PlanFeature[];
+      const freeFeatures = [
+        t('pricing:plans.free.features.basicChat.text'),
+        t('pricing:plans.free.features.documentAnalysis.text'),
+        t('pricing:plans.free.features.responseTime.text')
+      ];
+      return freeFeatures.map((feature): PlanFeature => ({
+        icon: CheckIcon,
+        text: feature
+      }));
     }
-    return backendFeatures.map((feature): PlanFeature => ({
+    const limitFeatures = [
+      typeof currentSubscription?.plan?.limits?.users === 'number'
+        ? `${currentSubscription.plan.limits.users < 0 ? 'Unlimited' : currentSubscription.plan.limits.users} users`
+        : null,
+      typeof currentSubscription?.plan?.limits?.storageGb === 'number'
+        ? `${currentSubscription.plan.limits.storageGb} GB storage`
+        : null,
+      typeof currentSubscription?.plan?.limits?.invoicesPerMonth === 'number'
+        ? `${currentSubscription.plan.limits.invoicesPerMonth < 0 ? 'Unlimited' : currentSubscription.plan.limits.invoicesPerMonth} invoices per month`
+        : null
+    ].filter((value): value is string => Boolean(value));
+
+    return [...backendFeatures, ...limitFeatures].map((feature): PlanFeature => ({
       icon: CheckIcon,
       text: feature
     }));
   })();
-  const emailAddress = emailSettings?.email || session?.user?.email || '';
-  const displayName = session?.user?.name || emailAddress || '—';
+  const emailAddress = emailSettings?.email ?? session?.user?.email ?? '';
+  const displayName = session?.user?.name ?? emailAddress;
   const currentAvatarUrl = avatarPreviewUrl ?? session?.user?.image ?? null;
 
   const handleAvatarChange = useCallback(async (files: FileList | File[]) => {
@@ -362,13 +402,13 @@ export const AccountPage = ({
       }
     };
   }, []);
-  const customDomainOptions = (links?.customDomains || []).map(domain => ({
+  const customDomainOptions = (links?.customDomains ?? []).map(domain => ({
     value: domain.domain,
     label: domain.domain
   }));
   const deleteListItems = t('settings:account.delete.listItems', { returnObjects: true }) as string[];
   const _confirmLabel = t('settings:account.delete.confirmLabel', { email: emailAddress });
-  const selectedDomain = links?.selectedDomain && links.selectedDomain !== 'Select a domain'
+  const selectedDomain = links?.selectedDomain
     ? links.selectedDomain
     : DOMAIN_SELECT_VALUE;
   const showLinksSection = true;
@@ -627,7 +667,7 @@ export const AccountPage = ({
       // Update user in database with current custom domains
         await updatePreferencesCategory('account', {
           selected_domain: domain,
-          custom_domains: (links?.customDomains || []).map((entry) => entry.domain)
+          custom_domains: (links?.customDomains ?? []).map((entry) => entry.domain)
         });
         
         setLinks(prev => prev ? { ...prev, selectedDomain: domain } : prev);
@@ -639,22 +679,22 @@ export const AccountPage = ({
         );
       }
     } else {
-      setLinks(prev => (prev ? { ...prev, selectedDomain: prev.selectedDomain ?? domain } : prev));
+      setLinks(prev => (prev ? { ...prev, selectedDomain: '' } : prev));
     }
   };
 
   const handleFeedbackEmailsChange = async (checked: boolean) => {
     try {
+      if (!emailSettings) {
+        throw new Error('Account email settings are not loaded.');
+      }
       await updatePreferencesCategory('account', { receive_feedback_emails: checked });
-      
-      setEmailSettings(prev => prev ? { 
-        ...prev, 
-        receiveFeedbackEmails: checked 
-      } : { 
-        email: '', 
-        receiveFeedbackEmails: checked, 
-        marketingEmails: false, 
-        securityAlerts: false 
+      setEmailSettings(prev => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          receiveFeedbackEmails: checked
+        };
       });
     } catch (error) {
       console.error('Failed to update email settings:', error);
@@ -665,13 +705,58 @@ export const AccountPage = ({
     }
   };
 
+  const handleEmailModalClose = () => {
+    setShowEmailModal(false);
+    setNewEmail('');
+    setEmailChangeError(null);
+  };
+
+  const handleEmailChangeSubmit = async () => {
+    const trimmedEmail = newEmail.trim().toLowerCase();
+
+    if (!trimmedEmail) {
+      setEmailChangeError('Enter a new email address.');
+      return;
+    }
+
+    if (trimmedEmail === emailAddress.trim().toLowerCase()) {
+      setEmailChangeError('Enter a different email address.');
+      return;
+    }
+
+    if (!origin) {
+      setEmailChangeError('Unable to start email change. Please try again.');
+      return;
+    }
+
+    try {
+      setEmailChangeSubmitting(true);
+      setEmailChangeError(null);
+      await authClient.changeEmail({
+        newEmail: trimmedEmail,
+        callbackURL: `${origin}${toSettingsPath('account')}`
+      });
+      handleEmailModalClose();
+      showSuccess(
+        'Check your email',
+        'We sent instructions to confirm your new email address.'
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      setEmailChangeError(message);
+      showError('Unable to change email', message);
+    } finally {
+      setEmailChangeSubmitting(false);
+    }
+  };
+
   // Features are now loaded dynamically from the pricing service
 
   // Show loading state while session or practice is loading
   // Add timeout protection - if loading for more than 10 seconds, show error with retry
   const [loadingTimeout, setLoadingTimeout] = useState(false);
   useEffect(() => {
-    if (isPending || practiceLoading || subscriptionLoading) {
+    if (isPending || practiceLoading || subscriptionLoading || authAccountsLoading) {
       const timeout = setTimeout(() => {
         setLoadingTimeout(true);
       }, 10000); // 10 second timeout
@@ -679,9 +764,9 @@ export const AccountPage = ({
     } else {
       setLoadingTimeout(false);
     }
-  }, [isPending, practiceLoading, subscriptionLoading]);
+  }, [isPending, practiceLoading, subscriptionLoading, authAccountsLoading]);
 
-  if ((isPending || practiceLoading || subscriptionLoading) && !loadingTimeout) {
+  if ((isPending || practiceLoading || subscriptionLoading || authAccountsLoading) && !loadingTimeout) {
     return (
       <div className={`h-full flex items-center justify-center ${className}`}>
         <div className="w-8 h-8 border-2 border-accent-500 border-t-transparent rounded-full animate-spin" />
@@ -697,30 +782,59 @@ export const AccountPage = ({
     );
   }
 
+  if (authAccountsError) {
+    throw new Error(authAccountsError);
+  }
+
   const currentPlanLabel = hasSubscription
-    ? (currentSubscription?.plan?.displayName || currentSubscription?.plan?.name || t('settings:account.plan.tiers.free'))
-    : t('settings:account.plan.tiers.free');
+    ? (currentSubscription?.plan?.displayName ?? currentSubscription?.plan?.name ?? '')
+    : (isClientWorkspace ? 'Blawby' : t('settings:account.plan.tiers.free'));
+  const planHeading = currentPlanLabel
+    ? `${currentPlanLabel} includes:`
+    : 'Current plan includes:';
+  const subscriptionDescription = hasSubscription && renewalDate
+    ? t('settings:account.plan.autoRenews', { date: formatDate(renewalDate) })
+    : undefined;
 
   return (
     <ContentPageLayout title={t('settings:account.title')} className={className}>
       <SettingRow label={t('settings:account.nameLabel')}>
-        <span className="text-sm text-input-text">
-          {displayName}
-        </span>
-      </SettingRow>
-      <SettingRow label="Profile photo" description="Upload a square image (max 5 MB).">
-        <div className="w-full">
-          <LogoUploadInput
-            imageUrl={currentAvatarUrl}
-            name={displayName}
-            accept="image/*"
-            multiple={false}
-            onChange={handleAvatarChange}
-            disabled={avatarUploading}
-            progress={avatarUploading ? avatarUploadProgress : null}
-          />
+        <div className="flex items-center gap-3">
+          <div className="w-10">
+            <LogoUploadInput
+              imageUrl={currentAvatarUrl}
+              name={displayName}
+              accept="image/*"
+              multiple={false}
+              buttonLabel="Change profile photo"
+              triggerMode="avatar"
+              size={36}
+              onChange={handleAvatarChange}
+              disabled={avatarUploading}
+              progress={avatarUploading ? avatarUploadProgress : null}
+            />
+          </div>
+          <span className="text-sm text-input-text">
+            {displayName}
+          </span>
         </div>
       </SettingRow>
+      <SectionDivider />
+      <button
+        type="button"
+        className="w-full text-left"
+        onClick={() => setShowEmailModal(true)}
+        aria-label="Manage email details"
+      >
+        <SettingRow label={t('settings:account.email.title')} className="cursor-pointer">
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-input-text">
+              {emailAddress}
+            </span>
+            <Icon icon={ChevronRightIcon} className="w-5 h-5 text-input-placeholder" aria-hidden="true"  />
+          </div>
+        </SettingRow>
+      </button>
 
       <SectionDivider />
 
@@ -728,15 +842,11 @@ export const AccountPage = ({
           <SettingRow
             label={currentPlanLabel}
             labelClassName="text-input-text font-semibold"
-            description={
-              hasSubscription && renewalDate
-                ? t('settings:account.plan.autoRenews', { date: formatDate(renewalDate) })
-                : undefined
-            }
+            description={subscriptionDescription}
           >
             <div className="flex gap-2">
               {hasSubscription ? (
-                currentPractice && isOwner && canManageBilling ? (
+                currentPractice ? (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button
@@ -753,6 +863,13 @@ export const AccountPage = ({
                       <DropdownMenuItem
                         onSelect={() => {
                           if (!currentPractice) return;
+                          if (!isOwner || !canManageBilling) {
+                            showError(
+                              t('common:error.title'),
+                              'Only the billing owner can cancel this subscription.'
+                            );
+                            return;
+                          }
                           if (!origin) {
                             showError(
                               t('common:error.title'),
@@ -775,13 +892,15 @@ export const AccountPage = ({
                   </DropdownMenu>
                 ) : null
               ) : (
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => navigateToPricing()}
-                >
-                  {t('settings:account.plan.upgrade')}
-                </Button>
+                isClientWorkspace ? null : (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => navigateToPricing()}
+                  >
+                    {t('settings:account.plan.upgrade')}
+                  </Button>
+                )
               )}
             </div>
           </SettingRow>
@@ -798,7 +917,7 @@ export const AccountPage = ({
               <div className="space-y-3">
                 {hasSubscription && (
                   <p className="text-sm font-semibold text-input-text">
-                    {t('settings:account.plan.thanksForSubscribing')}
+                    {planHeading}
                   </p>
                 )}
                 <PlanFeaturesList features={currentPlanFeatures} />
@@ -976,18 +1095,6 @@ export const AccountPage = ({
         </>
       )}
 
-      {/* Email Section */}
-      <EmailSettingsSection
-        email={emailAddress}
-        receiveFeedbackEmails={emailSettings?.receiveFeedbackEmails || false}
-        onFeedbackChange={handleFeedbackEmailsChange}
-        title={t('settings:account.email.title')}
-        feedbackLabel={t('settings:account.email.receiveFeedback')}
-        showFeedbackToggle={showFeedbackToggle}
-      />
-
-      <SectionDivider />
-
       {/* Delete Account Confirmation Dialog */}
       <ConfirmationDialog
         isOpen={showDeleteConfirm}
@@ -1016,6 +1123,73 @@ export const AccountPage = ({
         passwordPlaceholder={passwordPlaceholder}
         passwordMissingMessage={passwordRequiredMessage}
       />
+
+      <Modal
+        isOpen={showEmailModal}
+        onClose={handleEmailModalClose}
+        title={t('settings:account.email.title')}
+        showCloseButton={true}
+        type="modal"
+      >
+        {shouldGateEmailManagement ? (
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <p className="text-lg font-semibold text-input-text">
+                Add a password first
+              </p>
+              <p className="text-sm text-input-placeholder">
+                Your account was created with Google, Microsoft, or Apple. To change your email, first add a password in Settings -&gt; Security -&gt; Password -&gt; Add.
+              </p>
+            </div>
+            <FormActions
+              className="justify-end"
+              size="sm"
+              onCancel={handleEmailModalClose}
+              onSubmit={() => {
+                handleEmailModalClose();
+                navigate(toSettingsPath('security'));
+              }}
+              cancelText="Not now"
+              submitText="Go to Security"
+              submitType="button"
+            />
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <EmailSettingsSection
+              email={emailAddress}
+              receiveFeedbackEmails={emailSettings?.receiveFeedbackEmails ?? false}
+              onFeedbackChange={handleFeedbackEmailsChange}
+              title={t('settings:account.email.title')}
+              feedbackLabel={t('settings:account.email.receiveFeedback')}
+              showFeedbackToggle={showFeedbackToggle}
+            />
+            <Input
+              id="account-email-change"
+              type="email"
+              label="New email"
+              value={newEmail}
+              onChange={(value) => {
+                setNewEmail(value);
+                setEmailChangeError(null);
+              }}
+              placeholder="Enter your new email address"
+              error={emailChangeError ?? undefined}
+            />
+            <FormActions
+              className="justify-end"
+              size="sm"
+              onCancel={handleEmailModalClose}
+              onSubmit={() => void handleEmailChangeSubmit()}
+              cancelText="Cancel"
+              submitText={emailChangeSubmitting ? 'Sending...' : 'Change email'}
+              submitType="button"
+              submitDisabled={emailChangeSubmitting}
+              cancelDisabled={emailChangeSubmitting}
+            />
+          </div>
+        )}
+      </Modal>
 
       {/* Domain Input Modal */}
       <Modal

@@ -6,6 +6,7 @@ import { useToastContext } from '@/shared/contexts/ToastContext';
 import { useNavigation } from '@/shared/utils/navigation';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { authClient } from '@/shared/lib/authClient';
+import { useAuthAccounts } from '@/shared/hooks/useAuthAccounts';
 import Modal from '@/shared/components/Modal';
 import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 import { Icon } from '@/shared/ui/Icon';
@@ -83,9 +84,17 @@ export const SecurityPage = ({
   const location = useLocation();
   const { t } = useTranslation(['settings', 'common']);
   const { session, isPending } = useSessionContext();
+  const {
+    hasPasswordAccount,
+    isLoading: authAccountsLoading,
+    error: authAccountsError,
+    reload: reloadAuthAccounts
+  } = useAuthAccounts(Boolean(session?.user));
   const [settings, setSettings] = useState<SecuritySettings | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [passwordSubmitting, setPasswordSubmitting] = useState(false);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
   const [showDisableMFAConfirm, setShowDisableMFAConfirm] = useState(false);
   const showMfa = false;
   const [passwordForm, setPasswordForm] = useState({
@@ -234,11 +243,12 @@ export const SecurityPage = ({
   };
 
   const handlePasswordChange = (field: string, value: string) => {
+    setPasswordError(null);
     setPasswordForm(prev => ({ ...prev, [field]: value }));
   };
 
   const handleChangePassword = async () => {
-    if (!passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmPassword) {
+    if ((!hasPasswordAccount && !passwordForm.newPassword) || !passwordForm.confirmPassword || (hasPasswordAccount && !passwordForm.currentPassword)) {
       showError(
         t('settings:security.password.errors.missing.title'),
         t('settings:security.password.errors.missing.body')
@@ -263,29 +273,65 @@ export const SecurityPage = ({
     }
 
     try {
-      // Here you would call your API to change the password
-      // await authService.changePassword(passwordForm.currentPassword, passwordForm.newPassword);
-      
+      setPasswordSubmitting(true);
+      setPasswordError(null);
+      if (hasPasswordAccount) {
+        await authClient.changePassword({
+          currentPassword: passwordForm.currentPassword,
+          newPassword: passwordForm.newPassword
+        });
+      } else {
+        await authClient.setPassword({
+          newPassword: passwordForm.newPassword
+        });
+      }
+
       showSuccess(
-        t('settings:security.password.success.title'),
-        t('settings:security.password.success.body')
+        hasPasswordAccount
+          ? t('settings:security.password.success.title')
+          : 'Password added',
+        hasPasswordAccount
+          ? t('settings:security.password.success.body')
+          : 'You can now use your password to manage account details.'
       );
+      await reloadAuthAccounts();
       setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
       setIsChangingPassword(false);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : t('settings:security.password.errors.failed.body');
+      setPasswordError(message);
+      showError(
+        t('settings:security.password.errors.failed.title'),
+        message
+      );
+    } finally {
+      setPasswordSubmitting(false);
+    }
+  };
+
+  const handleResetPassword = async () => {
+    if (!session?.user?.email) {
+      showError(
+        t('settings:security.password.errors.failed.title'),
+        'Unable to reset password because your email is unavailable.'
+      );
+      return;
+    }
+
+    try {
+      await authClient.requestPasswordReset({
+        email: session.user.email
+      });
+      showSuccess(
+        t('settings:security.password.reset.title'),
+        t('settings:security.password.reset.body')
+      );
     } catch (error) {
       showError(
         t('settings:security.password.errors.failed.title'),
         error instanceof Error ? error.message : t('settings:security.password.errors.failed.body')
       );
     }
-  };
-
-  const handleResetPassword = () => {
-    // Here you would trigger a password reset email
-    showSuccess(
-      t('settings:security.password.reset.title'),
-      t('settings:security.password.reset.body')
-    );
   };
 
   const handleLogout = (type: 'current' | 'all') => {
@@ -303,7 +349,7 @@ export const SecurityPage = ({
   };
 
   // Show loading state while session or preferences are loading
-  if (isPending || isLoading) {
+  if (isPending || isLoading || authAccountsLoading) {
     return (
       <div className={`h-full flex items-center justify-center ${className}`}>
         <div className="w-8 h-8 border-2 border-accent-500 border-t-transparent rounded-full animate-spin" />
@@ -311,6 +357,9 @@ export const SecurityPage = ({
     );
   }
 
+  if (authAccountsError) {
+    throw new Error(authAccountsError);
+  }
 
   if (!settings) {
     return (
@@ -325,7 +374,9 @@ export const SecurityPage = ({
       {/* Password Section */}
       <SettingSection
         title={t('settings:security.password.sectionTitle')}
-        description={t('settings:security.password.description')}
+        description={hasPasswordAccount
+          ? t('settings:security.password.description')
+          : 'Add a password to manage sensitive account changes after signing in with Google, Microsoft, or Apple.'}
       >
         <div className="flex items-center justify-end gap-2 mb-4">
           <Button
@@ -333,16 +384,20 @@ export const SecurityPage = ({
             size="sm"
             onClick={() => setIsChangingPassword(!isChangingPassword)}
           >
-            {isChangingPassword ? t('settings:security.password.cancelButton') : t('settings:security.password.changeButton')}
+            {isChangingPassword
+              ? t('settings:security.password.cancelButton')
+              : (hasPasswordAccount ? t('settings:security.password.changeButton') : 'Add password')}
           </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleResetPassword}
-            className="text-accent-600 dark:text-accent-400 hover:text-accent-700 dark:hover:text-accent-300"
-          >
-            {t('settings:security.password.resetButton')}
-          </Button>
+          {hasPasswordAccount && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => void handleResetPassword()}
+              className="text-accent-600 dark:text-accent-400 hover:text-accent-700 dark:hover:text-accent-300"
+            >
+              {t('settings:security.password.resetButton')}
+            </Button>
+          )}
         </div>
 
         <PasswordChangeForm
@@ -355,9 +410,14 @@ export const SecurityPage = ({
           onSubmit={handleChangePassword}
           onCancel={() => {
             setIsChangingPassword(false);
+            setPasswordError(null);
             setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
           }}
           isOpen={isChangingPassword}
+          isLoading={passwordSubmitting}
+          error={passwordError}
+          showCurrentPassword={hasPasswordAccount}
+          submitText={hasPasswordAccount ? t('settings:security.password.submit') : 'Add password'}
         />
       </SettingSection>
 
