@@ -192,7 +192,7 @@ test.describe('Widget embed (cross-origin iframe flow)', () => {
     await expect(launcher).toBeVisible({ timeout: 10_000 });
 
     const widgetStatus = page.locator('#widget-status');
-    const isAlreadyOpen = await widgetStatus.innerText().then((text) => /ready|open/i.test(text)).catch(() => false);
+    const isAlreadyOpen = await widgetStatus.innerText().then((text) => /\bopen\b/i.test(text)).catch(() => false);
     if (isAlreadyOpen) {
       await launcher.click();
       await waitForWidgetEvent(page, 'widget_closed', 5_000);
@@ -483,34 +483,16 @@ test.describe('Widget embed (cross-origin iframe flow)', () => {
     const composerReady = await messageInput.isEnabled().catch(() => false);
     if (!composerReady) {
       await expect.poll(
-        async () => page.evaluate(() => {
-          const iframeEl = document.querySelector('iframe[src*="/public/"]') as HTMLIFrameElement | null;
-          const doc = iframeEl?.contentDocument;
-          if (!doc) return 'missing';
-          const input = doc.querySelector('[data-testid="message-input"]') as HTMLTextAreaElement | HTMLInputElement | null;
-          if (input && !input.disabled) return 'composer';
-          const sendButton = Array.from(doc.querySelectorAll('button')).find((button) =>
-            /send us a message/i.test(button.textContent ?? '')
-          );
-          return sendButton ? 'cta' : 'waiting';
-        }),
+        async () => {
+          const inputEnabled = await iframe.locator('[data-testid="message-input"]').isEnabled().catch(() => false);
+          const sendButtonVisible = await iframe.locator('button', { hasText: /send us a message/i }).first().isVisible().catch(() => false);
+          return inputEnabled ? 'composer' : sendButtonVisible ? 'cta' : 'waiting';
+        },
         { timeout: INTERACTIVE_TIMEOUT_MS, message: 'Expected widget home CTA or composer to appear in iframe' }
       ).toMatch(/composer|cta/);
 
-      const clicked = await page.evaluate(() => {
-        const iframeEl = document.querySelector('iframe[src*="/public/"]') as HTMLIFrameElement | null;
-        const doc = iframeEl?.contentDocument;
-        if (!doc) return false;
-        const sendButton = Array.from(doc.querySelectorAll('button')).find((button) =>
-          /send us a message/i.test(button.textContent ?? '')
-        ) as HTMLButtonElement | undefined;
-        if (!sendButton) return false;
-        sendButton.click();
-        return true;
-      });
-      expect(clicked, 'Expected to click the iframe "Send us a message" CTA').toBe(true);
+      await iframe.locator('button', { hasText: /send us a message/i }).first().click();
     }
-
     // Wait for composer to be interactive.
     await expect(messageInput).toBeEnabled({ timeout: INTERACTIVE_TIMEOUT_MS });
 
