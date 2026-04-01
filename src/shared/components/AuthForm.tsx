@@ -22,6 +22,7 @@ interface AuthFormProps {
   showHeader?: boolean;
   showGoogleSignIn?: boolean;
   showModeToggle?: boolean;
+  disableActions?: boolean;
   className?: string;
   variant?: 'card' | 'plain';
 }
@@ -39,6 +40,7 @@ const AuthForm = ({
   showHeader = true,
   showGoogleSignIn = true,
   showModeToggle = true,
+  disableActions = false,
   className = '',
   variant = 'card'
 }: AuthFormProps) => {
@@ -78,6 +80,11 @@ const AuthForm = ({
   }, [onSuccess, resolvedMode]);
 
   const handleSubmit = async (_data?: Record<string, unknown>) => {
+    if (disableActions) {
+      setError('');
+      setMessage('Preview mode: auth actions are disabled.');
+      return;
+    }
     setLoading(true);
     setError('');
     setMessage('');
@@ -163,6 +170,11 @@ const AuthForm = ({
   };
 
   const handleGoogleSignIn = async () => {
+    if (disableActions) {
+      setError('');
+      setMessage('Preview mode: auth actions are disabled.');
+      return;
+    }
     setLoading(true);
     setError('');
     setMessage('');
@@ -264,7 +276,7 @@ const AuthForm = ({
               variant="secondary"
               size="md"
               onClick={handleGoogleSignIn}
-              disabled={loading}
+              disabled={loading || disableActions}
               className="w-full justify-center"
               icon={
                 <svg className="w-5 h-5" viewBox="0 0 24 24">
@@ -305,15 +317,16 @@ const AuthForm = ({
                         type="text"
                         required={resolvedMode === 'signup'}
                         value={formData.name}
-                        onChange={(value) => {
-                          onChange(value);
-                          setFormData(prev => ({ ...prev, name: String(value) }));
-                        }}
-                        placeholder={t('signup.fullNamePlaceholder')}
-                        icon={UserCircleIcon} iconClassName="h-5 w-5 text-input-placeholder"
-                        error={fieldError?.message}
-                        data-testid="signup-name-input"
-                      />
+                      onChange={(value) => {
+                        onChange(value);
+                        setFormData(prev => ({ ...prev, name: String(value) }));
+                      }}
+                      placeholder={t('signup.fullNamePlaceholder')}
+                      icon={UserCircleIcon} iconClassName="h-5 w-5 text-input-placeholder"
+                      error={fieldError?.message}
+                      disabled={disableActions}
+                      data-testid="signup-name-input"
+                    />
                     </FormControl>
                     {fieldError && <FormMessage>{fieldError.message}</FormMessage>}
                   </FormItem>
@@ -335,6 +348,7 @@ const AuthForm = ({
                       }}
                       placeholder={t(resolvedMode === 'signup' ? 'signup.emailPlaceholder' : 'signin.emailPlaceholder')}
                       error={fieldError?.message}
+                      disabled={disableActions}
                       data-testid={resolvedMode === 'signup' ? 'signup-email-input' : 'signin-email-input'}
                     />
                   </FormControl>
@@ -358,6 +372,7 @@ const AuthForm = ({
                       }}
                       placeholder={t(resolvedMode === 'signup' ? 'signup.passwordPlaceholder' : 'signin.passwordPlaceholder')}
                       error={fieldError?.message}
+                      disabled={disableActions}
                       data-testid={resolvedMode === 'signup' ? 'signup-password-input' : 'signin-password-input'}
                     />
                   </FormControl>
@@ -382,6 +397,7 @@ const AuthForm = ({
                         }}
                         placeholder={t('signup.confirmPasswordPlaceholder')}
                         error={fieldError?.message}
+                        disabled={disableActions}
                         data-testid="signup-confirm-password-input"
                       />
                     </FormControl>
@@ -409,7 +425,7 @@ const AuthForm = ({
               type="submit"
               variant="primary"
               size="md"
-              disabled={loading}
+              disabled={loading || disableActions}
               data-testid={resolvedMode === 'signup' ? 'signup-submit-button' : 'signin-submit-button'}
               className="w-full justify-center"
               aria-busy={loading}
@@ -432,7 +448,7 @@ const AuthForm = ({
                 size="sm"
                 type="button"
                 onClick={handleToggleMode}
-                disabled={loading}
+                disabled={loading || disableActions}
                 className="text-accent-500 hover:text-accent-400"
               >
                 {resolvedMode === 'signup' 

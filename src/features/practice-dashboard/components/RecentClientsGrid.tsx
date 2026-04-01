@@ -6,11 +6,13 @@ import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import { formatDate } from '@/shared/utils/dateTime';
 import type { RecentClient } from '@/features/practice-dashboard/hooks/usePracticeBillingData';
 
+const neutralTone = 'ring-line-glass/20 bg-surface-overlay/80 text-input-placeholder';
 const statusTone: Record<string, string> = {
-  paid: 'text-emerald-300 bg-emerald-500/10 ring-emerald-500/20',
-  overdue: 'text-rose-300 bg-rose-500/10 ring-rose-500/20',
-  sent: 'text-input-placeholder bg-surface-glass ring-line-glass/50',
-  pending: 'text-input-placeholder bg-surface-glass ring-line-glass/50'
+  paid: 'bg-emerald-500/10 text-emerald-700 ring-emerald-500/20 dark:text-emerald-300',
+  overdue: 'bg-rose-500/10 text-rose-700 ring-rose-500/20 dark:text-rose-300',
+  draft: neutralTone,
+  sent: neutralTone,
+  pending: neutralTone
 };
 
 type RecentClientsGridProps = {
@@ -51,8 +53,11 @@ export const RecentClientsGrid = ({
       ) : (
         <ul className="mt-6 grid grid-cols-1 gap-x-6 gap-y-8 lg:grid-cols-3 xl:gap-x-8">
           {clients.map((client) => (
-            <li key={client.id} className="overflow-hidden rounded-xl outline outline-1 outline-line-glass/40">
-              <div className="flex items-center gap-x-4 border-b border-line-glass/20 bg-surface-glass p-6">
+            <li
+              key={client.id}
+              className="overflow-hidden rounded-xl bg-surface-overlay/80 outline outline-1 outline-line-glass/40 backdrop-blur-xl"
+            >
+              <div className="flex items-center gap-x-4 border-b border-line-glass/20 bg-surface-overlay/70 p-6">
                 <Avatar 
                   src={client.avatarUrl} 
                   name={client.name} 
@@ -81,7 +86,7 @@ export const RecentClientsGrid = ({
                 </DropdownMenu>
               </div>
               {client.lastInvoice ? (
-                <dl className="-my-3 divide-y divide-line-glass/20 px-6 py-4 text-sm">
+                <dl className="-my-3 divide-y divide-line-glass/20 bg-surface-overlay/60 px-6 py-4 text-sm">
                   <div className="flex justify-between gap-x-4 py-3">
                     <dt className="text-input-placeholder">Last invoice</dt>
                     <dd className="text-input-text">
@@ -105,7 +110,7 @@ export const RecentClientsGrid = ({
                     <dt className="text-input-placeholder">Amount</dt>
                     <dd className="flex items-start gap-x-2">
                       <div className="font-medium text-input-text">{formatCurrency(client.lastInvoice.amount)}</div>
-                      <div className={`rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset ${statusTone[client.lastInvoice.status?.toLowerCase() || ''] ?? 'text-input-placeholder bg-surface-glass ring-line-glass/50'}`}>
+                      <div className={`rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset ${statusTone[client.lastInvoice.status?.toLowerCase() || ''] ?? neutralTone}`}>
                         {client.lastInvoice.status ?? '-'}
                       </div>
                     </dd>

@@ -1088,7 +1088,7 @@ export function MainApp({
             : undefined
       }
       invoicesListContent={
-        (isPracticeWorkspace || isClientWorkspace) && layoutMode === 'desktop'
+        (isPracticeWorkspace || isClientWorkspace) && layoutMode === 'desktop' && resolvedWorkspaceView !== 'invoiceDetail'
           ? (statusFilter) => (
             <Suspense fallback={<WorkspaceSubviewFallback />}>
               {isPracticeWorkspace ? (
@@ -1134,7 +1134,7 @@ export function MainApp({
                 onClick: () => window.dispatchEvent(new CustomEvent(INVOICE_CREATE_SEND_EVENT)),
                 icon: PaperAirplaneIcon,
               }
-          : (resolvedWorkspaceView === 'invoices' || resolvedWorkspaceView === 'invoiceDetail') && isPracticeWorkspace && practiceInvoicesPath
+          : resolvedWorkspaceView === 'invoices' && isPracticeWorkspace && practiceInvoicesPath
             ? {
                 label: 'New Invoice',
                 onClick: () => navigate(`${practiceInvoicesPath}/new`),
