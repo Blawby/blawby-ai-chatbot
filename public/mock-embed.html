@@ -252,13 +252,6 @@
         if (window.BlawbyWidget && typeof window.BlawbyWidget.open === 'function') {
           log('[harness] pre-warming iframe via BlawbyWidget.open()');
           window.BlawbyWidget.open();
-          // Auto-close after 100ms so the UI starts in closed state,
-          // but the iframe is already loaded and ready.
-          setTimeout(function() {
-            if (window.BlawbyWidget && typeof window.BlawbyWidget.close === 'function') {
-              window.BlawbyWidget.close();
-            }
-          }, 100);
         }
       }, 50);
     };

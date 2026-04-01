@@ -159,11 +159,8 @@ const isCaseInfoComplete = (state: IntakeConversationState | null | undefined, d
   const hasDescription = Boolean(state.description?.trim() || draftRecord?.description?.trim());
   const hasLocation = Boolean(state.city?.trim() || draftRecord?.city?.trim())
     && Boolean(state.state?.trim() || draftRecord?.state?.trim());
-  const hasOpposingParty = Boolean(state.opposingParty?.trim() || draftRecord?.opposing_party?.trim());
-  const hasUrgency = Boolean(state.urgency?.trim());
-  const hasDesiredOutcome = Boolean(state.desiredOutcome?.trim());
-  const hasDocumentAnswer = typeof state.hasDocuments === 'boolean';
-  return hasDescription && hasLocation && hasOpposingParty && hasUrgency && hasDesiredOutcome && hasDocumentAnswer;
+  const hasOpposingParty = Boolean(state.opposingParty?.trim() || draftRecord?.opposingParty?.trim());
+  return hasDescription && hasLocation && hasOpposingParty;
 };
 
 const buildIntakePayload = (

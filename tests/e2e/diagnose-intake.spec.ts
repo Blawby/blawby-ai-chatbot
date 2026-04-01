@@ -106,10 +106,10 @@ test.describe('Intake QuickAction Diagnosis', () => {
     await response2Promise;
     await anonPage.waitForTimeout(5000);
 
-    // Turn 3: Challenge with something that should trigger chips
-    console.log('Step 9 (Turn 3): Sending urgency...');
+    // Turn 3: Answer the next required field in the new planner order.
+    console.log('Step 9 (Turn 3): Sending opposing party...');
     const response3Promise = anonPage.waitForResponse(r => r.url().includes('/api/ai/chat') && r.request().method() === 'POST');
-    await messageInput.fill('It is quite urgent since I am in the hospital.');
+    await messageInput.fill('The other driver who hit me.');
     await anonPage.keyboard.press('Enter');
     await response3Promise;
     await anonPage.waitForTimeout(5000);

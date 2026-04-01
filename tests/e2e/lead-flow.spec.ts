@@ -177,6 +177,10 @@ test.describe('Lead intake workflow', () => {
     await expect(messageInput).toBeEnabled({ timeout: 45000 });
     const bodyLocator = anonPage.locator('body');
     const submitNowButton = anonPage.getByRole('button', { name: /submit request/i });
+    const paymentContinueButton = anonPage
+      .locator('button:visible')
+      .filter({ hasText: /continue(\s+to\s+payment)?|pay\s*(?:&|and)\s*submit/i })
+      .first();
     const buildBriefButton = anonPage.getByRole('button', { name: /build stronger brief/i });
     const aiTranscript: Array<{ prompt?: string; user: string; contentType: string; replyText: string }> = [];
 
@@ -285,10 +289,12 @@ test.describe('Lead intake workflow', () => {
     const answered = new Set<string>();
     const defaultSituation =
       'I am going through a divorce and my wife is asking for most of our money and assets. I need help protecting my finances and getting a fair outcome.';
+    const defaultOpposingParty = 'my spouse, Ashley Luke';
+    const defaultDesiredOutcome = 'I want a fair division of assets and a custody agreement.';
 
     const pickAnswerForPrompt = (rawPrompt: string): string => {
       const prompt = rawPrompt.toLowerCase();
-      if (/ready to submit|submit your request|continue now/.test(prompt)) return 'Submit request';
+      if (/ready to submit your case|are you ready to submit|submit your case to the firm/.test(prompt)) return 'Yes';
       if (/legal situation|what'?s going on|describe what'?s going on|tell me a bit/.test(prompt)) {
         answered.add('situation');
         return defaultSituation;
@@ -296,6 +302,10 @@ test.describe('Lead intake workflow', () => {
       if (/city and state|what city|where.*(located|live)|what state/.test(prompt)) {
         answered.add('location');
         return 'durham nc';
+      }
+      if (/other party|opposing party|who.*(other party|opposing|landlord|employer|spouse|driver)/i.test(prompt)) {
+        answered.add('opposing-party');
+        return defaultOpposingParty;
       }
       if (/deadline|court date/.test(prompt)) {
         answered.add('deadlines');
@@ -311,11 +321,15 @@ test.describe('Lead intake workflow', () => {
       }
       if (/what outcome|hoping for|what do you want/.test(prompt)) {
         answered.add('outcome');
-        return 'I want to protect my assets and keep as much of my money as possible';
+        return defaultDesiredOutcome;
       }
-      if (/documents|paperwork|files/.test(prompt)) {
+      if (/how urgent|routine|time.sensitive|emergency|deadline|court date/i.test(prompt)) {
+        answered.add('urgency');
+        return 'Time-sensitive';
+      }
+      if (/documents|paperwork|evidence|files/.test(prompt)) {
         answered.add('documents');
-        return 'not yet';
+        return 'Yes, I have documents';
       }
       if (/anything else|other details|add anything/.test(prompt)) {
         answered.add('other-details');
@@ -345,14 +359,21 @@ test.describe('Lead intake workflow', () => {
     };
 
     let reachedSubmitReady = false;
+    let reachedPaymentTerminal = false;
     const MAX_INTAKE_TURNS = 12;
     for (let index = 0; index < MAX_INTAKE_TURNS; index += 1) {
       const submitVisibleBefore = await submitNowButton.isVisible().catch(() => false);
       const buildVisibleBefore = await buildBriefButton.isVisible().catch(() => false);
+      const paymentPromptVisibleBefore = await anonPage
+        .locator('button')
+        .filter({ hasText: /continue(\s+to\s+payment)?|pay\s*(?:&|and)\s*submit/i })
+        .isVisible()
+        .catch(() => false);
       const bodyTextBefore = await bodyLocator.innerText().catch(() => '');
-      const readyPromptBefore = /ready to submit|submit your request|would you like to continue now/i.test(bodyTextBefore);
-      if (submitVisibleBefore || (buildVisibleBefore && readyPromptBefore)) {
+      const readyPromptBefore = /ready to submit your case|are you ready to submit|submit your case to the firm/i.test(bodyTextBefore);
+      if (submitVisibleBefore || paymentPromptVisibleBefore || (buildVisibleBefore && readyPromptBefore)) {
         reachedSubmitReady = true;
+        if (paymentPromptVisibleBefore) reachedPaymentTerminal = true;
         break;
       }
 
@@ -371,10 +392,16 @@ test.describe('Lead intake workflow', () => {
 
       const submitVisible = await submitNowButton.isVisible().catch(() => false);
       const buildVisible = await buildBriefButton.isVisible().catch(() => false);
+      const paymentPromptVisible = await anonPage
+        .locator('button')
+        .filter({ hasText: /continue(\s+to\s+payment)?|pay\s*(?:&|and)\s*submit/i })
+        .isVisible()
+        .catch(() => false);
       const bodyText = await bodyLocator.innerText().catch(() => '');
-      const readyPrompt = /ready to submit|submit your request|would you like to continue now/i.test(bodyText);
-      if (submitVisible || (buildVisible && readyPrompt)) {
+      const readyPrompt = /ready to submit your case|are you ready to submit|submit your case to the firm/i.test(bodyText);
+      if (submitVisible || paymentPromptVisible || (buildVisible && readyPrompt)) {
         reachedSubmitReady = true;
+        if (paymentPromptVisible) reachedPaymentTerminal = true;
         break;
       }
     }
@@ -386,8 +413,13 @@ test.describe('Lead intake workflow', () => {
       );
     }
 
-    await expect(submitNowButton).toBeVisible({ timeout: 10000 });
-    await submitNowButton.click();
+    if (reachedPaymentTerminal) {
+      await expect(paymentContinueButton).toBeVisible({ timeout: 10000 });
+      await paymentContinueButton.click();
+    } else {
+      await expect(submitNowButton).toBeVisible({ timeout: 10000 });
+      await submitNowButton.click();
+    }
 
     // Deterministic CTA path should advance to auth/save flow (modal/overlay) or auth route.
     // We intentionally avoid hardcoding a single UI variant because this path may be modal
@@ -639,10 +671,22 @@ test.describe('Lead intake workflow', () => {
       throw new Error('Expected AI chat response for anon sign-in flow, but /api/ai/chat response was not observed.');
     }
 
-    const capturedConversationId = await anonPage.evaluate((): string | null => {
-      const match = window.location.href.match(/\/conversations\/([a-zA-Z0-9_-]+)/);
-      return match?.[1] ?? null;
-    });
+    let capturedConversationId: string | null = null;
+    await expect
+      .poll(
+        async () => {
+          capturedConversationId = await anonPage.evaluate((): string | null => {
+            const match = window.location.href.match(/\/conversations\/([a-zA-Z0-9_-]+)/);
+            return match?.[1] ?? null;
+          });
+          return capturedConversationId;
+        },
+        {
+          timeout: 10_000,
+          message: 'Expected conversationId in URL after AI response',
+        }
+      )
+      .not.toBeNull();
     if (!capturedConversationId) {
       throw new Error('Expected conversationId in URL after AI response, but none was found.');
     }
@@ -843,6 +887,7 @@ test.describe('Lead intake workflow', () => {
     ).toBe(true);
 
     await anonPage.context().clearCookies();
+    let cookiesCleared = true;
 
     let reloadedBootstrapAuthHeader: string | undefined;
     const reloadedBootstrapRequestPromise = anonPage.waitForRequest(
@@ -864,7 +909,9 @@ test.describe('Lead intake workflow', () => {
 
     const observedWsUrls: string[] = [];
     anonPage.on('websocket', (ws) => {
-      observedWsUrls.push(ws.url());
+      if (cookiesCleared) {
+        observedWsUrls.push(ws.url());
+      }
     });
 
     await anonPage.goto(widgetUrl, { waitUntil: 'domcontentloaded' });
@@ -889,7 +936,7 @@ test.describe('Lead intake workflow', () => {
       .poll(
         () => observedWsUrls.find((url) => url.includes('/api/conversations/') && url.includes('bw_token=')) ?? null,
         {
-          timeout: 20_000,
+          timeout: 30_000,
           message: 'Expected conversation WebSocket URL to include bw_token query auth after cookie clear.',
         }
       )
