@@ -363,7 +363,7 @@ test.describe('Lead intake workflow', () => {
       const buildVisibleBefore = await buildBriefButton.isVisible().catch(() => false);
       const paymentPromptVisibleBefore = await anonPage
         .locator('button')
-        .filter({ hasText: /continue(\s+to\s+payment)?|pay and submit/i })
+        .filter({ hasText: /continue(\s+to\s+payment)?|pay\s*(?:&|and)\s*submit/i })
         .isVisible()
         .catch(() => false);
       const bodyTextBefore = await bodyLocator.innerText().catch(() => '');
@@ -391,7 +391,7 @@ test.describe('Lead intake workflow', () => {
       const buildVisible = await buildBriefButton.isVisible().catch(() => false);
       const paymentPromptVisible = await anonPage
         .locator('button')
-        .filter({ hasText: /continue(\s+to\s+payment)?|pay and submit/i })
+        .filter({ hasText: /continue(\s+to\s+payment)?|pay\s*(?:&|and)\s*submit/i })
         .isVisible()
         .catch(() => false);
       const bodyText = await bodyLocator.innerText().catch(() => '');

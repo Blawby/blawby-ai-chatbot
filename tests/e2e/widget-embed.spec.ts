@@ -482,16 +482,19 @@ test.describe('Widget embed (cross-origin iframe flow)', () => {
     const messageInput = iframe.locator('[data-testid="message-input"]');
     const composerReady = await messageInput.isEnabled().catch(() => false);
     if (!composerReady) {
+      let state = 'waiting' as 'composer' | 'cta' | 'waiting';
       await expect.poll(
         async () => {
           const inputEnabled = await iframe.locator('[data-testid="message-input"]').isEnabled().catch(() => false);
-          const sendButtonVisible = await iframe.locator('button', { hasText: /send us a message/i }).first().isVisible().catch(() => false);
-          return inputEnabled ? 'composer' : sendButtonVisible ? 'cta' : 'waiting';
+          const sendButtonVisible = await iframe.locator('button').filter({ hasText: /send us a message/i }).first().isVisible().catch(() => false);
+          state = inputEnabled ? 'composer' : sendButtonVisible ? 'cta' : 'waiting';
+          return state;
         },
         { timeout: INTERACTIVE_TIMEOUT_MS, message: 'Expected widget home CTA or composer to appear in iframe' }
       ).toMatch(/composer|cta/);
-
-      await iframe.locator('button', { hasText: /send us a message/i }).first().click();
+      if (state === 'cta') {
+        await iframe.locator('button').filter({ hasText: /send us a message/i }).first().click();
+      }
     }
     // Wait for composer to be interactive.
     await expect(messageInput).toBeEnabled({ timeout: INTERACTIVE_TIMEOUT_MS });
