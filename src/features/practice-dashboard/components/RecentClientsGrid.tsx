@@ -110,7 +110,7 @@ export const RecentClientsGrid = ({
                     <dt className="text-input-placeholder">Amount</dt>
                     <dd className="flex items-start gap-x-2">
                       <div className="font-medium text-input-text">{formatCurrency(client.lastInvoice.amount)}</div>
-                      <div className={`rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset ${statusTone[client.lastInvoice.status?.toLowerCase() || ''] ?? 'border border-line-glass/20 bg-surface-overlay/80 text-input-placeholder'}`}>
+                      <div className={`rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset ${statusTone[client.lastInvoice.status?.toLowerCase() || ''] ?? neutralTone}`}>
                         {client.lastInvoice.status ?? '-'}
                       </div>
                     </dd>

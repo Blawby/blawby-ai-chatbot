@@ -33,9 +33,9 @@ const statusClass = (status: ActivityEntry['status']) => {
   const normalized = status.toLowerCase();
   if (normalized === 'paid') return 'bg-emerald-500/10 text-emerald-700 ring-emerald-500/20 dark:text-emerald-300';
   if (normalized === 'overdue') return 'bg-rose-500/10 text-rose-700 ring-rose-500/20 dark:text-rose-300';
-  if (normalized === 'draft') return 'border border-line-glass/20 bg-surface-overlay/80 text-input-placeholder ring-line-glass/20';
-  if (normalized === 'sent' || normalized === 'pending') return 'border border-line-glass/20 bg-surface-overlay/80 text-input-placeholder ring-line-glass/20';
-  return 'border border-line-glass/20 bg-surface-overlay/80 text-input-placeholder ring-line-glass/20';
+  if (normalized === 'draft') return 'bg-surface-overlay/80 text-input-placeholder ring-line-glass/20';
+  if (normalized === 'sent' || normalized === 'pending') return 'bg-surface-overlay/80 text-input-placeholder ring-line-glass/20';
+  return 'bg-surface-overlay/80 text-input-placeholder ring-line-glass/20';
 };
 
 export const RecentActivityTable = ({ days, loading = false, error = null, onOpenInvoice }: RecentActivityTableProps) => (
