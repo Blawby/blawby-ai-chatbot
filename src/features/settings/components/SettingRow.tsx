@@ -35,7 +35,7 @@ export const SettingRow = ({
         )}
       </div>
       {children !== undefined && children !== null && (
-        <div className="ml-4">
+        <div className="ml-4 self-start">
           {children}
         </div>
       )}

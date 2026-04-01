@@ -33,7 +33,7 @@ type WorkspaceSetupSectionProps = {
   details: Parameters<typeof PracticeSetup>[0]['details'];
   onSaveBasics: (values: BasicsFormValues, options?: { suppressSuccessToast?: boolean }) => Promise<void>;
   onSaveContact: (values: ContactFormValues, options?: { suppressSuccessToast?: boolean }) => Promise<void>;
-  onSaveServices: (services: Array<{ name: string; description?: string; key?: string }>) => Promise<void>;
+  onSaveServices: (services: Array<{ name: string; key?: string }>) => Promise<void>;
   logoUploading: boolean;
   logoUploadProgress: number | null;
   onLogoChange: (files: FileList | File[]) => void;

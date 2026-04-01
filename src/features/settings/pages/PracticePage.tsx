@@ -34,6 +34,7 @@ import { FormGrid, SectionDivider } from '@/shared/ui/layout';
 import { ContentPageLayout } from '@/shared/ui/layout';
 import { SettingsNotice } from '@/features/settings/components/SettingsNotice';
 import { SettingsHelperText } from '@/features/settings/components/SettingsHelperText';
+import { PracticeServicesSummary } from '@/features/settings/components/PracticeServicesSummary';
 import { SettingRow } from '@/features/settings/components/SettingRow';
 import {
   usePracticeMembersSync,
@@ -715,21 +716,13 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
               <SectionDivider />
 
               <SettingRow
-                label="Services"
+                label={t('settings:practice.services')}
                 labelNode={(
                   <div>
-                    <h3 className="text-sm font-semibold text-input-text">Services</h3>
-                    {servicesList.length > 0 ? (
-                      <div className="mt-2 space-y-1">
-                        {servicesList.map((service) => (
-                          <SettingsHelperText key={service}>{service}</SettingsHelperText>
-                        ))}
-                      </div>
-                    ) : (
-                      <SettingsHelperText className="mt-1">
-                        No services configured yet
-                      </SettingsHelperText>
-                    )}
+                    <h3 className="text-sm font-semibold text-input-text">
+                      {t('settings:practice.services')}
+                    </h3>
+                    <PracticeServicesSummary services={servicesList} />
                   </div>
                 )}
               >
@@ -740,14 +733,14 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
                     onClick={() => navigateTo(toSettingsPath('practice/services'))}
                     className="hidden sm:inline-flex"
                   >
-                    Manage
+                    {t('settings:account.plan.manage')}
                   </Button>
                   <Button
                     variant="icon"
                     size="icon"
                     onClick={() => navigateTo(toSettingsPath('practice/services'))}
                     className="sm:hidden"
-                    aria-label="Manage services"
+                    aria-label={t('settings:practice.manageServices')}
                     icon={ChevronRightIcon} iconClassName="w-5 h-5"
                   />
                 </div>

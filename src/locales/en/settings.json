@@ -23,6 +23,7 @@
   "redirecting": "Redirecting settings...",
   "practice": {
     "services": "Services",
+    "manageServices": "Manage services",
     "team": "Team Members"
   },
   "general": {

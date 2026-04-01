@@ -1670,7 +1670,6 @@ function normalizePracticeDetailsPayload(payload: PracticeDetailsUpdate): Record
           if (!name) {
             return null;
           }
-          const description = toNullableString(service.description);
           const rawKey = toNullableString(service.key);
           const baseKey = rawKey ?? name ?? id;
           const key = baseKey ? normalizeServiceKey(baseKey) : '';
@@ -1680,9 +1679,6 @@ function normalizePracticeDetailsPayload(payload: PracticeDetailsUpdate): Record
           const next: Record<string, unknown> = { name, key };
           if (id) {
             next.id = id;
-          }
-          if (description) {
-            next.description = description;
           }
           return next;
         })
