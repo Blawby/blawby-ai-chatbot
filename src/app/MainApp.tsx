@@ -246,6 +246,8 @@ export function MainApp({
   });
 
   const activeConversationId = normalizedRouteConversationId ?? setupConversationId;
+  const shouldEnableConversationTransport = workspaceView !== 'settings';
+  const liveConversationId = shouldEnableConversationTransport ? activeConversationId : null;
 
   useEffect(() => {
     if (sessionIsPending) return;
@@ -309,7 +311,7 @@ export function MainApp({
   const messageHandling = useMessageHandling({
     practiceId: effectivePracticeId,
     practiceSlug: resolvedPracticeSlug ?? undefined,
-    conversationId: activeConversationId ?? undefined,
+    conversationId: liveConversationId ?? undefined,
     ensureConversation: () => ensureConversation({ waitForSessionReadyMs: 3000 }),
     linkAnonymousConversationOnLoad: isPublicWorkspace,
     mode: conversationMode,
@@ -504,7 +506,7 @@ export function MainApp({
 
   const [mentionCandidates, setMentionCandidates] = useState<Array<{ userId: string; name: string }>>([]);
   useEffect(() => {
-    if (!isPracticeWorkspace || !practiceId || !activeConversationId) {
+    if (!isPracticeWorkspace || !practiceId || !liveConversationId) {
       setMentionCandidates([]);
       return;
     }
@@ -514,7 +516,7 @@ export function MainApp({
 
     (async () => {
       try {
-        const participants = await getConversationParticipants(activeConversationId, practiceId, { signal: controller.signal });
+        const participants = await getConversationParticipants(liveConversationId, practiceId, { signal: controller.signal });
         const nextMentionCandidates = participants
           .filter((participant) => participant.canMentionInternally === true)
           .map((participant) => ({
@@ -535,7 +537,7 @@ export function MainApp({
     })();
 
     return () => controller.abort();
-  }, [activeConversationId, isPracticeWorkspace, practiceId]);
+  }, [isPracticeWorkspace, liveConversationId, practiceId]);
 
   const handleUploadError = useCallback((error: unknown) => {
     console.error('File upload error:', error);
@@ -548,7 +550,7 @@ export function MainApp({
     handleCameraCapture, handleFileSelect, removePreviewFile,
     clearPreviewFiles, cancelUpload, isReadyToUpload,
   } = useFileUploadWithContext({
-    conversationId: activeConversationId ?? undefined,
+    conversationId: liveConversationId ?? undefined,
     ensureConversation: () => ensureConversation({ waitForSessionReadyMs: 3000 }),
     onError: handleUploadError,
   });
@@ -768,7 +770,7 @@ export function MainApp({
 
   // ── system messages ────────────────────────────────────────────────────────
   useConversationSystemMessages({
-    conversationId: activeConversationId,
+    conversationId: liveConversationId,
     practiceId: effectivePracticeId,
     ingestServerMessages,
   });

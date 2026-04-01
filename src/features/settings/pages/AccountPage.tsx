@@ -37,6 +37,7 @@ import type { AccountPreferences } from '@/shared/types/preferences';
 import { normalizePracticeRole } from '@/shared/utils/practiceRoles';
 import { FormActions, FormLabel } from '@/shared/ui/form';
 import { buildSettingsPath, resolveSettingsBasePath } from '@/shared/utils/workspace';
+import { features } from '@/config/features';
 
 
 export interface AccountPageProps {
@@ -399,7 +400,7 @@ export const AccountPage = ({
   const selectedDomain = links?.selectedDomain
     ? links.selectedDomain
     : DOMAIN_SELECT_VALUE;
-  const showLinksSection = true;
+  const showLinksSection = features.enableAccountLinks;
   const showFeedbackToggle = false;
 
 

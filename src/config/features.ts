@@ -81,8 +81,11 @@ interface FeatureFlags {
      */
     enableMultiplePractices: boolean;
 
-
-
+    /**
+     * Enable account links settings UI
+     * When false, the account links section is hidden
+     */
+    enableAccountLinks: boolean;
     /**
      * Enable Plus subscription tier in UI
      * When false, the Plus plan is hidden from pricing/upgrade flows
@@ -115,6 +118,7 @@ const baseFeatureConfig: FeatureFlags = {
     enablePaymentIframe: false, // Disable payment iframe/drawer - only show "Open in Browser" button
     enableLeadQualification: true, // Enable lead qualification flow - AI asks questions before contact form
     enableMultiplePractices: true, // Enable multiple practices feature
+    enableAccountLinks: false, // Hide account links until the settings flow is ready
 
     enablePlusTier: false, // Hide Plus plan by default (not available at launch)
     enableActivity: false, // Disabled until activity is migrated off Worker/D1
