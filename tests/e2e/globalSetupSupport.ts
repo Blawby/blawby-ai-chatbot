@@ -7,11 +7,6 @@ import { waitForSession } from './helpers/auth';
 import { AUTH_DIR, AUTH_STATE_PATHS } from './helpers/authState';
 import { getBaseUrlFromConfig } from './helpers/baseUrl';
 
-const EMPTY_STORAGE_STATE = {
-  cookies: [],
-  origins: []
-};
-
 const SESSION_COOKIE_PATTERN = /better-auth\.session_token/i;
 
 type StorageState = {
@@ -39,9 +34,7 @@ const ensureResultsDir = (): string => {
   return resultsDir;
 };
 
-const writeEmptyStorageState = (path: string): void => {
-  writeFileSync(path, JSON.stringify(EMPTY_STORAGE_STATE, null, 2));
-};
+const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
 const cookieMatchesHost = (cookieDomain: string | undefined, host: string): boolean => {
   if (!cookieDomain) return false;
@@ -122,51 +115,53 @@ const hasValidSessionFromStorage = async (baseURL: string, storagePath: string):
 
 const verifyWorkerHealth = async (): Promise<void> => {
   const baseUrl = process.env.VITE_WORKER_API_URL || process.env.E2E_WORKER_URL || 'http://localhost:8787';
-
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 8000);
-
-  try {
-    const response = await fetch(`${baseUrl}/api/health`, { signal: controller.signal });
-    if (response.ok) {
-      console.log('✅ Worker is running and healthy');
-      return;
+  const deadline = Date.now() + 8000;
+  let lastErrorMessage = '';
+  while (Date.now() < deadline) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 1000);
+    try {
+      const response = await fetch(`${baseUrl}/api/health`, { signal: controller.signal });
+      if (response.ok) {
+        console.log('✅ Worker is running and healthy');
+        return;
+      }
+      const body = await response.text().catch(() => '');
+      lastErrorMessage = `Worker health check failed: ${response.status} ${body.slice(0, 200)}`;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      lastErrorMessage = `Worker health check failed. Make sure wrangler is running: npm run dev:worker:clean. ${message}`;
+    } finally {
+      clearTimeout(timeoutId);
     }
-    const body = await response.text().catch(() => '');
-    throw new Error(`Worker health check failed: ${response.status} ${body.slice(0, 200)}`);
-  } catch (error) {
-    if (error instanceof Error && error.name === 'AbortError') {
-      throw new Error('Worker health check timed out after 8000ms.');
-    }
-    throw new Error(
-      `Worker health check failed. Make sure wrangler is running: npm run dev:worker:clean. ` +
-      `${error instanceof Error ? error.message : String(error)}`
-    );
-  } finally {
-    clearTimeout(timeoutId);
+    await sleep(300);
   }
+  throw new Error(lastErrorMessage || 'Worker health check timed out after 8000ms.');
 };
 
 const waitForBaseUrl = async (baseURL: string): Promise<void> => {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 8000);
-
-  try {
-    const response = await fetch(baseURL, { method: 'GET', signal: controller.signal });
-    if (response.ok || (response.status >= 300 && response.status < 500)) {
-      console.log(`✅ Base URL reachable: ${baseURL}`);
-      return;
+  const deadline = Date.now() + 8000;
+  let lastErrorMessage = '';
+  while (Date.now() < deadline) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 1000);
+    try {
+      const response = await fetch(baseURL, { method: 'GET', signal: controller.signal });
+      if (response.ok || (response.status >= 300 && response.status < 500)) {
+        console.log(`✅ Base URL reachable: ${baseURL}`);
+        return;
+      }
+      const body = await response.text().catch(() => '');
+      lastErrorMessage = `Base URL returned ${response.status}: ${body.slice(0, 200)}`;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      lastErrorMessage = `Base URL not reachable: ${baseURL}. ${message}`;
+    } finally {
+      clearTimeout(timeoutId);
     }
-    const body = await response.text().catch(() => '');
-    throw new Error(`Base URL returned ${response.status}: ${body.slice(0, 200)}`);
-  } catch (error) {
-    if (error instanceof Error && error.name === 'AbortError') {
-      throw new Error(`Base URL check timed out after 8000ms: ${baseURL}`);
-    }
-    throw new Error(`Base URL not reachable: ${baseURL}. ${error instanceof Error ? error.message : String(error)}`);
-  } finally {
-    clearTimeout(timeoutId);
+    await sleep(300);
   }
+  throw new Error(lastErrorMessage || `Base URL check timed out after 8000ms: ${baseURL}`);
 };
 
 const createSignedInState = async (options: {
@@ -197,14 +192,8 @@ const createSignedInState = async (options: {
     if (!url.includes('/api/auth/')) return;
     const status = response.status();
     const method = response.request().method();
-    let bodyText = '';
-    try {
-      bodyText = await response.text();
-    } catch {
-      bodyText = '';
-    }
-    const trimmedBody = bodyText ? bodyText.slice(0, 500) : '';
-    authNetworkLogs.push(`[auth] ${method} ${status} ${url} ${trimmedBody}`);
+    await response.text().catch(() => '');
+    authNetworkLogs.push(`[auth] ${method} ${status} ${url} [REDACTED]`);
   };
   const authRequestFailedHandler = (request: { url: () => string; method: () => string; failure: () => { errorText?: string } | null }) => {
     const url = request.url();
@@ -231,19 +220,9 @@ const createSignedInState = async (options: {
   try {
     await page.goto('/auth?mode=signin', { waitUntil: 'domcontentloaded', timeout: authTimeoutMs });
     await page.waitForLoadState('networkidle', { timeout: authTimeoutMs }).catch(() => undefined);
-
-    try {
-      await page.locator('[data-testid="signin-email-input"]').waitFor({ state: 'visible', timeout: authTimeoutMs });
-      await page.locator('[data-testid="signin-password-input"]').waitFor({ state: 'visible', timeout: authTimeoutMs });
-      await page.locator('[data-testid="signin-submit-button"]').waitFor({ state: 'visible', timeout: authTimeoutMs });
-    } catch (error) {
-      const resultsDir = ensureResultsDir();
-      const htmlPath = join(resultsDir, `signin-timeout-${label}.html`);
-      const screenshotPath = join(resultsDir, `signin-timeout-${label}.png`);
-      writeFileSync(htmlPath, await page.content());
-      await page.screenshot({ path: screenshotPath, fullPage: true });
-      throw error;
-    }
+    await page.locator('[data-testid="signin-email-input"]').waitFor({ state: 'visible', timeout: authTimeoutMs });
+    await page.locator('[data-testid="signin-password-input"]').waitFor({ state: 'visible', timeout: authTimeoutMs });
+    await page.locator('[data-testid="signin-submit-button"]').waitFor({ state: 'visible', timeout: authTimeoutMs });
 
     await page.fill('[data-testid="signin-email-input"]', email);
     await page.fill('[data-testid="signin-password-input"]', password);
@@ -254,9 +233,8 @@ const createSignedInState = async (options: {
     await page.click('[data-testid="signin-submit-button"]');
     const signInResponse = await signInResponsePromise;
     if (signInResponse) {
-      const signInBody = await signInResponse.text().catch(() => '');
       authNetworkLogs.push(
-        `[auth] POST ${signInResponse.status()} ${signInResponse.url()} ${signInBody.slice(0, 500)}`
+        `[auth] POST ${signInResponse.status()} ${signInResponse.url()} [REDACTED]`
       );
     } else {
       authNetworkLogs.push('[auth] No sign-in response captured within 20s');
@@ -270,12 +248,8 @@ const createSignedInState = async (options: {
       await waitForSession(page, { timeoutMs: authTimeoutMs });
     } catch (error) {
       const resultsDir = ensureResultsDir();
-      const htmlPath = join(resultsDir, `signin-session-timeout-${label}.html`);
-      const screenshotPath = join(resultsDir, `signin-session-timeout-${label}.png`);
       const networkPath = join(resultsDir, `signin-session-network-${label}.txt`);
       const consolePath = join(resultsDir, `signin-session-console-${label}.txt`);
-      writeFileSync(htmlPath, await page.content());
-      await page.screenshot({ path: screenshotPath, fullPage: true });
       if (authNetworkLogs.length > 0) {
         writeFileSync(networkPath, authNetworkLogs.join('\n'));
       }
@@ -359,10 +333,6 @@ export const runPublicGlobalSetup = async (config: FullConfig): Promise<void> =>
   await verifyWorkerHealth();
   const baseURL = getBaseUrlFromConfig(config);
   await waitForBaseUrl(baseURL);
-  ensureAuthDir();
-  writeEmptyStorageState(AUTH_STATE_PATHS.owner);
-  writeEmptyStorageState(AUTH_STATE_PATHS.client);
-  writeEmptyStorageState(AUTH_STATE_PATHS.anonymous);
   console.log('✅ Public E2E setup complete');
 };
 
@@ -377,11 +347,10 @@ export const runAuthGlobalSetup = async (config: FullConfig): Promise<void> => {
   const { owner: ownerPath, client: clientPath, anonymous: anonymousPath } = AUTH_STATE_PATHS;
 
   if (!e2eConfig) {
-    console.warn('⚠️  E2E credentials are not configured. Writing empty auth states.');
-    writeEmptyStorageState(ownerPath);
-    writeEmptyStorageState(clientPath);
-    writeEmptyStorageState(anonymousPath);
-    return;
+    throw new Error(
+      'E2E credentials are not configured. Set E2E_PRACTICE_ID, E2E_PRACTICE_SLUG, E2E_OWNER_EMAIL, ' +
+      'E2E_OWNER_PASSWORD, E2E_CLIENT_EMAIL, and E2E_CLIENT_PASSWORD before running the auth E2E suite.'
+    );
   }
 
   if (!FORCE_AUTH_REFRESH && await hasValidSessionFromStorage(baseURL, ownerPath)) {

@@ -12,6 +12,7 @@ type E2EFixtures = {
   ownerPage: Page;
   clientPage: Page;
   anonPage: Page;
+  unauthPage: Page;
 };
 
 const test = base.extend<E2EFixtures>({
@@ -36,8 +37,7 @@ const test = base.extend<E2EFixtures>({
   anonContext: async ({ browser, baseURL }, use, testInfo) => {
     const context = await browser.newContext({
       baseURL,
-      storageState: { cookies: [], origins: [] },
-      extraHTTPHeaders: { Cookie: '' }
+      storageState: AUTH_STATE_PATHS.anonymous
     });
     const networkLogger = attachNetworkLogger({ context, testInfo, label: 'anonymous', baseURL });
     await use(context);
@@ -67,6 +67,11 @@ const test = base.extend<E2EFixtures>({
   },
   anonPage: async ({ anonContext }, use) => {
     const page = await anonContext.newPage();
+    await use(page);
+    await page.close();
+  },
+  unauthPage: async ({ unauthContext }, use) => {
+    const page = await unauthContext.newPage();
     await use(page);
     await page.close();
   }
