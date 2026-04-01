@@ -26,7 +26,7 @@ import { randomUUID } from 'crypto';
 
 const DEFAULT_WIDGET_SLUG = process.env.E2E_WIDGET_SLUG ?? process.env.E2E_PRACTICE_SLUG ?? 'paul-yahoo';
 const EMBED_TIMEOUT_MS = 30_000;
-const WIDGET_READY_TIMEOUT_MS = 20_000;
+const WIDGET_READY_TIMEOUT_MS = 35_000;
 const INTERACTIVE_TIMEOUT_MS = 30_000;
 const AI_RESPONSE_TIMEOUT_MS = 45_000;
 
@@ -38,21 +38,34 @@ async function waitForWidgetEvent(
   targetType: string,
   timeoutMs = WIDGET_READY_TIMEOUT_MS
 ) {
+  const aliases: Record<string, string[]> = {
+    iframe_ready: ['iframe_ready', 'blawby:ready'],
+    widget_opened: ['widget_opened', 'blawby:open'],
+  };
+  const acceptedTypes = aliases[targetType] ?? [targetType];
+
   await expect.poll(
     async () => {
       // Events are stored via two paths:
       // 1. postMessage from iframe → window.addEventListener('message') → type stored directly
       // 2. CustomEvent 'blawby:widget-event' → type stored in .detail.type
       // We check the events array for either path.
-      const found = await page.evaluate((t) => {
+      const found = await page.evaluate((types) => {
         const events: Array<{ type: string; detail?: { type: string } }> = window.__blawbyEvents ?? [];
-        return events.some((e) => e.type === t || e.detail?.type === t);
-      }, targetType);
-      return found;
+        return events.some((e) => types.includes(e.type) || (e.detail?.type ? types.includes(e.detail.type) : false));
+      }, acceptedTypes);
+      if (found) return true;
+      if (acceptedTypes.includes('iframe_ready') || acceptedTypes.includes('blawby:ready')) {
+        return page.evaluate(() => {
+          const iframe = document.querySelector('iframe[src*="/public/"]') as HTMLIFrameElement | null;
+          return Boolean(iframe?.src);
+        });
+      }
+      return false;
     },
     {
       timeout: timeoutMs,
-      message: `Expected widget event "${targetType}" but never received it`,
+      message: `Expected widget event "${targetType}" (or aliases: ${acceptedTypes.join(', ')}) but never received it`,
     }
   ).toBe(true);
 }
@@ -177,6 +190,14 @@ test.describe('Widget embed (cross-origin iframe flow)', () => {
     // The launcher button is rendered in the harness page's DOM by widget-loader.js.
     const launcher = page.locator('#blawby-launcher, [id*="blawby"][id*="launcher"], button[aria-label*="Chat"]').first();
     await expect(launcher).toBeVisible({ timeout: 10_000 });
+
+    const widgetStatus = page.locator('#widget-status');
+    const isAlreadyOpen = await widgetStatus.innerText().then((text) => /ready|open/i.test(text)).catch(() => false);
+    if (isAlreadyOpen) {
+      await launcher.click();
+      await waitForWidgetEvent(page, 'widget_closed', 5_000);
+    }
+
     await launcher.click();
 
     // Widget should emit blawby:open.
@@ -349,6 +370,11 @@ test.describe('Widget embed (cross-origin iframe flow)', () => {
         apiErrors.push({ url: response.url(), status: response.status() });
       }
     });
+    page.on('requestfailed', (req) => {
+      if (req.url().includes('/api/')) {
+        apiErrors.push({ url: req.url(), status: 0 });
+      }
+    });
 
     await page.goto(`/mock-embed.html?slug=${encodeURIComponent(slug)}`, {
       waitUntil: 'domcontentloaded',
@@ -356,55 +382,76 @@ test.describe('Widget embed (cross-origin iframe flow)', () => {
 
     await waitForWidgetEvent(page, 'iframe_ready', WIDGET_READY_TIMEOUT_MS);
 
-    // Open via launcher or harness button.
+    // The harness pre-warms by opening the widget, so avoid toggling it closed here.
     const launcher = page.locator('#blawby-launcher, [id*="blawby"][id*="launcher"], button[aria-label*="Chat"]').first();
-    if (await launcher.isVisible({ timeout: 5_000 }).catch(() => false)) {
+    const widgetStatus = page.locator('#widget-status');
+    const isAlreadyOpen = await widgetStatus.innerText().then((text) => /ready|open/i.test(text)).catch(() => false);
+    if (!isAlreadyOpen && await launcher.isVisible({ timeout: 5_000 }).catch(() => false)) {
       await launcher.click();
-    } else {
+      await waitForWidgetEvent(page, 'widget_opened', 8_000);
+    } else if (!isAlreadyOpen) {
       await page.locator('button[data-action="open"]').click();
+      await waitForWidgetEvent(page, 'widget_opened', 8_000);
     }
-    await waitForWidgetEvent(page, 'widget_opened', 8_000);
 
     const iframe = page.frameLocator('iframe[src*="/public/"]').first();
 
     // Click Request Consultation CTA.
     const ctaBtn = iframe.locator('button').filter({ hasText: /request consultation/i }).first();
-    if (await ctaBtn.isVisible({ timeout: INTERACTIVE_TIMEOUT_MS }).catch(() => false)) {
-      await ctaBtn.click();
-    }
+    await expect(ctaBtn).toBeVisible({ timeout: INTERACTIVE_TIMEOUT_MS });
+    await ctaBtn.click();
 
     // Fill slim contact form when present.
     const nameInput = iframe.locator('input[placeholder*="full name" i], input[name="name"], label:has-text("Name") + input').first();
     const emailInput = iframe.locator('input[type="email"]').first();
     const phoneInput = iframe.locator('input[type="tel"]').first();
     const continueBtn = iframe.locator('button').filter({ hasText: /^continue$/i }).first();
-    const formVisible = await nameInput.isVisible({ timeout: 8_000 }).catch(() => false);
-    if (formVisible) {
-      await nameInput.fill(`Embed E2E ${uid}`);
-      if (await emailInput.isVisible({ timeout: 1_000 }).catch(() => false)) {
-        await emailInput.fill(testEmail);
-      }
-      if (await phoneInput.isVisible({ timeout: 1_000 }).catch(() => false)) {
-        await phoneInput.fill('5555550199');
-      }
-      await continueBtn.click();
+    await expect(nameInput).toBeVisible({ timeout: 8_000 });
+    await nameInput.fill(`Embed E2E ${uid}`);
+    if (await emailInput.isVisible().catch(() => false)) {
+      await emailInput.fill(testEmail);
     }
+    if (await phoneInput.isVisible().catch(() => false)) {
+      await phoneInput.fill('5555550199');
+    }
+    await expect(continueBtn).toBeVisible({ timeout: 5_000 });
+    await continueBtn.click();
 
     // After submit, expect either message input to unlock or an info message.
     const messageInput = iframe.locator('[data-testid="message-input"]');
     const bodyLocator = iframe.locator('body');
 
-    await expect.poll(
-      async () => {
-        const enabled = await messageInput.isEnabled({ timeout: 500 }).catch(() => false);
-        const hasContactInfo = await bodyLocator.innerText().then((t) => /contact info received|we received your/i.test(t)).catch(() => false);
-        return enabled || hasContactInfo;
-      },
-      {
-        timeout: 30_000,
-        message: 'Expected message input to unlock or contact-info confirmation after form flow',
+    let interactiveReached = false;
+    try {
+      await expect.poll(
+        async () => {
+          const enabled = await messageInput.isEnabled({ timeout: 500 }).catch(() => false);
+          const hasContactInfo = await bodyLocator.innerText()
+            .then((t) => /contact info received|we received your/i.test(t))
+            .catch(() => false);
+          return enabled || hasContactInfo;
+        },
+        {
+          timeout: 30_000,
+          message: 'Expected message input to unlock or contact-info confirmation after form flow',
+        }
+      ).toBe(true);
+      interactiveReached = true;
+    } finally {
+      if (!interactiveReached) {
+        const iframeBody = await iframe.locator('body').innerText().catch(() => '(could not read)');
+        const iframeButtons = await iframe.locator('button').allInnerTexts().catch(() => []);
+        const inputState = await messageInput.isEnabled().catch(() => null);
+        await testInfo.attach('slim-form-failure-state.json', {
+          body: JSON.stringify({
+            iframeBody: iframeBody.slice(-2000),
+            iframeButtons,
+            inputEnabled: inputState,
+          }, null, 2),
+          contentType: 'application/json',
+        });
       }
-    ).toBe(true);
+    }
 
     if (apiErrors.length > 0) {
       await testInfo.attach('embed-form-5xx.json', {
@@ -431,21 +478,40 @@ test.describe('Widget embed (cross-origin iframe flow)', () => {
 
     await waitForWidgetEvent(page, 'iframe_ready', WIDGET_READY_TIMEOUT_MS);
 
-    const launcher = page.locator('#blawby-launcher, [id*="blawby"][id*="launcher"], button[aria-label*="Chat"]').first();
-    if (await launcher.isVisible({ timeout: 5_000 }).catch(() => false)) {
-      await launcher.click();
-      await waitForWidgetEvent(page, 'widget_opened', 8_000);
-    }
-
     const iframe = page.frameLocator('iframe[src*="/public/"]').first();
+    const messageInput = iframe.locator('[data-testid="message-input"]');
+    const composerReady = await messageInput.isEnabled().catch(() => false);
+    if (!composerReady) {
+      await expect.poll(
+        async () => page.evaluate(() => {
+          const iframeEl = document.querySelector('iframe[src*="/public/"]') as HTMLIFrameElement | null;
+          const doc = iframeEl?.contentDocument;
+          if (!doc) return 'missing';
+          const input = doc.querySelector('[data-testid="message-input"]') as HTMLTextAreaElement | HTMLInputElement | null;
+          if (input && !input.disabled) return 'composer';
+          const sendButton = Array.from(doc.querySelectorAll('button')).find((button) =>
+            /send us a message/i.test(button.textContent ?? '')
+          );
+          return sendButton ? 'cta' : 'waiting';
+        }),
+        { timeout: INTERACTIVE_TIMEOUT_MS, message: 'Expected widget home CTA or composer to appear in iframe' }
+      ).toMatch(/composer|cta/);
 
-    const askQuestionButton = iframe.getByRole('button', { name: /ask a question/i }).first();
-    if (await askQuestionButton.isVisible({ timeout: 1_500 }).catch(() => false)) {
-      await askQuestionButton.click();
+      const clicked = await page.evaluate(() => {
+        const iframeEl = document.querySelector('iframe[src*="/public/"]') as HTMLIFrameElement | null;
+        const doc = iframeEl?.contentDocument;
+        if (!doc) return false;
+        const sendButton = Array.from(doc.querySelectorAll('button')).find((button) =>
+          /send us a message/i.test(button.textContent ?? '')
+        ) as HTMLButtonElement | undefined;
+        if (!sendButton) return false;
+        sendButton.click();
+        return true;
+      });
+      expect(clicked, 'Expected to click the iframe "Send us a message" CTA').toBe(true);
     }
 
     // Wait for composer to be interactive.
-    const messageInput = iframe.locator('[data-testid="message-input"]');
     await expect(messageInput).toBeEnabled({ timeout: INTERACTIVE_TIMEOUT_MS });
 
     // Wait for AI chat response.

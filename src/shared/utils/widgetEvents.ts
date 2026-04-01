@@ -1,8 +1,15 @@
+const ENV_TRUSTED_PARENT_ORIGINS = (import.meta.env.VITE_TRUSTED_PARENT_ORIGINS ?? '')
+  .split(',')
+  .map((value: string) => value.trim())
+  .filter(Boolean);
+
 const ALLOWED_PARENT_ORIGINS = new Set([
   'https://staging.blawby.com',
   'https://app.blawby.com',
   'http://localhost:5173',
-  'http://localhost:3000'
+  'http://localhost:3000',
+  'http://localhost:5137',
+  ...ENV_TRUSTED_PARENT_ORIGINS,
 ]);
 
 const parseTrustedParentOriginFromQuery = (): string | null => {
@@ -33,6 +40,8 @@ export const resolveAllowedParentOrigins = (): string[] => {
     try {
       const origin = new URL(referrer).origin;
       if (ALLOWED_PARENT_ORIGINS.has(origin)) {
+        origins.add(origin);
+      } else if (window.parent !== window && origin === window.location.origin) {
         origins.add(origin);
       }
     } catch {
