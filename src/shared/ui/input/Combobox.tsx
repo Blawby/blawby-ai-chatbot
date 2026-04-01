@@ -92,32 +92,40 @@ function Chip({
   label,
   isCustom,
   onRemove,
+  compact = false,
+  showCustomBadge = true,
 }: {
   label: string;
   isCustom?: boolean;
   onRemove: () => void;
+  compact?: boolean;
+  showCustomBadge?: boolean;
 }) {
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium',
+        'inline-flex max-w-full items-center gap-1 rounded-xl border text-xs font-medium',
+        compact ? 'min-h-8 px-3 py-1 text-sm' : 'px-2 py-0.5',
         isCustom
-          ? 'bg-accent-500/20 text-accent-300 ring-1 ring-inset ring-accent-500/30'
-          : 'bg-white/10 text-input-text ring-1 ring-inset ring-white/15'
+          ? 'border-accent-500/25 bg-accent-500/12 text-accent-300'
+          : 'border-black/5 bg-black/[0.045] text-input-text dark:border-white/10 dark:bg-white/[0.08]'
       )}
     >
-      {label}
-      {isCustom && (
+      <span className="truncate">{label}</span>
+      {isCustom && showCustomBadge && (
         <span className="text-accent-400/60 text-[10px] leading-none">custom</span>
       )}
       <button
         type="button"
         onMouseDown={(e) => e.preventDefault()}
-        onClick={onRemove}
-        className="ml-0.5 rounded hover:text-red-400 transition-colors"
+        onClick={(e) => {
+          e.stopPropagation();
+          onRemove();
+        }}
+        className="ml-0.5 rounded text-input-placeholder transition-colors hover:text-input-text"
         aria-label={`Remove ${label}`}
       >
-        <Icon icon={XMarkIcon} className="h-3 w-3"  />
+        <Icon icon={XMarkIcon} className={cn(compact ? 'h-4 w-4' : 'h-3 w-3')}  />
       </button>
     </span>
   );
@@ -468,22 +476,41 @@ export function Combobox({
 
   const triggerContent = (
     <>
-      {/* Leading icon */}
       {resolvedLeading && (
-        <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-input-placeholder">
+        <span
+          className={cn(
+            'pointer-events-none flex-shrink-0 text-input-placeholder',
+            isMultiple ? 'pt-1' : ''
+          )}
+        >
           {resolvedLeading}
         </span>
       )}
 
-      {/* Display text / placeholder */}
-      <span
-        className={cn(
-          'flex-1 truncate text-left text-sm',
-          resolvedLeading && 'pl-7',
-          !hasValue && 'text-input-placeholder'
+      <span className="min-w-0 flex-1 text-left">
+        {isMultiple && hasValue ? (
+          <span className="flex flex-wrap gap-2">
+            {selectedOptions.map((option) => (
+              <Chip
+                key={option.value}
+                label={option.label}
+                isCustom={option.isCustom}
+                onRemove={() => remove(option.value)}
+                compact
+                showCustomBadge={false}
+              />
+            ))}
+          </span>
+        ) : (
+          <span
+            className={cn(
+              'block truncate text-sm',
+              !hasValue && 'text-input-placeholder'
+            )}
+          >
+            {hasValue ? displayText : placeholder}
+          </span>
         )}
-      >
-        {hasValue ? displayText : placeholder}
       </span>
 
       {/* Clear or chevron */}
@@ -536,9 +563,10 @@ export function Combobox({
           onClick={() => (isOpen ? close() : open())}
           onKeyDown={handleKeyDown}
           className={cn(
-            'glass-input relative flex w-full items-center gap-2 rounded-md px-3 py-2.5 transition-all duration-150',
+            'glass-input relative flex w-full gap-2 rounded-md px-3 py-2.5 transition-all duration-150',
             'focus:outline-none focus:ring-2 focus:ring-accent-500/50 focus:ring-offset-0',
             isOpen && 'ring-2 ring-accent-500/50',
+            isMultiple ? 'min-h-[3.5rem] items-start' : 'items-center',
             !disabled && 'cursor-pointer'
           )}
         >
@@ -561,20 +589,6 @@ export function Combobox({
             hideTrigger ? 'top-0 mt-1' : (direction === 'up' ? 'bottom-full mb-1 top-auto' : 'top-full mt-1')
           )}
         >
-          {/* Multi chips inside dropdown header */}
-          {isMultiple && selectedOptions.length > 0 && (
-            <div className="flex flex-wrap gap-1.5 border-b border-white/[0.06] px-3 py-2">
-              {selectedOptions.map((opt) => (
-                <Chip
-                  key={opt.value}
-                  label={opt.label}
-                  isCustom={opt.isCustom}
-                  onRemove={() => remove(opt.value)}
-                />
-              ))}
-            </div>
-          )}
-
           {/* Search input */}
           {searchable && (
             <div className="border-b border-white/[0.06] px-2 py-2">

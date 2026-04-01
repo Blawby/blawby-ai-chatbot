@@ -69,7 +69,8 @@ describe('ServicesEditor', () => {
     );
 
     expect(screen.getByRole('combobox')).toBeInTheDocument();
-    expect(screen.getByRole('combobox')).toHaveTextContent('Family Law, Mediation');
+    expect(screen.getByRole('button', { name: 'Remove Family Law' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Remove Mediation' })).toBeInTheDocument();
     expect(screen.queryByText('Practice Areas & Services')).not.toBeInTheDocument();
     expect(screen.queryByText('Custom Services')).not.toBeInTheDocument();
     expect(screen.queryByText('Add Custom Service')).not.toBeInTheDocument();
@@ -89,6 +90,15 @@ describe('ServicesEditor', () => {
         title: 'Family Law'
       }
     ]);
+  });
+
+  it('renders service options without catalog icons so custom and catalog entries stay visually consistent', () => {
+    render(<ServicesEditor services={[]} onChange={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole('combobox'));
+
+    expect(screen.getByRole('option', { name: 'Family Law' })).toBeInTheDocument();
+    expect(screen.queryByTestId('UserGroupIcon')).not.toBeInTheDocument();
   });
 
   it('adds a custom free-text service with a generated id', () => {

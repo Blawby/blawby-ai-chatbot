@@ -1,11 +1,9 @@
 import { useMemo } from 'preact/hooks';
 import { useTranslation } from '@/shared/i18n/hooks';
 import { Combobox, type ComboboxOption } from '@/shared/ui/input';
-import { Icon } from '@/shared/ui/Icon';
 import { SERVICE_CATALOG } from '@/features/services/data/serviceCatalog';
 import type { Service, ServiceTemplate } from '@/features/services/types';
 import {
-  findTemplateForService,
   getServiceTitles,
   mapSelectedServiceTitlesToServices,
   normalizeServices
@@ -36,26 +34,17 @@ export const ServicesEditor = ({
 
   const options = useMemo<ComboboxOption[]>(() => {
     const selectedTitleKeys = new Set(selectedTitles.map(normalizeTitleKey));
-    const selectedOptions = normalizedServices.map((service) => {
-      const template = findTemplateForService(service, catalog);
-      return {
-        value: service.title,
-        label: service.title,
-        icon: template?.icon
-          ? <Icon icon={template.icon} className="h-4 w-4 text-input-placeholder" />
-          : undefined
-      } satisfies ComboboxOption;
-    });
+    const selectedOptions = normalizedServices.map((service) => ({
+      value: service.title,
+      label: service.title
+    } satisfies ComboboxOption));
 
     const catalogOptions = catalog.flatMap((service) => (
       selectedTitleKeys.has(normalizeTitleKey(service.title))
         ? []
         : [{
           value: service.title,
-          label: service.title,
-          icon: service.icon
-            ? <Icon icon={service.icon} className="h-4 w-4 text-input-placeholder" />
-            : undefined
+          label: service.title
         } satisfies ComboboxOption]
     ));
 
