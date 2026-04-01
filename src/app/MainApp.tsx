@@ -309,6 +309,7 @@ export function MainApp({
   );
 
   const messageHandling = useMessageHandling({
+    enabled: shouldEnableConversationTransport,
     practiceId: effectivePracticeId,
     practiceSlug: resolvedPracticeSlug ?? undefined,
     conversationId: liveConversationId ?? undefined,
@@ -506,6 +507,7 @@ export function MainApp({
 
   const [mentionCandidates, setMentionCandidates] = useState<Array<{ userId: string; name: string }>>([]);
   useEffect(() => {
+    console.log('[Participants] Loading for', { liveConversationId, practiceId });
     if (!isPracticeWorkspace || !practiceId || !liveConversationId) {
       setMentionCandidates([]);
       return;
@@ -516,6 +518,7 @@ export function MainApp({
 
     (async () => {
       try {
+        console.log('[Participants] Fetching participants...');
         const participants = await getConversationParticipants(liveConversationId, practiceId, { signal: controller.signal });
         const nextMentionCandidates = participants
           .filter((participant) => participant.canMentionInternally === true)
@@ -528,6 +531,7 @@ export function MainApp({
             && participant.name.length > 0
             && !looksLikeEmail(participant.name)
           ));
+        console.log('[Participants] Fetched', participants.length, 'participants');
         setMentionCandidates(nextMentionCandidates);
       } catch (error) {
         if ((error as DOMException)?.name === 'AbortError') return;
@@ -536,7 +540,10 @@ export function MainApp({
       }
     })();
 
-    return () => controller.abort();
+    return () => {
+      console.log('[Participants] Cleanup - aborting request');
+      controller.abort();
+    };
   }, [isPracticeWorkspace, liveConversationId, practiceId]);
 
   const handleUploadError = useCallback((error: unknown) => {

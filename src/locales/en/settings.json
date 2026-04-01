@@ -165,6 +165,8 @@
         "plus": "Plus",
         "business": "Business"
       },
+      "includesWithLabel": "{{plan}} includes:",
+      "includesCurrent": "Current plan includes:",
       "descriptions": {
         "free": "Basic features with limited usage",
         "plus": "Enhanced features with higher limits",
@@ -180,11 +182,15 @@
       "currentButton": "Current plan",
       "limits": {
         "unlimited": "Unlimited",
-        "unlimitedUsers": "Unlimited users",
-        "unlimitedInvoices": "Unlimited invoices per month",
-        "users": "{{count}} users",
+        "users": {
+          "one": "{{count}} user",
+          "other": "{{count}} users"
+        },
         "storageGb": "{{size}} GB storage",
-        "invoicesPerMonth": "{{count}} invoices per month"
+        "invoicesPerMonth": {
+          "one": "{{count}} invoice per month",
+          "other": "{{count}} invoices per month"
+        }
       },
       "cancel": {
         "modalTitle": "Are you sure you want to cancel?",
@@ -266,7 +272,18 @@
     },
     "email": {
       "title": "Email",
-      "receiveFeedback": "Receive feedback emails"
+      "receiveFeedback": "Receive feedback emails",
+      "changeSuccess": {
+        "title": "Check your email",
+        "body": "We sent instructions to confirm your new email address."
+      },
+      "modal": {
+        "notNow": "Not now",
+        "goToSecurity": "Go to Security",
+        "cancel": "Cancel",
+        "sending": "Sending...",
+        "changeEmail": "Change email"
+      }
     },
     "delete": {
       "sectionTitle": "Delete account",

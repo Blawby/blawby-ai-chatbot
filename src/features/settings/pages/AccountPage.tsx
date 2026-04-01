@@ -195,7 +195,7 @@ export const AccountPage = ({
   }, [loadAccountData, practiceLoading, currentPractice, session?.user]);
 
   const requiresPassword = passwordRequiredOverride ?? hasPasswordAccount;
-  const isOAuthUser = !requiresPassword;
+  const isOAuthUser = !hasPasswordAccount;
   const shouldGateEmailManagement = isOAuthUser;
   const currentUserEmail = typeof session?.user?.email === 'string' ? session.user.email.trim().toLowerCase() : '';
   const currentMember = members.find((member) =>
@@ -321,15 +321,17 @@ export const AccountPage = ({
     const limitFeatures = [
       typeof currentSubscription?.plan?.limits?.users === 'number'
         ? currentSubscription.plan.limits.users < 0 
-          ? t('settings:account.plan.limits.unlimited')
+          ? t('settings:account.plan.limits.unlimitedUsers')
           : t('settings:account.plan.limits.users', { count: currentSubscription.plan.limits.users })
         : null,
       typeof currentSubscription?.plan?.limits?.storageGb === 'number'
-        ? t('settings:account.plan.limits.storageGb', { size: currentSubscription.plan.limits.storageGb })
+        ? currentSubscription.plan.limits.storageGb < 0
+          ? t('settings:account.plan.limits.unlimited')
+          : t('settings:account.plan.limits.storageGb', { size: currentSubscription.plan.limits.storageGb })
         : null,
       typeof currentSubscription?.plan?.limits?.invoicesPerMonth === 'number'
         ? currentSubscription.plan.limits.invoicesPerMonth < 0
-          ? t('settings:account.plan.limits.unlimited')
+          ? t('settings:account.plan.limits.unlimitedInvoices')
           : t('settings:account.plan.limits.invoicesPerMonth', { count: currentSubscription.plan.limits.invoicesPerMonth })
         : null
     ].filter((value): value is string => Boolean(value));
@@ -758,8 +760,8 @@ export const AccountPage = ({
       });
       handleEmailModalClose();
       showSuccess(
-        'Check your email',
-        'We sent instructions to confirm your new email address.'
+        t('settings:account.email.changeSuccess.title'),
+        t('settings:account.email.changeSuccess.body')
       );
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -810,8 +812,8 @@ export const AccountPage = ({
     ? (currentSubscription?.plan?.displayName ?? currentSubscription?.plan?.name ?? '')
     : (isClientWorkspace ? 'Blawby' : t('settings:account.plan.tiers.free'));
   const planHeading = currentPlanLabel
-    ? `${currentPlanLabel} includes:`
-    : 'Current plan includes:';
+    ? t('settings:account.plan.includesWithLabel', { plan: currentPlanLabel })
+    : t('settings:account.plan.includesCurrent');
   const subscriptionDescription = hasSubscription && renewalDate
     ? t('settings:account.plan.autoRenews', { date: formatDate(renewalDate) })
     : undefined;
@@ -1124,8 +1126,8 @@ export const AccountPage = ({
                 handleEmailModalClose();
                 navigate(toSettingsPath('security'));
               }}
-              cancelText="Not now"
-              submitText="Go to Security"
+              cancelText={t('settings:account.email.modal.notNow')}
+              submitText={t('settings:account.email.modal.goToSecurity')}
               submitType="button"
             />
           </div>
@@ -1156,8 +1158,8 @@ export const AccountPage = ({
               size="sm"
               onCancel={handleEmailModalClose}
               onSubmit={() => void handleEmailChangeSubmit()}
-              cancelText="Cancel"
-              submitText={emailChangeSubmitting ? 'Sending...' : 'Change email'}
+              cancelText={t('settings:account.email.modal.cancel')}
+              submitText={emailChangeSubmitting ? t('settings:account.email.modal.sending') : t('settings:account.email.modal.changeEmail')}
               submitType="button"
               submitDisabled={emailChangeSubmitting}
               cancelDisabled={emailChangeSubmitting}

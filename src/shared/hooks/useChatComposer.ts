@@ -34,6 +34,7 @@ const SESSION_READY_TIMEOUT_MS = 8_000;
 
 
 export interface UseChatComposerOptions {
+  enabled?: boolean;
   practiceId?: string;
   practiceSlug?: string;
   conversationId?: string;
@@ -87,6 +88,7 @@ const createClientId = (prefix = 'client'): string => {
 // ─── hook ─────────────────────────────────────────────────────────────────────
 
 export const useChatComposer = ({
+  enabled = true,
   practiceId,
   practiceSlug,
   conversationId,
@@ -144,6 +146,7 @@ export const useChatComposer = ({
   // ── session readiness guard ───────────────────────────────────────────────
 
   const waitForSessionReady = useCallback(async () => {
+    if (!enabled) throw new Error('Chat is suspended.');
     if (sessionReadyRef.current) return;
     if (typeof window === 'undefined') throw new Error('Chat session is not available in this environment.');
     const start = Date.now();
@@ -152,9 +155,10 @@ export const useChatComposer = ({
       if (Date.now() - start > SESSION_READY_TIMEOUT_MS) throw new Error('Secure session is not ready yet. Please try again in a moment.');
       await new Promise(resolve => setTimeout(resolve, 200));
     }
-  }, []);
+  }, [enabled]);
 
   const ensureConversationId = useCallback(async () => {
+    if (!enabled) return '';
     const existingConversationId = conversationIdRef.current?.trim();
     if (existingConversationId) return existingConversationId;
 
@@ -190,7 +194,7 @@ export const useChatComposer = ({
 
     pendingEnsureConversationPromisesRef.current.set(contextKey, promise);
     return promise;
-  }, [conversationIdRef, ensureConversation, pendingEnsureConversationPromisesRef, currentUserId]);
+  }, [conversationIdRef, currentUserId, enabled, ensureConversation, pendingEnsureConversationPromisesRef]);
 
   // ── streaming bubble helpers ──────────────────────────────────────────────
 
@@ -228,6 +232,7 @@ export const useChatComposer = ({
     replyToMessageId?: string | null,
     conversationId?: string | null
   ) => {
+    if (!enabled) throw new Error('Chat is suspended.');
     if (!content.trim()) throw new Error('Message cannot be empty.');
     
     const effectivePracticeId = (practiceIdRef.current ?? '').trim();
@@ -316,7 +321,7 @@ export const useChatComposer = ({
       setMessages(prev => prev.filter(msg => msg.id !== tempId));
       throw error;
     });
-  }, [connectChatRoom, currentUserId, ensureConversationId, isSocketReadyRef, pendingAckRef, pendingClientMessageRef, sendFrame, setMessages, socketConversationIdRef, waitForSessionReady, waitForSocketReady]);
+  }, [connectChatRoom, currentUserId, enabled, ensureConversationId, isSocketReadyRef, pendingAckRef, pendingClientMessageRef, sendFrame, setMessages, socketConversationIdRef, waitForSessionReady, waitForSocketReady]);
 
   // ── SSE stream processor ──────────────────────────────────────────────────
 

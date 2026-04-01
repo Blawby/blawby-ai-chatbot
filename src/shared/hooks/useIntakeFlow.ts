@@ -133,6 +133,7 @@ const emitWidgetLeadSubmitted = (payload: {
 };
 
 interface UseIntakeFlowOptions {
+  enabled?: boolean;
   conversationId: string | undefined;
   practiceId: string | undefined;
   practiceSlug?: string | null;
@@ -200,6 +201,7 @@ interface UseIntakeFlowResult {
 }
 
 export function useIntakeFlow({
+  enabled = true,
   conversationId,
   practiceId,
   practiceSlug,
@@ -249,6 +251,7 @@ export function useIntakeFlow({
   // ---------------------------------------------------------------------------
 
   const applyIntakeFields = useCallback(async (payload: IntakeFieldsPayload, options?: IntakeFieldChangeOptions) => {
+    if (!enabled) return;
     const currentConsultation = resolveConsultationState(conversationMetadataRef.current);
     const current = currentConsultation?.case ?? intakeConversationState;
     const next: IntakeConversationState = { ...current };
@@ -289,7 +292,7 @@ export function useIntakeFlow({
         console.warn('[Intake] Failed to post manual update ack', err);
       }
     }
-  }, [conversationId, practiceId, conversationMetadataRef, updateConversationMetadata, intakeConversationState]);
+  }, [conversationId, enabled, practiceId, conversationMetadataRef, updateConversationMetadata, intakeConversationState]);
 
   const resetIntakeCta = useCallback(async () => {
     const current = consultation?.case ?? intakeConversationState;
@@ -824,6 +827,7 @@ export function useIntakeFlow({
   }, [handleConfirmSubmit]);
 
   const handleContactFormSubmit = useCallback(async (draft: ContactData) => {
+    if (!enabled) return;
     try {
       const sanitizedContactDetails = {
         name: (draft.name ?? '').trim(),
@@ -840,7 +844,7 @@ export function useIntakeFlow({
       console.error('[Intake] Contact form submit failed', error);
       onError?.('Failed to submit contact information.');
     }
-  }, [handleSlimFormContinue, onError, sendMessageOverWs]);
+  }, [enabled, handleSlimFormContinue, onError, sendMessageOverWs]);
 
   return {
     intakeStatus,
