@@ -3,10 +3,10 @@ import {
   ChartBarIcon,
   ChatBubbleOvalLeftEllipsisIcon,
   ClipboardDocumentListIcon,
-  Cog6ToothIcon,
   DocumentTextIcon,
   HomeIcon,
 } from '@heroicons/react/24/solid';
+import { SettingsNavIcon } from '@/shared/ui/nav/SettingsNavIcon';
 import { PEOPLE_DIRECTORY_LABEL } from '@/shared/domain/people';
 import type { PracticeRole } from '@/shared/utils/practiceRoles';
 
@@ -138,7 +138,7 @@ const buildPracticeRail = (basePath: string): NavRailItem[] => [
   {
     id: 'settings',
     label: 'Settings',
-    icon: Cog6ToothIcon,
+    icon: SettingsNavIcon,
     href: `${basePath}/settings/general`,
     matchHrefs: [`${basePath}/settings`],
   },
@@ -170,7 +170,7 @@ const buildClientRail = (basePath: string): NavRailItem[] => [
   {
     id: 'settings',
     label: 'Settings',
-    icon: Cog6ToothIcon,
+    icon: SettingsNavIcon,
     href: `${basePath}/settings/general`,
     matchHrefs: [`${basePath}/settings`],
   },

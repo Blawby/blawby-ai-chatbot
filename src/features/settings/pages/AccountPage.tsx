@@ -198,18 +198,6 @@ export const AccountPage = ({
   const hasSubscription = Boolean(hasActiveSubscription || currentSubscription);
   const deletionBlockedBySubscription = isOwner && (hasActiveSubscription || hasActivePeriod);
   const isDeleteBlocked = deletionBlockedBySubscription;
-  const deletionBlockedMessage = (() => {
-    if (!deletionBlockedBySubscription) {
-      return '';
-    }
-    if (subscriptionStatus === 'canceled' && subscriptionEnd) {
-      return `Subscription will end on ${formatDate(subscriptionEnd)}. You can delete your account after it ends.`;
-    }
-    if (subscriptionEnd) {
-      return `Subscription is active until ${formatDate(subscriptionEnd)}. Cancel it before deleting your account.`;
-    }
-    return 'Subscription must be canceled before deleting your account.';
-  })();
 
   // SSR-safe origin for return URLs
   const origin = (typeof window !== 'undefined' && window.location)
@@ -929,7 +917,6 @@ export const AccountPage = ({
 
           <SettingRow
             label={t('settings:account.payments.sectionTitle')}
-            description={t('settings:account.payments.description')}
           >
             <Button
               variant="secondary"
@@ -974,42 +961,14 @@ export const AccountPage = ({
           {/* Delete account Section */}
           <SettingRow
             label={t('settings:account.delete.sectionTitle')}
-            description={isDeleteBlocked ? deletionBlockedMessage : undefined}
           >
-            {isDeleteBlocked ? (
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => {
-                    if (!currentPractice) return;
-                    if (!origin) {
-                      showError(
-                        t('common:error.title'),
-                        'Unable to open billing portal. Please try again.'
-                      );
-                      return;
-                    }
-                    void openBillingPortal({
-                      practiceId: currentPractice.id,
-                      returnUrl: `${origin}${toSettingsPath('account')}?sync=1`
-                    });
-                  }}
-                  disabled={!currentPractice || !isOwner || !canManageBilling}
-                  data-testid="account-delete-action"
-                >
-                  {t('settings:account.plan.manage')}
-                </Button>
-              </div>
-            ) : (
-              <SettingsDangerButton
-                size="sm"
-                onClick={handleDeleteAccount}
-                data-testid="account-delete-action"
-              >
-                {t('settings:account.delete.button')}
-              </SettingsDangerButton>
-            )}
+            <SettingsDangerButton
+              size="sm"
+              onClick={handleDeleteAccount}
+              data-testid="account-delete-action"
+            >
+              Delete
+            </SettingsDangerButton>
           </SettingRow>
 
       <SectionDivider />
