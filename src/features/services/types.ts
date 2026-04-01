@@ -3,6 +3,7 @@ import type { ComponentType, JSX } from 'preact';
 export interface Service {
   id: string;
   title: string;
+  description?: string;
 }
 
 export interface ServiceTemplate extends Service {

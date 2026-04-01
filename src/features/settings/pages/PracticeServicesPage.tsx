@@ -6,6 +6,7 @@ import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
 import { ServicesEditor } from '@/features/services/components/ServicesEditor';
 import { SERVICE_CATALOG } from '@/features/services/data/serviceCatalog';
 import type { Service } from '@/features/services/types';
+import type { PracticeDetails } from '@/shared/lib/apiClient';
 import { getServiceDetailsForSave } from '@/features/services/utils';
 import { resolveServiceDetails } from '@/features/services/utils/serviceNormalization';
 import { useToastContext } from '@/shared/contexts/ToastContext';
@@ -27,6 +28,7 @@ export const PracticeServicesPage = ({ onNavigate, className }: PracticeServices
   const { navigate: baseNavigate } = useNavigation();
   const { t } = useTranslation(['settings', 'common']);
   const navigate = onNavigate ?? baseNavigate;
+  const defaultDetails: PracticeDetails = { services: [] };
   const location = useLocation();
   const [servicesError, setServicesError] = useState<string | null>(null);
   const settingsBasePath = resolveSettingsBasePath(location.path);
@@ -85,7 +87,7 @@ export const PracticeServicesPage = ({ onNavigate, className }: PracticeServices
       };
     };
     const optimisticDetails = {
-      ...(details ?? {}),
+      ...(details ?? defaultDetails),
       services: apiServices
     };
     pendingSaveSnapshotsRef.current.set(saveId, { optimisticDetails });

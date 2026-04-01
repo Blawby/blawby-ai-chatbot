@@ -9,8 +9,8 @@ export const PracticeServicesSummary = ({ services }: PracticeServicesSummaryPro
 
   return (
     <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-input-placeholder">
-      {services.map((service) => (
-        <li key={service}>{service}</li>
+      {services.map((service, index) => (
+        <li key={index}>{service}</li>
       ))}
     </ul>
   );
