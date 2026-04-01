@@ -133,6 +133,7 @@ const emitWidgetLeadSubmitted = (payload: {
 };
 
 interface UseIntakeFlowOptions {
+  enabled?: boolean;
   conversationId: string | undefined;
   practiceId: string | undefined;
   practiceSlug?: string | null;
@@ -200,6 +201,7 @@ interface UseIntakeFlowResult {
 }
 
 export function useIntakeFlow({
+  enabled = true,
   conversationId,
   practiceId,
   practiceSlug,
@@ -219,6 +221,7 @@ export function useIntakeFlow({
   const phase1InFlightRef = useRef(false);
   const finalizeRef = useRef<(options?: { generatePaymentLinkOnly?: boolean }) => Promise<{ paymentLinkUrl: string | null }>>(async () => ({ paymentLinkUrl: null }));
   const paymentPollingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const paymentPollingCancelledRef = useRef(false);
 
   // ---------------------------------------------------------------------------
   // Derived State
@@ -244,11 +247,24 @@ export function useIntakeFlow({
     deriveIntakeStatusFromConsultation(conversationMetadata)
   ), [conversationMetadata]);
 
+  useEffect(() => {
+    if (enabled) {
+      paymentPollingCancelledRef.current = false;
+      return;
+    }
+    paymentPollingCancelledRef.current = true;
+    if (paymentPollingTimerRef.current !== null) {
+      clearTimeout(paymentPollingTimerRef.current);
+      paymentPollingTimerRef.current = null;
+    }
+  }, [enabled]);
+
   // ---------------------------------------------------------------------------
   // Actions
   // ---------------------------------------------------------------------------
 
   const applyIntakeFields = useCallback(async (payload: IntakeFieldsPayload, options?: IntakeFieldChangeOptions) => {
+    if (!enabled) return;
     const currentConsultation = resolveConsultationState(conversationMetadataRef.current);
     const current = currentConsultation?.case ?? intakeConversationState;
     const next: IntakeConversationState = { ...current };
@@ -289,9 +305,10 @@ export function useIntakeFlow({
         console.warn('[Intake] Failed to post manual update ack', err);
       }
     }
-  }, [conversationId, practiceId, conversationMetadataRef, updateConversationMetadata, intakeConversationState]);
+  }, [conversationId, enabled, practiceId, conversationMetadataRef, updateConversationMetadata, intakeConversationState]);
 
   const resetIntakeCta = useCallback(async () => {
+    if (!enabled) return;
     const current = consultation?.case ?? intakeConversationState;
     await updateConversationMetadata(
       applyConsultationPatchToMetadata(
@@ -302,9 +319,10 @@ export function useIntakeFlow({
         { mirrorLegacyFields: true }
       )
     );
-  }, [consultation, conversationMetadataRef, intakeConversationState, updateConversationMetadata]);
+  }, [consultation, conversationMetadataRef, enabled, intakeConversationState, updateConversationMetadata]);
 
   const handleSlimFormContinue = useCallback(async (draft: ContactData) => {
+    if (!enabled) return;
     const nextDraft: SlimContactDraft = {
       name: (draft.name ?? '').trim(),
       email: (draft.email ?? '').trim(),
@@ -373,12 +391,14 @@ export function useIntakeFlow({
     applyServerMessages,
     conversationId,
     conversationMetadataRef,
+    enabled,
     practiceId,
     updateConversationMetadata,
     normalizedPracticeSlug,
   ]);
 
   const handleBuildBrief = useCallback(async () => {
+    if (!enabled) return;
     const currentConsultation = resolveConsultationState(conversationMetadataRef.current);
     const current = currentConsultation?.case ?? intakeConversationState;
     const patch: ConversationMetadata = applyConsultationPatchToMetadata(
@@ -403,9 +423,10 @@ export function useIntakeFlow({
     } catch (error) {
       console.error('[Intake] Failed to start brief-building conversation', error);
     }
-  }, [conversationMetadataRef, intakeConversationState, sendMessage, updateConversationMetadata]);
+  }, [conversationMetadataRef, enabled, intakeConversationState, sendMessage, updateConversationMetadata]);
 
   const handleIntakeCtaResponse = useCallback(async (response: 'ready' | 'not_yet') => {
+    if (!enabled) return;
     const currentConsultation = resolveConsultationState(conversationMetadataRef.current);
     const current = currentConsultation?.case ?? intakeConversationState;
     if (response === 'ready') {
@@ -436,13 +457,14 @@ export function useIntakeFlow({
     } catch (error) {
       if (import.meta.env.DEV) console.warn('[Intake] Failed to send "Not yet" response', error);
     }
-  }, [conversationMetadataRef, intakeConversationState, sendMessage, updateConversationMetadata]);
+  }, [conversationMetadataRef, enabled, intakeConversationState, sendMessage, updateConversationMetadata]);
 
   /**
    * Phase 1 — validate contact, link user identity, persist practice slug.
    * Delegates straight to handleFinalizeSubmit.
    */
   const handleConfirmSubmit = useCallback(async () => {
+    if (!enabled) return;
     if (!conversationId || !practiceId) return;
     if (!resolvedSlimContactDraft) {
       if (import.meta.env.DEV) {
@@ -580,6 +602,10 @@ export function useIntakeFlow({
             clearTimeout(paymentPollingTimerRef.current);
             paymentPollingTimerRef.current = null;
           }
+          if (!enabled) {
+            return;
+          }
+          paymentPollingCancelledRef.current = false;
           const POLL_INTERVAL_MS = 5_000;
           const POLL_TIMEOUT_MS = 10 * 60 * 1_000;
           const pollStart = Date.now();
@@ -591,6 +617,7 @@ export function useIntakeFlow({
           const capturedConversationId = conversationId;
           const capturedPracticeId = practiceId;
           const postPaymentConfirmedMessage = async () => {
+            if (paymentPollingCancelledRef.current) return;
             const name =
               (conversationMetadataRef.current as Record<string, unknown> | null)?.practiceName as string | undefined
               ?? 'the practice';
@@ -608,33 +635,45 @@ export function useIntakeFlow({
           };
 
           const pollOnce = () => {
+            if (paymentPollingCancelledRef.current) {
+              if (paymentPollingTimerRef.current !== null) {
+                clearTimeout(paymentPollingTimerRef.current);
+                paymentPollingTimerRef.current = null;
+              }
+              return;
+            }
             if (Date.now() - pollStart > POLL_TIMEOUT_MS) {
               if (paymentPollingTimerRef.current !== null) {
                 clearTimeout(paymentPollingTimerRef.current);
                 paymentPollingTimerRef.current = null;
               }
+              if (paymentPollingCancelledRef.current) return;
               onError?.('Payment not confirmed after 10 minutes. Please refresh the page to check your status.');
               return;
             }
             if (inFlight) {
               // Previous fetch still running — skip this tick and reschedule.
+              if (paymentPollingCancelledRef.current) return;
               paymentPollingTimerRef.current = setTimeout(pollOnce, POLL_INTERVAL_MS) as unknown as ReturnType<typeof setTimeout>;
               return;
             }
             inFlight = true;
             fetchIntakePaymentStatus(intakeUuid)
               .then(async (status) => {
+                if (paymentPollingCancelledRef.current) return;
                 if (isPaidIntakeStatus(status)) {
                   if (paymentPollingTimerRef.current !== null) {
                     clearTimeout(paymentPollingTimerRef.current);
                     paymentPollingTimerRef.current = null;
                   }
+                  if (paymentPollingCancelledRef.current) return;
                   await postPaymentConfirmedMessage();
                 } else if (isTerminalUnpaidStatus(status)) {
                   if (paymentPollingTimerRef.current !== null) {
                     clearTimeout(paymentPollingTimerRef.current);
                     paymentPollingTimerRef.current = null;
                   }
+                  if (paymentPollingCancelledRef.current) return;
                   const name =
                     (conversationMetadataRef.current as Record<string, unknown> | null)?.practiceName as string | undefined
                     ?? 'the practice';
@@ -649,11 +688,13 @@ export function useIntakeFlow({
                     console.warn('[handleConfirmSubmit] Failed to post payment failed message', msgError);
                   }
                 } else {
+                  if (paymentPollingCancelledRef.current) return;
                   paymentPollingTimerRef.current = setTimeout(pollOnce, POLL_INTERVAL_MS) as unknown as ReturnType<typeof setTimeout>;
                 }
               })
               .catch((pollErr) => {
                 console.warn('[handleConfirmSubmit] Payment status poll failed', pollErr);
+                if (paymentPollingCancelledRef.current) return;
                 paymentPollingTimerRef.current = setTimeout(pollOnce, POLL_INTERVAL_MS) as unknown as ReturnType<typeof setTimeout>;
               })
               .finally(() => { inFlight = false; });
@@ -678,6 +719,7 @@ export function useIntakeFlow({
     conversationId,
     conversationMetadataRef,
     currentUserId,
+    enabled,
     isAnonymous,
     onError,
     practiceId,
@@ -693,6 +735,7 @@ export function useIntakeFlow({
    *   - by the payment UI's onSuccess callback after payment completes.
    */
   const handleFinalizeSubmit = useCallback(async (options?: { generatePaymentLinkOnly?: boolean }): Promise<{ paymentLinkUrl: string | null }> => {
+    if (!enabled) return { paymentLinkUrl: null };
     if (!conversationId || !practiceId) return { paymentLinkUrl: null };
 
     const existingSubmission = conversationMetadataRef.current?.submission as { intakeUuid?: string } | undefined;
@@ -798,6 +841,7 @@ export function useIntakeFlow({
     applyServerMessages,
     conversationId,
     conversationMetadataRef,
+    enabled,
     onError,
     practiceId,
     updateConversationMetadata,
@@ -810,6 +854,7 @@ export function useIntakeFlow({
   // Cancel any in-flight payment polling when the hook unmounts.
   useEffect(() => {
     return () => {
+      paymentPollingCancelledRef.current = true;
       if (paymentPollingTimerRef.current !== null) {
         clearTimeout(paymentPollingTimerRef.current);
         paymentPollingTimerRef.current = null;
@@ -824,6 +869,7 @@ export function useIntakeFlow({
   }, [handleConfirmSubmit]);
 
   const handleContactFormSubmit = useCallback(async (draft: ContactData) => {
+    if (!enabled) return;
     try {
       const sanitizedContactDetails = {
         name: (draft.name ?? '').trim(),
@@ -840,7 +886,7 @@ export function useIntakeFlow({
       console.error('[Intake] Contact form submit failed', error);
       onError?.('Failed to submit contact information.');
     }
-  }, [handleSlimFormContinue, onError, sendMessageOverWs]);
+  }, [enabled, handleSlimFormContinue, onError, sendMessageOverWs]);
 
   return {
     intakeStatus,

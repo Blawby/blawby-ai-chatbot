@@ -165,6 +165,8 @@
         "plus": "Plus",
         "business": "Business"
       },
+      "includesWithLabel": "{{plan}} includes:",
+      "includesCurrent": "Current plan includes:",
       "descriptions": {
         "free": "Basic features with limited usage",
         "plus": "Enhanced features with higher limits",
@@ -178,6 +180,18 @@
       },
       "upgradeButton": "Upgrade to {{plan}}",
       "currentButton": "Current plan",
+      "limits": {
+        "unlimited": "Unlimited",
+        "users": {
+          "one": "{{count}} user",
+          "other": "{{count}} users"
+        },
+        "storageGb": "{{size}} GB storage",
+        "invoicesPerMonth": {
+          "one": "{{count}} invoice per month",
+          "other": "{{count}} invoices per month"
+        }
+      },
       "cancel": {
         "modalTitle": "Are you sure you want to cancel?",
         "description": "Your subscription will be cancelled immediately and you'll lose access to premium features. This action cannot be undone.",
@@ -258,7 +272,20 @@
     },
     "email": {
       "title": "Email",
-      "receiveFeedback": "Receive feedback emails"
+      "receiveFeedback": "Receive feedback emails",
+      "addPasswordFirst": "Add a password first",
+      "oauthGatingExplanation": "Your account was created with Google, Microsoft, or Apple. To change your email, first add a password in Settings -> Security -> Password -> Add.",
+      "changeSuccess": {
+        "title": "Check your email",
+        "body": "We sent instructions to confirm your new email address."
+      },
+      "modal": {
+        "notNow": "Not now",
+        "goToSecurity": "Go to Security",
+        "cancel": "Cancel",
+        "sending": "Sending...",
+        "changeEmail": "Change email"
+      }
     },
     "delete": {
       "sectionTitle": "Delete account",
@@ -412,6 +439,12 @@
         }
       },
       "submit": "Change Password",
+      "addDescription": "Add a password to manage sensitive account changes after signing in with Google, Microsoft, or Apple.",
+      "addPassword": "Add password",
+      "errorEmailUnavailable": {
+        "add": "Unable to add a password because your email is unavailable.",
+        "reset": "Unable to reset password because your email is unavailable."
+      },
       "errors": {
         "missing": {
           "title": "Missing fields",

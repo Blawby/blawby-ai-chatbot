@@ -4,6 +4,8 @@
  */
 
 import { useState, useEffect } from 'preact/hooks';
+import { UserIcon } from '@heroicons/react/24/outline';
+import { Icon } from '@/shared/ui/Icon';
 import { sanitizeUserImageUrl } from '@/shared/utils/urlValidation';
 
 interface AvatarProps {
@@ -66,6 +68,7 @@ export const Avatar = ({ src, name, size = 'md', className = '', bgClassName, st
   };
 
   const sanitizedImageUrl = sanitizeUserImageUrl(src);
+  const initials = getInitials(name);
 
   const statusClasses = {
     active: 'bg-emerald-500',
@@ -91,7 +94,11 @@ export const Avatar = ({ src, name, size = 'md', className = '', bgClassName, st
             onError={() => setHasImgError(true)}
           />
         ) : (
-          <span className={`font-medium text-input-text ${textSizeClasses[size]}`}>{getInitials(name)}</span>
+          initials ? (
+            <span className={`font-medium text-input-text ${textSizeClasses[size]}`}>{initials}</span>
+          ) : (
+            <Icon icon={UserIcon} className="h-1/2 w-1/2 text-input-placeholder" />
+          )
         )}
       </div>
       {status && (

@@ -87,6 +87,24 @@
       },
       "upgradeButton": "[NEEDS TRANSLATION] Upgrade to {{plan}}",
       "currentButton": "[NEEDS TRANSLATION] Current plan",
+      "limits": {
+        "unlimited": "Безлимитный",
+        "unlimitedUsers": "Безлимитные пользователи",
+        "unlimitedInvoices": "Безлимитные счета в месяц",
+        "users": {
+          "one": "{{count}} пользователь",
+          "few": "{{count}} пользователя",
+          "many": "{{count}} пользователей",
+          "other": "{{count}} пользователей"
+        },
+        "storageGb": "{{size}} GB хранилища",
+        "invoicesPerMonth": {
+          "one": "{{count}} счёт в месяц",
+          "few": "{{count}} счёта в месяц",
+          "many": "{{count}} счётов в месяц",
+          "other": "{{count}} счётов в месяц"
+        }
+      },
       "toasts": {
         "upgrade": {
           "title": "[NEEDS TRANSLATION] Upgrade",
@@ -265,6 +283,12 @@
         }
       },
       "submit": "[NEEDS TRANSLATION] Change Password",
+      "addPassword": "Добавить пароль",
+      "addDescription": "Добавьте пароль для управления чувствительными изменениями в аккаунте после входа через Google, Microsoft или Apple.",
+      "errorEmailUnavailable": {
+        "add": "Не удается добавить пароль, так как ваш адрес электронной почты недоступен.",
+        "reset": "Не удается сбросить пароль, так как ваш адрес электронной почты недоступен."
+      },
       "errors": {
         "missing": {
           "title": "[NEEDS TRANSLATION] Missing fields",

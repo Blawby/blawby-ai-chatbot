@@ -10,6 +10,7 @@ import { resolveConsultationState } from '@/shared/utils/consultationState';
 import type { IntakePaymentRequest } from '@/shared/utils/intakePayments';
 
 export interface UseMessageHandlingOptions {
+  enabled?: boolean;
   practiceId?: string;
   practiceSlug?: string;
   conversationId?: string;
@@ -30,6 +31,7 @@ export const useMessageHandlingWithContext = (options: Omit<UseMessageHandlingOp
 
 export const useMessageHandling = (options: UseMessageHandlingOptions) => {
   const {
+    enabled = true,
     practiceId,
     practiceSlug,
     conversationId,
@@ -44,6 +46,7 @@ export const useMessageHandling = (options: UseMessageHandlingOptions) => {
 
   // 1. Core Transport & State
   const conversation = useConversation({
+    enabled,
     practiceId,
     conversationId,
     userId,
@@ -60,6 +63,7 @@ export const useMessageHandling = (options: UseMessageHandlingOptions) => {
 
   // 2. Intake Flow logic
   const intake = useIntakeFlow({
+    enabled,
     conversationId,
     practiceId,
     practiceSlug,
@@ -77,6 +81,7 @@ export const useMessageHandling = (options: UseMessageHandlingOptions) => {
 
   // 3. User Actions & AI (Streaming, Intent, etc)
   const composer = useChatComposer({
+    enabled,
     practiceId,
     practiceSlug,
     conversationId,
@@ -118,6 +123,7 @@ export const useMessageHandling = (options: UseMessageHandlingOptions) => {
   const [verifiedPaidIntakeUuids, setVerifiedPaidIntakeUuids] = useState<Set<string>>(new Set());
   
   const payments = usePaymentStatus({
+    enabled,
     conversationId,
     practiceId,
     latestIntakeSubmission: {
@@ -137,53 +143,90 @@ export const useMessageHandling = (options: UseMessageHandlingOptions) => {
 
   // Derived state for UI orchestration
   const isConsultFlowActive = useMemo(() => {
+    if (!enabled) return false;
     if (mode === 'REQUEST_CONSULTATION') return true;
     if (mode === 'ASK_QUESTION' || mode === 'PRACTICE_ONBOARDING' || mode === null) return false;
     return false;
-  }, [mode]);
+  }, [enabled, mode]);
+
+  const suspendedState = useMemo(() => ({
+    messages: [],
+    conversationMetadata: null,
+    messagesReady: false,
+    hasMoreMessages: false,
+    isLoadingMoreMessages: false,
+    isSocketReady: false,
+    loadMoreMessages: async () => {},
+    startConsultFlow: () => {},
+    clearMessages: () => {},
+    addMessage: () => {},
+    updateMessage: () => {},
+    ingestServerMessages: () => {},
+    updateConversationMetadata: async () => null,
+    requestMessageReactions: async (_messageId: string) => {},
+    toggleMessageReaction: async (_messageId: string, _emoji: string) => {},
+    sendMessage: async () => {},
+    paymentRetryNotice: null,
+    verifiedPaidIntakeUuids: new Set<string>(),
+    intakeStatus: null,
+    intakeConversationState: null,
+    slimContactDraft: null,
+    handleSlimFormContinue: async () => {},
+    handleBuildBrief: async () => {},
+    handleIntakeCtaResponse: async () => {},
+    resetIntakeCta: async () => {},
+    handleConfirmSubmit: async () => {},
+    handleFinalizeSubmit: async () => ({ paymentLinkUrl: null }),
+    handleSubmitNow: async () => {},
+    handleContactFormSubmit: async () => {},
+    applyIntakeFields: async () => {},
+    isConsultFlowActive: false,
+  }), []);
 
   return useMemo(() => ({
+    ...(enabled ? {} : suspendedState),
     // Transport & State (from useConversation)
-    messages: conversation.messages,
-    conversationMetadata: conversation.conversationMetadata,
-    messagesReady: conversation.messagesReady,
-    hasMoreMessages: conversation.hasMoreMessages,
-    isLoadingMoreMessages: conversation.isLoadingMoreMessages,
-    isSocketReady: conversation.isSocketReady,
-    loadMoreMessages: conversation.loadMoreMessages,
-    startConsultFlow: conversation.startConsultFlow,
-    clearMessages: conversation.clearMessages,
-    addMessage: conversation.addMessage,
-    updateMessage: conversation.updateMessage,
-    ingestServerMessages: conversation.ingestServerMessages,
-    updateConversationMetadata: conversation.updateConversationMetadata,
-    requestMessageReactions: conversation.requestMessageReactions,
-    toggleMessageReaction: conversation.toggleMessageReaction,
+    messages: enabled ? conversation.messages : suspendedState.messages,
+    conversationMetadata: enabled ? conversation.conversationMetadata : suspendedState.conversationMetadata,
+    messagesReady: enabled ? conversation.messagesReady : suspendedState.messagesReady,
+    hasMoreMessages: enabled ? conversation.hasMoreMessages : suspendedState.hasMoreMessages,
+    isLoadingMoreMessages: enabled ? conversation.isLoadingMoreMessages : suspendedState.isLoadingMoreMessages,
+    isSocketReady: enabled ? conversation.isSocketReady : suspendedState.isSocketReady,
+    loadMoreMessages: enabled ? conversation.loadMoreMessages : suspendedState.loadMoreMessages,
+    startConsultFlow: enabled ? conversation.startConsultFlow : suspendedState.startConsultFlow,
+    clearMessages: enabled ? conversation.clearMessages : suspendedState.clearMessages,
+    addMessage: enabled ? conversation.addMessage : suspendedState.addMessage,
+    updateMessage: enabled ? conversation.updateMessage : suspendedState.updateMessage,
+    ingestServerMessages: enabled ? conversation.ingestServerMessages : suspendedState.ingestServerMessages,
+    updateConversationMetadata: enabled ? conversation.updateConversationMetadata : suspendedState.updateConversationMetadata,
+    requestMessageReactions: enabled ? conversation.requestMessageReactions : suspendedState.requestMessageReactions,
+    toggleMessageReaction: enabled ? conversation.toggleMessageReaction : suspendedState.toggleMessageReaction,
 
     // Actions & Sending (from useChatComposer)
-    sendMessage: composer.sendMessage,
+    sendMessage: enabled ? composer.sendMessage : suspendedState.sendMessage,
 
     // Payments (from usePaymentStatus)
-    paymentRetryNotice: payments.paymentRetryNotice,
-    verifiedPaidIntakeUuids,
+    paymentRetryNotice: enabled ? payments.paymentRetryNotice : suspendedState.paymentRetryNotice,
+    verifiedPaidIntakeUuids: enabled ? verifiedPaidIntakeUuids : suspendedState.verifiedPaidIntakeUuids,
 
     // Intake Logic (from useIntakeFlow)
-    intakeStatus: intake.intakeStatus,
-    intakeConversationState: intake.intakeConversationState,
-    slimContactDraft: intake.slimContactDraft,
-    handleSlimFormContinue: intake.handleSlimFormContinue,
-    handleBuildBrief: intake.handleBuildBrief,
-    handleIntakeCtaResponse: intake.handleIntakeCtaResponse,
-    resetIntakeCta: intake.resetIntakeCta,
-    handleConfirmSubmit: intake.handleConfirmSubmit,
-    handleFinalizeSubmit: intake.handleFinalizeSubmit,
-    handleSubmitNow: intake.handleSubmitNow,
-    handleContactFormSubmit: intake.handleContactFormSubmit,
-    applyIntakeFields: intake.applyIntakeFields,
+    intakeStatus: enabled ? intake.intakeStatus : suspendedState.intakeStatus,
+    intakeConversationState: enabled ? intake.intakeConversationState : suspendedState.intakeConversationState,
+    slimContactDraft: enabled ? intake.slimContactDraft : suspendedState.slimContactDraft,
+    handleSlimFormContinue: enabled ? intake.handleSlimFormContinue : suspendedState.handleSlimFormContinue,
+    handleBuildBrief: enabled ? intake.handleBuildBrief : suspendedState.handleBuildBrief,
+    handleIntakeCtaResponse: enabled ? intake.handleIntakeCtaResponse : suspendedState.handleIntakeCtaResponse,
+    resetIntakeCta: enabled ? intake.resetIntakeCta : suspendedState.resetIntakeCta,
+    handleConfirmSubmit: enabled ? intake.handleConfirmSubmit : suspendedState.handleConfirmSubmit,
+    handleFinalizeSubmit: enabled ? intake.handleFinalizeSubmit : suspendedState.handleFinalizeSubmit,
+    handleSubmitNow: enabled ? intake.handleSubmitNow : suspendedState.handleSubmitNow,
+    handleContactFormSubmit: enabled ? intake.handleContactFormSubmit : suspendedState.handleContactFormSubmit,
+    applyIntakeFields: enabled ? intake.applyIntakeFields : suspendedState.applyIntakeFields,
 
     // App state
-    isConsultFlowActive,
+    isConsultFlowActive: enabled ? isConsultFlowActive : suspendedState.isConsultFlowActive,
   }), [
+    enabled,
     conversation.messages,
     conversation.conversationMetadata,
     conversation.messagesReady,
@@ -215,5 +258,6 @@ export const useMessageHandling = (options: UseMessageHandlingOptions) => {
     intake.handleContactFormSubmit,
     intake.applyIntakeFields,
     isConsultFlowActive,
+    suspendedState,
   ]);
 };

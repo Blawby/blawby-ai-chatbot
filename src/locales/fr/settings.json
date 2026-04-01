@@ -87,6 +87,20 @@
       },
       "upgradeButton": "Passer à {{plan}}",
       "currentButton": "Forfait actuel",
+      "limits": {
+        "unlimited": "Illimité",
+        "unlimitedUsers": "Utilisateurs illimités",
+        "unlimitedInvoices": "Factures illimitées par mois",
+        "users": {
+          "one": "{{count}} utilisateur",
+          "other": "{{count}} utilisateurs"
+        },
+        "storageGb": "{{size}} Go de stockage",
+        "invoicesPerMonth": {
+          "one": "{{count}} facture par mois",
+          "other": "{{count}} factures par mois"
+        }
+      },
       "toasts": {
         "upgrade": {
           "title": "Mise à niveau",
@@ -277,6 +291,12 @@
         }
       },
       "submit": "Changer le mot de passe",
+      "addPassword": "Ajouter un mot de passe",
+      "addDescription": "Ajoutez un mot de passe pour gérer les modifications sensibles du compte après vous être connecté avec Google, Microsoft ou Apple.",
+      "errorEmailUnavailable": {
+        "add": "Impossible d'ajouter un mot de passe car votre adresse e-mail n'est pas disponible.",
+        "reset": "Impossible de réinitialiser le mot de passe car votre adresse e-mail n'est pas disponible."
+      },
       "errors": {
         "missing": {
           "title": "Champs manquants",

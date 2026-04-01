@@ -188,7 +188,6 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
         name: 'Practice'
     };
     const clientProfile = {
-        src: null,
         name: conversationTitle?.trim() || 'Person'
     };
     const blawbyProfile = {

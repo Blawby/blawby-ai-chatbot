@@ -87,6 +87,24 @@
       },
       "upgradeButton": "[NEEDS TRANSLATION] Upgrade to {{plan}}",
       "currentButton": "[NEEDS TRANSLATION] Current plan",
+      "limits": {
+        "unlimited": "Nieograniczone",
+        "unlimitedUsers": "Nieograniczona liczba użytkowników",
+        "unlimitedInvoices": "Nieograniczona liczba faktur miesięcznie",
+        "users": {
+          "one": "{{count}} użytkownik",
+          "few": "{{count}} użytkownika",
+          "many": "{{count}} użytkowników",
+          "other": "{{count}} użytkowników"
+        },
+        "storageGb": "{{size}} GB przechowywania",
+        "invoicesPerMonth": {
+          "one": "{{count}} faktura miesięcznie",
+          "few": "{{count}} faktury miesięcznie",
+          "many": "{{count}} faktur miesięcznie",
+          "other": "{{count}} faktur miesięcznie"
+        }
+      },
       "toasts": {
         "upgrade": {
           "title": "[NEEDS TRANSLATION] Upgrade",
@@ -265,6 +283,12 @@
         }
       },
       "submit": "[NEEDS TRANSLATION] Change Password",
+      "addPassword": "Dodaj hasło",
+      "addDescription": "Dodaj hasło, aby zarządzać wrażliwymi zmianami w koncie po zalogowaniu się za pomocą Google, Microsoft lub Apple.",
+      "errorEmailUnavailable": {
+        "add": "Nie można dodać hasła, ponieważ Twój e-mail jest niedostępny.",
+        "reset": "Nie można zresetować hasła, ponieważ Twój e-mail jest niedostępny."
+      },
       "errors": {
         "missing": {
           "title": "[NEEDS TRANSLATION] Missing fields",

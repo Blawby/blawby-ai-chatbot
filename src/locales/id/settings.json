@@ -87,6 +87,14 @@
       },
       "upgradeButton": "[NEEDS TRANSLATION] Upgrade to {{plan}}",
       "currentButton": "[NEEDS TRANSLATION] Current plan",
+      "limits": {
+        "unlimited": "Tidak terbatas",
+        "unlimitedUsers": "Pengguna tidak terbatas",
+        "unlimitedInvoices": "Faktur tidak terbatas per bulan",
+        "users": "{{count}} pengguna",
+        "storageGb": "{{size}} GB penyimpanan",
+        "invoicesPerMonth": "{{count}} faktur per bulan"
+      },
       "toasts": {
         "upgrade": {
           "title": "[NEEDS TRANSLATION] Upgrade",
@@ -265,6 +273,12 @@
         }
       },
       "submit": "[NEEDS TRANSLATION] Change Password",
+      "addPassword": "Tambahkan kata sandi",
+      "addDescription": "Tambahkan kata sandi untuk mengelola perubahan akun yang sensitif setelah masuk dengan Google, Microsoft, atau Apple.",
+      "errorEmailUnavailable": {
+        "add": "Tidak dapat menambahkan kata sandi karena email Anda tidak tersedia.",
+        "reset": "Tidak dapat mengatur ulang kata sandi karena email Anda tidak tersedia."
+      },
       "errors": {
         "missing": {
           "title": "[NEEDS TRANSLATION] Missing fields",

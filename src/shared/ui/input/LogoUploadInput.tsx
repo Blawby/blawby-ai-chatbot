@@ -1,8 +1,10 @@
 import { forwardRef } from 'preact/compat';
 import { useRef } from 'preact/hooks';
+import { UserIcon } from '@heroicons/react/24/outline';
 import { useUniqueId } from '@/shared/hooks/useUniqueId';
 import { cn } from '@/shared/utils/cn';
 import { Button } from '@/shared/ui/Button';
+import { Icon } from '@/shared/ui/Icon';
 
 export interface LogoUploadInputProps {
   imageUrl?: string | null;
@@ -17,6 +19,7 @@ export interface LogoUploadInputProps {
   className?: string;
   size?: number;
   progress?: number | null;
+  triggerMode?: 'button' | 'avatar';
   onChange?: (files: FileList | File[]) => void;
 }
 
@@ -33,23 +36,12 @@ export const LogoUploadInput = forwardRef<HTMLInputElement, LogoUploadInputProps
   className,
   size = 48,
   progress = null,
+  triggerMode = 'button',
   onChange
 }, ref) => {
   const internalRef = useRef<HTMLInputElement | null>(null);
   const inputId = useUniqueId('logo-upload');
   const hasImage = typeof imageUrl === 'string' && imageUrl.trim().length > 0;
-
-  const initials = (() => {
-    if (!name || typeof name !== 'string') return '';
-    const trimmed = name.trim();
-    if (!trimmed) return '';
-    return trimmed
-      .split(/\s+/)
-      .filter(Boolean)
-      .map((part) => part.charAt(0).toUpperCase())
-      .join('')
-      .slice(0, 2);
-  })();
 
   const handleFileChange = (event: Event) => {
     const target = event.target as HTMLInputElement;
@@ -99,8 +91,19 @@ export const LogoUploadInput = forwardRef<HTMLInputElement, LogoUploadInputProps
       )}
       <div className="mt-2 flex items-center gap-x-3">
         <div
-          className="relative shrink-0"
+          className={cn('relative shrink-0', triggerMode === 'avatar' && !disabled && 'cursor-pointer')}
           style={{ width: ringSize, height: ringSize }}
+          onClick={triggerMode === 'avatar' ? handleButtonClick : undefined}
+          onKeyDown={triggerMode === 'avatar' ? (event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault();
+              handleButtonClick();
+            }
+          } : undefined}
+          role={triggerMode === 'avatar' ? 'button' : undefined}
+          tabIndex={triggerMode === 'avatar' && !disabled ? 0 : undefined}
+          aria-label={triggerMode === 'avatar' ? buttonLabel : undefined}
+          aria-disabled={triggerMode === 'avatar' && disabled ? 'true' : undefined}
         >
         {normalizedProgress !== null && (
           <svg
@@ -134,23 +137,23 @@ export const LogoUploadInput = forwardRef<HTMLInputElement, LogoUploadInputProps
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center bg-white/5">
-            <span className="text-xs font-semibold text-input-placeholder">
-              {initials || 'Logo'}
-            </span>
+            <Icon icon={UserIcon} className="h-1/2 w-1/2 text-input-placeholder"  />
           </div>
         )}
         </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            onClick={handleButtonClick}
-            disabled={disabled}
-          >
-            {buttonLabel}
-          </Button>
+          {triggerMode === 'button' && (
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={handleButtonClick}
+              disabled={disabled}
+            >
+              {buttonLabel}
+            </Button>
+          )}
           <input
             ref={setInputRef}
             id={inputId}

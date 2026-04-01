@@ -31,6 +31,7 @@ export interface LatestIntakeSubmission {
 }
 
 export interface UsePaymentStatusOptions {
+  enabled?: boolean;
   conversationId: string | null | undefined;
   practiceId: string | null | undefined;
   latestIntakeSubmission: LatestIntakeSubmission;
@@ -69,6 +70,7 @@ const parseStoredFlag = (raw: string | null): { practiceName?: string; practiceI
 // ─── hook ─────────────────────────────────────────────────────────────────────
 
 export const usePaymentStatus = ({
+  enabled = true,
   conversationId,
   practiceId,
   latestIntakeSubmission,
@@ -90,6 +92,7 @@ export const usePaymentStatus = ({
     practiceName: string,
     signal?: AbortSignal,
   ) => {
+    if (!enabled) return;
     if (!conversationId || !practiceId) return;
 
     const messageId = `system-payment-confirm-${uuid}`;
@@ -123,7 +126,7 @@ export const usePaymentStatus = ({
       onError?.(error);
       throw error;
     }
-  }, [applyServerMessages, conversationId, onError, onPaymentConfirmed, practiceId]);
+  }, [applyServerMessages, conversationId, enabled, onError, onPaymentConfirmed, practiceId]);
 
   // ── sessionStorage reconciliation (Stripe return) ─────────────────────────
 
@@ -170,9 +173,7 @@ export const usePaymentStatus = ({
       cancelled = true;
       controller.abort();
     };
-  // Run once on mount (and on conversation/practice change in case of navigation)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [conversationId, practiceId]);
+  }, [conversationId, practiceId, postPaymentConfirmation]);
 
   // ── backend payment reconciliation ────────────────────────────────────────
   // Runs whenever the latest intake submission changes — handles the case

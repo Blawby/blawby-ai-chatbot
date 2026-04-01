@@ -96,78 +96,22 @@ export function getClient(): AuthClientType {
   return getAuthClient();
 }
 
-// Export the auth client getter
+// Export the auth client getter.
+//
+// Better Auth already returns a dynamic proxy. Wrapping that proxy again
+// makes harmless property reads look like route traversals, which can turn
+// accidental lookups into requests such as /api/auth/fetch-options/... .
+// We keep the export as a thin pass-through and explicitly block the
+// non-public fetchOptions property so it fails locally instead of being
+// interpreted as an auth route.
 export const authClient = new Proxy({} as AuthClientType, {
   get(_target, prop) {
+    if (prop === 'fetchOptions') {
+      return undefined;
+    }
+
     const client = getAuthClient();
-    const value = (client as Record<PropertyKey, unknown>)[prop];
-
-    // If it's a function, it might also have properties (like subscription.upgrade, subscription.list)
-    // Create a proxy that handles both calling the function AND accessing its properties
-    if (typeof value === 'function') {
-      const boundFn = value.bind(client);
-      // Create a function that has the properties from the original value
-      // We'll use Object.assign to copy properties, but the main approach is to proxy property access
-      const proxiedFn = Object.assign(boundFn, value);
-
-      // Return a proxy that handles both function calls and property access
-      return new Proxy(proxiedFn, {
-        apply(_target, _thisArg, args) {
-          // When called as a function, call the bound function
-          return boundFn(...args);
-        },
-        get(_target, subProp) {
-          // When accessing properties (like subscription.upgrade), get them from the original value
-          // Properties are on the original function, not the bound one
-          const subValue = (value as unknown as Record<PropertyKey, unknown>)[subProp];
-
-          if (typeof subValue === 'function') {
-            // Bind nested functions to the original value to preserve 'this'
-            return subValue.bind(value);
-          }
-          // Handle further nesting (e.g., subscription.upgrade might return an object)
-          if (subValue && typeof subValue === 'object') {
-            return new Proxy(subValue, {
-              get(_target, subSubProp) {
-                const subSubValue = subValue[subSubProp];
-                if (typeof subSubValue === 'function') {
-                  return subSubValue.bind(subValue);
-                }
-                return subSubValue;
-              }
-            });
-          }
-          return subValue;
-        }
-      });
-    }
-
-    // If it's an object (like signUp, signIn, organization which have nested methods), return a proxy for it
-    if (value && typeof value === 'object') {
-      return new Proxy(value, {
-        get(_target, subProp) {
-          const subValue = value[subProp];
-          if (typeof subValue === 'function') {
-            // Bind the function to preserve 'this' context
-            return subValue.bind(value);
-          }
-          // Handle further nesting (e.g., signUp.email)
-          if (subValue && typeof subValue === 'object') {
-            return new Proxy(subValue, {
-              get(_target, subSubProp) {
-                const subSubValue = subValue[subSubProp];
-                if (typeof subSubValue === 'function') {
-                  return subSubValue.bind(subValue);
-                }
-                return subSubValue;
-              }
-            });
-          }
-          return subValue;
-        }
-      });
-    }
-    return value;
+    return (client as Record<PropertyKey, unknown>)[prop];
   }
 }) as AuthClientType;
 

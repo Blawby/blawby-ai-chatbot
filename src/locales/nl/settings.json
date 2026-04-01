@@ -87,6 +87,20 @@
       },
       "upgradeButton": "[NEEDS TRANSLATION] Upgrade to {{plan}}",
       "currentButton": "[NEEDS TRANSLATION] Current plan",
+      "limits": {
+        "unlimited": "Onbeperkt",
+        "unlimitedUsers": "Onbeperkte gebruikers",
+        "unlimitedInvoices": "Onbeperkte facturen per maand",
+        "users": {
+          "one": "{{count}} gebruiker",
+          "other": "{{count}} gebruikers"
+        },
+        "storageGb": "{{size}} GB opslag",
+        "invoicesPerMonth": {
+          "one": "{{count}} factuur per maand",
+          "other": "{{count}} facturen per maand"
+        }
+      },
       "toasts": {
         "upgrade": {
           "title": "[NEEDS TRANSLATION] Upgrade",
@@ -271,6 +285,12 @@
         }
       },
       "submit": "[NEEDS TRANSLATION] Change Password",
+      "addPassword": "Wachtwoord toevoegen",
+      "addDescription": "Voeg een wachtwoord toe om gevoelige accountwijzigingen te beheren na het inloggen met Google, Microsoft of Apple.",
+      "errorEmailUnavailable": {
+        "add": "Kan geen wachtwoord toevoegen omdat uw e-mail niet beschikbaar is.",
+        "reset": "Kan wachtwoord niet opnieuw instellen omdat uw e-mail niet beschikbaar is."
+      },
       "errors": {
         "missing": {
           "title": "[NEEDS TRANSLATION] Missing fields",

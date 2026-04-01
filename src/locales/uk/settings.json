@@ -87,6 +87,24 @@
       },
       "upgradeButton": "[NEEDS TRANSLATION] Upgrade to {{plan}}",
       "currentButton": "[NEEDS TRANSLATION] Current plan",
+      "limits": {
+        "unlimited": "Безлімітний",
+        "unlimitedUsers": "Безлімітні користувачі",
+        "unlimitedInvoices": "Безлімітні рахунки на місяць",
+        "users": {
+          "one": "{{count}} користувач",
+          "few": "{{count}} користувачі",
+          "many": "{{count}} користувачів",
+          "other": "{{count}} користувачів"
+        },
+        "storageGb": "{{size}} GB сховища",
+        "invoicesPerMonth": {
+          "one": "{{count}} рахунок на місяць",
+          "few": "{{count}} рахунки на місяць",
+          "many": "{{count}} рахунків на місяць",
+          "other": "{{count}} рахунків на місяць"
+        }
+      },
       "toasts": {
         "upgrade": {
           "title": "[NEEDS TRANSLATION] Upgrade",
@@ -265,6 +283,12 @@
         }
       },
       "submit": "[NEEDS TRANSLATION] Change Password",
+      "addPassword": "Додати пароль",
+      "addDescription": "Додайте пароль для керування чутливими змінами в акаунті після входу через Google, Microsoft або Apple.",
+      "errorEmailUnavailable": {
+        "add": "Не вдається додати пароль, оскільки ваша електронна пошта недоступна.",
+        "reset": "Не вдається скинути пароль, оскільки ваша електронна пошта недоступна."
+      },
       "errors": {
         "missing": {
           "title": "[NEEDS TRANSLATION] Missing fields",

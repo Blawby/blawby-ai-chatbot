@@ -21,7 +21,6 @@ interface WidgetConversationListViewProps {
   conversations: Conversation[];
   previews: Record<string, ConversationPreview | undefined>;
   practiceName?: string | null;
-  practiceLogo?: string | null;
   isLoading?: boolean;
   error?: unknown;
   onSelectConversation: (conversationId: string) => void;
@@ -34,7 +33,6 @@ const WidgetConversationListView: FunctionComponent<WidgetConversationListViewPr
   conversations,
   previews,
   practiceName,
-  practiceLogo,
   isLoading = false,
   error = null,
   onSelectConversation,
@@ -101,8 +99,8 @@ const WidgetConversationListView: FunctionComponent<WidgetConversationListViewPr
                   onClick={() => onSelectConversation(conversation.id)}
                 >
                   <Avatar
-                    src={practiceLogo}
-                    name={fallbackName}
+                    src={null}
+                    name={title}
                     size="md"
                     className="ring-2 ring-white/10"
                   />

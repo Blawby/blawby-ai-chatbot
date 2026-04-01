@@ -87,6 +87,20 @@
       },
       "upgradeButton": "[NEEDS TRANSLATION] Upgrade to {{plan}}",
       "currentButton": "[NEEDS TRANSLATION] Current plan",
+      "limits": {
+        "unlimited": "Illimitato",
+        "unlimitedUsers": "Utenti illimitati",
+        "unlimitedInvoices": "Fatture illimitate al mese",
+        "users": {
+          "one": "{{count}} utente",
+          "other": "{{count}} utenti"
+        },
+        "storageGb": "{{size}} GB di archiviazione",
+        "invoicesPerMonth": {
+          "one": "{{count}} fattura al mese",
+          "other": "{{count}} fatture al mese"
+        }
+      },
       "toasts": {
         "upgrade": {
           "title": "[NEEDS TRANSLATION] Upgrade",
@@ -265,6 +279,12 @@
         }
       },
       "submit": "[NEEDS TRANSLATION] Change Password",
+      "addPassword": "Aggiungi password",
+      "addDescription": "Aggiungi una password per gestire le modifiche sensibili dell'account dopo aver effettuato l'accesso con Google, Microsoft o Apple.",
+      "errorEmailUnavailable": {
+        "add": "Impossibile aggiungere una password perché la tua email non è disponibile.",
+        "reset": "Impossibile reimpostare la password perché la tua email non è disponibile."
+      },
       "errors": {
         "missing": {
           "title": "[NEEDS TRANSLATION] Missing fields",

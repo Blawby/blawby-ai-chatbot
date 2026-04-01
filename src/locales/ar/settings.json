@@ -85,8 +85,16 @@
         "business": "الخطة الحالية",
         "default": "الخطة الحالية"
       },
-      "upgradeButton": "الترقية إلى {{plan}}",
+      "upgradeButton": "ترقية إلى {{plan}}",
       "currentButton": "الخطة الحالية",
+      "limits": {
+        "unlimited": "غير محدود",
+        "unlimitedUsers": "مستخدمون غير محدودون",
+        "unlimitedInvoices": "فواتير غير محدودة شهرياً",
+        "users": "{{count}} مستخدمين",
+        "storageGb": "{{size}} GB تخزين",
+        "invoicesPerMonth": "{{count}} فواتير شهرياً"
+      },
       "toasts": {
         "upgrade": {
           "title": "ترقية",
@@ -265,6 +273,12 @@
         }
       },
       "submit": "تغيير كلمة المرور",
+      "addPassword": "إضافة كلمة مرور",
+      "addDescription": "أضف كلمة مرور لإدارة التغييرات الحساسة في الحساب بعد تسجيل الدخول باستخدام Google أو Microsoft أو Apple.",
+      "errorEmailUnavailable": {
+        "add": "لا يمكن إضافة كلمة المرور لأن بريدك الإلكتروني غير متاح.",
+        "reset": "لا يمكن إعادة تعيين كلمة المرور لأن بريدك الإلكتروني غير متاح."
+      },
       "errors": {
         "missing": {
           "title": "حقول مفقودة",

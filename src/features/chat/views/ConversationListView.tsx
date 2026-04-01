@@ -94,8 +94,8 @@ const ConversationListView: FunctionComponent<ConversationListViewProps> = ({
                   onClick={() => onSelectConversation(conversation.id)}
                 >
                   <Avatar
-                    src={practiceLogo}
-                    name={fallbackName}
+                    src={null}
+                    name={title}
                     size="md"
                     className="ring-2 ring-white/10"
                   />

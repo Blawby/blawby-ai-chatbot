@@ -21,6 +21,8 @@ export interface PasswordChangeFormProps {
     newPassword?: string;
     confirmPassword?: string;
   };
+  showCurrentPassword?: boolean;
+  submitText?: string;
 }
 
 export const PasswordChangeForm = ({
@@ -36,7 +38,9 @@ export const PasswordChangeForm = ({
   className = '',
   isLoading = false,
   error,
-  fieldErrors
+  fieldErrors,
+  showCurrentPassword = true,
+  submitText
 }: PasswordChangeFormProps) => {
   const { t } = useTranslation(['settings']);
 
@@ -47,17 +51,19 @@ export const PasswordChangeForm = ({
       {error && (
         <div className="text-sm text-red-600 dark:text-red-400" role="alert">{error}</div>
       )}
-      <div>
-        <Input
-          type="password"
-          value={currentPassword}
-          onChange={(v) => !isLoading && onCurrentPasswordChange(v)}
-          label={t('settings:security.password.fields.current.label')}
-          placeholder={t('settings:security.password.fields.current.placeholder')}
-          id="current-password"
-          error={fieldErrors?.currentPassword}
-        />
-      </div>
+      {showCurrentPassword && (
+        <div>
+          <Input
+            type="password"
+            value={currentPassword}
+            onChange={(v) => !isLoading && onCurrentPasswordChange(v)}
+            label={t('settings:security.password.fields.current.label')}
+            placeholder={t('settings:security.password.fields.current.placeholder')}
+            id="current-password"
+            error={fieldErrors?.currentPassword}
+          />
+        </div>
+      )}
       
       <div>
         <Input
@@ -89,7 +95,7 @@ export const PasswordChangeForm = ({
         onCancel={() => { if (!isLoading) onCancel(); }}
         onSubmit={() => { if (!isLoading) onSubmit(); }}
         cancelText={t('settings:security.password.cancelButton')}
-        submitText={t('settings:security.password.submit')}
+        submitText={submitText ?? t('settings:security.password.submit')}
         submitType="button"
         isLoading={isLoading}
       />

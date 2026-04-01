@@ -750,6 +750,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   const fetchedPreviewIds = useRef<Set<string>>(new Set());
   const previewFailureCounts = useRef<Record<string, number>>({});
   const MAX_PREVIEW_ATTEMPTS = 2;
+  const shouldLoadConversationPreviews = view === 'home' || view === 'list';
 
   useEffect(() => {
     fetchedPreviewIds.current = new Set();
@@ -759,7 +760,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
 
   useEffect(() => {
     if (mockConversationPreviews || mockConversations) return;
-    if (view === 'conversation' || resolvedConversations.length === 0 || !practiceId) {
+    if (!shouldLoadConversationPreviews || resolvedConversations.length === 0 || !practiceId) {
       return;
     }
     if (workspace === 'practice' && (isSessionPending || !session?.user?.id)) {
@@ -800,7 +801,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [mockConversationPreviews, mockConversations, practiceId, resolvedConversations, isSessionPending, session?.user?.id, view, workspace]);
+  }, [mockConversationPreviews, mockConversations, practiceId, resolvedConversations, isSessionPending, session?.user?.id, shouldLoadConversationPreviews, workspace]);
 
   const handleSelectConversation = useCallback((conversationId: string) => {
     hasAutoNavigatedRef.current = true;
@@ -926,7 +927,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     error: practiceBillingError,
   } = usePracticeBillingData({
     practiceId: isPracticeWorkspace ? (currentPractice?.id ?? practiceId ?? null) : null,
-    enabled: isPracticeWorkspace,
+    enabled: isPracticeWorkspace && view === 'home',
     matterLimit: 25,
     windowSize: dashboardWindow,
     matters: mattersData.isLoaded ? mattersData.items : undefined,

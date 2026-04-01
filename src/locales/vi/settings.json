@@ -87,6 +87,14 @@
       },
       "upgradeButton": "Nâng cấp lên {{plan}}",
       "currentButton": "Gói hiện tại",
+      "limits": {
+        "unlimited": "Không giới hạn",
+        "unlimitedUsers": "Người dùng không giới hạn",
+        "unlimitedInvoices": "Hóa đơn không giới hạn mỗi tháng",
+        "users": "{{count}} người dùng",
+        "storageGb": "{{size}} GB lưu trữ",
+        "invoicesPerMonth": "{{count}} hóa đơn mỗi tháng"
+      },
       "toasts": {
         "upgrade": {
           "title": "Nâng cấp",
@@ -276,7 +284,13 @@
           "placeholder": "Xác nhận mật khẩu mới"
         }
       },
-      "submit": "Thay đổi mật khẩu",
+      "submit": "Đổi mật khẩu",
+      "addPassword": "Thêm mật khẩu",
+      "addDescription": "Thêm mật khẩu để quản lý các thay đổi nhạy cảm của tài khoản sau khi đăng nhập bằng Google, Microsoft hoặc Apple.",
+      "errorEmailUnavailable": {
+        "add": "Không thể thêm mật khẩu vì email của bạn không khả dụng.",
+        "reset": "Không thể đặt lại mật khẩu vì email của bạn không khả dụng."
+      },
       "errors": {
         "missing": {
           "title": "Thiếu trường",

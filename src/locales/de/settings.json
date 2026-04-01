@@ -87,6 +87,17 @@
       },
       "upgradeButton": "Upgrade auf {{plan}}",
       "currentButton": "Aktueller Plan",
+      "limits": {
+        "unlimited": "Unbegrenzt",
+        "unlimitedUsers": "Unbegrenzte Benutzer",
+        "unlimitedInvoices": "Unbegrenzte Rechnungen pro Monat",
+        "users": "{{count}} Benutzer",
+        "storageGb": "{{size}} GB Speicher",
+        "invoicesPerMonth": {
+          "one": "{{count}} Rechnung pro Monat",
+          "other": "{{count}} Rechnungen pro Monat"
+        }
+      },
       "toasts": {
         "upgrade": {
           "title": "Upgrade",
@@ -277,6 +288,12 @@
         }
       },
       "submit": "Passwort ändern",
+      "addPassword": "Passwort hinzufügen",
+      "addDescription": "Fügen Sie ein Passwort hinzu, um sensible Kontenänderungen nach der Anmeldung mit Google, Microsoft oder Apple zu verwalten.",
+      "errorEmailUnavailable": {
+        "add": "Passwort kann nicht hinzugefügt werden, da Ihre E-Mail nicht verfügbar ist.",
+        "reset": "Passwort kann nicht zurückgesetzt werden, da Ihre E-Mail nicht verfügbar ist."
+      },
       "errors": {
         "missing": {
           "title": "Fehlende Felder",

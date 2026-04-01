@@ -132,6 +132,7 @@ const getMessageCacheKey = (practiceId: string, conversationId: string) =>
 // ─── types ────────────────────────────────────────────────────────────────────
 
 export interface UseConversationOptions {
+  enabled?: boolean;
   practiceId?: string;
   conversationId?: string;
   userId?: string | null;
@@ -143,6 +144,7 @@ export interface UseConversationOptions {
 // ─── hook ─────────────────────────────────────────────────────────────────────
 
 export const useConversation = ({
+  enabled = true,
   practiceId,
   conversationId,
   userId: externalUserId,
@@ -151,8 +153,8 @@ export const useConversation = ({
   onError,
 }: UseConversationOptions) => {
   const { session, isPending: sessionIsPending, isAnonymous } = useSessionContext();
-  const hasAnonymousWidgetContext = Boolean(linkAnonymousConversationOnLoad && conversationId && practiceId);
-  const sessionReady = !sessionIsPending && (Boolean(session?.user) || Boolean(externalUserId && hasAnonymousWidgetContext));
+  const hasAnonymousWidgetContext = Boolean(enabled && linkAnonymousConversationOnLoad && conversationId && practiceId);
+  const sessionReady = enabled && !sessionIsPending && (Boolean(session?.user) || Boolean(externalUserId && hasAnonymousWidgetContext));
   const currentUserId = externalUserId ?? session?.user?.id ?? null;
 
   // ── state ──────────────────────────────────────────────────────────────────
@@ -224,13 +226,18 @@ export const useConversation = ({
   messagesRef.current = messages;
 
   useEffect(() => {
+    if (!enabled) return;
     if (!conversationId || !currentUserId || !isAnonymous) return;
     rememberConversationAnonymousParticipant(conversationId, currentUserId);
-  }, [conversationId, currentUserId, isAnonymous]);
+  }, [conversationId, currentUserId, enabled, isAnonymous]);
 
   // ── anonymous conversation linking ────────────────────────────────────────
 
   useEffect(() => {
+    if (!enabled) {
+      setIsConversationLinkReady(true);
+      return;
+    }
     if (!conversationId || !practiceId) { setIsConversationLinkReady(true); return; }
     if (!linkAnonymousConversationOnLoad || !sessionReady || isAnonymous || !currentUserId) {
       setIsConversationLinkReady(true); return;
@@ -254,7 +261,7 @@ export const useConversation = ({
       }
     })();
     return () => { cancelled = true; };
-  }, [conversationId, currentUserId, isAnonymous, linkAnonymousConversationOnLoad, practiceId, sessionReady, onError]);
+  }, [conversationId, currentUserId, enabled, isAnonymous, linkAnonymousConversationOnLoad, practiceId, sessionReady, onError]);
 
   // ── metadata helpers ───────────────────────────────────────────────────────
 
@@ -302,6 +309,7 @@ export const useConversation = ({
   }, [applyConversationMetadata, conversationId, practiceId, sessionReady]);
 
   useEffect(() => {
+    if (!enabled) return;
     if (!conversationId || !currentUserId || !isAnonymous) return;
     const existingMetadata = conversationMetadataRef.current;
     const storedParticipantId =
@@ -310,7 +318,7 @@ export const useConversation = ({
       null;
     if (storedParticipantId === currentUserId) return;
     void updateConversationMetadata({ anonParticipantId: currentUserId });
-  }, [conversationId, currentUserId, isAnonymous, updateConversationMetadata]);
+  }, [conversationId, currentUserId, enabled, isAnonymous, updateConversationMetadata]);
 
   const fetchConversationMetadata = useCallback(async (signal?: AbortSignal, targetConversationId?: string) => {
     if (!sessionReady) return null;
@@ -829,10 +837,17 @@ export const useConversation = ({
     socketConversationIdRef.current = targetConversationId;
     initSocketReadyPromise();
 
-    const ws = new WebSocket(appendWidgetTokenToUrl(getConversationWsEndpoint(targetConversationId)));
+    const wsUrl = appendWidgetTokenToUrl(getConversationWsEndpoint(targetConversationId));
+    if (import.meta.env.DEV) {
+      console.log('[WebSocket] Creating connection to', wsUrl);
+    }
+    const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
 
     ws.addEventListener('open', () => {
+      if (import.meta.env.DEV) {
+        console.log('[WebSocket] Connection opened');
+      }
       reconnectAttemptRef.current = 0;
       clearReconnectTimer();
       ws.send(JSON.stringify({ type: 'auth', data: { protocol_version: CHAT_PROTOCOL_VERSION, client_info: { platform: 'web' } } }));
@@ -915,6 +930,9 @@ export const useConversation = ({
     });
 
     ws.addEventListener('close', () => {
+      if (import.meta.env.DEV) {
+        console.log('[WebSocket] Connection closed');
+      }
       if (socketSessionRef.current !== sessionId) return;
       isSocketReadyRef.current = false;
       rejectSocketReady(new Error('Chat connection closed'));
@@ -1129,6 +1147,7 @@ export const useConversation = ({
 
   // Message cache restore
   useEffect(() => {
+    if (!enabled) return;
     if (typeof window === 'undefined' || !conversationId || !practiceId) return;
     try {
       const raw = window.localStorage.getItem(getMessageCacheKey(practiceId, conversationId));
@@ -1142,26 +1161,33 @@ export const useConversation = ({
       setMessages(filtered);
       setMessagesReady(true);
     } catch (err) { if (import.meta.env.DEV) console.warn('[useConversation] Failed to load cached messages', err); }
-  }, [conversationId, practiceId]);
+  }, [conversationId, enabled, practiceId]);
 
   // Message cache write
   useEffect(() => {
+    if (!enabled) return;
     if (typeof window === 'undefined' || !conversationId || !practiceId || messages.length === 0) return;
     const trimmed = messages.filter(m => !m.id.startsWith(STREAMING_BUBBLE_PREFIX)).slice(-MESSAGE_CACHE_LIMIT);
     try { window.localStorage.setItem(getMessageCacheKey(practiceId, conversationId), JSON.stringify(trimmed)); }
     catch (err) { if (import.meta.env.DEV) console.warn('[useConversation] Failed to cache messages', err); }
-  }, [conversationId, messages, practiceId]);
+  }, [conversationId, enabled, messages, practiceId]);
 
   // Conversation change — full reset
   useEffect(() => {
+    if (!enabled) return;
     if (lastConversationIdRef.current && conversationId && lastConversationIdRef.current !== conversationId) {
       clearMessages(); applyConversationMetadata(null);
     }
     lastConversationIdRef.current = conversationId;
-  }, [conversationId, applyConversationMetadata, clearMessages]);
+  }, [conversationId, enabled, applyConversationMetadata, clearMessages]);
 
   // Main lifecycle — fetch + connect
   useEffect(() => {
+    if (!enabled) {
+      conversationIdRef.current = undefined;
+      closeChatSocket();
+      return;
+    }
     if (!sessionReady) { closeChatSocket(); return; }
     if (!isConversationLinkReady) { closeChatSocket(); return; }
     if (!conversationId || !practiceId) { conversationIdRef.current = undefined; closeChatSocket(); return; }
@@ -1184,7 +1210,7 @@ export const useConversation = ({
     fetchConversationMetadata(controller.signal).catch(err => { console.warn('[useConversation] Failed to fetch metadata', err); });
     connectChatRoom(conversationId);
     return () => { controller.abort(); closeChatSocket(); };
-  }, [closeChatSocket, connectChatRoom, conversationId, fetchConversationMetadata, fetchMessages, isConversationLinkReady, practiceId, resetRealtimeState, sessionReady]);
+  }, [closeChatSocket, connectChatRoom, conversationId, enabled, fetchConversationMetadata, fetchMessages, isConversationLinkReady, practiceId, resetRealtimeState, sessionReady]);
 
   // Disposal
   useEffect(() => {

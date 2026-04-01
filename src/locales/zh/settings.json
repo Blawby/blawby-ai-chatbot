@@ -87,6 +87,14 @@
       },
       "upgradeButton": "升级至 {{plan}}",
       "currentButton": "当前套餐",
+      "limits": {
+        "unlimited": "无限",
+        "unlimitedUsers": "无限用户",
+        "unlimitedInvoices": "每月无限发票",
+        "users": "{{count}} 用户",
+        "storageGb": "{{size}} GB 存储空间",
+        "invoicesPerMonth": "{{count}} 张发票/月"
+      },
       "toasts": {
         "upgrade": {
           "title": "升级",
@@ -277,6 +285,12 @@
         }
       },
       "submit": "更改密码",
+      "addPassword": "添加密码",
+      "addDescription": "在使用 Google、Microsoft 或 Apple 登录后，添加密码以管理敏感的账户更改。",
+      "errorEmailUnavailable": {
+        "add": "由于您的电子邮件不可用，无法添加密码。",
+        "reset": "由于您的电子邮件不可用，无法重置密码。"
+      },
       "errors": {
         "missing": {
           "title": "缺少字段",

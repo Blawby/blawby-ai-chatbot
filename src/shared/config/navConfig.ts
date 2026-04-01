@@ -3,10 +3,10 @@ import {
   ChartBarIcon,
   ChatBubbleOvalLeftEllipsisIcon,
   ClipboardDocumentListIcon,
-  Cog6ToothIcon,
   DocumentTextIcon,
   HomeIcon,
 } from '@heroicons/react/24/solid';
+import { SettingsNavIcon } from '@/shared/ui/nav/SettingsNavIcon';
 import { PEOPLE_DIRECTORY_LABEL } from '@/shared/domain/people';
 import type { PracticeRole } from '@/shared/utils/practiceRoles';
 
@@ -138,7 +138,7 @@ const buildPracticeRail = (basePath: string): NavRailItem[] => [
   {
     id: 'settings',
     label: 'Settings',
-    icon: Cog6ToothIcon,
+    icon: SettingsNavIcon,
     href: `${basePath}/settings/general`,
     matchHrefs: [`${basePath}/settings`],
   },
@@ -170,7 +170,7 @@ const buildClientRail = (basePath: string): NavRailItem[] => [
   {
     id: 'settings',
     label: 'Settings',
-    icon: Cog6ToothIcon,
+    icon: SettingsNavIcon,
     href: `${basePath}/settings/general`,
     matchHrefs: [`${basePath}/settings`],
   },
@@ -298,6 +298,7 @@ const buildSettingsSecondary = (basePath: string, canAccessPractice: boolean): N
       label: 'Practice',
       items: [
         { id: 'practice', label: 'Practice', href: `${basePath}/settings/practice` },
+        { id: 'practice-payouts', label: 'Payouts', href: `${basePath}/settings/practice/payouts` },
         { id: 'practice-services', label: 'Services', href: `${basePath}/settings/practice/services` },
         { id: 'practice-team', label: 'Team', href: `${basePath}/settings/practice/team` },
         { id: 'practice-pricing', label: 'Pricing', href: `${basePath}/settings/practice/pricing` },

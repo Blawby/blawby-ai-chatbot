@@ -85,6 +85,14 @@
       },
       "upgradeButton": "[NEEDS TRANSLATION] Upgrade to {{plan}}",
       "currentButton": "[NEEDS TRANSLATION] Current plan",
+      "limits": {
+        "unlimited": "ไม่จำกัด",
+        "unlimitedUsers": "ผู้ใช้ไม่จำกัด",
+        "unlimitedInvoices": "ใบแจ้งหนี้ไม่จำกัดต่อเดือน",
+        "users": "{{count}} ผู้ใช้",
+        "storageGb": "{{size}} GB พื้นที่จัดเก็บ",
+        "invoicesPerMonth": "{{count}} ใบแจ้งหนี้ต่อเดือน"
+      },
       "toasts": {
         "upgrade": {
           "title": "[NEEDS TRANSLATION] Upgrade",
@@ -263,6 +271,12 @@
         }
       },
       "submit": "[NEEDS TRANSLATION] Change Password",
+      "addPassword": "เพิ่มรหัสผ่าน",
+      "addDescription": "เพิ่มรหัสผ่านเพื่อจัดการการเปลี่ยนแปลงที่ละเอียดอ่อนของบัญชีหลังจากล็อกอินด้วย Google, Microsoft หรือ Apple",
+      "errorEmailUnavailable": {
+        "add": "ไม่สามารถเพิ่มรหัสผ่านได้เนื่องจากอีเมลของคุณไม่พร้อมใช้งาน",
+        "reset": "ไม่สามารถรีเซ็ตรหัสผ่านได้เนื่องจากอีเมลของคุณไม่พร้อมใช้งาน"
+      },
       "errors": {
         "missing": {
           "title": "[NEEDS TRANSLATION] Missing fields",
