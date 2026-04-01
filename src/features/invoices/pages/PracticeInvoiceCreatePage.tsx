@@ -5,11 +5,12 @@ import { Page } from '@/shared/ui/layout/Page';
 import { Panel } from '@/shared/ui/layout/Panel';
 import { useNavigation } from '@/shared/utils/navigation';
 import { useToastContext } from '@/shared/contexts/ToastContext';
+import { useSessionContext } from '@/shared/contexts/SessionContext';
 import {
   getOnboardingStatus,
-  listUserDetails,
   type UserDetailRecord,
 } from '@/shared/lib/apiClient';
+import { useClientsData } from '@/shared/hooks/useClientsData';
 import { listMatters, type BackendMatter, updateMatterMilestone } from '@/features/matters/services/mattersApi';
 import { InvoiceForm } from '@/features/invoices/components/InvoiceForm';
 import type { InvoiceFormHandle } from '@/features/invoices/components/InvoiceForm';
@@ -33,23 +34,6 @@ const mergeRecordsById = <T extends { id: string }>(currentRecords: T[], incomin
     mergedRecords.push(record);
   }
   return mergedRecords;
-};
-
-const loadFirstClientPage = async (practiceId: string, signal: AbortSignal) => {
-  return listUserDetails(practiceId, { limit: PAGE_SIZE, offset: 0, signal });
-};
-
-const loadRemainingClientPages = async (
-  practiceId: string,
-  signal: AbortSignal,
-  onPage: (records: UserDetailRecord[]) => void
-) => {
-  for (let offset = PAGE_SIZE; ; offset += PAGE_SIZE) {
-    const response = await listUserDetails(practiceId, { limit: PAGE_SIZE, offset, signal });
-    if (response.data.length === 0) break;
-    onPage(response.data);
-    if (response.data.length < PAGE_SIZE) break;
-  }
 };
 
 const loadFirstMatterPage = async (practiceId: string, signal: AbortSignal) => {
@@ -85,12 +69,18 @@ export function PracticeInvoiceCreatePage({
   const location = useLocation();
   const { navigate } = useNavigation();
   const { showError } = useToastContext();
-  const [clients, setClients] = useState<UserDetailRecord[]>([]);
   const [matters, setMatters] = useState<BackendMatter[]>([]);
   const [connectedAccountId, setConnectedAccountId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const builderRef = useRef<InvoiceFormHandle | null>(null);
+  const { session } = useSessionContext();
+  const clientsData = useClientsData(
+    practiceId ?? '',
+    null,
+    session?.user?.id ?? null,
+    { enabled: Boolean(practiceId) }
+  );
 
   // Read cached practice identity — no extra requests; usePracticeManagement uses shared snapshot cache
   const { currentPractice } = usePracticeManagement({
@@ -118,7 +108,7 @@ export function PracticeInvoiceCreatePage({
   const missingDraftError = draftId && !draftContext
     ? 'Invoice draft context was not found. Start invoice creation from the matter or invoices page again.'
     : null;
-  const displayError = loadError ?? missingDraftError;
+  const displayError = loadError ?? clientsData.error ?? missingDraftError;
 
   useEffect(() => {
     if (!practiceId) return;
@@ -128,33 +118,22 @@ export function PracticeInvoiceCreatePage({
 
     void (async () => {
       try {
-        const [clientPage, matterPage, onboardingStatus] = await Promise.all([
-          loadFirstClientPage(practiceId, controller.signal),
+        const [matterPage, onboardingStatus] = await Promise.all([
           loadFirstMatterPage(practiceId, controller.signal),
           getOnboardingStatus(practiceId, { signal: controller.signal }),
         ]);
 
         if (controller.signal.aborted) return;
 
-        setClients(clientPage.data);
         setMatters(matterPage);
         setConnectedAccountId(onboardingStatus.connectedAccountId ?? null);
 
-        void Promise.allSettled([
-          loadRemainingClientPages(practiceId, controller.signal, (records) => {
-            if (controller.signal.aborted) return;
-            setClients((current) => mergeRecordsById(current, records));
-          }),
-          loadRemainingMatterPages(practiceId, controller.signal, (records) => {
+        void loadRemainingMatterPages(practiceId, controller.signal, (records) => {
             if (controller.signal.aborted) return;
             setMatters((current) => mergeRecordsById(current, records));
-          }),
-        ]).then((results) => {
+        }).catch((error) => {
           if (controller.signal.aborted) return;
-          const rejection = results.find((result) => result.status === 'rejected');
-          if (rejection && rejection.status === 'rejected') {
-            setLoadError(rejection.reason instanceof Error ? rejection.reason.message : 'Failed to load invoice builder');
-          }
+          setLoadError(error instanceof Error ? error.message : 'Failed to load invoice builder');
         });
       } catch (error) {
         if ((error as DOMException)?.name === 'AbortError' || controller.signal.aborted) return;
@@ -178,12 +157,12 @@ export function PracticeInvoiceCreatePage({
   }, []);
 
   const clientOptions = useMemo(() => {
-    return clients.map((client) => ({
+    return (clientsData.items as UserDetailRecord[]).map((client) => ({
       value: client.id,
       label: getClientLabel(client),
       meta: client.user?.email ?? undefined,
     }));
-  }, [clients]);
+  }, [clientsData.items]);
 
   const matterOptions = useMemo(() => {
     return matters.map((matter) => ({
@@ -245,7 +224,7 @@ export function PracticeInvoiceCreatePage({
             {displayError}
           </div>
         ) : null}
-        {loading ? (
+        {loading || (!clientsData.isLoaded && clientsData.isLoading) ? (
           <Panel className="p-6">
             <div className="text-sm text-input-placeholder">Loading invoice builder...</div>
           </Panel>

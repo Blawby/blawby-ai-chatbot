@@ -7,6 +7,7 @@ import AcceptInvitationPage from '@/pages/AcceptInvitationPage';
 import OnboardingPage from '@/pages/OnboardingPage';
 import PricingPage from '@/pages/PricingPage';
 import DebugStylesPage from '@/pages/DebugStylesPage';
+import DebugModalsPage from '@/pages/DebugModalsPage';
 import DebugChatPage from '@/pages/DebugChatPage';
 import DebugConversationsPage from '@/pages/DebugConversationsPage';
 import DebugMatterPage from '@/pages/DebugMatterPage';
@@ -46,6 +47,16 @@ const DevDebugStylesRoute = () => {
 const DevDebugChatRoute = () => {
   if (!import.meta.env.DEV) return <App404 />;
   return <DebugChatPage />;
+};
+
+const DevDebugModalsRoute = () => {
+  if (!import.meta.env.DEV) return <App404 />;
+  return <DebugModalsPage />;
+};
+
+const DevDebugModalPreviewRoute = ({ previewId }: { previewId?: string }) => {
+  if (!import.meta.env.DEV) return <App404 />;
+  return <DebugModalsPage previewId={previewId} />;
 };
 
 const DevDebugConversationsRoute = () => {
@@ -214,6 +225,8 @@ function AppShell() {
           <Route path="/pricing" component={PricingPage} />
           <Route path="/onboarding" component={OnboardingPage} />
           <Route path="/debug/styles" component={DevDebugStylesRoute} />
+          <Route path="/debug/modals" component={DevDebugModalsRoute} />
+          <Route path="/debug/modals/:previewId" component={DevDebugModalPreviewRoute} />
           <Route path="/debug/chat" component={DevDebugChatRoute} />
           <Route path="/debug/conversations" component={DevDebugConversationsRoute} />
           <Route path="/debug/matters" component={DevDebugMatterRoute} />

@@ -1441,7 +1441,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       recentClients={recentClients}
       onDashboardWindowChange={setDashboardWindow}
       onCreateInvoice={handleDashboardCreateInvoice}
-      onOpenInvoice={(invoiceId) => navigate(`${normalizedBase}/matters?invoice=${encodeURIComponent(invoiceId)}`)}
+      onOpenInvoice={(invoiceId) => navigate(`${normalizedBase}/invoices/${encodeURIComponent(invoiceId)}`)}
       onViewAllClients={() => navigate(`${normalizedBase}/people`)}
       onViewClient={(clientId) => navigate(`${normalizedBase}/people/${encodeURIComponent(clientId)}`)}
     />

@@ -1,11 +1,14 @@
 import type { ComponentChildren } from 'preact';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
+import { XMarkIcon } from '@heroicons/react/24/outline';
 import Modal from '@/shared/components/Modal';
 import { Button } from '@/shared/ui/Button';
 import { Input, Textarea } from '@/shared/ui/input';
 import { DetailHeader } from '@/shared/ui/layout/DetailHeader';
+import { WorkspaceListHeader } from '@/shared/ui/layout/WorkspaceListHeader';
 import { formatLongDate } from '@/shared/utils/dateFormatter';
 import { useToastContext } from '@/shared/contexts/ToastContext';
+import { getUserDetail } from '@/shared/lib/apiClient';
 import { useNavigation } from '@/shared/utils/navigation';
 import { InvoiceForm } from '@/features/invoices/components/InvoiceForm';
 import type { InvoiceFormHandle } from '@/features/invoices/components/InvoiceForm';
@@ -51,6 +54,7 @@ export function PracticeInvoiceDetailPage({
   const [detail, setDetail] = useState<InvoiceDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [resolvedClientLabel, setResolvedClientLabel] = useState<string | null>(null);
 
   const [refundModalOpen, setRefundModalOpen] = useState(false);
   const [refundReason, setRefundReason] = useState('');
@@ -86,6 +90,38 @@ export function PracticeInvoiceDetailPage({
     return () => controller.abort();
   }, [loadDetail]);
 
+  useEffect(() => {
+    if (!practiceId || !detail?.sourceInvoice.client_id) {
+      setResolvedClientLabel(null);
+      return;
+    }
+
+    const embeddedLabel = detail.clientName?.trim();
+    if (embeddedLabel) {
+      setResolvedClientLabel(embeddedLabel);
+      return;
+    }
+
+    const controller = new AbortController();
+    setResolvedClientLabel(null);
+
+    void getUserDetail(practiceId, detail.sourceInvoice.client_id, { signal: controller.signal })
+      .then((clientDetail) => {
+        if (controller.signal.aborted) return;
+        const hydratedLabel =
+          clientDetail?.user?.name?.trim() ||
+          clientDetail?.user?.email?.trim() ||
+          null;
+        setResolvedClientLabel(hydratedLabel);
+      })
+      .catch((err) => {
+        if (controller.signal.aborted || err.name === 'AbortError') return;
+        console.error('[PracticeInvoiceDetailPage] Failed to hydrate invoice client label', err);
+      });
+
+    return () => controller.abort();
+  }, [detail?.clientName, detail?.sourceInvoice.client_id, practiceId]);
+
   const status = useMemo(() => (detail?.status ?? 'draft').toLowerCase(), [detail?.status]);
   const mode = useMemo(() => resolveInvoicePageMode(status), [status]);
   const isDraft = mode === 'edit';
@@ -94,9 +130,9 @@ export function PracticeInvoiceDetailPage({
 
   const builderClientOptions = useMemo(() => {
     if (!detail) return [];
-    const label = detail.clientName?.trim() || 'Person';
+    const label = resolvedClientLabel?.trim() || detail.clientName?.trim() || 'Person';
     return [{ value: detail.sourceInvoice.client_id, label }];
-  }, [detail]);
+  }, [detail, resolvedClientLabel]);
 
   const builderMatterOptions = useMemo(() => {
     if (!detail?.sourceInvoice.matter_id) return [];
@@ -199,39 +235,58 @@ export function PracticeInvoiceDetailPage({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4 p-4 sm:p-6">
-      <DetailHeader
-        title={detail.invoiceNumber}
-        subtitle={`Issued ${renderEventDate(detail.issueDate)} • Due ${renderEventDate(detail.dueDate)} • Paid ${renderEventDate(detail.paidAt)}`}
-        showBack={showBack}
-        onBack={handleBackToList}
-        leadingAction={leadingAction}
-        onInspector={onInspector}
-        inspectorOpen={inspectorOpen}
-        actions={(
-          <div className="flex flex-wrap items-center gap-2">
-            {isDraft ? (
-              <>
-                <Button onClick={() => formRef.current?.requestSend()}>
-                  Send invoice
-                </Button>
-              </>
-            ) : null}
-            {isActionableOpenStatus(status) ? (
-              <>
+      {isDraft ? (
+        <WorkspaceListHeader
+          leftControls={(
+            <div className="flex items-center gap-3">
+              <Button
+                type="button"
+                variant="icon"
+                size="icon-sm"
+                aria-label="Close invoice composer"
+                onClick={handleBackToList}
+                icon={XMarkIcon}
+                iconClassName="h-5 w-5"
+              />
+              <div className="h-5 w-px bg-line-glass/30" aria-hidden="true" />
+            </div>
+          )}
+          title={<h1 className="workspace-header__title">Edit Invoice</h1>}
+          controls={(
+            <Button type="button" size="sm" onClick={() => formRef.current?.requestSend()}>
+              Send Invoice
+            </Button>
+          )}
+          className="px-0 py-0"
+        />
+      ) : (
+        <DetailHeader
+          title={detail.invoiceNumber}
+          subtitle={`Issued ${renderEventDate(detail.issueDate)} • Due ${renderEventDate(detail.dueDate)} • Paid ${renderEventDate(detail.paidAt)}`}
+          showBack={showBack}
+          onBack={handleBackToList}
+          leadingAction={leadingAction}
+          onInspector={onInspector}
+          inspectorOpen={inspectorOpen}
+          actions={(
+            <div className="flex flex-wrap items-center gap-2">
+              {isActionableOpenStatus(status) ? (
+                <>
+                  <Button variant="secondary" onClick={handleOpenHostedInvoice} disabled={!hasHostedUrl}>Open Stripe hosted invoice</Button>
+                  <Button variant="secondary" onClick={() => void handleSync()}>Sync</Button>
+                  <Button variant="danger-ghost" onClick={() => void handleVoid()}>Void</Button>
+                </>
+              ) : null}
+              {status === 'paid' ? (
                 <Button variant="secondary" onClick={handleOpenHostedInvoice} disabled={!hasHostedUrl}>Open Stripe hosted invoice</Button>
-                <Button variant="secondary" onClick={() => void handleSync()}>Sync</Button>
-                <Button variant="danger-ghost" onClick={() => void handleVoid()}>Void</Button>
-              </>
-            ) : null}
-            {status === 'paid' ? (
-              <Button variant="secondary" onClick={handleOpenHostedInvoice} disabled={!hasHostedUrl}>Open Stripe hosted invoice</Button>
-            ) : null}
-            {canMockRefund ? (
-              <Button variant="secondary" onClick={() => setRefundModalOpen(true)}>Issue refund (Mock)</Button>
-            ) : null}
-          </div>
-        )}
-      />
+              ) : null}
+              {canMockRefund ? (
+                <Button variant="secondary" onClick={() => setRefundModalOpen(true)}>Issue refund (Mock)</Button>
+              ) : null}
+            </div>
+          )}
+        />
+      )}
 
       <InvoiceForm
         ref={formRef}

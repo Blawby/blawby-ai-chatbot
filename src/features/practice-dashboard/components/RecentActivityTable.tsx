@@ -31,10 +31,11 @@ const statusIcon = (status: ActivityEntry['status']) => {
 
 const statusClass = (status: ActivityEntry['status']) => {
   const normalized = status.toLowerCase();
-  if (normalized === 'paid') return 'text-emerald-300 bg-emerald-500/10 ring-emerald-500/20';
-  if (normalized === 'overdue') return 'text-rose-300 bg-rose-500/10 ring-rose-500/20';
-  if (normalized === 'sent' || normalized === 'pending') return 'text-input-placeholder bg-surface-glass ring-line-glass/50';
-  return 'bg-surface-glass text-input-placeholder ring-line-glass/50';
+  if (normalized === 'paid') return 'bg-emerald-500/10 text-emerald-700 ring-emerald-500/20 dark:text-emerald-300';
+  if (normalized === 'overdue') return 'bg-rose-500/10 text-rose-700 ring-rose-500/20 dark:text-rose-300';
+  if (normalized === 'draft') return 'border border-line-glass/20 bg-surface-overlay/80 text-input-placeholder';
+  if (normalized === 'sent' || normalized === 'pending') return 'border border-line-glass/20 bg-surface-overlay/80 text-input-placeholder';
+  return 'border border-line-glass/20 bg-surface-overlay/80 text-input-placeholder';
 };
 
 export const RecentActivityTable = ({ days, loading = false, error = null, onOpenInvoice }: RecentActivityTableProps) => (
@@ -84,8 +85,8 @@ export const RecentActivityTable = ({ days, loading = false, error = null, onOpe
                       <tr className="text-sm text-input-text">
                         <th scope="colgroup" colSpan={3} className="relative isolate py-2 font-semibold">
                           <time dateTime={day.isoDate}>{day.label}</time>
-                          <div className="absolute inset-y-0 right-full -z-10 w-screen border-b border-line-glass/30 bg-surface-glass" />
-                          <div className="absolute inset-y-0 left-0 -z-10 w-screen border-b border-line-glass/30 bg-surface-glass" />
+                          <div className="absolute inset-y-0 right-full -z-10 w-screen border-b border-line-glass/30 bg-surface-overlay/70" />
+                          <div className="absolute inset-y-0 left-0 -z-10 w-screen border-b border-line-glass/30 bg-surface-overlay/70" />
                         </th>
                       </tr>
                       {day.entries.length === 0 && showEmptyRows ? (
@@ -138,7 +139,7 @@ export const RecentActivityTable = ({ days, loading = false, error = null, onOpe
                                 onClick={() => onOpenInvoice?.(entry)}
                                 className="text-sm font-medium text-accent-400 hover:text-accent-300"
                               >
-                                View transaction
+                                View invoice
                               </button>
                             </div>
                             <div className="mt-1 text-xs text-input-placeholder">
