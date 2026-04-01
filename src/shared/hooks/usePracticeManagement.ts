@@ -20,7 +20,7 @@ import {
 } from '@/shared/lib/apiClient';
 import { normalizeSubscriptionStatus as normalizePracticeStatus } from '@/shared/utils/subscription';
 import { resetPracticeDetailsStore, setPracticeDetailsEntry } from '@/shared/stores/practiceDetailsStore';
-import { ensurePracticeTeamCacheUserId, invalidatePracticeTeamForPractice, resetPracticeTeamStore } from '@/shared/stores/practiceTeamStore';
+import { ensurePracticeTeamCacheUserId, invalidatePracticeTeamForPractice, resetPracticeTeamStore as _resetPracticeTeamStore } from '@/shared/stores/practiceTeamStore';
 import { asMajor, type MajorAmount } from '@/shared/utils/money';
 import { type PracticeRole } from '@/shared/utils/practiceRoles';
 

@@ -2021,37 +2021,51 @@ export const PracticeMattersPage = ({
                         <div className="px-5 py-4">
                           <dt className="text-sm font-medium text-input-placeholder">Responsible attorney</dt>
                           <dd className="mt-1">
-                            {membersById.get(selectedMatterDetail.responsibleAttorneyId ?? '') ? (
-                              <UserCard
-                                name={membersById.get(selectedMatterDetail.responsibleAttorneyId!)!.name || assigneeNameById.get(selectedMatterDetail.responsibleAttorneyId!) || ''}
-                                image={membersById.get(selectedMatterDetail.responsibleAttorneyId!)!.image}
-                                secondary={membersById.get(selectedMatterDetail.responsibleAttorneyId!)!.email}
-                                size="sm"
-                                className="-ml-3"
-                              />
-                            ) : (
-                              <span className="text-sm text-input-text">
-                                {assigneeNameById.get(selectedMatterDetail.responsibleAttorneyId ?? '') || 'Not set'}
-                              </span>
-                            )}
+                            {(() => {
+                              const attorneyId = selectedMatterDetail.responsibleAttorneyId;
+                              const member = attorneyId ? membersById.get(attorneyId) : undefined;
+                              if (!member) {
+                                return (
+                                  <span className="text-sm text-input-text">
+                                    {assigneeNameById.get(attorneyId || '') || 'Not set'}
+                                  </span>
+                                );
+                              }
+                              return (
+                                <UserCard
+                                  name={member.name || assigneeNameById.get(attorneyId) || ''}
+                                  image={member.image}
+                                  secondary={member.email}
+                                  size="sm"
+                                  className="-ml-3"
+                                />
+                              );
+                            })()}
                           </dd>
                         </div>
                         <div className="px-5 py-4">
                           <dt className="text-sm font-medium text-input-placeholder">Originating attorney</dt>
                           <dd className="mt-1">
-                            {membersById.get(selectedMatterDetail.originatingAttorneyId ?? '') ? (
-                              <UserCard
-                                name={membersById.get(selectedMatterDetail.originatingAttorneyId!)!.name || assigneeNameById.get(selectedMatterDetail.originatingAttorneyId!) || ''}
-                                image={membersById.get(selectedMatterDetail.originatingAttorneyId!)!.image}
-                                secondary={membersById.get(selectedMatterDetail.originatingAttorneyId!)!.email}
-                                size="sm"
-                                className="-ml-3"
-                              />
-                            ) : (
-                              <span className="text-sm text-input-text">
-                                {assigneeNameById.get(selectedMatterDetail.originatingAttorneyId ?? '') || 'Not set'}
-                              </span>
-                            )}
+                            {(() => {
+                              const attorneyId = selectedMatterDetail.originatingAttorneyId;
+                              const member = attorneyId ? membersById.get(attorneyId) : undefined;
+                              if (!member) {
+                                return (
+                                  <span className="text-sm text-input-text">
+                                    {assigneeNameById.get(attorneyId || '') || 'Not set'}
+                                  </span>
+                                );
+                              }
+                              return (
+                                <UserCard
+                                  name={member.name || assigneeNameById.get(attorneyId) || ''}
+                                  image={member.image}
+                                  secondary={member.email}
+                                  size="sm"
+                                  className="-ml-3"
+                                />
+                              );
+                            })()}
                           </dd>
                         </div>
                       </dl>
