@@ -21,8 +21,8 @@ export type SettingsView =
   | 'general'
   | 'notifications'
   | 'account'
-  | 'account-payouts'
   | 'practice'
+  | 'practice-payouts'
   | 'practice-services'
   | 'practice-team'
   | 'practice-pricing'
@@ -70,6 +70,7 @@ export const SettingsContent = ({
   };
 
   const isPracticeScopedView = view === 'practice'
+    || view === 'practice-payouts'
     || view === 'practice-services'
     || view === 'practice-team'
     || view === 'practice-pricing'
@@ -97,10 +98,10 @@ export const SettingsContent = ({
         return <NotificationsPage className="h-full" />;
       case 'account':
         return <AccountPage className="h-full" />;
-      case 'account-payouts':
-        return <PayoutsPage className="h-full" />;
       case 'practice':
         return <PracticePage className="h-full" />;
+      case 'practice-payouts':
+        return <PayoutsPage className="h-full" />;
       case 'practice-services':
         return <PracticeServicesPage className="h-full" />;
       case 'practice-team':

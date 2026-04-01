@@ -943,21 +943,6 @@ export const AccountPage = ({
 
       <SectionDivider />
 
-          <SettingRow
-            label={t('settings:account.payouts.sectionTitle')}
-            description={t('settings:account.payouts.description')}
-          >
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => navigate(toSettingsPath('account/payouts'))}
-            >
-              {t('settings:account.payouts.manage')}
-            </Button>
-          </SettingRow>
-
-      <SectionDivider />
-
           {/* Delete account Section */}
           <SettingRow
             label={t('settings:account.delete.sectionTitle')}
