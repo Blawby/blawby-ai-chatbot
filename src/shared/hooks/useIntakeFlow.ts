@@ -221,6 +221,7 @@ export function useIntakeFlow({
   const phase1InFlightRef = useRef(false);
   const finalizeRef = useRef<(options?: { generatePaymentLinkOnly?: boolean }) => Promise<{ paymentLinkUrl: string | null }>>(async () => ({ paymentLinkUrl: null }));
   const paymentPollingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const paymentPollingCancelledRef = useRef(false);
 
   // ---------------------------------------------------------------------------
   // Derived State
@@ -245,6 +246,18 @@ export function useIntakeFlow({
   const intakeStatus = useMemo((): DerivedIntakeStatus => (
     deriveIntakeStatusFromConsultation(conversationMetadata)
   ), [conversationMetadata]);
+
+  useEffect(() => {
+    if (enabled) {
+      paymentPollingCancelledRef.current = false;
+      return;
+    }
+    paymentPollingCancelledRef.current = true;
+    if (paymentPollingTimerRef.current !== null) {
+      clearTimeout(paymentPollingTimerRef.current);
+      paymentPollingTimerRef.current = null;
+    }
+  }, [enabled]);
 
   // ---------------------------------------------------------------------------
   // Actions
@@ -583,6 +596,7 @@ export function useIntakeFlow({
             clearTimeout(paymentPollingTimerRef.current);
             paymentPollingTimerRef.current = null;
           }
+          paymentPollingCancelledRef.current = false;
           const POLL_INTERVAL_MS = 5_000;
           const POLL_TIMEOUT_MS = 10 * 60 * 1_000;
           const pollStart = Date.now();
@@ -594,6 +608,7 @@ export function useIntakeFlow({
           const capturedConversationId = conversationId;
           const capturedPracticeId = practiceId;
           const postPaymentConfirmedMessage = async () => {
+            if (paymentPollingCancelledRef.current) return;
             const name =
               (conversationMetadataRef.current as Record<string, unknown> | null)?.practiceName as string | undefined
               ?? 'the practice';
@@ -611,33 +626,45 @@ export function useIntakeFlow({
           };
 
           const pollOnce = () => {
+            if (paymentPollingCancelledRef.current) {
+              if (paymentPollingTimerRef.current !== null) {
+                clearTimeout(paymentPollingTimerRef.current);
+                paymentPollingTimerRef.current = null;
+              }
+              return;
+            }
             if (Date.now() - pollStart > POLL_TIMEOUT_MS) {
               if (paymentPollingTimerRef.current !== null) {
                 clearTimeout(paymentPollingTimerRef.current);
                 paymentPollingTimerRef.current = null;
               }
+              if (paymentPollingCancelledRef.current) return;
               onError?.('Payment not confirmed after 10 minutes. Please refresh the page to check your status.');
               return;
             }
             if (inFlight) {
               // Previous fetch still running — skip this tick and reschedule.
+              if (paymentPollingCancelledRef.current) return;
               paymentPollingTimerRef.current = setTimeout(pollOnce, POLL_INTERVAL_MS) as unknown as ReturnType<typeof setTimeout>;
               return;
             }
             inFlight = true;
             fetchIntakePaymentStatus(intakeUuid)
               .then(async (status) => {
+                if (paymentPollingCancelledRef.current) return;
                 if (isPaidIntakeStatus(status)) {
                   if (paymentPollingTimerRef.current !== null) {
                     clearTimeout(paymentPollingTimerRef.current);
                     paymentPollingTimerRef.current = null;
                   }
+                  if (paymentPollingCancelledRef.current) return;
                   await postPaymentConfirmedMessage();
                 } else if (isTerminalUnpaidStatus(status)) {
                   if (paymentPollingTimerRef.current !== null) {
                     clearTimeout(paymentPollingTimerRef.current);
                     paymentPollingTimerRef.current = null;
                   }
+                  if (paymentPollingCancelledRef.current) return;
                   const name =
                     (conversationMetadataRef.current as Record<string, unknown> | null)?.practiceName as string | undefined
                     ?? 'the practice';
@@ -652,11 +679,13 @@ export function useIntakeFlow({
                     console.warn('[handleConfirmSubmit] Failed to post payment failed message', msgError);
                   }
                 } else {
+                  if (paymentPollingCancelledRef.current) return;
                   paymentPollingTimerRef.current = setTimeout(pollOnce, POLL_INTERVAL_MS) as unknown as ReturnType<typeof setTimeout>;
                 }
               })
               .catch((pollErr) => {
                 console.warn('[handleConfirmSubmit] Payment status poll failed', pollErr);
+                if (paymentPollingCancelledRef.current) return;
                 paymentPollingTimerRef.current = setTimeout(pollOnce, POLL_INTERVAL_MS) as unknown as ReturnType<typeof setTimeout>;
               })
               .finally(() => { inFlight = false; });
@@ -813,6 +842,7 @@ export function useIntakeFlow({
   // Cancel any in-flight payment polling when the hook unmounts.
   useEffect(() => {
     return () => {
+      paymentPollingCancelledRef.current = true;
       if (paymentPollingTimerRef.current !== null) {
         clearTimeout(paymentPollingTimerRef.current);
         paymentPollingTimerRef.current = null;

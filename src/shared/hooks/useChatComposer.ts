@@ -138,6 +138,7 @@ export const useChatComposer = ({
 
   const abortControllerRef = useRef<AbortController | null>(null);
   const intentAbortRef = useRef<AbortController | null>(null);
+  const activeStreamingBubbleIdRef = useRef<string | null>(null);
   const hasLoggedIntentRef = useRef(false);
   const defaultModePersistedConversationRef = useRef<string | null>(null);
   const pendingIntakeInitRef = useRef<Promise<void> | null>(null);
@@ -218,6 +219,29 @@ export const useChatComposer = ({
   const removeStreamingBubble = useCallback((bubbleId: string) => {
     setMessages(prev => prev.filter(msg => msg.id !== bubbleId));
   }, [setMessages]);
+
+  const cleanupStreamingState = useCallback((bubbleId?: string | null) => {
+    const targetBubbleId = bubbleId ?? activeStreamingBubbleIdRef.current;
+    if (targetBubbleId) {
+      removeStreamingBubble(targetBubbleId);
+    }
+    if (activeStreamingBubbleIdRef.current === targetBubbleId) {
+      activeStreamingBubbleIdRef.current = null;
+    }
+    pendingStreamMessageIdRef.current = null;
+    if (orphanTimerRef.current !== null) {
+      clearTimeout(orphanTimerRef.current);
+      orphanTimerRef.current = null;
+    }
+  }, [orphanTimerRef, pendingStreamMessageIdRef, removeStreamingBubble]);
+
+  const abortActiveRequests = useCallback(() => {
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = null;
+    intentAbortRef.current?.abort();
+    intentAbortRef.current = null;
+    cleanupStreamingState();
+  }, [cleanupStreamingState]);
 
   // ── low-level WS send ─────────────────────────────────────────────────────
 
@@ -637,6 +661,10 @@ export const useChatComposer = ({
           if (intentError instanceof Error && intentError.name !== 'AbortError') {
             console.error('[useChatComposer] Intent classification failed:', intentError);
           }
+        } finally {
+          if (intentAbortRef.current === intentController) {
+            intentAbortRef.current = null;
+          }
         }
       }
 
@@ -656,6 +684,7 @@ export const useChatComposer = ({
       const streamRequestId = createClientId();
       const bubbleId = `${STREAMING_BUBBLE_PREFIX}${resolvedConversationId}-${streamRequestId}`;
       addStreamingBubble(bubbleId);
+      activeStreamingBubbleIdRef.current = bubbleId;
 
       abortControllerRef.current?.abort();
       const abortController = new AbortController();
@@ -677,7 +706,7 @@ export const useChatComposer = ({
         });
 
         if (!aiResponse.ok) {
-          removeStreamingBubble(bubbleId);
+          cleanupStreamingState(bubbleId);
           const errorData = await aiResponse.json().catch(() => ({})) as {
             error?: string;
             errorCode?: string;
@@ -725,7 +754,7 @@ export const useChatComposer = ({
 
         // JSON fallback (short-circuit replies — legal disclaimer, service list, etc.)
         if (contentType.includes('application/json')) {
-          removeStreamingBubble(bubbleId);
+          cleanupStreamingState(bubbleId);
           const aiData = await aiResponse.json() as {
             reply?: string;
             message?: ConversationMessage;
@@ -761,9 +790,19 @@ export const useChatComposer = ({
         await processSSEStream(aiResponse, bubbleId);
 
       } catch (streamError) {
-        if (streamError instanceof Error && streamError.name === 'AbortError') return;
-        removeStreamingBubble(bubbleId);
+        if (streamError instanceof Error && streamError.name === 'AbortError') {
+          cleanupStreamingState(bubbleId);
+          return;
+        }
+        cleanupStreamingState(bubbleId);
         throw streamError;
+      } finally {
+        if (abortControllerRef.current === abortController) {
+          abortControllerRef.current = null;
+        }
+        if (activeStreamingBubbleIdRef.current === bubbleId) {
+          activeStreamingBubbleIdRef.current = null;
+        }
       }
 
     } catch (error) {
@@ -780,6 +819,7 @@ export const useChatComposer = ({
     conversationId,
     conversationMetadataRef,
     conversationIdRef,
+    cleanupStreamingState,
     ensureConversationId,
     messagesRef,
     mode,
@@ -787,7 +827,6 @@ export const useChatComposer = ({
     practiceId,
     practiceSlug,
     processSSEStream,
-    removeStreamingBubble,
     sendMessageOverWs,
     setMessages,
     fetchConversationMetadata,
@@ -801,21 +840,24 @@ export const useChatComposer = ({
     intentAbortRef.current?.abort();
   }, []);
 
+  useEffect(() => {
+    if (enabled) return;
+    abortActiveRequests();
+  }, [abortActiveRequests, enabled]);
+
   // Cleanup on unmount
   useEffect(() => {
     isMountedRef.current = true;
     const currentPendingAck = pendingAckRef.current;
     return () => {
       isMountedRef.current = false;
-      abortControllerRef.current?.abort();
-      intentAbortRef.current?.abort();
-      if (orphanTimerRef.current) clearTimeout(orphanTimerRef.current);
+      abortActiveRequests();
       currentPendingAck.forEach(item => {
         clearTimeout(item.timer);
       });
       currentPendingAck.clear();
     };
-  }, [orphanTimerRef, pendingAckRef]);
+  }, [abortActiveRequests, pendingAckRef]);
 
   return {
     sendMessage,
