@@ -26,7 +26,6 @@ import { PERSON_RELATIONSHIP_STATUS_LABELS } from '@/shared/domain/people';
 import type { Address } from '@/shared/types/address';
 import type { IntakeConversationState, DerivedIntakeStatus } from '@/shared/types/intake';
 import { resolveStrengthTier, resolveStrengthLabel, resolveStrengthStyle, resolveStrengthDescription } from '@/shared/utils/intakeStrength';
-import { renderUserAvatar } from '@/shared/ui/profile';
 
 type InspectorConfig =
   | { type: 'conversation' }

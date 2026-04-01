@@ -33,7 +33,7 @@ const ConversationListView: FunctionComponent<ConversationListViewProps> = ({
   conversations,
   previews,
   practiceName,
-  practiceLogo,
+  practiceLogo: _practiceLogo,
   isLoading = false,
   error = null,
   onSelectConversation,
