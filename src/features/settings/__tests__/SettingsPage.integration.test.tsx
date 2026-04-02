@@ -152,6 +152,7 @@ vi.mock('@/shared/hooks/useNavigation', () => ({
 vi.mock('@/config/features', () => ({
   features: {
     enableMultiplePractices: false,
+    enableMfa: false,
   },
 }));
 

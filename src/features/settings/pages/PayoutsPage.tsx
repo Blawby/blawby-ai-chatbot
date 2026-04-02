@@ -4,7 +4,9 @@ import { Button } from '@/shared/ui/Button';
 import { SectionDivider } from '@/shared/ui';
 import { ContentPageLayout } from '@/shared/ui/layout';
 import { SettingsHelperText } from '@/features/settings/components/SettingsHelperText';
+import { SettingsNotice } from '@/features/settings/components/SettingsNotice';
 import { SettingSection } from '@/features/settings/components/SettingSection';
+import { SettingRow } from '@/features/settings/components/SettingRow';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { useToastContext } from '@/shared/contexts/ToastContext';
@@ -12,7 +14,6 @@ import {
   createConnectedAccount,
   getOnboardingStatusPayload
 } from '@/shared/lib/apiClient';
-import { StripeOnboardingStep } from '@/features/onboarding/steps/StripeOnboardingStep';
 import { extractStripeStatusFromPayload } from '@/features/onboarding/utils';
 import type { StripeConnectStatus } from '@/features/onboarding/types';
 import { getValidatedStripeOnboardingUrl } from '@/shared/utils/stripeOnboarding';
@@ -187,127 +188,170 @@ export const PayoutsPage = ({ className = '' }: { className?: string }) => {
 
   const businessEmail = currentPractice?.businessEmail || session?.user?.email || '';
   const missingBusinessEmail = !businessEmail;
+  const statusLabel = statusTone === 'ready'
+    ? 'Ready'
+    : statusTone === 'action'
+      ? 'Action required'
+      : statusTone === 'pending'
+        ? 'Verification in progress'
+        : 'Not started';
+  const actionButtonLabel = isSubmitting
+    ? 'Preparing Stripe...'
+    : hasStripeAccount
+      ? 'Continue Stripe setup'
+      : 'Start Stripe setup';
 
   return (
     <ContentPageLayout title="Payouts" className={className} contentClassName="pb-8">
-      <SettingSection title="External payout accounts">
-        {hasStripeAccount && statusSummary ? (
-          <div className="space-y-4">
-            <div className="flex items-start gap-3">
-              <span className="mt-0.5 flex h-8 w-8 items-center justify-center">
-                <statusSummary.icon className={`h-5 w-5 ${statusSummary.iconClassName}`} />
-              </span>
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-input-text">{statusSummary.title}</p>
-                <p className="text-sm text-input-placeholder">{statusSummary.description}</p>
-              </div>
+      <SettingSection
+        title="External payout accounts"
+        description="Connect Stripe to receive payouts for your practice."
+      >
+        <SettingsNotice variant={missingBusinessEmail ? 'warning' : 'info'} className="mb-4">
+          <div className="flex items-start gap-3">
+            <span className="mt-0.5 flex h-5 w-5 items-center justify-center">
+              <Icon
+                icon={missingBusinessEmail ? ExclamationTriangleIcon : (hasStripeAccount && statusSummary ? statusSummary.icon : ShieldCheckIcon)}
+                className={missingBusinessEmail
+                  ? 'h-5 w-5 text-amber-600 dark:text-amber-400'
+                  : hasStripeAccount && statusSummary
+                    ? `h-5 w-5 ${statusSummary.iconClassName}`
+                    : 'h-5 w-5 text-input-placeholder'}
+              />
+            </span>
+            <div className="min-w-0">
+              <p className="text-sm font-medium">
+                {missingBusinessEmail
+                  ? 'Business email required'
+                  : hasStripeAccount && statusSummary
+                    ? statusSummary.title
+                    : 'Stripe onboarding required'}
+              </p>
+              <p className="mt-1 text-sm">
+                {missingBusinessEmail
+                  ? 'Add a business email in practice contact settings before starting Stripe verification.'
+                  : hasStripeAccount && statusSummary
+                    ? statusSummary.description
+                    : 'Stripe will verify your business and representative details before enabling payouts.'}
+              </p>
             </div>
+          </div>
+        </SettingsNotice>
 
-            <div className="glass-panel p-4">
-              <div className="grid gap-2 text-sm">
-                <div className="flex items-center justify-between gap-4">
-                  <span className="text-input-placeholder">Stripe account</span>
-                  <span className="font-medium text-input-text">{maskStripeAccountId(stripeStatus?.stripe_account_id)}</span>
-                </div>
-                <div className="flex items-center justify-between gap-4">
-                  <span className="text-input-placeholder">Charges</span>
-                  <span className="font-medium text-input-text">{chargesEnabled ? 'Enabled' : 'Pending verification'}</span>
-                </div>
-                <div className="flex items-center justify-between gap-4">
-                  <span className="text-input-placeholder">Payouts</span>
-                  <span className="font-medium text-input-text">{payoutsEnabled ? 'Enabled' : 'Pending verification'}</span>
-                </div>
-                <div className="flex items-center justify-between gap-4">
-                  <span className="text-input-placeholder">Status</span>
-                  <span className="font-medium text-input-text">
-                    {statusTone === 'ready'
-                      ? 'Ready'
-                      : statusTone === 'action'
-                      ? 'Action required'
-                      : statusTone === 'pending'
-                      ? 'Verification in progress'
-                      : 'Not started'}
-                  </span>
-                </div>
-              </div>
-              <p className="mt-3 text-xs text-input-placeholder">
-                Bank accounts and payout schedules are managed in Stripe after onboarding.
-              </p>
-            </div>
+        <SettingRow
+          label="Stripe account"
+          description={isReady ? undefined : 'Bank accounts and payout schedules are managed in Stripe after onboarding.'}
+        >
+          <div className="flex w-full items-center justify-between gap-3 sm:w-auto sm:justify-end">
+            <span className="text-sm font-medium text-input-text">
+              {maskStripeAccountId(stripeStatus?.stripe_account_id)}
+            </span>
+            {hasStripeAccount ? (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={handleSubmitDetails}
+                disabled={isSubmitting || isLoading || missingBusinessEmail}
+              >
+                Manage
+              </Button>
+            ) : null}
           </div>
-        ) : (
-          <div className="space-y-4">
-            <div className="flex items-start gap-3 text-sm text-input-placeholder">
-              <span className="mt-0.5 flex h-8 w-8 items-center justify-center">
-                <Icon icon={ShieldCheckIcon} className="h-5 w-5 text-input-placeholder"  />
-              </span>
-              <p>
-                Information about your business, and authorized representative(s) of your business, will need to be verified to comply with the law. This may require you to provide documents such as government-issued identification.
-              </p>
+        </SettingRow>
+
+        <SectionDivider />
+
+        <SettingRow
+          label="Business email"
+          labelNode={(
+            <div className="flex items-center gap-3">
+              <Icon icon={UserIcon} className="h-5 w-5 text-input-placeholder" />
+              <span className="text-sm font-medium text-input-text">Business email</span>
             </div>
-            <div className="flex items-start gap-3 text-sm text-input-placeholder">
-              <span className="mt-0.5 flex h-8 w-8 items-center justify-center">
-                <Icon icon={UserIcon} className="h-5 w-5 text-input-placeholder"  />
-              </span>
-              <p>
-                It&apos;s recommended that the person filling out the information is either the owner of the business, or someone with a significant role in the business, such as a director or executive.
-              </p>
+          )}
+          description={isReady ? undefined : 'Stripe uses this email during onboarding and verification.'}
+        >
+          <span className="text-sm font-medium text-input-text">
+            {businessEmail || 'Not set'}
+          </span>
+        </SettingRow>
+
+        <SectionDivider />
+
+        <SettingRow
+          label="Charges"
+          description={isReady ? undefined : 'Card payments can be accepted once Stripe finishes verifying the account.'}
+        >
+          <span className="text-sm font-medium text-input-text">
+            {chargesEnabled ? 'Enabled' : 'Pending verification'}
+          </span>
+        </SettingRow>
+
+        <SectionDivider />
+
+        <SettingRow
+          label="Payouts"
+          labelNode={(
+            <div className="flex items-center gap-3">
+              <Icon icon={LockClosedIcon} className="h-5 w-5 text-input-placeholder" />
+              <span className="text-sm font-medium text-input-text">Payouts</span>
             </div>
-            <div className="flex items-start gap-3 text-sm text-input-placeholder">
-              <span className="mt-0.5 flex h-8 w-8 items-center justify-center">
-                <Icon icon={LockClosedIcon} className="h-5 w-5 text-input-placeholder"  />
-              </span>
-              <p>
-                Any information and documentation you submit will be securely handled in accordance with Blawby&apos;s Privacy Policy, and may be used to create a faster onboarding experience for you if you choose to use other Blawby products.
-              </p>
+          )}
+          description={isReady ? undefined : 'Payouts unlock after Stripe verifies your business details.'}
+        >
+          <span className="text-sm font-medium text-input-text">
+            {payoutsEnabled ? 'Enabled' : 'Pending verification'}
+          </span>
+        </SettingRow>
+
+        <SectionDivider />
+
+        <SettingRow
+          label="Status"
+          labelNode={(
+            <div className="flex items-center gap-3">
+              <Icon icon={ShieldCheckIcon} className="h-5 w-5 text-input-placeholder" />
+              <span className="text-sm font-medium text-input-text">Status</span>
             </div>
-            {missingBusinessEmail && (
-              <div className="flex items-start gap-3 text-sm text-input-placeholder">
-                <span className="mt-0.5 flex h-8 w-8 items-center justify-center">
-                  <Icon icon={ExclamationTriangleIcon} className="h-5 w-5 text-amber-600 dark:text-amber-400"  />
-                </span>
-                <p>
-                  Add a business email in your practice contact settings before starting Stripe verification.
-                </p>
-              </div>
-            )}
-          </div>
+          )}
+          description={isReady
+            ? undefined
+            : hasStripeAccount
+              ? 'Review or complete Stripe onboarding to finish setup.'
+              : 'Start Stripe onboarding to create your payout account.'}
+        >
+          <span className="text-sm font-medium text-input-text">
+            {statusLabel}
+          </span>
+        </SettingRow>
+
+        {!isReady && (
+          <>
+            <SectionDivider />
+            <SettingRow
+              label="Stripe setup"
+              description="You will be redirected to Stripe to complete or review verification."
+            >
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={handleSubmitDetails}
+                disabled={isSubmitting || isLoading || missingBusinessEmail}
+              >
+                {actionButtonLabel}
+              </Button>
+            </SettingRow>
+          </>
         )}
 
-        <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
-          {!isReady && (
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={handleSubmitDetails}
-              disabled={isSubmitting || isLoading || missingBusinessEmail}
-            >
-              {isSubmitting ? 'Preparing Stripe...' : hasStripeAccount ? 'Continue Stripe setup' : 'Start Stripe setup'}
-            </Button>
-          )}
-          {!isReady && (
-            <SettingsHelperText>
-              {missingBusinessEmail
-                ? 'Add a business email before starting Stripe verification.'
-                : 'You will be redirected to Stripe to complete or review verification.'}
-            </SettingsHelperText>
-          )}
-        </div>
+        {!isReady && (
+          <SettingsHelperText className="mt-3 block">
+            {missingBusinessEmail
+              ? 'Add a business email before starting Stripe verification.'
+              : 'The recommended person to complete onboarding is the business owner or another authorized representative.'}
+          </SettingsHelperText>
+        )}
       </SettingSection>
-
-      {stripeStatus && !isReady && (
-        <>
-          <SectionDivider />
-          <div className="mt-4">
-            <StripeOnboardingStep
-              status={stripeStatus}
-              loading={isLoading}
-              showIntro={false}
-              showInfoCard={false}
-            />
-          </div>
-        </>
-      )}
     </ContentPageLayout>
   );
 };

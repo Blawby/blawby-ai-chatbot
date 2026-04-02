@@ -127,6 +127,7 @@ vi.mock('@/config/features', () => ({
   },
   features: {
     enableMultiplePractices: true,
+    enableMfa: false,
   },
 }));
 

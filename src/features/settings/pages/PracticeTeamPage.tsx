@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'preact/hooks';
 import { useLocation } from 'preact-iso';
-import { ArrowLeftIcon, UserPlusIcon, DocumentDuplicateIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { UserPlusIcon, DocumentDuplicateIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import { Icon } from '@/shared/ui/Icon';
 import { usePracticeManagement, type Role } from '@/shared/hooks/usePracticeManagement';
 import { usePracticeTeam } from '@/shared/hooks/usePracticeTeam';
@@ -12,7 +12,6 @@ import { EmailInput } from '@/shared/ui/input';
 import { FormLabel } from '@/shared/ui/form/FormLabel';
 import { Combobox } from '@/shared/ui/input/Combobox';
 import { useToastContext } from '@/shared/contexts/ToastContext';
-import { useNavigation } from '@/shared/utils/navigation';
 import { useTranslation } from '@/shared/i18n/hooks';
 import { formatDate } from '@/shared/utils/dateTime';
 import { getPracticeRoleLabel, PRACTICE_ROLE_OPTIONS, normalizePracticeRole } from '@/shared/utils/practiceRoles';
@@ -25,11 +24,10 @@ import { buildSettingsPath, resolveSettingsBasePath } from '@/shared/utils/works
 import { Avatar, UserCard } from '@/shared/ui/profile';
 
 interface PracticeTeamPageProps {
-  onNavigate?: (path: string) => void;
   className?: string;
 }
 
-export const PracticeTeamPage = ({ onNavigate, className }: PracticeTeamPageProps) => {
+export const PracticeTeamPage = ({ className }: PracticeTeamPageProps) => {
   const { session, activeMemberRole, activeMemberRoleLoading } = useSessionContext();
   const {
     currentPractice,
@@ -46,9 +44,7 @@ export const PracticeTeamPage = ({ onNavigate, className }: PracticeTeamPageProp
   } = usePracticeInvitations(currentPractice?.id ?? null);
   const { showSuccess, showError, showWarning } = useToastContext();
   const { openBillingPortal, submitting } = usePaymentUpgrade();
-  const { navigate: baseNavigate } = useNavigation();
   const { t } = useTranslation(['settings']);
-  const navigate = onNavigate ?? baseNavigate;
   const location = useLocation();
   const settingsBasePath = resolveSettingsBasePath(location.path);
   const toSettingsPath = (subPath?: string) => buildSettingsPath(settingsBasePath, subPath);
@@ -238,15 +234,6 @@ export const PracticeTeamPage = ({ onNavigate, className }: PracticeTeamPageProp
       className={className}
       wrapChildren={false}
       contentClassName="pb-6"
-      headerLeading={(
-        <Button
-          variant="icon"
-          size="icon"
-          onClick={() => navigate(toSettingsPath('practice'))}
-          aria-label="Back to practice settings"
-          icon={ArrowLeftIcon} iconClassName="w-5 h-5"
-        />
-      )}
     >
       <div className="pt-2 pb-6">
         <div className="flex items-center justify-between gap-4">

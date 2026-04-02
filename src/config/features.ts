@@ -86,6 +86,12 @@ interface FeatureFlags {
      * When false, the account links section is hidden
      */
     enableAccountLinks: boolean;
+
+    /**
+     * Enable multi-factor authentication settings UI and enrollment flow
+     * When false, MFA controls and routes stay hidden from settings
+     */
+    enableMfa: boolean;
     /**
      * Enable Plus subscription tier in UI
      * When false, the Plus plan is hidden from pricing/upgrade flows
@@ -119,6 +125,7 @@ const baseFeatureConfig: FeatureFlags = {
     enableLeadQualification: true, // Enable lead qualification flow - AI asks questions before contact form
     enableMultiplePractices: true, // Enable multiple practices feature
     enableAccountLinks: false, // Hide account links until the settings flow is ready
+    enableMfa: false, // Hide MFA until the backend/auth flow is ready end-to-end
 
     enablePlusTier: false, // Hide Plus plan by default (not available at launch)
     enableActivity: false, // Disabled until activity is migrated off Worker/D1

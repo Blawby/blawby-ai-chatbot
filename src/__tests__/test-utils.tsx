@@ -149,6 +149,10 @@ vi.mock('@/config/features', () => ({
     enablePaymentIframe: false,
     enableLeadQualification: true,
     enableMultiplePractices: true,
+    enableAccountLinks: false,
+    enableMfa: false,
+    enablePlusTier: false,
+    enableActivity: false,
   }
 }));
 

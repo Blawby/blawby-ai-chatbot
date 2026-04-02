@@ -92,7 +92,7 @@ declare global {
 
 // ── test suite ───────────────────────────────────────────────────────────────
 
-test.describe('Widget embed (cross-origin iframe flow)', () => {
+test.describe('Public widget embed (cross-origin iframe flow)', () => {
   test.describe.configure({ timeout: 120_000 });
 
   test('bootstrap returns 200 and widget emits blawby:ready', async ({ anonPage: page }, testInfo) => {

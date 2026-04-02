@@ -1,5 +1,12 @@
 import { defineConfig, devices } from '@playwright/test';
 
+const PUBLIC_WIDGET_SPECS = [
+  /.*widget-diagnose\.spec\.ts/,
+  /.*widget-intake-flow\.spec\.ts/,
+  /.*widget-embed\.spec\.ts/,
+  /.*widget-performance\.spec\.ts/,
+];
+
 const resolveWorkers = (): number => {
   const raw = Number(process.env.E2E_WORKERS);
   if (Number.isFinite(raw) && raw > 0) {
@@ -11,16 +18,11 @@ const resolveWorkers = (): number => {
 export default defineConfig({
   timeout: 150000,
   testDir: './tests/e2e',
-  testMatch: [
-    /.*diagnose-intake\.spec\.ts/,
-    /.*lead-flow\.spec\.ts/,
-    /.*widget-embed\.spec\.ts/,
-    /.*widget-performance\.spec\.ts/,
-  ],
+  testMatch: PUBLIC_WIDGET_SPECS,
   fullyParallel: true,
   retries: 0,
   workers: resolveWorkers(),
-  outputDir: './playwright/public-results',
+  outputDir: './.tmp/playwright/public/results',
   use: {
     baseURL: process.env.E2E_BASE_URL || 'https://local.blawby.com',
     trace: 'retain-on-failure',
@@ -29,7 +31,7 @@ export default defineConfig({
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   globalSetup: './tests/e2e/global-setup.public.ts',
   reporter: [
-    ['html', { outputFolder: './playwright/public-reports', open: 'never' }],
+    ['html', { outputFolder: './.tmp/playwright/public/report', open: 'never' }],
     ['list']
   ],
 });

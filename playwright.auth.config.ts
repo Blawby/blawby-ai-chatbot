@@ -20,16 +20,16 @@ export default defineConfig({
   fullyParallel: true,
   retries: 0,
   workers: resolveWorkers(),
-  outputDir: './playwright/auth-results',
+  outputDir: './.tmp/playwright/auth/results',
   use: {
     baseURL: process.env.E2E_BASE_URL || 'https://local.blawby.com',
     trace: 'retain-on-failure',
-    storageState: 'playwright/.auth/owner.json',
+    storageState: './.tmp/playwright/auth/state/owner.json',
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   globalSetup: './tests/e2e/global-setup.auth.ts',
   reporter: [
-    ['html', { outputFolder: './playwright/auth-reports', open: 'never' }],
+    ['html', { outputFolder: './.tmp/playwright/auth/report', open: 'never' }],
     ['list']
   ],
 });

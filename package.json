@@ -36,6 +36,8 @@
     "test:stripe:integration": "./scripts/tests/test-stripe-integration.sh",
     "test:e2e:all": "npm run test:e2e && npm run test:e2e:auth && npm run test:e2e:api",
     "test:e2e": "playwright test -c playwright.public.config.ts",
+    "test:e2e:widget": "playwright test -c playwright.public.config.ts tests/e2e/widget-diagnose.spec.ts tests/e2e/widget-intake-flow.spec.ts tests/e2e/widget-embed.spec.ts tests/e2e/widget-performance.spec.ts",
+    "test:e2e:widget:diagnose": "playwright test -c playwright.public.config.ts tests/e2e/widget-diagnose.spec.ts",
     "test:e2e:auth": "playwright test -c playwright.auth.config.ts",
     "test:e2e:ui": "playwright test -c playwright.public.config.ts --ui",
     "smoke:ai-gateway": "tsx scripts/ai-gateway-smoke-test.ts",

@@ -5,6 +5,7 @@ import { Logger } from '../utils/logger.js';
 import { SessionAuditService } from './SessionAuditService.js';
 import {
   applyConsultationPatchToMetadata,
+  isIntakeReadyForSubmission,
   normalizeSlimContactDraft as normalizeSharedSlimContactDraft,
   resolveConsultationState,
 } from '../../src/shared/utils/consultationState';
@@ -150,6 +151,31 @@ export class ConversationService {
 
   private normalizeSlimContactDraft(value: unknown): { name: string; email: string; phone: string } | null {
     return normalizeSharedSlimContactDraft(value);
+  }
+
+  private shouldCreateFreshCurrentConversation(metadata: Record<string, unknown> | null): boolean {
+    if (!metadata) return false;
+
+    const consultation = resolveConsultationState(metadata);
+    if (consultation) {
+      if (consultation.status === 'submitted' || consultation.status === 'completed') {
+        return true;
+      }
+
+      if (isIntakeReadyForSubmission(consultation.case)) {
+        return true;
+      }
+    }
+
+    if (metadata.intakeSubmitted === true || metadata.intakeCompleted === true) {
+      return true;
+    }
+
+    if (this.readTrimmedString(metadata.intakeUuid)) {
+      return true;
+    }
+
+    return false;
   }
 
   private extractSlimContactDraftFromContent(content: string | null | undefined): { name: string; email: string; phone: string } | null {
@@ -647,7 +673,10 @@ export class ConversationService {
     const existing = await this.env.DB.prepare(query).bind(practiceId, userId).first<Record<string, unknown>>();
 
     if (existing) {
-      return this.mapRecordToConversation(existing);
+      const mapped = this.mapRecordToConversation(existing);
+      if (!this.shouldCreateFreshCurrentConversation(mapped.user_info ?? null)) {
+        return mapped;
+      }
     }
 
     // No existing conversation, create new one.

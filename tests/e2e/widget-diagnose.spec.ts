@@ -3,7 +3,7 @@ import { randomUUID } from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 
-test.describe('Intake QuickAction Diagnosis', () => {
+test.describe('Public widget diagnosis', () => {
   test.describe.configure({ timeout: 120000 });
 
   test('capture intake debug logs', async ({ anonPage }) => {
@@ -115,7 +115,9 @@ test.describe('Intake QuickAction Diagnosis', () => {
     await anonPage.waitForTimeout(5000);
 
     // Step 10: Write collected logs to file for runner script
-    const resultsPath = path.join(process.cwd(), 'intake-debug-results.json');
+    const resultsDir = path.join(process.cwd(), '.tmp', 'playwright', 'diagnostics');
+    fs.mkdirSync(resultsDir, { recursive: true });
+    const resultsPath = path.join(resultsDir, 'intake-debug-results.json');
     fs.writeFileSync(resultsPath, JSON.stringify(debugLogs, null, 2));
     
     console.log(`Captured ${debugLogs.length} debug logs to ${resultsPath}`);

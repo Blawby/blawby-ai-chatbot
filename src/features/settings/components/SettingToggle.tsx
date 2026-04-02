@@ -21,12 +21,12 @@ export const SettingToggle = ({
   className = ''
 }: SettingToggleProps) => {
   return (
-    <div className={cn('flex items-center justify-between py-3', className)}>
+    <div className={cn('flex flex-col gap-3 py-3 sm:flex-row sm:items-start sm:justify-between', className)}>
       <div className="flex-1 min-w-0">
         <FormLabel htmlFor={id}>{label}</FormLabel>
         {description && <SettingDescription text={description} />}
       </div>
-      <div className="ml-4">
+      <div className="w-full sm:ml-4 sm:flex sm:w-auto sm:justify-end">
         <Switch
           id={id}
           value={value}

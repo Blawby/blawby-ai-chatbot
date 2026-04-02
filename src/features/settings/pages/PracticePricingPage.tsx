@@ -1,10 +1,7 @@
 import { useMemo, useState } from 'preact/hooks';
-import { useLocation } from 'preact-iso';
-import { ArrowLeftIcon } from '@heroicons/react/24/outline';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { useToastContext } from '@/shared/contexts/ToastContext';
-import { useNavigation } from '@/shared/utils/navigation';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import { asMajor, fromMinorUnits, type MajorAmount } from '@/shared/utils/money';
 import { Button } from '@/shared/ui/Button';
@@ -14,7 +11,6 @@ import { SectionDivider } from '@/shared/ui/layout';
 import { CurrencyInput, Input, Switch } from '@/shared/ui/input';
 import { Dialog, DialogBody, DialogFooter } from '@/shared/ui/dialog';
 import { normalizePracticeRole } from '@/shared/utils/practiceRoles';
-import { buildSettingsPath, resolveSettingsBasePath } from '@/shared/utils/workspace';
 
 const DEFAULT_BILLING_INCREMENT = 1;
 
@@ -26,8 +22,6 @@ export const PracticePricingPage = ({ className }: PracticePricingPageProps) => 
   const { activeMemberRole, activeMemberRoleLoading } = useSessionContext();
   const { currentPractice, loading, updatePracticeDetails } = usePracticeManagement({ fetchPracticeDetails: true });
   const { showSuccess, showError } = useToastContext();
-  const { navigate } = useNavigation();
-  const location = useLocation();
   const [isFeeModalOpen, setIsFeeModalOpen] = useState(false);
   const [feeEnabledDraft, setFeeEnabledDraft] = useState(false);
   const [feeDraft, setFeeDraft] = useState<MajorAmount | undefined>(undefined);
@@ -41,8 +35,6 @@ export const PracticePricingPage = ({ className }: PracticePricingPageProps) => 
   const normalizedRole = normalizePracticeRole(activeMemberRole);
   const canEdit = !activeMemberRoleLoading && (normalizedRole === 'owner' || normalizedRole === 'admin');
   const isReadOnly = !activeMemberRoleLoading && !canEdit;
-  const settingsBasePath = resolveSettingsBasePath(location.path);
-  const toSettingsPath = (subPath?: string) => buildSettingsPath(settingsBasePath, subPath);
 
   const activeFee = useMemo(() => {
     const raw = currentPractice?.consultationFee;
@@ -231,15 +223,6 @@ export const PracticePricingPage = ({ className }: PracticePricingPageProps) => 
       className={className}
       wrapChildren={false}
       contentClassName="pb-6"
-      headerLeading={(
-        <Button
-          variant="icon"
-          size="icon"
-          onClick={() => navigate(toSettingsPath('practice'))}
-          aria-label="Back to practice settings"
-          icon={ArrowLeftIcon} iconClassName="w-5 h-5"
-        />
-      )}
     >
       <div className="pt-2 pb-6">
         <p className="text-sm text-input-placeholder">
