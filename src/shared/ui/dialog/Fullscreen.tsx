@@ -49,6 +49,10 @@ export const Fullscreen: FunctionComponent<FullscreenProps> = ({
     }
 
     const handleEscape = (e: KeyboardEvent) => {
+      if (e.defaultPrevented) {
+        return;
+      }
+
       if (!isTopmostModal(dialogId)) {
         return;
       }
