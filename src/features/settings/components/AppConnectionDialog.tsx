@@ -17,28 +17,30 @@ export const AppConnectionDialog: FunctionComponent<AppConnectionDialogProps> = 
   app,
   onConnect
 }) => {
-  const { t } = useTranslation(['settings']);
+  const { t, i18n } = useTranslation(['settings']);
+  const appKey = i18n.exists(`settings:apps.${app.id}.connectModal.title`) ? app.id : 'clio';
+  const connectModalKey = `settings:apps.${appKey}.connectModal`;
   const items: InfoListDialogItem[] = [
     {
       id: 'permissions',
       icon: ShieldCheckIcon,
-      title: t('settings:apps.clio.connectModal.permissions.title'),
-      description: t('settings:apps.clio.connectModal.permissions.description', { app: app.name }),
+      title: t(`${connectModalKey}.permissions.title`),
+      description: t(`${connectModalKey}.permissions.description`, { app: app.name }),
     },
     {
       id: 'control',
       icon: LockClosedIcon,
-      title: t('settings:apps.clio.connectModal.control.title'),
+      title: t(`${connectModalKey}.control.title`),
       description: (
         <>
-          {t('settings:apps.clio.connectModal.control.description', { app: app.name })}{' '}
+          {t(`${connectModalKey}.control.description`, { app: app.name })}{' '}
           <a
             href={app.privacyPolicy}
             target="_blank"
             rel="noopener noreferrer"
             className="text-accent-600 hover:underline dark:text-accent-400"
           >
-            {t('settings:apps.clio.connectModal.control.learnMore')}
+            {t(`${connectModalKey}.control.learnMore`)}
           </a>
         </>
       ),
@@ -47,19 +49,18 @@ export const AppConnectionDialog: FunctionComponent<AppConnectionDialogProps> = 
       id: 'risk',
       icon: ExclamationTriangleIcon,
       iconClassName: 'h-5 w-5 text-amber-600 dark:text-amber-400',
-      title: t('settings:apps.clio.connectModal.risk.title'),
+      title: t(`${connectModalKey}.risk.title`),
       description: (
         <>
-          {t('settings:apps.clio.connectModal.risk.description')}{' '}
-          <button
-            type="button"
-            onClick={() => {
-              // TODO: Link to security guide
-            }}
-            className="bg-transparent p-0 font-medium text-accent-600 hover:underline dark:text-accent-400"
+          {t(`${connectModalKey}.risk.description`)}{' '}
+          <a
+            href="https://blawby.com/help"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-medium text-accent-600 hover:underline dark:text-accent-400"
           >
-            {t('settings:apps.clio.connectModal.risk.learnMore')}
-          </button>
+            {t(`${connectModalKey}.risk.learnMore`)}
+          </a>
         </>
       ),
     },
@@ -69,11 +70,11 @@ export const AppConnectionDialog: FunctionComponent<AppConnectionDialogProps> = 
     <InfoListDialog
       isOpen={isOpen}
       onClose={onClose}
-      title={t('settings:apps.clio.connectModal.title', { app: app.name })}
-      description={t('settings:apps.clio.connectModal.description', { app: app.name })}
+      title={t(`${connectModalKey}.title`, { app: app.name })}
+      description={t(`${connectModalKey}.description`, { app: app.name })}
       headerIcon={PuzzlePieceIcon}
       items={items}
-      actionLabel={t('settings:apps.clio.connectModal.continue', { app: app.name })}
+      actionLabel={t(`${connectModalKey}.continue`, { app: app.name })}
       onAction={onConnect}
     />
   );

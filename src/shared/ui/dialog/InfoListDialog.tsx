@@ -1,4 +1,5 @@
 import type { ComponentChildren, ComponentType, FunctionComponent, JSX } from 'preact';
+import { useId } from 'preact/hooks';
 import { Dialog } from './Dialog';
 import { DialogBody } from './DialogBody';
 import { DialogFooter } from './DialogFooter';
@@ -51,6 +52,7 @@ export const InfoListDialog: FunctionComponent<InfoListDialogProps> = ({
   contentClassName = 'max-w-md',
 }) => {
   const HeaderIcon = headerIcon;
+  const titleId = `info-list-dialog-title-${useId()}`;
 
   return (
     <Dialog
@@ -58,6 +60,7 @@ export const InfoListDialog: FunctionComponent<InfoListDialogProps> = ({
       onClose={onClose}
       showCloseButton={false}
       contentClassName={contentClassName}
+      ariaLabelledBy={titleId}
     >
       <DialogHeader onClose={onClose} showCloseButton className="pb-2">
         <div className="flex items-start gap-3">
@@ -67,7 +70,7 @@ export const InfoListDialog: FunctionComponent<InfoListDialogProps> = ({
             </div>
           ) : null}
           <div className="min-w-0 space-y-1">
-            <DialogTitle>{title}</DialogTitle>
+            <DialogTitle id={titleId}>{title}</DialogTitle>
             {description ? <DialogDescription>{description}</DialogDescription> : null}
           </div>
         </div>

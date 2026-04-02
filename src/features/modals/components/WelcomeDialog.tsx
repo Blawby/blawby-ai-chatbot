@@ -19,11 +19,11 @@ interface WelcomeDialogProps {
 const WelcomeDialog = ({ isOpen, onClose, onComplete, workspace }: WelcomeDialogProps) => {
   const { t } = useTranslation('common');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const isMountedRef = useRef(true);
+  const completionControllerRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     return () => {
-      isMountedRef.current = false;
+      completionControllerRef.current?.abort();
     };
   }, []);
 
@@ -88,13 +88,31 @@ const WelcomeDialog = ({ isOpen, onClose, onComplete, workspace }: WelcomeDialog
       ]) satisfies InfoListDialogItem[];
 
   const handleComplete = async () => {
+    completionControllerRef.current?.abort();
+    const controller = new AbortController();
+    completionControllerRef.current = controller;
     setIsSubmitting(true);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 300));
-      await onComplete();
+      await new Promise<void>((resolve, reject) => {
+        const timeoutId = window.setTimeout(resolve, 300);
+        controller.signal.addEventListener('abort', () => {
+          window.clearTimeout(timeoutId);
+          reject(new DOMException('Operation aborted', 'AbortError'));
+        }, { once: true });
+      });
+      try {
+        await onComplete();
+      } catch (error) {
+        console.error('[WelcomeDialog] Failed to complete welcome flow', error);
+      }
+    } catch (error) {
+      if (!(error instanceof DOMException && error.name === 'AbortError')) {
+        console.error('[WelcomeDialog] Failed to resolve completion state', error);
+      }
     } finally {
-      if (isMountedRef.current) {
+      if (completionControllerRef.current === controller && !controller.signal.aborted) {
         setIsSubmitting(false);
+        completionControllerRef.current = null;
       }
     }
   };

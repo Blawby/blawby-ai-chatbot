@@ -132,9 +132,11 @@ const OnboardingDialogs = forwardRef<OnboardingDialogsRef, OnboardingDialogsProp
       {/* Basics Modal */}
       <Dialog
         isOpen={basicsModalOpen}
-        onClose={() => setBasicsModalOpen(false)}
+        onClose={isModalSaving ? () => {} : () => setBasicsModalOpen(false)}
         title="Edit Practice Basics"
         contentClassName="glass-panel"
+        disableBackdropClick={isModalSaving}
+        showCloseButton={!isModalSaving}
       >
         <div className="space-y-4">
           <FormGrid>
@@ -175,6 +177,7 @@ const OnboardingDialogs = forwardRef<OnboardingDialogsRef, OnboardingDialogsProp
                   onChange={e => setBasicsDraft(p => ({ ...p, accentColor: (e.target as HTMLInputElement).value }))}
                   className="absolute inset-0 w-full h-full cursor-pointer opacity-0"
                   aria-label="Accent color"
+                  disabled={isModalSaving}
                 />
               </div>
               <Input
@@ -202,9 +205,11 @@ const OnboardingDialogs = forwardRef<OnboardingDialogsRef, OnboardingDialogsProp
       {/* Contact Modal */}
       <Dialog
         isOpen={contactModalOpen}
-        onClose={() => setContactModalOpen(false)}
+        onClose={isModalSaving ? () => {} : () => setContactModalOpen(false)}
         title="Edit Contact Information"
         contentClassName="glass-panel"
+        disableBackdropClick={isModalSaving}
+        showCloseButton={!isModalSaving}
       >
         <div className="space-y-4">
           <FormGrid>

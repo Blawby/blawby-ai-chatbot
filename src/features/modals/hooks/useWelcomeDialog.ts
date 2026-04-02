@@ -17,6 +17,7 @@ export function useWelcomeDialog(options: UseWelcomeDialogOptions = {}): UseWelc
   const { session, isPending: sessionIsPending, isAnonymous } = useSessionContext();
   const [shouldShow, setShouldShow] = useState(false);
   const bcRef = useRef<BroadcastChannel | null>(null);
+  const receivedShownRef = useRef(false);
 
   useEffect(() => {
     if (!enabled) return;
@@ -25,6 +26,7 @@ export function useWelcomeDialog(options: UseWelcomeDialogOptions = {}): UseWelc
       bcRef.current = new BroadcastChannel('welcome');
       const handler = (e: MessageEvent) => {
         if (e?.data === 'shown') {
+          receivedShownRef.current = true;
           setShouldShow(false);
         }
       };
@@ -53,18 +55,19 @@ export function useWelcomeDialog(options: UseWelcomeDialogOptions = {}): UseWelc
     }
 
     let isMounted = true;
+    receivedShownRef.current = false;
 
     const checkPreferences = async () => {
       try {
         const prefs = await getPreferencesCategory<OnboardingPreferences>('onboarding');
         const hasCompletedOnboarding = prefs?.completed === true;
         const hasSeenWelcome = Boolean(prefs?.welcome_modal_shown);
-        if (isMounted) {
+        if (isMounted && !receivedShownRef.current) {
           setShouldShow(hasCompletedOnboarding && !hasSeenWelcome);
         }
       } catch (error) {
         console.warn('[WELCOME_MODAL] Failed to load onboarding preferences', error);
-        if (isMounted) {
+        if (isMounted && !receivedShownRef.current) {
           setShouldShow(false);
         }
       }

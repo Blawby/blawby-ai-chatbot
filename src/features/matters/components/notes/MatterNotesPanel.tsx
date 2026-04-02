@@ -131,6 +131,10 @@ export const MatterNotesPanel = ({
 
   const confirmDelete = (note: MatterNote) => {
     if (!canDelete) return;
+    if (isFormOpen || editingNote?.id === note.id) {
+      setIsFormOpen(false);
+      setEditingNote(null);
+    }
     setDeleteTarget(note);
   };
 

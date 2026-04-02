@@ -3,7 +3,7 @@ import { cn } from '@/shared/utils/cn';
 
 export interface DialogTitleProps {
   children: ComponentChildren;
-  id?: string;
+  id: string;
   className?: string;
 }
 

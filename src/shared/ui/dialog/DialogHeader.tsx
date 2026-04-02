@@ -1,4 +1,5 @@
 import type { ComponentChildren, FunctionComponent } from 'preact';
+import { useId } from 'preact/hooks';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 import { Button } from '@/shared/ui/Button';
 import { Icon } from '@/shared/ui/Icon';
@@ -27,6 +28,9 @@ export const DialogHeader: FunctionComponent<DialogHeaderProps> = ({
   showCloseButton = true,
   className,
 }) => {
+  const fallbackTitleId = `dialog-header-title-${useId()}`;
+  const resolvedTitleId = titleId ?? fallbackTitleId;
+
   if (!children && !title && !description && !(showCloseButton && onClose)) return null;
 
   return (
@@ -40,7 +44,7 @@ export const DialogHeader: FunctionComponent<DialogHeaderProps> = ({
         <div className="min-w-0 flex-1 space-y-1">
           {children ?? (
             <>
-              {title ? <DialogTitle id={titleId}>{title}</DialogTitle> : null}
+              {title ? <DialogTitle id={resolvedTitleId}>{title}</DialogTitle> : null}
               {description ? <DialogDescription id={descriptionId}>{description}</DialogDescription> : null}
             </>
           )}

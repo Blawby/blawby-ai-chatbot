@@ -1,6 +1,6 @@
 import type { ComponentChildren, FunctionComponent } from 'preact';
 import { createPortal } from 'preact/compat';
-import { useEffect, useRef, useState } from 'preact/hooks';
+import { useEffect, useId, useRef, useState } from 'preact/hooks';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 import { Button } from '@/shared/ui/Button';
 import { Icon } from '@/shared/ui/Icon';
@@ -27,7 +27,7 @@ export const Fullscreen: FunctionComponent<FullscreenProps> = ({
 }) => {
   const dialogRef = useRef<HTMLDivElement | null>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
-  const dialogIdRef = useRef(`fullscreen-${Math.random().toString(36).slice(2)}`);
+  const dialogId = `fullscreen-${useId()}`;
   const [portalContainer, setPortalContainer] = useState<HTMLElement | null>(null);
 
   useEffect(() => {
@@ -40,7 +40,6 @@ export const Fullscreen: FunctionComponent<FullscreenProps> = ({
   useEffect(() => {
     if (!isOpen) return;
 
-    const dialogId = dialogIdRef.current;
     previousFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     registerModal(dialogId);
     lockBodyScroll();
@@ -76,7 +75,7 @@ export const Fullscreen: FunctionComponent<FullscreenProps> = ({
       }
       previousFocusRef.current = null;
     };
-  }, [isOpen, onClose]);
+  }, [dialogId, isOpen, onClose, portalContainer]);
 
   if (!isOpen || !portalContainer) return null;
 

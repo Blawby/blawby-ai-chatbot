@@ -24,7 +24,6 @@ import { Button } from '@/shared/ui/Button';
 import { useNavigation } from '@/shared/utils/navigation';
 import { Dialog, DialogBody, Fullscreen } from '@/shared/ui/dialog';
 import InspectorPanel from '@/shared/ui/inspector/InspectorPanel';
-import { MobileInspectorOverlay } from '@/shared/ui/inspector/MobileInspectorOverlay';
 
 type PreviewId =
   | 'shared-modal'
@@ -48,9 +47,8 @@ type PreviewId =
 type DialogInventoryItem = {
   name: string;
   file: string;
-  role: string;
-  usedFor: string;
-  simplify: string;
+  section: 'Shared shell' | 'Feature dialog' | 'Feature panel' | 'Inline launcher' | 'Docked surface';
+  usedIn: string[];
   previewId?: PreviewId;
   frameHeight?: number;
 };
@@ -124,162 +122,198 @@ const inventory: DialogInventoryItem[] = [
   {
     name: 'Dialog',
     file: 'src/shared/ui/dialog/Dialog.tsx',
-    role: 'Shared shell',
-    usedFor: 'Base centered dialog container.',
-    simplify: 'The centered shell is now isolated from drawer and fullscreen behavior.',
+    section: 'Shared shell',
+    usedIn: [
+      'src/features/settings/pages/PracticePage.tsx',
+      'src/features/settings/pages/AccountPage.tsx',
+      'src/features/settings/pages/PrivacyPage.tsx',
+      'src/features/settings/pages/PracticePricingPage.tsx',
+      'src/features/invoices/pages/PracticeInvoiceDetailPage.tsx',
+      'src/features/matters/pages/PracticeMattersPage.tsx',
+    ],
     previewId: 'shared-modal',
     frameHeight: 420
   },
   {
     name: 'Fullscreen',
     file: 'src/shared/ui/dialog/Fullscreen.tsx',
-    role: 'Shared shell',
-    usedFor: 'Fullscreen takeover used by media and capture flows.',
-    simplify: 'Treat fullscreen as its own primitive with a dedicated layout contract.',
+    section: 'Shared shell',
+    usedIn: [
+      'src/features/chat/components/MessageAttachments.tsx',
+      'src/features/media/components/MediaSidebar.tsx',
+      'src/features/media/components/FileMenu.tsx',
+    ],
     previewId: 'shared-fullscreen',
     frameHeight: 420
   },
   {
     name: 'ConfirmationDialog',
     file: 'src/shared/components/ConfirmationDialog.tsx',
-    role: 'Feature dialog',
-    usedFor: 'Destructive confirmation with typed confirmation and submit flow.',
-    simplify: 'Good candidate for a single shared destructive-dialog pattern.',
+    section: 'Feature dialog',
+    usedIn: [
+      'src/features/settings/pages/AccountPage.tsx',
+      'src/pages/DebugDialogsPage.tsx',
+    ],
     previewId: 'confirmation',
     frameHeight: 520
   },
   {
     name: 'WelcomeDialog',
     file: 'src/features/modals/components/WelcomeDialog.tsx',
-    role: 'Feature dialog',
-    usedFor: 'Welcome and onboarding dialog.',
-    simplify: 'Feature content is already reasonably separate from the dialog shell.',
+    section: 'Feature dialog',
+    usedIn: [
+      'src/app/MainApp.tsx',
+      'src/pages/DebugDialogsPage.tsx',
+    ],
     previewId: 'welcome',
     frameHeight: 560
   },
   {
     name: 'AppConnectionDialog',
     file: 'src/features/settings/components/AppConnectionDialog.tsx',
-    role: 'Feature dialog',
-    usedFor: 'App/integration connection dialog from settings.',
-    simplify: 'Focus management and shell responsibilities could be shared instead of reimplemented here.',
+    section: 'Feature dialog',
+    usedIn: [
+      'src/features/settings/pages/AppDetailPage.tsx',
+      'src/pages/DebugDialogsPage.tsx',
+    ],
     previewId: 'app-connection',
     frameHeight: 620
   },
   {
     name: 'CameraDialog',
     file: 'src/features/modals/components/CameraDialog.tsx',
-    role: 'Feature dialog',
-    usedFor: 'Camera capture dialog.',
-    simplify: 'Capture logic should stay separate, but the fullscreen host can be standardized.',
+    section: 'Feature dialog',
+    usedIn: [
+      'src/features/media/components/FileMenu.tsx',
+      'src/pages/DebugDialogsPage.tsx',
+    ],
     previewId: 'camera',
     frameHeight: 520
   },
   {
     name: 'InvoiceLineItemsForm',
     file: 'src/features/invoices/components/InvoiceLineItemsForm.tsx',
-    role: 'Feature dialog',
-    usedFor: 'Add and edit invoice line items inside a focused line-item dialog.',
-    simplify: 'Good example of form content plus a small shared dialog, and it should stay visible in the dialog debug inventory.',
+    section: 'Feature dialog',
+    usedIn: [
+      'src/features/invoices/components/InvoiceForm.tsx',
+      'src/pages/DebugDialogsPage.tsx',
+    ],
     previewId: 'invoice-line-items',
     frameHeight: 640
   },
   {
     name: 'InspectorPanel',
     file: 'src/shared/ui/inspector/InspectorPanel.tsx',
-    role: 'Feature panel',
-    usedFor: 'Right-side inspector flow shown inside the shared mobile inspector overlay.',
-    simplify: 'This is the single right-side panel pattern we kept instead of a generic drawer shell.',
+    section: 'Feature panel',
+    usedIn: [
+      'src/features/chat/pages/WorkspacePage.tsx',
+      'src/app/WidgetApp.tsx',
+      'src/pages/DebugDialogsPage.tsx',
+    ],
     previewId: 'inspector-panel',
     frameHeight: 760
   },
   {
     name: 'TimeEntriesPanel',
     file: 'src/features/matters/components/time-entries/TimeEntriesPanel.tsx',
-    role: 'Feature dialog',
-    usedFor: 'Matter time-entry create and edit dialog.',
-    simplify: 'Should exercise the shared dialog shell with real form spacing.',
+    section: 'Feature dialog',
+    usedIn: [
+      'src/features/matters/pages/PracticeMattersPage.tsx',
+      'src/pages/DebugMatterPage.tsx',
+      'src/pages/DebugDialogsPage.tsx',
+    ],
     previewId: 'matter-time-entry',
     frameHeight: 760
   },
   {
     name: 'MatterMilestonesPanel',
     file: 'src/features/matters/components/milestones/MatterMilestonesPanel.tsx',
-    role: 'Feature dialog',
-    usedFor: 'Matter milestone create and delete dialogs.',
-    simplify: 'Another real matter flow that should use shared body/footer spacing.',
+    section: 'Feature dialog',
+    usedIn: [
+      'src/features/matters/pages/PracticeMattersPage.tsx',
+      'src/pages/DebugDialogsPage.tsx',
+    ],
     previewId: 'matter-milestone',
     frameHeight: 760
   },
   {
     name: 'MatterNotesPanel',
     file: 'src/features/matters/components/notes/MatterNotesPanel.tsx',
-    role: 'Feature dialog',
-    usedFor: 'Matter note create and delete dialogs.',
-    simplify: 'Useful for validating editor spacing inside the shared shell.',
+    section: 'Feature dialog',
+    usedIn: [
+      'src/pages/DebugDialogsPage.tsx',
+    ],
     previewId: 'matter-note',
     frameHeight: 760
   },
   {
     name: 'MatterTasksPanel',
     file: 'src/features/matters/components/tasks/MatterTasksPanel.tsx',
-    role: 'Feature dialog',
-    usedFor: 'Matter task create and delete dialogs.',
-    simplify: 'Should preview richer forms and quick destructive confirmation inside the shared shell.',
+    section: 'Feature dialog',
+    usedIn: [
+      'src/features/matters/pages/PracticeMattersPage.tsx',
+      'src/features/matters/pages/ClientMattersPage.tsx',
+      'src/pages/DebugDialogsPage.tsx',
+    ],
     previewId: 'matter-task',
     frameHeight: 760
   },
   {
     name: 'MatterExpensesPanel',
     file: 'src/features/matters/components/expenses/MatterExpensesPanel.tsx',
-    role: 'Feature dialog',
-    usedFor: 'Matter expense create and delete dialogs.',
-    simplify: 'Good check for form spacing and CTA alignment.',
+    section: 'Feature dialog',
+    usedIn: [
+      'src/features/matters/pages/PracticeMattersPage.tsx',
+      'src/pages/DebugDialogsPage.tsx',
+    ],
     previewId: 'matter-expense',
     frameHeight: 760
   },
   {
     name: 'MessageAttachments',
     file: 'src/features/chat/components/MessageAttachments.tsx',
-    role: 'Inline launcher',
-    usedFor: 'Inline attachments list that opens the fullscreen media viewer.',
-    simplify: 'Separate launchers from the shared fullscreen media viewer they open.',
+    section: 'Inline launcher',
+    usedIn: [
+      'src/features/chat/components/Message.tsx',
+      'src/pages/DebugDialogsPage.tsx',
+    ],
     previewId: 'message-attachments',
     frameHeight: 460
   },
   {
     name: 'MediaSidebar',
     file: 'src/features/media/components/MediaSidebar.tsx',
-    role: 'Inline launcher',
-    usedFor: 'Sidebar media list that opens the fullscreen media viewer.',
-    simplify: 'Another launcher into the same viewer pattern, so it is a strong consolidation target.',
+    section: 'Inline launcher',
+    usedIn: [
+      'src/pages/DebugDialogsPage.tsx',
+    ],
     previewId: 'media-sidebar',
     frameHeight: 520
   },
   {
     name: 'ChatDockedAction + AuthForm',
     file: 'src/features/chat/components/ChatDockedAction.tsx + src/shared/components/AuthForm.tsx',
-    role: 'Docked surface',
-    usedFor: 'Chat auth prompt shown as a docked panel, not a portal modal.',
-    simplify: 'Useful for consolidating shared spacing, headers, and action-surface patterns across non-modal transient UI.',
+    section: 'Docked surface',
+    usedIn: [
+      'src/features/chat/components/ChatActionCard.tsx',
+      'src/pages/AuthPage.tsx',
+      'src/pages/AcceptInvitationPage.tsx',
+      'src/pages/DebugDialogsPage.tsx',
+    ],
     previewId: 'docked-auth',
     frameHeight: 640
   },
   {
     name: 'ChatDockedAction + ContactForm',
     file: 'src/features/chat/components/ChatDockedAction.tsx + src/features/intake/components/ContactForm.tsx',
-    role: 'Docked surface',
-    usedFor: 'Slim contact form shown as a docked panel in chat, not a portal modal.',
-    simplify: 'This should align visually with modal forms where appropriate, but remain a distinct container pattern.',
+    section: 'Docked surface',
+    usedIn: [
+      'src/features/chat/components/ChatActionCard.tsx',
+      'src/features/chat/components/WorkspaceSetupSection.tsx',
+      'src/pages/DebugDialogsPage.tsx',
+    ],
     previewId: 'docked-contact',
     frameHeight: 620
-  },
-  {
-    name: 'PracticeMattersPage',
-    file: 'src/features/matters/pages/PracticeMattersPage.tsx',
-    role: 'Page-owned launchers',
-    usedFor: 'Page-level flows that launch several dialog/content patterns.',
-    simplify: 'The page should launch smaller standardized primitives instead of owning many modal flavors.'
   }
 ];
 
@@ -500,21 +534,33 @@ function AutoOpenExpenseDialog() {
 function InspectorPanelPreview() {
   const [isOpen, setIsOpen] = useState(true);
 
+  if (!isOpen) {
+    return null;
+  }
+
   return (
-    <MobileInspectorOverlay isOpen={isOpen} onClose={() => setIsOpen(false)}>
-      <InspectorPanel
-        entityType="invoice"
-        entityId="inv_debug_001"
-        practiceId="debug-practice"
-        onClose={() => setIsOpen(false)}
-        invoiceClientName="Jordan Miles"
-        invoiceMatterTitle="Miles v. Carter"
-        invoiceStatus="draft"
-        invoiceTotal="$1,250.00"
-        invoiceAmountDue="$1,250.00"
-        invoiceDueDate="Apr 15, 2026"
-      />
-    </MobileInspectorOverlay>
+    <div className="relative min-h-[760px] overflow-hidden rounded-2xl border border-line-glass/20 bg-app">
+      <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" />
+      <aside
+        role="dialog"
+        aria-modal="true"
+        aria-label="Inspector preview"
+        className="ui-surface-enter-right absolute inset-y-0 right-0 z-10 flex w-full max-w-[min(42rem,100vw)] flex-col overflow-hidden border-l border-line-glass/15 bg-surface-nav-secondary shadow-2xl"
+      >
+        <InspectorPanel
+          entityType="invoice"
+          entityId="inv_debug_001"
+          practiceId="debug-practice"
+          onClose={() => setIsOpen(false)}
+          invoiceClientName="Jordan Miles"
+          invoiceMatterTitle="Miles v. Carter"
+          invoiceStatus="draft"
+          invoiceTotal="$1,250.00"
+          invoiceAmountDue="$1,250.00"
+          invoiceDueDate="Apr 15, 2026"
+        />
+      </aside>
+    </div>
   );
 }
 
@@ -742,14 +788,16 @@ function GalleryCard({ item, previewNonce }: { item: DialogInventoryItem; previe
         <h2 className="text-base font-semibold text-input-text">{item.name}</h2>
         <p className="break-all text-xs text-input-placeholder">{item.file}</p>
       </div>
-      <dl className="grid gap-3 text-sm md:grid-cols-[140px_1fr]">
-        <dt className="font-medium text-input-text">Role</dt>
-        <dd className="text-input-placeholder">{item.role}</dd>
-        <dt className="font-medium text-input-text">Used for</dt>
-        <dd className="text-input-placeholder">{item.usedFor}</dd>
-        <dt className="font-medium text-input-text">Simplify</dt>
-        <dd className="text-input-placeholder">{item.simplify}</dd>
-      </dl>
+      <div className="space-y-2 text-sm">
+        <p className="font-medium text-input-text">Used in</p>
+        <ul className="space-y-1 text-input-placeholder">
+          {item.usedIn.map((path) => (
+            <li key={path} className="break-all font-mono text-xs">
+              {path}
+            </li>
+          ))}
+        </ul>
+      </div>
       {frameSrc ? (
         <div className="overflow-hidden rounded-xl border border-line-glass/20 bg-app">
           <iframe
@@ -799,13 +847,11 @@ export default function DebugDialogsPage({ previewId }: DebugDialogsPageProps) {
     );
   }
 
-  const sharedShells = inventory.filter((item) => item.role === 'Shared shell');
-  const featureDialogs = inventory.filter((item) => item.role === 'Feature dialog');
-  const featurePanels = inventory.filter((item) => item.role === 'Feature panel');
-  const launcherPatterns = inventory.filter((item) => item.role === 'Inline launcher');
-  const dockedSurfaces = inventory.filter((item) => item.role === 'Docked surface');
-  const relatedPatterns = inventory.filter((item) => item.role === 'Form content' || item.role === 'Page-owned launchers');
-
+  const sharedShells = inventory.filter((item) => item.section === 'Shared shell');
+  const featureDialogs = inventory.filter((item) => item.section === 'Feature dialog');
+  const featurePanels = inventory.filter((item) => item.section === 'Feature panel');
+  const launcherPatterns = inventory.filter((item) => item.section === 'Inline launcher');
+  const dockedSurfaces = inventory.filter((item) => item.section === 'Docked surface');
   return (
     <main className="mx-auto max-w-[1600px] space-y-8 p-6">
       <header className="space-y-2">
@@ -880,15 +926,6 @@ export default function DebugDialogsPage({ previewId }: DebugDialogsPageProps) {
         </div>
       </section>
 
-      <section className="space-y-4">
-        <div className="space-y-1">
-          <h2 className="text-lg font-medium text-input-text">Related Patterns</h2>
-          <p className="text-sm text-input-placeholder">Important adjacent pieces that affect a dialog refactor but are not straightforward dialog previews.</p>
-        </div>
-        <div className="space-y-4">
-          {relatedPatterns.map((item) => <GalleryCard key={item.name} item={item} previewNonce={previewNonce} />)}
-        </div>
-      </section>
     </main>
   );
 }

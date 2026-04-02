@@ -1,6 +1,6 @@
 import type { ComponentChildren, FunctionComponent } from 'preact';
 import { createPortal } from 'preact/compat';
-import { useEffect, useRef } from 'preact/hooks';
+import { useEffect, useId, useRef } from 'preact/hooks';
 import { THEME } from '@/shared/utils/constants';
 import { isTopmostModal, lockBodyScroll, registerModal, unlockBodyScroll, unregisterModal } from '@/shared/utils/modalStack';
 import { focusInitialElement, trapFocusWithin } from '@/shared/ui/dialog/focusUtils';
@@ -18,12 +18,11 @@ export const MobileInspectorOverlay: FunctionComponent<MobileInspectorOverlayPro
 }) => {
   const asideRef = useRef<HTMLElement | null>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
-  const overlayIdRef = useRef(`inspector-${Math.random().toString(36).slice(2)}`);
+  const overlayId = `inspector-${useId()}`;
 
   useEffect(() => {
     if (!isOpen) return;
 
-    const overlayId = overlayIdRef.current;
     previousFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     registerModal(overlayId);
     lockBodyScroll();
@@ -59,7 +58,7 @@ export const MobileInspectorOverlay: FunctionComponent<MobileInspectorOverlayPro
       }
       previousFocusRef.current = null;
     };
-  }, [isOpen, onClose]);
+  }, [isOpen, onClose, overlayId]);
 
   if (!isOpen) return null;
 
@@ -77,7 +76,7 @@ export const MobileInspectorOverlay: FunctionComponent<MobileInspectorOverlayPro
         aria-modal="true"
         aria-label="Inspector"
         tabIndex={-1}
-        className="absolute inset-y-0 right-0 flex w-full max-w-[min(42rem,100vw)] flex-col overflow-hidden border-l border-line-glass/15 bg-surface-nav-secondary shadow-2xl"
+        className="ui-surface-enter-right absolute inset-y-0 right-0 flex w-full max-w-[min(42rem,100vw)] flex-col overflow-hidden border-l border-line-glass/15 bg-surface-nav-secondary shadow-2xl"
       >
         {children}
       </aside>

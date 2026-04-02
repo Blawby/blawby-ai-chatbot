@@ -12,21 +12,47 @@ const FOCUSABLE_SELECTOR = [
   '[tabindex]:not([tabindex="-1"])',
 ].join(', ');
 
-const isVisible = (element: HTMLElement) =>
-  !element.hasAttribute('hidden') &&
-  element.getAttribute('aria-hidden') !== 'true' &&
-  element.getClientRects().length > 0;
+const isVisible = (element: HTMLElement) => {
+  let current: HTMLElement | null = element;
+
+  while (current) {
+    if (current.hasAttribute('hidden') || current.getAttribute('aria-hidden') === 'true') {
+      return false;
+    }
+
+    if (window.getComputedStyle(current).visibility === 'hidden') {
+      return false;
+    }
+
+    current = current.parentElement;
+  }
+
+  return element.getClientRects().length > 0;
+};
 
 export const getFocusableElements = (container: HTMLElement) =>
   Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter(isVisible);
 
 export const focusInitialElement = (container: HTMLElement) => {
+  const focusable = getFocusableElements(container);
+  const autofocusTarget = container.querySelector<HTMLElement>('[data-autofocus]');
   const preferred =
-    container.querySelector<HTMLElement>('[data-autofocus]') ??
-    getFocusableElements(container)[0] ??
+    (autofocusTarget && focusable.includes(autofocusTarget) ? autofocusTarget : null) ??
+    focusable[0] ??
     container;
 
+  const isContainerFallback = preferred === container;
+  const previousTabIndex = container.getAttribute('tabindex');
+
+  if (isContainerFallback && container.tabIndex < 0) {
+    container.setAttribute('tabindex', '-1');
+  }
+
   preferred.focus();
+
+  if (isContainerFallback && previousTabIndex === null) {
+    container.removeAttribute('tabindex');
+  }
 };
 
 export const trapFocusWithin = (event: KeyboardEvent, container: HTMLElement) => {

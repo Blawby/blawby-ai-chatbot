@@ -1,6 +1,6 @@
 import type { ComponentChildren, FunctionComponent } from 'preact';
 import { createPortal } from 'preact/compat';
-import { useEffect, useRef } from 'preact/hooks';
+import { useEffect, useId, useRef } from 'preact/hooks';
 import { cn } from '@/shared/utils/cn';
 import { THEME } from '@/shared/utils/constants';
 import { isTopmostModal, lockBodyScroll, registerModal, unlockBodyScroll, unregisterModal } from '@/shared/utils/modalStack';
@@ -16,6 +16,8 @@ export interface DialogProps {
   showCloseButton?: boolean;
   disableBackdropClick?: boolean;
   contentClassName?: string;
+  ariaLabelledBy?: string;
+  ariaDescribedBy?: string;
 }
 
 export const Dialog: FunctionComponent<DialogProps> = ({
@@ -27,17 +29,23 @@ export const Dialog: FunctionComponent<DialogProps> = ({
   showCloseButton = true,
   disableBackdropClick = false,
   contentClassName,
+  ariaLabelledBy,
+  ariaDescribedBy,
 }) => {
   const dialogRef = useRef<HTMLDivElement | null>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
-  const dialogIdRef = useRef(`dialog-${Math.random().toString(36).slice(2)}`);
-  const titleIdRef = useRef(`dialog-title-${Math.random().toString(36).slice(2)}`);
-  const descriptionIdRef = useRef(`dialog-description-${Math.random().toString(36).slice(2)}`);
+  const onCloseRef = useRef(onClose);
+  const dialogUid = useId();
+  const titleUid = useId();
+  const descriptionUid = useId();
+  const dialogId = `dialog-${dialogUid}`;
+  const titleId = ariaLabelledBy ?? `dialog-title-${titleUid}`;
+  const descriptionId = ariaDescribedBy ?? `dialog-description-${descriptionUid}`;
+  onCloseRef.current = onClose;
 
   useEffect(() => {
     if (!isOpen) return;
 
-    const dialogId = dialogIdRef.current;
     const dialog = dialogRef.current;
     previousFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     registerModal(dialogId);
@@ -48,15 +56,17 @@ export const Dialog: FunctionComponent<DialogProps> = ({
     }
 
     const handleEscape = (e: KeyboardEvent) => {
-      const openDialogs = Array.from(document.querySelectorAll<HTMLElement>('[data-dialog-open="true"]'));
-      const isTopmostDialog = openDialogs[openDialogs.length - 1] === dialogRef.current;
-      if (!isTopmostModal(dialogId) || !isTopmostDialog) {
+      if (e.defaultPrevented) {
+        return;
+      }
+
+      if (!isTopmostModal(dialogId)) {
         return;
       }
 
       if (e.key === 'Escape') {
         e.stopPropagation();
-        onClose();
+        onCloseRef.current();
         return;
       }
 
@@ -77,7 +87,7 @@ export const Dialog: FunctionComponent<DialogProps> = ({
       }
       previousFocusRef.current = null;
     };
-  }, [isOpen, onClose]);
+  }, [dialogId, isOpen]);
 
   if (!isOpen) return null;
 
@@ -90,15 +100,15 @@ export const Dialog: FunctionComponent<DialogProps> = ({
         role="presentation"
         aria-hidden="true"
         className="ui-overlay-enter absolute inset-0 bg-black/20 backdrop-blur-sm"
-        onClick={disableBackdropClick ? undefined : onClose}
+        onClick={disableBackdropClick ? undefined : () => onCloseRef.current()}
       />
 
       <div
         ref={dialogRef}
         role="dialog"
         aria-modal="true"
-        aria-labelledby={title ? titleIdRef.current : undefined}
-        aria-describedby={description ? descriptionIdRef.current : undefined}
+        aria-labelledby={title ? titleId : ariaLabelledBy}
+        aria-describedby={description ? descriptionId : ariaDescribedBy}
         tabIndex={-1}
         className={cn(
           'ui-surface-enter relative flex max-h-[90dvh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-line-glass/30 bg-surface-overlay/95 text-input-text shadow-2xl backdrop-blur-xl',
@@ -109,9 +119,9 @@ export const Dialog: FunctionComponent<DialogProps> = ({
           <DialogHeader
             title={title}
             description={description}
-            titleId={title ? titleIdRef.current : undefined}
-            descriptionId={description ? descriptionIdRef.current : undefined}
-            onClose={onClose}
+            titleId={title ? titleId : undefined}
+            descriptionId={description ? descriptionId : undefined}
+            onClose={onCloseRef.current}
             showCloseButton={showCloseButton}
           />
         )}
