@@ -100,9 +100,10 @@ export const InspectorEditableRow = ({
   disabled = false,
   children,
 }: InspectorEditableRowProps) => {
-  const resolvedSummary = typeof summary === 'string' 
+  const resolvedSummary = typeof summary === 'string'
     ? (summary.trim().length > 0 ? summary.trim() : '—')
     : (summary ?? '—');
+  const summaryIsString = typeof resolvedSummary === 'string';
 
   return (
     <div className={`px-5 ${label ? 'py-1.5' : 'py-0.5'}`}>
@@ -112,9 +113,15 @@ export const InspectorEditableRow = ({
             <p className="text-[11px] font-bold uppercase tracking-wider text-input-placeholder group-hover:text-input-text transition-colors cursor-default">{label}</p>
           ) : null}
           {!isOpen && (
-            <p className={`mt-0.5 truncate text-[14px] ${summaryMuted ? 'text-input-placeholder' : 'text-input-text'} cursor-default`}>
-              {resolvedSummary}
-            </p>
+            summaryIsString ? (
+              <p className={`mt-0.5 truncate text-[14px] ${summaryMuted ? 'text-input-placeholder' : 'text-input-text'} cursor-default`}>
+                {resolvedSummary}
+              </p>
+            ) : (
+              <div className={`mt-0.5 min-w-0 cursor-default text-[14px] ${summaryMuted ? 'text-input-placeholder' : 'text-input-text'}`}>
+                {resolvedSummary}
+              </div>
+            )
           )}
         </div>
         {onToggle ? (
