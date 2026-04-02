@@ -3,7 +3,7 @@ import { EllipsisVerticalIcon, PlusIcon, TrashIcon, PencilIcon } from '@heroicon
 import { Icon } from '@/shared/ui/Icon';
 import { ulid } from 'ulid';
 import { format, parseISO } from 'date-fns';
-import Modal from '@/shared/components/Modal';
+import { Dialog, DialogBody, DialogFooter } from '@/shared/ui/dialog';
 import { Button } from '@/shared/ui/Button';
 import {
   DropdownMenu,
@@ -273,52 +273,54 @@ export const MatterExpensesPanel = ({
       )}
 
       {isFormOpen && (
-        <Modal
+        <Dialog
           isOpen={isFormOpen}
           onClose={closeForm}
           title={editingExpense ? 'Edit expense' : 'Add expense'}
           contentClassName="max-w-2xl"
         >
-          <ExpenseForm
-            key={`${editingExpense?.id ?? 'new'}-${formKey}`}
-            initialExpense={editingExpense ?? undefined}
-            onSubmit={handleSave}
-            onCancel={closeForm}
-            onDelete={canEdit && editingExpense ? () => confirmDelete(editingExpense) : undefined}
-          />
-          {submitError && (
-            <p className="mt-3 text-sm text-red-600 dark:text-red-400">{submitError}</p>
-          )}
-          {isSubmitting && (
-            <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">Saving expense...</p>
-          )}
-        </Modal>
+          <DialogBody>
+            <ExpenseForm
+              key={`${editingExpense?.id ?? 'new'}-${formKey}`}
+              initialExpense={editingExpense ?? undefined}
+              onSubmit={handleSave}
+              onCancel={closeForm}
+              onDelete={canEdit && editingExpense ? () => confirmDelete(editingExpense) : undefined}
+            />
+            {submitError && (
+              <p className="mt-3 text-sm text-red-600 dark:text-red-400">{submitError}</p>
+            )}
+            {isSubmitting && (
+              <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">Saving expense...</p>
+            )}
+          </DialogBody>
+        </Dialog>
       )}
 
       {canEdit && deleteTarget && (
-        <Modal
+        <Dialog
           isOpen={Boolean(deleteTarget)}
           onClose={() => setDeleteTarget(null)}
           title="Delete expense"
           contentClassName="max-w-xl"
         >
-          <div className="space-y-4">
+          <DialogBody className="space-y-4">
             <p className="text-sm text-gray-600 dark:text-gray-300">
               Are you sure you want to delete this expense? This action cannot be undone.
             </p>
             {deleteError && (
               <p className="text-sm text-red-600 dark:text-red-400">{deleteError}</p>
             )}
-            <div className="flex items-center justify-end gap-3">
-              <Button variant="secondary" onClick={() => setDeleteTarget(null)}>
-                Cancel
-              </Button>
-              <Button variant="danger" onClick={handleDelete} disabled={isSubmitting}>
-                {isSubmitting ? 'Deleting...' : 'Delete expense'}
-              </Button>
-            </div>
-          </div>
-        </Modal>
+          </DialogBody>
+          <DialogFooter>
+            <Button variant="secondary" onClick={() => setDeleteTarget(null)}>
+              Cancel
+            </Button>
+            <Button variant="danger" onClick={handleDelete} disabled={isSubmitting}>
+              {isSubmitting ? 'Deleting...' : 'Delete expense'}
+            </Button>
+          </DialogFooter>
+        </Dialog>
       )}
     </section>
   );

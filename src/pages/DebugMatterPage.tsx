@@ -2,7 +2,7 @@ import { useMemo, useState } from 'preact/hooks';
 import { ulid } from 'ulid';
 import { Button } from '@/shared/ui/Button';
 import { DetailHeader } from '@/shared/ui/layout/DetailHeader';
-import { MatterCreateForm, type MatterFormState } from '@/features/matters/components/MatterCreateModal';
+import { MatterCreateForm, type MatterFormState } from '@/features/matters/components/MatterForm';
 import { MatterListItem } from '@/features/matters/components/MatterListItem';
 import { MatterStatusPopover } from '@/features/matters/components/MatterStatusPopover';
 import { MatterDetailsPanel } from '@/features/matters/components/MatterDetailPanel';

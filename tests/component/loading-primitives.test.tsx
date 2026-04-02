@@ -7,29 +7,18 @@ import { SkeletonLoader } from '@/shared/ui/layout/SkeletonLoader';
 import { MessageRowSkeleton } from '@/shared/ui/layout/skeleton-presets/MessageRowSkeleton';
 import { InspectorSectionSkeleton } from '@/shared/ui/layout/skeleton-presets/InspectorSectionSkeleton';
 import VirtualMessageList from '@/features/chat/components/VirtualMessageList';
-import { LinkMatterModal } from '@/features/chat/components/LinkMatterModal';
 import { MessageContent } from '@/features/chat/components/MessageContent';
 
 const {
-  mockListMatters,
-  mockGetMatter,
-  mockUpdateConversationMatter,
   mockShowError,
   mockShowSuccess,
   mockShowInfo,
-  loadingLabel,
-  loadingMattersText,
-  loadingMattersEllipsis
+  loadingLabel
 } = vi.hoisted(() => ({
-  mockListMatters: vi.fn(),
-  mockGetMatter: vi.fn(),
-  mockUpdateConversationMatter: vi.fn(),
   mockShowError: vi.fn(),
   mockShowSuccess: vi.fn(),
   mockShowInfo: vi.fn(),
-  loadingLabel: 'Loading\u2026',
-  loadingMattersText: ['Loading', 'matters...'].join(' '),
-  loadingMattersEllipsis: `Loading matters${String.fromCharCode(0x2026)}`
+  loadingLabel: 'Loading\u2026'
 }));
 
 const createMessages = (count: number) => Array.from({ length: count }, (_, index) => ({
@@ -46,38 +35,8 @@ vi.mock('react-i18next', () => ({
   })
 }));
 
-vi.mock('@/shared/components/Modal', () => ({
-  default: ({ isOpen, children, title }: { isOpen: boolean; children: unknown; title?: string }) => (
-    isOpen ? (
-      <div data-testid="modal">
-        {title ? <h1>{title}</h1> : null}
-        {children}
-      </div>
-    ) : null
-  )
-}));
-
-vi.mock('@/shared/ui/input/Combobox', () => ({
-  Combobox: ({ placeholder, disabled }: { placeholder?: string; disabled?: boolean }) => (
-    <div
-      data-testid="combobox"
-      data-placeholder={placeholder ?? ''}
-      data-disabled={disabled ? 'true' : 'false'}
-    />
-  )
-}));
-
 vi.mock('@/features/chat/components/ChatMarkdown', () => ({
   default: ({ text }: { text: string }) => <div data-testid="chat-markdown">{text}</div>
-}));
-
-vi.mock('@/features/matters/services/mattersApi', () => ({
-  listMatters: (...args: unknown[]) => mockListMatters(...args),
-  getMatter: (...args: unknown[]) => mockGetMatter(...args)
-}));
-
-vi.mock('@/shared/lib/apiClient', () => ({
-  updateConversationMatter: (...args: unknown[]) => mockUpdateConversationMatter(...args)
 }));
 
 vi.mock('@/shared/contexts/SessionContext', () => ({
@@ -104,19 +63,8 @@ vi.mock('@/shared/contexts/ToastContext', () => ({
   })
 }));
 
-const createMatterPage = (count: number) => Array.from({ length: count }, (_, index) => ({
-  id: `matter-${index}`,
-  title: `Matter ${index}`,
-  client_id: null,
-  matter_type: null,
-  status: null
-}));
-
 describe('Loading primitives', () => {
   beforeEach(() => {
-    mockListMatters.mockReset();
-    mockGetMatter.mockReset();
-    mockUpdateConversationMatter.mockReset();
     mockShowError.mockReset();
     mockShowSuccess.mockReset();
     mockShowInfo.mockReset();
@@ -277,66 +225,6 @@ describe('Loading primitives', () => {
     expect(rowBlocks[0][1]).toHaveClass('w-28');
     expect(rowBlocks[1][1]).toHaveClass('w-20');
     expect(rowBlocks[2][1]).toHaveClass('w-28');
-  });
-
-  it('keeps the LinkMatterModal load-more label visible while prepending a spinner', async () => {
-    let resolveLoadMore: ((value: ReturnType<typeof createMatterPage>) => void) | undefined;
-    const loadMorePromise = new Promise<ReturnType<typeof createMatterPage>>((resolve) => {
-      resolveLoadMore = resolve;
-    });
-
-    mockListMatters
-      .mockResolvedValueOnce(createMatterPage(50))
-      .mockImplementationOnce(() => loadMorePromise);
-    mockGetMatter.mockResolvedValue(null);
-
-    render(
-      <LinkMatterModal
-        isOpen
-        onClose={vi.fn()}
-        practiceId="practice-1"
-        conversationId="conversation-1"
-      />
-    );
-
-    const button = await screen.findByRole('button', { name: 'Load more' });
-    fireEvent.click(button);
-
-    await waitFor(() => {
-      const spinner = within(button).getByRole('status') as HTMLDivElement;
-
-      expect(spinner).toBeInTheDocument();
-      expect(spinner.className).not.toContain('text-input-text');
-      expect(button).toHaveTextContent('Load more');
-    });
-
-    resolveLoadMore?.(createMatterPage(10));
-    await waitFor(() => expect(mockListMatters).toHaveBeenCalledTimes(2));
-  });
-
-  it('removes visible initial loading copy from LinkMatterModal while keeping the combobox disabled', async () => {
-    mockListMatters.mockImplementationOnce(() => new Promise<ReturnType<typeof createMatterPage>>(() => {}));
-    mockGetMatter.mockResolvedValue(null);
-
-    render(
-      <LinkMatterModal
-        isOpen
-        onClose={vi.fn()}
-        practiceId="practice-1"
-        conversationId="conversation-1"
-      />
-    );
-
-    const combobox = screen.getByTestId('combobox');
-
-    await waitFor(() => {
-      expect(combobox).toHaveAttribute('data-placeholder', 'Select matter');
-      expect(combobox).toHaveAttribute('data-disabled', 'true');
-      expect(screen.getByRole('status')).toBeInTheDocument();
-    });
-
-    expect(screen.queryByText(loadingMattersText)).toBeNull();
-    expect(screen.queryByText(loadingMattersEllipsis)).toBeNull();
   });
 
   it('keeps the older-messages button label visible while prepending a spinner in VirtualMessageList', () => {

@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'preact/hooks';
 import { EllipsisVerticalIcon, PencilIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
 import { Icon } from '@/shared/ui/Icon';
-import Modal from '@/shared/components/Modal';
+import { Dialog, DialogBody, DialogFooter } from '@/shared/ui/dialog';
 import { Button } from '@/shared/ui/Button';
 import {
   DropdownMenu,
@@ -318,51 +318,53 @@ export const MatterTasksPanel = ({
       )}
 
       {!readOnly && isFormOpen ? (
-        <Modal
+        <Dialog
           isOpen={isFormOpen}
           onClose={closeForm}
           title={editingTask ? 'Edit task' : 'Add task'}
           contentClassName="max-w-2xl"
         >
-          <MatterTaskForm
-            key={editingTask?.id ?? 'new-task'}
-            initialTask={editingTask}
-            assignees={assignees}
-            stageOptions={stageOptions}
-            saving={isSaving}
-            error={requestError}
-            onSubmit={submitForm}
-            onCancel={closeForm}
-            onDelete={editingTask && canDeleteTask ? async () => {
-              setDeleteTarget(editingTask);
-              setIsFormOpen(false);
-            } : undefined}
-          />
-        </Modal>
+          <DialogBody>
+            <MatterTaskForm
+              key={editingTask?.id ?? 'new-task'}
+              initialTask={editingTask}
+              assignees={assignees}
+              stageOptions={stageOptions}
+              saving={isSaving}
+              error={requestError}
+              onSubmit={submitForm}
+              onCancel={closeForm}
+              onDelete={editingTask && canDeleteTask ? async () => {
+                setDeleteTarget(editingTask);
+                setIsFormOpen(false);
+              } : undefined}
+            />
+          </DialogBody>
+        </Dialog>
       ) : null}
 
       {canDeleteTask && deleteTarget ? (
-        <Modal
+        <Dialog
           isOpen={Boolean(deleteTarget)}
           onClose={() => setDeleteTarget(null)}
           title="Delete task"
           contentClassName="max-w-xl"
         >
-          <div className="space-y-4">
+          <DialogBody className="space-y-4">
             <p className="text-sm text-gray-600 dark:text-gray-300">
               Are you sure you want to delete this task? This action cannot be undone.
             </p>
             {requestError ? <p className="text-sm text-red-600 dark:text-red-400">{requestError}</p> : null}
-            <div className="flex items-center justify-end gap-3">
-              <Button variant="secondary" onClick={() => setDeleteTarget(null)} disabled={isSaving}>
-                Cancel
-              </Button>
-              <Button variant="danger" onClick={() => void handleDelete()} disabled={isSaving}>
-                {isSaving ? 'Deleting...' : 'Delete task'}
-              </Button>
-            </div>
-          </div>
-        </Modal>
+          </DialogBody>
+          <DialogFooter>
+            <Button variant="secondary" onClick={() => setDeleteTarget(null)} disabled={isSaving}>
+              Cancel
+            </Button>
+            <Button variant="danger" onClick={() => void handleDelete()} disabled={isSaving}>
+              {isSaving ? 'Deleting...' : 'Delete task'}
+            </Button>
+          </DialogFooter>
+        </Dialog>
       ) : null}
 
     </section>

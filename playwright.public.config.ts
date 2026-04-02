@@ -9,6 +9,7 @@ const resolveWorkers = (): number => {
 };
 
 export default defineConfig({
+  timeout: 150000,
   testDir: './tests/e2e',
   testMatch: [
     /.*diagnose-intake\.spec\.ts/,

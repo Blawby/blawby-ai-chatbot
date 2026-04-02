@@ -11,7 +11,7 @@ import { StackedAvatars, UserCard } from '@/shared/ui/profile';
 import { invalidateClientsForPractice } from '@/shared/stores/clientsStore';
 import { AddressExperienceForm } from '@/shared/ui/address/AddressExperienceForm';
 import { STATE_OPTIONS } from '@/shared/ui/address/AddressFields';
-import Modal from '@/shared/components/Modal';
+import { Dialog } from '@/shared/ui/dialog';
 import { InspectorSectionSkeleton } from '@/shared/ui/layout/skeleton-presets/InspectorSectionSkeleton';
 import {
   InfoRow,
@@ -1853,14 +1853,13 @@ export const InspectorPanel = ({
           </div>
         ) : null}
       </div>
-      <Modal
+      <Dialog
         isOpen={isArchiveConfirmOpen}
         onClose={() => {
           if (isArchivingPerson) return;
           setIsArchiveConfirmOpen(false);
         }}
         title="Archive person"
-        type="modal"
       >
         <div className="space-y-4">
           <p className="text-sm text-input-placeholder">
@@ -1885,7 +1884,7 @@ export const InspectorPanel = ({
             </Button>
           </div>
         </div>
-      </Modal>
+      </Dialog>
     </div>
   );
 };

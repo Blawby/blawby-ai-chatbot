@@ -3,20 +3,21 @@ import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { getPreferencesCategory, updatePreferencesCategory } from '@/shared/lib/preferencesApi';
 import type { OnboardingPreferences } from '@/shared/types/preferences';
 
-interface UseWelcomeModalOptions {
+interface UseWelcomeDialogOptions {
   enabled?: boolean;
 }
 
-interface UseWelcomeModalResult {
+interface UseWelcomeDialogResult {
   shouldShow: boolean;
   markAsShown: () => Promise<void>;
 }
 
-export function useWelcomeModal(options: UseWelcomeModalOptions = {}): UseWelcomeModalResult {
+export function useWelcomeDialog(options: UseWelcomeDialogOptions = {}): UseWelcomeDialogResult {
   const { enabled = true } = options;
   const { session, isPending: sessionIsPending, isAnonymous } = useSessionContext();
   const [shouldShow, setShouldShow] = useState(false);
   const bcRef = useRef<BroadcastChannel | null>(null);
+  const receivedShownRef = useRef(false);
 
   useEffect(() => {
     if (!enabled) return;
@@ -25,6 +26,7 @@ export function useWelcomeModal(options: UseWelcomeModalOptions = {}): UseWelcom
       bcRef.current = new BroadcastChannel('welcome');
       const handler = (e: MessageEvent) => {
         if (e?.data === 'shown') {
+          receivedShownRef.current = true;
           setShouldShow(false);
         }
       };
@@ -53,18 +55,19 @@ export function useWelcomeModal(options: UseWelcomeModalOptions = {}): UseWelcom
     }
 
     let isMounted = true;
+    receivedShownRef.current = false;
 
     const checkPreferences = async () => {
       try {
         const prefs = await getPreferencesCategory<OnboardingPreferences>('onboarding');
         const hasCompletedOnboarding = prefs?.completed === true;
         const hasSeenWelcome = Boolean(prefs?.welcome_modal_shown);
-        if (isMounted) {
+        if (isMounted && !receivedShownRef.current) {
           setShouldShow(hasCompletedOnboarding && !hasSeenWelcome);
         }
       } catch (error) {
         console.warn('[WELCOME_MODAL] Failed to load onboarding preferences', error);
-        if (isMounted) {
+        if (isMounted && !receivedShownRef.current) {
           setShouldShow(false);
         }
       }

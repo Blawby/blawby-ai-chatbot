@@ -13,7 +13,7 @@ import { MarkdownUploadTextarea } from '@/shared/ui/input/MarkdownUploadTextarea
 import { CurrencyInput } from '@/shared/ui/input';
 import { ActivityTimeline, type TimelineItem, type TimelinePerson } from '@/shared/ui/activity/ActivityTimeline';
 import { Avatar, UserCard } from '@/shared/ui/profile';
-import Modal from '@/shared/components/Modal';
+import { Dialog } from '@/shared/ui/dialog';
 import {
   ChatBubbleLeftRightIcon,
   CheckCircleIcon,
@@ -31,7 +31,7 @@ import {
   type MatterTask,
   type TimeEntry
 } from '@/features/matters/data/matterTypes';
-import { MatterCreateForm, type MatterFormState } from '@/features/matters/components/MatterCreateModal';
+import { MatterCreateForm, type MatterFormState } from '@/features/matters/components/MatterForm';
 import { MatterListItem } from '@/features/matters/components/MatterListItem';
 import { TimeEntriesPanel } from '@/features/matters/components/time-entries/TimeEntriesPanel';
 import { TimeEntryForm, type TimeEntryFormValues } from '@/features/matters/components/time-entries/TimeEntryForm';
@@ -2255,7 +2255,7 @@ export const PracticeMattersPage = ({
 
         {/* Quick time entry modal */}
         {isQuickTimeEntryOpen && (
-          <Modal
+          <Dialog
             isOpen={isQuickTimeEntryOpen}
             onClose={() => setIsQuickTimeEntryOpen(false)}
             title="Add time entry"
@@ -2266,11 +2266,11 @@ export const PracticeMattersPage = ({
               onSubmit={handleQuickTimeSubmit}
               onCancel={() => setIsQuickTimeEntryOpen(false)}
             />
-          </Modal>
+          </Dialog>
         )}
 
         {isSettlementModalOpen ? (
-          <Modal
+          <Dialog
             isOpen={isSettlementModalOpen}
             onClose={() => setIsSettlementModalOpen(false)}
             title="Enter Settlement Amount"
@@ -2297,7 +2297,7 @@ export const PracticeMattersPage = ({
                 </Button>
               </div>
             </div>
-          </Modal>
+          </Dialog>
         ) : null}
       </>
     );

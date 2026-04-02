@@ -15,7 +15,7 @@ import { FileAttachment } from '../../../../worker/types';
 import { Button } from '@/shared/ui/Button';
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/shared/ui/Accordion';
 import { FileCard } from '@/shared/ui/upload/molecules/FileCard';
-import Modal from '@/shared/components/Modal';
+import { Fullscreen } from '@/shared/ui/dialog';
 import MediaContent from './MediaContent';
 
 interface MediaSidebarProps {
@@ -161,17 +161,16 @@ export default function MediaSidebar({ messages }: MediaSidebarProps) {
 
       {/* Modal for viewing images and videos */}
       {isModalOpen && selectedMedia && (
-        <Modal
+        <Fullscreen
           isOpen={isModalOpen}
           onClose={() => {
             setIsModalOpen(false);
             setSelectedMedia(null);
           }}
-          type="fullscreen"
           showCloseButton={true}
         >
           <MediaContent media={selectedMedia} />
-        </Modal>
+        </Fullscreen>
       )}
     </>
   );

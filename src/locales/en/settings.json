@@ -98,6 +98,7 @@
       },
       "connectModal": {
         "title": "Connect {{app}}",
+        "description": "Review what {{app}} can access before continuing.",
         "developedBy": "Developed by {{developer}}",
         "continue": "Continue to {{app}}",
         "permissions": {

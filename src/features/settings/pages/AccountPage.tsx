@@ -4,7 +4,7 @@ import { Input, LogoUploadInput } from '@/shared/ui/input';
 import { Combobox } from '@/shared/ui/input/Combobox';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/shared/ui/dropdown';
 import { SectionDivider } from '@/shared/ui';
-import Modal from '@/shared/components/Modal';
+import { Dialog } from '@/shared/ui/dialog';
 import ConfirmationDialog from '@/shared/components/ConfirmationDialog';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { useNavigation } from '@/shared/utils/navigation';
@@ -1107,12 +1107,11 @@ export const AccountPage = ({
         passwordMissingMessage={passwordRequiredMessage}
       />
 
-      <Modal
+      <Dialog
         isOpen={showEmailModal}
         onClose={handleEmailModalClose}
         title={t('settings:account.email.title')}
         showCloseButton={true}
-        type="modal"
       >
         {shouldGateEmailManagement ? (
           <div className="space-y-4">
@@ -1172,15 +1171,14 @@ export const AccountPage = ({
             />
           </div>
         )}
-      </Modal>
+      </Dialog>
 
       {/* Domain Input Modal */}
-      <Modal
+      <Dialog
         isOpen={showDomainModal}
         onClose={handleCloseDomainModal}
         title={t('settings:account.domainModal.title')}
         showCloseButton={true}
-        type="modal"
       >
         <div className="space-y-4">
           <Input
@@ -1211,7 +1209,7 @@ export const AccountPage = ({
             submitText={t('settings:account.domainModal.submit')}
           />
         </div>
-      </Modal>
+      </Dialog>
     </ContentPageLayout>
   );
 };

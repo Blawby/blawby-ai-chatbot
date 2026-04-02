@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'preact/hooks';
 import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 import { Icon } from '@/shared/ui/Icon';
-import Modal from '@/shared/components/Modal';
+import { Dialog, DialogBody, DialogFooter } from '@/shared/ui/dialog';
 import { FormActions } from '@/shared/ui/form';
 import { handleError } from '@/shared/utils/errorHandler';
 
@@ -102,33 +102,30 @@ export default function ConfirmationDialog({
   };
 
   return (
-    <Modal
+    <Dialog
       isOpen={isOpen}
       onClose={onClose}
       title={title}
+      description={description}
       showCloseButton={true}
-      type="modal"
       disableBackdropClick={true}
+      contentClassName="max-w-lg"
     >
       <form onSubmit={handleSubmit} noValidate>
-        <div className="space-y-4 pb-4">
+        <DialogBody className="space-y-4">
           {/* Warning Content */}
           <div className="flex items-start gap-3">
             <div className="flex-shrink-0">
               <Icon icon={ExclamationTriangleIcon} className="w-6 h-6 text-red-500"  />
             </div>
             <div className="flex-1">
-              <p className="text-sm text-input-text mb-4">
-                {description}
-              </p>
-              
               {/* Warning Items List */}
               {warningItems.length > 0 && (
-                <div className="glass-card p-3 mb-4 border-red-500/20">
-                  <p className="text-sm text-input-text">
-                    <strong>This will permanently delete:</strong>
+                <div className="mb-4 space-y-2">
+                  <p className="text-sm font-medium text-input-text">
+                    This will permanently delete:
                   </p>
-                  <ul className="text-sm text-input-placeholder mt-2 space-y-1">
+                  <ul className="space-y-1 text-sm text-input-placeholder">
                     {warningItems.map((item, idx) => (
                       <li key={idx}>• {item}</li>
                     ))}
@@ -209,25 +206,27 @@ export default function ConfirmationDialog({
               </div>
             </div>
           </div>
-        </div>
+        </DialogBody>
 
         {/* Action Buttons */}
-        <FormActions
-          className="justify-end border-t border-line-glass/30"
-          size="sm"
-          onCancel={onClose}
-          cancelText={cancelText}
-          submitText={isLoading ? 'Processing...' : confirmText}
-          submitType="submit"
-          submitVariant="danger"
-          submitDisabled={
-            isLoading ||
-            inputValue.trim() !== confirmationValue.trim() ||
-            (requirePassword && !passwordValue)
-          }
-          cancelDisabled={isLoading}
-        />
+        <DialogFooter className="p-0">
+          <FormActions
+            className="w-full justify-end border-0 px-5 py-4 sm:px-6"
+            size="sm"
+            onCancel={onClose}
+            cancelText={cancelText}
+            submitText={isLoading ? 'Processing...' : confirmText}
+            submitType="submit"
+            submitVariant="danger"
+            submitDisabled={
+              isLoading ||
+              inputValue.trim() !== confirmationValue.trim() ||
+              (requirePassword && !passwordValue)
+            }
+            cancelDisabled={isLoading}
+          />
+        </DialogFooter>
       </form>
-    </Modal>
+    </Dialog>
   );
 }

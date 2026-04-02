@@ -5,7 +5,7 @@ import { DetailHeader } from '@/shared/ui/layout/DetailHeader';
 import { Panel } from '@/shared/ui/layout/Panel';
 import { WorkspacePlaceholderState } from '@/shared/ui/layout/WorkspacePlaceholderState';
 import { Button } from '@/shared/ui/Button';
-import Modal from '@/shared/components/Modal';
+import { Dialog } from '@/shared/ui/dialog';
 import { Avatar } from '@/shared/ui/profile';
 import { FormActions } from '@/shared/ui/form';
 import { AddressExperienceForm } from '@/shared/ui/address/AddressExperienceForm';
@@ -827,11 +827,10 @@ export const PracticeClientsPage = ({
   ]);
 
   const addClientModal = (
-    <Modal
+    <Dialog
       isOpen={isAddClientOpen}
       onClose={handleCloseAddClient}
       title="Backoffice: Add person manually"
-      type="modal"
     >
       <div className="space-y-4">
         {addClientError && (
@@ -853,7 +852,7 @@ export const PracticeClientsPage = ({
           disabled={addClientSubmitting}
         />
       </div>
-    </Modal>
+    </Dialog>
   );
 
   const clientListPane = (

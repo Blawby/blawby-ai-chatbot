@@ -483,21 +483,27 @@ test.describe('Widget embed (cross-origin iframe flow)', () => {
     // Navigate from widget home screen to composer
     // The home screen may show: Ask a question CTA, Request consultation CTA,
     // or go directly to the composer if a previous conversation exists.
+    let lastClickedAt = 0;
     await expect.poll(
       async () => {
         // Already at composer
         if (await messageInput.isEnabled({ timeout: 300 }).catch(() => false)) return true;
 
+        const now = Date.now();
+        if (now - lastClickedAt < 1500) return false; // debounce clicks
+
         // Ask a question button present → click it
         const askBtn = iframe.getByRole('button', { name: /ask a question/i }).first();
         if (await askBtn.isVisible({ timeout: 300 }).catch(() => false)) {
           await askBtn.click().catch(() => null);
+          lastClickedAt = now;
           return false; // re-poll to confirm composer appears
         }
 
         const consultBtn = iframe.getByRole('button', { name: /request.*consultation/i }).first();
         if (await consultBtn.isVisible({ timeout: 300 }).catch(() => false)) {
           await consultBtn.click().catch(() => null);
+          lastClickedAt = now;
           return false;
         }
 
@@ -505,6 +511,7 @@ test.describe('Widget embed (cross-origin iframe flow)', () => {
         const sendBtn = iframe.getByRole('button', { name: /send.*(message|us)/i }).first();
         if (await sendBtn.isVisible({ timeout: 300 }).catch(() => false)) {
           await sendBtn.click().catch(() => null);
+          lastClickedAt = now;
           return false;
         }
 
@@ -512,6 +519,7 @@ test.describe('Widget embed (cross-origin iframe flow)', () => {
         const recentMsg = iframe.locator('[data-testid="recent-message"], .recent-conversation').first();
         if (await recentMsg.isVisible({ timeout: 300 }).catch(() => false)) {
           await recentMsg.click().catch(() => null);
+          lastClickedAt = now;
           return false;
         }
 

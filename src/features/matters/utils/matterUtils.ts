@@ -18,7 +18,7 @@ import {
   type MatterTask,
   type TimeEntry
 } from '@/features/matters/data/matterTypes';
-import type { MatterFormState } from '@/features/matters/components/MatterCreateModal';
+import type { MatterFormState } from '@/features/matters/components/MatterForm';
 import { asMajor, toMajorUnits } from '@/shared/utils/money';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import { formatLongDate } from '@/shared/utils/dateFormatter';

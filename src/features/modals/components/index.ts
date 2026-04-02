@@ -1,2 +1,2 @@
-export { default as WelcomeModal } from './WelcomeModal';
-export { default as CameraModal } from './CameraModal';
+export { default as WelcomeDialog } from './WelcomeDialog';
+export { default as CameraDialog } from './CameraDialog';

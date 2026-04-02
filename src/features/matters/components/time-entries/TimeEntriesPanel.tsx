@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'preact/hooks';
 import { ChevronLeftIcon, ChevronRightIcon, PlusIcon } from '@heroicons/react/24/outline';
-import Modal from '@/shared/components/Modal';
+import { Dialog, DialogBody, DialogFooter } from '@/shared/ui/dialog';
 import { Button } from '@/shared/ui/Button';
 import type { TimeEntry } from '@/features/matters/data/matterTypes';
 import { TimeEntryForm, type TimeEntryFormValues } from './TimeEntryForm';
@@ -220,45 +220,47 @@ export const TimeEntriesPanel = ({
       </section>
 
       {isFormOpen && (
-        <Modal
+        <Dialog
           isOpen={isFormOpen}
           onClose={closeForm}
           title={editingEntry ? 'Edit time entry' : 'Add time entry'}
           contentClassName="max-w-2xl"
         >
-          <TimeEntryForm
-            key={editingEntry?.id ?? `new-${draftDate ?? 'today'}`}
-            initialEntry={editingEntry ?? undefined}
-            initialDate={draftDate ?? undefined}
-            lockDate={isDateLocked}
-            onSubmit={handleSave}
-            onCancel={closeForm}
-            onDelete={editingEntry ? () => confirmDelete(editingEntry) : undefined}
-          />
-        </Modal>
+          <DialogBody>
+            <TimeEntryForm
+              key={editingEntry?.id ?? `new-${draftDate ?? 'today'}`}
+              initialEntry={editingEntry ?? undefined}
+              initialDate={draftDate ?? undefined}
+              lockDate={isDateLocked}
+              onSubmit={handleSave}
+              onCancel={closeForm}
+              onDelete={editingEntry ? () => confirmDelete(editingEntry) : undefined}
+            />
+          </DialogBody>
+        </Dialog>
       )}
 
       {deleteTarget && (
-        <Modal
+        <Dialog
           isOpen={Boolean(deleteTarget)}
           onClose={() => setDeleteTarget(null)}
           title="Delete time entry"
           contentClassName="max-w-xl"
         >
-          <div className="space-y-4">
+          <DialogBody className="space-y-4">
             <p className="text-sm text-gray-600 dark:text-gray-300">
               Are you sure you want to delete this time entry? This action cannot be undone.
             </p>
-            <div className="flex items-center justify-end gap-3">
-              <Button variant="secondary" onClick={() => setDeleteTarget(null)}>
-                Cancel
-              </Button>
-              <Button variant="danger" onClick={handleDelete}>
-                Delete time entry
-              </Button>
-            </div>
-          </div>
-        </Modal>
+          </DialogBody>
+          <DialogFooter>
+            <Button variant="secondary" onClick={() => setDeleteTarget(null)}>
+              Cancel
+            </Button>
+            <Button variant="danger" onClick={handleDelete}>
+              Delete time entry
+            </Button>
+          </DialogFooter>
+        </Dialog>
       )}
     </div>
   );

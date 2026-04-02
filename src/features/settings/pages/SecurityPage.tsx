@@ -7,7 +7,7 @@ import { useNavigation } from '@/shared/utils/navigation';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { authClient } from '@/shared/lib/authClient';
 import { useAuthAccounts } from '@/shared/hooks/useAuthAccounts';
-import Modal from '@/shared/components/Modal';
+import { Dialog, DialogBody, DialogFooter } from '@/shared/ui/dialog';
 import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 import { Icon } from '@/shared/ui/Icon';
 import { useTranslation } from '@/shared/i18n/hooks';
@@ -542,14 +542,14 @@ export const SecurityPage = ({
       {showMfa && (
         <>
           {/* MFA Disable Confirmation Modal */}
-          <Modal
+          <Dialog
             isOpen={showDisableMFAConfirm}
             onClose={handleCancelDisableMFA}
             title={t('settings:security.mfa.disable.modalTitle')}
+            description={t('settings:security.mfa.disable.description')}
             showCloseButton={true}
-            type="modal"
           >
-            <div className="space-y-4">
+            <DialogBody className="space-y-4">
               <div className="flex items-start gap-3">
                 <div className="flex-shrink-0">
                   <Icon icon={ExclamationTriangleIcon} className="w-6 h-6 text-orange-500"  />
@@ -558,14 +558,12 @@ export const SecurityPage = ({
                   <h3 className="text-lg font-semibold text-input-text mb-2">
                     {t('settings:security.mfa.disable.heading')}
                   </h3>
-                  <p className="text-sm text-input-placeholder">
-                    {t('settings:security.mfa.disable.description')}
-                  </p>
                 </div>
               </div>
-              
+            </DialogBody>
+            <DialogFooter className="p-0">
               <FormActions
-                className="justify-end"
+                className="w-full justify-end border-0 px-5 py-4 sm:px-6"
                 size="sm"
                 onCancel={handleCancelDisableMFA}
                 onSubmit={handleConfirmDisableMFA}
@@ -574,8 +572,8 @@ export const SecurityPage = ({
                 cancelText={t('settings:security.mfa.disable.cancel')}
                 submitText={t('settings:security.mfa.disable.confirm')}
               />
-            </div>
-          </Modal>
+            </DialogFooter>
+          </Dialog>
         </>
       )}
     </ContentPageLayout>

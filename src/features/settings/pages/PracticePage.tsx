@@ -12,7 +12,7 @@ import { usePracticeTeam } from '@/shared/hooks/usePracticeTeam';
 import { Button } from '@/shared/ui/Button';
 import { FormActions } from '@/shared/ui/form';
 import type { Address } from '@/shared/types/address';
-import Modal from '@/shared/components/Modal';
+import { Dialog } from '@/shared/ui/dialog';
 import { Input, LogoUploadInput, Switch } from '@/shared/ui/input';
 import { FormLabel } from '@/shared/ui/form/FormLabel';
 import { AddressExperienceForm } from '@/shared/ui/address/AddressExperienceForm';
@@ -300,7 +300,6 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
   });
   const [accentColorDraft, setAccentColorDraft] = useState('#D4AF37');
   const modalContentClassName = 'glass-panel';
-  const modalHeaderClassName = 'glass-panel';
 
   // SSR-safe origin for return URLs
   const origin = (typeof window !== 'undefined' && window.location)
@@ -899,12 +898,11 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
           )}
 
       {/* Edit Practice Modal */}
-      <Modal
+      <Dialog
         isOpen={isEditPracticeModalOpen}
         onClose={() => setIsEditPracticeModalOpen(false)}
         title="Edit Practice"
         contentClassName={modalContentClassName}
-        headerClassName={modalHeaderClassName}
       >
         <div className="space-y-4">
           <FormGrid>
@@ -982,15 +980,14 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
             cancelDisabled={isSettingsSaving}
           />
         </div>
-      </Modal>
+      </Dialog>
 
       {/* Contact Modal */}
-      <Modal
+      <Dialog
         isOpen={isContactModalOpen}
         onClose={() => setIsContactModalOpen(false)}
         title="Contact"
         contentClassName={modalContentClassName}
-        headerClassName={modalHeaderClassName}
       >
         <div className="space-y-4">
           {/* Contact Information Fields */}
@@ -1052,15 +1049,14 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
             disabled={isSettingsSaving}
           />
         </div>
-      </Modal>
+      </Dialog>
 
       {/* Create Practice Modal */}
-      <Modal
+      <Dialog
         isOpen={showCreateModal}
         onClose={() => setShowCreateModal(false)}
         title="Create Practice"
         contentClassName={modalContentClassName}
-        headerClassName={modalHeaderClassName}
       >
         <div className="space-y-4">
           <FormGrid>
@@ -1095,16 +1091,15 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
             isLoading={isSettingsSaving}
           />
         </div>
-      </Modal>
+      </Dialog>
 
 
       {/* Delete Practice Modal */}
-      <Modal
+      <Dialog
         isOpen={showDeleteModal}
         onClose={() => setShowDeleteModal(false)}
         title="Delete Practice"
         contentClassName={modalContentClassName}
-        headerClassName={modalHeaderClassName}
       >
         <div className="space-y-4">
           <SettingsNotice variant="danger" className="p-4">
@@ -1136,7 +1131,7 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
             submitDisabled={deleteConfirmText.trim() !== practice?.name}
           />
         </div>
-      </Modal>
+      </Dialog>
 
     </ContentPageLayout>
   );
