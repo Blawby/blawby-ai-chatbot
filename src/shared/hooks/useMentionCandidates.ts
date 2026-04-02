@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
-import { getParticipants, clearParticipants, type ParticipantRecord } from '@/shared/lib/conversationRepository';
+import { getParticipants, invalidateParticipants, type ParticipantRecord } from '@/shared/lib/conversationRepository';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { isTeamRole } from '@/shared/types/team';
 
@@ -48,7 +48,7 @@ export function useMentionCandidates(practiceId: string | null, conversationId: 
   useEffect(() => {
     const previousPracticeId = previousPracticeIdRef.current;
     if (previousPracticeId && previousPracticeId !== practiceId) {
-      clearParticipants();
+      invalidateParticipants(previousPracticeId);
     }
     previousPracticeIdRef.current = practiceId;
   }, [practiceId]);
