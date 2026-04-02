@@ -29,6 +29,7 @@ import { shouldShowWorkspaceDetailBack } from '@/shared/utils/workspaceDetailNav
 import { resolveStrengthStyle, resolveStrengthTier } from '@/shared/utils/intakeStrength';
 import { DetailHeader } from '@/shared/ui/layout/DetailHeader';
 import { resolveConsultationState } from '@/shared/utils/consultationState';
+import { MobileInspectorOverlay } from '@/shared/ui/inspector/MobileInspectorOverlay';
 
 interface WidgetAppProps {
   practiceId: string;
@@ -636,7 +637,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
             />
 
             {isInspectorOpen && activeConversationId && (
-                <aside className="hidden lg:block w-80 lg:w-96 border-l border-line-glass/15 bg-surface-base shadow-2xl shrink-0 overflow-y-auto">
+                <aside className="hidden w-80 shrink-0 overflow-y-auto border-l border-line-glass/15 bg-surface-nav-secondary shadow-2xl lg:block lg:w-96">
                   <InspectorPanel 
                     entityType="conversation"
                     entityId={activeConversationId}
@@ -656,30 +657,25 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
             </div>
 
             {isInspectorOpen && activeConversationId && (
-              <div className="absolute inset-0 z-[2000] lg:hidden">
-                <button 
-                  type="button"
-                  className="absolute inset-0 bg-black/20 backdrop-blur-sm"
-                  onClick={() => setIsInspectorOpen(false)}
-                  aria-label="Close inspector"
+              <MobileInspectorOverlay
+                isOpen={true}
+                onClose={() => setIsInspectorOpen(false)}
+              >
+                <InspectorPanel 
+                  entityType="conversation"
+                  entityId={activeConversationId}
+                  practiceId={practiceId}
+                  isClientView={true}
+                  practiceName={practiceConfig.name ?? undefined}
+                  practiceLogo={practiceConfig.profileImage || undefined}
+                  onClose={() => setIsInspectorOpen(false)}
+                  intakeConversationState={intakeConversationState}
+                  intakeStatus={intakeStatus}
+                  onIntakeFieldsChange={applyIntakeFields}
+                  practiceDetails={cachedPracticeDetails}
+                  intakeSlimContactDraft={slimContactDraft}
                 />
-                <aside className="absolute right-0 top-0 h-dvh w-full max-w-[85vw] sm:max-w-2xl overflow-y-auto border-l border-line-glass/15 bg-surface-base shadow-2xl chat-inspector-slide-in">
-                  <InspectorPanel 
-                    entityType="conversation"
-                    entityId={activeConversationId}
-                    practiceId={practiceId}
-                    isClientView={true}
-                    practiceName={practiceConfig.name ?? undefined}
-                    practiceLogo={practiceConfig.profileImage || undefined}
-                    onClose={() => setIsInspectorOpen(false)}
-                    intakeConversationState={intakeConversationState}
-                    intakeStatus={intakeStatus}
-                    onIntakeFieldsChange={applyIntakeFields}
-                    practiceDetails={cachedPracticeDetails}
-                    intakeSlimContactDraft={slimContactDraft}
-                  />
-                </aside>
-              </div>
+              </MobileInspectorOverlay>
             )}
           </>
         )}

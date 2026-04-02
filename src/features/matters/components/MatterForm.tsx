@@ -36,7 +36,7 @@ import { parseMultiValueText, serializeMultiValueText } from '@/features/matters
 
 type MatterFormMode = 'create' | 'edit';
 
-interface MatterFormModalProps {
+interface MatterFormProps {
   onClose: () => void;
   onSubmit?: (values: MatterFormState) => Promise<void> | void;
   practiceId?: string | null;
@@ -49,9 +49,9 @@ interface MatterFormModalProps {
   requireClientSelection?: boolean;
 }
 
-type MatterCreateModalProps = Omit<MatterFormModalProps, 'mode'>;
+type MatterCreateFormProps = Omit<MatterFormProps, 'mode'>;
 
-interface MatterEditModalProps extends Omit<MatterFormModalProps, 'mode'> {
+interface MatterEditFormProps extends Omit<MatterFormProps, 'mode'> {
   initialValues: Partial<MatterFormState>;
 }
 
@@ -187,7 +187,7 @@ const buildLeadingIcon = (icon: ComponentChildren) => (
   </div>
 );
 
-const MatterFormModalInner = ({
+const MatterFormInner = ({
   onClose,
   onSubmit,
   practiceId,
@@ -198,7 +198,7 @@ const MatterFormModalInner = ({
   mode = 'create',
   initialValues,
   requireClientSelection = true
-}: MatterFormModalProps) => {
+}: MatterFormProps) => {
   const [formState, setFormState] = useState<MatterFormState>(() => buildInitialState(mode, initialValues));
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -702,23 +702,20 @@ const MatterFormModalInner = ({
   );
 };
 
-export const MatterFormModal = (props: MatterFormModalProps) => {
+export const MatterForm = (props: MatterFormProps) => {
   const { mode = 'create', initialValues } = props;
   const resetKey = useMemo(
     () => `${mode}-${JSON.stringify(initialValues ?? {})}`,
     [mode, initialValues]
   );
 
-  return <MatterFormModalInner key={resetKey} {...props} />;
+  return <MatterFormInner key={resetKey} {...props} />;
 };
 
-export const MatterCreateModal = (props: MatterCreateModalProps) => (
-  <MatterFormModal {...props} mode="create" />
+export const MatterCreateForm = (props: MatterCreateFormProps) => (
+  <MatterForm {...props} mode="create" />
 );
 
-export const MatterEditModal = (props: MatterEditModalProps) => (
-  <MatterFormModal {...props} mode="edit" />
+export const MatterEditForm = (props: MatterEditFormProps) => (
+  <MatterForm {...props} mode="edit" />
 );
-
-export const MatterCreateForm = MatterCreateModal;
-export const MatterEditForm = MatterEditModal;

@@ -19,7 +19,7 @@ import { Combobox } from '@/shared/ui/input/Combobox';
 import { Input } from '@/shared/ui/input/Input';
 import { PencilIcon, CheckIcon, XMarkIcon, PlusIcon } from '@heroicons/react/24/outline';
 import { type MatterDetail, type MatterOption } from '@/features/matters/data/matterTypes';
-import { type MatterFormState } from '@/features/matters/components/MatterCreateModal';
+import { type MatterFormState } from '@/features/matters/components/MatterForm';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import { cn } from '@/shared/utils/cn';
 import { asMajor } from '@/shared/utils/money';

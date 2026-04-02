@@ -7,7 +7,7 @@ import { SkeletonLoader } from '@/shared/ui/layout/SkeletonLoader';
 import { MessageRowSkeleton } from '@/shared/ui/layout/skeleton-presets/MessageRowSkeleton';
 import { InspectorSectionSkeleton } from '@/shared/ui/layout/skeleton-presets/InspectorSectionSkeleton';
 import VirtualMessageList from '@/features/chat/components/VirtualMessageList';
-import { LinkMatterModal } from '@/features/chat/components/LinkMatterModal';
+import { LinkMatterDialog } from '@/features/chat/components/LinkMatterDialog';
 import { MessageContent } from '@/features/chat/components/MessageContent';
 
 const {
@@ -46,8 +46,8 @@ vi.mock('react-i18next', () => ({
   })
 }));
 
-vi.mock('@/shared/components/Modal', () => ({
-  default: ({ isOpen, children, title }: { isOpen: boolean; children: unknown; title?: string }) => (
+vi.mock('@/shared/ui/dialog', () => ({
+  Dialog: ({ isOpen, children, title }: { isOpen: boolean; children: unknown; title?: string }) => (
     isOpen ? (
       <div data-testid="modal">
         {title ? <h1>{title}</h1> : null}
@@ -291,7 +291,7 @@ describe('Loading primitives', () => {
     mockGetMatter.mockResolvedValue(null);
 
     render(
-      <LinkMatterModal
+      <LinkMatterDialog
         isOpen
         onClose={vi.fn()}
         practiceId="practice-1"
@@ -314,12 +314,12 @@ describe('Loading primitives', () => {
     await waitFor(() => expect(mockListMatters).toHaveBeenCalledTimes(2));
   });
 
-  it('removes visible initial loading copy from LinkMatterModal while keeping the combobox disabled', async () => {
+  it('removes visible initial loading copy from LinkMatterDialog while keeping the combobox disabled', async () => {
     mockListMatters.mockImplementationOnce(() => new Promise<ReturnType<typeof createMatterPage>>(() => {}));
     mockGetMatter.mockResolvedValue(null);
 
     render(
-      <LinkMatterModal
+      <LinkMatterDialog
         isOpen
         onClose={vi.fn()}
         practiceId="practice-1"

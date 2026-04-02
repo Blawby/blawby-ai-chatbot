@@ -2,7 +2,7 @@ import { useState } from 'preact/hooks';
 import { TrashIcon, PencilSquareIcon, PlusIcon } from '@heroicons/react/24/outline';
 import { Button } from '@/shared/ui/Button';
 import { CurrencyInput, Input } from '@/shared/ui/input';
-import Modal from '@/shared/components/Modal';
+import { Dialog, DialogBody, DialogFooter } from '@/shared/ui/dialog';
 import { asMajor, safeMultiply, getMajorAmountValue } from '@/shared/utils/money';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import type { InvoiceLineItem } from '@/features/matters/types/billing.types';
@@ -50,13 +50,13 @@ const LineItemDialog = ({ isOpen, item, onSave, onClose, billingIncrementMinutes
   };
 
   return (
-    <Modal
+    <Dialog
       isOpen={isOpen}
       onClose={onClose}
       title={item ? 'Edit Line Item' : 'Add Line Item'}
       contentClassName="max-w-xl"
     >
-      <div className="space-y-4">
+      <DialogBody className="space-y-4">
         <Input
           label="Description"
           placeholder="e.g. Professional Services"
@@ -91,17 +91,16 @@ const LineItemDialog = ({ isOpen, item, onSave, onClose, billingIncrementMinutes
             {formatCurrency(formData.line_total ?? asMajor(0))}
           </span>
         </div>
-
-        <div className="flex justify-end gap-2 pt-4">
-          <Button variant="secondary" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button onClick={handleSave} disabled={!formData.description.trim()}>
-            Save Item
-          </Button>
-        </div>
-      </div>
-    </Modal>
+      </DialogBody>
+      <DialogFooter>
+        <Button variant="secondary" onClick={onClose}>
+          Cancel
+        </Button>
+        <Button onClick={handleSave} disabled={!formData.description.trim()}>
+          Save Item
+        </Button>
+      </DialogFooter>
+    </Dialog>
   );
 };
 

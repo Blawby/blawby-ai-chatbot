@@ -3,7 +3,7 @@ import { EllipsisVerticalIcon, PencilIcon, PlusIcon, TrashIcon } from '@heroicon
 import { Icon } from '@/shared/ui/Icon';
 import { format, parseISO } from 'date-fns';
 import { ulid } from 'ulid';
-import Modal from '@/shared/components/Modal';
+import { Dialog, DialogBody, DialogFooter } from '@/shared/ui/dialog';
 import { Button } from '@/shared/ui/Button';
 import {
   DropdownMenu,
@@ -262,54 +262,56 @@ export const MatterNotesPanel = ({
       )}
 
       {isFormOpen && (
-        <Modal
+        <Dialog
           isOpen={isFormOpen}
           onClose={closeForm}
           title={editingNote ? 'Edit note' : 'Add note'}
           contentClassName="max-w-2xl"
         >
-          <NoteForm
-            key={`${editingNote?.id ?? 'new'}-${formKey}`}
-            initialNote={editingNote ?? undefined}
-            practiceId={practiceId}
-            onSubmit={handleSave}
-            onCancel={closeForm}
-            onDelete={canDelete && editingNote ? () => confirmDelete(editingNote) : undefined}
-            isSubmitting={isSubmitting}
-          />
-          {submitError && (
-            <p className="mt-3 text-sm text-red-600 dark:text-red-400">{submitError}</p>
-          )}
-          {isSubmitting && (
-            <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">Saving note...</p>
-          )}
-        </Modal>
+          <DialogBody>
+            <NoteForm
+              key={`${editingNote?.id ?? 'new'}-${formKey}`}
+              initialNote={editingNote ?? undefined}
+              practiceId={practiceId}
+              onSubmit={handleSave}
+              onCancel={closeForm}
+              onDelete={canDelete && editingNote ? () => confirmDelete(editingNote) : undefined}
+              isSubmitting={isSubmitting}
+            />
+            {submitError && (
+              <p className="mt-3 text-sm text-red-600 dark:text-red-400">{submitError}</p>
+            )}
+            {isSubmitting && (
+              <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">Saving note...</p>
+            )}
+          </DialogBody>
+        </Dialog>
       )}
 
       {canDelete && deleteTarget && (
-        <Modal
+        <Dialog
           isOpen={Boolean(deleteTarget)}
           onClose={() => setDeleteTarget(null)}
           title="Delete note"
           contentClassName="max-w-xl"
         >
-          <div className="space-y-4">
+          <DialogBody className="space-y-4">
             <p className="text-sm text-gray-600 dark:text-gray-300">
               Are you sure you want to delete this note? This action cannot be undone.
             </p>
             {deleteError && (
               <p className="text-sm text-red-600 dark:text-red-400">{deleteError}</p>
             )}
-            <div className="flex items-center justify-end gap-3">
-              <Button variant="secondary" onClick={() => setDeleteTarget(null)}>
-                Cancel
-              </Button>
-              <Button variant="danger" onClick={handleDelete} disabled={isSubmitting}>
-                {isSubmitting ? 'Deleting...' : 'Delete note'}
-              </Button>
-            </div>
-          </div>
-        </Modal>
+          </DialogBody>
+          <DialogFooter>
+            <Button variant="secondary" onClick={() => setDeleteTarget(null)}>
+              Cancel
+            </Button>
+            <Button variant="danger" onClick={handleDelete} disabled={isSubmitting}>
+              {isSubmitting ? 'Deleting...' : 'Delete note'}
+            </Button>
+          </DialogFooter>
+        </Dialog>
       )}
     </section>
   );

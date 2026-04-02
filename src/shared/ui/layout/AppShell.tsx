@@ -1,6 +1,7 @@
 import type { ComponentChildren } from 'preact';
 import { cn } from '@/shared/utils/cn';
 import { getAccentBackdropDefaults, type AccentBackdropVariant } from './accentBackdrop';
+import { MobileInspectorOverlay } from '@/shared/ui/inspector/MobileInspectorOverlay';
 
 type AccentBackdropOverrides = {
   gradientClassName?: string;
@@ -207,21 +208,9 @@ export const AppShell = ({
       )}
 
       {showMobileInspector && (
-        <div className="fixed inset-0 z-[70] lg:hidden">
-          {onInspectorMobileClose ? (
-            <button
-              type="button"
-              className="absolute inset-0 bg-black/20 backdrop-blur-sm"
-              onClick={() => onInspectorMobileClose()}
-              aria-label="Close inspector"
-            />
-          ) : (
-            <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" />
-          )}
-          <aside className="absolute right-0 top-0 h-dvh w-full max-w-2xl overflow-y-auto bg-surface-nav-secondary">
-            {inspector}
-          </aside>
-        </div>
+        <MobileInspectorOverlay onClose={onInspectorMobileClose ?? (() => {})} isOpen>
+          {inspector}
+        </MobileInspectorOverlay>
       )}
 
       {showMobileSecondaryNav && (

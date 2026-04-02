@@ -3,7 +3,7 @@ import { useState, useRef, useEffect, useCallback } from 'preact/hooks';
 import { PlusIcon, PhotoIcon, CameraIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import { Icon } from '@/shared/ui/Icon';
 import { Button } from '@/shared/ui/Button';
-import CameraModal from '@/features/modals/components/CameraModal';
+import CameraDialog from '@/features/modals/components/CameraDialog';
 import { THEME } from '@/shared/utils/constants';
 
 interface FileMenuProps {
@@ -19,7 +19,7 @@ const FileMenu: FunctionComponent<FileMenuProps> = ({
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
-  const [showCameraModal, setShowCameraModal] = useState(false);
+  const [showCameraDialog, setShowCameraDialog] = useState(false);
   const [isBrowser, setIsBrowser] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -103,13 +103,13 @@ const FileMenu: FunctionComponent<FileMenuProps> = ({
   };
 
   const openCamera = () => { 
-    setShowCameraModal(true); 
+    setShowCameraDialog(true); 
     handleClose(); 
   };
   
   const handleCapture = (file: File) => { 
     onCameraCapture(file); 
-    setShowCameraModal(false); 
+    setShowCameraDialog(false); 
   };
 
   const onFileChange = (e: Event) => {
@@ -220,9 +220,9 @@ const FileMenu: FunctionComponent<FileMenuProps> = ({
       />
 
       {isBrowser && (
-        <CameraModal
-          isOpen={showCameraModal}
-          onClose={() => setShowCameraModal(false)}
+        <CameraDialog
+          isOpen={showCameraDialog}
+          onClose={() => setShowCameraDialog(false)}
           onCapture={handleCapture}
         />
       )}

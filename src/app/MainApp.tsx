@@ -14,8 +14,8 @@ import { useWorkspaceRouting } from '@/shared/hooks/useWorkspaceRouting';
 import { setupGlobalKeyboardListeners } from '@/shared/utils/keyboard';
 import type { FileAttachment } from '../../worker/types';
 import { useNavigation } from '@/shared/utils/navigation';
-import WelcomeModal from '@/features/modals/components/WelcomeModal';
-import { useWelcomeModal } from '@/features/modals/hooks/useWelcomeModal';
+import WelcomeDialog from '@/features/modals/components/WelcomeDialog';
+import { useWelcomeDialog } from '@/features/modals/hooks/useWelcomeDialog';
 import { getPreferencesCategory, updatePreferencesCategory } from '@/shared/lib/preferencesApi';
 import type { OnboardingPreferences } from '@/shared/types/preferences';
 import { BusinessWelcomePrompt } from '@/features/onboarding/components/BusinessWelcomePrompt';
@@ -525,8 +525,8 @@ export function MainApp({
   });
 
   // ── welcome modals ─────────────────────────────────────────────────────────
-  const { shouldShow: shouldShowWelcome, markAsShown: markWelcomeAsShown } = useWelcomeModal({ enabled: workspace !== 'public' });
-  const showWelcomeModal = shouldShowWelcome && workspace !== 'public';
+  const { shouldShow: shouldShowWelcome, markAsShown: markWelcomeAsShown } = useWelcomeDialog({ enabled: workspace !== 'public' });
+  const showWelcomeDialog = shouldShowWelcome && workspace !== 'public';
 
   const practiceWelcomeCheckRef = useRef(false);
   useEffect(() => {
@@ -1136,8 +1136,8 @@ export function MainApp({
       </div>
       {!isWidget && (
         <>
-          <WelcomeModal
-            isOpen={showWelcomeModal}
+          <WelcomeDialog
+            isOpen={showWelcomeDialog}
             onClose={handleWelcomeClose}
             onComplete={handleWelcomeComplete}
             workspace={isPracticeWorkspace ? 'practice' : 'client'}

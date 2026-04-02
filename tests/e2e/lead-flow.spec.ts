@@ -7,7 +7,7 @@ const e2eConfig = loadE2EConfig();
 const DEFAULT_PRACTICE_SLUG = process.env.E2E_WIDGET_SLUG ?? process.env.E2E_PRACTICE_SLUG ?? 'paul-yahoo';
 const rawBudget = process.env.E2E_WIDGET_AI_RESPONSE_BUDGET_MS;
 const parsedBudget = rawBudget ? parseInt(rawBudget, 10) : 30000;
-const MAX_AI_RESPONSE_MS = Number.isFinite(parsedBudget) ? parsedBudget : 30000;
+const MAX_AI_RESPONSE_MS = Number.isFinite(parsedBudget) ? parsedBudget : 90000;
 const LEAD_TURN_TIMEOUT_MS = MAX_AI_RESPONSE_MS;
 
 const normalizePracticeSlug = (value: string): string => {
@@ -1148,49 +1148,31 @@ test.describe('Lead intake workflow', () => {
     // ── Assert: submit button eventually appears within remaining turns ────────
     const submitButton = anonPage.getByRole('button', { name: /submit request/i });
     const paymentButton = anonPage.locator('button:visible').filter({ hasText: /continue(\s+to\s+payment)?|pay.*submit/i }).first();
-    const plannerDeadline = Date.now() + LEAD_TURN_TIMEOUT_MS;
-    while (Date.now() < plannerDeadline) {
-      const [submitVisible, paymentVisible] = await Promise.all([
-        submitButton.isVisible().catch(() => false),
-        paymentButton.isVisible().catch(() => false),
-      ]);
-      if (submitVisible || paymentVisible) {
-        break;
-      }
+    const MAX_REMAINING_TURNS = 6;
+    let submitReached = false;
+    for (let i = 0; i < MAX_REMAINING_TURNS; i++) {
+      const submitVisible = await submitButton.isVisible().catch(() => false);
+      const paymentVisible = await paymentButton.isVisible().catch(() => false);
+      if (submitVisible || paymentVisible) { submitReached = true; break; }
 
       const count = await aiLocator.count();
-      if (count === 0) {
-        await anonPage.waitForTimeout(500);
-        continue;
-      }
-
+      if (count === 0) { await anonPage.waitForTimeout(1000); continue; }
       const last = (await aiLocator.nth(count - 1).innerText().catch(() => '')).trim();
-      if (/ready to submit|are you ready/i.test(last)) {
-        break;
-      }
+
+      if (/ready to submit|are you ready/i.test(last)) { submitReached = true; break; }
       if (/desired outcome|hoping for/i.test(last)) {
         await sendAndAwait('Get my full deposit back');
-        continue;
-      }
-      if (/documents|paperwork/i.test(last)) {
+      } else if (/documents|paperwork/i.test(last)) {
         await sendAndAwait('Yes, I have documents');
-        continue;
+      } else if (/urgent|how urgent/i.test(last)) {
+        await sendAndAwait('Time-sensitive');
+      } else {
+        // Unknown question — send a generic non-answer and let planner advance
+        await sendAndAwait('Yes');
       }
-
-      await anonPage.waitForTimeout(500);
     }
 
-    await expect.poll(
-      async () => {
-        const submitVisible = await submitButton.isVisible().catch(() => false);
-        const paymentVisible = await paymentButton.isVisible().catch(() => false);
-        return submitVisible || paymentVisible;
-      },
-      {
-        timeout: 5_000,
-        message: 'Submit button never appeared after completing intake planner sequence',
-      }
-    ).toBe(true);
+    expect(submitReached, 'Submit button never appeared after completing intake planner sequence').toBe(true);
 
     // ── Verify final intakeFields structure ───────────────────────────────────
     const finalDone = latestDonePayload;

@@ -4,7 +4,7 @@ import { Icon } from '@/shared/ui/Icon';
 import { Button } from '@/shared/ui/Button';
 import WorkspacePage from '@/features/chat/pages/WorkspacePage';
 import ChatContainer from '@/features/chat/components/ChatContainer';
-import Modal from '@/shared/components/Modal';
+import { Dialog, DialogBody } from '@/shared/ui/dialog';
 import { DetailHeader } from '@/shared/ui/layout/DetailHeader';
 import type { Conversation } from '@/shared/types/conversation';
 import type { UploadingFile } from '@/shared/hooks/useFileUpload';
@@ -462,13 +462,13 @@ export default function DebugConversationsPage() {
         />
       </section>
 
-      <Modal
+      <Dialog
         isOpen={isConversationDetailsOpen}
         onClose={() => setIsConversationDetailsOpen(false)}
         title="Conversation details"
-        type={isMobile ? 'drawer' : 'drawer-right'}
+        contentClassName={isMobile ? 'max-w-lg' : 'max-w-xl'}
       >
-        <div className="space-y-4 text-sm text-input-text">
+        <DialogBody className="space-y-4 text-sm text-input-text">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="glass-panel rounded-lg p-3">
               <div className="text-xs uppercase tracking-wide text-input-placeholder">Workspace</div>
@@ -485,8 +485,8 @@ export default function DebugConversationsPage() {
               <div className="mt-1 font-semibold">{String(activeConversation.user_info.title)}</div>
             </div>
           ) : null}
-        </div>
-      </Modal>
+        </DialogBody>
+      </Dialog>
     </main>
   );
 }

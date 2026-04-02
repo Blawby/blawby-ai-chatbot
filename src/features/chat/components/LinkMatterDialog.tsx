@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
-import Modal from '@/shared/components/Modal';
+import { Dialog, DialogBody, DialogFooter } from '@/shared/ui/dialog';
 import { Button } from '@/shared/ui/Button';
 import { Combobox } from '@/shared/ui/input/Combobox';
 import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
@@ -17,7 +17,7 @@ interface WorkspaceMatterOption {
   status?: string | null;
 }
 
-interface LinkMatterModalProps {
+interface LinkMatterDialogProps {
   isOpen: boolean;
   onClose: () => void;
   practiceId: string;
@@ -26,14 +26,14 @@ interface LinkMatterModalProps {
   onMatterUpdated?: (conversation: Conversation) => void;
 }
 
-export const LinkMatterModal = ({
+export const LinkMatterDialog = ({
   isOpen,
   onClose,
   practiceId,
   conversationId,
   currentMatterId = null,
   onMatterUpdated
-}: LinkMatterModalProps) => {
+}: LinkMatterDialogProps) => {
   const pageSize = 50;
   const [matters, setMatters] = useState<WorkspaceMatterOption[]>([]);
   const [selectedMatterId, setSelectedMatterId] = useState<string>(currentMatterId ?? '');
@@ -76,7 +76,7 @@ export const LinkMatterModal = ({
             return;
           }
           setCurrentMatter(null);
-          console.warn('[LinkMatterModal] Failed to fetch current matter details', err);
+          console.warn('[LinkMatterDialog] Failed to fetch current matter details', err);
         }
       };
       void fetchCurrent();
@@ -212,18 +212,14 @@ export const LinkMatterModal = ({
   }, [matters, currentMatter]);
 
   return (
-    <Modal
+    <Dialog
       isOpen={isOpen}
       onClose={onClose}
       title="Link to matter"
+      description="Choose a matter to associate with this conversation. Unlinking removes the association without deleting the conversation."
       contentClassName="max-w-lg"
     >
-      <div className="space-y-4">
-        <div className="text-sm text-gray-600 dark:text-gray-300">
-          Choose a matter to associate with this conversation. Unlinking removes the association without deleting the
-          conversation.
-        </div>
-
+      <DialogBody className="space-y-4">
         <div className="space-y-4">
           <Combobox
             label="Matter"
@@ -251,35 +247,6 @@ export const LinkMatterModal = ({
           <div className="text-sm text-red-600 dark:text-red-400">{error}</div>
         )}
 
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={handleSave}
-            disabled={saving || loadingState !== 'idle' || isUnchanged}
-          >
-            {saving ? 'Saving…' : 'Save'}
-          </Button>
-          {currentMatterId && (
-            <Button
-              variant="danger"
-              size="sm"
-              onClick={handleUnlink}
-              disabled={loadingState !== 'idle' || saving}
-            >
-              Unlink
-            </Button>
-          )}
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={onClose}
-            disabled={saving}
-          >
-            Cancel
-          </Button>
-        </div>
-
         {hasMore && (
           <div>
             <Button
@@ -299,7 +266,39 @@ export const LinkMatterModal = ({
             </Button>
           </div>
         )}
-      </div>
-    </Modal>
+      </DialogBody>
+      <DialogFooter className="flex-wrap justify-between gap-2">
+        <div>
+          {currentMatterId ? (
+            <Button
+              variant="danger"
+              size="sm"
+              onClick={handleUnlink}
+              disabled={loadingState !== 'idle' || saving}
+            >
+              Unlink
+            </Button>
+          ) : null}
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={onClose}
+            disabled={saving}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={handleSave}
+            disabled={saving || loadingState !== 'idle' || isUnchanged}
+          >
+            {saving ? 'Saving…' : 'Save'}
+          </Button>
+        </div>
+      </DialogFooter>
+    </Dialog>
   );
 };

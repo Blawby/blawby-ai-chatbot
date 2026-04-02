@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'preact/hooks';
 import { ComponentChildren } from 'preact';
 import { App, mockConnectApp, mockDisconnectApp } from './appsData';
-import { AppConnectionModal } from '@/features/settings/components/AppConnectionModal';
+import { AppConnectionDialog } from '@/features/settings/components/AppConnectionDialog';
 import { Button } from '@/shared/ui/Button';
 import { SectionDivider } from '@/shared/ui/layout';
 import { SettingRow } from '@/features/settings/components/SettingRow';
@@ -398,7 +398,7 @@ export const AppDetailPage = ({ app, onBack, onUpdate }: AppDetailPageProps) => 
         </SettingSection>
       )}
 
-      <AppConnectionModal
+      <AppConnectionDialog
         isOpen={showConnectModal}
         onClose={() => setShowConnectModal(false)}
         app={app}

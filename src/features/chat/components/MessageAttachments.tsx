@@ -2,7 +2,7 @@ import { FunctionComponent } from 'preact';
 import { useState } from 'preact/hooks';
 import { FileAttachment } from '../../../../worker/types';
 import LazyMedia from '@/features/media/components/LazyMedia';
-import Modal from '@/shared/components/Modal';
+import { Fullscreen } from '@/shared/ui/dialog';
 import MediaContent from '@/features/media/components/MediaContent';
 import { getDocumentIcon, formatDocumentIconSize } from '@/features/chat/utils/fileUtils';
 
@@ -130,17 +130,16 @@ export const MessageAttachments: FunctionComponent<MessageAttachmentsProps> = ({
 
 			{/* Modal for viewing images */}
 			{isModalOpen && selectedMedia && (
-				<Modal
+				<Fullscreen
 					isOpen={isModalOpen}
 					onClose={() => {
 						setIsModalOpen(false);
 						setSelectedMedia(null);
 					}}
-					type="fullscreen"
 					showCloseButton={true}
 				>
 					<MediaContent media={selectedMedia} />
-				</Modal>
+				</Fullscreen>
 			)}
 		</div>
 	);

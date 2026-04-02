@@ -3,16 +3,16 @@ import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { getPreferencesCategory, updatePreferencesCategory } from '@/shared/lib/preferencesApi';
 import type { OnboardingPreferences } from '@/shared/types/preferences';
 
-interface UseWelcomeModalOptions {
+interface UseWelcomeDialogOptions {
   enabled?: boolean;
 }
 
-interface UseWelcomeModalResult {
+interface UseWelcomeDialogResult {
   shouldShow: boolean;
   markAsShown: () => Promise<void>;
 }
 
-export function useWelcomeModal(options: UseWelcomeModalOptions = {}): UseWelcomeModalResult {
+export function useWelcomeDialog(options: UseWelcomeDialogOptions = {}): UseWelcomeDialogResult {
   const { enabled = true } = options;
   const { session, isPending: sessionIsPending, isAnonymous } = useSessionContext();
   const [shouldShow, setShouldShow] = useState(false);

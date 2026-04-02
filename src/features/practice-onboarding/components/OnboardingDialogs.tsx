@@ -1,5 +1,5 @@
 /**
- * OnboardingModals - Modal forms for editing practice information
+ * OnboardingDialogs - Dialog forms for editing practice information
  *
  * Extracts modal logic from PracticeSetup to provide cleaner separation
  * between chat interface and form modals.
@@ -7,7 +7,7 @@
 
 import { FunctionComponent } from 'preact';
 import { useState, useCallback } from 'preact/hooks';
-import Modal from '@/shared/components/Modal';
+import { Dialog } from '@/shared/ui/dialog';
 import { FormGrid } from '@/shared/ui/layout';
 import { FormActions } from '@/shared/ui/form';
 import { FormLabel } from '@/shared/ui/form/FormLabel';
@@ -18,7 +18,7 @@ import type { Address } from '@/shared/types/address';
 import type { PracticeDetails } from '@/shared/lib/apiClient';
 import type { Practice } from '@/shared/hooks/usePracticeManagement';
 
-export interface OnboardingModalsProps {
+export interface OnboardingDialogsProps {
   practice: Practice | null;
   details: PracticeDetails | null;
   onSaveBasics?: (values: {
@@ -49,7 +49,7 @@ interface ContactFormValues {
   address?: Address;
 }
 
-const OnboardingModals: FunctionComponent<OnboardingModalsProps> = ({
+const OnboardingDialogs: FunctionComponent<OnboardingDialogsProps> = ({
   practice,
   details,
   onSaveBasics,
@@ -101,12 +101,11 @@ const OnboardingModals: FunctionComponent<OnboardingModalsProps> = ({
   return (
     <>
       {/* Basics Modal */}
-      <Modal
+      <Dialog
         isOpen={basicsModalOpen}
         onClose={() => setBasicsModalOpen(false)}
         title="Edit Practice Basics"
         contentClassName="glass-panel"
-        headerClassName="glass-panel"
       >
         <div className="space-y-4">
           <FormGrid>
@@ -169,15 +168,14 @@ const OnboardingModals: FunctionComponent<OnboardingModalsProps> = ({
             cancelDisabled={isModalSaving}
           />
         </div>
-      </Modal>
+      </Dialog>
 
       {/* Contact Modal */}
-      <Modal
+      <Dialog
         isOpen={contactModalOpen}
         onClose={() => setContactModalOpen(false)}
         title="Edit Contact Information"
         contentClassName="glass-panel"
-        headerClassName="glass-panel"
       >
         <div className="space-y-4">
           <FormGrid>
@@ -235,9 +233,9 @@ const OnboardingModals: FunctionComponent<OnboardingModalsProps> = ({
             cancelDisabled={isModalSaving}
           />
         </div>
-      </Modal>
+      </Dialog>
     </>
   );
 };
 
-export default OnboardingModals;
+export default OnboardingDialogs;

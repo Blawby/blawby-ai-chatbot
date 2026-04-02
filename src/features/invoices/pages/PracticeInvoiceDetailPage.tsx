@@ -1,7 +1,7 @@
 import type { ComponentChildren } from 'preact';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { XMarkIcon } from '@heroicons/react/24/outline';
-import Modal from '@/shared/components/Modal';
+import { Dialog } from '@/shared/ui/dialog';
 import { Button } from '@/shared/ui/Button';
 import { Input, Textarea } from '@/shared/ui/input';
 import { DetailHeader } from '@/shared/ui/layout/DetailHeader';
@@ -309,7 +309,7 @@ export function PracticeInvoiceDetailPage({
         onSuccess={handleBuilderSuccess}
       />
 
-      <Modal
+      <Dialog
         isOpen={refundModalOpen}
         onClose={() => setRefundModalOpen(false)}
         title="Issue refund (Mock)"
@@ -346,7 +346,7 @@ export function PracticeInvoiceDetailPage({
             </Button>
           </div>
         </div>
-      </Modal>
+      </Dialog>
     </div>
   );
 }

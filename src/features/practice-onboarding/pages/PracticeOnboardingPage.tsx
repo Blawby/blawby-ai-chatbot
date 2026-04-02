@@ -12,7 +12,7 @@ import { PageHeader } from '@/shared/ui/layout/PageHeader';
 import { SplitView } from '@/shared/ui/layout/SplitView';
 import OnboardingChat from '../components/OnboardingChat';
 import OnboardingActions from '../components/OnboardingActions';
-import OnboardingModals from '../components/OnboardingModals';
+import OnboardingDialogs from '../components/OnboardingDialogs';
 import type { PracticeSetupStatus } from '../../practice-setup/utils/status';
 import type { Practice } from '@/shared/hooks/usePracticeManagement';
 import type { PracticeDetails } from '@/shared/lib/apiClient';
@@ -251,7 +251,7 @@ const PracticeOnboardingPage: FunctionComponent<PracticeOnboardingPageProps> = (
       />
 
       {/* Modals */}
-      <OnboardingModals
+      <OnboardingDialogs
         practice={practice}
         details={details}
         onSaveBasics={handleSaveBasics}

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'preact/hooks';
 import { ArrowDownIcon, ArrowUpIcon, PencilIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
-import Modal from '@/shared/components/Modal';
+import { Dialog, DialogBody, DialogFooter } from '@/shared/ui/dialog';
 import { Button } from '@/shared/ui/Button';
 import { Combobox } from '@/shared/ui/input/Combobox';
 import { CurrencyInput } from '@/shared/ui/input/CurrencyInput';
@@ -272,12 +272,13 @@ export const MatterMilestonesPanel = ({
       )}
 
       {isFormOpen && (
-        <Modal
+        <Dialog
           isOpen={isFormOpen}
           onClose={closeForm}
           title={editingMilestone ? 'Edit milestone' : 'Add milestone'}
           contentClassName="max-w-2xl"
         >
+          <DialogBody>
           <form key={formKey} className="space-y-4" onSubmit={handleSubmit}>
             <Input
               label="Description"
@@ -328,33 +329,34 @@ export const MatterMilestonesPanel = ({
               </Button>
             </div>
           </form>
-        </Modal>
+          </DialogBody>
+        </Dialog>
       )}
 
       {canDelete && deleteTarget && (
-        <Modal
+        <Dialog
           isOpen={Boolean(deleteTarget)}
           onClose={() => setDeleteTarget(null)}
           title="Delete milestone"
           contentClassName="max-w-xl"
         >
-          <div className="space-y-4">
+          <DialogBody className="space-y-4">
             <p className="text-sm text-gray-600 dark:text-gray-300">
               Are you sure you want to delete this milestone? This action cannot be undone.
             </p>
             {deleteError && (
               <p className="text-sm text-red-600 dark:text-red-400">{deleteError}</p>
             )}
-            <div className="flex items-center justify-end gap-3">
-              <Button variant="secondary" onClick={() => setDeleteTarget(null)}>
-                Cancel
-              </Button>
-              <Button variant="danger" onClick={handleDelete} disabled={isSubmitting}>
-                {isSubmitting ? 'Deleting...' : 'Delete milestone'}
-              </Button>
-            </div>
-          </div>
-        </Modal>
+          </DialogBody>
+          <DialogFooter>
+            <Button variant="secondary" onClick={() => setDeleteTarget(null)}>
+              Cancel
+            </Button>
+            <Button variant="danger" onClick={handleDelete} disabled={isSubmitting}>
+              {isSubmitting ? 'Deleting...' : 'Delete milestone'}
+            </Button>
+          </DialogFooter>
+        </Dialog>
       )}
     </section>
   );

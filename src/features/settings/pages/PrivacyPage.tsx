@@ -6,7 +6,7 @@ import { SettingToggle } from '@/features/settings/components/SettingToggle';
 import { SectionDivider } from '@/shared/ui';
 import { Button } from '@/shared/ui/Button';
 import { useNavigation } from '@/shared/utils/navigation';
-import Modal from '@/shared/components/Modal';
+import { Dialog, DialogBody, DialogFooter } from '@/shared/ui/dialog';
 import { ContentPageLayout } from '@/shared/ui/layout';
 import { SettingsNotice } from '@/features/settings/components/SettingsNotice';
 import { buildSettingsPath, resolveSettingsBasePath } from '@/shared/utils/workspace';
@@ -183,13 +183,14 @@ export default function PrivacyPage() {
       </SettingSection>
 
       {/* Confirmation Dialog for Critical Consents */}
-      <Modal
+      <Dialog
         isOpen={showConfirmDialog}
         onClose={handleCancelToggle}
         title="Confirm Privacy Setting Change"
+        description="Changing this privacy setting may limit how Blawby stores or processes your information."
         disableBackdropClick={true}
       >
-        <div className="space-y-4">
+        <DialogBody className="space-y-4">
           <SettingsNotice variant="warning" className="p-4">
             <p className="text-sm font-medium mb-2">
               ⚠️ Warning: Disabling this consent may limit service functionality
@@ -217,19 +218,19 @@ export default function PrivacyPage() {
             </p>
           </SettingsNotice>
 
-          <div className="flex justify-end gap-3 pt-4">
-            <Button variant="secondary" onClick={handleCancelToggle}>
-              Cancel
-            </Button>
-            <Button 
-              variant="danger-ghost"
-              onClick={handleConfirmToggle}
-            >
-              Disable Anyway
-            </Button>
-          </div>
-        </div>
-      </Modal>
+        </DialogBody>
+        <DialogFooter>
+          <Button variant="secondary" onClick={handleCancelToggle}>
+            Cancel
+          </Button>
+          <Button 
+            variant="danger-ghost"
+            onClick={handleConfirmToggle}
+          >
+            Disable Anyway
+          </Button>
+        </DialogFooter>
+      </Dialog>
     </ContentPageLayout>
   );
 }

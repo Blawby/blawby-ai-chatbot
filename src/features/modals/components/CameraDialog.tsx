@@ -1,15 +1,15 @@
 import { FunctionComponent } from 'preact';
 import { useRef, useEffect, useState, useCallback } from 'preact/hooks';
-import Modal from '@/shared/components/Modal';
+import { Fullscreen } from '@/shared/ui/dialog';
 import CameraCaptureButton from './CameraCaptureButton';
 
-interface CameraModalProps {
+interface CameraDialogProps {
   isOpen: boolean;
   onClose: () => void;
   onCapture: (file: File) => void;
 }
 
-const CameraModal: FunctionComponent<CameraModalProps> = ({
+const CameraDialog: FunctionComponent<CameraDialogProps> = ({
   isOpen,
   onClose,
   onCapture
@@ -113,7 +113,7 @@ const CameraModal: FunctionComponent<CameraModalProps> = ({
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} type="fullscreen" showCloseButton={true}>
+    <Fullscreen isOpen={isOpen} onClose={onClose} showCloseButton={true}>
       <div className="flex flex-col h-full w-full">
         {error && (
           <div className="p-3 bg-red-50 border border-red-200 rounded text-red-600 text-sm text-center absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-10 max-w-80">
@@ -128,8 +128,8 @@ const CameraModal: FunctionComponent<CameraModalProps> = ({
           <CameraCaptureButton onClick={takePhoto} disabled={!isCameraReady} />
         </div>
       </div>
-    </Modal>
+    </Fullscreen>
   );
 };
 
-export default CameraModal;
+export default CameraDialog;

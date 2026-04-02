@@ -1,4 +1,4 @@
-import Modal from '@/shared/components/Modal';
+import { Dialog, DialogBody, DialogFooter } from '@/shared/ui/dialog';
 import { Button } from '@/shared/ui/Button';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import type { InvoiceLineItem } from '@/features/matters/types/billing.types';
@@ -46,10 +46,11 @@ export const SendInvoiceDialog = ({
   const hasPreview = Array.isArray(lineItems) && lineItems.length > 0;
 
   return (
-    <Modal
+    <Dialog
       isOpen={isOpen}
       onClose={onCancel}
       title="Send Invoice"
+      description="Review the final amount before sending the invoice to your client."
       contentClassName={hasPreview ? 'max-w-3xl' : 'max-w-xl'}
       disableBackdropClick={loading}
     >
@@ -60,13 +61,13 @@ export const SendInvoiceDialog = ({
         </div>
       )}
 
-      <div className="space-y-4">
+      <DialogBody className="space-y-4">
         <div className="rounded-xl border border-line-glass/10 bg-white/[0.03] p-4">
-          <p className="text-sm text-white/70">Send this invoice now?</p>
-          <p className="mt-1 text-base font-semibold text-white">
+          <p className="text-sm text-input-placeholder">Send this invoice now?</p>
+          <p className="mt-1 text-base font-semibold text-input-text">
             Total due: {formatCurrency(totalAmount)}
           </p>
-          <p className="mt-2 text-xs text-white/60">
+          <p className="mt-2 text-xs text-input-placeholder">
             You can update invoices until they are paid. The client will receive a receipt after payment.
           </p>
         </div>
@@ -90,23 +91,23 @@ export const SendInvoiceDialog = ({
           </div>
         )}
 
-        <div className="flex justify-end gap-2">
-          <Button variant="secondary" onClick={onCancel} disabled={loading}>
-            Continue Editing
-          </Button>
-          <Button
-            onClick={() => {
-              const result = onConfirm();
-              if (result && typeof (result as Promise<void>).then === 'function') {
-                return result as Promise<void>;
-              }
-            }}
-            disabled={loading}
-          >
-            {loading ? 'Sending…' : 'Send invoice'}
-          </Button>
-        </div>
-      </div>
-    </Modal>
+      </DialogBody>
+      <DialogFooter>
+        <Button variant="secondary" onClick={onCancel} disabled={loading}>
+          Continue Editing
+        </Button>
+        <Button
+          onClick={() => {
+            const result = onConfirm();
+            if (result && typeof (result as Promise<void>).then === 'function') {
+              return result as Promise<void>;
+            }
+          }}
+          disabled={loading}
+        >
+          {loading ? 'Sending…' : 'Send invoice'}
+        </Button>
+      </DialogFooter>
+    </Dialog>
   );
 };

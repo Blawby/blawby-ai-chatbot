@@ -12,7 +12,7 @@ import { ContentPageLayout } from '@/shared/ui/layout';
 import { SettingsHelperText } from '@/features/settings/components/SettingsHelperText';
 import { SectionDivider } from '@/shared/ui/layout';
 import { CurrencyInput, Input, Switch } from '@/shared/ui/input';
-import Modal from '@/shared/components/Modal';
+import { Dialog, DialogBody, DialogFooter } from '@/shared/ui/dialog';
 import { normalizePracticeRole } from '@/shared/utils/practiceRoles';
 import { buildSettingsPath, resolveSettingsBasePath } from '@/shared/utils/workspace';
 
@@ -303,8 +303,8 @@ export const PracticePricingPage = ({ className }: PracticePricingPageProps) => 
           )}
       </div>
 
-      <Modal isOpen={isFeeModalOpen} onClose={closeFeeModal} title="Consultation fee">
-        <div className="space-y-4">
+      <Dialog isOpen={isFeeModalOpen} onClose={closeFeeModal} title="Consultation fee">
+        <DialogBody className="space-y-4">
           <Switch
             id="consultation-fee-toggle"
             label="Collect consultation fee"
@@ -333,23 +333,23 @@ export const PracticePricingPage = ({ className }: PracticePricingPageProps) => 
             />
           )}
 
-          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-            <Button variant="secondary" onClick={closeFeeModal} disabled={isSaving}>
-              Cancel
-            </Button>
-            <Button
-              variant="primary"
-              onClick={handleSaveFee}
-              disabled={!canEdit || isSaving}
-            >
-              {isSaving ? 'Saving...' : 'Save'}
-            </Button>
-          </div>
-        </div>
-      </Modal>
+        </DialogBody>
+        <DialogFooter className="flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <Button variant="secondary" onClick={closeFeeModal} disabled={isSaving}>
+            Cancel
+          </Button>
+          <Button
+            variant="primary"
+            onClick={handleSaveFee}
+            disabled={!canEdit || isSaving}
+          >
+            {isSaving ? 'Saving...' : 'Save'}
+          </Button>
+        </DialogFooter>
+      </Dialog>
 
-      <Modal isOpen={isBillingModalOpen} onClose={closeBillingModal} title="Billing increment">
-        <div className="space-y-4">
+      <Dialog isOpen={isBillingModalOpen} onClose={closeBillingModal} title="Billing increment">
+        <DialogBody className="space-y-4">
           <Input
             type="number"
             label="Billing increment (minutes)"
@@ -378,20 +378,20 @@ export const PracticePricingPage = ({ className }: PracticePricingPageProps) => 
             error={billingValidationError}
           />
 
-          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-            <Button variant="secondary" onClick={closeBillingModal} disabled={isSaving}>
-              Cancel
-            </Button>
-            <Button
-              variant="primary"
-              onClick={handleSaveBillingIncrement}
-              disabled={!canEdit || isSaving}
-            >
-              {isSaving ? 'Saving...' : 'Save'}
-            </Button>
-          </div>
-        </div>
-      </Modal>
+        </DialogBody>
+        <DialogFooter className="flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <Button variant="secondary" onClick={closeBillingModal} disabled={isSaving}>
+            Cancel
+          </Button>
+          <Button
+            variant="primary"
+            onClick={handleSaveBillingIncrement}
+            disabled={!canEdit || isSaving}
+          >
+            {isSaving ? 'Saving...' : 'Save'}
+          </Button>
+        </DialogFooter>
+      </Dialog>
     </ContentPageLayout>
   );
 };
