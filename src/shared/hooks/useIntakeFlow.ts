@@ -763,7 +763,12 @@ export function useIntakeFlow({
       const generatePaymentLinkParam = options?.generatePaymentLinkOnly ? '&generatePaymentLinkOnly=true' : '';
       const response = await fetch(
         `/api/conversations/${encodeURIComponent(conversationId)}/submit-intake?practiceId=${encodeURIComponent(practiceId)}${generatePaymentLinkParam}`,
-        { method: 'POST', headers: withWidgetAuthHeaders({ 'Content-Type': 'application/json' }), credentials: 'include' },
+        {
+          method: 'POST',
+          headers: withWidgetAuthHeaders({ 'Content-Type': 'application/json' }),
+          credentials: 'include',
+          body: JSON.stringify({ mergedIntakeState: intakeConversationState }),
+        },
       );
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({})) as { error?: string };
