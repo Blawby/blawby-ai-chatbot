@@ -548,7 +548,10 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
         if (!userId) return null;
         return {
           value: userId,
-          label: client.user?.name ?? client.user?.email ?? 'Unknown person',
+          label: (() => {
+            const name = client.user?.name?.trim();
+            return name && name.length ? name : client.user?.email ?? 'Unknown person';
+          })(),
           meta: client.user?.email ?? undefined,
         };
       })
@@ -562,7 +565,10 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
         if (!userId) return null;
         return {
           userId,
-          name: client.user?.name ?? client.user?.email ?? 'Unknown person',
+          name: (() => {
+            const name = client.user?.name?.trim();
+            return name && name.length ? name : client.user?.email ?? 'Unknown person';
+          })(),
           email: client.user?.email ?? undefined,
           image: null,
           role: 'client',

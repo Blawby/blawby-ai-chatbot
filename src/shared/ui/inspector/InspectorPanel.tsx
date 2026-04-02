@@ -573,16 +573,20 @@ export const InspectorPanel = ({
       : [];
     assigneeIds.forEach((id) => addIdentity(resolveAttorneyIdentity(id)));
 
-    if (identities.size === 0) {
-      resolvedMatterAssigneeNames.forEach((name, index) => {
-        if (!name.trim()) return;
+    // Always add fallback identities for non-empty names that aren't already present
+    resolvedMatterAssigneeNames.forEach((name, index) => {
+      if (!name.trim()) return;
+      
+      // Check if this name is already present in existing identities
+      const nameAlreadyExists = [...identities.values()].some(identity => identity.name === name);
+      if (!nameAlreadyExists) {
         identities.set(`matter-assignee-${index}`, {
           id: `matter-assignee-${index}`,
           name,
           image: null,
         });
-      });
-    }
+      }
+    });
 
     return [...identities.values()];
   }, [

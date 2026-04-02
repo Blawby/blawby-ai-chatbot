@@ -118,7 +118,7 @@ export const InspectorEditableRow = ({
                 {resolvedSummary}
               </p>
             ) : (
-              <div className="mt-0.5 min-w-0 cursor-default">
+              <div className={`mt-0.5 min-w-0 cursor-default text-[14px] ${summaryMuted ? 'text-input-placeholder' : 'text-input-text'}`}>
                 {resolvedSummary}
               </div>
             )
