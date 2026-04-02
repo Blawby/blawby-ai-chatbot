@@ -495,6 +495,12 @@ test.describe('Widget embed (cross-origin iframe flow)', () => {
           return false; // re-poll to confirm composer appears
         }
 
+        const consultBtn = iframe.getByRole('button', { name: /request.*consultation/i }).first();
+        if (await consultBtn.isVisible({ timeout: 300 }).catch(() => false)) {
+          await consultBtn.click().catch(() => null);
+          return false;
+        }
+
         // Home screen with send message button
         const sendBtn = iframe.getByRole('button', { name: /send.*(message|us)/i }).first();
         if (await sendBtn.isVisible({ timeout: 300 }).catch(() => false)) {

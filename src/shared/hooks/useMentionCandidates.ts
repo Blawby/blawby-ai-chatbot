@@ -22,7 +22,7 @@ const toMentionCandidates = (
         : participant.canBeMentionedByClient === true
     ))
     .map((participant) => ({
-      userId: participant.userId.trim(),
+      userId: (participant.userId ?? '').trim(),
       name: (participant.name ?? '').trim(),
       image: participant.image ?? null,
     }))

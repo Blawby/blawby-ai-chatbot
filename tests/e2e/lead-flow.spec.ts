@@ -950,28 +950,26 @@ test.describe('Lead intake workflow', () => {
     const authName = `Planner E2E ${uniqueId}`;
     const authEmail = `planner-e2e+${uniqueId}@example.com`;
 
-    // Capture done events from /api/ai/chat SSE stream
-    const donePayloads: Array<{
+    type DonePayload = {
       intakeFields?: Record<string, unknown> | null;
       quickReplies?: string[] | null;
-    }> = [];
+    };
 
-    anonPage.on('response', async (response) => {
-      if (
-        response.request().method() !== 'POST' ||
-        !response.url().includes('/api/ai/chat')
-      ) return;
-      try {
-        const text = await response.text().catch(() => '');
-        const lines = text.split('\n').filter((l) => l.trim().startsWith('data: '));
-        for (const line of lines) {
-          try {
-            const payload = JSON.parse(line.replace(/^data:\s*/, ''));
-            if (payload?.done === true) donePayloads.push(payload);
-          } catch { /* skip malformed lines */ }
+    const parseDonePayloads = (text: string) => {
+      const payloads: DonePayload[] = [];
+      const lines = text.split('\n').filter((line) => line.trim().startsWith('data: '));
+      for (const line of lines) {
+        try {
+          const payload = JSON.parse(line.replace(/^data:\s*/, ''));
+          if (payload?.done === true) {
+            payloads.push(payload);
+          }
+        } catch {
+          // Skip malformed SSE payload lines.
         }
-      } catch { /* ignore */ }
-    });
+      }
+      return payloads;
+    };
 
     await anonPage.goto(`/public/${encodeURIComponent(practiceSlug)}?v=widget`, {
       waitUntil: 'domcontentloaded',
@@ -1021,8 +1019,9 @@ test.describe('Lead intake workflow', () => {
     // ── Turn helper ──────────────────────────────────────────────────────────
     const aiLocator = anonPage.locator('[data-testid="ai-message"], [data-testid="system-message"]');
     const streamingLocator = anonPage.locator('[id^="message-streaming-"]');
+    let latestDonePayload: DonePayload | null = null;
 
-    const sendAndAwait = async (text: string) => {
+    const sendAndAwait = async (text: string): Promise<{ reply: string; donePayload: DonePayload | null }> => {
       const signatureBefore = JSON.stringify(
         await aiLocator.evaluateAll((els) => els.map((el) => (el.textContent ?? '').trim()))
       );
@@ -1032,7 +1031,12 @@ test.describe('Lead intake workflow', () => {
       );
       await messageInput.fill(text);
       await anonPage.getByRole('button', { name: /send message/i }).click();
-      await responsePromise;
+      const response = await responsePromise;
+      const responseText = await response.text().catch(() => '');
+      const donePayload = parseDonePayloads(responseText).at(-1) ?? null;
+      if (donePayload) {
+        latestDonePayload = donePayload;
+      }
       // Wait for UI to settle
       await expect.poll(
         async () => {
@@ -1040,7 +1044,7 @@ test.describe('Lead intake workflow', () => {
             aiLocator.evaluateAll((els) => JSON.stringify(els.map((el) => (el.textContent ?? '').trim()))),
             streamingLocator.count(),
           ]);
-          return sig !== signatureBefore || streamCount === 0;
+          return sig !== signatureBefore && streamCount === 0;
         },
         { timeout: LEAD_TURN_TIMEOUT_MS, message: `UI did not settle after sending: "${text}"` }
       ).toBe(true);
@@ -1054,14 +1058,17 @@ test.describe('Lead intake workflow', () => {
         { timeout: LEAD_TURN_TIMEOUT_MS, message: 'AI reply did not render after send' }
       ).toBe(true);
       const count = await aiLocator.count();
-      return (await aiLocator.nth(count - 1).innerText().catch(() => '')).trim();
+      return {
+        reply: (await aiLocator.nth(count - 1).innerText().catch(() => '')).trim(),
+        donePayload,
+      };
     };
 
     const getButtons = async () =>
       anonPage.locator('button:visible').allInnerTexts().catch(() => [] as string[]);
 
     // ── Turn 1: Description ──────────────────────────────────────────────────
-    const reply1 = await sendAndAwait(
+    const { reply: reply1, donePayload: done1 } = await sendAndAwait(
       'My landlord is refusing to return my security deposit after I moved out.'
     );
     await testInfo.attach('planner-turn1-reply.txt', { body: reply1, contentType: 'text/plain' });
@@ -1073,14 +1080,13 @@ test.describe('Lead intake workflow', () => {
     ).toBe(true);
 
     // done payload should have description extracted
-    const done1 = donePayloads[donePayloads.length - 1];
     expect(
       done1?.intakeFields?.description,
       'description should be extracted after turn 1'
     ).toBeTruthy();
 
     // ── Turn 2: Location ─────────────────────────────────────────────────────
-    const reply2 = await sendAndAwait('Raleigh, NC');
+    const { reply: reply2, donePayload: done2 } = await sendAndAwait('Raleigh, NC');
     await testInfo.attach('planner-turn2-reply.txt', { body: reply2, contentType: 'text/plain' });
 
     // After location, planner should ask about opposing party
@@ -1089,15 +1095,13 @@ test.describe('Lead intake workflow', () => {
       `After location, AI should ask about opposing party. Got: "${reply2.slice(0, 300)}"`
     ).toBe(true);
 
-    const done2 = donePayloads[donePayloads.length - 1];
     expect(done2?.intakeFields?.city, 'city should be extracted after turn 2').toBeTruthy();
     expect(done2?.intakeFields?.state, 'state should be extracted after turn 2').toBeTruthy();
 
     // ── Turn 3: Opposing party → minimum viable brief complete ───────────────
-    const reply3 = await sendAndAwait('My landlord, Johnson Properties LLC');
+    const { reply: reply3, donePayload: done3 } = await sendAndAwait('My landlord, Johnson Properties LLC');
     await testInfo.attach('planner-turn3-reply.txt', { body: reply3, contentType: 'text/plain' });
 
-    const done3 = donePayloads[donePayloads.length - 1];
     expect(done3?.intakeFields?.opposingParty, 'opposingParty should be extracted after turn 3').toBeTruthy();
 
     // After minimum viable brief (description + location + opposingParty),
@@ -1129,7 +1133,12 @@ test.describe('Lead intake workflow', () => {
           { timeout: LEAD_TURN_TIMEOUT_MS }
         );
         await timeSensitiveChip.click();
-        await responsePromise;
+        const response = await responsePromise;
+        const responseText = await response.text().catch(() => '');
+        const donePayload = parseDonePayloads(responseText).at(-1) ?? null;
+        if (donePayload) {
+          latestDonePayload = donePayload;
+        }
         await anonPage.waitForTimeout(2_000);
       }
     } else if (!hasSubmitButton) {
@@ -1139,33 +1148,52 @@ test.describe('Lead intake workflow', () => {
     // ── Assert: submit button eventually appears within remaining turns ────────
     const submitButton = anonPage.getByRole('button', { name: /submit request/i });
     const paymentButton = anonPage.locator('button:visible').filter({ hasText: /continue(\s+to\s+payment)?|pay.*submit/i }).first();
+    const plannerDeadline = Date.now() + LEAD_TURN_TIMEOUT_MS;
+    while (Date.now() < plannerDeadline) {
+      const [submitVisible, paymentVisible] = await Promise.all([
+        submitButton.isVisible().catch(() => false),
+        paymentButton.isVisible().catch(() => false),
+      ]);
+      if (submitVisible || paymentVisible) {
+        break;
+      }
+
+      const count = await aiLocator.count();
+      if (count === 0) {
+        await anonPage.waitForTimeout(500);
+        continue;
+      }
+
+      const last = (await aiLocator.nth(count - 1).innerText().catch(() => '')).trim();
+      if (/ready to submit|are you ready/i.test(last)) {
+        break;
+      }
+      if (/desired outcome|hoping for/i.test(last)) {
+        await sendAndAwait('Get my full deposit back');
+        continue;
+      }
+      if (/documents|paperwork/i.test(last)) {
+        await sendAndAwait('Yes, I have documents');
+        continue;
+      }
+
+      await anonPage.waitForTimeout(500);
+    }
 
     await expect.poll(
       async () => {
         const submitVisible = await submitButton.isVisible().catch(() => false);
         const paymentVisible = await paymentButton.isVisible().catch(() => false);
-        if (submitVisible || paymentVisible) return true;
-        // If AI is still asking questions, send generic answers
-        const count = await aiLocator.count();
-        if (count === 0) return false;
-        const last = (await aiLocator.nth(count - 1).innerText().catch(() => '')).trim();
-        if (/desired outcome|hoping for/i.test(last)) {
-          await sendAndAwait('Get my full deposit back');
-        } else if (/documents|paperwork/i.test(last)) {
-          await sendAndAwait('Yes, I have documents');
-        } else if (/ready to submit|are you ready/i.test(last)) {
-          return true;
-        }
-        return false;
+        return submitVisible || paymentVisible;
       },
       {
-        timeout: 90_000,
+        timeout: 5_000,
         message: 'Submit button never appeared after completing intake planner sequence',
       }
     ).toBe(true);
 
     // ── Verify final intakeFields structure ───────────────────────────────────
-    const finalDone = donePayloads[donePayloads.length - 1];
+    const finalDone = latestDonePayload;
     await testInfo.attach('planner-final-done-payload.json', {
       body: JSON.stringify(finalDone, null, 2),
       contentType: 'application/json',

@@ -761,13 +761,14 @@ export function useIntakeFlow({
     submitInFlightRef.current = true;
     try {
       const generatePaymentLinkParam = options?.generatePaymentLinkOnly ? '&generatePaymentLinkOnly=true' : '';
+      const latestMergedIntakeState = conversationMetadataRef.current?.mergedIntakeState ?? intakeConversationState;
       const response = await fetch(
         `/api/conversations/${encodeURIComponent(conversationId)}/submit-intake?practiceId=${encodeURIComponent(practiceId)}${generatePaymentLinkParam}`,
         {
           method: 'POST',
           headers: withWidgetAuthHeaders({ 'Content-Type': 'application/json' }),
           credentials: 'include',
-          body: JSON.stringify({ mergedIntakeState: intakeConversationState }),
+          body: JSON.stringify({ mergedIntakeState: latestMergedIntakeState }),
         },
       );
       if (!response.ok) {

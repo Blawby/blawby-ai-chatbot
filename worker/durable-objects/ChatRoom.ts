@@ -729,8 +729,9 @@ export class ChatRoom {
     const serverTs = new Date().toISOString();
     const messageId = crypto.randomUUID();
     let sanitizedMetadata = metadata;
+    const mentionUserIds = extractMentionUserIds(metadata);
 
-    if (role === 'user' && senderType) {
+    if (role === 'user' && senderType && mentionUserIds.length > 0) {
       try {
         const conversationService = new ConversationService(this.env);
         const conversation = await conversationService.getConversation(conversationId, practiceId);
@@ -742,7 +743,7 @@ export class ChatRoom {
         const validatedMentionUserIds = validateMentionTargets({
           participants,
           senderType,
-          mentionedUserIds: extractMentionUserIds(metadata),
+          mentionedUserIds: mentionUserIds,
         });
         sanitizedMetadata = withValidatedMentionMetadata(metadata, validatedMentionUserIds);
       } catch (error) {

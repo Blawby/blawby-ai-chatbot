@@ -88,7 +88,8 @@ export async function listConversationParticipantRecords(options: {
     ...participantIds,
     ...practiceMembers
       .filter((member) => isTeamRole(member.role))
-      .map((member) => member.user_id.trim()),
+      .map((member) => (typeof member.user_id === 'string' ? member.user_id.trim() : ''))
+      .filter((userId) => userId.length > 0),
   ]));
 
   const conversationClientName = extractConversationClientName(conversation.user_info);
@@ -110,7 +111,7 @@ export async function listConversationParticipantRecords(options: {
       role: typeof member?.role === 'string' ? member.role : null,
       isTeamMember,
       canBeMentionedByTeamMember: isTeamMember || isClientParticipant,
-      canBeMentionedByClient: isTeamMember || isClientParticipant,
+      canBeMentionedByClient: isTeamMember || (isClientParticipant && userId !== conversation.user_id),
     };
   });
 }

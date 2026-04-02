@@ -14,15 +14,23 @@ type CacheEntry = {
 const participantCache = new Map<string, CacheEntry>();
 const participantInflight = new Map<string, Promise<ParticipantRecord[]>>();
 const participantGenerations = new Map<string, number>();
+let participantGenerationCounter = 0;
 
 let authClearListenerRegistered = false;
 
 const getCacheKey = (practiceId: string, conversationId: string) => `${practiceId}::${conversationId}`;
+const getGeneration = (key: string) => participantGenerations.get(key) ?? participantGenerationCounter;
 
 const pruneExpiredEntries = (now: number) => {
   for (const [key, entry] of participantCache.entries()) {
     if (entry.expiresAt <= now) {
       participantCache.delete(key);
+    }
+  }
+
+  for (const key of participantGenerations.keys()) {
+    if (!participantCache.has(key) && !participantInflight.has(key)) {
+      participantGenerations.delete(key);
     }
   }
 };
@@ -63,7 +71,7 @@ export async function getParticipants(practiceId: string, conversationId: string
   ensureGlobalListeners();
 
   const key = getCacheKey(normalizedPracticeId, normalizedConversationId);
-  const generation = participantGenerations.get(key) ?? 0;
+  const generation = getGeneration(key);
   const now = Date.now();
   pruneExpiredEntries(now);
 
@@ -81,7 +89,7 @@ export async function getParticipants(practiceId: string, conversationId: string
   const request = getConversationParticipants(normalizedConversationId, normalizedPracticeId)
     .then((participants) => {
       const nextNow = Date.now();
-      if ((participantGenerations.get(key) ?? 0) === generation) {
+      if (getGeneration(key) === generation) {
         participantCache.set(key, {
           value: participants,
           expiresAt: nextNow + CACHE_TTL_MS,
@@ -93,7 +101,12 @@ export async function getParticipants(practiceId: string, conversationId: string
       return participants;
     })
     .finally(() => {
-      participantInflight.delete(key);
+      if (participantInflight.get(key) === request) {
+        participantInflight.delete(key);
+      }
+      if (!participantCache.has(key) && !participantInflight.has(key)) {
+        participantGenerations.delete(key);
+      }
     });
 
   participantInflight.set(key, request);
@@ -108,28 +121,31 @@ export function invalidateParticipants(practiceId: string, conversationId?: stri
     const normalizedConversationId = conversationId.trim();
     if (!normalizedConversationId) return;
     const key = getCacheKey(normalizedPracticeId, normalizedConversationId);
-    participantGenerations.set(key, (participantGenerations.get(key) ?? 0) + 1);
+    const nextGeneration = getGeneration(key) + 1;
     participantCache.delete(key);
+    participantGenerations.delete(key);
     participantInflight.delete(key);
+    participantGenerations.set(key, nextGeneration);
     return;
   }
 
   const prefix = `${normalizedPracticeId}::`;
-  for (const key of [...participantCache.keys()]) {
-    if (key.startsWith(prefix)) {
-      participantGenerations.set(key, (participantGenerations.get(key) ?? 0) + 1);
-      participantCache.delete(key);
-    }
-  }
-  for (const key of [...participantInflight.keys()]) {
-    if (key.startsWith(prefix)) {
-      participantGenerations.set(key, (participantGenerations.get(key) ?? 0) + 1);
-      participantInflight.delete(key);
-    }
+  const matchingKeys = new Set([
+    ...[...participantCache.keys()].filter((key) => key.startsWith(prefix)),
+    ...[...participantInflight.keys()].filter((key) => key.startsWith(prefix)),
+  ]);
+
+  for (const key of matchingKeys) {
+    const nextGeneration = getGeneration(key) + 1;
+    participantCache.delete(key);
+    participantGenerations.delete(key);
+    participantInflight.delete(key);
+    participantGenerations.set(key, nextGeneration);
   }
 }
 
 export function clearParticipants(): void {
+  participantGenerationCounter += 1;
   participantCache.clear();
   participantInflight.clear();
   participantGenerations.clear();
