@@ -555,6 +555,22 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       .filter((option): option is ComboboxOption => option !== null),
     [clientsData?.items]
   );
+  const matterClientPeople = useMemo(
+    () => (clientsData?.items ?? [])
+      .map((client) => {
+        const userId = client.user?.id;
+        if (!userId) return null;
+        return {
+          userId,
+          name: client.user?.name ?? client.user?.email ?? 'Unknown person',
+          email: client.user?.email ?? undefined,
+          image: null,
+          role: 'client',
+        };
+      })
+      .filter((client) => client !== null),
+    [clientsData?.items]
+  );
   const selectedMatterInspectorData = useMemo(() => {
     if (!selectedMatter) return null;
 
@@ -1089,6 +1105,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
         userId: member.userId,
         name: member.name?.trim() ?? '',
         email: member.email,
+        image: member.image ?? null,
         role: member.role,
       }))
       .filter((member) => member.userId.trim().length > 0 && member.name.length > 0),
@@ -1898,6 +1915,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
         });
       }}
       matterClientOptions={matterClientOptions}
+      matterClients={matterClientPeople}
       matterAssigneeOptions={matterAssigneeOptions}
       {...(inspectorTarget.entityType === 'matter' && selectedMatterInspectorData ? {
         matterClientName: selectedMatterInspectorData.matterClientName,

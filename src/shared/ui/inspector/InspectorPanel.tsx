@@ -7,6 +7,7 @@ import { InvoiceStatusBadge } from '@/features/invoices/components/InvoiceStatus
 import type { InvoiceStatus } from '@/features/invoices/types';
 import { Button } from '@/shared/ui/Button';
 import { Combobox, type ComboboxOption, Input, Textarea } from '@/shared/ui/input';
+import { StackedAvatars, UserCard } from '@/shared/ui/profile';
 import { invalidateClientsForPractice } from '@/shared/stores/clientsStore';
 import { AddressExperienceForm } from '@/shared/ui/address/AddressExperienceForm';
 import { STATE_OPTIONS } from '@/shared/ui/address/AddressFields';
@@ -35,18 +36,21 @@ type InspectorConfig =
 
 type InspectorEntityType = InspectorConfig['type'];
 
+type InspectorIdentity = {
+  userId: string;
+  name: string;
+  email?: string;
+  image?: string | null;
+  role: string;
+};
+
 type InspectorPanelProps = {
   entityType: InspectorEntityType;
   entityId: string;
   practiceId: string;
   onClose: () => void;
   conversation?: Conversation | null;
-  conversationMembers?: Array<{
-    userId: string;
-    name: string;
-    email: string;
-    role: string;
-  }>;
+  conversationMembers?: InspectorIdentity[];
   onConversationAssignedToChange?: (assignedTo: string | null) => Promise<void> | void;
   onConversationPriorityChange?: (priority: 'low' | 'normal' | 'high' | 'urgent') => Promise<void> | void;
   onConversationTagsChange?: (tags: string[]) => Promise<void> | void;
@@ -69,6 +73,7 @@ type InspectorPanelProps = {
   onMatterStatusChange?: (status: MatterStatus) => void;
   onMatterPatchChange?: (patch: Record<string, unknown>) => Promise<void> | void;
   matterClientOptions?: ComboboxOption[];
+  matterClients?: InspectorIdentity[];
   matterAssigneeOptions?: ComboboxOption[];
   invoiceClientName?: string | null;
   invoiceMatterTitle?: string | null;
@@ -122,6 +127,7 @@ export const InspectorPanel = ({
   onMatterStatusChange,
   onMatterPatchChange,
   matterClientOptions = [],
+  matterClients = [],
   matterAssigneeOptions = [],
   invoiceClientName,
   invoiceMatterTitle,
@@ -247,6 +253,11 @@ export const InspectorPanel = ({
     if (!assignedTo) return null;
     const member = conversationMembers.find((entry) => entry.userId === assignedTo);
     return member?.name ?? assignedTo;
+  }, [conversation?.assigned_to, conversationMembers]);
+  const assignedConversationMember = useMemo(() => {
+    const assignedTo = conversation?.assigned_to;
+    if (!assignedTo) return null;
+    return conversationMembers.find((entry) => entry.userId === assignedTo) ?? null;
   }, [conversation?.assigned_to, conversationMembers]);
 
   const currentUserId = session?.transformError ? undefined : session?.user?.id;
@@ -448,7 +459,7 @@ export const InspectorPanel = ({
   const resolvedMatterUpdatedLabel = matterUpdatedLabel
     ?? resolveString(matterDetailRecord?.updated_at)
     ?? null;
-  const _resolvedMatterAssigneeNames = useMemo(() => {
+  const resolvedMatterAssigneeNames = useMemo(() => {
     if (matterAssigneeNames && matterAssigneeNames.length > 0) return matterAssigneeNames;
     const assigneesValue = matterDetailRecord?.assignees;
     const assignees = Array.isArray(assigneesValue) ? assigneesValue : [];
@@ -484,11 +495,138 @@ export const InspectorPanel = ({
       ? matterClientOptions
       : [{ value: '', label: '— none —' }, ...matterClientOptions];
   }, [matterClientOptions]);
+  const resolveMatterClientIdentity = useCallback(() => {
+    if (!resolvedMatterClientId) {
+      return resolvedMatterClientName
+        ? { name: resolvedMatterClientName, image: null }
+        : null;
+    }
+    const client = matterClients.find((entry) => entry.userId === resolvedMatterClientId);
+    if (client) return client;
+    return resolvedMatterClientName
+      ? { userId: resolvedMatterClientId, name: resolvedMatterClientName, image: null, role: 'client' }
+      : { userId: resolvedMatterClientId, name: `Client ${resolvedMatterClientId.slice(0, 6)}`, image: null, role: 'client' };
+  }, [matterClients, resolvedMatterClientId, resolvedMatterClientName]);
+  const conversationPeople = useMemo(() => {
+    const people = new Map<string, { id: string; name: string; image?: string | null }>();
+    const clientId = resolveString(userDetail?.user_id) ?? resolveString(userDetail?.id);
+    const clientName = resolveString(userDetail?.user?.name) ?? resolveString(userDetail?.user?.email) ?? 'Unknown';
+    if (clientId) {
+      people.set(clientId, {
+        id: clientId,
+        name: clientName,
+        image: null,
+      });
+    }
+    if (assignedConversationMember) {
+      people.set(assignedConversationMember.userId, {
+        id: assignedConversationMember.userId,
+        name: assignedConversationMember.name,
+        image: assignedConversationMember.image ?? null,
+      });
+    }
+    return [...people.values()];
+  }, [assignedConversationMember, userDetail]);
   const resolveAttorneyLabel = useCallback((id: string | null) => {
     if (!id) return 'Not set';
     const option = matterAssigneeOptions.find((entry) => entry.value === id);
     return option?.label ?? `User ${id.slice(0, 6)}`;
   }, [matterAssigneeOptions]);
+  const resolveAttorneyIdentity = useCallback((id: string | null) => {
+    if (!id) return null;
+    const member = conversationMembers.find((entry) => entry.userId === id);
+    if (member) return member;
+    const option = matterAssigneeOptions.find((entry) => entry.value === id);
+    if (option?.label) {
+      return {
+        userId: id,
+        name: option.label,
+        email: option.meta,
+        image: null,
+        role: 'member',
+      };
+    }
+    return {
+      userId: id,
+      name: `User ${id.slice(0, 6)}`,
+      image: null,
+      role: 'member',
+    };
+  }, [conversationMembers, matterAssigneeOptions]);
+  const matterTeamIdentities = useMemo(() => {
+    const identities = new Map<string, { id: string; name: string; image?: string | null }>();
+
+    const addIdentity = (identity: Pick<InspectorIdentity, 'userId' | 'name' | 'image'> | null | undefined) => {
+      if (!identity?.userId || !identity.name) return;
+      identities.set(identity.userId, {
+        id: identity.userId,
+        name: identity.name,
+        image: identity.image ?? null,
+      });
+    };
+
+    addIdentity(resolveAttorneyIdentity(resolvedMatterResponsibleAttorneyId));
+    addIdentity(resolveAttorneyIdentity(resolvedMatterOriginatingAttorneyId));
+
+    const assigneeIds = Array.isArray(matterDetailRecord?.assignee_ids)
+      ? matterDetailRecord.assignee_ids.filter((id): id is string => typeof id === 'string' && id.trim().length > 0)
+      : [];
+    assigneeIds.forEach((id) => addIdentity(resolveAttorneyIdentity(id)));
+
+    if (identities.size === 0) {
+      resolvedMatterAssigneeNames.forEach((name, index) => {
+        if (!name.trim()) return;
+        identities.set(`matter-assignee-${index}`, {
+          id: `matter-assignee-${index}`,
+          name,
+          image: null,
+        });
+      });
+    }
+
+    return [...identities.values()];
+  }, [
+    matterDetailRecord?.assignee_ids,
+    resolveAttorneyIdentity,
+    resolvedMatterAssigneeNames,
+    resolvedMatterOriginatingAttorneyId,
+    resolvedMatterResponsibleAttorneyId,
+  ]);
+  const renderCompactIdentity = useCallback((identity: Pick<InspectorIdentity, 'name' | 'image'> | null) => {
+    if (!identity) return null;
+    return (
+      <UserCard
+        name={identity.name}
+        image={identity.image ?? null}
+        size="sm"
+        className="px-0 py-0"
+      />
+    );
+  }, []);
+  const renderIdentityStack = useCallback((
+    users: Array<{ id: string; name: string; image?: string | null }>,
+    emptyLabel: string,
+    singularLabel: string,
+    pluralLabel: string,
+  ) => {
+    if (users.length === 0) {
+      return <span className="text-input-placeholder">{emptyLabel}</span>;
+    }
+
+    return (
+      <div className="flex items-center gap-3">
+        <StackedAvatars users={users} size="sm" max={4} className="shrink-0" />
+        <div className="min-w-0">
+          <p className="truncate text-[14px] text-input-text">
+            {users.map((user) => user.name).join(', ')}
+          </p>
+          <p className="text-[11px] uppercase tracking-wider text-input-placeholder">
+            {users.length} {users.length === 1 ? singularLabel : pluralLabel}
+          </p>
+        </div>
+      </div>
+    );
+  }, []);
   const matterUrgencyLabel = useMemo(() => {
     if (!resolvedMatterUrgency) return 'Not set';
     return resolvedMatterUrgency.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
@@ -1090,6 +1228,17 @@ export const InspectorPanel = ({
 
             {!isClientView && (
               <div className="">
+                <InspectorGroup label="People">
+                  <InfoRow
+                    label=""
+                    valueNode={renderIdentityStack(
+                      conversationPeople,
+                      'No people linked',
+                      'person linked',
+                      'people linked',
+                    )}
+                  />
+                </InspectorGroup>
                 <InspectorGroup
                   label="Linked Matter"
                   onToggle={() => setActiveConversationEditor((prev) => (prev === 'matter' ? null : 'matter'))}
@@ -1127,7 +1276,9 @@ export const InspectorPanel = ({
               >
                 <InspectorEditableRow
                   label=""
-                  summary={currentAssignedLabel}
+                  summary={assignedConversationMember
+                    ? renderCompactIdentity(assignedConversationMember)
+                    : currentAssignedLabel}
                   summaryMuted={!assignedMemberLabel}
                   isOpen={activeConversationEditor === 'assignment'}
                 >
@@ -1258,7 +1409,7 @@ export const InspectorPanel = ({
               >
                 <InspectorEditableRow
                   label=""
-                  summary={resolvedMatterClientLabel}
+                  summary={renderCompactIdentity(resolveMatterClientIdentity()) ?? resolvedMatterClientLabel}
                   summaryMuted={!resolvedMatterClientId && !resolvedMatterClientName}
                   isOpen={activeMatterEditor === 'person'}
                 >
@@ -1278,6 +1429,19 @@ export const InspectorPanel = ({
                 </InspectorEditableRow>
               </InspectorGroup>
               <InspectorGroup
+                label="Team"
+              >
+                <InfoRow
+                  label=""
+                  valueNode={renderIdentityStack(
+                    matterTeamIdentities,
+                    'No team members assigned',
+                    'team member',
+                    'team members',
+                  )}
+                />
+              </InspectorGroup>
+              <InspectorGroup
                 label="Responsible Attorney"
                 onToggle={canEditMatterFields
                   ? () => setActiveMatterEditor((prev) => (prev === 'responsible' ? null : 'responsible'))
@@ -1287,7 +1451,7 @@ export const InspectorPanel = ({
               >
                 <InspectorEditableRow
                   label=""
-                  summary={resolveAttorneyLabel(resolvedMatterResponsibleAttorneyId)}
+                  summary={renderCompactIdentity(resolveAttorneyIdentity(resolvedMatterResponsibleAttorneyId)) ?? resolveAttorneyLabel(resolvedMatterResponsibleAttorneyId)}
                   summaryMuted={!resolvedMatterResponsibleAttorneyId}
                   isOpen={activeMatterEditor === 'responsible'}
                 >
@@ -1316,7 +1480,7 @@ export const InspectorPanel = ({
               >
                 <InspectorEditableRow
                   label=""
-                  summary={resolveAttorneyLabel(resolvedMatterOriginatingAttorneyId)}
+                  summary={renderCompactIdentity(resolveAttorneyIdentity(resolvedMatterOriginatingAttorneyId)) ?? resolveAttorneyLabel(resolvedMatterOriginatingAttorneyId)}
                   summaryMuted={!resolvedMatterOriginatingAttorneyId}
                   isOpen={activeMatterEditor === 'originating'}
                 >
