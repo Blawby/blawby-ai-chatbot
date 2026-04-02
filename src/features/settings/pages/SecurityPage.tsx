@@ -22,6 +22,7 @@ import { SettingsHelperText } from '@/features/settings/components/SettingsHelpe
 import { getPreferencesCategory, updatePreferencesCategory } from '@/shared/lib/preferencesApi';
 import type { SecurityPreferences } from '@/shared/types/preferences';
 import { FormActions } from '@/shared/ui/form';
+import { features } from '@/config/features';
 import { buildSettingsPath, resolveSettingsBasePath } from '@/shared/utils/workspace';
 
 // Local interface for user with security-related fields
@@ -113,7 +114,7 @@ export const SecurityPage = ({
   const [passwordSubmitting, setPasswordSubmitting] = useState(false);
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [showDisableMFAConfirm, setShowDisableMFAConfirm] = useState(false);
-  const showMfa = false;
+  const showMfa = features.enableMfa;
   const [passwordForm, setPasswordForm] = useState({
     currentPassword: '',
     newPassword: '',
@@ -172,6 +173,7 @@ export const SecurityPage = ({
     if (!settings) return;
     
     if (key === 'twoFactorEnabled') {
+      if (!showMfa) return;
       if (value) {
         // Enable MFA: Navigate to enrollment page without updating state
         navigate(toSettingsPath('mfa-enrollment'));

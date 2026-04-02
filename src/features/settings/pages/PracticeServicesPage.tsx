@@ -1,6 +1,4 @@
 import { useMemo, useRef, useState, useCallback } from 'preact/hooks';
-import { useLocation } from 'preact-iso';
-import { ArrowLeftIcon } from '@heroicons/react/24/outline';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
 import { ServicesEditor } from '@/features/services/components/ServicesEditor';
@@ -9,28 +7,19 @@ import type { Service } from '@/features/services/types';
 import { getServiceDetailsForSave } from '@/features/services/utils';
 import { resolveServiceDetails } from '@/features/services/utils/serviceNormalization';
 import { useToastContext } from '@/shared/contexts/ToastContext';
-import { useNavigation } from '@/shared/utils/navigation';
 import { useTranslation } from '@/shared/i18n/hooks';
-import { Button } from '@/shared/ui/Button';
 import { ContentPageLayout } from '@/shared/ui/layout';
-import { buildSettingsPath, resolveSettingsBasePath } from '@/shared/utils/workspace';
 
 interface PracticeServicesPageProps {
-  onNavigate?: (path: string) => void;
   className?: string;
 }
 
-export const PracticeServicesPage = ({ onNavigate, className }: PracticeServicesPageProps) => {
+export const PracticeServicesPage = ({ className }: PracticeServicesPageProps) => {
   const { currentPractice } = usePracticeManagement({ fetchPracticeDetails: true });
   const { details, updateDetails, setDetails } = usePracticeDetails(currentPractice?.id, null, false);
   const { showError, showSuccess } = useToastContext();
-  const { navigate: baseNavigate } = useNavigation();
   const { t } = useTranslation(['settings', 'common']);
-  const navigate = onNavigate ?? baseNavigate;
-  const location = useLocation();
   const [servicesError, setServicesError] = useState<string | null>(null);
-  const settingsBasePath = resolveSettingsBasePath(location.path);
-  const toSettingsPath = (subPath?: string) => buildSettingsPath(settingsBasePath, subPath);
   const lastSavedKeyRef = useRef<string>('');
   const saveRequestIdRef = useRef(0);
   const pendingSaveSnapshotsRef = useRef(new Map<number, { optimisticDetails: typeof details }>());
@@ -160,15 +149,6 @@ export const PracticeServicesPage = ({ onNavigate, className }: PracticeServices
       className={className}
       wrapChildren={false}
       contentClassName="pb-6"
-      headerLeading={(
-        <Button
-          variant="icon"
-          size="icon"
-          onClick={() => navigate(toSettingsPath('practice'))}
-          aria-label={t('settings:navigation.backToSettings')}
-          icon={ArrowLeftIcon} iconClassName="w-5 h-5"
-        />
-      )}
     >
       {servicesError && (
         <p className="text-xs text-red-600 dark:text-red-400 mb-4">

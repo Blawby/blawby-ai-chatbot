@@ -21,7 +21,7 @@ export const SettingRow = ({
   className = ''
 }: SettingRowProps) => {
   return (
-    <div className={cn('flex items-center justify-between py-3', className)}>
+    <div className={cn('flex flex-col gap-3 py-3 sm:flex-row sm:items-start sm:justify-between', className)}>
       <div className="flex-1 min-w-0">
         {labelNode ?? <FormLabel className={labelClassName}>{label}</FormLabel>}
         {description && (
@@ -35,7 +35,7 @@ export const SettingRow = ({
         )}
       </div>
       {children !== undefined && children !== null && (
-        <div className="ml-4 self-start">
+        <div className="w-full self-start sm:ml-4 sm:w-auto">
           {children}
         </div>
       )}

@@ -21,17 +21,17 @@ export const SettingSelect = ({
   className = ''
 }: SettingSelectProps) => {
   return (
-    <div className={cn('flex items-center justify-between py-3', className)}>
+    <div className={cn('flex flex-col gap-3 py-3 sm:flex-row sm:items-start sm:justify-between', className)}>
       <div className="flex-1 min-w-0">
         <FormLabel>{label}</FormLabel>
         {description && <SettingDescription text={description} />}
       </div>
-      <div className="ml-4">
+      <div className="w-full sm:ml-4 sm:w-auto">
         <Combobox
           value={value}
           options={options}
           onChange={onChange}
-          className="min-w-[180px] [&_[role=combobox]]:rounded-xl"
+          className="w-full min-w-0 sm:min-w-[180px] [&_[role=combobox]]:w-full [&_[role=combobox]]:rounded-xl"
           clearable={false}
           searchable={false}
         />

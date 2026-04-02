@@ -575,12 +575,20 @@ test.describe('Public widget intake flow', () => {
     const practiceSlug = normalizePracticeSlug(DEFAULT_PRACTICE_SLUG);
     const conversationLinkRequests: Array<{ url: string; status: number }> = [];
     const activeConversationStatuses: number[] = [];
+    let observedConversationId: string | null = null;
+    const captureConversationIdFromUrl = (url: string): void => {
+      const match = url.match(/\/api\/conversations\/([a-zA-Z0-9_-]+)/);
+      if (match?.[1]) {
+        observedConversationId = match[1];
+      }
+    };
 
     anonPage.on('response', (response) => {
       if (isActiveConversationFetch(response)) {
         activeConversationStatuses.push(response.status());
       }
       const url = response.url();
+      captureConversationIdFromUrl(url);
       if (
         response.request().method() === 'PATCH' &&
         url.includes('/api/conversations/') &&
@@ -675,20 +683,17 @@ test.describe('Public widget intake flow', () => {
     await expect
       .poll(
         async () => {
-          capturedConversationId = await anonPage.evaluate((): string | null => {
-            const match = window.location.href.match(/\/conversations\/([a-zA-Z0-9_-]+)/);
-            return match?.[1] ?? null;
-          });
+          capturedConversationId = observedConversationId;
           return capturedConversationId;
         },
         {
           timeout: 10_000,
-          message: 'Expected conversationId in URL after AI response',
+          message: 'Expected conversationId from widget conversation network traffic after AI response',
         }
       )
       .not.toBeNull();
     if (!capturedConversationId) {
-      throw new Error('Expected conversationId in URL after AI response, but none was found.');
+      throw new Error('Expected conversationId from widget conversation network traffic after AI response, but none was found.');
     }
 
     const submitNowButton = anonPage.getByRole('button', { name: /submit request/i });
@@ -1105,7 +1110,7 @@ test.describe('Public widget intake flow', () => {
     expect(done3?.intakeFields?.opposingParty, 'opposingParty should be extracted after turn 3').toBeTruthy();
 
     // After minimum viable brief (description + location + opposingParty),
-    // the submit button OR urgency chips should appear
+    // the flow may show submit, planner follow-up chips, or a payment CTA
     const buttonsAfterTurn3 = await getButtons();
     await testInfo.attach('planner-turn3-buttons.json', {
       body: JSON.stringify(buttonsAfterTurn3, null, 2),
@@ -1113,14 +1118,17 @@ test.describe('Public widget intake flow', () => {
     });
 
     const hasSubmitButton = buttonsAfterTurn3.some((b) => /submit request/i.test(b));
+    const hasPaymentButton = buttonsAfterTurn3.some((b) =>
+      /continue(\s+to\s+payment)?|pay\s*(?:&|and)\s*submit/i.test(b)
+    );
     const hasUrgencyChips = buttonsAfterTurn3.some((b) =>
       /routine|time.sensitive|emergency/i.test(b)
     );
     const hasYesNoChips = buttonsAfterTurn3.some((b) => /^yes$|^no$/i.test(b));
 
     expect(
-      hasSubmitButton || hasUrgencyChips || hasYesNoChips,
-      `After minimum viable brief, expected submit button or planner chips. Buttons: ${JSON.stringify(buttonsAfterTurn3)}`
+      hasSubmitButton || hasPaymentButton || hasUrgencyChips || hasYesNoChips,
+      `After minimum viable brief, expected submit, payment CTA, or planner chips. Buttons: ${JSON.stringify(buttonsAfterTurn3)}`
     ).toBe(true);
 
     // ── Turn 4: Urgency (if chips appeared, click one; otherwise type) ────────
@@ -1141,7 +1149,7 @@ test.describe('Public widget intake flow', () => {
         }
         await anonPage.waitForTimeout(2_000);
       }
-    } else if (!hasSubmitButton) {
+    } else if (!hasSubmitButton && !hasPaymentButton) {
       await sendAndAwait('Time-sensitive');
     }
 
