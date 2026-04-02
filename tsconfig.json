@@ -51,8 +51,7 @@
 	"exclude": [
 		"node_modules",
 		"dist",
-		"playwright/results",
-		"playwright/reports",
+		".tmp/playwright",
 		"public/mockServiceWorker.js",
 		"public/sw.js",
 		"public/widget-loader.js",

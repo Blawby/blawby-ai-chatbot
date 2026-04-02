@@ -29,7 +29,7 @@ const ensureAuthDir = (): string => {
 };
 
 const ensureResultsDir = (): string => {
-  const resultsDir = join(process.cwd(), 'playwright', 'results');
+  const resultsDir = join(process.cwd(), '.tmp', 'playwright', 'auth', 'debug');
   mkdirSync(resultsDir, { recursive: true });
   return resultsDir;
 };

@@ -50,7 +50,7 @@ const toPath = (rawUrl: string): string => {
   }
 };
 
-test.describe('Widget performance (real e2e)', () => {
+test.describe('Public widget performance', () => {
   test.describe.configure({ timeout: 120000 });
 
   test('loads widget via real worker/bootstrap route and reports true waterfall timing', async ({ anonPage }, testInfo) => {

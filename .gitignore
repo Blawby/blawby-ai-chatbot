@@ -33,14 +33,9 @@ build
 # Testing
 coverage
 .nyc_output
+.tmp/
 
 # Test results
-playwright/results/
-
-# Test logs
-test-logs-*/
-
-# Environment variables
 .env
 .env.local
 .env.development.local
@@ -87,14 +82,8 @@ backups/
 cookies.txt
 *.cookies.txt
 
-# Playwright auth state (contains session tokens and PII)
-playwright/.auth/
-
 # E2E credentials (local only)
 tests/e2e/fixtures/e2e-credentials.json
 
 # Billing plan (sensitive financial/pricing information)
 BILLING_PLAN.md
-
-# Playwright reports
-playwright/reports/

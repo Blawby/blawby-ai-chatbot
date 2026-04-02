@@ -29,7 +29,7 @@ const normalizePracticeSlug = (value: string): string => {
   return trimmed;
 };
 
-test.describe('Lead intake workflow', () => {
+test.describe('Public widget intake flow', () => {
   test.describe.configure({ timeout: 120000 });
 
   const isActiveConversationFetch = (response: { request: () => { method: () => string }; url: () => string }): boolean => (
