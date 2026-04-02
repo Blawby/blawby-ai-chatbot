@@ -9,8 +9,8 @@ import type { AuthContext } from '../middleware/auth.js';
 import { withPracticeContext, getPracticeId } from '../middleware/practiceContext.js';
 import { Logger } from '../utils/logger.js';
 import { SessionAuditService } from '../services/SessionAuditService.js';
+import { listConversationParticipantRecords, validateMentionTargets, type MentionSenderType } from '../services/ConversationParticipantService.js';
 import { handleSubmitIntake } from './submitIntake.js';
-import { isTeamRole } from '../../src/shared/types/team.js';
 
 const SYSTEM_MESSAGE_ALLOWLIST = new Set([
   'system-intro',
@@ -50,6 +50,11 @@ const STAFF_MEMBER_ROLES = new Set(['owner', 'admin', 'attorney', 'paralegal']);
 const isStaffMemberRole = (role: string | undefined): boolean => {
   if (!role) return false;
   return STAFF_MEMBER_ROLES.has(role);
+};
+
+const resolveMentionSenderType = (authContext: AuthContext, memberRole?: string): MentionSenderType => {
+  if (authContext.isAnonymous) return 'anonymous';
+  return isStaffMemberRole(memberRole) ? 'team_member' : 'client';
 };
 
 const resolvePracticeContext = async (options: {
@@ -613,10 +618,16 @@ export async function handleConversations(request: Request, env: Env): Promise<R
     const practiceId = getPracticeId(requestWithContext);
     const body = await parseJsonBody(request) as { mentionedUserIds?: string[] };
 
-    if (authContext.isAnonymous) {
-      throw HttpErrors.unauthorized('Authentication required');
+    const membership = authContext.isAnonymous
+      ? { memberRole: undefined }
+      : await checkPracticeMembership(request, env, practiceId, { authContext });
+    const senderType = resolveMentionSenderType(authContext, membership.memberRole);
+
+    if (senderType === 'team_member') {
+      await requirePracticeMember(request, env, practiceId, 'paralegal');
+    } else {
+      await conversationService.validateParticipantAccess(conversationId, practiceId, userId, { previousAnonUserId: prevAnonId });
     }
-    await requirePracticeMember(request, env, practiceId, 'paralegal');
 
     if (!Array.isArray(body.mentionedUserIds)) {
       throw HttpErrors.badRequest('mentionedUserIds must be an array');
@@ -632,14 +643,26 @@ export async function handleConversations(request: Request, env: Env): Promise<R
       sanitizedMentionedUserIds.push(el.trim());
     }
 
-    const conversation = await conversationService.setConversationMentions(
+    const conversation = await conversationService.getConversation(conversationId, practiceId);
+    const participants = await listConversationParticipantRecords({
+      env,
+      practiceId,
+      conversation,
+      request,
+    });
+    const allowedMentionedUserIds = validateMentionTargets({
+      participants,
+      senderType,
+      mentionedUserIds: sanitizedMentionedUserIds,
+    });
+
+    const updatedConversation = await conversationService.setConversationMentions(
       conversationId,
       practiceId,
-      sanitizedMentionedUserIds,
-      { request }
+      allowedMentionedUserIds
     );
 
-    return createJsonResponse(conversation);
+    return createJsonResponse(updatedConversation);
   }
 
   // PATCH /api/conversations/:id/link - Link anonymous conversation to authenticated user
@@ -987,38 +1010,12 @@ export async function handleConversations(request: Request, env: Env): Promise<R
       throw HttpErrors.forbidden('User is not authorized to view participants for this conversation');
     }
 
-    const [conversation, members] = await Promise.all([
-      conversationService.getConversation(conversationId, practiceId),
-      RemoteApiService.getPracticeMembers(env, practiceId, request)
-    ]);
-
-    const participantIds = Array.from(new Set([
-      ...conversation.participants.filter((id) => typeof id === 'string' && id.trim().length > 0),
-      ...(conversation.user_id ? [conversation.user_id] : [])
-    ]));
-    const mentionableStaffIds = members
-      .filter((member) => isTeamRole(member.role) && typeof member.user_id === 'string' && member.user_id.trim().length > 0)
-      .map((member) => member.user_id);
-    const mentionableUserIds = callerIsStaff
-      ? Array.from(new Set([
-        ...participantIds,
-        ...mentionableStaffIds
-      ]))
-      : participantIds;
-    const memberById = new Map<string, {
-      role?: string | null;
-      name?: string | null;
-      image?: string | null;
-    }>(members.map((member) => [member.user_id, member]));
-    const participants = mentionableUserIds.map((participantUserId) => {
-      const member = memberById.get(participantUserId);
-      return {
-        userId: participantUserId,
-        role: member?.role ?? null,
-        name: member?.name ?? null,
-        image: member?.image ?? null,
-        canMentionInternally: isTeamRole(member?.role),
-      };
+    const conversation = await conversationService.getConversation(conversationId, practiceId);
+    const participants = await listConversationParticipantRecords({
+      env,
+      practiceId,
+      conversation,
+      request,
     });
 
     return createJsonResponse({

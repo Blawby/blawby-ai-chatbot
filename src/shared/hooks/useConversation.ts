@@ -29,6 +29,7 @@
 
 import { useState, useMemo, useCallback, useRef, useEffect } from 'preact/hooks';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
+import { invalidateParticipants } from '@/shared/lib/conversationRepository';
 import type { ChatMessageUI, MessageReaction } from '../../../worker/types';
 import { getConversationMessagesEndpoint, getConversationWsEndpoint } from '@/config/api';
 import { getWorkerApiUrl } from '@/config/urls';
@@ -885,6 +886,11 @@ export const useConversation = ({
         case 'message.new': handleMessageNew(frame.data); return;
         case 'message.ack': handleMessageAck(frame.data); return;
         case 'reaction.update': handleReactionUpdate(frame.data); return;
+        case 'membership.changed':
+          if (practiceId) {
+            invalidateParticipants(practiceId, targetConversationId);
+          }
+          return;
         case 'error': {
           const code = typeof frame.data.code === 'string' ? frame.data.code : null;
           const msg = typeof frame.data.message === 'string' ? frame.data.message : 'Chat error';
@@ -942,7 +948,7 @@ export const useConversation = ({
     });
 
     ws.addEventListener('error', (err) => { if (import.meta.env.DEV) console.warn('[useConversation] WebSocket error', err); });
-  }, [clearReconnectTimer, fetchGapMessages, flushPendingAcks, handleMessageAck, handleMessageNew, handleReactionUpdate, initSocketReadyPromise, onError, rejectSocketReady, resolveSocketReady, scheduleReconnect, sendFrame, sendReadUpdate, sessionReady]);
+  }, [clearReconnectTimer, fetchGapMessages, flushPendingAcks, handleMessageAck, handleMessageNew, handleReactionUpdate, initSocketReadyPromise, onError, practiceId, rejectSocketReady, resolveSocketReady, scheduleReconnect, sendFrame, sendReadUpdate, sessionReady]);
 
   connectChatRoomRef.current = connectChatRoom;
 

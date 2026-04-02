@@ -5,6 +5,14 @@ import { HttpError } from '../types.js';
 import { checkPracticeMembership, requireAuth } from '../middleware/auth.js';
 import { parseEnvBool } from '../utils/safeStringUtils.js';
 import { createAiClient } from '../utils/aiClient.js';
+import { ConversationService } from '../services/ConversationService.js';
+import {
+  extractMentionUserIds,
+  listConversationParticipantRecords,
+  validateMentionTargets,
+  withValidatedMentionMetadata,
+  type MentionSenderType,
+} from '../services/ConversationParticipantService.js';
 
 const DEFAULT_AI_MODEL = '@cf/zai-org/glm-4.7-flash';
 
@@ -24,6 +32,7 @@ const IDLE_TIMEOUT_MS = 30 * 60 * 1000;
 interface ConnectionAttachment {
   conversationId: string;
   userId: string;
+  isAnonymous: boolean;
   negotiated: boolean;
   negotiationDeadline: number | null;
   lastActivityAt: number;
@@ -84,6 +93,7 @@ interface PersistOptions {
   replyToMessageId?: string | null;
   userId: string | null;
   role: 'user' | 'system';
+  senderType?: MentionSenderType;
 }
 
 type PersistResult =
@@ -181,6 +191,7 @@ export class ChatRoom {
     const attachment: ConnectionAttachment = {
       conversationId,
       userId: auth.user.id,
+      isAnonymous: auth.isAnonymous === true,
       negotiated: false,
       negotiationDeadline: null,
       lastActivityAt: Date.now(),
@@ -385,7 +396,10 @@ export class ChatRoom {
       metadata: payloadMetadata,
       replyToMessageId,
       userId: attachment.userId,
-      role: 'user'
+      role: 'user',
+      senderType: attachment.isAnonymous
+        ? 'anonymous'
+        : (attachment.isPracticeMember ? 'team_member' : 'client')
     });
 
     if (result.kind === 'error') {
@@ -608,7 +622,8 @@ export class ChatRoom {
       metadata: payloadMetadata,
       replyToMessageId,
       userId,
-      role: roleValue
+      role: roleValue,
+      senderType: roleValue === 'user' ? 'client' : undefined
     });
 
     if (result.kind === 'error') {
@@ -641,7 +656,8 @@ export class ChatRoom {
       metadata,
       replyToMessageId,
       userId,
-      role
+      role,
+      senderType
     } = options;
 
     await this.sweepPending(conversationId);
@@ -712,7 +728,37 @@ export class ChatRoom {
 
     const serverTs = new Date().toISOString();
     const messageId = crypto.randomUUID();
-    const metadataJson = metadata ? JSON.stringify(metadata) : null;
+    let sanitizedMetadata = metadata;
+
+    if (role === 'user' && senderType) {
+      try {
+        const conversationService = new ConversationService(this.env);
+        const conversation = await conversationService.getConversation(conversationId, practiceId);
+        const participants = await listConversationParticipantRecords({
+          env: this.env,
+          practiceId,
+          conversation,
+        });
+        const validatedMentionUserIds = validateMentionTargets({
+          participants,
+          senderType,
+          mentionedUserIds: extractMentionUserIds(metadata),
+        });
+        sanitizedMetadata = withValidatedMentionMetadata(metadata, validatedMentionUserIds);
+      } catch (error) {
+        if (error instanceof HttpError) {
+          return {
+            kind: 'error',
+            code: 'invalid_payload',
+            message: error.message,
+            closeCode: 4400
+          };
+        }
+        throw error;
+      }
+    }
+
+    const metadataJson = sanitizedMetadata ? JSON.stringify(sanitizedMetadata) : null;
 
     const shouldUpdateContent = role !== 'system' && content.trim().length > 0;
     const persistBatch = async (includeLastMessageContent: boolean) => {
@@ -834,7 +880,7 @@ export class ChatRoom {
       content,
       ...(replyToMessageId ? { reply_to_message_id: replyToMessageId } : {}),
       ...(attachments.length > 0 ? { attachments } : {}),
-      ...(metadata ? { metadata } : {})
+      ...(sanitizedMetadata ? { metadata: sanitizedMetadata } : {})
     };
 
     return {
