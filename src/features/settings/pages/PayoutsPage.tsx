@@ -220,14 +220,14 @@ export const PayoutsPage = ({ className = '' }: { className?: string }) => {
               />
             </span>
             <div className="min-w-0">
-              <p className="text-sm font-medium text-input-text">
+              <p className="text-sm font-medium">
                 {missingBusinessEmail
                   ? 'Business email required'
                   : hasStripeAccount && statusSummary
                     ? statusSummary.title
                     : 'Stripe onboarding required'}
               </p>
-              <p className="mt-1 text-sm text-input-placeholder">
+              <p className="mt-1 text-sm">
                 {missingBusinessEmail
                   ? 'Add a business email in practice contact settings before starting Stripe verification.'
                   : hasStripeAccount && statusSummary

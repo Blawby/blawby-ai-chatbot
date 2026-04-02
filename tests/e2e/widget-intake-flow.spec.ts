@@ -32,6 +32,21 @@ const normalizePracticeSlug = (value: string): string => {
 test.describe('Public widget intake flow', () => {
   test.describe.configure({ timeout: 120000 });
 
+  test.beforeEach(async ({ anonPage }) => {
+    await anonPage.addInitScript(() => {
+      try {
+        const keysToRemove = Object.keys(sessionStorage).filter((key) =>
+          key.startsWith('blawby_widget_bootstrap_')
+          || key === 'blawby:postAuthConversation'
+          || key === 'blawby:widget:attribution'
+        );
+        keysToRemove.forEach((key) => sessionStorage.removeItem(key));
+      } catch {
+        // Ignore storage access failures in the test harness.
+      }
+    });
+  });
+
   const isActiveConversationFetch = (response: { request: () => { method: () => string }; url: () => string }): boolean => (
     response.request().method() === 'GET'
     && response.url().includes('/api/conversations/active')
@@ -578,7 +593,8 @@ test.describe('Public widget intake flow', () => {
     let observedConversationId: string | null = null;
     const captureConversationIdFromUrl = (url: string): void => {
       const match = url.match(/\/api\/conversations\/([a-zA-Z0-9_-]+)/);
-      if (match?.[1]) {
+      const excludedSegments = new Set(['active', 'link', 'submit-intake']);
+      if (match?.[1] && !excludedSegments.has(match[1])) {
         observedConversationId = match[1];
       }
     };
