@@ -524,9 +524,16 @@ export const InspectorPanel = ({
         name: assignedConversationMember.name,
         image: assignedConversationMember.image ?? null,
       });
+    } else if (conversation?.assigned_to) {
+      // Fallback when member lookup fails but assigned_to exists
+      people.set(conversation.assigned_to, {
+        id: conversation.assigned_to,
+        name: assignedMemberLabel ?? `User ${conversation.assigned_to.slice(0, 6)}`,
+        image: null,
+      });
     }
     return [...people.values()];
-  }, [assignedConversationMember, userDetail]);
+  }, [assignedConversationMember, userDetail, conversation, assignedMemberLabel]);
   const resolveAttorneyLabel = useCallback((id: string | null) => {
     if (!id) return 'Not set';
     const option = matterAssigneeOptions.find((entry) => entry.value === id);
