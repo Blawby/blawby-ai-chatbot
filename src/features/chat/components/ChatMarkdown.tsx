@@ -75,6 +75,7 @@ const ChatMarkdown: FunctionComponent<ChatMarkdownProps> = memo(({
 
   const classes = [
     'chat-markdown',
+    'min-w-0 max-w-full',
     sizeClasses[size],
     variantClasses[variant],
     className,
