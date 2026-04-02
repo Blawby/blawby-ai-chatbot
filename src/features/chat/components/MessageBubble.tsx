@@ -15,7 +15,7 @@ export const MessageBubble: FunctionComponent<MessageBubbleProps> = ({
 	className = '',
 	children
 }) => {
-	const baseClasses = 'flex flex-col max-w-full break-words relative';
+	const baseClasses = 'flex min-w-0 flex-col max-w-full break-words relative';
 	
 	const variantClasses = {
 		default: '',

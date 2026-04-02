@@ -143,10 +143,10 @@ export const markdownComponents: Components = {
   pre({ children, ...props }) {
     const copyableText = getNodeText(children).replace(/\n$/, '');
     return (
-      <div className="group relative my-3">
+      <div className="group relative my-3 max-w-full min-w-0">
         {copyableText ? <CopyButton text={copyableText} /> : null}
         <pre
-          className="overflow-x-auto rounded-lg p-4 bg-black/40 backdrop-blur-sm text-gray-100 text-sm leading-relaxed"
+          className="max-w-full min-w-0 overflow-x-auto rounded-lg p-4 bg-black/40 backdrop-blur-sm text-gray-100 text-sm leading-relaxed"
           style={{ boxShadow: 'var(--glass-rim-subtle)' }}
           {...props}
         >
