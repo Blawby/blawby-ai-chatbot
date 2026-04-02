@@ -10,6 +10,8 @@ export interface DialogHeaderProps {
   children?: ComponentChildren;
   title?: ComponentChildren;
   description?: ComponentChildren;
+  titleId?: string;
+  descriptionId?: string;
   onClose?: () => void;
   showCloseButton?: boolean;
   className?: string;
@@ -19,11 +21,13 @@ export const DialogHeader: FunctionComponent<DialogHeaderProps> = ({
   children,
   title,
   description,
+  titleId,
+  descriptionId,
   onClose,
   showCloseButton = true,
   className,
 }) => {
-  if (!children && !title && !description && !showCloseButton) return null;
+  if (!children && !title && !description && !(showCloseButton && onClose)) return null;
 
   return (
     <div
@@ -36,8 +40,8 @@ export const DialogHeader: FunctionComponent<DialogHeaderProps> = ({
         <div className="min-w-0 flex-1 space-y-1">
           {children ?? (
             <>
-              {title ? <DialogTitle>{title}</DialogTitle> : null}
-              {description ? <DialogDescription>{description}</DialogDescription> : null}
+              {title ? <DialogTitle id={titleId}>{title}</DialogTitle> : null}
+              {description ? <DialogDescription id={descriptionId}>{description}</DialogDescription> : null}
             </>
           )}
         </div>

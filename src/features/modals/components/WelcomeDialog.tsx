@@ -1,4 +1,4 @@
-import { useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import { useTranslation, Trans } from '@/shared/i18n/hooks';
 import { InfoListDialog, type InfoListDialogItem } from '@/shared/ui/dialog';
 import {
@@ -12,13 +12,20 @@ import {
 interface WelcomeDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onComplete: () => void;
+  onComplete: () => void | Promise<void>;
   workspace: 'client' | 'practice';
 }
 
 const WelcomeDialog = ({ isOpen, onClose, onComplete, workspace }: WelcomeDialogProps) => {
   const { t } = useTranslation('common');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   const isClient = workspace === 'client';
 
@@ -84,9 +91,11 @@ const WelcomeDialog = ({ isOpen, onClose, onComplete, workspace }: WelcomeDialog
     setIsSubmitting(true);
     try {
       await new Promise((resolve) => setTimeout(resolve, 300));
-      onComplete();
+      await onComplete();
     } finally {
-      setIsSubmitting(false);
+      if (isMountedRef.current) {
+        setIsSubmitting(false);
+      }
     }
   };
 
@@ -98,7 +107,13 @@ const WelcomeDialog = ({ isOpen, onClose, onComplete, workspace }: WelcomeDialog
       description={isClient ? t('welcome.client.subtitle') : t('welcome.lawyer.subtitle')}
       items={items}
       actionLabel={isSubmitting ? (
-        <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+        <span className="inline-flex items-center gap-2">
+          <span
+            aria-hidden="true"
+            className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"
+          />
+          <span>{t('onboarding.welcome.letsGo')}</span>
+        </span>
       ) : (
         t('onboarding.welcome.letsGo')
       )}

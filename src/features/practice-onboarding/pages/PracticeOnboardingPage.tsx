@@ -6,13 +6,13 @@
  */
 
 import { FunctionComponent } from 'preact';
-import { useMemo, useCallback, useState, useEffect } from 'preact/hooks';
+import { useMemo, useCallback, useState, useEffect, useRef } from 'preact/hooks';
 import { Page } from '@/shared/ui/layout/Page';
 import { PageHeader } from '@/shared/ui/layout/PageHeader';
 import { SplitView } from '@/shared/ui/layout/SplitView';
 import OnboardingChat from '../components/OnboardingChat';
 import OnboardingActions from '../components/OnboardingActions';
-import OnboardingDialogs from '../components/OnboardingDialogs';
+import OnboardingDialogs, { type OnboardingDialogsRef } from '../components/OnboardingDialogs';
 import type { PracticeSetupStatus } from '../../practice-setup/utils/status';
 import type { Practice } from '@/shared/hooks/usePracticeManagement';
 import type { PracticeDetails } from '@/shared/lib/apiClient';
@@ -89,6 +89,7 @@ const PracticeOnboardingPage: FunctionComponent<PracticeOnboardingPageProps> = (
   chatAdapter,
 }) => {
   const { state, actions } = useOnboardingState();
+  const dialogsRef = useRef<OnboardingDialogsRef | null>(null);
   const [basicsSaved, setBasicsSaved] = useState(false);
   const [contactSaved, setContactSaved] = useState(false);
   
@@ -107,11 +108,11 @@ const PracticeOnboardingPage: FunctionComponent<PracticeOnboardingPageProps> = (
   }, [details?.address]);
   
   const handleEditBasics = useCallback(() => {
-    // Modal opening logic would go here
+    dialogsRef.current?.openBasicsModal();
   }, []);
   
   const handleEditContact = useCallback(() => {
-    // Modal opening logic would go here
+    dialogsRef.current?.openContactModal();
   }, []);
 
   const handleSaveBasics = useCallback(async (values: {
@@ -252,6 +253,7 @@ const PracticeOnboardingPage: FunctionComponent<PracticeOnboardingPageProps> = (
 
       {/* Modals */}
       <OnboardingDialogs
+        ref={dialogsRef}
         practice={practice}
         details={details}
         onSaveBasics={handleSaveBasics}

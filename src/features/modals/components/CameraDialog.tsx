@@ -17,6 +17,7 @@ const CameraDialog: FunctionComponent<CameraDialogProps> = ({
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const isActiveRef = useRef(false);
   const [isCameraReady, setIsCameraReady] = useState(false);
   const [error, setError] = useState('');
 
@@ -60,9 +61,11 @@ const CameraDialog: FunctionComponent<CameraDialogProps> = ({
   }, [stopCamera, onVideoLoaded, onVideoError]);
 
   useEffect(() => {
+    isActiveRef.current = isOpen;
     if (isOpen) startCamera();
     const video = videoRef.current;
     return () => {
+      isActiveRef.current = false;
       // Remove listeners before stopping camera
       if (video) {
         video.removeEventListener('loadedmetadata', onVideoLoaded);
@@ -73,7 +76,7 @@ const CameraDialog: FunctionComponent<CameraDialogProps> = ({
   }, [isOpen, startCamera, stopCamera, onVideoLoaded, onVideoError]);
 
   const takePhoto = () => {
-    if (!isCameraReady || !videoRef.current || !canvasRef.current) {
+    if (!isActiveRef.current || !isCameraReady || !videoRef.current || !canvasRef.current) {
       console.error('Camera not ready or elements not available');
       return;
     }
@@ -95,6 +98,10 @@ const CameraDialog: FunctionComponent<CameraDialogProps> = ({
     try {
       context.drawImage(video, 0, 0, canvas.width, canvas.height);
       canvas.toBlob((blob) => {
+        if (!isActiveRef.current) {
+          return;
+        }
+
         if (blob) {
           const file = new File([blob], `photo_${Date.now()}.jpg`, { type: 'image/jpeg' });
           onCapture(file);
@@ -114,7 +121,7 @@ const CameraDialog: FunctionComponent<CameraDialogProps> = ({
 
   return (
     <Fullscreen isOpen={isOpen} onClose={onClose} showCloseButton={true}>
-      <div className="flex flex-col h-full w-full">
+      <div className="relative flex h-full w-full flex-col">
         {error && (
           <div className="p-3 bg-red-50 border border-red-200 rounded text-red-600 text-sm text-center absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-10 max-w-80">
             <p>{error}</p>

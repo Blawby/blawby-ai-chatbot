@@ -275,13 +275,6 @@ const inventory: DialogInventoryItem[] = [
     frameHeight: 620
   },
   {
-    name: 'LinkMatterDialog',
-    file: 'src/features/chat/components/LinkMatterDialog.tsx',
-    role: 'Feature dialog',
-    usedFor: 'Attach or change a matter linked to a conversation.',
-    simplify: 'Needs service/data separation before it becomes easy to preview and reuse cleanly.'
-  },
-  {
     name: 'PracticeMattersPage',
     file: 'src/features/matters/pages/PracticeMattersPage.tsx',
     role: 'Page-owned launchers',

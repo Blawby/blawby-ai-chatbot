@@ -1,11 +1,12 @@
 import type { ComponentChildren, FunctionComponent } from 'preact';
 import { createPortal } from 'preact/compat';
-import { useEffect } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 import { Button } from '@/shared/ui/Button';
 import { Icon } from '@/shared/ui/Icon';
 import { THEME } from '@/shared/utils/constants';
-import { lockBodyScroll, unlockBodyScroll } from '@/shared/utils/modalStack';
+import { isTopmostModal, lockBodyScroll, registerModal, unlockBodyScroll, unregisterModal } from '@/shared/utils/modalStack';
+import { focusInitialElement, trapFocusWithin } from './focusUtils';
 
 export interface FullscreenProps {
   isOpen: boolean;
@@ -13,6 +14,7 @@ export interface FullscreenProps {
   children: ComponentChildren;
   showCloseButton?: boolean;
   disableBackdropClick?: boolean;
+  ariaLabel?: string;
 }
 
 export const Fullscreen: FunctionComponent<FullscreenProps> = ({
@@ -20,33 +22,87 @@ export const Fullscreen: FunctionComponent<FullscreenProps> = ({
   onClose,
   children,
   showCloseButton = true,
-  disableBackdropClick: _disableBackdropClick = false,
+  disableBackdropClick = false,
+  ariaLabel,
 }) => {
+  const dialogRef = useRef<HTMLDivElement | null>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
+  const dialogIdRef = useRef(`fullscreen-${Math.random().toString(36).slice(2)}`);
+  const [portalContainer, setPortalContainer] = useState<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (typeof document === 'undefined') {
+      return;
+    }
+    setPortalContainer(document.body);
+  }, []);
+
   useEffect(() => {
     if (!isOpen) return;
 
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    document.addEventListener('keydown', handleEscape);
+    const dialogId = dialogIdRef.current;
+    previousFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    registerModal(dialogId);
     lockBodyScroll();
+    const dialog = dialogRef.current;
+    if (dialog) {
+      focusInitialElement(dialog);
+    }
+
+    const handleEscape = (e: KeyboardEvent) => {
+      if (!isTopmostModal(dialogId)) {
+        return;
+      }
+
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        onClose();
+        return;
+      }
+
+      if (e.key === 'Tab' && dialogRef.current) {
+        trapFocusWithin(e, dialogRef.current);
+      }
+    };
+
+    document.addEventListener('keydown', handleEscape);
 
     return () => {
       document.removeEventListener('keydown', handleEscape);
+      unregisterModal(dialogId);
       unlockBodyScroll();
+      if (previousFocusRef.current?.isConnected) {
+        previousFocusRef.current.focus();
+      }
+      previousFocusRef.current = null;
     };
   }, [isOpen, onClose]);
 
-  if (!isOpen) return null;
+  if (!isOpen || !portalContainer) return null;
 
   return createPortal(
     <div
-      role="dialog"
-      aria-modal="true"
       className="ui-overlay-enter fixed inset-0 h-full w-full overflow-y-auto"
       style={{ zIndex: THEME.zIndex.modal }}
     >
-      <div className="ui-surface-enter min-h-full w-full flex flex-col border border-line-glass/30 bg-surface-overlay/95 text-input-text shadow-2xl backdrop-blur-xl">
+      {disableBackdropClick ? (
+        <div className="absolute inset-0" aria-hidden="true" />
+      ) : (
+        <button
+          type="button"
+          aria-label="Close dialog"
+          className="absolute inset-0"
+          onMouseDown={onClose}
+        />
+      )}
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={ariaLabel}
+        tabIndex={-1}
+        className="ui-surface-enter relative z-10 min-h-full w-full flex flex-col border border-line-glass/30 bg-surface-overlay/95 text-input-text shadow-2xl backdrop-blur-xl"
+      >
         {showCloseButton && (
           <Button
             variant="ghost"
@@ -60,6 +116,6 @@ export const Fullscreen: FunctionComponent<FullscreenProps> = ({
         {children}
       </div>
     </div>,
-    document.body
+    portalContainer
   );
 };

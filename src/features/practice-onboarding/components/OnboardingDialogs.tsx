@@ -5,8 +5,8 @@
  * between chat interface and form modals.
  */
 
-import { FunctionComponent } from 'preact';
-import { useState, useCallback } from 'preact/hooks';
+import { forwardRef } from 'preact/compat';
+import { useState, useCallback, useImperativeHandle } from 'preact/hooks';
 import { Dialog } from '@/shared/ui/dialog';
 import { FormGrid } from '@/shared/ui/layout';
 import { FormActions } from '@/shared/ui/form';
@@ -36,6 +36,13 @@ export interface OnboardingDialogsProps {
   onSetModalSaving: (saving: boolean) => void;
 }
 
+export interface OnboardingDialogsRef {
+  openBasicsModal: () => void;
+  closeBasicsModal: () => void;
+  openContactModal: () => void;
+  closeContactModal: () => void;
+}
+
 interface BasicsFormValues {
   name: string;
   slug: string;
@@ -49,30 +56,52 @@ interface ContactFormValues {
   address?: Address;
 }
 
-const OnboardingDialogs: FunctionComponent<OnboardingDialogsProps> = ({
+const getBasicsDraft = (practice: Practice | null, details: PracticeDetails | null): BasicsFormValues => ({
+  name: practice?.name ?? '',
+  slug: practice?.slug ?? '',
+  accentColor: normalizeAccentColor(details?.accentColor ?? practice?.accentColor) ?? '#D4AF37',
+});
+
+const getContactDraft = (practice: Practice | null, details: PracticeDetails | null): ContactFormValues => ({
+  website: details?.website ?? practice?.website ?? '',
+  businessEmail: details?.businessEmail ?? practice?.businessEmail ?? '',
+  businessPhone: details?.businessPhone ?? practice?.businessPhone ?? '',
+  address: details?.address && typeof details.address === 'object'
+    ? details.address
+    : practice?.address && typeof practice.address === 'object'
+      ? practice.address
+      : undefined,
+});
+
+const OnboardingDialogs = forwardRef<OnboardingDialogsRef, OnboardingDialogsProps>(({
   practice,
   details,
   onSaveBasics,
   onSaveContact,
   isModalSaving,
   onSetModalSaving,
-}) => {
+}, ref) => {
   const [basicsModalOpen, setBasicsModalOpen] = useState(false);
   const [contactModalOpen, setContactModalOpen] = useState(false);
-  
-  const [basicsDraft, setBasicsDraft] = useState<BasicsFormValues>({
-    name: practice?.name ?? '',
-    slug: practice?.slug ?? '',
-    accentColor: normalizeAccentColor(details?.accentColor ?? practice?.accentColor) ?? '#D4AF37',
-  });
+  const [basicsDraft, setBasicsDraft] = useState<BasicsFormValues>(() => getBasicsDraft(practice, details));
+  const [contactDraft, setContactDraft] = useState<ContactFormValues>(() => getContactDraft(practice, details));
 
-  const [contactDraft, setContactDraft] = useState<ContactFormValues>({
-    website: details?.website ?? practice?.website ?? '',
-    businessEmail: details?.businessEmail ?? practice?.businessEmail ?? '',
-    businessPhone: details?.businessPhone ?? practice?.businessPhone ?? '',
-    address: details?.address && typeof details.address === 'object' ? details.address : 
-              practice?.address && typeof practice.address === 'object' ? practice.address : undefined,
-  });
+  const openBasicsModal = useCallback(() => {
+    setBasicsDraft(getBasicsDraft(practice, details));
+    setBasicsModalOpen(true);
+  }, [practice, details]);
+
+  const openContactModal = useCallback(() => {
+    setContactDraft(getContactDraft(practice, details));
+    setContactModalOpen(true);
+  }, [practice, details]);
+
+  useImperativeHandle(ref, () => ({
+    openBasicsModal,
+    closeBasicsModal: () => setBasicsModalOpen(false),
+    openContactModal,
+    closeContactModal: () => setContactModalOpen(false),
+  }), [openBasicsModal, openContactModal]);
 
   const handleBasicsSubmit = useCallback(async () => {
     if (!onSaveBasics) return;
@@ -236,6 +265,6 @@ const OnboardingDialogs: FunctionComponent<OnboardingDialogsProps> = ({
       </Dialog>
     </>
   );
-};
+});
 
 export default OnboardingDialogs;

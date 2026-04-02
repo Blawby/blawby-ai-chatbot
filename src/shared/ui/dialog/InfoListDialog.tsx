@@ -66,7 +66,7 @@ export const InfoListDialog: FunctionComponent<InfoListDialogProps> = ({
               <Icon icon={HeaderIcon} className={headerIconClassName ?? 'h-5 w-5 text-input-text'} aria-hidden="true" />
             </div>
           ) : null}
-          <div className="space-y-1">
+          <div className="min-w-0 space-y-1">
             <DialogTitle>{title}</DialogTitle>
             {description ? <DialogDescription>{description}</DialogDescription> : null}
           </div>
@@ -80,7 +80,7 @@ export const InfoListDialog: FunctionComponent<InfoListDialogProps> = ({
               <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-white/5">
                 <Icon icon={item.icon} className={item.iconClassName ?? 'h-5 w-5 text-input-text'} aria-hidden="true" />
               </div>
-              <div className="space-y-1">
+              <div className="min-w-0 space-y-1">
                 <div className="text-sm font-semibold text-input-text">
                   {item.title}
                 </div>
