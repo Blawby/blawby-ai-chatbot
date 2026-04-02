@@ -10,7 +10,6 @@ const mocks = vi.hoisted(() => ({
   addParticipantsMock: vi.fn(),
   getConversationMock: vi.fn(),
   getPracticeMembersMock: vi.fn(),
-  getPracticeTeamMock: vi.fn(),
 }));
 
 vi.mock('../../../worker/middleware/auth.js', () => ({
@@ -38,7 +37,6 @@ vi.mock('../../../worker/services/ConversationService.js', () => ({
 vi.mock('../../../worker/services/RemoteApiService.js', () => ({
   RemoteApiService: {
     getPracticeMembers: mocks.getPracticeMembersMock,
-    getPracticeTeam: mocks.getPracticeTeamMock,
   },
 }));
 
@@ -61,26 +59,10 @@ describe('handleConversations - participants endpoint', () => {
     mocks.optionalAuthMock.mockResolvedValue({ user: { id: 'user-1' } });
     mocks.checkPracticeMembershipMock.mockResolvedValue({ isMember: true, memberRole: 'owner' });
     mocks.addParticipantsMock.mockResolvedValue({ id: 'conv-1' });
-    mocks.getConversationMock.mockResolvedValue({ participants: ['client-1'], user_id: 'client-1' });
+    mocks.getConversationMock.mockResolvedValue({ participants: ['client-1'], user_id: 'client-1', is_anonymous: false, user_info: { name: 'Client Person' } });
     mocks.getPracticeMembersMock.mockResolvedValue([
-      { user_id: 'client-1', role: 'client', name: 'Client Person', image: null },
-      { user_id: 'staff-1', role: 'member', name: 'Staff Person', image: null },
+      { user_id: 'staff-1', role: 'attorney', name: 'Staff Person', image: null },
     ]);
-    mocks.getPracticeTeamMock.mockResolvedValue({
-      members: [
-        {
-          userId: 'staff-1',
-          email: 'staff@example.com',
-          name: 'Staff Person',
-          image: null,
-          role: 'member',
-          createdAt: null,
-          canAssignToMatter: false,
-          canMentionInternally: true,
-        },
-      ],
-      summary: { seatsIncluded: 2, seatsUsed: 1 },
-    });
   });
 
   it('adds participants when caller is authorized', async () => {
@@ -127,30 +109,40 @@ describe('handleConversations - participants endpoint', () => {
     expect(mocks.addParticipantsMock).not.toHaveBeenCalled();
   });
 
-  it('expands mention candidates with the worker team view and flags internal mentions', async () => {
+  it('returns explicit mention permissions for team members and clients', async () => {
     const request = new Request('https://example.com/api/conversations/conv-1/participants?practiceId=practice-1');
 
     const response = await handleConversations(request, env);
     const payload = await response.json() as {
       success?: boolean;
       data?: {
-        participants?: Array<{ userId: string; canMentionInternally?: boolean; role?: string | null }>;
+        participants?: Array<{
+          userId: string;
+          role?: string | null;
+          isTeamMember?: boolean;
+          canBeMentionedByTeamMember?: boolean;
+          canBeMentionedByClient?: boolean;
+        }>;
       };
     };
 
     expect(response.status).toBe(200);
-    expect(mocks.getPracticeTeamMock).toHaveBeenCalledWith(env, 'practice-1', request);
+    expect(mocks.getPracticeMembersMock).toHaveBeenCalledWith(env, 'practice-1', request);
     expect(payload.success).toBe(true);
     expect(payload.data?.participants).toEqual([
       expect.objectContaining({
         userId: 'client-1',
-        role: 'client',
-        canMentionInternally: false,
+        role: null,
+        isTeamMember: false,
+        canBeMentionedByTeamMember: true,
+        canBeMentionedByClient: true,
       }),
       expect.objectContaining({
         userId: 'staff-1',
-        role: 'member',
-        canMentionInternally: true,
+        role: 'attorney',
+        isTeamMember: true,
+        canBeMentionedByTeamMember: true,
+        canBeMentionedByClient: true,
       }),
     ]);
   });

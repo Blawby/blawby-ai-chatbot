@@ -942,4 +942,267 @@ test.describe('Lead intake workflow', () => {
       )
       .not.toBeNull();
   });
+  test('intake planner follows deterministic field order and structured data is extracted', async ({
+    anonPage,
+  }, testInfo) => {
+    const practiceSlug = normalizePracticeSlug(DEFAULT_PRACTICE_SLUG);
+    const uniqueId = randomUUID().slice(0, 8);
+    const authName = `Planner E2E ${uniqueId}`;
+    const authEmail = `planner-e2e+${uniqueId}@example.com`;
+
+    type DonePayload = {
+      intakeFields?: Record<string, unknown> | null;
+      quickReplies?: string[] | null;
+    };
+
+    const parseDonePayloads = (text: string) => {
+      const payloads: DonePayload[] = [];
+      const lines = text.split('\n').filter((line) => line.trim().startsWith('data: '));
+      for (const line of lines) {
+        try {
+          const payload = JSON.parse(line.replace(/^data:\s*/, ''));
+          if (payload?.done === true) {
+            payloads.push(payload);
+          }
+        } catch {
+          // Skip malformed SSE payload lines.
+        }
+      }
+      return payloads;
+    };
+
+    await anonPage.goto(`/public/${encodeURIComponent(practiceSlug)}?v=widget`, {
+      waitUntil: 'domcontentloaded',
+    });
+
+    // ── Slim form ────────────────────────────────────────────────────────────
+    const consultationCta = anonPage.locator('button:visible').filter({ hasText: /request consultation/i }).first();
+    const messageInput = anonPage.locator('[data-testid="message-input"]:visible').first();
+
+    await expect.poll(
+      async () => ({
+        ctaVisible: await consultationCta.isVisible().catch(() => false),
+        composerVisible: await messageInput.isVisible().catch(() => false),
+      }),
+      { timeout: 20_000, message: 'Expected widget home CTA or composer to render' }
+    ).not.toEqual({ ctaVisible: false, composerVisible: false });
+
+    if (await consultationCta.isVisible().catch(() => false)) {
+      await consultationCta.click();
+    }
+
+    const slimFormName = anonPage.locator('input[placeholder*="full name" i]:visible').first();
+    const slimFormEmail = anonPage.locator('input[type="email"]:visible').first();
+    const slimFormPhone = anonPage.locator('input[type="tel"]:visible').first();
+    const slimFormContinue = anonPage.locator('button:visible').filter({ hasText: /^continue$/i }).first();
+
+    const deadline = Date.now() + 30_000;
+    while (Date.now() < deadline) {
+      if (await messageInput.isEnabled({ timeout: 250 }).catch(() => false)) break;
+      if (await slimFormContinue.isVisible({ timeout: 250 }).catch(() => false)) {
+        if (await slimFormName.isVisible({ timeout: 250 }).catch(() => false)) {
+          await slimFormName.fill(authName).catch(() => undefined);
+        }
+        if (await slimFormEmail.isVisible({ timeout: 250 }).catch(() => false)) {
+          await slimFormEmail.fill(authEmail).catch(() => undefined);
+        }
+        if (await slimFormPhone.isVisible({ timeout: 250 }).catch(() => false)) {
+          await slimFormPhone.fill('5555550123').catch(() => undefined);
+        }
+        await slimFormContinue.click().catch(() => undefined);
+      }
+      await anonPage.waitForTimeout(400);
+    }
+
+    await expect(messageInput).toBeEnabled({ timeout: 20_000 });
+
+    // ── Turn helper ──────────────────────────────────────────────────────────
+    const aiLocator = anonPage.locator('[data-testid="ai-message"], [data-testid="system-message"]');
+    const streamingLocator = anonPage.locator('[id^="message-streaming-"]');
+    let latestDonePayload: DonePayload | null = null;
+
+    const sendAndAwait = async (text: string): Promise<{ reply: string; donePayload: DonePayload | null }> => {
+      const signatureBefore = JSON.stringify(
+        await aiLocator.evaluateAll((els) => els.map((el) => (el.textContent ?? '').trim()))
+      );
+      const responsePromise = anonPage.waitForResponse(
+        (r) => r.request().method() === 'POST' && r.url().includes('/api/ai/chat') && r.status() === 200,
+        { timeout: LEAD_TURN_TIMEOUT_MS }
+      );
+      await messageInput.fill(text);
+      await anonPage.getByRole('button', { name: /send message/i }).click();
+      const response = await responsePromise;
+      const responseText = await response.text().catch(() => '');
+      const donePayload = parseDonePayloads(responseText).at(-1) ?? null;
+      if (donePayload) {
+        latestDonePayload = donePayload;
+      }
+      // Wait for UI to settle
+      await expect.poll(
+        async () => {
+          const [sig, streamCount] = await Promise.all([
+            aiLocator.evaluateAll((els) => JSON.stringify(els.map((el) => (el.textContent ?? '').trim()))),
+            streamingLocator.count(),
+          ]);
+          return sig !== signatureBefore && streamCount === 0;
+        },
+        { timeout: LEAD_TURN_TIMEOUT_MS, message: `UI did not settle after sending: "${text}"` }
+      ).toBe(true);
+      await expect.poll(
+        async () => {
+          const count = await aiLocator.count();
+          if (count === 0) return false;
+          const last = (await aiLocator.nth(count - 1).innerText().catch(() => '')).trim();
+          return last.length > 0 && !/loading markdown/i.test(last);
+        },
+        { timeout: LEAD_TURN_TIMEOUT_MS, message: 'AI reply did not render after send' }
+      ).toBe(true);
+      const count = await aiLocator.count();
+      return {
+        reply: (await aiLocator.nth(count - 1).innerText().catch(() => '')).trim(),
+        donePayload,
+      };
+    };
+
+    const getButtons = async () =>
+      anonPage.locator('button:visible').allInnerTexts().catch(() => [] as string[]);
+
+    // ── Turn 1: Description ──────────────────────────────────────────────────
+    const { reply: reply1, donePayload: done1 } = await sendAndAwait(
+      'My landlord is refusing to return my security deposit after I moved out.'
+    );
+    await testInfo.attach('planner-turn1-reply.txt', { body: reply1, contentType: 'text/plain' });
+
+    // After description, planner should ask about location next
+    expect(
+      /city|state|location|where/i.test(reply1),
+      `After description, AI should ask about location. Got: "${reply1.slice(0, 300)}"`
+    ).toBe(true);
+
+    // done payload should have description extracted
+    expect(
+      done1?.intakeFields?.description,
+      'description should be extracted after turn 1'
+    ).toBeTruthy();
+
+    // ── Turn 2: Location ─────────────────────────────────────────────────────
+    const { reply: reply2, donePayload: done2 } = await sendAndAwait('Raleigh, NC');
+    await testInfo.attach('planner-turn2-reply.txt', { body: reply2, contentType: 'text/plain' });
+
+    // After location, planner should ask about opposing party
+    expect(
+      /landlord|other party|opposing|who|party/i.test(reply2),
+      `After location, AI should ask about opposing party. Got: "${reply2.slice(0, 300)}"`
+    ).toBe(true);
+
+    expect(done2?.intakeFields?.city, 'city should be extracted after turn 2').toBeTruthy();
+    expect(done2?.intakeFields?.state, 'state should be extracted after turn 2').toBeTruthy();
+
+    // ── Turn 3: Opposing party → minimum viable brief complete ───────────────
+    const { reply: reply3, donePayload: done3 } = await sendAndAwait('My landlord, Johnson Properties LLC');
+    await testInfo.attach('planner-turn3-reply.txt', { body: reply3, contentType: 'text/plain' });
+
+    expect(done3?.intakeFields?.opposingParty, 'opposingParty should be extracted after turn 3').toBeTruthy();
+
+    // After minimum viable brief (description + location + opposingParty),
+    // the submit button OR urgency chips should appear
+    const buttonsAfterTurn3 = await getButtons();
+    await testInfo.attach('planner-turn3-buttons.json', {
+      body: JSON.stringify(buttonsAfterTurn3, null, 2),
+      contentType: 'application/json',
+    });
+
+    const hasSubmitButton = buttonsAfterTurn3.some((b) => /submit request/i.test(b));
+    const hasUrgencyChips = buttonsAfterTurn3.some((b) =>
+      /routine|time.sensitive|emergency/i.test(b)
+    );
+    const hasYesNoChips = buttonsAfterTurn3.some((b) => /^yes$|^no$/i.test(b));
+
+    expect(
+      hasSubmitButton || hasUrgencyChips || hasYesNoChips,
+      `After minimum viable brief, expected submit button or planner chips. Buttons: ${JSON.stringify(buttonsAfterTurn3)}`
+    ).toBe(true);
+
+    // ── Turn 4: Urgency (if chips appeared, click one; otherwise type) ────────
+    if (hasUrgencyChips) {
+      const timeSensitiveChip = anonPage.locator('button:visible').filter({ hasText: /time.sensitive/i }).first();
+      if (await timeSensitiveChip.isVisible({ timeout: 2_000 }).catch(() => false)) {
+        // Clicking a chip sends it as a message — wait for AI response
+        const responsePromise = anonPage.waitForResponse(
+          (r) => r.request().method() === 'POST' && r.url().includes('/api/ai/chat') && r.status() === 200,
+          { timeout: LEAD_TURN_TIMEOUT_MS }
+        );
+        await timeSensitiveChip.click();
+        const response = await responsePromise;
+        const responseText = await response.text().catch(() => '');
+        const donePayload = parseDonePayloads(responseText).at(-1) ?? null;
+        if (donePayload) {
+          latestDonePayload = donePayload;
+        }
+        await anonPage.waitForTimeout(2_000);
+      }
+    } else if (!hasSubmitButton) {
+      await sendAndAwait('Time-sensitive');
+    }
+
+    // ── Assert: submit button eventually appears within remaining turns ────────
+    const submitButton = anonPage.getByRole('button', { name: /submit request/i });
+    const paymentButton = anonPage.locator('button:visible').filter({ hasText: /continue(\s+to\s+payment)?|pay.*submit/i }).first();
+    const plannerDeadline = Date.now() + LEAD_TURN_TIMEOUT_MS;
+    while (Date.now() < plannerDeadline) {
+      const [submitVisible, paymentVisible] = await Promise.all([
+        submitButton.isVisible().catch(() => false),
+        paymentButton.isVisible().catch(() => false),
+      ]);
+      if (submitVisible || paymentVisible) {
+        break;
+      }
+
+      const count = await aiLocator.count();
+      if (count === 0) {
+        await anonPage.waitForTimeout(500);
+        continue;
+      }
+
+      const last = (await aiLocator.nth(count - 1).innerText().catch(() => '')).trim();
+      if (/ready to submit|are you ready/i.test(last)) {
+        break;
+      }
+      if (/desired outcome|hoping for/i.test(last)) {
+        await sendAndAwait('Get my full deposit back');
+        continue;
+      }
+      if (/documents|paperwork/i.test(last)) {
+        await sendAndAwait('Yes, I have documents');
+        continue;
+      }
+
+      await anonPage.waitForTimeout(500);
+    }
+
+    await expect.poll(
+      async () => {
+        const submitVisible = await submitButton.isVisible().catch(() => false);
+        const paymentVisible = await paymentButton.isVisible().catch(() => false);
+        return submitVisible || paymentVisible;
+      },
+      {
+        timeout: 5_000,
+        message: 'Submit button never appeared after completing intake planner sequence',
+      }
+    ).toBe(true);
+
+    // ── Verify final intakeFields structure ───────────────────────────────────
+    const finalDone = latestDonePayload;
+    await testInfo.attach('planner-final-done-payload.json', {
+      body: JSON.stringify(finalDone, null, 2),
+      contentType: 'application/json',
+    });
+
+    expect(finalDone?.intakeFields?.description, 'final state: description must be present').toBeTruthy();
+    expect(finalDone?.intakeFields?.city, 'final state: city must be present').toBeTruthy();
+    expect(finalDone?.intakeFields?.state, 'final state: state must be present').toBeTruthy();
+    expect(finalDone?.intakeFields?.opposingParty, 'final state: opposingParty must be present').toBeTruthy();
+    expect(finalDone?.intakeFields?.intakeReady, 'final state: intakeReady must be true').toBe(true);
+  });
 });

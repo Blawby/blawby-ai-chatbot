@@ -142,19 +142,6 @@ export class ConversationService {
     );
   }
 
-  private async getMentionableTeamMemberIds(
-    practiceId: string,
-    request?: Request
-  ): Promise<Set<string>> {
-    const team = await RemoteApiService.getPracticeTeam(this.env, practiceId, request);
-    return new Set(
-      team.members
-        .filter((member) => member.canMentionInternally)
-        .map((member) => member.userId)
-        .filter((userId) => typeof userId === 'string' && userId.trim().length > 0)
-    );
-  }
-
   private readTrimmedString(value: unknown): string | null {
     if (typeof value !== 'string') return null;
     const trimmed = value.trim();
@@ -960,19 +947,15 @@ export class ConversationService {
   async setConversationMentions(
     conversationId: string,
     practiceId: string,
-    mentionUserIds: string[],
-    options?: { request?: Request }
+    mentionUserIds: string[]
   ): Promise<Conversation> {
-    const rawMentionUserIds = Array.from(
+    const normalizedMentionUserIds = Array.from(
       new Set(
         mentionUserIds
           .map((userId) => userId.trim())
           .filter((userId) => userId.length > 0)
       )
     );
-
-    const mentionableMemberIds = await this.getMentionableTeamMemberIds(practiceId, options?.request);
-    const normalizedMentionUserIds = rawMentionUserIds.filter(id => mentionableMemberIds.has(id));
 
     const conversation = await this.getConversation(conversationId, practiceId);
     const metadata = { ...(conversation.user_info ?? {}) } as Record<string, unknown>;

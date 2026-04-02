@@ -37,7 +37,8 @@ const ClientInvoiceDetailPage = lazy(() => import('@/features/invoices/pages/Cli
 const PracticeReportsPage = lazy(() => import('@/features/reports/pages/PracticeReportsPage').then(m => ({ default: m.PracticeReportsPage })));
 import { useConversationSystemMessages } from '@/shared/hooks/useConversationSystemMessages';
 import { initializeAccentColor } from '@/shared/utils/accentColors';
-import { getConversationParticipants, linkConversationToUser } from '@/shared/lib/apiClient';
+import { linkConversationToUser } from '@/shared/lib/apiClient';
+import { useMentionCandidates } from '@/shared/hooks/useMentionCandidates';
 import { isIntakeReadyForSubmission, resolveConsultationState } from '@/shared/utils/consultationState';
 import {
   peekAnonymousSessionId,
@@ -505,46 +506,7 @@ export function MainApp({
     });
   }, [sendMessage, isPracticeWorkspace]);
 
-  const [mentionCandidates, setMentionCandidates] = useState<Array<{ userId: string; name: string }>>([]);
-  useEffect(() => {
-    console.log('[Participants] Loading for', { liveConversationId, practiceId });
-    if (!isPracticeWorkspace || !practiceId || !liveConversationId) {
-      setMentionCandidates([]);
-      return;
-    }
-
-    const looksLikeEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
-    const controller = new AbortController();
-
-    (async () => {
-      try {
-        console.log('[Participants] Fetching participants...');
-        const participants = await getConversationParticipants(liveConversationId, practiceId, { signal: controller.signal });
-        const nextMentionCandidates = participants
-          .filter((participant) => participant.canMentionInternally === true)
-          .map((participant) => ({
-            userId: participant.userId,
-            name: (participant.name ?? '').trim(),
-          }))
-          .filter((participant) => (
-            participant.userId.trim().length > 0
-            && participant.name.length > 0
-            && !looksLikeEmail(participant.name)
-          ));
-        console.log('[Participants] Fetched', participants.length, 'participants');
-        setMentionCandidates(nextMentionCandidates);
-      } catch (error) {
-        if ((error as DOMException)?.name === 'AbortError') return;
-        console.warn('[MainApp] Failed to load conversation participants for mentions', error);
-        setMentionCandidates([]);
-      }
-    })();
-
-    return () => {
-      console.log('[Participants] Cleanup - aborting request');
-      controller.abort();
-    };
-  }, [isPracticeWorkspace, liveConversationId, practiceId]);
+  const { mentionCandidates } = useMentionCandidates(practiceId, liveConversationId);
 
   const handleUploadError = useCallback((error: unknown) => {
     console.error('File upload error:', error);

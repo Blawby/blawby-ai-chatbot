@@ -383,9 +383,12 @@ export async function updateConversationMatter(
 
 export type ConversationParticipant = {
   userId: string;
-  role?: string | null;
-  name?: string | null;
-  image?: string | null;
+  role: string | null;
+  name: string | null;
+  image: string | null;
+  isTeamMember: boolean;
+  canBeMentionedByTeamMember: boolean;
+  canBeMentionedByClient: boolean;
   canMentionInternally?: boolean;
 };
 
@@ -422,6 +425,9 @@ export async function getConversationParticipants(
       role: typeof row.role === 'string' ? row.role : null,
       name: typeof row.name === 'string' ? row.name : null,
       image: typeof row.image === 'string' ? row.image : null,
+      isTeamMember: row.isTeamMember === true || row.is_team_member === true,
+      canBeMentionedByTeamMember: row.canBeMentionedByTeamMember === true || row.can_be_mentioned_by_team_member === true,
+      canBeMentionedByClient: row.canBeMentionedByClient === true || row.can_be_mentioned_by_client === true,
       canMentionInternally: row.canMentionInternally === true || row.can_mention_internally === true,
     }))
     .filter((row) => row.userId.trim().length > 0);

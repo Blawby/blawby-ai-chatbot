@@ -480,24 +480,48 @@ test.describe('Widget embed (cross-origin iframe flow)', () => {
 
     const iframe = page.frameLocator('iframe[src*="/public/"]').first();
     const messageInput = iframe.locator('[data-testid="message-input"]');
-    const composerReady = await messageInput.isEnabled().catch(() => false);
-    if (!composerReady) {
-      let state = 'waiting' as 'composer' | 'cta' | 'waiting';
-      await expect.poll(
-        async () => {
-          const inputEnabled = await iframe.locator('[data-testid="message-input"]').isEnabled().catch(() => false);
-          const sendButtonVisible = await iframe.locator('button').filter({ hasText: /send us a message/i }).first().isVisible().catch(() => false);
-          state = inputEnabled ? 'composer' : sendButtonVisible ? 'cta' : 'waiting';
-          return state;
-        },
-        { timeout: INTERACTIVE_TIMEOUT_MS, message: 'Expected widget home CTA or composer to appear in iframe' }
-      ).toMatch(/composer|cta/);
-      if (state === 'cta') {
-        await iframe.locator('button').filter({ hasText: /send us a message/i }).first().click();
+    // Navigate from widget home screen to composer
+    // The home screen may show: Ask a question CTA, Request consultation CTA,
+    // or go directly to the composer if a previous conversation exists.
+    await expect.poll(
+      async () => {
+        // Already at composer
+        if (await messageInput.isEnabled({ timeout: 300 }).catch(() => false)) return true;
+
+        // Ask a question button present → click it
+        const askBtn = iframe.getByRole('button', { name: /ask a question/i }).first();
+        if (await askBtn.isVisible({ timeout: 300 }).catch(() => false)) {
+          await askBtn.click().catch(() => null);
+          return false; // re-poll to confirm composer appears
+        }
+
+        const consultBtn = iframe.getByRole('button', { name: /request.*consultation/i }).first();
+        if (await consultBtn.isVisible({ timeout: 300 }).catch(() => false)) {
+          await consultBtn.click().catch(() => null);
+          return false;
+        }
+
+        // Home screen with send message button
+        const sendBtn = iframe.getByRole('button', { name: /send.*(message|us)/i }).first();
+        if (await sendBtn.isVisible({ timeout: 300 }).catch(() => false)) {
+          await sendBtn.click().catch(() => null);
+          return false;
+        }
+
+        // Recent conversation present — clicking it goes to composer
+        const recentMsg = iframe.locator('[data-testid="recent-message"], .recent-conversation').first();
+        if (await recentMsg.isVisible({ timeout: 300 }).catch(() => false)) {
+          await recentMsg.click().catch(() => null);
+          return false;
+        }
+
+        return false;
+      },
+      {
+        timeout: INTERACTIVE_TIMEOUT_MS,
+        message: 'Widget never reached composer after navigating home screen',
       }
-    }
-    // Wait for composer to be interactive.
-    await expect(messageInput).toBeEnabled({ timeout: INTERACTIVE_TIMEOUT_MS });
+    ).toBe(true);
 
     // Wait for AI chat response.
     const aiResponsePromise = page.waitForResponse(
