@@ -277,6 +277,9 @@
       "continue": "Continuar",
       "addMore": "Añadir más",
       "notYet": "Todavía no"
+    },
+    "attachments": {
+      "disabled": "Los archivos adjuntos en el chat están deshabilitados actualmente."
     }
   },
   "intake": {

@@ -114,7 +114,7 @@ interface FeatureFlags {
 const baseFeatureConfig: FeatureFlags = {
     enableAudioRecording: false, // Set to false to hide voice recording
     enableVideoRecording: false, // Not implemented yet
-    enableFileAttachments: true, // File attachments are enabled
+    enableFileAttachments: false, // Legacy chat attachments are disabled pending backend upload migration
     enableLeftSidebar: true, // Enable left sidebar
     enableMessageFeedback: false, // Disable feedback and copy buttons on messages
     enableDisclaimerText: false, // Disable disclaimer text below input

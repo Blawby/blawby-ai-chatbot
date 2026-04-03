@@ -277,6 +277,9 @@
       "continue": "Doorgaan",
       "addMore": "Meer toevoegen",
       "notYet": "Nog niet"
+    },
+    "attachments": {
+      "disabled": "Bijlagen uploaden is niet beschikbaar in dit formulier."
     }
   },
   "intake": {

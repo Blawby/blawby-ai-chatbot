@@ -277,6 +277,9 @@
       "continue": "계속",
       "addMore": "더 추가하기",
       "notYet": "아직 아니요"
+    },
+    "attachments": {
+      "disabled": "이 양식에서는 첨부 파일 업로드를 사용할 수 없습니다."
     }
   },
   "intake": {

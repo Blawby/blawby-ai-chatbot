@@ -278,6 +278,9 @@
       "continue": "Devam Et",
       "addMore": "Daha fazla ekle",
       "notYet": "Henüz değil"
+    },
+    "attachments": {
+      "disabled": "Ek yükleme bu formda kullanılamıyor."
     }
   },
   "intake": {

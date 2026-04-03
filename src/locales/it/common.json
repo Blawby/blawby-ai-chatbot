@@ -277,6 +277,9 @@
       "continue": "Continua",
       "addMore": "Aggiungi altro",
       "notYet": "Non ancora"
+    },
+    "attachments": {
+      "disabled": "Il caricamento degli allegati non è disponibile in questo modulo."
     }
   },
   "intake": {

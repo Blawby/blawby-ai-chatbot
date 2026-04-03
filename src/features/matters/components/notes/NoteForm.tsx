@@ -11,13 +11,22 @@ export type NoteFormValues = {
 interface NoteFormProps {
   initialNote?: MatterNote;
   practiceId?: string | null;
+  matterId?: string | null;
   onSubmit: (values: NoteFormValues) => void;
   onCancel: () => void;
   onDelete?: () => void;
   isSubmitting?: boolean;
 }
 
-export const NoteForm = ({ initialNote, practiceId, onSubmit, onCancel, onDelete, isSubmitting = false }: NoteFormProps) => {
+export const NoteForm = ({
+  initialNote,
+  practiceId,
+  matterId,
+  onSubmit,
+  onCancel,
+  onDelete,
+  isSubmitting = false
+}: NoteFormProps) => {
   const [content, setContent] = useState(initialNote?.content ?? '');
   const [error, setError] = useState('');
 
@@ -44,6 +53,7 @@ export const NoteForm = ({ initialNote, practiceId, onSubmit, onCancel, onDelete
           }
         }}
         practiceId={practiceId}
+        matterId={matterId}
         rows={5}
         maxLength={5000}
         placeholder="Capture key updates, decisions, or follow-ups for this matter."

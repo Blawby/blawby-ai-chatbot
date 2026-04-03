@@ -10,10 +10,10 @@ import {
 } from '@heroicons/react/24/outline';
 import { Icon } from '@/shared/ui/Icon';
 import { cn } from '@/shared/utils/cn';
-import { uploadWithProgress, validateFile } from '@/shared/services/upload/UploadTransport';
 import { useUniqueId } from '@/shared/hooks/useUniqueId';
 import remarkGfm from 'remark-gfm';
 import { markdownComponents } from '@/shared/ui/markdown/markdownComponents';
+import { uploadFileViaBackend } from '@/shared/lib/uploadsApi';
 
 // Custom hook to dynamically import react-markdown on client
 function useReactMarkdown() {
@@ -68,6 +68,7 @@ export interface MarkdownUploadTextareaProps {
   onChange: (value: string) => void;
   practiceId?: string | null;
   conversationId?: string;
+  matterId?: string | null;
   label?: string;
   showLabel?: boolean;
   showTabs?: boolean;
@@ -81,7 +82,6 @@ export interface MarkdownUploadTextareaProps {
 }
 
 const createMarkdownForUpload = (file: File, url: string): string => {
-  // Escape [ ] ( ) in filenames for markdown
   const safeName = file.name.replace(/[[]()]/g, '$&');
   const safeUrl = url.replace(/\)/g, '\\)');
   if (file.type.startsWith('image/')) {
@@ -93,8 +93,9 @@ const createMarkdownForUpload = (file: File, url: string): string => {
 export const MarkdownUploadTextarea = ({
   value,
   onChange,
-  practiceId,
-  conversationId,
+  practiceId: _practiceId,
+  conversationId: _conversationId,
+  matterId,
   label = 'Description',
   showLabel = true,
   showTabs = true,
@@ -118,6 +119,8 @@ export const MarkdownUploadTextarea = ({
   const [isDragActive, setIsDragActive] = useState(false);
   const [uploadItems, setUploadItems] = useState<UploadState[]>([]);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const resolvedMatterId = (matterId ?? '').trim();
+  const uploadsEnabled = resolvedMatterId.length > 0;
 
   const isUploading = useMemo(
     () => uploadItems.some((item) => item.status === 'uploading'),
@@ -189,22 +192,14 @@ export const MarkdownUploadTextarea = ({
     const files = Array.from(incoming);
     if (files.length === 0) return;
     if (disabled) return;
-
-    const resolvedPracticeId = (practiceId ?? '').trim();
-    if (!resolvedPracticeId) {
-      setUploadError('Missing practice context. Please refresh and try again.');
+    if (!uploadsEnabled) {
+      setUploadError('File uploads are only available after the matter has been created.');
       return;
     }
 
     setUploadError(null);
 
     for (const file of files) {
-      const validation = validateFile(file);
-      if (!validation.isValid) {
-        setUploadError(validation.error ?? `Unsupported file: ${file.name}`);
-        continue;
-      }
-
       const uploadId = crypto.randomUUID();
       setUploadItems((prev) => [
         ...prev,
@@ -212,14 +207,16 @@ export const MarkdownUploadTextarea = ({
           id: uploadId,
           name: file.name,
           progress: 0,
-          status: 'uploading'
-        }
+          status: 'uploading',
+        },
       ]);
 
       try {
-        const uploaded = await uploadWithProgress(file, {
-          practiceId: resolvedPracticeId,
-          conversationId,
+        const uploaded = await uploadFileViaBackend({
+          file,
+          uploadContext: 'matter',
+          matterId: resolvedMatterId,
+          subContext: 'documents',
           onProgress: (progress) => {
             setUploadItems((prev) =>
               prev.map((item) =>
@@ -228,8 +225,12 @@ export const MarkdownUploadTextarea = ({
                   : item
               )
             );
-          }
+          },
         });
+
+        if (!uploaded.publicUrl) {
+          throw new Error('Matter upload completed without a public URL.');
+        }
 
         setUploadItems((prev) =>
           prev.map((item) =>
@@ -239,7 +240,7 @@ export const MarkdownUploadTextarea = ({
           )
         );
 
-        insertAtCursor(createMarkdownForUpload(file, uploaded.url));
+        insertAtCursor(createMarkdownForUpload(file, uploaded.publicUrl));
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Upload failed';
         setUploadItems((prev) =>
@@ -352,7 +353,7 @@ export const MarkdownUploadTextarea = ({
               onInput={(event) => onChange((event.currentTarget as HTMLTextAreaElement).value)}
               onDragOver={(event) => {
                 event.preventDefault();
-                if (!disabled) setIsDragActive(true);
+                if (!disabled && uploadsEnabled) setIsDragActive(true);
               }}
               onDragLeave={(event) => {
                 event.preventDefault();
@@ -364,11 +365,13 @@ export const MarkdownUploadTextarea = ({
               onDrop={(event) => {
                 event.preventDefault();
                 setIsDragActive(false);
-                void handleFiles(event.dataTransfer?.files ?? []);
+                if (uploadsEnabled) {
+                  void handleFiles(event.dataTransfer?.files ?? []);
+                }
               }}
               onPaste={(event) => {
                 const clipboardFiles = event.clipboardData?.files;
-                if (clipboardFiles && clipboardFiles.length > 0) {
+                if (uploadsEnabled && clipboardFiles && clipboardFiles.length > 0) {
                   event.preventDefault();
                   void handleFiles(clipboardFiles);
                 }
@@ -414,34 +417,42 @@ export const MarkdownUploadTextarea = ({
         {showFooter ? (
           <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line-glass/30 px-4 py-2 text-sm">
             <div className="flex items-center gap-2 text-input-placeholder">
-              <Icon icon={CloudArrowUpIcon} className="h-4 w-4" aria-hidden="true"  />
-              <button
-                type="button"
-                className="hover:text-input-text"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={disabled}
-              >
-                Paste, drop, or click to add files
-              </button>
+              {uploadsEnabled ? (
+                <>
+                  <Icon icon={CloudArrowUpIcon} className="h-4 w-4" aria-hidden="true"  />
+                  <button
+                    type="button"
+                    className="hover:text-input-text"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={disabled}
+                  >
+                    Paste, drop, or click to add files
+                  </button>
+                </>
+              ) : (
+                <span>File uploads unlock after the matter exists</span>
+              )}
             </div>
             <div className="text-input-placeholder">{value.length}/{maxLength}</div>
           </div>
         ) : null}
       </div>
 
-      <input
-        ref={fileInputRef}
-        type="file"
-        className="hidden"
-        multiple
-        onChange={(event) => {
-          const files = event.currentTarget.files;
-          if (files) {
-            void handleFiles(files);
-            event.currentTarget.value = '';
-          }
-        }}
-      />
+      {uploadsEnabled ? (
+        <input
+          ref={fileInputRef}
+          type="file"
+          className="hidden"
+          multiple
+          onChange={(event) => {
+            const files = event.currentTarget.files;
+            if (files) {
+              void handleFiles(files);
+              event.currentTarget.value = '';
+            }
+          }}
+        />
+      ) : null}
 
       {uploadItems.length > 0 && (
         <div className="space-y-1 rounded-xl border border-line-glass/30 bg-surface-overlay/50 px-3 py-2">

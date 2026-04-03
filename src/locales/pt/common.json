@@ -277,6 +277,9 @@
       "continue": "Continuar",
       "addMore": "Adicionar mais",
       "notYet": "Ainda não"
+    },
+    "attachments": {
+      "disabled": "O upload de anexos não está disponível neste formulário."
     }
   },
   "intake": {

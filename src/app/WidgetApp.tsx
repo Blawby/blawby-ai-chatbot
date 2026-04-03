@@ -10,7 +10,6 @@ import WorkspaceHomeView from '@/features/chat/views/WorkspaceHomeView';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import WidgetConversationListView from '@/features/chat/views/WidgetConversationListView';
 import { useConversations } from '@/shared/hooks/useConversations';
-import { useFileUploadWithContext } from '@/shared/hooks/useFileUpload';
 import { useMessageHandling } from '@/shared/hooks/useMessageHandling';
 import { useConversationSystemMessages } from '@/shared/hooks/useConversationSystemMessages';
 import { fetchLatestConversationMessage } from '@/shared/lib/conversationApi';
@@ -30,6 +29,9 @@ import { resolveStrengthStyle, resolveStrengthTier } from '@/shared/utils/intake
 import { DetailHeader } from '@/shared/ui/layout/DetailHeader';
 import { resolveConsultationState } from '@/shared/utils/consultationState';
 import { MobileInspectorOverlay } from '@/shared/ui/inspector/MobileInspectorOverlay';
+import { features } from '@/config/features';
+import type { FileAttachment } from '../../worker/types';
+import type { UploadingFile } from '@/shared/types/upload';
 
 interface WidgetAppProps {
   practiceId: string;
@@ -338,21 +340,32 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
     }
   }, [practiceId, applyConversationMode, ensureConversation]);
 
+  const attachmentsDisabledMessage = t('chat.attachments.disabled');
+
   // File Uploads
-  const {
-    previewFiles,
-    uploadingFiles,
-    isReadyToUpload,
-    handleFileSelect,
-    removePreviewFile,
-    clearPreviewFiles,
-    isDragging,
-    cancelUpload,
-    handleMediaCapture,
-  } = useFileUploadWithContext({
-    conversationId: activeConversationId ?? undefined,
-    ensureConversation: () => ensureConversation(),
-  });
+  const previewFiles = useMemo<FileAttachment[]>(() => [], []);
+  const uploadingFiles = useMemo<UploadingFile[]>(() => [], []);
+  const isReadyToUpload = features.enableFileAttachments;
+  const handleFileSelect = useCallback(async (_files: File[]) => {
+    if (!features.enableFileAttachments) {
+      showErrorRef.current?.(attachmentsDisabledMessage);
+      return [];
+    }
+    // TODO: Implement file upload logic
+    return [];
+  }, [attachmentsDisabledMessage]);
+  const removePreviewFile = useCallback((_index: number) => {}, []);
+  const clearPreviewFiles = useCallback(() => {}, []);
+  const isDragging = false;
+  const cancelUpload = useCallback((_fileId: string) => {}, []);
+  const handleMediaCapture = useCallback((_blob: Blob, _type: 'audio' | 'video') => {
+    if (!features.enableFileAttachments) {
+      showErrorRef.current?.(attachmentsDisabledMessage);
+      return undefined;
+    }
+    // TODO: Implement media capture logic
+    return undefined;
+  }, [attachmentsDisabledMessage]);
 
   const handleCameraCapture = useCallback(async (file: File) => {
     await handleFileSelect([file]);

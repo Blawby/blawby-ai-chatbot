@@ -277,6 +277,9 @@
       "reviewSubmit": "Überprüfen & absenden",
       "submit": "Anfrage absenden",
       "submitConsultationRequest": "Beratungsanfrage absenden"
+    },
+    "attachments": {
+      "disabled": "Anhang-Upload ist in diesem Formular nicht verfügbar."
     }
   },
   "intake": {

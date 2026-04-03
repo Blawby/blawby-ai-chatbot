@@ -277,6 +277,9 @@
       "continue": "Continuer",
       "addMore": "Ajouter plus",
       "notYet": "Pas encore"
+    },
+    "attachments": {
+      "disabled": "Les pièces jointes de conversation sont actuellement désactivées."
     }
   },
   "intake": {

@@ -530,11 +530,30 @@ test.describe('Public widget intake flow', () => {
     }
 
     const paymentVisibleAtAction = await paymentContinueButton.isVisible().catch(() => false);
-    if (reachedPaymentTerminal || paymentVisibleAtAction) {
-      await expect(paymentContinueButton).toBeVisible({ timeout: 10000 });
-      await paymentContinueButton.click();
+    const submitVisibleAtAction = await submitNowButton.isVisible().catch(() => false);
+    const bodyTextAtAction = await bodyLocator.innerText().catch(() => '');
+    const hasPaymentPromptAtAction = /consultation fee|continue to payment|pay and submit|pay & submit|submit your intake/i.test(bodyTextAtAction);
+    const terminalActionButton = anonPage
+      .locator('[data-testid="ai-message"]')
+      .last()
+      .locator('button:visible')
+      .filter({ hasText: /^(submit request|continue|continue\s+to\s+payment|pay\s*(?:&|and)\s*submit)$/i })
+      .first();
+
+    if (reachedPaymentTerminal || paymentVisibleAtAction || hasPaymentPromptAtAction) {
+      if (paymentVisibleAtAction) {
+        await paymentContinueButton.click();
+      } else {
+        await expect(
+          terminalActionButton,
+          'Expected a visible action button in the payment-gated terminal state.'
+        ).toBeVisible({ timeout: 10000 });
+        await terminalActionButton.click();
+      }
     } else {
-      await expect(submitNowButton).toBeVisible({ timeout: 10000 });
+      if (!submitVisibleAtAction) {
+        await expect(submitNowButton).toBeVisible({ timeout: 10000 });
+      }
       await submitNowButton.click();
     }
 

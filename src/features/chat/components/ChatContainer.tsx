@@ -8,7 +8,7 @@ import { FileAttachment } from '../../../../worker/types';
 import { ContactData } from '@/features/intake/components/ContactForm';
 import { isValidStripePaymentLink, type IntakePaymentRequest } from '@/shared/utils/intakePayments';
 import { createKeyPressHandler } from '@/shared/utils/keyboard';
-import type { UploadingFile } from '@/shared/hooks/useFileUpload';
+import type { UploadingFile } from '@/shared/types/upload';
 import type { ConversationMode } from '@/shared/types/conversation';
 import type { ReplyTarget } from '@/features/chat/types';
 import type { LayoutMode } from '@/app/MainApp';
@@ -19,6 +19,7 @@ import type { OnboardingActions } from './VirtualMessageList';
 import { getSession as refreshAuthSession } from '@/shared/lib/authClient';
 import { rememberPostAuthConversationContext, type PostAuthConversationContext } from '@/shared/utils/anonymousIdentity';
 import { ChatActionCard } from './ChatActionCard';
+import { features } from '@/config/features';
 
 export interface ChatContainerProps {
   messages: ChatMessageUI[];
@@ -750,6 +751,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
                   replyTo={replyTarget}
                   onCancelReply={handleCancelReply}
                   mentionCandidates={mentionCandidates}
+                  hideAttachmentControls={!features.enableFileAttachments}
                 />
               )}
             </div>

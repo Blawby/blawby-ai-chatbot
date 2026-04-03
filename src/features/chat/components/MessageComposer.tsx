@@ -8,7 +8,7 @@ import { FileUploadStatus } from '@/shared/ui/upload/molecules/FileUploadStatus'
 import { ArrowUpIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import { features } from '@/config/features';
 import { FileAttachment } from '../../../../worker/types';
-import type { UploadingFile } from '@/shared/hooks/useFileUpload';
+import type { UploadingFile } from '@/shared/types/upload';
 import { Trans } from '@/shared/i18n/hooks';
 import type { ReplyTarget } from '@/features/chat/types';
 import { useTranslation } from 'react-i18next';

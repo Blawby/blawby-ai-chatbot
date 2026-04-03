@@ -277,6 +277,9 @@
       "continue": "Lanjutkan",
       "addMore": "Tambah lagi",
       "notYet": "Belum saatnya"
+    },
+    "attachments": {
+      "disabled": "Unggahan lampiran tidak tersedia di formulir ini."
     }
   },
   "intake": {
