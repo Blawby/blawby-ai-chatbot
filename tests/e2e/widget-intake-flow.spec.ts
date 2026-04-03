@@ -79,6 +79,7 @@ test.describe('Public widget intake flow', () => {
     const pageErrors: string[] = [];
     const submitIntakeStatuses: number[] = [];
     const activeConversationStatuses: number[] = [];
+    const networkLog: Array<{ time: string; method: string; url: string; status?: number }> = [];
     const intakeSettingsPayloads: Array<{
       url: string;
       status: number;
@@ -101,7 +102,22 @@ test.describe('Public widget intake flow', () => {
     anonPage.on('pageerror', (error) => {
       pageErrors.push(error.message);
     });
+    anonPage.on('request', (request) => {
+      if (request.url().includes('/api/')) {
+        networkLog.push({
+          time: new Date().toISOString(),
+          method: request.method(),
+          url: request.url(),
+        });
+      }
+    });
     anonPage.on('response', (response) => {
+      if (response.url().includes('/api/')) {
+        const entry = networkLog.findLast((item) =>
+          item.url === response.url() && item.method === response.request().method() && !item.status
+        );
+        if (entry) entry.status = response.status();
+      }
       if (isActiveConversationFetch(response)) {
         activeConversationStatuses.push(response.status());
       }
@@ -149,18 +165,39 @@ test.describe('Public widget intake flow', () => {
 
     const messageInput = anonPage.locator('[data-testid="message-input"]:visible').first();
     const consultationCta = anonPage.locator('button:visible').filter({ hasText: /request consultation/i }).first();
-    await expect
-      .poll(
-        async () => ({
-          ctaVisible: await consultationCta.isVisible().catch(() => false),
-          composerVisible: await messageInput.isVisible().catch(() => false),
-        }),
-        {
-          timeout: 20000,
-          message: 'Expected widget home CTA or message composer to render on public widget page.',
-        }
-      )
-      .not.toEqual({ ctaVisible: false, composerVisible: false });
+    try {
+      await expect
+        .poll(
+          async () => ({
+            ctaVisible: await consultationCta.isVisible().catch(() => false),
+            composerVisible: await messageInput.isVisible().catch(() => false),
+          }),
+          {
+            timeout: 20000,
+            message: 'Expected widget home CTA or message composer to render on public widget page.',
+          }
+        )
+        .not.toEqual({ ctaVisible: false, composerVisible: false });
+    } catch (error) {
+      const startupDebug = await anonPage.evaluate(() => {
+        const bodyText = document.body?.innerText ?? '';
+        const buttons = Array.from(document.querySelectorAll('button'))
+          .map((el) => (el.textContent ?? '').trim())
+          .filter(Boolean)
+          .slice(0, 40);
+        return {
+          url: window.location.href,
+          title: document.title,
+          bodySnippet: bodyText.slice(0, 3000),
+          buttons,
+        };
+      }).catch(() => null);
+      await testInfo.attach('lead-flow-startup-debug.json', {
+        body: JSON.stringify({ startupDebug, networkLog }, null, 2),
+        contentType: 'application/json',
+      });
+      throw error;
+    }
     if (await consultationCta.isVisible().catch(() => false)) {
       await consultationCta.click();
       await anonPage.waitForTimeout(1200);
@@ -680,6 +717,10 @@ test.describe('Public widget intake flow', () => {
     if (pageErrors.length) {
       await testInfo.attach('page-errors', { body: pageErrors.join('\n'), contentType: 'text/plain' });
     }
+    await testInfo.attach('lead-flow-network-log.json', {
+      body: JSON.stringify(networkLog, null, 2),
+      contentType: 'application/json',
+    });
 
     expect(
       pageErrors.filter((e) => {
@@ -700,6 +741,7 @@ test.describe('Public widget intake flow', () => {
     const practiceSlug = normalizePracticeSlug(DEFAULT_PRACTICE_SLUG);
     const conversationLinkRequests: Array<{ url: string; status: number }> = [];
     const activeConversationStatuses: number[] = [];
+    const networkLog: Array<{ time: string; method: string; url: string; status?: number }> = [];
     let observedConversationId: string | null = null;
     const captureConversationIdFromUrl = (url: string): void => {
       const match = url.match(/\/api\/conversations\/([a-zA-Z0-9_-]+)/);
@@ -709,7 +751,23 @@ test.describe('Public widget intake flow', () => {
       }
     };
 
+    anonPage.on('request', (request) => {
+      if (request.url().includes('/api/')) {
+        networkLog.push({
+          time: new Date().toISOString(),
+          method: request.method(),
+          url: request.url(),
+        });
+      }
+    });
+
     anonPage.on('response', (response) => {
+      if (response.url().includes('/api/')) {
+        const entry = networkLog.findLast((item) =>
+          item.url === response.url() && item.method === response.request().method() && !item.status
+        );
+        if (entry) entry.status = response.status();
+      }
       if (isActiveConversationFetch(response)) {
         activeConversationStatuses.push(response.status());
       }
@@ -734,18 +792,39 @@ test.describe('Public widget intake flow', () => {
       .filter({ hasText: /request consultation/i })
       .first();
 
-    await expect
-      .poll(
-        async () => ({
-          ctaVisible: await consultationCta.isVisible().catch(() => false),
-          composerVisible: await messageInput.isVisible().catch(() => false),
-        }),
-        {
-          timeout: 25000,
-          message: 'Expected widget home CTA or message composer to appear.',
-        }
-      )
-      .not.toEqual({ ctaVisible: false, composerVisible: false });
+    try {
+      await expect
+        .poll(
+          async () => ({
+            ctaVisible: await consultationCta.isVisible().catch(() => false),
+            composerVisible: await messageInput.isVisible().catch(() => false),
+          }),
+          {
+            timeout: 25000,
+            message: 'Expected widget home CTA or message composer to appear.',
+          }
+        )
+        .not.toEqual({ ctaVisible: false, composerVisible: false });
+    } catch (error) {
+      const startupDebug = await anonPage.evaluate(() => {
+        const bodyText = document.body?.innerText ?? '';
+        const buttons = Array.from(document.querySelectorAll('button'))
+          .map((el) => (el.textContent ?? '').trim())
+          .filter(Boolean)
+          .slice(0, 40);
+        return {
+          url: window.location.href,
+          title: document.title,
+          bodySnippet: bodyText.slice(0, 3000),
+          buttons,
+        };
+      }).catch(() => null);
+      await testInfo.attach('signin-flow-startup-debug.json', {
+        body: JSON.stringify({ startupDebug, networkLog }, null, 2),
+        contentType: 'application/json',
+      });
+      throw error;
+    }
 
     if (await consultationCta.isVisible().catch(() => false)) {
       await consultationCta.click();
@@ -941,7 +1020,28 @@ test.describe('Public widget intake flow', () => {
       expect(signInResponse.status(), `Sign-in API returned ${signInResponse.status()}; expected 200`).toBe(200);
     }
 
-    await waitForSession(anonPage, { timeoutMs: 30_000 });
+    try {
+      await waitForSession(anonPage, { timeoutMs: 30_000 });
+    } catch (error) {
+      const sessionDebug = await anonPage.evaluate(() => {
+        const bodyText = document.body?.innerText ?? '';
+        const buttons = Array.from(document.querySelectorAll('button'))
+          .map((el) => (el.textContent ?? '').trim())
+          .filter(Boolean)
+          .slice(0, 40);
+        return {
+          url: window.location.href,
+          title: document.title,
+          bodySnippet: bodyText.slice(0, 3000),
+          buttons,
+        };
+      }).catch(() => null);
+      await testInfo.attach('signin-flow-session-debug.json', {
+        body: JSON.stringify({ sessionDebug, networkLog, conversationLinkRequests, observedConversationId }, null, 2),
+        contentType: 'application/json',
+      });
+      throw error;
+    }
 
     if (capturedConversationId) {
       await expect
@@ -978,6 +1078,10 @@ test.describe('Public widget intake flow', () => {
         ).toBe(true);
       }
     }
+    await testInfo.attach('signin-flow-network-log.json', {
+      body: JSON.stringify(networkLog, null, 2),
+      contentType: 'application/json',
+    });
   });
 
   test('widget auth token persists widget flow after clearing cookies', async ({ anonPage }) => {
@@ -1113,10 +1217,6 @@ test.describe('Public widget intake flow', () => {
     const networkLog: Array<{ time: string; method: string; url: string; status?: number }> = [];
 
     try {
-      await anonPage.goto(`/public/${encodeURIComponent(practiceSlug)}?v=widget`, {
-        waitUntil: 'domcontentloaded',
-      });
-
       anonPage.on('request', (req) => {
         if (req.url().includes('/api/')) {
           networkLog.push({ time: new Date().toISOString(), method: req.method(), url: req.url() });
@@ -1132,17 +1232,45 @@ test.describe('Public widget intake flow', () => {
         }
       });
 
+      await anonPage.goto(`/public/${encodeURIComponent(practiceSlug)}?v=widget`, {
+        waitUntil: 'domcontentloaded',
+      });
+
       // ── Slim form ────────────────────────────────────────────────────────────
       const consultationCta = anonPage.locator('button:visible').filter({ hasText: /request consultation/i }).first();
       const messageInput = anonPage.locator('[data-testid="message-input"]:visible').first();
 
-      await expect.poll(
-        async () => ({
-          ctaVisible: await consultationCta.isVisible().catch(() => false),
-          composerVisible: await messageInput.isVisible().catch(() => false),
-        }),
-        { timeout: 20_000, message: 'Expected widget home CTA or composer to render' }
-      ).not.toEqual({ ctaVisible: false, composerVisible: false });
+      try {
+        await expect.poll(
+          async () => ({
+            ctaVisible: await consultationCta.isVisible().catch(() => false),
+            composerVisible: await messageInput.isVisible().catch(() => false),
+          }),
+          { timeout: 20_000, message: 'Expected widget home CTA or composer to render' }
+        ).not.toEqual({ ctaVisible: false, composerVisible: false });
+      } catch (error) {
+        const startupDebug = await anonPage.evaluate(() => {
+          const bodyText = document.body?.innerText ?? '';
+          const buttons = Array.from(document.querySelectorAll('button'))
+            .map((el) => (el.textContent ?? '').trim())
+            .filter(Boolean)
+            .slice(0, 40);
+          return {
+            url: window.location.href,
+            title: document.title,
+            bodySnippet: bodyText.slice(0, 3000),
+            buttons,
+          };
+        }).catch(() => null);
+        await testInfo.attach('planner-startup-debug.json', {
+          body: JSON.stringify({
+            startupDebug,
+            networkLog,
+          }, null, 2),
+          contentType: 'application/json',
+        });
+        throw error;
+      }
 
       if (await consultationCta.isVisible().catch(() => false)) {
         await consultationCta.click();
