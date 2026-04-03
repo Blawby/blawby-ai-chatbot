@@ -154,11 +154,14 @@ const readStringField = (record: Record<string, unknown> | null | undefined, key
 };
 
 const isCaseInfoComplete = (state: IntakeConversationState | null | undefined, draft?: SlimContactDraft | null): boolean => {
+  const readTrimmedString = (value: unknown): string | null => (
+    typeof value === 'string' && value.trim().length > 0 ? value.trim() : null
+  );
   const readinessState = {
-    description: state?.description?.trim() || draft?.description?.trim() || null,
-    city: state?.city?.trim() || draft?.city?.trim() || null,
-    state: state?.state?.trim() || draft?.state?.trim() || null,
-    opposingParty: state?.opposingParty?.trim() || draft?.opposingParty?.trim() || null,
+    description: readTrimmedString(state?.description) || readTrimmedString(draft?.description),
+    city: readTrimmedString(state?.city) || readTrimmedString(draft?.city),
+    state: readTrimmedString(state?.state) || readTrimmedString(draft?.state),
+    opposingParty: readTrimmedString(state?.opposingParty) || readTrimmedString(draft?.opposingParty),
   };
   return isIntakeReadyForSubmission(readinessState);
 };
