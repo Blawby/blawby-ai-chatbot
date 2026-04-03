@@ -53,7 +53,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
   bootstrapSession
 }) => {
   const [view, setView] = useState<'home' | 'list' | 'chat'>(routeConversationId ? 'chat' : 'home');
-  const [setupConversationId, setConversationId] = useState<string | null>(bootstrapConversationId ?? null);
+  const [setupConversationId, setConversationId] = useState<string | null>(null);
   const [conversationMode, setConversationMode] = useState<ConversationMode | null>(null);
   const [isInspectorOpen, setIsInspectorOpen] = useState(false);
   const [hasPersistError, setHasPersistError] = useState(false);
@@ -71,6 +71,8 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
   const isAnonymous = bootstrapSession?.user?.isAnonymous ?? bootstrapSession?.user?.is_anonymous ?? true;
 
   const isEmbedded = typeof window !== 'undefined' && window.parent !== window;
+
+  const effectiveConversationId = routeConversationId ?? setupConversationId ?? bootstrapConversationId ?? null;
 
   const createConversation = useCallback(async (options?: { forceNew?: boolean }): Promise<string> => {
     if (inFlightCreateRef.current) return inFlightCreateRef.current;
@@ -94,16 +96,10 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
   }, [practiceId, currentUserId, setConversationId]);
 
   const ensureConversation = useCallback(async (options?: { forceNew?: boolean }): Promise<string | null> => {
-    const existingConversationId = setupConversationId ?? routeConversationId ?? null;
+    const existingConversationId = effectiveConversationId;
     if (!options?.forceNew && existingConversationId) return existingConversationId;
     return createConversation(options);
-  }, [createConversation, routeConversationId, setupConversationId]);
-
-  useEffect(() => {
-    if (routeConversationId) return;
-    if (!bootstrapConversationId) return;
-    setConversationId((current) => current ?? bootstrapConversationId);
-  }, [bootstrapConversationId, routeConversationId]);
+  }, [createConversation, effectiveConversationId]);
 
   const applyConversationMode = useCallback(async (mode: ConversationMode, targetId: string, source: string, startIntake: boolean): Promise<boolean> => {
     try {
@@ -256,7 +252,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
   const messageHandling = useMessageHandling({
     practiceId,
     practiceSlug: practiceConfig.slug ?? undefined,
-    conversationId: setupConversationId ?? routeConversationId ?? undefined,
+    conversationId: effectiveConversationId ?? undefined,
     ensureConversation: () => ensureConversation(),
     userId: currentUserId,
     linkAnonymousConversationOnLoad: true,
@@ -278,7 +274,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
 
   useEffect(() => { clearMessages(); }, [practiceId, clearMessages]);
 
-  const activeConversationId = setupConversationId ?? routeConversationId;
+  const activeConversationId = effectiveConversationId;
 
   // Intake Auth (simplistic for widget, just redirecting or showing prompt if needed)
   const intakeUuid = intakeStatus?.intakeUuid ?? null;

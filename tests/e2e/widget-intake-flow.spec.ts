@@ -1199,7 +1199,7 @@ test.describe('Public widget intake flow', () => {
 
     // ── Assert: submit button eventually appears within remaining turns ────────
     const submitButton = anonPage.getByRole('button', { name: /submit request/i });
-    const paymentButton = anonPage.locator('button:visible').filter({ hasText: /^(continue|continue\s+to\s+payment|pay.*submit)$/i }).first();
+    const paymentButton = anonPage.locator('button:visible').filter({ hasText: /^(continue|continue\s+to\s+payment|pay\s*(?:&|and)\s*submit)$/i }).first();
     const MAX_REMAINING_TURNS = 6;
     let submitReached = false;
     for (let i = 0; i < MAX_REMAINING_TURNS; i++) {

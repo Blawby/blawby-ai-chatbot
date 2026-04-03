@@ -3,6 +3,10 @@ import {
   readAnyString,
   LEGAL_INTENT_REGEX,
 } from './aiChatShared.js';
+import {
+  isIntakeReadyForSubmission as isSharedIntakeReadyForSubmission,
+  isIntakeSubmittable as isSharedIntakeSubmittable,
+} from '../../src/shared/utils/consultationState';
 
 // messageCount includes both user and assistant turns; 10 total turns is roughly
 // 5 user turns before we pivot to closing language. This is a UX default and may
@@ -93,7 +97,7 @@ const buildIntakeConversationCtaInstruction = (
   if (isSubmissionReady && isPlannerFinished && messageCount < INTAKE_CLOSING_MESSAGE_THRESHOLD) {
     return `\nYou have all the required details. Ask: "Are you ready to submit your case to the firm?" in one short sentence. Do not summarize again. Do not ask if they want to add anything else.`;
   }
-  if (isCaseInfoComplete(mergedState) && paymentRequiredBeforeSubmit && !paymentCompleted) {
+  if (isIntakeReadyForSubmission(mergedState) && paymentRequiredBeforeSubmit && !paymentCompleted) {
     return '\nYou already have the required case details. Do NOT ask for more case details. Briefly explain that payment is required before submission and ask the user to tap Continue to payment. Do NOT include raw URLs or placeholders like [Insert Payment Link].';
   }
   return `\nAsk exactly ONE focused question about the single most important missing piece of information. Priority: situation description → city and state → opposing party → urgency → desired outcome → documents. Do not ask for submission readiness until all required details are collected.`;
@@ -194,36 +198,23 @@ const mergeIntakeState = (
   return { ...(base ?? {}), ...(patch ?? {}) };
 };
 
-const isMinimumViableBriefComplete = (state: Record<string, unknown> | null): boolean => {
-  if (!state) return false;
-  const hasDescription = hasNonEmptyStringField(state, 'description');
-  const hasLocation = hasNonEmptyStringField(state, 'city') && hasNonEmptyStringField(state, 'state');
-  const hasOpposingParty = hasNonEmptyStringField(state, 'opposingParty');
-  return hasDescription && hasLocation && hasOpposingParty;
-};
-
-const isCaseInfoComplete = (state: Record<string, unknown> | null): boolean => {
-  if (!isMinimumViableBriefComplete(state)) return false;
-  if (!state) return false;
-  const hasUrgency = hasNonEmptyStringField(state, 'urgency');
-  const hasDesiredOutcome = hasNonEmptyStringField(state, 'desiredOutcome');
-  const hasDocumentAnswer = typeof state.hasDocuments === 'boolean';
-  return hasUrgency && hasDesiredOutcome && hasDocumentAnswer;
-};
-
 export interface IntakeSubmissionGate {
   paymentRequiredBeforeSubmit: boolean;
   paymentCompleted: boolean;
 }
 
+const isIntakeReadyForSubmission = (state: Record<string, unknown> | null): boolean => (
+  isSharedIntakeReadyForSubmission(state as Parameters<typeof isSharedIntakeReadyForSubmission>[0])
+);
+
 const isIntakeSubmittable = (
   state: Record<string, unknown> | null,
   submissionGate?: IntakeSubmissionGate | null,
 ): boolean => {
-  if (!isMinimumViableBriefComplete(state)) return false;
-  const paymentRequiredBeforeSubmit = submissionGate?.paymentRequiredBeforeSubmit === true;
-  const paymentCompleted = submissionGate?.paymentCompleted === true;
-  return !paymentRequiredBeforeSubmit || paymentCompleted;
+  return isSharedIntakeSubmittable(state as Parameters<typeof isSharedIntakeSubmittable>[0], {
+    paymentRequired: submissionGate?.paymentRequiredBeforeSubmit === true,
+    paymentReceived: submissionGate?.paymentCompleted === true,
+  });
 };
 
 /**
@@ -683,7 +674,7 @@ export {
   buildIntakeConversationStablePrompt,
   buildIntakeConversationStatePrompt,
   mergeIntakeState,
-  isCaseInfoComplete,
+  isIntakeReadyForSubmission,
   isIntakeSubmittable,
   normalizeServicesForPrompt,
   extractServiceNames,
