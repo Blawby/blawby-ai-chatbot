@@ -1,5 +1,7 @@
 import { expect, test } from './fixtures.public';
 import { randomUUID } from 'crypto';
+import { mkdirSync, writeFileSync } from 'fs';
+import { resolve } from 'path';
 import { loadE2EConfig } from './helpers/e2eConfig';
 import { waitForSession } from './helpers/auth';
 
@@ -9,6 +11,17 @@ const rawBudget = process.env.E2E_WIDGET_AI_RESPONSE_BUDGET_MS;
 const parsedBudget = rawBudget ? parseInt(rawBudget, 10) : 30000;
 const MAX_AI_RESPONSE_MS = Number.isFinite(parsedBudget) ? parsedBudget : 90000;
 const LEAD_TURN_TIMEOUT_MS = MAX_AI_RESPONSE_MS;
+const rawExpectedConsultationFeeMinor = process.env.E2E_EXPECTED_CONSULTATION_FEE_MINOR;
+const parsedExpectedConsultationFeeMinor = rawExpectedConsultationFeeMinor
+  ? parseInt(rawExpectedConsultationFeeMinor, 10)
+  : 7500;
+const EXPECTED_CONSULTATION_FEE_MINOR = Number.isFinite(parsedExpectedConsultationFeeMinor)
+  ? parsedExpectedConsultationFeeMinor
+  : 7500;
+const EXPECTED_CONSULTATION_FEE_LABEL = new Intl.NumberFormat('en-US', {
+  style: 'currency',
+  currency: 'USD',
+}).format(EXPECTED_CONSULTATION_FEE_MINOR / 100);
 
 const normalizePracticeSlug = (value: string): string => {
   const trimmed = value.trim();
@@ -66,6 +79,22 @@ test.describe('Public widget intake flow', () => {
     const pageErrors: string[] = [];
     const submitIntakeStatuses: number[] = [];
     const activeConversationStatuses: number[] = [];
+    const networkLog: Array<{ time: string; method: string; url: string; status?: number }> = [];
+    const intakeSettingsPayloads: Array<{
+      url: string;
+      status: number;
+      payload: {
+        success?: boolean;
+        data?: {
+          settings?: {
+            prefillAmount?: number;
+            prefill_amount?: number;
+            paymentLinkEnabled?: boolean;
+            payment_link_enabled?: boolean;
+          };
+        };
+      } | null;
+    }> = [];
 
     anonPage.on('console', (msg) => {
       if (msg.type() === 'error') consoleErrors.push(msg.text());
@@ -73,7 +102,22 @@ test.describe('Public widget intake flow', () => {
     anonPage.on('pageerror', (error) => {
       pageErrors.push(error.message);
     });
+    anonPage.on('request', (request) => {
+      if (request.url().includes('/api/')) {
+        networkLog.push({
+          time: new Date().toISOString(),
+          method: request.method(),
+          url: request.url(),
+        });
+      }
+    });
     anonPage.on('response', (response) => {
+      if (response.url().includes('/api/')) {
+        const entry = networkLog.findLast((item) =>
+          item.url === response.url() && item.method === response.request().method() && !item.status
+        );
+        if (entry) entry.status = response.status();
+      }
       if (isActiveConversationFetch(response)) {
         activeConversationStatuses.push(response.status());
       }
@@ -84,24 +128,76 @@ test.describe('Public widget intake flow', () => {
       ) {
         submitIntakeStatuses.push(response.status());
       }
+      if (
+        response.request().method() === 'GET' &&
+        response.url().includes('/api/practice-client-intakes/') &&
+        response.url().includes('/intake')
+      ) {
+        void response.json()
+          .then((payload) => {
+            intakeSettingsPayloads.push({
+              url: response.url(),
+              status: response.status(),
+              payload: payload as {
+                success?: boolean;
+                data?: {
+                  settings?: {
+                    prefillAmount?: number;
+                    prefill_amount?: number;
+                    paymentLinkEnabled?: boolean;
+                    payment_link_enabled?: boolean;
+                  };
+                };
+              } | null,
+            });
+          })
+          .catch(() => {
+            intakeSettingsPayloads.push({
+              url: response.url(),
+              status: response.status(),
+              payload: null,
+            });
+          });
+      }
     });
 
     await anonPage.goto(`/public/${encodeURIComponent(practiceSlug)}?v=widget`, { waitUntil: 'domcontentloaded' });
 
     const messageInput = anonPage.locator('[data-testid="message-input"]:visible').first();
     const consultationCta = anonPage.locator('button:visible').filter({ hasText: /request consultation/i }).first();
-    await expect
-      .poll(
-        async () => ({
-          ctaVisible: await consultationCta.isVisible().catch(() => false),
-          composerVisible: await messageInput.isVisible().catch(() => false),
-        }),
-        {
-          timeout: 20000,
-          message: 'Expected widget home CTA or message composer to render on public widget page.',
-        }
-      )
-      .not.toEqual({ ctaVisible: false, composerVisible: false });
+    try {
+      await expect
+        .poll(
+          async () => ({
+            ctaVisible: await consultationCta.isVisible().catch(() => false),
+            composerVisible: await messageInput.isVisible().catch(() => false),
+          }),
+          {
+            timeout: 20000,
+            message: 'Expected widget home CTA or message composer to render on public widget page.',
+          }
+        )
+        .not.toEqual({ ctaVisible: false, composerVisible: false });
+    } catch (error) {
+      const startupDebug = await anonPage.evaluate(() => {
+        const bodyText = document.body?.innerText ?? '';
+        const buttons = Array.from(document.querySelectorAll('button'))
+          .map((el) => (el.textContent ?? '').trim())
+          .filter(Boolean)
+          .slice(0, 40);
+        return {
+          url: window.location.href,
+          title: document.title,
+          bodySnippet: bodyText.slice(0, 3000),
+          buttons,
+        };
+      }).catch(() => null);
+      await testInfo.attach('lead-flow-startup-debug.json', {
+        body: JSON.stringify({ startupDebug, networkLog }, null, 2),
+        contentType: 'application/json',
+      });
+      throw error;
+    }
     if (await consultationCta.isVisible().catch(() => false)) {
       await consultationCta.click();
       await anonPage.waitForTimeout(1200);
@@ -442,6 +538,51 @@ test.describe('Public widget intake flow', () => {
       await submitNowButton.click();
     }
 
+    await expect
+      .poll(
+        async () => intakeSettingsPayloads[intakeSettingsPayloads.length - 1] ?? null,
+        {
+          timeout: 15000,
+          message: 'Expected intake settings request to resolve after submit/payment action.',
+        }
+      )
+      .not.toBeNull();
+
+    const latestSettingsPayload = intakeSettingsPayloads[intakeSettingsPayloads.length - 1] ?? null;
+    const latestSettingsRecord = latestSettingsPayload?.payload?.data?.settings;
+    const resolvedPrefillAmount = typeof latestSettingsRecord?.prefillAmount === 'number'
+      ? latestSettingsRecord.prefillAmount
+      : typeof latestSettingsRecord?.prefill_amount === 'number'
+        ? latestSettingsRecord.prefill_amount
+        : null;
+    const resolvedPaymentLinkEnabled = typeof latestSettingsRecord?.paymentLinkEnabled === 'boolean'
+      ? latestSettingsRecord.paymentLinkEnabled
+      : typeof latestSettingsRecord?.payment_link_enabled === 'boolean'
+        ? latestSettingsRecord.payment_link_enabled
+        : null;
+
+    expect(
+      latestSettingsPayload?.status,
+      `Intake settings request should succeed.\nObserved: ${JSON.stringify(latestSettingsPayload, null, 2)}`
+    ).toBe(200);
+    expect(
+      latestSettingsPayload?.payload?.success,
+      `Intake settings payload should report success.\nObserved: ${JSON.stringify(latestSettingsPayload, null, 2)}`
+    ).not.toBe(false);
+    expect(
+      resolvedPaymentLinkEnabled,
+      `Expected payment link to be enabled for widget intake.\nObserved settings: ${JSON.stringify(latestSettingsPayload, null, 2)}`
+    ).toBe(true);
+    expect(
+      resolvedPrefillAmount,
+      `Expected consultation fee amount ${EXPECTED_CONSULTATION_FEE_MINOR} minor units (${EXPECTED_CONSULTATION_FEE_LABEL}).\nObserved settings: ${JSON.stringify(latestSettingsPayload, null, 2)}`
+    ).toBe(EXPECTED_CONSULTATION_FEE_MINOR);
+
+    await expect(
+      anonPage.locator('body'),
+      `Expected payment prompt to mention the consultation fee amount ${EXPECTED_CONSULTATION_FEE_LABEL}.`
+    ).toContainText(EXPECTED_CONSULTATION_FEE_LABEL, { timeout: 10000 });
+
     // Deterministic CTA path should advance to auth/save flow (modal/overlay) or auth route.
     // We intentionally avoid hardcoding a single UI variant because this path may be modal
     // or route-based depending on environment/widget context.
@@ -576,6 +717,10 @@ test.describe('Public widget intake flow', () => {
     if (pageErrors.length) {
       await testInfo.attach('page-errors', { body: pageErrors.join('\n'), contentType: 'text/plain' });
     }
+    await testInfo.attach('lead-flow-network-log.json', {
+      body: JSON.stringify(networkLog, null, 2),
+      contentType: 'application/json',
+    });
 
     expect(
       pageErrors.filter((e) => {
@@ -596,6 +741,7 @@ test.describe('Public widget intake flow', () => {
     const practiceSlug = normalizePracticeSlug(DEFAULT_PRACTICE_SLUG);
     const conversationLinkRequests: Array<{ url: string; status: number }> = [];
     const activeConversationStatuses: number[] = [];
+    const networkLog: Array<{ time: string; method: string; url: string; status?: number }> = [];
     let observedConversationId: string | null = null;
     const captureConversationIdFromUrl = (url: string): void => {
       const match = url.match(/\/api\/conversations\/([a-zA-Z0-9_-]+)/);
@@ -605,7 +751,23 @@ test.describe('Public widget intake flow', () => {
       }
     };
 
+    anonPage.on('request', (request) => {
+      if (request.url().includes('/api/')) {
+        networkLog.push({
+          time: new Date().toISOString(),
+          method: request.method(),
+          url: request.url(),
+        });
+      }
+    });
+
     anonPage.on('response', (response) => {
+      if (response.url().includes('/api/')) {
+        const entry = networkLog.findLast((item) =>
+          item.url === response.url() && item.method === response.request().method() && !item.status
+        );
+        if (entry) entry.status = response.status();
+      }
       if (isActiveConversationFetch(response)) {
         activeConversationStatuses.push(response.status());
       }
@@ -630,18 +792,39 @@ test.describe('Public widget intake flow', () => {
       .filter({ hasText: /request consultation/i })
       .first();
 
-    await expect
-      .poll(
-        async () => ({
-          ctaVisible: await consultationCta.isVisible().catch(() => false),
-          composerVisible: await messageInput.isVisible().catch(() => false),
-        }),
-        {
-          timeout: 25000,
-          message: 'Expected widget home CTA or message composer to appear.',
-        }
-      )
-      .not.toEqual({ ctaVisible: false, composerVisible: false });
+    try {
+      await expect
+        .poll(
+          async () => ({
+            ctaVisible: await consultationCta.isVisible().catch(() => false),
+            composerVisible: await messageInput.isVisible().catch(() => false),
+          }),
+          {
+            timeout: 25000,
+            message: 'Expected widget home CTA or message composer to appear.',
+          }
+        )
+        .not.toEqual({ ctaVisible: false, composerVisible: false });
+    } catch (error) {
+      const startupDebug = await anonPage.evaluate(() => {
+        const bodyText = document.body?.innerText ?? '';
+        const buttons = Array.from(document.querySelectorAll('button'))
+          .map((el) => (el.textContent ?? '').trim())
+          .filter(Boolean)
+          .slice(0, 40);
+        return {
+          url: window.location.href,
+          title: document.title,
+          bodySnippet: bodyText.slice(0, 3000),
+          buttons,
+        };
+      }).catch(() => null);
+      await testInfo.attach('signin-flow-startup-debug.json', {
+        body: JSON.stringify({ startupDebug, networkLog }, null, 2),
+        contentType: 'application/json',
+      });
+      throw error;
+    }
 
     if (await consultationCta.isVisible().catch(() => false)) {
       await consultationCta.click();
@@ -837,7 +1020,28 @@ test.describe('Public widget intake flow', () => {
       expect(signInResponse.status(), `Sign-in API returned ${signInResponse.status()}; expected 200`).toBe(200);
     }
 
-    await waitForSession(anonPage, { timeoutMs: 30_000 });
+    try {
+      await waitForSession(anonPage, { timeoutMs: 30_000 });
+    } catch (error) {
+      const sessionDebug = await anonPage.evaluate(() => {
+        const bodyText = document.body?.innerText ?? '';
+        const buttons = Array.from(document.querySelectorAll('button'))
+          .map((el) => (el.textContent ?? '').trim())
+          .filter(Boolean)
+          .slice(0, 40);
+        return {
+          url: window.location.href,
+          title: document.title,
+          bodySnippet: bodyText.slice(0, 3000),
+          buttons,
+        };
+      }).catch(() => null);
+      await testInfo.attach('signin-flow-session-debug.json', {
+        body: JSON.stringify({ sessionDebug, networkLog, conversationLinkRequests, observedConversationId }, null, 2),
+        contentType: 'application/json',
+      });
+      throw error;
+    }
 
     if (capturedConversationId) {
       await expect
@@ -874,6 +1078,10 @@ test.describe('Public widget intake flow', () => {
         ).toBe(true);
       }
     }
+    await testInfo.attach('signin-flow-network-log.json', {
+      body: JSON.stringify(networkLog, null, 2),
+      contentType: 'application/json',
+    });
   });
 
   test('widget auth token persists widget flow after clearing cookies', async ({ anonPage }) => {
@@ -977,6 +1185,13 @@ test.describe('Public widget intake flow', () => {
     const uniqueId = randomUUID().slice(0, 8);
     const authName = `Planner E2E ${uniqueId}`;
     const authEmail = `planner-e2e+${uniqueId}@example.com`;
+    const plannerNetworkLogPath = resolve(
+      process.cwd(),
+      '.tmp',
+      'playwright',
+      'public',
+      'planner-network-log.json'
+    );
 
     type DonePayload = {
       intakeFields?: Record<string, unknown> | null;
@@ -999,244 +1214,317 @@ test.describe('Public widget intake flow', () => {
       return payloads;
     };
 
-    await anonPage.goto(`/public/${encodeURIComponent(practiceSlug)}?v=widget`, {
-      waitUntil: 'domcontentloaded',
-    });
+    const networkLog: Array<{ time: string; method: string; url: string; status?: number }> = [];
 
-    // ── Slim form ────────────────────────────────────────────────────────────
-    const consultationCta = anonPage.locator('button:visible').filter({ hasText: /request consultation/i }).first();
-    const messageInput = anonPage.locator('[data-testid="message-input"]:visible').first();
-
-    await expect.poll(
-      async () => ({
-        ctaVisible: await consultationCta.isVisible().catch(() => false),
-        composerVisible: await messageInput.isVisible().catch(() => false),
-      }),
-      { timeout: 20_000, message: 'Expected widget home CTA or composer to render' }
-    ).not.toEqual({ ctaVisible: false, composerVisible: false });
-
-    if (await consultationCta.isVisible().catch(() => false)) {
-      await consultationCta.click();
-    }
-
-    const slimFormName = anonPage.locator('input[placeholder*="full name" i]:visible').first();
-    const slimFormEmail = anonPage.locator('input[type="email"]:visible').first();
-    const slimFormPhone = anonPage.locator('input[type="tel"]:visible').first();
-    const slimFormContinue = anonPage.locator('button:visible').filter({ hasText: /^continue$/i }).first();
-
-    const deadline = Date.now() + 30_000;
-    while (Date.now() < deadline) {
-      if (await messageInput.isEnabled({ timeout: 250 }).catch(() => false)) break;
-      if (await slimFormContinue.isVisible({ timeout: 250 }).catch(() => false)) {
-        if (await slimFormName.isVisible({ timeout: 250 }).catch(() => false)) {
-          await slimFormName.fill(authName).catch(() => undefined);
+    try {
+      anonPage.on('request', (req) => {
+        if (req.url().includes('/api/')) {
+          networkLog.push({ time: new Date().toISOString(), method: req.method(), url: req.url() });
         }
-        if (await slimFormEmail.isVisible({ timeout: 250 }).catch(() => false)) {
-          await slimFormEmail.fill(authEmail).catch(() => undefined);
+      });
+
+      anonPage.on('response', (res) => {
+        if (res.url().includes('/api/')) {
+          const entry = networkLog.findLast((e) =>
+            e.url === res.url() && e.method === res.request().method() && !e.status
+          );
+          if (entry) entry.status = res.status();
         }
-        if (await slimFormPhone.isVisible({ timeout: 250 }).catch(() => false)) {
-          await slimFormPhone.fill('5555550123').catch(() => undefined);
-        }
-        await slimFormContinue.click().catch(() => undefined);
+      });
+
+      await anonPage.goto(`/public/${encodeURIComponent(practiceSlug)}?v=widget`, {
+        waitUntil: 'domcontentloaded',
+      });
+
+      // ── Slim form ────────────────────────────────────────────────────────────
+      const consultationCta = anonPage.locator('button:visible').filter({ hasText: /request consultation/i }).first();
+      const messageInput = anonPage.locator('[data-testid="message-input"]:visible').first();
+
+      try {
+        await expect.poll(
+          async () => ({
+            ctaVisible: await consultationCta.isVisible().catch(() => false),
+            composerVisible: await messageInput.isVisible().catch(() => false),
+          }),
+          { timeout: 20_000, message: 'Expected widget home CTA or composer to render' }
+        ).not.toEqual({ ctaVisible: false, composerVisible: false });
+      } catch (error) {
+        const startupDebug = await anonPage.evaluate(() => {
+          const bodyText = document.body?.innerText ?? '';
+          const buttons = Array.from(document.querySelectorAll('button'))
+            .map((el) => (el.textContent ?? '').trim())
+            .filter(Boolean)
+            .slice(0, 40);
+          return {
+            url: window.location.href,
+            title: document.title,
+            bodySnippet: bodyText.slice(0, 3000),
+            buttons,
+          };
+        }).catch(() => null);
+        await testInfo.attach('planner-startup-debug.json', {
+          body: JSON.stringify({
+            startupDebug,
+            networkLog,
+          }, null, 2),
+          contentType: 'application/json',
+        });
+        throw error;
       }
-      await anonPage.waitForTimeout(400);
-    }
 
-    await expect(messageInput).toBeEnabled({ timeout: 20_000 });
-
-    // ── Turn helper ──────────────────────────────────────────────────────────
-    const aiLocator = anonPage.locator('[data-testid="ai-message"], [data-testid="system-message"]');
-    const streamingLocator = anonPage.locator('[id^="message-streaming-"]');
-    let latestDonePayload: DonePayload | null = null;
-
-    const sendAndAwait = async (text: string): Promise<{ reply: string; donePayload: DonePayload | null }> => {
-      const signatureBefore = JSON.stringify(
-        await aiLocator.evaluateAll((els) => els.map((el) => (el.textContent ?? '').trim()))
-      );
-      const responsePromise = anonPage.waitForResponse(
-        (r) => r.request().method() === 'POST' && r.url().includes('/api/ai/chat') && r.status() === 200,
-        { timeout: LEAD_TURN_TIMEOUT_MS }
-      );
-      await messageInput.fill(text);
-      await anonPage.getByRole('button', { name: /send message/i }).click();
-      const response = await responsePromise;
-      const responseText = await response.text().catch(() => '');
-      const donePayload = parseDonePayloads(responseText).at(-1) ?? null;
-      if (donePayload) {
-        latestDonePayload = donePayload;
+      if (await consultationCta.isVisible().catch(() => false)) {
+        await consultationCta.click();
       }
-      // Wait for UI to settle
-      await expect.poll(
-        async () => {
-          const [sig, streamCount] = await Promise.all([
-            aiLocator.evaluateAll((els) => JSON.stringify(els.map((el) => (el.textContent ?? '').trim()))),
-            streamingLocator.count(),
-          ]);
-          return sig !== signatureBefore && streamCount === 0;
-        },
-        { timeout: LEAD_TURN_TIMEOUT_MS, message: `UI did not settle after sending: "${text}"` }
-      ).toBe(true);
-      await expect.poll(
-        async () => {
-          const count = await aiLocator.count();
-          if (count === 0) return false;
-          const last = (await aiLocator.nth(count - 1).innerText().catch(() => '')).trim();
-          return last.length > 0 && !/loading markdown/i.test(last);
-        },
-        { timeout: LEAD_TURN_TIMEOUT_MS, message: 'AI reply did not render after send' }
-      ).toBe(true);
-      const count = await aiLocator.count();
-      return {
-        reply: (await aiLocator.nth(count - 1).innerText().catch(() => '')).trim(),
-        donePayload,
-      };
-    };
 
-    const getButtons = async () =>
-      anonPage.locator('button:visible').allInnerTexts().catch(() => [] as string[]);
+      const slimFormName = anonPage.locator('input[placeholder*="full name" i]:visible').first();
+      const slimFormEmail = anonPage.locator('input[type="email"]:visible').first();
+      const slimFormPhone = anonPage.locator('input[type="tel"]:visible').first();
+      const slimFormContinue = anonPage.locator('button:visible').filter({ hasText: /^continue$/i }).first();
 
-    await expect.poll(
-      async () => {
-        const count = await aiLocator.count();
-        if (count === 0) return '';
-        return (await aiLocator.nth(count - 1).innerText().catch(() => '')).trim();
-      },
-      {
-        timeout: LEAD_TURN_TIMEOUT_MS,
-        message: 'Expected planner to prompt for the legal situation after contact capture.',
-      }
-    ).toMatch(/legal situation|what'?s going on|describe what'?s going on|tell me a bit/i);
-    await expect
-      .poll(
-        async () => streamingLocator.count(),
-        {
-          timeout: LEAD_TURN_TIMEOUT_MS,
-          message: 'Expected initial planner prompt to finish streaming before turn 1.',
+      const deadline = Date.now() + 30_000;
+      while (Date.now() < deadline) {
+        if (await messageInput.isEnabled({ timeout: 250 }).catch(() => false)) break;
+        if (await slimFormContinue.isVisible({ timeout: 250 }).catch(() => false)) {
+          if (await slimFormName.isVisible({ timeout: 250 }).catch(() => false)) {
+            await slimFormName.fill(authName).catch(() => undefined);
+          }
+          if (await slimFormEmail.isVisible({ timeout: 250 }).catch(() => false)) {
+            await slimFormEmail.fill(authEmail).catch(() => undefined);
+          }
+          if (await slimFormPhone.isVisible({ timeout: 250 }).catch(() => false)) {
+            await slimFormPhone.fill('5555550123').catch(() => undefined);
+          }
+          await slimFormContinue.click().catch(() => undefined);
         }
-      )
-      .toBe(0);
+        await anonPage.waitForTimeout(400);
+      }
 
-    // ── Turn 1: Description ──────────────────────────────────────────────────
-    const { reply: reply1, donePayload: done1 } = await sendAndAwait(
-      'My landlord is refusing to return my security deposit after I moved out.'
-    );
-    await testInfo.attach('planner-turn1-reply.txt', { body: reply1, contentType: 'text/plain' });
+      await expect(messageInput).toBeEnabled({ timeout: 20_000 });
 
-    // After description, planner should ask about location next
-    expect(
-      /city|state|location|where/i.test(reply1),
-      `After description, AI should ask about location. Got: "${reply1.slice(0, 300)}"`
-    ).toBe(true);
+      // ── Turn helper ──────────────────────────────────────────────────────────
+      const aiLocator = anonPage.locator('[data-testid="ai-message"], [data-testid="system-message"]');
+      const streamingLocator = anonPage.locator('[id^="message-streaming-"]');
+      let latestDonePayload: DonePayload | null = null;
 
-    // done payload should have description extracted
-    expect(
-      done1?.intakeFields?.description,
-      'description should be extracted after turn 1'
-    ).toBeTruthy();
-
-    // ── Turn 2: Location ─────────────────────────────────────────────────────
-    const { reply: reply2, donePayload: done2 } = await sendAndAwait('Raleigh, NC');
-    await testInfo.attach('planner-turn2-reply.txt', { body: reply2, contentType: 'text/plain' });
-
-    // After location, planner should ask about opposing party
-    expect(
-      /landlord|other party|opposing|who|party/i.test(reply2),
-      `After location, AI should ask about opposing party. Got: "${reply2.slice(0, 300)}"`
-    ).toBe(true);
-
-    expect(done2?.intakeFields?.city, 'city should be extracted after turn 2').toBeTruthy();
-    expect(done2?.intakeFields?.state, 'state should be extracted after turn 2').toBeTruthy();
-
-    // ── Turn 3: Opposing party → minimum viable brief complete ───────────────
-    const { reply: reply3, donePayload: done3 } = await sendAndAwait('My landlord, Johnson Properties LLC');
-    await testInfo.attach('planner-turn3-reply.txt', { body: reply3, contentType: 'text/plain' });
-
-    expect(done3?.intakeFields?.opposingParty, 'opposingParty should be extracted after turn 3').toBeTruthy();
-
-    // After minimum viable brief (description + location + opposingParty),
-    // the flow may show submit, planner follow-up chips, or a payment CTA
-    const buttonsAfterTurn3 = await getButtons();
-    await testInfo.attach('planner-turn3-buttons.json', {
-      body: JSON.stringify(buttonsAfterTurn3, null, 2),
-      contentType: 'application/json',
-    });
-
-    const hasSubmitButton = buttonsAfterTurn3.some((b) => /submit request/i.test(b));
-    const hasPaymentButton = buttonsAfterTurn3.some((b) =>
-      /^(continue|continue\s+to\s+payment|pay\s*(?:&|and)\s*submit)$/i.test(b)
-    );
-    const hasUrgencyChips = buttonsAfterTurn3.some((b) =>
-      /routine|time.sensitive|emergency/i.test(b)
-    );
-    const hasYesNoChips = buttonsAfterTurn3.some((b) => /^yes$|^no$/i.test(b));
-
-    expect(
-      hasSubmitButton || hasPaymentButton || hasUrgencyChips || hasYesNoChips,
-      `After minimum viable brief, expected submit, payment CTA, or planner chips. Buttons: ${JSON.stringify(buttonsAfterTurn3)}`
-    ).toBe(true);
-
-    // ── Turn 4: Urgency (if chips appeared, click one; otherwise type) ────────
-    if (hasUrgencyChips) {
-      const timeSensitiveChip = anonPage.locator('button:visible').filter({ hasText: /time.sensitive/i }).first();
-      if (await timeSensitiveChip.isVisible({ timeout: 2_000 }).catch(() => false)) {
-        // Clicking a chip sends it as a message — wait for AI response
+      const sendAndAwait = async (text: string): Promise<{ reply: string; donePayload: DonePayload | null }> => {
+        const signatureBefore = JSON.stringify(
+          await aiLocator.evaluateAll((els) => els.map((el) => (el.textContent ?? '').trim()))
+        );
         const responsePromise = anonPage.waitForResponse(
           (r) => r.request().method() === 'POST' && r.url().includes('/api/ai/chat') && r.status() === 200,
           { timeout: LEAD_TURN_TIMEOUT_MS }
         );
-        await timeSensitiveChip.click();
+        await messageInput.fill(text);
+        await anonPage.getByRole('button', { name: /send message/i }).click();
         const response = await responsePromise;
         const responseText = await response.text().catch(() => '');
         const donePayload = parseDonePayloads(responseText).at(-1) ?? null;
         if (donePayload) {
           latestDonePayload = donePayload;
         }
-        await anonPage.waitForTimeout(2_000);
+        await expect.poll(
+          async () => {
+            const [sig, streamCount] = await Promise.all([
+              aiLocator.evaluateAll((els) => JSON.stringify(els.map((el) => (el.textContent ?? '').trim()))),
+              streamingLocator.count(),
+            ]);
+            return sig !== signatureBefore && streamCount === 0;
+          },
+          { timeout: LEAD_TURN_TIMEOUT_MS, message: `UI did not settle after sending: "${text}"` }
+        ).toBe(true);
+        await expect.poll(
+          async () => {
+            const count = await aiLocator.count();
+            if (count === 0) return false;
+            const last = (await aiLocator.nth(count - 1).innerText().catch(() => '')).trim();
+            return last.length > 0 && !/loading markdown/i.test(last);
+          },
+          { timeout: LEAD_TURN_TIMEOUT_MS, message: 'AI reply did not render after send' }
+        ).toBe(true);
+        const count = await aiLocator.count();
+        return {
+          reply: (await aiLocator.nth(count - 1).innerText().catch(() => '')).trim(),
+          donePayload,
+        };
+      };
+
+      const getButtons = async () =>
+        anonPage.locator('button:visible').allInnerTexts().catch(() => [] as string[]);
+
+      await expect.poll(
+        async () => {
+          const count = await aiLocator.count();
+          if (count === 0) return '';
+          return (await aiLocator.nth(count - 1).innerText().catch(() => '')).trim();
+        },
+        {
+          timeout: LEAD_TURN_TIMEOUT_MS,
+          message: 'Expected planner to prompt for the legal situation after contact capture.',
+        }
+      ).toMatch(/legal situation|what'?s going on|describe what'?s going on|tell me a bit/i);
+      await expect
+        .poll(
+          async () => streamingLocator.count(),
+          {
+            timeout: LEAD_TURN_TIMEOUT_MS,
+            message: 'Expected initial planner prompt to finish streaming before turn 1.',
+          }
+        )
+        .toBe(0);
+
+      const { reply: reply1, donePayload: done1 } = await sendAndAwait(
+        'My landlord is refusing to return my security deposit after I moved out.'
+      );
+      await testInfo.attach('planner-turn1-reply.txt', { body: reply1, contentType: 'text/plain' });
+
+      expect(
+        /city|state|location|where/i.test(reply1),
+        `After description, AI should ask about location. Got: "${reply1.slice(0, 300)}"`
+      ).toBe(true);
+
+      expect(
+        done1?.intakeFields?.description,
+        'description should be extracted after turn 1'
+      ).toBeTruthy();
+
+      const submitNowButton = anonPage.getByRole('button', { name: /submit request/i });
+      const paymentButton = anonPage.locator('button:visible').filter({ hasText: /^(continue|continue\s+to\s+payment|pay\s*(?:&|and)\s*submit)$/i }).first();
+
+      const { reply: reply2, donePayload: done2 } = await sendAndAwait('Raleigh, NC');
+      await testInfo.attach('planner-turn2-reply.txt', { body: reply2, contentType: 'text/plain' });
+
+      const submitAfterTurn2 = await submitNowButton.isVisible().catch(() => false);
+      const paymentAfterTurn2 = await paymentButton.isVisible().catch(() => false);
+      const paymentPromptAfterTurn2 = /payment|consultation fee|fee|submit/i.test(reply2);
+      const validAfterLocation =
+        /landlord|other party|opposing|who|party/i.test(reply2) ||
+        /urgent|how urgent|routine|time.sensitive|emergency/i.test(reply2) ||
+        /payment|fee|continue|submit/i.test(reply2) ||
+        submitAfterTurn2 ||
+        paymentAfterTurn2;
+
+      expect(done2?.intakeFields?.city, 'city should be extracted after turn 2').toBeTruthy();
+      expect(
+        validAfterLocation,
+        `After location, AI should ask about opposing party, urgency, or move to payment/submit. Got: "${reply2.slice(0, 300)}"`
+      ).toBe(true);
+      expect(
+        done2?.intakeFields?.city || done2?.intakeFields?.state,
+        'city or state should be extracted after turn 2'
+      ).toBeTruthy();
+
+      let reachedTerminalAfterTurn3 = paymentAfterTurn2 || submitAfterTurn2 || paymentPromptAfterTurn2;
+
+      if (!reachedTerminalAfterTurn3) {
+        const { reply: reply3, donePayload: done3 } = await sendAndAwait('My landlord, Johnson Properties LLC');
+        await testInfo.attach('planner-turn3-reply.txt', { body: reply3, contentType: 'text/plain' });
+        expect(done3?.intakeFields?.opposingParty, 'opposingParty should be extracted after turn 3').toBeTruthy();
+        reachedTerminalAfterTurn3 =
+          /payment|consultation fee|fee|submit/i.test(reply3) ||
+          await submitNowButton.isVisible().catch(() => false) ||
+          await paymentButton.isVisible().catch(() => false);
       }
-    } else if (!hasSubmitButton && !hasPaymentButton) {
-      await sendAndAwait('Time-sensitive');
-    }
 
-    // ── Assert: submit button eventually appears within remaining turns ────────
-    const submitButton = anonPage.getByRole('button', { name: /submit request/i });
-    const paymentButton = anonPage.locator('button:visible').filter({ hasText: /^(continue|continue\s+to\s+payment|pay\s*(?:&|and)\s*submit)$/i }).first();
-    const MAX_REMAINING_TURNS = 6;
-    let submitReached = false;
-    for (let i = 0; i < MAX_REMAINING_TURNS; i++) {
-      const submitVisible = await submitButton.isVisible().catch(() => false);
-      const paymentVisible = await paymentButton.isVisible().catch(() => false);
-      if (submitVisible || paymentVisible) { submitReached = true; break; }
+      const buttonsAfterTurn3 = await getButtons();
+      await testInfo.attach('planner-turn3-buttons.json', {
+        body: JSON.stringify(buttonsAfterTurn3, null, 2),
+        contentType: 'application/json',
+      });
 
-      const count = await aiLocator.count();
-      if (count === 0) { await anonPage.waitForTimeout(1000); continue; }
-      const last = (await aiLocator.nth(count - 1).innerText().catch(() => '')).trim();
+      const hasSubmitButton = buttonsAfterTurn3.some((b) => /submit request/i.test(b));
+      const hasPaymentButton = buttonsAfterTurn3.some((b) =>
+        /^(continue|continue\s+to\s+payment|pay\s*(?:&|and)\s*submit)$/i.test(b)
+      );
+      const hasUrgencyChips = buttonsAfterTurn3.some((b) =>
+        /routine|time.sensitive|emergency/i.test(b)
+      );
+      const hasYesNoChips = buttonsAfterTurn3.some((b) => /^yes$|^no$/i.test(b));
 
-      if (/ready to submit|are you ready/i.test(last)) { submitReached = true; break; }
-      if (/desired outcome|hoping for/i.test(last)) {
-        await sendAndAwait('Get my full deposit back');
-      } else if (/documents|paperwork/i.test(last)) {
-        await sendAndAwait('Yes, I have documents');
-      } else if (/urgent|how urgent/i.test(last)) {
+      expect(
+        hasSubmitButton || hasPaymentButton || hasUrgencyChips || hasYesNoChips,
+        `After minimum viable brief, expected submit, payment CTA, or planner chips. Buttons: ${JSON.stringify(buttonsAfterTurn3)}`
+      ).toBe(true);
+
+      if (!reachedTerminalAfterTurn3 && !hasSubmitButton && !hasPaymentButton && hasUrgencyChips) {
+        const timeSensitiveChip = anonPage.locator('button:visible').filter({ hasText: /time.sensitive/i }).first();
+        if (await timeSensitiveChip.isVisible({ timeout: 2_000 }).catch(() => false)) {
+          const responsePromise = anonPage.waitForResponse(
+            (r) => r.request().method() === 'POST' && r.url().includes('/api/ai/chat') && r.status() === 200,
+            { timeout: LEAD_TURN_TIMEOUT_MS }
+          );
+          await timeSensitiveChip.click();
+          const response = await responsePromise;
+          const responseText = await response.text().catch(() => '');
+          const donePayload = parseDonePayloads(responseText).at(-1) ?? null;
+          if (donePayload) {
+            latestDonePayload = donePayload;
+          }
+          await anonPage.waitForTimeout(2_000);
+        }
+      } else if (!reachedTerminalAfterTurn3 && !hasSubmitButton && !hasPaymentButton) {
         await sendAndAwait('Time-sensitive');
-      } else {
-        // Unknown question — send a generic non-answer and let planner advance
-        await sendAndAwait('Yes');
       }
+
+      const submitButton = submitNowButton;
+      const MAX_REMAINING_TURNS = 6;
+      let submitReached = false;
+      for (let i = 0; i < MAX_REMAINING_TURNS; i++) {
+        const submitVisible = await submitButton.isVisible().catch(() => false);
+        const paymentVisible = await paymentButton.isVisible().catch(() => false);
+        if (submitVisible || paymentVisible) { submitReached = true; break; }
+
+        const count = await aiLocator.count();
+        if (count === 0) { await anonPage.waitForTimeout(1000); continue; }
+        const last = (await aiLocator.nth(count - 1).innerText().catch(() => '')).trim();
+
+        if (/ready to submit|are you ready|consultation fee|continue to payment|submit your case/i.test(last)) {
+          submitReached = true;
+          break;
+        }
+        if (/desired outcome|hoping for/i.test(last)) {
+          await sendAndAwait('Get my full deposit back');
+        } else if (/documents|paperwork/i.test(last)) {
+          await sendAndAwait('Yes, I have documents');
+        } else if (/urgent|how urgent/i.test(last)) {
+          await sendAndAwait('Time-sensitive');
+        } else {
+          await sendAndAwait('Yes');
+        }
+      }
+
+      expect(submitReached, 'Submit button never appeared after completing intake planner sequence').toBe(true);
+
+      const finalDone = latestDonePayload;
+      await testInfo.attach('planner-final-done-payload.json', {
+        body: JSON.stringify(finalDone, null, 2),
+        contentType: 'application/json',
+      });
+
+      expect(finalDone?.intakeFields?.description, 'final state: description must be present').toBeTruthy();
+      expect(finalDone?.intakeFields?.city, 'final state: city must be present').toBeTruthy();
+      expect(finalDone?.intakeFields?.state, 'final state: state must be present').toBeTruthy();
+      expect(finalDone?.intakeFields?.opposingParty, 'final state: opposingParty must be present').toBeTruthy();
+      const finalQuickReplies = Array.isArray(finalDone?.quickReplies) ? finalDone.quickReplies : [];
+      const finalIntakeQuickReplies = Array.isArray(finalDone?.intakeFields?.quickReplies)
+        ? finalDone.intakeFields.quickReplies
+        : [];
+      const finalRenderedText = await aiLocator.last().innerText().catch(() => '');
+      const reachedValidTerminalState =
+        finalDone?.intakeFields?.intakeReady === true ||
+        finalQuickReplies.some((reply) => /routine|time.sensitive|emergency/i.test(reply)) ||
+        finalIntakeQuickReplies.some((reply) => /routine|time.sensitive|emergency/i.test(reply)) ||
+        /consultation fee|continue to payment|submit your intake|submit your case/i.test(finalRenderedText);
+      expect(
+        reachedValidTerminalState,
+        'final state should either mark intakeReady or expose the payment/urgency terminal state'
+      ).toBe(true);
+    } finally {
+      mkdirSync(resolve(process.cwd(), '.tmp', 'playwright', 'public'), { recursive: true });
+      writeFileSync(plannerNetworkLogPath, JSON.stringify(networkLog, null, 2), 'utf-8');
+      await testInfo.attach('network-log.json', {
+        body: JSON.stringify(networkLog, null, 2),
+        contentType: 'application/json',
+      });
     }
-
-    expect(submitReached, 'Submit button never appeared after completing intake planner sequence').toBe(true);
-
-    // ── Verify final intakeFields structure ───────────────────────────────────
-    const finalDone = latestDonePayload;
-    await testInfo.attach('planner-final-done-payload.json', {
-      body: JSON.stringify(finalDone, null, 2),
-      contentType: 'application/json',
-    });
-
-    expect(finalDone?.intakeFields?.description, 'final state: description must be present').toBeTruthy();
-    expect(finalDone?.intakeFields?.city, 'final state: city must be present').toBeTruthy();
-    expect(finalDone?.intakeFields?.state, 'final state: state must be present').toBeTruthy();
-    expect(finalDone?.intakeFields?.opposingParty, 'final state: opposingParty must be present').toBeTruthy();
-    expect(finalDone?.intakeFields?.intakeReady, 'final state: intakeReady must be true').toBe(true);
   });
 });

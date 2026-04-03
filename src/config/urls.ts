@@ -32,7 +32,7 @@
  *   /api/practices/*               - Practice CRUD operations
  *   /api/subscription/*            - Subscription management
  *   /api/members/*                 - Member management
- *   /api/practice/client-intakes/* - Intake settings, status, creation
+ *   /api/practice-client-intakes/* - Intake settings, status, creation
  *   /api/clients/*                 - Client user details & memos
  *   /api/conversations/:id/link    - Conversation link generation
  */
@@ -56,21 +56,21 @@ const appendQuery = (path: string, query?: Record<string, string | undefined>): 
 export const clientIntakes = (
 	practiceId: string,
 	query?: Record<string, string | undefined>
-): string => appendQuery(`/api/practice/client-intakes/${encodeSegment(practiceId)}`, query);
+): string => appendQuery(`/api/practice-client-intakes/${encodeSegment(practiceId)}`, query);
 
 export const clientIntake = (
 	practiceId: string,
 	intakeId: string,
 	query?: Record<string, string | undefined>
 ): string => appendQuery(
-	`/api/practice/client-intakes/${encodeSegment(practiceId)}/${encodeSegment(intakeId)}`,
+	`/api/practice-client-intakes/${encodeSegment(practiceId)}/${encodeSegment(intakeId)}`,
 	query
 );
 
 export const clientIntakeStatus = (intakeId: string): string =>
-	`/api/practice/client-intakes/${encodeSegment(intakeId)}/status`;
+	`/api/practice-client-intakes/${encodeSegment(intakeId)}/status`;
 
-export const clientIntakeClaim = (): string => '/api/practice/client-intakes/claim';
+export const clientIntakeClaim = (): string => '/api/practice-client-intakes/claim';
 
 export const matterCollectionPath = (practiceId: string): string => `/api/matters/${encodeSegment(practiceId)}`;
 

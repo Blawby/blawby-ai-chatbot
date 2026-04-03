@@ -941,7 +941,7 @@ export const PracticeMattersPage = ({
     }
 
     const response = await fetch(
-      `/api/practice/client-intakes/${encodeURIComponent(convertIntakeUuid)}/convert`,
+      `/api/practice-client-intakes/${encodeURIComponent(convertIntakeUuid)}/convert`,
       {
         method: 'PATCH',
         credentials: 'include',
