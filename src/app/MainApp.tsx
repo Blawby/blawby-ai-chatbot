@@ -515,19 +515,36 @@ export function MainApp({
   }, []);
 
   // ── file upload ────────────────────────────────────────────────────────────
-  const previewFiles = useMemo<FileAttachment[]>(() => [], []);
-  const uploadingFiles = useMemo<UploadingFile[]>(() => [], []);
-  const isDragging = false;
+  const previewFiles = useMemo<FileAttachment[]>(() => (features.enableFileAttachments ? [] : []), []);
+  const uploadingFiles = useMemo<UploadingFile[]>(() => (features.enableFileAttachments ? [] : []), []);
+  const isDragging = features.enableFileAttachments ? false : false;
   const handleCameraCapture = useCallback(async (_file: File) => {
-    handleUploadError('Chat attachments are currently disabled.');
+    if (!features.enableFileAttachments) {
+      handleUploadError('Chat attachments are currently disabled.');
+      return;
+    }
+    // TODO: Implement real camera/media capture logic
   }, [handleUploadError]);
   const handleFileSelect = useCallback(async (_files: File[]) => {
-    handleUploadError('Chat attachments are currently disabled.');
+    if (!features.enableFileAttachments) {
+      handleUploadError('Chat attachments are currently disabled.');
+      return [];
+    }
+    // TODO: Implement real file selection and upload logic
     return [];
   }, [handleUploadError]);
-  const removePreviewFile = useCallback((_index: number) => {}, []);
-  const clearPreviewFiles = useCallback(() => {}, []);
-  const cancelUpload = useCallback((_fileId: string) => {}, []);
+  const removePreviewFile = useCallback((_index: number) => {
+    if (!features.enableFileAttachments) return;
+    // TODO: Implement real preview file removal logic
+  }, []);
+  const clearPreviewFiles = useCallback(() => {
+    if (!features.enableFileAttachments) return;
+    // TODO: Implement real preview files clearing logic
+  }, []);
+  const cancelUpload = useCallback((_fileId: string) => {
+    if (!features.enableFileAttachments) return;
+    // TODO: Implement real upload cancellation logic
+  }, []);
   const isReadyToUpload = features.enableFileAttachments;
 
   // ── welcome modals ─────────────────────────────────────────────────────────
