@@ -50,7 +50,7 @@ export const normalizeInvoiceStatus = (value: unknown): InvoiceStatus => {
 };
 
 export const normalizeInvoiceNumber = (invoice: Invoice): string => {
-  return invoice.stripe_invoice_number ?? invoice.invoice_number ?? invoice.id;
+  return invoice.invoice_number ?? '';
 };
 
 export const extractArray = <T extends Record<string, unknown>>(payload: unknown, keys: string[]): T[] => {
@@ -135,28 +135,43 @@ const mapRefundRequestEvents = (
   return Array.from(deduped.values());
 };
 
-const resolveDownloadUrl = (rawInvoice: Record<string, unknown> | null): string | null => {
-  if (!rawInvoice) return null;
-  return asString(rawInvoice.download_url ?? rawInvoice.downloadUrl ?? rawInvoice.pdf_url ?? rawInvoice.pdfUrl);
-};
-
-const resolveReceiptUrl = (rawInvoice: Record<string, unknown> | null): string | null => {
-  if (!rawInvoice) return null;
-  return asString(rawInvoice.receipt_url ?? rawInvoice.receiptUrl);
-};
-
 export const normalizeInvoiceSummary = (invoice: Invoice): InvoiceSummary => ({
   id: invoice.id,
   invoiceNumber: normalizeInvoiceNumber(invoice),
+  stripeInvoiceNumber: asString(invoice.stripe_invoice_number),
   status: normalizeInvoiceStatus(invoice.status),
-  clientName: invoice.client?.user?.name ?? invoice.client?.user?.email ?? null,
+  subtotal: getMajorAmountValue(invoice.subtotal),
+  taxAmount: getMajorAmountValue(invoice.tax_amount),
+  discountAmount: getMajorAmountValue(invoice.discount_amount),
+  clientName: asString(invoice.client?.name),
+  clientEmail: asString(invoice.client?.email),
+  clientStatus: asString(invoice.client?.status),
+  clientId: asString(invoice.client_id),
   matterTitle: invoice.matter?.title ?? null,
+  matterId: asString(invoice.matter_id),
+  matterStatus: asString(invoice.matter?.status),
+  matterBillingType: asString(invoice.matter?.billing_type),
+  matterRetainerBalance: invoice.matter?.retainer_balance != null
+    ? getMajorAmountValue(invoice.matter.retainer_balance)
+    : null,
   total: getMajorAmountValue(invoice.total),
   amountDue: getMajorAmountValue(invoice.amount_due),
   amountPaid: getMajorAmountValue(invoice.amount_paid),
+  invoiceType: asString(invoice.invoice_type),
+  notes: asString(invoice.notes),
+  memo: asString(invoice.memo),
+  fundDestination: asString(invoice.fund_destination),
+  paymentFromRetainer: typeof invoice.payment_from_retainer === 'boolean' ? invoice.payment_from_retainer : null,
   issueDate: invoice.issue_date,
   dueDate: invoice.due_date,
   paidAt: invoice.paid_at,
+  connectedAccountId: asString(invoice.connected_account_id),
+  connectedAccountEmail: asString(invoice.connectedAccount?.email),
+  connectedAccountStripeAccountId: asString(invoice.connectedAccount?.stripe_account_id),
+  stripeInvoiceId: asString(invoice.stripe_invoice_id),
+  stripeChargeId: asString(invoice.stripe_charge_id),
+  stripeTransferId: asString(invoice.stripe_transfer_id),
+  stripePaymentIntentId: asString(invoice.stripe_payment_intent_id),
   stripeHostedInvoiceUrl: invoice.stripe_hosted_invoice_url,
   createdAt: invoice.created_at,
   updatedAt: invoice.updated_at,
@@ -178,8 +193,6 @@ export const normalizeInvoiceDetail = (
     notes: invoice.notes,
     memo: invoice.memo,
     lineItems: invoice.line_items ?? [],
-    downloadUrl: resolveDownloadUrl(rawInvoice),
-    receiptUrl: resolveReceiptUrl(rawInvoice),
     payments: mapPaymentEvents(rawInvoice),
     refunds: mapRefundEvents(rawInvoice),
     refundRequests: mapRefundRequestEvents(rawInvoice, options.refundRequests ?? []),

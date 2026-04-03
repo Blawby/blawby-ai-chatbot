@@ -659,12 +659,12 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
         const result = isPracticeWorkspace
           ? await listInvoices(
               practiceId,
-              { status: '', dateFrom: '', dateTo: '', search: '', page: 1, pageSize: 1 },
+              { rules: [], page: 1, pageSize: 1 },
               { signal: controller.signal, statusFilter: invoicesStatusFilter }
             )
           : await listClientInvoices(
               practiceId,
-              { status: '', dateFrom: '', dateTo: '', search: '', page: 1, pageSize: 1 },
+              { rules: [], page: 1, pageSize: 1 },
               { signal: controller.signal, statusFilter: invoicesStatusFilter }
             );
 
@@ -1836,7 +1836,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       return { kind: 'full-page', overflow: 'hidden' };
     }
     if (view === 'invoices' || view === 'invoiceDetail' || view === 'invoiceCreate') {
-      return { kind: 'full-page', overflow: 'hidden' };
+      return { kind: 'full-page', overflow: 'auto' };
     }
     if (view === 'reports') {
       return { kind: 'full-page', overflow: 'hidden' };

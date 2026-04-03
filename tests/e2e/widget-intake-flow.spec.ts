@@ -314,9 +314,8 @@ test.describe('Public widget intake flow', () => {
         }
         return texts[texts.length - 1] ?? '';
       };
-      const aiSignatureBefore = JSON.stringify(
-        await aiLocator.evaluateAll((els) => els.map((el) => (el.textContent ?? '').trim()))
-      );
+      const latestAiTextBefore = await getLatestMeaningfulAiText();
+      const aiCountBefore = await aiLocator.count();
       const aiChatEntriesBefore = networkLog.filter((item) => item.url.includes('/api/ai/chat')).length;
       const requestPromise = anonPage
         .waitForRequest(
@@ -355,7 +354,40 @@ test.describe('Public widget intake flow', () => {
         });
         throw new Error(`Expected /api/ai/chat request after sending "${text}", but none was observed.`);
       }
+      if (!response) {
+        const state = await captureLeadFlowState();
+        await testInfo.attach('lead-flow-ai-invalid-response.json', {
+          body: JSON.stringify({
+            prompt: text,
+            responseStatus: null,
+            responseHeaders: null,
+            responseBodyTail: null,
+            recentNetworkTail: networkLog.slice(-20),
+            state,
+          }, null, 2),
+          contentType: 'application/json',
+        });
+        throw new Error(`Expected /api/ai/chat to return 200 for "${text}", but no successful response was observed.`);
+      }
       const contentType = response?.headers()['content-type'] ?? 'text/event-stream';
+      if (response.status() !== 200 || !contentType) {
+        const invalidResponseText = await response.text().catch(() => '');
+        const state = await captureLeadFlowState();
+        await testInfo.attach('lead-flow-ai-invalid-response.json', {
+          body: JSON.stringify({
+            prompt: text,
+            responseStatus: response.status(),
+            responseHeaders: response.headers(),
+            responseBodyTail: invalidResponseText.slice(-2000),
+            recentNetworkTail: networkLog.slice(-20),
+            state,
+          }, null, 2),
+          contentType: 'application/json',
+        });
+        throw new Error(
+          `Expected /api/ai/chat to return 200 with content-type for "${text}", got status=${response.status()} content-type="${contentType}".`
+        );
+      }
       const responseTextPromise = response && !contentType.includes('application/json')
         ? response.text().catch(() => '')
         : Promise.resolve('');
@@ -367,18 +399,19 @@ test.describe('Public widget intake flow', () => {
           await expect
             .poll(
               async () => {
-                const [aiSignature, streamingCount] = await Promise.all([
-                  aiLocator.evaluateAll((els) => JSON.stringify(els.map((el) => (el.textContent ?? '').trim()))),
+                const [latestAiText, aiCount, streamingCount] = await Promise.all([
+                  getLatestMeaningfulAiText(),
+                  aiLocator.count(),
                   streamingLocator.count(),
                 ]);
-                return { aiSignature, streamingCount };
+                return { latestAiText, aiCount, streamingCount };
               },
               {
                 timeout: LEAD_TURN_TIMEOUT_MS,
                 message: 'Expected streaming bubble or rendered AI/system message after SSE response started.',
               }
             )
-            .not.toEqual({ aiSignature: aiSignatureBefore, streamingCount: 0 });
+            .not.toEqual({ latestAiText: latestAiTextBefore, aiCount: aiCountBefore, streamingCount: 0 });
         } catch (error) {
           const sseBody = await responseTextPromise;
           throw new Error(
@@ -791,11 +824,16 @@ test.describe('Public widget intake flow', () => {
     const activeConversationStatuses: number[] = [];
     const networkLog: Array<{ time: string; method: string; url: string; status?: number }> = [];
     let observedConversationId: string | null = null;
+    let capturedPracticeId: string | null = null;
     const captureConversationIdFromUrl = (url: string): void => {
       const match = url.match(/\/api\/conversations\/([a-zA-Z0-9_-]+)/);
       const excludedSegments = new Set(['active', 'link', 'submit-intake']);
       if (match?.[1] && !excludedSegments.has(match[1])) {
         observedConversationId = match[1];
+      }
+      const practiceIdMatch = url.match(/[?&]practiceId=([^&]+)/);
+      if (practiceIdMatch?.[1]) {
+        capturedPracticeId = decodeURIComponent(practiceIdMatch[1]);
       }
     };
 
@@ -968,6 +1006,69 @@ test.describe('Public widget intake flow', () => {
       });
       throw new Error('Expected AI chat request for anon sign-in flow, but /api/ai/chat was not observed.');
     }
+    if (!aiResponse) {
+      const signinState = await anonPage.evaluate(() => {
+        const bodyText = document.body?.innerText ?? '';
+        const buttons = Array.from(document.querySelectorAll('button'))
+          .map((el) => (el.textContent ?? '').trim())
+          .filter(Boolean)
+          .slice(-30);
+        return {
+          url: window.location.href,
+          title: document.title,
+          bodySnippet: bodyText.slice(-2000),
+          buttons,
+        };
+      }).catch(() => null);
+      await testInfo.attach('signin-flow-ai-response-timeout.json', {
+        body: JSON.stringify({
+          sendButtonVisibleBeforeClick,
+          sendButtonEnabledBeforeClick,
+          aiChatEntriesBefore,
+          aiChatEntriesAfter: networkLog.filter((item) => item.url.includes('/api/ai/chat')).length,
+          aiRequestObserved: { method: aiRequest.method(), url: aiRequest.url() },
+          recentNetworkTail: networkLog.slice(-20),
+          signinState,
+        }, null, 2),
+        contentType: 'application/json',
+      });
+      throw new Error('Expected AI chat response for anon sign-in flow, but /api/ai/chat did not return 200.');
+    }
+    const aiResponseContentType = aiResponse.headers()['content-type'] ?? '';
+    if (aiResponse.status() !== 200 || !aiResponseContentType) {
+      const aiResponseText = await aiResponse.text().catch(() => '');
+      const signinState = await anonPage.evaluate(() => {
+        const bodyText = document.body?.innerText ?? '';
+        const buttons = Array.from(document.querySelectorAll('button'))
+          .map((el) => (el.textContent ?? '').trim())
+          .filter(Boolean)
+          .slice(-30);
+        return {
+          url: window.location.href,
+          title: document.title,
+          bodySnippet: bodyText.slice(-2000),
+          buttons,
+        };
+      }).catch(() => null);
+      await testInfo.attach('signin-flow-ai-invalid-response.json', {
+        body: JSON.stringify({
+          sendButtonVisibleBeforeClick,
+          sendButtonEnabledBeforeClick,
+          aiChatEntriesBefore,
+          aiChatEntriesAfter: networkLog.filter((item) => item.url.includes('/api/ai/chat')).length,
+          aiRequestObserved: { method: aiRequest.method(), url: aiRequest.url() },
+          aiResponseStatus: aiResponse.status(),
+          aiResponseHeaders: aiResponse.headers(),
+          aiResponseBodyTail: aiResponseText.slice(-2000),
+          recentNetworkTail: networkLog.slice(-20),
+          signinState,
+        }, null, 2),
+        contentType: 'application/json',
+      });
+      throw new Error(
+        `Expected AI chat response for anon sign-in flow to be 200 with content-type, got status=${aiResponse.status()} content-type="${aiResponseContentType}".`
+      );
+    }
 
     let capturedConversationId: string | null = null;
     await expect
@@ -1038,7 +1139,7 @@ test.describe('Public widget intake flow', () => {
           } catch { /* ignore */ }
         }, {
           convId: capturedConversationId,
-          fallbackPracticeId: null,
+          fallbackPracticeId: capturedPracticeId,
         });
       }
 

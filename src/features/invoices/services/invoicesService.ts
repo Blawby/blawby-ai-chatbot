@@ -24,8 +24,10 @@ import {
   normalizeInvoiceDetail,
   normalizeInvoiceSummary,
 } from '@/features/invoices/services/normalizers';
+import { applyInvoiceFilterRule } from '@/features/invoices/config/invoiceCollection';
 import type {
   InvoiceDetail,
+  InvoiceFilterRule,
   InvoiceListFilters,
   InvoiceListResult,
   InvoiceSummary,
@@ -49,46 +51,18 @@ const getErrorStatus = (error: unknown): number | undefined => {
   return candidate.status ?? candidate.response?.status ?? candidate.statusCode;
 };
 
-const matchesDateRange = (candidateDate: string | null, dateFrom: string, dateTo: string): boolean => {
-  if (!dateFrom && !dateTo) return true;
-  if (!candidateDate) return false;
-  const time = new Date(candidateDate).getTime();
-  if (!Number.isFinite(time)) return false;
-
-  if (dateFrom) {
-    const [y, m, d] = dateFrom.split('-').map(Number);
-    const fromTime = Date.UTC(y, m - 1, d, 0, 0, 0, 0);
-    if (Number.isFinite(fromTime) && time < fromTime) return false;
-  }
-  if (dateTo) {
-    const [y, m, d] = dateTo.split('-').map(Number);
-    const toTime = Date.UTC(y, m - 1, d, 23, 59, 59, 999);
-    if (Number.isFinite(toTime) && time > toTime) return false;
-  }
-  return true;
-};
-
 const filterInvoiceSummaries = (
   items: InvoiceSummary[],
   filters: InvoiceListFilters,
   statusFilter: string[] = []
 ): InvoiceSummary[] => {
-  const search = (filters.search || '').trim().toLowerCase();
-  const status = (filters.status || '').trim().toLowerCase();
+  const rules = (filters.rules ?? []).filter((rule): rule is InvoiceFilterRule => Boolean(rule?.field && rule.operator));
   const normalizedStatusFilter = statusFilter.map((value) => value.trim().toLowerCase()).filter(Boolean);
   const allowedStatuses = normalizedStatusFilter.length > 0 ? new Set(normalizedStatusFilter) : null;
 
   return items.filter((item) => {
     if (allowedStatuses && !allowedStatuses.has(item.status.toLowerCase())) return false;
-    if (status && item.status.toLowerCase() !== status) return false;
-    if (!matchesDateRange(item.issueDate ?? item.createdAt, filters.dateFrom, filters.dateTo)) return false;
-    if (!search) return true;
-
-    return (
-      item.invoiceNumber.toLowerCase().includes(search) ||
-      (item.clientName?.toLowerCase().includes(search) ?? false) ||
-      (item.matterTitle?.toLowerCase().includes(search) ?? false)
-    );
+    return rules.every((rule) => applyInvoiceFilterRule(item, rule));
   });
 };
 

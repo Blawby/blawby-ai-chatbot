@@ -166,16 +166,6 @@ export function ClientInvoiceDetailPage({
         actions={(
           <div className="flex flex-wrap items-center gap-2">
             {canPay ? <Button onClick={handleOpenPay}>Pay</Button> : null}
-            {detail.downloadUrl ? (
-              <Button variant="secondary" onClick={() => window.open(detail.downloadUrl as string, '_blank', 'noopener,noreferrer')}>
-                Download
-              </Button>
-            ) : null}
-            {detail.receiptUrl ? (
-              <Button variant="secondary" onClick={() => window.open(detail.receiptUrl as string, '_blank', 'noopener,noreferrer')}>
-                Receipt
-              </Button>
-            ) : null}
           </div>
         )}
       />

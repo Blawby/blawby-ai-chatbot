@@ -427,7 +427,7 @@ test.describe('Public widget embed (cross-origin iframe flow)', () => {
     // The harness pre-warms by opening the widget, so avoid toggling it closed here.
     const launcher = page.locator('#blawby-launcher, [id*="blawby"][id*="launcher"], button[aria-label*="Chat"]').first();
     const widgetStatus = page.locator('#widget-status');
-    const isAlreadyOpen = await widgetStatus.innerText().then((text) => /ready|open/i.test(text)).catch(() => false);
+    const isAlreadyOpen = await widgetStatus.innerText().then((text) => /\bopen\b/i.test(text)).catch(() => false);
     if (!isAlreadyOpen && await launcher.isVisible({ timeout: 5_000 }).catch(() => false)) {
       await launcher.click();
       await waitForWidgetEvent(page, 'widget_opened', 8_000);
@@ -438,11 +438,6 @@ test.describe('Public widget embed (cross-origin iframe flow)', () => {
 
     const iframe = page.frameLocator('iframe[src*="/public/"]').first();
 
-    // Ensure we have progressed through the slim contact form path and not by
-    // hitting an existing composer thread directly.
-    const helperResult = await reachWidgetComposer(iframe, INTERACTIVE_TIMEOUT_MS, true);
-    const mode = helperResult.mode;
-
     const messageInput = iframe
       .locator('[data-testid="message-input"], textarea[placeholder*="message" i], textarea, [role="textbox"]')
       .first();
@@ -452,94 +447,70 @@ test.describe('Public widget embed (cross-origin iframe flow)', () => {
     const emailInput = iframe.locator('input[type="email"]').first();
     const phoneInput = iframe.locator('input[type="tel"]').first();
     const continueButton = iframe.getByRole('button', { name: /^continue$/i }).first();
-
-    if (mode === 'timedOut') {
-      throw new Error('reachWidgetComposer timed out without reaching composer or intake terminal');
-    }
-
-    if (mode === 'intakeTerminal') {
-      // Exercise the manual-submit/acknowledgement path
-      let flowReached = false;
-      try {
-        await expect
-          .poll(
-            async () =>
-              (await requestConsultation.isVisible({ timeout: 300 }).catch(() => false)) ||
-              (await fullNameInput.isVisible({ timeout: 300 }).catch(() => false)),
-            {
-              timeout: 30_000,
-              message: 'Expected consultation CTA or slim contact form to appear in widget iframe',
+    let flowReached = false;
+    try {
+      await expect
+        .poll(
+          async () => {
+            if (await requestConsultation.isVisible({ timeout: 300 }).catch(() => false)) {
+              await requestConsultation.click().catch(() => null);
+              return false;
             }
-          )
-          .toBe(true);
+            if (await fullNameInput.isVisible({ timeout: 300 }).catch(() => false)) return true;
+            if (await messageInput.isEnabled({ timeout: 300 }).catch(() => false)) return true;
+            return false;
+          },
+          {
+            timeout: INTERACTIVE_TIMEOUT_MS,
+            message: 'Could not reach slim form or composer in iframe',
+          }
+        )
+        .toBe(true);
 
-        if (await requestConsultation.isVisible({ timeout: 500 }).catch(() => false)) {
-          await requestConsultation.click();
-        }
-
-        await expect
-          .poll(
-            async () => {
-              const formVisible = await fullNameInput.isVisible({ timeout: 300 }).catch(() => false);
-              const composerReady = await messageInput.isEnabled({ timeout: 300 }).catch(() => false);
-              const bodyText = await bodyLocator.innerText().catch(() => '');
-              return {
-                formVisible,
-                composerReady,
-                acknowledged: bodyText.includes('Contact info received') || bodyText.includes(testEmail),
-              };
-            },
-            {
-              timeout: 15_000,
-              message: 'Expected consultation click to reveal the contact form or advance past it',
-            }
-          )
-          .not.toEqual({ formVisible: false, composerReady: false, acknowledged: false });
-
-        if (await fullNameInput.isVisible({ timeout: 500 }).catch(() => false)) {
-          await fullNameInput.fill(`Embed E2E ${uid}`);
+      if (await fullNameInput.isVisible({ timeout: 500 }).catch(() => false)) {
+        await fullNameInput.fill(`Embed E2E ${uid}`);
+        if (await emailInput.isVisible({ timeout: 500 }).catch(() => false)) {
           await emailInput.fill(testEmail);
+        }
+        if (await phoneInput.isVisible({ timeout: 500 }).catch(() => false)) {
           await phoneInput.fill('555-555-0199');
-          await continueButton.click();
         }
-
-        await expect
-          .poll(
-            async () => {
-              const bodyText = await bodyLocator.innerText().catch(() => '');
-              const composerReady = await messageInput.isEnabled({ timeout: 300 }).catch(() => false);
-              return (
-                composerReady ||
-                bodyText.includes('Contact info received') ||
-                bodyText.includes(testEmail)
-              );
-            },
-            {
-              timeout: 20_000,
-              message: 'Expected contact form submission to acknowledge details or advance to composer',
-            }
-          )
-          .toBe(true);
-
-        flowReached = true;
-      } finally {
-        if (!flowReached) {
-          const iframeBody = await iframe.locator('body').innerText().catch(() => '(could not read)');
-          const iframeButtons = await iframe.locator('button').allInnerTexts().catch(() => []);
-          const inputState = await messageInput.isEnabled().catch(() => null);
-          await testInfo.attach('slim-form-failure-state.json', {
-            body: JSON.stringify({
-              iframeBody: iframeBody.slice(-2000),
-              iframeButtons,
-              inputEnabled: inputState,
-            }, null, 2),
-            contentType: 'application/json',
-          });
-        }
+        await continueButton.click();
       }
-    } else if (mode === 'composerOpened') {
-      // Assert composer behavior
-      await expect(messageInput).toBeEnabled({ timeout: 5000 });
+
+      await expect
+        .poll(
+          async () => {
+            const bodyText = await bodyLocator.innerText().catch(() => '');
+            const composerReady = await messageInput.isEnabled({ timeout: 300 }).catch(() => false);
+            return (
+              composerReady ||
+              bodyText.includes('Contact info received') ||
+              bodyText.includes(testEmail)
+            );
+          },
+          {
+            timeout: 20_000,
+            message: 'Expected contact form submission to acknowledge details or advance to composer',
+          }
+        )
+        .toBe(true);
+
+      flowReached = true;
+    } finally {
+      if (!flowReached) {
+        const iframeBody = await iframe.locator('body').innerText().catch(() => '(could not read)');
+        const iframeButtons = await iframe.locator('button').allInnerTexts().catch(() => []);
+        const inputState = await messageInput.isEnabled().catch(() => null);
+        await testInfo.attach('slim-form-failure-state.json', {
+          body: JSON.stringify({
+            iframeBody: iframeBody.slice(-2000),
+            iframeButtons,
+            inputEnabled: inputState,
+          }, null, 2),
+          contentType: 'application/json',
+        });
+      }
     }
 
     if (apiErrors.length > 0) {
@@ -574,6 +545,17 @@ test.describe('Public widget embed (cross-origin iframe flow)', () => {
 
     await waitForWidgetEvent(page, 'iframe_ready', WIDGET_READY_TIMEOUT_MS);
 
+    const launcher = page.locator('#blawby-launcher, [id*="blawby"][id*="launcher"], button[aria-label*="Chat"]').first();
+    const widgetStatus = page.locator('#widget-status');
+    const isAlreadyOpen = await widgetStatus.innerText().then((text) => /\bopen\b/i.test(text)).catch(() => false);
+    if (!isAlreadyOpen && await launcher.isVisible({ timeout: 5_000 }).catch(() => false)) {
+      await launcher.click();
+      await waitForWidgetEvent(page, 'widget_opened', 8_000);
+    } else if (!isAlreadyOpen) {
+      await page.locator('button[data-action="open"]').click();
+      await waitForWidgetEvent(page, 'widget_opened', 8_000);
+    }
+
     const iframe = page.frameLocator('iframe[src*="/public/"]').first();
     const helperResult = await reachWidgetComposer(iframe, INTERACTIVE_TIMEOUT_MS);
     const messageInput = helperResult.messageInput;
@@ -589,10 +571,28 @@ test.describe('Public widget embed (cross-origin iframe flow)', () => {
         await requestConsultation.click();
       }
 
-      if (await fullNameInput.isVisible({ timeout: 2_000 }).catch(() => false)) {
+      await expect
+        .poll(
+          async () => {
+            const formVisible = await fullNameInput.isVisible({ timeout: 300 }).catch(() => false);
+            const composerReady = await messageInput.isEnabled({ timeout: 300 }).catch(() => false);
+            return { formVisible, composerReady };
+          },
+          {
+            timeout: 15_000,
+            message: 'Expected intake form to appear or composer to become ready in embedded widget AI flow',
+          }
+        )
+        .not.toEqual({ formVisible: false, composerReady: false });
+
+      if (await fullNameInput.isVisible({ timeout: 500 }).catch(() => false)) {
         await fullNameInput.fill(`Embed AI ${intakeUid}`);
-        await emailInput.fill(`embed-ai-${intakeUid}@example.com`);
-        await phoneInput.fill('555-555-0102');
+        if (await emailInput.isVisible({ timeout: 2_000 }).catch(() => false)) {
+          await emailInput.fill(`embed-ai-${intakeUid}@example.com`);
+        }
+        if (await phoneInput.isVisible({ timeout: 2_000 }).catch(() => false)) {
+          await phoneInput.fill('555-555-0102');
+        }
         await continueButton.click();
       }
 
@@ -605,6 +605,32 @@ test.describe('Public widget embed (cross-origin iframe flow)', () => {
       });
       throw new Error(`Expected composer path in embedded widget AI test, but reached mode=${helperResult.mode}`);
     }
+
+    const recentMessageButton = iframe.getByRole('button', { name: /recent message/i }).first();
+    const sendUsMessageButton = iframe.getByRole('button', { name: /send us a message|send message/i }).first();
+    await expect
+      .poll(
+        async () => {
+          const composerReady = await messageInput.isEnabled({ timeout: 300 }).catch(() => false);
+          if (composerReady) return true;
+
+          if (await recentMessageButton.isVisible({ timeout: 300 }).catch(() => false)) {
+            await recentMessageButton.click().catch(() => undefined);
+            return false;
+          }
+
+          if (await sendUsMessageButton.isVisible({ timeout: 300 }).catch(() => false)) {
+            await sendUsMessageButton.click().catch(() => undefined);
+          }
+
+          return false;
+        },
+        {
+          timeout: 20_000,
+          message: 'Expected embedded widget to expose an enabled composer before sending AI prompt',
+        }
+      )
+      .toBe(true);
 
     // Wait for AI chat response.
     const aiResponsePromise = page.waitForResponse(

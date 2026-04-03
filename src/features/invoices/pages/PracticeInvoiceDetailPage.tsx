@@ -8,7 +8,6 @@ import { DetailHeader } from '@/shared/ui/layout/DetailHeader';
 import { WorkspaceListHeader } from '@/shared/ui/layout/WorkspaceListHeader';
 import { formatLongDate } from '@/shared/utils/dateFormatter';
 import { useToastContext } from '@/shared/contexts/ToastContext';
-import { getUserDetail } from '@/shared/lib/apiClient';
 import { useNavigation } from '@/shared/utils/navigation';
 import { InvoiceForm } from '@/features/invoices/components/InvoiceForm';
 import type { InvoiceFormHandle } from '@/features/invoices/components/InvoiceForm';
@@ -54,7 +53,6 @@ export function PracticeInvoiceDetailPage({
   const [detail, setDetail] = useState<InvoiceDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [resolvedClientLabel, setResolvedClientLabel] = useState<string | null>(null);
 
   const [refundModalOpen, setRefundModalOpen] = useState(false);
   const [refundReason, setRefundReason] = useState('');
@@ -90,38 +88,6 @@ export function PracticeInvoiceDetailPage({
     return () => controller.abort();
   }, [loadDetail]);
 
-  useEffect(() => {
-    if (!practiceId || !detail?.sourceInvoice.client_id) {
-      setResolvedClientLabel(null);
-      return;
-    }
-
-    const embeddedLabel = detail.clientName?.trim();
-    if (embeddedLabel) {
-      setResolvedClientLabel(embeddedLabel);
-      return;
-    }
-
-    const controller = new AbortController();
-    setResolvedClientLabel(null);
-
-    void getUserDetail(practiceId, detail.sourceInvoice.client_id, { signal: controller.signal })
-      .then((clientDetail) => {
-        if (controller.signal.aborted) return;
-        const hydratedLabel =
-          clientDetail?.user?.name?.trim() ||
-          clientDetail?.user?.email?.trim() ||
-          null;
-        setResolvedClientLabel(hydratedLabel);
-      })
-      .catch((err) => {
-        if (controller.signal.aborted || err.name === 'AbortError') return;
-        console.error('[PracticeInvoiceDetailPage] Failed to hydrate invoice client label', err);
-      });
-
-    return () => controller.abort();
-  }, [detail?.clientName, detail?.sourceInvoice.client_id, practiceId]);
-
   const status = useMemo(() => (detail?.status ?? 'draft').toLowerCase(), [detail?.status]);
   const mode = useMemo(() => resolveInvoicePageMode(status), [status]);
   const isDraft = mode === 'edit';
@@ -130,9 +96,9 @@ export function PracticeInvoiceDetailPage({
 
   const builderClientOptions = useMemo(() => {
     if (!detail) return [];
-    const label = resolvedClientLabel?.trim() || detail.clientName?.trim() || 'Person';
+    const label = detail.clientName?.trim() || 'Person';
     return [{ value: detail.sourceInvoice.client_id, label }];
-  }, [detail, resolvedClientLabel]);
+  }, [detail]);
 
   const builderMatterOptions = useMemo(() => {
     if (!detail?.sourceInvoice.matter_id) return [];
