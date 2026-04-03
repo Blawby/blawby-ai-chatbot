@@ -919,6 +919,7 @@ function WidgetRoute({
         practiceId={resolvedPracticeId}
         practiceConfig={practiceConfig}
         routeConversationId={conversationId}
+        bootstrapConversationId={data.conversationId}
         bootstrapSession={data.session}
       />
     </>

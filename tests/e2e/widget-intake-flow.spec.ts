@@ -33,18 +33,23 @@ test.describe('Public widget intake flow', () => {
   test.describe.configure({ timeout: 120000 });
 
   test.beforeEach(async ({ anonPage }) => {
-    await anonPage.addInitScript(() => {
+    const storageResetToken = `widget-intake-flow-${randomUUID()}`;
+    await anonPage.addInitScript((token: string) => {
       try {
+        if (window.name === token) {
+          return;
+        }
         const keysToRemove = Object.keys(sessionStorage).filter((key) =>
           key.startsWith('blawby_widget_bootstrap_')
           || key === 'blawby:postAuthConversation'
           || key === 'blawby:widget:attribution'
         );
         keysToRemove.forEach((key) => sessionStorage.removeItem(key));
+        window.name = token;
       } catch {
         // Ignore storage access failures in the test harness.
       }
-    });
+    }, storageResetToken);
   });
 
   const isActiveConversationFetch = (response: { request: () => { method: () => string }; url: () => string }): boolean => (
@@ -194,7 +199,7 @@ test.describe('Public widget intake flow', () => {
     const submitNowButton = anonPage.getByRole('button', { name: /submit request/i });
     const paymentContinueButton = anonPage
       .locator('button:visible')
-      .filter({ hasText: /continue(\s+to\s+payment)?|pay\s*(?:&|and)\s*submit/i })
+      .filter({ hasText: /^(continue|continue\s+to\s+payment|pay\s*(?:&|and)\s*submit)$/i })
       .first();
     const buildBriefButton = anonPage.getByRole('button', { name: /build stronger brief/i });
     const aiTranscript: Array<{ prompt?: string; user: string; contentType: string; replyText: string }> = [];
@@ -381,12 +386,12 @@ test.describe('Public widget intake flow', () => {
       const buildVisibleBefore = await buildBriefButton.isVisible().catch(() => false);
       const paymentPromptVisibleBefore = await anonPage
         .locator('button')
-        .filter({ hasText: /continue(\s+to\s+payment)?|pay\s*(?:&|and)\s*submit/i })
+        .filter({ hasText: /^(continue|continue\s+to\s+payment|pay\s*(?:&|and)\s*submit)$/i })
         .isVisible()
         .catch(() => false);
       const bodyTextBefore = await bodyLocator.innerText().catch(() => '');
       const readyPromptBefore = /ready to submit your case|are you ready to submit|submit your case to the firm/i.test(bodyTextBefore);
-      if (submitVisibleBefore || paymentPromptVisibleBefore || (buildVisibleBefore && readyPromptBefore)) {
+      if (submitVisibleBefore || paymentPromptVisibleBefore || readyPromptBefore) {
         reachedSubmitReady = true;
         if (paymentPromptVisibleBefore) reachedPaymentTerminal = true;
         break;
@@ -409,12 +414,12 @@ test.describe('Public widget intake flow', () => {
       const buildVisible = await buildBriefButton.isVisible().catch(() => false);
       const paymentPromptVisible = await anonPage
         .locator('button')
-        .filter({ hasText: /continue(\s+to\s+payment)?|pay\s*(?:&|and)\s*submit/i })
+        .filter({ hasText: /^(continue|continue\s+to\s+payment|pay\s*(?:&|and)\s*submit)$/i })
         .isVisible()
         .catch(() => false);
       const bodyText = await bodyLocator.innerText().catch(() => '');
       const readyPrompt = /ready to submit your case|are you ready to submit|submit your case to the firm/i.test(bodyText);
-      if (submitVisible || paymentPromptVisible || (buildVisible && readyPrompt)) {
+      if (submitVisible || paymentPromptVisible || readyPrompt) {
         reachedSubmitReady = true;
         if (paymentPromptVisible) reachedPaymentTerminal = true;
         break;
@@ -428,7 +433,8 @@ test.describe('Public widget intake flow', () => {
       );
     }
 
-    if (reachedPaymentTerminal) {
+    const paymentVisibleAtAction = await paymentContinueButton.isVisible().catch(() => false);
+    if (reachedPaymentTerminal || paymentVisibleAtAction) {
       await expect(paymentContinueButton).toBeVisible({ timeout: 10000 });
       await paymentContinueButton.click();
     } else {
@@ -746,8 +752,8 @@ test.describe('Public widget intake flow', () => {
         contentType: 'application/json',
       });
 
-      // Manually seed the sessionStorage handoff so the context-carry assertion
-      // can still be exercised even without an in-app CTA.
+      // Seed sessionStorage before navigation so the auth page keeps the same
+      // handoff data in its own document context.
       if (capturedConversationId) {
         await anonPage.evaluate(({ convId, fallbackPracticeId }) => {
           try {
@@ -941,6 +947,7 @@ test.describe('Public widget intake flow', () => {
     const reloadedBootstrapBody = await reloadedBootstrapResponse.json().catch(() => null) as {
       session?: { user?: { id?: string } | null } | null;
       widgetAuthToken?: string | null;
+      widgetQueryAuthToken?: string | null;
     } | null;
 
     expect(
@@ -1088,6 +1095,27 @@ test.describe('Public widget intake flow', () => {
     const getButtons = async () =>
       anonPage.locator('button:visible').allInnerTexts().catch(() => [] as string[]);
 
+    await expect.poll(
+      async () => {
+        const count = await aiLocator.count();
+        if (count === 0) return '';
+        return (await aiLocator.nth(count - 1).innerText().catch(() => '')).trim();
+      },
+      {
+        timeout: LEAD_TURN_TIMEOUT_MS,
+        message: 'Expected planner to prompt for the legal situation after contact capture.',
+      }
+    ).toMatch(/legal situation|what'?s going on|describe what'?s going on|tell me a bit/i);
+    await expect
+      .poll(
+        async () => streamingLocator.count(),
+        {
+          timeout: LEAD_TURN_TIMEOUT_MS,
+          message: 'Expected initial planner prompt to finish streaming before turn 1.',
+        }
+      )
+      .toBe(0);
+
     // ── Turn 1: Description ──────────────────────────────────────────────────
     const { reply: reply1, donePayload: done1 } = await sendAndAwait(
       'My landlord is refusing to return my security deposit after I moved out.'
@@ -1135,7 +1163,7 @@ test.describe('Public widget intake flow', () => {
 
     const hasSubmitButton = buttonsAfterTurn3.some((b) => /submit request/i.test(b));
     const hasPaymentButton = buttonsAfterTurn3.some((b) =>
-      /continue(\s+to\s+payment)?|pay\s*(?:&|and)\s*submit/i.test(b)
+      /^(continue|continue\s+to\s+payment|pay\s*(?:&|and)\s*submit)$/i.test(b)
     );
     const hasUrgencyChips = buttonsAfterTurn3.some((b) =>
       /routine|time.sensitive|emergency/i.test(b)
@@ -1171,7 +1199,7 @@ test.describe('Public widget intake flow', () => {
 
     // ── Assert: submit button eventually appears within remaining turns ────────
     const submitButton = anonPage.getByRole('button', { name: /submit request/i });
-    const paymentButton = anonPage.locator('button:visible').filter({ hasText: /continue(\s+to\s+payment)?|pay.*submit/i }).first();
+    const paymentButton = anonPage.locator('button:visible').filter({ hasText: /^(continue|continue\s+to\s+payment|pay.*submit)$/i }).first();
     const MAX_REMAINING_TURNS = 6;
     let submitReached = false;
     for (let i = 0; i < MAX_REMAINING_TURNS; i++) {

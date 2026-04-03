@@ -93,7 +93,7 @@ const buildIntakeConversationCtaInstruction = (
   if (isSubmissionReady && isPlannerFinished && messageCount < INTAKE_CLOSING_MESSAGE_THRESHOLD) {
     return `\nYou have all the required details. Ask: "Are you ready to submit your case to the firm?" in one short sentence. Do not summarize again. Do not ask if they want to add anything else.`;
   }
-  if (!isIntakeSubmittable(mergedState, submissionGate) && paymentRequiredBeforeSubmit && !paymentCompleted) {
+  if (isCaseInfoComplete(mergedState) && paymentRequiredBeforeSubmit && !paymentCompleted) {
     return '\nYou already have the required case details. Do NOT ask for more case details. Briefly explain that payment is required before submission and ask the user to tap Continue to payment. Do NOT include raw URLs or placeholders like [Insert Payment Link].';
   }
   return `\nAsk exactly ONE focused question about the single most important missing piece of information. Priority: situation description → city and state → opposing party → urgency → desired outcome → documents. Do not ask for submission readiness until all required details are collected.`;
@@ -116,6 +116,8 @@ Conversation rules:
 - Be warm and human — like a knowledgeable friend, not a form
 - Never give legal advice
 - Never ask for contact info (name, email, phone) — already collected
+- If the prompt says "IMPORTANT: The next missing piece is ...", you must ask only about that exact missing piece next
+- Never revisit or ask for more detail about fields already listed under "KNOWN SO FAR"
 - Never output JSON, tool names, or structured data
 - If your question has 2-3 predictable short answers, end your response with a line formatted exactly as: QUICK_REPLIES: Option 1 | Option 2 | Option 3. Otherwise omit this line entirely. Never use QUICK_REPLIES for open-ended questions like description or desired outcome.`;
 };
@@ -167,7 +169,7 @@ const buildIntakeConversationStatePrompt = (
   };
 
   const nextFieldHint = plannerStep && plannerStep.nextField && plannerStep.chips.length === 0 && !isSubmissionReady
-    ? `\nIMPORTANT: The next missing piece is: ${fieldLabels[plannerStep.nextField] ?? plannerStep.nextField}. Ask about this specifically.`
+    ? `\nIMPORTANT: The next missing piece is: ${fieldLabels[plannerStep.nextField] ?? plannerStep.nextField}. Ask exactly one short question about this and nothing else. Do not revisit any other field.`
     : '';
 
   return `${knownSection}${nextFieldHint}${buildIntakeConversationCtaInstruction(mergedState, messageCount, submissionGate, isPlannerFinished)}`.trim();

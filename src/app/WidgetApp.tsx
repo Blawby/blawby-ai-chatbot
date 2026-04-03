@@ -35,6 +35,7 @@ interface WidgetAppProps {
   practiceId: string;
   practiceConfig: UIPracticeConfig;
   routeConversationId?: string;
+  bootstrapConversationId?: string | null;
   bootstrapSession?: {
     user?: {
       id: string;
@@ -48,10 +49,11 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
   practiceId,
   practiceConfig,
   routeConversationId,
+  bootstrapConversationId,
   bootstrapSession
 }) => {
   const [view, setView] = useState<'home' | 'list' | 'chat'>(routeConversationId ? 'chat' : 'home');
-  const [setupConversationId, setConversationId] = useState<string | null>(null);
+  const [setupConversationId, setConversationId] = useState<string | null>(bootstrapConversationId ?? null);
   const [conversationMode, setConversationMode] = useState<ConversationMode | null>(null);
   const [isInspectorOpen, setIsInspectorOpen] = useState(false);
   const [hasPersistError, setHasPersistError] = useState(false);
@@ -96,6 +98,12 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
     if (!options?.forceNew && existingConversationId) return existingConversationId;
     return createConversation(options);
   }, [createConversation, routeConversationId, setupConversationId]);
+
+  useEffect(() => {
+    if (routeConversationId) return;
+    if (!bootstrapConversationId) return;
+    setConversationId((current) => current ?? bootstrapConversationId);
+  }, [bootstrapConversationId, routeConversationId]);
 
   const applyConversationMode = useCallback(async (mode: ConversationMode, targetId: string, source: string, startIntake: boolean): Promise<boolean> => {
     try {
