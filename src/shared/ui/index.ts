@@ -28,5 +28,8 @@ export * from './tabs';
 // Table components
 export * from './table';
 
+// Collection components
+export * from './collection';
+
 // Activity components
 export * from './activity';

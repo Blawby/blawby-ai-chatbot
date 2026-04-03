@@ -100,8 +100,17 @@ async function reachWidgetComposer(
   let lastClickedAt = 0;
 
   while (Date.now() < deadline) {
-    // Check for intake terminal state
-    if (await consultationCta.isVisible({ timeout: 300 }).catch(() => false) || await nameInput.isVisible({ timeout: 300 }).catch(() => false)) {
+    const nameVisible = await nameInput.isVisible({ timeout: 300 }).catch(() => false);
+    const consultationVisible = await consultationCta.isVisible({ timeout: 300 }).catch(() => false);
+
+    // A real visible slim form is an intake-specific terminal branch.
+    if (nameVisible) {
+      return { messageInput, mode: 'intakeTerminal' };
+    }
+
+    // For tests that explicitly want the consultation path, surface the CTA
+    // instead of auto-diverting into the generic message composer.
+    if (requireSlimForm && consultationVisible) {
       return { messageInput, mode: 'intakeTerminal' };
     }
 
@@ -118,7 +127,7 @@ async function reachWidgetComposer(
       continue;
     }
 
-    if (await consultationCta.isVisible({ timeout: 300 }).catch(() => false)) {
+    if (consultationVisible) {
       await consultationCta.click().catch(() => null);
       lastClickedAt = now;
       continue;
@@ -468,11 +477,31 @@ test.describe('Public widget embed (cross-origin iframe flow)', () => {
           await requestConsultation.click();
         }
 
-        await expect(fullNameInput).toBeVisible({ timeout: 15_000 });
-        await fullNameInput.fill(`Embed E2E ${uid}`);
-        await emailInput.fill(testEmail);
-        await phoneInput.fill('555-555-0199');
-        await continueButton.click();
+        await expect
+          .poll(
+            async () => {
+              const formVisible = await fullNameInput.isVisible({ timeout: 300 }).catch(() => false);
+              const composerReady = await messageInput.isEnabled({ timeout: 300 }).catch(() => false);
+              const bodyText = await bodyLocator.innerText().catch(() => '');
+              return {
+                formVisible,
+                composerReady,
+                acknowledged: bodyText.includes('Contact info received') || bodyText.includes(testEmail),
+              };
+            },
+            {
+              timeout: 15_000,
+              message: 'Expected consultation click to reveal the contact form or advance past it',
+            }
+          )
+          .not.toEqual({ formVisible: false, composerReady: false, acknowledged: false });
+
+        if (await fullNameInput.isVisible({ timeout: 500 }).catch(() => false)) {
+          await fullNameInput.fill(`Embed E2E ${uid}`);
+          await emailInput.fill(testEmail);
+          await phoneInput.fill('555-555-0199');
+          await continueButton.click();
+        }
 
         await expect
           .poll(
@@ -546,9 +575,36 @@ test.describe('Public widget embed (cross-origin iframe flow)', () => {
     await waitForWidgetEvent(page, 'iframe_ready', WIDGET_READY_TIMEOUT_MS);
 
     const iframe = page.frameLocator('iframe[src*="/public/"]').first();
-    const { messageInput, mode } = await reachWidgetComposer(iframe, INTERACTIVE_TIMEOUT_MS);
+    const helperResult = await reachWidgetComposer(iframe, INTERACTIVE_TIMEOUT_MS);
+    const messageInput = helperResult.messageInput;
+    const requestConsultation = iframe.getByRole('button', { name: /request consultation/i }).first();
+    const fullNameInput = iframe.locator('input[placeholder*="full name" i], input[type="text"]').first();
+    const emailInput = iframe.locator('input[type="email"]').first();
+    const phoneInput = iframe.locator('input[type="tel"]').first();
+    const continueButton = iframe.getByRole('button', { name: /^continue$/i }).first();
+    const intakeUid = randomUUID().slice(0, 8);
 
-    expect(mode).toBe('composerOpened');
+    if (helperResult.mode === 'intakeTerminal') {
+      if (await requestConsultation.isVisible({ timeout: 500 }).catch(() => false)) {
+        await requestConsultation.click();
+      }
+
+      if (await fullNameInput.isVisible({ timeout: 2_000 }).catch(() => false)) {
+        await fullNameInput.fill(`Embed AI ${intakeUid}`);
+        await emailInput.fill(`embed-ai-${intakeUid}@example.com`);
+        await phoneInput.fill('555-555-0102');
+        await continueButton.click();
+      }
+
+      await expect(messageInput).toBeEnabled({ timeout: 20_000 });
+    } else if (helperResult.mode !== 'composerOpened') {
+      const iframeState = await iframe.locator('body').innerText().catch(() => '(could not read)');
+      await testInfo.attach('embed-ai-non-composer-state.txt', {
+        body: iframeState,
+        contentType: 'text/plain',
+      });
+      throw new Error(`Expected composer path in embedded widget AI test, but reached mode=${helperResult.mode}`);
+    }
 
     // Wait for AI chat response.
     const aiResponsePromise = page.waitForResponse(

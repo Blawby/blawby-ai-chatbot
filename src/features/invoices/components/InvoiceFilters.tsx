@@ -1,12 +1,11 @@
 import type { FunctionComponent } from 'preact';
 import { Input } from '@/shared/ui/input';
-import { Button } from '@/shared/ui/Button';
+import { CollectionFilters } from '@/shared/ui/collection';
 
 export interface InvoiceFilterValue {
   status: string;
   dateFrom: string;
   dateTo: string;
-  search: string;
 }
 
 interface InvoiceFiltersProps {
@@ -31,8 +30,8 @@ const STATUS_OPTIONS = [
 export const InvoiceFilters: FunctionComponent<InvoiceFiltersProps> = ({ value, onChange, onReset, showStatus = true }) => {
   const statusFilterId = 'invoice-status-filter';
   return (
-    <div className="glass-panel p-4">
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+    <CollectionFilters onReset={onReset}>
+      <>
         {showStatus ? (
           <div>
             <label htmlFor={statusFilterId} className="mb-1 block text-xs font-semibold text-input-text">Status</label>
@@ -62,17 +61,7 @@ export const InvoiceFilters: FunctionComponent<InvoiceFiltersProps> = ({ value, 
           value={value.dateTo}
           onChange={(next) => onChange({ ...value, dateTo: next })}
         />
-        <Input
-          type="search"
-          label="Search"
-          placeholder="Invoice number, client, matter"
-          value={value.search}
-          onChange={(next) => onChange({ ...value, search: next })}
-        />
-        <div className="flex items-end">
-          <Button variant="secondary" className="w-full" onClick={onReset}>Reset filters</Button>
-        </div>
-      </div>
-    </div>
+      </>
+    </CollectionFilters>
   );
 };

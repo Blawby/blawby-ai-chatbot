@@ -1040,7 +1040,7 @@ export function MainApp({
                   practiceId={effectivePracticeId ?? practiceId}
                   practiceSlug={resolvedPracticeSlug ?? null}
                   statusFilter={statusFilter}
-                  renderMode={layoutMode === 'desktop' ? 'detailOnly' : 'full'}
+                  renderMode="full"
                   onCreateInvoice={practiceInvoicesPath ? () => navigate(`${practiceInvoicesPath}/new`) : undefined}
                 />
               )}
@@ -1060,11 +1060,11 @@ export function MainApp({
                   />
                 ) : (
                   <ClientInvoicesPage
-                    key={`${effectivePracticeId}-${layoutMode === 'desktop' ? 'detailOnly' : 'full'}-${JSON.stringify(statusFilter)}`}
+                    key={`${effectivePracticeId}-full-${JSON.stringify(statusFilter)}`}
                     practiceId={effectivePracticeId ?? practiceId}
                     practiceSlug={(clientPracticeSlug ?? resolvedClientPracticeSlug) ?? null}
                     statusFilter={statusFilter}
-                    renderMode={layoutMode === 'desktop' ? 'detailOnly' : 'full'}
+                    renderMode="full"
                   />
                 )}
               </Suspense>
@@ -1072,7 +1072,7 @@ export function MainApp({
             : undefined
       }
       invoicesListContent={
-        (isPracticeWorkspace || isClientWorkspace) && layoutMode === 'desktop' && resolvedWorkspaceView !== 'invoiceDetail'
+        (isPracticeWorkspace || isClientWorkspace) && layoutMode === 'desktop' && resolvedWorkspaceView === 'invoiceDetail'
           ? (statusFilter) => (
             <Suspense fallback={<WorkspaceSubviewFallback />}>
               {isPracticeWorkspace ? (

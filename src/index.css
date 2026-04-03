@@ -150,10 +150,18 @@
 
   /* Cards — most prominent surface, heaviest rim */
   .glass-card {
-    @apply rounded-3xl bg-white/5 backdrop-blur-3xl backdrop-saturate-150 transition-all duration-300;
-
-    border: none;
-    box-shadow: var(--glass-rim-strong), var(--shadow-glass);
+    @apply rounded-3xl border border-white/10;
+    background: linear-gradient(
+      to bottom,
+      rgba(43, 48, 58, 0.72),
+      rgba(30, 34, 42, 0.64)
+    );
+    backdrop-filter: blur(18px) saturate(110%);
+    -webkit-backdrop-filter: blur(18px) saturate(110%);
+    box-shadow:
+      0 10px 24px rgba(0, 0, 0, 0.24),
+      inset 0 1px 0 rgba(255, 255, 255, 0.09),
+      inset 0 -1px 0 rgba(255, 255, 255, 0.03);
   }
 
   .glass-card-hover {
@@ -168,16 +176,27 @@
 
   /* Panels — secondary surface, medium rim */
   .glass-panel {
-    @apply rounded-2xl backdrop-blur-2xl backdrop-saturate-150 transition-all duration-300;
-
-    border: none;
-    background: rgb(var(--surface-overlay) / 0.6);
-    box-shadow: var(--glass-rim-medium);
+    @apply rounded-2xl border border-white/5;
+    background: linear-gradient(
+      to bottom,
+      rgba(38, 42, 50, 0.60),
+      rgba(28, 32, 38, 0.52)
+    );
+    backdrop-filter: blur(16px) saturate(105%);
+    -webkit-backdrop-filter: blur(16px) saturate(105%);
+    box-shadow:
+      0 8px 20px rgba(0, 0, 0, 0.20),
+      inset 0 1px 0 rgba(255, 255, 255, 0.07),
+      inset 0 -1px 0 rgba(255, 255, 255, 0.02);
   }
 
   .dark .glass-panel {
-    background: rgb(255 255 255 / 0.12);
-    box-shadow: var(--glass-rim-medium);
+    background: linear-gradient(
+      to bottom,
+      rgba(255, 255, 255, 0.08),
+      rgba(255, 255, 255, 0.06)
+    );
+    border-color: rgba(255, 255, 255, 0.12);
   }
 
   .list-panel-card-gradient {
@@ -199,15 +218,28 @@
 
   /* Inputs — tertiary surface, subtle rim */
   .glass-input {
-    @apply bg-white/[0.08] text-input-text placeholder:text-input-placeholder/80 backdrop-blur-xl;
-
-    border: none;
-    box-shadow: var(--glass-rim-subtle), var(--shadow-glass);
+    @apply text-input-text placeholder:text-input-placeholder/80;
+    background: linear-gradient(
+      to bottom,
+      rgba(32, 36, 42, 0.40),
+      rgba(26, 30, 36, 0.32)
+    );
+    backdrop-filter: blur(14px) saturate(102%);
+    -webkit-backdrop-filter: blur(14px) saturate(102%);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    box-shadow:
+      0 6px 16px rgba(0, 0, 0, 0.18),
+      inset 0 1px 0 rgba(255, 255, 255, 0.05),
+      inset 0 -1px 0 rgba(255, 255, 255, 0.01);
   }
 
   .glass-input:focus {
     outline: none;
-    box-shadow: var(--glass-rim-medium),
+    border-color: rgba(255, 255, 255, 0.12);
+    box-shadow:
+      0 6px 16px rgba(0, 0, 0, 0.18),
+      inset 0 1px 0 rgba(255, 255, 255, 0.05),
+      inset 0 -1px 0 rgba(255, 255, 255, 0.01),
       0 0 0 2px rgb(var(--accent-500) / 0.3);
   }
 

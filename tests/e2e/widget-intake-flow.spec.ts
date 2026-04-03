@@ -303,6 +303,7 @@ test.describe('Public widget intake flow', () => {
     const sendAndAwaitAi = async (text: string) => {
       const aiLocator = anonPage.locator('[data-testid="ai-message"], [data-testid="system-message"]');
       const streamingLocator = anonPage.locator('[id^="message-streaming-"]');
+      const sendButton = anonPage.getByRole('button', { name: /send message/i });
       const getLatestMeaningfulAiText = async () => {
         const texts = await aiLocator.evaluateAll((els) => els.map((el) => (el.textContent ?? '').trim()));
         for (let i = texts.length - 1; i >= 0; i -= 1) {
@@ -316,21 +317,49 @@ test.describe('Public widget intake flow', () => {
       const aiSignatureBefore = JSON.stringify(
         await aiLocator.evaluateAll((els) => els.map((el) => (el.textContent ?? '').trim()))
       );
+      const aiChatEntriesBefore = networkLog.filter((item) => item.url.includes('/api/ai/chat')).length;
+      const requestPromise = anonPage
+        .waitForRequest(
+          (request) =>
+            request.method() === 'POST'
+            && request.url().includes('/api/ai/chat'),
+          { timeout: LEAD_TURN_TIMEOUT_MS }
+        )
+        .catch(() => null);
       const responsePromise = anonPage.waitForResponse(
         (response) =>
           response.request().method() === 'POST'
           && response.url().includes('/api/ai/chat')
           && response.status() === 200,
         { timeout: LEAD_TURN_TIMEOUT_MS }
-      );
+      ).catch(() => null);
+      const sendButtonVisibleBeforeClick = await sendButton.isVisible().catch(() => false);
+      const sendButtonEnabledBeforeClick = await sendButton.isEnabled().catch(() => false);
       await messageInput.fill(text);
-      await anonPage.getByRole('button', { name: /send message/i }).click();
-      const response = await responsePromise;
-      const contentType = response.headers()['content-type'] ?? '';
-      const responseTextPromise = !contentType.includes('application/json')
+      await sendButton.click();
+      const [request, response] = await Promise.all([requestPromise, responsePromise]);
+      if (!request) {
+        const state = await captureLeadFlowState();
+        await testInfo.attach('lead-flow-ai-timeout.json', {
+          body: JSON.stringify({
+            prompt: text,
+            sendButtonVisibleBeforeClick,
+            sendButtonEnabledBeforeClick,
+            aiChatEntriesBefore,
+            aiChatEntriesAfter: networkLog.filter((item) => item.url.includes('/api/ai/chat')).length,
+            requestObserved: null,
+            recentNetworkTail: networkLog.slice(-20),
+            state,
+          }, null, 2),
+          contentType: 'application/json',
+        });
+        throw new Error(`Expected /api/ai/chat request after sending "${text}", but none was observed.`);
+      }
+      const contentType = response?.headers()['content-type'] ?? 'text/event-stream';
+      const responseTextPromise = response && !contentType.includes('application/json')
         ? response.text().catch(() => '')
         : Promise.resolve('');
-      const body = contentType.includes('application/json')
+      const body = response && contentType.includes('application/json')
         ? await response.json().catch(() => null) as { reply?: string; message?: { content?: string } } | null
         : null;
       if (!contentType.includes('application/json')) {
@@ -886,6 +915,14 @@ test.describe('Public widget intake flow', () => {
 
     await expect(messageInput).toBeEnabled({ timeout: 20_000 });
 
+    const aiRequestPromise = anonPage
+      .waitForRequest(
+        (r) =>
+          r.method() === 'POST' &&
+          r.url().includes('/api/ai/chat'),
+        { timeout: 40_000 }
+      )
+      .catch(() => null);
     const aiResponsePromise = anonPage
       .waitForResponse(
         (r) =>
@@ -896,11 +933,40 @@ test.describe('Public widget intake flow', () => {
       )
       .catch(() => null);
 
+    const sendButton = anonPage.getByRole('button', { name: /send message/i });
+    const sendButtonVisibleBeforeClick = await sendButton.isVisible().catch(() => false);
+    const sendButtonEnabledBeforeClick = await sendButton.isEnabled().catch(() => false);
+    const aiChatEntriesBefore = networkLog.filter((item) => item.url.includes('/api/ai/chat')).length;
     await messageInput.fill('Hello, I need help and I will sign in after this.');
-    await anonPage.getByRole('button', { name: /send message/i }).click();
-    const aiResponse = await aiResponsePromise;
-    if (!aiResponse) {
-      throw new Error('Expected AI chat response for anon sign-in flow, but /api/ai/chat response was not observed.');
+    await sendButton.click();
+    const [aiRequest, aiResponse] = await Promise.all([aiRequestPromise, aiResponsePromise]);
+    if (!aiRequest) {
+      const signinState = await anonPage.evaluate(() => {
+        const bodyText = document.body?.innerText ?? '';
+        const buttons = Array.from(document.querySelectorAll('button'))
+          .map((el) => (el.textContent ?? '').trim())
+          .filter(Boolean)
+          .slice(-30);
+        return {
+          url: window.location.href,
+          title: document.title,
+          bodySnippet: bodyText.slice(-2000),
+          buttons,
+        };
+      }).catch(() => null);
+      await testInfo.attach('signin-flow-ai-timeout.json', {
+        body: JSON.stringify({
+          sendButtonVisibleBeforeClick,
+          sendButtonEnabledBeforeClick,
+          aiChatEntriesBefore,
+          aiChatEntriesAfter: networkLog.filter((item) => item.url.includes('/api/ai/chat')).length,
+          aiRequestObserved: null,
+          recentNetworkTail: networkLog.slice(-20),
+          signinState,
+        }, null, 2),
+        contentType: 'application/json',
+      });
+      throw new Error('Expected AI chat request for anon sign-in flow, but /api/ai/chat was not observed.');
     }
 
     let capturedConversationId: string | null = null;
