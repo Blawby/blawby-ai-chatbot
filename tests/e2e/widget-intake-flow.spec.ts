@@ -534,6 +534,8 @@ test.describe('Public widget intake flow', () => {
     const bodyTextAtAction = await bodyLocator.innerText().catch(() => '');
     const hasPaymentPromptAtAction = /consultation fee|continue to payment|pay and submit|pay & submit|submit your intake/i.test(bodyTextAtAction);
     const terminalActionButton = anonPage
+      .locator('[data-testid="ai-message"]')
+      .last()
       .locator('button:visible')
       .filter({ hasText: /^(submit request|continue|continue\s+to\s+payment|pay\s*(?:&|and)\s*submit)$/i })
       .first();

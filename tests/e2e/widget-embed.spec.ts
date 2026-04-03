@@ -77,7 +77,8 @@ async function getWidgetEvents(page: import('@playwright/test').Page) {
 
 async function reachWidgetComposer(
   iframe: import('@playwright/test').FrameLocator,
-  timeoutMs = INTERACTIVE_TIMEOUT_MS
+  timeoutMs = INTERACTIVE_TIMEOUT_MS,
+  requireSlimForm = false
 ) {
   const messageInput = iframe
     .locator('[data-testid="message-input"], textarea[placeholder*="message" i], textarea, [role="textbox"]')
@@ -91,15 +92,19 @@ async function reachWidgetComposer(
   const nameInput = iframe.locator('input[placeholder*="full name" i], input[name="name"], label:has-text("Name") + input').first();
   const emailInput = iframe.locator('input[type="email"]').first();
   const phoneInput = iframe.locator('input[type="tel"]').first();
-  const recentMsg = iframe.locator('[data-testid="recent-message"], .recent-conversation').first();
+  const recentMsg = iframe.getByRole('button', { name: /recent message/i }).first();
   const uid = randomUUID().slice(0, 8);
+  let seenSlimForm = false;
 
   const deadline = Date.now() + timeoutMs;
   let lastClickedAt = 0;
 
   while (Date.now() < deadline) {
     if (await messageInput.isEnabled({ timeout: 300 }).catch(() => false)) {
-      return { messageInput, mode: 'composer' as const };
+      if (!requireSlimForm || seenSlimForm) {
+        return { messageInput, mode: 'composer' as const };
+      }
+      // If the test requires slim contact form, keep waiting until the flow visits it.
     }
 
     const now = Date.now();
@@ -139,6 +144,7 @@ async function reachWidgetComposer(
     }
 
     if (await nameInput.isVisible({ timeout: 300 }).catch(() => false)) {
+      seenSlimForm = true;
       await nameInput.fill(`Embed E2E ${uid}`).catch(() => undefined);
       if (await emailInput.isVisible().catch(() => false)) {
         await emailInput.fill(`embed-e2e-${uid}@example.com`).catch(() => undefined);
@@ -418,6 +424,11 @@ test.describe('Public widget embed (cross-origin iframe flow)', () => {
 
     const iframe = page.frameLocator('iframe[src*="/public/"]').first();
 
+    // Ensure we have progressed through the slim contact form path and not by
+    // hitting an existing composer thread directly.
+    const helperResult = await reachWidgetComposer(iframe, INTERACTIVE_TIMEOUT_MS, true);
+    const skipManualFlow = await helperResult.messageInput.isEnabled({ timeout: 500 }).catch(() => false);
+
     const messageInput = iframe
       .locator('[data-testid="message-input"], textarea[placeholder*="message" i], textarea, [role="textbox"]')
       .first();
@@ -428,61 +439,64 @@ test.describe('Public widget embed (cross-origin iframe flow)', () => {
     const phoneInput = iframe.locator('input[type="tel"]').first();
     const continueButton = iframe.getByRole('button', { name: /^continue$/i }).first();
 
-    let flowReached = false;
-    try {
-      await expect
-        .poll(
-          async () =>
-            (await requestConsultation.isVisible({ timeout: 300 }).catch(() => false)) ||
-            (await fullNameInput.isVisible({ timeout: 300 }).catch(() => false)),
-          {
-            timeout: 30_000,
-            message: 'Expected consultation CTA or slim contact form to appear in widget iframe',
-          }
-        )
-        .toBe(true);
+    if (!skipManualFlow) {
+      let flowReached = false;
+      try {
+        await expect
+          .poll(
+            async () =>
+              (await requestConsultation.isVisible({ timeout: 300 }).catch(() => false)) ||
+              (await fullNameInput.isVisible({ timeout: 300 }).catch(() => false)),
+            {
+              timeout: 30_000,
+              message: 'Expected consultation CTA or slim contact form to appear in widget iframe',
+            }
+          )
+          .toBe(true);
 
-      if (await requestConsultation.isVisible({ timeout: 500 }).catch(() => false)) {
-        await requestConsultation.click();
-      }
+        if (await requestConsultation.isVisible({ timeout: 500 }).catch(() => false)) {
+          await requestConsultation.click();
+        }
 
-      await expect(fullNameInput).toBeVisible({ timeout: 15_000 });
-      await fullNameInput.fill(`Embed E2E ${uid}`);
-      await emailInput.fill(testEmail);
-      await phoneInput.fill('555-555-0199');
-      await continueButton.click();
+        await expect(fullNameInput).toBeVisible({ timeout: 15_000 });
+        await fullNameInput.fill(`Embed E2E ${uid}`);
+        await emailInput.fill(testEmail);
+        await phoneInput.fill('555-555-0199');
+        await continueButton.click();
 
-      await expect
-        .poll(
-          async () => {
-            const bodyText = await bodyLocator.innerText().catch(() => '');
-            const composerReady = await messageInput.isEnabled({ timeout: 300 }).catch(() => false);
-            return (
-              composerReady ||
-              bodyText.includes('Contact info received') ||
-              bodyText.includes(testEmail)
-            );
-          },
-          {
-            timeout: 20_000,
-            message: 'Expected contact form submission to acknowledge details or advance to composer',
-          }
-        )
-        .toBe(true);
-      flowReached = true;
-    } finally {
-      if (!flowReached) {
-        const iframeBody = await iframe.locator('body').innerText().catch(() => '(could not read)');
-        const iframeButtons = await iframe.locator('button').allInnerTexts().catch(() => []);
-        const inputState = await messageInput.isEnabled().catch(() => null);
-        await testInfo.attach('slim-form-failure-state.json', {
-          body: JSON.stringify({
-            iframeBody: iframeBody.slice(-2000),
-            iframeButtons,
-            inputEnabled: inputState,
-          }, null, 2),
-          contentType: 'application/json',
-        });
+        await expect
+          .poll(
+            async () => {
+              const bodyText = await bodyLocator.innerText().catch(() => '');
+              const composerReady = await messageInput.isEnabled({ timeout: 300 }).catch(() => false);
+              return (
+                composerReady ||
+                bodyText.includes('Contact info received') ||
+                bodyText.includes(testEmail)
+              );
+            },
+            {
+              timeout: 20_000,
+              message: 'Expected contact form submission to acknowledge details or advance to composer',
+            }
+          )
+          .toBe(true);
+
+        flowReached = true;
+      } finally {
+        if (!flowReached) {
+          const iframeBody = await iframe.locator('body').innerText().catch(() => '(could not read)');
+          const iframeButtons = await iframe.locator('button').allInnerTexts().catch(() => []);
+          const inputState = await messageInput.isEnabled().catch(() => null);
+          await testInfo.attach('slim-form-failure-state.json', {
+            body: JSON.stringify({
+              iframeBody: iframeBody.slice(-2000),
+              iframeButtons,
+              inputEnabled: inputState,
+            }, null, 2),
+            contentType: 'application/json',
+          });
+        }
       }
     }
 
