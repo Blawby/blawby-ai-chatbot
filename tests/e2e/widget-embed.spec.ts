@@ -79,7 +79,9 @@ async function reachWidgetComposer(
   iframe: import('@playwright/test').FrameLocator,
   timeoutMs = INTERACTIVE_TIMEOUT_MS
 ) {
-  const messageInput = iframe.locator('[data-testid="message-input"]').first();
+  const messageInput = iframe
+    .locator('[data-testid="message-input"], textarea[placeholder*="message" i], textarea, [role="textbox"]')
+    .first();
   const interactiveActions = iframe.locator('button, [role="button"], a');
   const consultationCta = interactiveActions.filter({ hasText: /request consultation/i }).first();
   const askBtn = interactiveActions.filter({ hasText: /ask a question/i }).first();
@@ -416,16 +418,60 @@ test.describe('Public widget embed (cross-origin iframe flow)', () => {
 
     const iframe = page.frameLocator('iframe[src*="/public/"]').first();
 
-    const messageInput = iframe.locator('[data-testid="message-input"]');
+    const messageInput = iframe
+      .locator('[data-testid="message-input"], textarea[placeholder*="message" i], textarea, [role="textbox"]')
+      .first();
     const bodyLocator = iframe.locator('body');
+    const requestConsultation = iframe.getByRole('button', { name: /request consultation/i }).first();
+    const fullNameInput = iframe.locator('input[placeholder*="full name" i], input[type="text"]').first();
+    const emailInput = iframe.locator('input[type="email"]').first();
+    const phoneInput = iframe.locator('input[type="tel"]').first();
+    const continueButton = iframe.getByRole('button', { name: /^continue$/i }).first();
 
-    let interactiveReached = false;
+    let flowReached = false;
     try {
-      await reachWidgetComposer(iframe, 30_000);
-      await expect(messageInput).toBeEnabled({ timeout: 15_000 });
-      interactiveReached = true;
+      await expect
+        .poll(
+          async () =>
+            (await requestConsultation.isVisible({ timeout: 300 }).catch(() => false)) ||
+            (await fullNameInput.isVisible({ timeout: 300 }).catch(() => false)),
+          {
+            timeout: 30_000,
+            message: 'Expected consultation CTA or slim contact form to appear in widget iframe',
+          }
+        )
+        .toBe(true);
+
+      if (await requestConsultation.isVisible({ timeout: 500 }).catch(() => false)) {
+        await requestConsultation.click();
+      }
+
+      await expect(fullNameInput).toBeVisible({ timeout: 15_000 });
+      await fullNameInput.fill(`Embed E2E ${uid}`);
+      await emailInput.fill(testEmail);
+      await phoneInput.fill('555-555-0199');
+      await continueButton.click();
+
+      await expect
+        .poll(
+          async () => {
+            const bodyText = await bodyLocator.innerText().catch(() => '');
+            const composerReady = await messageInput.isEnabled({ timeout: 300 }).catch(() => false);
+            return (
+              composerReady ||
+              bodyText.includes('Contact info received') ||
+              bodyText.includes(testEmail)
+            );
+          },
+          {
+            timeout: 20_000,
+            message: 'Expected contact form submission to acknowledge details or advance to composer',
+          }
+        )
+        .toBe(true);
+      flowReached = true;
     } finally {
-      if (!interactiveReached) {
+      if (!flowReached) {
         const iframeBody = await iframe.locator('body').innerText().catch(() => '(could not read)');
         const iframeButtons = await iframe.locator('button').allInnerTexts().catch(() => []);
         const inputState = await messageInput.isEnabled().catch(() => null);

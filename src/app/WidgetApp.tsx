@@ -345,7 +345,11 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
   const uploadingFiles = useMemo<UploadingFile[]>(() => [], []);
   const isReadyToUpload = features.enableFileAttachments;
   const handleFileSelect = useCallback(async (_files: File[]) => {
-    showErrorRef.current?.('Chat attachments are currently disabled.');
+    if (!features.enableFileAttachments) {
+      showErrorRef.current?.('Chat attachments are currently disabled.');
+      return [];
+    }
+    // TODO: Implement file upload logic
     return [];
   }, []);
   const removePreviewFile = useCallback((_index: number) => {}, []);
@@ -353,7 +357,11 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
   const isDragging = false;
   const cancelUpload = useCallback((_fileId: string) => {}, []);
   const handleMediaCapture = useCallback((_blob: Blob, _type: 'audio' | 'video') => {
-    showErrorRef.current?.('Chat attachments are currently disabled.');
+    if (!features.enableFileAttachments) {
+      showErrorRef.current?.('Chat attachments are currently disabled.');
+      return undefined;
+    }
+    // TODO: Implement media capture logic
     return undefined;
   }, []);
 

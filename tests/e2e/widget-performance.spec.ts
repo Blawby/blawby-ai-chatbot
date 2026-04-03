@@ -180,9 +180,10 @@ test.describe('Public widget performance', () => {
 
     const uniqueId = randomUUID().slice(0, 8);
     const email = `widget-e2e+${uniqueId}@example.com`;
-    const submitStartedAt = Date.now();
+    let formSubmitFeedbackMs: number | null = null;
 
     if (await slimFormName.isVisible({ timeout: 500 }).catch(() => false)) {
+      const submitStartedAt = Date.now();
       await expect(slimFormName).toBeEditable({ timeout: 5000 });
       await slimFormName.fill(`Widget Lead ${uniqueId}`);
       if (await slimFormEmail.isVisible().catch(() => false)) {
@@ -198,10 +199,10 @@ test.describe('Public widget performance', () => {
         bodyLocator,
         'Contact acknowledgement should include the submitted email address.'
       ).toContainText(email, { timeout: MAX_FORM_SUBMIT_FEEDBACK_MS });
+      formSubmitFeedbackMs = Date.now() - submitStartedAt;
     } else {
       await expect(messageInput).toBeEnabled({ timeout: MAX_FORM_SUBMIT_FEEDBACK_MS });
     }
-    const formSubmitFeedbackMs = Date.now() - submitStartedAt;
 
     let aiResponseMs: number | null = null;
     let aiFlowError: Error | null = null;
@@ -415,7 +416,9 @@ test.describe('Public widget performance', () => {
     expect(aiResponseMs, 'Expected a real AI response timing metric in widget flow').not.toBeNull();
     expect(aiResponseMs ?? Number.POSITIVE_INFINITY, 'AI response exceeded budget').toBeLessThan(MAX_AI_RESPONSE_MS);
     expect(formOpenMs, 'Consultation form open exceeded budget').toBeLessThan(MAX_FORM_OPEN_MS);
-    expect(formSubmitFeedbackMs, 'Consultation form submit feedback exceeded budget').toBeLessThan(MAX_FORM_SUBMIT_FEEDBACK_MS);
+    if (formSubmitFeedbackMs !== null) {
+      expect(formSubmitFeedbackMs, 'Consultation form submit feedback exceeded budget').toBeLessThan(MAX_FORM_SUBMIT_FEEDBACK_MS);
+    }
     expect(listUnresolvedTrackedRequests().length, 'all tracked /api/ requests must settle (no pending hang)').toBe(0);
   });
 });

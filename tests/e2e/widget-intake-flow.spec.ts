@@ -549,7 +549,9 @@ test.describe('Public widget intake flow', () => {
         await terminalActionButton.click();
       }
     } else {
-      await expect(submitNowButton).toBeVisible({ timeout: 10000 });
+      if (!submitVisibleAtAction) {
+        await expect(submitNowButton).toBeVisible({ timeout: 10000 });
+      }
       await submitNowButton.click();
     }
 
