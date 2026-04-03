@@ -448,6 +448,7 @@ test.describe('Public widget embed (cross-origin iframe flow)', () => {
     const phoneInput = iframe.locator('input[type="tel"]').first();
     const continueButton = iframe.getByRole('button', { name: /^continue$/i }).first();
     let flowReached = false;
+    let slimFormReached = false;
     try {
       await expect
         .poll(
@@ -456,18 +457,20 @@ test.describe('Public widget embed (cross-origin iframe flow)', () => {
               await requestConsultation.click().catch(() => null);
               return false;
             }
-            if (await fullNameInput.isVisible({ timeout: 300 }).catch(() => false)) return true;
-            if (await messageInput.isEnabled({ timeout: 300 }).catch(() => false)) return true;
+            if (await fullNameInput.isVisible({ timeout: 300 }).catch(() => false)) {
+              slimFormReached = true;
+              return true;
+            }
             return false;
           },
           {
             timeout: INTERACTIVE_TIMEOUT_MS,
-            message: 'Could not reach slim form or composer in iframe',
+            message: 'Could not reach slim form in iframe',
           }
         )
         .toBe(true);
 
-      if (await fullNameInput.isVisible({ timeout: 500 }).catch(() => false)) {
+      if (slimFormReached && await fullNameInput.isVisible({ timeout: 500 }).catch(() => false)) {
         await fullNameInput.fill(`Embed E2E ${uid}`);
         if (await emailInput.isVisible({ timeout: 500 }).catch(() => false)) {
           await emailInput.fill(testEmail);
@@ -483,6 +486,9 @@ test.describe('Public widget embed (cross-origin iframe flow)', () => {
           async () => {
             const bodyText = await bodyLocator.innerText().catch(() => '');
             const composerReady = await messageInput.isEnabled({ timeout: 300 }).catch(() => false);
+            if (!slimFormReached) {
+              return false;
+            }
             return (
               composerReady ||
               bodyText.includes('Contact info received') ||

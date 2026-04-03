@@ -8,17 +8,19 @@ import {
   DropdownMenuTrigger,
 } from '@/shared/ui/dropdown';
 import {
-  OPTIONAL_INVOICE_COLUMNS,
+  type InvoiceColumnDefinition,
   type InvoiceColumnKey,
 } from '@/features/invoices/config/invoiceCollection';
 
 interface InvoiceColumnsMenuProps {
   visibleColumns: InvoiceColumnKey[];
+  columns: InvoiceColumnDefinition[];
   onChange: (next: InvoiceColumnKey[]) => void;
 }
 
 export const InvoiceColumnsMenu: FunctionComponent<InvoiceColumnsMenuProps> = ({
   visibleColumns,
+  columns,
   onChange,
 }) => (
   <DropdownMenu>
@@ -29,7 +31,7 @@ export const InvoiceColumnsMenu: FunctionComponent<InvoiceColumnsMenuProps> = ({
       </Button>
     </DropdownMenuTrigger>
     <DropdownMenuContent align="end" className="w-72 p-2">
-      {OPTIONAL_INVOICE_COLUMNS.map((column) => {
+      {columns.map((column) => {
         const checked = visibleColumns.includes(column.key);
         return (
           <DropdownMenuCheckboxItem

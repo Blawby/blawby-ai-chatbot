@@ -50,7 +50,10 @@ export const normalizeInvoiceStatus = (value: unknown): InvoiceStatus => {
 };
 
 export const normalizeInvoiceNumber = (invoice: Invoice): string => {
-  return invoice.invoice_number ?? '';
+  if (invoice.invoice_number) return invoice.invoice_number;
+  if (invoice.stripe_invoice_number) return invoice.stripe_invoice_number;
+  if (invoice.id != null) return String(invoice.id);
+  return '';
 };
 
 export const extractArray = <T extends Record<string, unknown>>(payload: unknown, keys: string[]): T[] => {

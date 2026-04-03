@@ -6,7 +6,10 @@ import type { InvoiceSummary } from '@/features/invoices/types';
 import { InvoiceStatusBadge } from '@/features/invoices/components/InvoiceStatusBadge';
 import { InvoicesTable } from '@/features/invoices/components/InvoicesTable';
 import { InvoiceColumnsMenu } from '@/features/invoices/components/InvoiceColumnsMenu';
-import type { InvoiceColumnKey } from '@/features/invoices/config/invoiceCollection';
+import {
+  CLIENT_SAFE_INVOICE_COLUMNS,
+  type InvoiceColumnKey,
+} from '@/features/invoices/config/invoiceCollection';
 import { Panel } from '@/shared/ui/layout/Panel';
 import { WorkspacePlaceholderState } from '@/shared/ui/layout/WorkspacePlaceholderState';
 import { EntityList } from '@/shared/ui/list/EntityList';
@@ -100,7 +103,11 @@ export function ClientInvoicesPage({
               <h1 className="text-3xl font-semibold tracking-tight text-input-text">Invoices</h1>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <InvoiceColumnsMenu visibleColumns={visibleOptionalColumns} onChange={setVisibleOptionalColumns} />
+              <InvoiceColumnsMenu
+                visibleColumns={visibleOptionalColumns}
+                columns={CLIENT_SAFE_INVOICE_COLUMNS}
+                onChange={setVisibleOptionalColumns}
+              />
             </div>
           </div>
         </div>

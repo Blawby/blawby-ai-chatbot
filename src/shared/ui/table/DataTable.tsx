@@ -9,6 +9,7 @@ export type DataTableColumn = {
   hideAt?: 'sm' | 'md' | 'lg';
   isPrimary?: boolean;
   isAction?: boolean;
+  disableCellWrap?: boolean;
   headerClassName?: string;
   cellClassName?: string;
   mobileClassName?: string;
@@ -221,7 +222,7 @@ export const DataTable = ({
                           column.cellClassName
                         )}
                       >
-                        {isClickable && !column.isAction ? (
+                        {isClickable && !column.isAction && !column.disableCellWrap ? (
                           <button
                             type="button"
                             onClick={row.onClick}

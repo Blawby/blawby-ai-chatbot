@@ -601,6 +601,20 @@ test.describe('Public widget intake flow', () => {
       .locator('button:visible')
       .filter({ hasText: /^(submit request|continue|continue\s+to\s+payment|pay\s*(?:&|and)\s*submit)$/i })
       .first();
+    const submitIntakeResponsePromise = anonPage.waitForResponse(
+      (response) =>
+        response.request().method() === 'POST' &&
+        response.url().includes('/submit-intake') &&
+        response.url().includes('/api/conversations/'),
+      { timeout: 30_000 }
+    ).catch(() => null);
+    const settingsResponsePromise = anonPage.waitForResponse(
+      (response) =>
+        response.request().method() === 'GET' &&
+        response.url().includes('/api/practice-client-intakes/') &&
+        response.url().includes('/intake'),
+      { timeout: 15_000 }
+    ).catch(() => null);
 
     if (reachedPaymentTerminal || paymentVisibleAtAction || hasPaymentPromptAtAction) {
       if (paymentVisibleAtAction) {
@@ -618,6 +632,22 @@ test.describe('Public widget intake flow', () => {
       }
       await submitNowButton.click();
     }
+
+    const settingsResponse = await settingsResponsePromise;
+    const submitIntakeResponse = await submitIntakeResponsePromise;
+    const submitIntakeDebugBody = submitIntakeResponse
+      ? await submitIntakeResponse.text().catch(() => null)
+      : null;
+    await testInfo.attach('payment-flow-debug.json', {
+      body: JSON.stringify({
+        settingsStatus: settingsResponse?.status() ?? null,
+        settingsUrl: settingsResponse?.url() ?? null,
+        submitStatus: submitIntakeResponse?.status() ?? null,
+        submitUrl: submitIntakeResponse?.url() ?? null,
+        submitBody: submitIntakeDebugBody,
+      }, null, 2),
+      contentType: 'application/json',
+    });
 
     await expect
       .poll(
@@ -688,13 +718,6 @@ test.describe('Public widget intake flow', () => {
       )
       .toBe(true);
 
-    const submitIntakeResponsePromise = anonPage.waitForResponse(
-      (response) =>
-        response.request().method() === 'POST' &&
-        response.url().includes('/submit-intake') &&
-        response.url().includes('/api/conversations/'),
-      { timeout: 45000 }
-    );
     const conversationLinkResponsePromise = anonPage.waitForResponse(
       (response) =>
         response.request().method() === 'PATCH' &&
@@ -730,8 +753,11 @@ test.describe('Public widget intake flow', () => {
       `Conversation link after auth failed (expected <400).\nURL: ${conversationLinkResponse.url()}`
     ).toBeLessThan(400);
 
-    const submitIntakeResponse = await submitIntakeResponsePromise;
-    const submitIntakeText = await submitIntakeResponse.text().catch(() => '');
+    expect(
+      submitIntakeResponse,
+      'Expected submit-intake response to be captured after payment/submit action.'
+    ).not.toBeNull();
+    const submitIntakeText = submitIntakeDebugBody ?? await submitIntakeResponse?.text().catch(() => '') ?? '';
     let submitIntakePayload: { success?: boolean; data?: { intake_uuid?: string; status?: string; payment_link_url?: string | null } } | null = null;
     try {
       submitIntakePayload = submitIntakeText ? JSON.parse(submitIntakeText) : null;

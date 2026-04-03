@@ -80,6 +80,7 @@
 
     /* Glass Material Variables — Dark Mode */
     --glass-bg-top: rgba(43, 48, 58, 0.72);
+    --glass-bg-mid: rgba(36, 40, 49, 0.68);
     --glass-bg-bottom: rgba(30, 34, 42, 0.64);
     --glass-inset-rim: inset 0 1px 0 rgba(255, 255, 255, 0.09), inset 0 -1px 0 rgba(255, 255, 255, 0.03);
     --glass-shadow: 0 10px 24px rgba(0, 0, 0, 0.24);
@@ -186,7 +187,7 @@
   .glass-card {
     @apply rounded-3xl border border-white/5;
     position: relative;
-    overflow: hidden;
+    overflow: visible;
     
     background:
       linear-gradient(
@@ -235,7 +236,7 @@
   .glass-panel {
     @apply rounded-2xl border border-white/5;
     position: relative;
-    overflow: hidden;
+    overflow: visible;
     
     background:
       linear-gradient(

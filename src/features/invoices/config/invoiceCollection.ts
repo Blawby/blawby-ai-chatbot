@@ -71,7 +71,7 @@ export const DEFAULT_INVOICE_COLUMNS: InvoiceColumnKey[] = [
   'createdAt',
 ];
 
-export const OPTIONAL_INVOICE_COLUMNS: InvoiceColumnDefinition[] = [
+export const CLIENT_SAFE_INVOICE_COLUMNS: InvoiceColumnDefinition[] = [
   { key: 'paidAt', label: 'Paid at' },
   { key: 'subtotal', label: 'Subtotal' },
   { key: 'taxAmount', label: 'Tax amount' },
@@ -84,20 +84,28 @@ export const OPTIONAL_INVOICE_COLUMNS: InvoiceColumnDefinition[] = [
   { key: 'memo', label: 'Memo' },
   { key: 'fundDestination', label: 'Fund destination' },
   { key: 'updatedAt', label: 'Updated at' },
-  { key: 'clientId', label: 'Client ID' },
-  { key: 'matterId', label: 'Matter ID' },
-  { key: 'connectedAccountId', label: 'Connected account ID' },
   { key: 'matterTitle', label: 'Matter title' },
   { key: 'matterBillingType', label: 'Billing type' },
   { key: 'clientStatus', label: 'Client status' },
   { key: 'stripeInvoiceNumber', label: 'Stripe invoice number' },
+  { key: 'stripeHostedInvoiceUrl', label: 'Hosted invoice URL' },
+];
+
+export const PRACTICE_ONLY_INVOICE_COLUMNS: InvoiceColumnDefinition[] = [
+  { key: 'clientId', label: 'Client ID' },
+  { key: 'matterId', label: 'Matter ID' },
+  { key: 'connectedAccountId', label: 'Connected account ID' },
   { key: 'stripeInvoiceId', label: 'Stripe invoice ID' },
   { key: 'stripeChargeId', label: 'Stripe charge ID' },
   { key: 'stripeTransferId', label: 'Stripe transfer ID' },
   { key: 'stripePaymentIntentId', label: 'Stripe payment intent ID' },
-  { key: 'stripeHostedInvoiceUrl', label: 'Hosted invoice URL' },
   { key: 'connectedAccountEmail', label: 'Connected account email' },
   { key: 'connectedAccountStripeAccountId', label: 'Stripe account ID' },
+];
+
+export const OPTIONAL_INVOICE_COLUMNS: InvoiceColumnDefinition[] = [
+  ...CLIENT_SAFE_INVOICE_COLUMNS,
+  ...PRACTICE_ONLY_INVOICE_COLUMNS,
 ];
 
 export const INVOICE_FILTER_GROUP_LABELS: Record<InvoiceFilterGroupId, string> = {

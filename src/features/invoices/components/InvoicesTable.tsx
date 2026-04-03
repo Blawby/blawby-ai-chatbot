@@ -8,6 +8,7 @@ import type { InvoiceSummary } from '@/features/invoices/types';
 import { InvoiceStatusBadge } from '@/features/invoices/components/InvoiceStatusBadge';
 import {
   DEFAULT_INVOICE_COLUMNS,
+  OPTIONAL_INVOICE_COLUMNS,
   type InvoiceColumnKey,
 } from '@/features/invoices/config/invoiceCollection';
 import {
@@ -34,6 +35,7 @@ interface InvoicesTableProps {
 
 const textValue = (value: string | null | undefined) => value && value.trim().length > 0 ? value : '—';
 const dateValue = (value: string | null | undefined) => value ? formatLongDate(value) : '—';
+const optionalColumnLabels = new Map(OPTIONAL_INVOICE_COLUMNS.map((column) => [column.key, column.label] as const));
 
 const renderUrlCell = (value: string | null | undefined) => {
   if (!value) return '—';
@@ -139,7 +141,7 @@ export const InvoicesTable: FunctionComponent<InvoicesTableProps> = ({
         case 'stripePaymentIntentId':
           return { id: key, label: 'Stripe payment intent ID', hideAt: 'lg', mobileClassName: 'text-input-placeholder' };
         case 'stripeHostedInvoiceUrl':
-          return { id: key, label: 'Hosted invoice URL', hideAt: 'lg', mobileClassName: 'text-input-placeholder' };
+          return { id: key, label: 'Hosted invoice URL', hideAt: 'lg', mobileClassName: 'text-input-placeholder', disableCellWrap: true };
         case 'connectedAccountEmail':
           return { id: key, label: 'Connected account email', hideAt: 'lg', mobileClassName: 'text-input-placeholder' };
         case 'connectedAccountStripeAccountId':
@@ -156,6 +158,65 @@ export const InvoicesTable: FunctionComponent<InvoicesTableProps> = ({
       cellClassName: 'w-10 py-2.5 pl-2 pr-3',
     }]);
   }, [visibleOptionalColumns]);
+
+  const renderOptionalMobileValue = (invoice: InvoiceSummary, key: InvoiceColumnKey) => {
+    switch (key) {
+      case 'paidAt':
+        return dateValue(invoice.paidAt);
+      case 'subtotal':
+        return formatCurrency(invoice.subtotal ?? 0);
+      case 'taxAmount':
+        return formatCurrency(invoice.taxAmount ?? 0);
+      case 'discountAmount':
+        return formatCurrency(invoice.discountAmount ?? 0);
+      case 'amountPaid':
+        return formatCurrency(invoice.amountPaid);
+      case 'amountDue':
+        return formatCurrency(invoice.amountDue);
+      case 'issueDate':
+        return dateValue(invoice.issueDate);
+      case 'invoiceType':
+        return textValue(invoice.invoiceType);
+      case 'notes':
+        return textValue(invoice.notes);
+      case 'memo':
+        return textValue(invoice.memo);
+      case 'fundDestination':
+        return textValue(invoice.fundDestination);
+      case 'updatedAt':
+        return dateValue(invoice.updatedAt);
+      case 'clientId':
+        return textValue(invoice.clientId);
+      case 'matterId':
+        return textValue(invoice.matterId);
+      case 'connectedAccountId':
+        return textValue(invoice.connectedAccountId);
+      case 'matterTitle':
+        return textValue(invoice.matterTitle);
+      case 'matterBillingType':
+        return textValue(invoice.matterBillingType);
+      case 'clientStatus':
+        return textValue(invoice.clientStatus);
+      case 'stripeInvoiceNumber':
+        return textValue(invoice.stripeInvoiceNumber);
+      case 'stripeInvoiceId':
+        return textValue(invoice.stripeInvoiceId);
+      case 'stripeChargeId':
+        return textValue(invoice.stripeChargeId);
+      case 'stripeTransferId':
+        return textValue(invoice.stripeTransferId);
+      case 'stripePaymentIntentId':
+        return textValue(invoice.stripePaymentIntentId);
+      case 'stripeHostedInvoiceUrl':
+        return invoice.stripeHostedInvoiceUrl ? 'Open hosted invoice' : '—';
+      case 'connectedAccountEmail':
+        return textValue(invoice.connectedAccountEmail);
+      case 'connectedAccountStripeAccountId':
+        return textValue(invoice.connectedAccountStripeAccountId);
+      default:
+        return null;
+    }
+  };
 
   const rows: DataTableRow[] = invoices.map((invoice) => {
     const clientId = invoice.clientId;
@@ -296,6 +357,22 @@ export const InvoicesTable: FunctionComponent<InvoicesTableProps> = ({
                   <p className="mt-1 truncate text-xs text-input-placeholder">{textValue(invoice.clientEmail)}</p>
                   <p className="mt-2 text-xs text-input-placeholder">Due {dateValue(invoice.dueDate)}</p>
                   <p className="mt-1 text-xs text-input-placeholder">Created {dateValue(invoice.createdAt)}</p>
+                  {visibleOptionalColumns.length > 0 ? (
+                    <dl className="mt-3 grid gap-2">
+                      {visibleOptionalColumns.map((key) => {
+                        const value = renderOptionalMobileValue(invoice, key);
+                        if (value == null) return null;
+                        return (
+                          <div key={`${invoice.id}-${key}`} className="grid gap-1">
+                            <dt className="text-[11px] font-medium uppercase tracking-[0.12em] text-input-placeholder">
+                              {optionalColumnLabels.get(key) ?? key}
+                            </dt>
+                            <dd className="truncate text-xs text-input-text">{value}</dd>
+                          </div>
+                        );
+                      })}
+                    </dl>
+                  ) : null}
                 </button>
                 <div className="flex shrink-0 flex-col items-end gap-2">
                   <DropdownMenu>
