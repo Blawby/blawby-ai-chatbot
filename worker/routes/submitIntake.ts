@@ -17,7 +17,7 @@ import type { AuthContext } from '../middleware/auth.js';
 import { withPracticeContext, getPracticeId } from '../middleware/practiceContext.js';
 import { Logger } from '../utils/logger.js';
 import type { Env } from '../types.js';
-import { resolveConsultationState } from '../../src/shared/utils/consultationState';
+import { isIntakeReadyForSubmission, resolveConsultationState } from '../../src/shared/utils/consultationState';
 
 // ------------------------------------------------------------------
 // Types
@@ -154,13 +154,16 @@ const readStringField = (record: Record<string, unknown> | null | undefined, key
 };
 
 const isCaseInfoComplete = (state: IntakeConversationState | null | undefined, draft?: SlimContactDraft | null): boolean => {
-  if (!state) return false;
-  const draftRecord = draft as unknown as Record<string, string | undefined> | null | undefined;
-  const hasDescription = Boolean(state.description?.trim() || draftRecord?.description?.trim());
-  const hasLocation = Boolean(state.city?.trim() || draftRecord?.city?.trim())
-    && Boolean(state.state?.trim() || draftRecord?.state?.trim());
-  const hasOpposingParty = Boolean(state.opposingParty?.trim() || draftRecord?.opposingParty?.trim());
-  return hasDescription && hasLocation && hasOpposingParty;
+  const readTrimmedString = (value: unknown): string | null => (
+    typeof value === 'string' && value.trim().length > 0 ? value.trim() : null
+  );
+  const readinessState = {
+    description: readTrimmedString(state?.description) || readTrimmedString(draft?.description),
+    city: readTrimmedString(state?.city) || readTrimmedString(draft?.city),
+    state: readTrimmedString(state?.state) || readTrimmedString(draft?.state),
+    opposingParty: readTrimmedString(state?.opposingParty) || readTrimmedString(draft?.opposingParty),
+  };
+  return isIntakeReadyForSubmission(readinessState);
 };
 
 const buildIntakePayload = (
