@@ -19,7 +19,7 @@ const fetchPostPayStatus = async (sessionId: string): Promise<string | null> => 
   try {
     const params = new URLSearchParams({ session_id: sessionId });
     const response = await apiClient.get(
-      `/api/practice/client-intakes/post-pay/status?${params.toString()}`,
+      `/api/practice-client-intakes/post-pay/status?${params.toString()}`,
       { signal: controller.signal }
     );
     const payload = response.data as {
