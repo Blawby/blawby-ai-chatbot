@@ -7,7 +7,7 @@ import ChatContainer from '@/features/chat/components/ChatContainer';
 import { Dialog, DialogBody } from '@/shared/ui/dialog';
 import { DetailHeader } from '@/shared/ui/layout/DetailHeader';
 import type { Conversation } from '@/shared/types/conversation';
-import type { UploadingFile } from '@/shared/hooks/useFileUpload';
+import type { UploadingFile } from '@/shared/types/upload';
 import type { FileAttachment, ChatMessageUI } from '../../worker/types';
 import { useMobileDetection } from '@/shared/hooks/useMobileDetection';
 

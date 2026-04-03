@@ -22,7 +22,7 @@ import { calculatePracticeSetupProgress } from '../utils/progress';
 import type { Practice } from '@/shared/hooks/usePracticeManagement';
 import type { PracticeDetails } from '@/shared/lib/apiClient';
 import type { FileAttachment } from '../../../../worker/types';
-import type { UploadingFile } from '@/shared/hooks/useFileUpload';
+import type { UploadingFile } from '@/shared/types/upload';
 
 // ── Re-exported types (unchanged from original so WorkspacePage compiles) ──────
 

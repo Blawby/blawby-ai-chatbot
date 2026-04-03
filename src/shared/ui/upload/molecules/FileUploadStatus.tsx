@@ -7,7 +7,7 @@
 
 import { useState, useEffect } from 'preact/hooks';
 import { FileDisplay, type FileDisplayStatus } from '../organisms/FileDisplay';
-import type { UploadingFile } from '@/shared/hooks/useFileUpload';
+import type { UploadingFile } from '@/shared/types/upload';
 
 interface FileUploadStatusProps {
   file: UploadingFile;

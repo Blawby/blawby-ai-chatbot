@@ -8,11 +8,11 @@ import { RoutePracticeProvider } from '@/shared/contexts/RoutePracticeContext';
 import type { UIPracticeConfig } from '@/shared/hooks/usePracticeConfig';
 import type { WorkspaceType } from '@/shared/types/workspace';
 import { useMessageHandling } from '@/shared/hooks/useMessageHandling';
-import { useFileUploadWithContext } from '@/shared/hooks/useFileUpload';
 import { useConversationSetup } from '@/shared/hooks/useConversationSetup';
 import { useWorkspaceRouting } from '@/shared/hooks/useWorkspaceRouting';
 import { setupGlobalKeyboardListeners } from '@/shared/utils/keyboard';
 import type { FileAttachment } from '../../worker/types';
+import type { UploadingFile } from '@/shared/types/upload';
 import { useNavigation } from '@/shared/utils/navigation';
 import WelcomeDialog from '@/features/modals/components/WelcomeDialog';
 import { useWelcomeDialog } from '@/features/modals/hooks/useWelcomeDialog';
@@ -59,6 +59,7 @@ import { LoadingBlock } from '@/shared/ui/layout/LoadingBlock';
 import { resolveStrengthStyle, resolveStrengthTier } from '@/shared/utils/intakeStrength';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
 import { INVOICE_CREATE_SEND_EVENT } from '@/features/invoices/utils/invoicePageConfig';
+import { features } from '@/config/features';
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
@@ -514,15 +515,20 @@ export function MainApp({
   }, []);
 
   // ── file upload ────────────────────────────────────────────────────────────
-  const {
-    previewFiles, uploadingFiles, isDragging, setIsDragging,
-    handleCameraCapture, handleFileSelect, removePreviewFile,
-    clearPreviewFiles, cancelUpload, isReadyToUpload,
-  } = useFileUploadWithContext({
-    conversationId: liveConversationId ?? undefined,
-    ensureConversation: () => ensureConversation({ waitForSessionReadyMs: 3000 }),
-    onError: handleUploadError,
-  });
+  const previewFiles = useMemo<FileAttachment[]>(() => [], []);
+  const uploadingFiles = useMemo<UploadingFile[]>(() => [], []);
+  const isDragging = false;
+  const handleCameraCapture = useCallback(async (_file: File) => {
+    handleUploadError('Chat attachments are currently disabled.');
+  }, [handleUploadError]);
+  const handleFileSelect = useCallback(async (_files: File[]) => {
+    handleUploadError('Chat attachments are currently disabled.');
+    return [];
+  }, [handleUploadError]);
+  const removePreviewFile = useCallback((_index: number) => {}, []);
+  const clearPreviewFiles = useCallback(() => {}, []);
+  const cancelUpload = useCallback((_fileId: string) => {}, []);
+  const isReadyToUpload = features.enableFileAttachments;
 
   // ── welcome modals ─────────────────────────────────────────────────────────
   const { shouldShow: shouldShowWelcome, markAsShown: markWelcomeAsShown } = useWelcomeDialog({ enabled: workspace !== 'public' });
@@ -611,8 +617,7 @@ export function MainApp({
     try {
       const ext = type === 'audio' ? 'webm' : 'mp4';
       const file = new File([blob], `Recording_${new Date().toISOString()}.${ext}`, { type: blob.type });
-      const uploadedFiles = await handleFileSelect([file]);
-      await handleSendMessage(`I've recorded a ${type} message.`, uploadedFiles);
+      await handleFileSelect([file]);
     } catch (err) {
       console.error('Failed to upload captured media:', err);
       showErrorRef.current?.('Failed to upload recording. Please try again.');
@@ -1128,7 +1133,7 @@ export function MainApp({
 
   return (
     <>
-      {!isWidget && <DragDropOverlay isVisible={isDragging} onClose={() => setIsDragging(false)} />}
+      {!isWidget && <DragDropOverlay isVisible={isDragging} onClose={() => {}} />}
       <div className={rootClassName}>
         <RoutePracticeProvider value={routePracticeContextValue}>
           {workspacePage}

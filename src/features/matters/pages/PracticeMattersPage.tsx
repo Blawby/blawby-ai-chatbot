@@ -1860,6 +1860,7 @@ export const PracticeMattersPage = ({
                                   value={descriptionDraft}
                                   onChange={setDescriptionDraft}
                                   practiceId={activePracticeId}
+                                  matterId={selectedMatterDetail.id}
                                   showLabel={false}
                                   showTabs
                                   showFooter

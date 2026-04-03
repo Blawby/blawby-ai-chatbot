@@ -20,7 +20,7 @@ import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { formatDate } from '@/shared/utils/dateTime';
 import { authClient, deleteUser, getSession, updateUser } from '@/shared/lib/authClient';
 import { getCurrentSubscription, type CurrentSubscription } from '@/shared/lib/apiClient';
-import { uploadWithProgress } from '@/shared/services/upload/UploadTransport';
+import { uploadFileViaBackend } from '@/shared/lib/uploadsApi';
 import { ChevronDownIcon, ChevronRightIcon, XMarkIcon, GlobeAltIcon, PlusIcon } from '@heroicons/react/24/outline';
 import { CheckIcon } from '@heroicons/react/20/solid';
 import { Icon } from '@/shared/ui/Icon';
@@ -360,11 +360,6 @@ export const AccountPage = ({
     const [file] = fileList;
     if (!file) return;
 
-    if (!currentPractice?.id) {
-      showError('Select a practice first', 'Choose a practice before uploading a profile photo.');
-      return;
-    }
-
     if (!file.type.startsWith('image/')) {
       showError('Invalid file', 'Please select an image file.');
       return;
@@ -388,11 +383,16 @@ export const AccountPage = ({
     setAvatarUploadProgress(0);
 
     try {
-      const uploaded = await uploadWithProgress(file, {
-        practiceId: currentPractice.id,
-        onProgress: (progress) => setAvatarUploadProgress(progress.percentage)
+      const uploaded = await uploadFileViaBackend({
+        file,
+        uploadContext: 'profile',
+        onProgress: (progress) => setAvatarUploadProgress(progress.percentage),
       });
-      await updateUser({ image: uploaded.url });
+      if (!uploaded.publicUrl) {
+        throw new Error('Profile upload completed without a public URL.');
+      }
+
+      await updateUser({ image: uploaded.publicUrl });
       await getSession().catch((error) => {
         console.warn('[Account] Session refresh failed after avatar update', error);
       });
@@ -414,7 +414,7 @@ export const AccountPage = ({
       setAvatarUploading(false);
       setAvatarUploadProgress(null);
     }
-  }, [currentPractice?.id, session?.user?.image, showError, showSuccess]);
+  }, [session?.user?.image, showError, showSuccess]);
 
   useEffect(() => {
     return () => {

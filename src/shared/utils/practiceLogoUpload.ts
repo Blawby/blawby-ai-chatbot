@@ -1,12 +1,12 @@
-import { uploadWithProgress } from '@/shared/services/upload/UploadTransport';
+import { uploadFileViaBackend } from '@/shared/lib/uploadsApi';
 
 const MAX_LOGO_BYTES = 5 * 1024 * 1024;
 
 /**
  * Upload a practice logo file.
  * 
- * The worker returns an absolute public URL (e.g., https://ai.blawby.com/api/files/{fileId})
- * which is directly usable by the remote backend API.
+ * Uses the backend uploads API and expects a stable public URL to be available
+ * after confirmation so the practice record can persist it directly.
  */
 export const uploadPracticeLogo = async (
   file: File,
@@ -23,13 +23,18 @@ export const uploadPracticeLogo = async (
     throw new Error('Logo files must be 5 MB or smaller.');
   }
 
-  const result = await uploadWithProgress(file, {
-    practiceId,
+  const result = await uploadFileViaBackend({
+    file,
+    uploadContext: 'asset',
+    entityId: practiceId,
     onProgress: (progress) => {
       onProgress?.(progress.percentage);
-    }
+    },
   });
 
-  // Worker returns absolute public URL - use directly
-  return result.url;
+  if (!result.publicUrl) {
+    throw new Error('Logo upload completed without a public URL.');
+  }
+
+  return result.publicUrl;
 };

@@ -3,7 +3,7 @@ import { Button } from '@/shared/ui/Button';
 import ChatContainer from '@/features/chat/components/ChatContainer';
 import { STREAMING_BUBBLE_PREFIX } from '@/shared/hooks/useConversation';
 import type { ChatMessageUI, FileAttachment } from '../../worker/types';
-import type { UploadingFile } from '@/shared/hooks/useFileUpload';
+import type { UploadingFile } from '@/shared/types/upload';
 
 const STREAM_TEXT = 'Absolutely. I can help with that. First, share your filing deadline and key facts, then I can draft a focused response outline.';
 

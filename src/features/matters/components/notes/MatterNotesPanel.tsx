@@ -277,6 +277,7 @@ export const MatterNotesPanel = ({
               key={`${editingNote?.id ?? 'new'}-${formKey}`}
               initialNote={editingNote ?? undefined}
               practiceId={practiceId}
+              matterId={matter.id}
               onSubmit={handleSave}
               onCancel={closeForm}
               onDelete={canDelete && editingNote ? () => confirmDelete(editingNote) : undefined}
