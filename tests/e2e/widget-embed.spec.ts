@@ -79,7 +79,7 @@ async function reachWidgetComposer(
   iframe: import('@playwright/test').FrameLocator,
   timeoutMs = INTERACTIVE_TIMEOUT_MS,
   requireSlimForm = false
-) {
+): Promise<{ messageInput: import('@playwright/test').Locator; mode: 'composerOpened' | 'intakeTerminal' | 'timedOut' }> {
   const messageInput = iframe
     .locator('[data-testid="message-input"], textarea[placeholder*="message" i], textarea, [role="textbox"]')
     .first();
@@ -100,9 +100,14 @@ async function reachWidgetComposer(
   let lastClickedAt = 0;
 
   while (Date.now() < deadline) {
+    // Check for intake terminal state
+    if (await consultationCta.isVisible({ timeout: 300 }).catch(() => false) || await nameInput.isVisible({ timeout: 300 }).catch(() => false)) {
+      return { messageInput, mode: 'intakeTerminal' };
+    }
+
     if (await messageInput.isEnabled({ timeout: 300 }).catch(() => false)) {
       if (!requireSlimForm || seenSlimForm) {
-        return { messageInput, mode: 'composer' as const };
+        return { messageInput, mode: 'composerOpened' };
       }
       // If the test requires slim contact form, keep waiting until the flow visits it.
     }
@@ -162,7 +167,7 @@ async function reachWidgetComposer(
     await new Promise((resolve) => setTimeout(resolve, 300));
   }
 
-  throw new Error('Widget never reached composer after navigating home screen');
+  return { messageInput, mode: 'timedOut' };
 }
 
 // ── types the harness exposes on window ──────────────────────────────────────
@@ -427,7 +432,7 @@ test.describe('Public widget embed (cross-origin iframe flow)', () => {
     // Ensure we have progressed through the slim contact form path and not by
     // hitting an existing composer thread directly.
     const helperResult = await reachWidgetComposer(iframe, INTERACTIVE_TIMEOUT_MS, true);
-    const skipManualFlow = await helperResult.messageInput.isEnabled({ timeout: 500 }).catch(() => false);
+    const mode = helperResult.mode;
 
     const messageInput = iframe
       .locator('[data-testid="message-input"], textarea[placeholder*="message" i], textarea, [role="textbox"]')
@@ -439,7 +444,12 @@ test.describe('Public widget embed (cross-origin iframe flow)', () => {
     const phoneInput = iframe.locator('input[type="tel"]').first();
     const continueButton = iframe.getByRole('button', { name: /^continue$/i }).first();
 
-    if (!skipManualFlow) {
+    if (mode === 'timedOut') {
+      throw new Error('reachWidgetComposer timed out without reaching composer or intake terminal');
+    }
+
+    if (mode === 'intakeTerminal') {
+      // Exercise the manual-submit/acknowledgement path
       let flowReached = false;
       try {
         await expect
@@ -498,6 +508,9 @@ test.describe('Public widget embed (cross-origin iframe flow)', () => {
           });
         }
       }
+    } else if (mode === 'composerOpened') {
+      // Assert composer behavior
+      await expect(messageInput).toBeEnabled({ timeout: 5000 });
     }
 
     if (apiErrors.length > 0) {
@@ -513,6 +526,7 @@ test.describe('Public widget embed (cross-origin iframe flow)', () => {
       });
     }
     expect(apiErrors, `5xx errors during form submit: ${JSON.stringify(apiErrors)}`).toHaveLength(0);
+    expect(requestFailures, `request failures during form submit: ${JSON.stringify(requestFailures)}`).toHaveLength(0);
   });
 
   test('AI responds to a message sent from the embedded widget', async ({ anonPage: page }, testInfo) => {
@@ -532,7 +546,9 @@ test.describe('Public widget embed (cross-origin iframe flow)', () => {
     await waitForWidgetEvent(page, 'iframe_ready', WIDGET_READY_TIMEOUT_MS);
 
     const iframe = page.frameLocator('iframe[src*="/public/"]').first();
-    const { messageInput } = await reachWidgetComposer(iframe, INTERACTIVE_TIMEOUT_MS);
+    const { messageInput, mode } = await reachWidgetComposer(iframe, INTERACTIVE_TIMEOUT_MS);
+
+    expect(mode).toBe('composerOpened');
 
     // Wait for AI chat response.
     const aiResponsePromise = page.waitForResponse(
