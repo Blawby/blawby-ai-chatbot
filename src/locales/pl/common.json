@@ -277,6 +277,9 @@
       "continue": "Kontynuuj",
       "addMore": "Dodaj więcej",
       "notYet": "Jeszcze nie"
+    },
+    "attachments": {
+      "disabled": "Przesyłanie załączników nie jest dostępne w tym formularzu."
     }
   },
   "intake": {

@@ -277,6 +277,9 @@
       "continue": "Tiếp tục",
       "addMore": "Thêm",
       "notYet": "Chưa phải lúc này"
+    },
+    "attachments": {
+      "disabled": "Tải lên tệp đính kèm không có sẵn trong biểu mẫu này."
     }
   },
   "intake": {

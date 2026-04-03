@@ -277,6 +277,9 @@
       "continue": "继续",
       "addMore": "添加更多",
       "notYet": "尚未"
+    },
+    "attachments": {
+      "disabled": "此表单中不支持附件上传。"
     }
   },
   "intake": {

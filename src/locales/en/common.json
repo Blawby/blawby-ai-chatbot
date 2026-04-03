@@ -301,6 +301,9 @@
       "continue": "Continue",
       "addMore": "Add more",
       "notYet": "Not yet"
+    },
+    "attachments": {
+      "disabled": "Chat attachments are currently disabled."
     }
   },
   "contact": {

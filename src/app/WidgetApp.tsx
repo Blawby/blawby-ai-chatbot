@@ -340,30 +340,32 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
     }
   }, [practiceId, applyConversationMode, ensureConversation]);
 
+  const attachmentsDisabledMessage = t('chat.attachments.disabled');
+
   // File Uploads
   const previewFiles = useMemo<FileAttachment[]>(() => [], []);
   const uploadingFiles = useMemo<UploadingFile[]>(() => [], []);
   const isReadyToUpload = features.enableFileAttachments;
   const handleFileSelect = useCallback(async (_files: File[]) => {
     if (!features.enableFileAttachments) {
-      showErrorRef.current?.('Chat attachments are currently disabled.');
+      showErrorRef.current?.(attachmentsDisabledMessage);
       return [];
     }
     // TODO: Implement file upload logic
     return [];
-  }, []);
+  }, [attachmentsDisabledMessage]);
   const removePreviewFile = useCallback((_index: number) => {}, []);
   const clearPreviewFiles = useCallback(() => {}, []);
   const isDragging = false;
   const cancelUpload = useCallback((_fileId: string) => {}, []);
   const handleMediaCapture = useCallback((_blob: Blob, _type: 'audio' | 'video') => {
     if (!features.enableFileAttachments) {
-      showErrorRef.current?.('Chat attachments are currently disabled.');
+      showErrorRef.current?.(attachmentsDisabledMessage);
       return undefined;
     }
     // TODO: Implement media capture logic
     return undefined;
-  }, []);
+  }, [attachmentsDisabledMessage]);
 
   const handleCameraCapture = useCallback(async (file: File) => {
     await handleFileSelect([file]);

@@ -277,6 +277,9 @@
       "continue": "続ける",
       "addMore": "追加する",
       "notYet": "まだです"
+    },
+    "attachments": {
+      "disabled": "このフォームではファイルのアップロードは利用できません。"
     }
   },
   "intake": {
