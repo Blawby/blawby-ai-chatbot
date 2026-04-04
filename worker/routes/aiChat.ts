@@ -1089,7 +1089,10 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
 
       const aigStep = aiResponse.headers.get('cf-aig-step');
       
-      const shouldStreamTokensToUser = !isOnboardingMode;
+      // In intake mode we buffer the full model reply, sanitize it, and only
+      // then emit user-visible content. This prevents prompt-instruction leaks
+      // from being exposed token-by-token in the SSE stream.
+      const shouldStreamTokensToUser = !isOnboardingMode && !isIntakeMode;
       
       const streamResult = await consumeAiStream(aiResponse, shouldStreamTokensToUser, streamWrite, body.conversationId);
       const conversationTotalResponseMs = Date.now() - conversationRequestStartedAt;
@@ -1124,7 +1127,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       for (const toolCall of streamResult.toolCalls) {
         if (toolCall.name === 'update_practice_fields' && toolCall.arguments.length > 0) {
           try {
-            const rawParams = JSON.parse(toolCall.arguments);
+            const rawParams = JSON.parse(unwrapToolCallJsonArgs(toolCall.arguments));
             onboardingFields = normalizeKeys(rawParams) as Record<string, unknown>;
           } catch (error) {
             Logger.warn('Failed to parse streamed onboarding tool arguments', {

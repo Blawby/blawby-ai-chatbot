@@ -5,6 +5,7 @@ import { Logo } from '@/shared/ui/Logo';
 import { UserIcon } from '@heroicons/react/24/outline';
 import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage, type FormData } from '@/shared/ui/form';
 import { DatePicker, Checkbox, Input } from '@/shared/ui/input';
+import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
 import { schemas } from '@/shared/ui/validation/schemas';
 
 interface PersonalInfoData extends FormData {
@@ -171,7 +172,7 @@ const PersonalInfoStep = ({
                 className="w-full"
               >
                 {(parentSubmitting || localSubmitting) ? (
-                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <LoadingSpinner size="md" ariaLabel={t('common:app.loading', { ns: 'common' })} />
                 ) : (
                   t('onboarding.step1.continue')
                 )}

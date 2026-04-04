@@ -30,6 +30,7 @@ import { SettingSection } from '@/features/settings/components/SettingSection';
 import { PlanFeaturesList, type PlanFeature } from '@/features/settings/components/PlanFeaturesList';
 import { EmailSettingsSection } from '@/features/settings/components/EmailSettingsSection';
 import { ContentPageLayout } from '@/shared/ui/layout';
+import { LoadingBlock } from '@/shared/ui/layout/LoadingBlock';
 import { SettingsDangerButton } from '@/features/settings/components/SettingsDangerButton';
 import { SettingsHelperText } from '@/features/settings/components/SettingsHelperText';
 import { getPreferencesCategory, updatePreferencesCategory } from '@/shared/lib/preferencesApi';
@@ -795,11 +796,7 @@ export const AccountPage = ({
   }, [isPending, practiceLoading, subscriptionLoading, authAccountsLoading]);
 
   if ((isPending || practiceLoading || subscriptionLoading || authAccountsLoading) && !loadingTimeout) {
-    return (
-      <div className={`h-full flex items-center justify-center ${className}`}>
-        <div className="w-8 h-8 border-2 border-accent-500 border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
+    return <LoadingBlock className={className} />;
   }
 
   if (loadingTimeout || error) {

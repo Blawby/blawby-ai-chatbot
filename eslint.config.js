@@ -121,17 +121,31 @@ export default [
       'no-var': 'error',
       'object-shorthand': 'error',
       'prefer-template': 'error',
+
+      // Project guardrails
       'no-restricted-syntax': [
         'error',
         {
-          selector: "JSXAttribute[name.name='href'] Literal[value=/^\\u002f/]",
-          message: 'Use Link or navigate() for internal routes; <a href> should be external or full reload only.'
+          selector: 'a[href^="/"]',
+          message: 'Use Link or navigate()/location.route() for in-app routes instead of internal <a href="/..."> anchors'
         },
         {
-          selector: "Literal[value=/\\b(?:bg|text|border)-blue-(?:400|500|600|700)\\b/]",
-          message: 'Use accent/button/nav tokens instead of hardcoded blue utility classes.'
+          selector: 'ClassExpression[class*="blue"]',
+          message: 'Avoid using blue utility classes directly - use accent color system instead'
+        },
+        {
+          selector: 'ImportDeclaration[source.value=/LoadingIndicator/]',
+          message: 'Import LoadingIndicator from shared/ui/layout instead of local definitions'
+        },
+        {
+          selector: 'ClassDeclaration[id=/LoadingSpinner|LoadingBlock|LoadingScreen|SkeletonLoader/]',
+          message: 'Use shared loading components from shared/ui/layout instead of redeclaring'
+        },
+        {
+          selector: 'JSXAttribute[name="className"][value.*="animate-spin"]',
+          message: 'Use LoadingSpinner component instead of inline animate-spin classes'
         }
-      ]
+      ],
     },
     settings: {
       react: {
@@ -141,6 +155,7 @@ export default [
     }
   },
 
+  
   // Worker files (Cloudflare Workers runtime)
   {
     files: ['worker/**/*.{ts,js}'],

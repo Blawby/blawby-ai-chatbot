@@ -6,6 +6,7 @@ import { getNotificationDisplayText } from '@/shared/ui/validation/defaultValues
 import { SettingRow } from '@/features/settings/components/SettingRow';
 import { NotificationChannelSelector } from '@/features/settings/components/NotificationChannelSelector';
 import { ContentPageLayout } from '@/shared/ui/layout';
+import { LoadingBlock } from '@/shared/ui/layout/LoadingBlock';
 import { SettingsSubheader } from '@/features/settings/components/SettingsSubheader';
 import {
   useNotificationSettings,
@@ -287,11 +288,7 @@ export const NotificationsPage = ({
   };
 
   if (isLoading) {
-    return (
-      <div className={`h-full flex items-center justify-center ${className}`}>
-        <div className="w-8 h-8 border-2 border-accent-500 border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
+    return <LoadingBlock className={className} />;
   }
 
   if (error || !settings) {

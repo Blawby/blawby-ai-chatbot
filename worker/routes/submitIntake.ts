@@ -18,6 +18,7 @@ import { withPracticeContext, getPracticeId } from '../middleware/practiceContex
 import { Logger } from '../utils/logger.js';
 import type { Env } from '../types.js';
 import { isIntakeReadyForSubmission, resolveConsultationState } from '../../src/shared/utils/consultationState';
+import { fetchPracticeDetailsWithCache } from '../utils/practiceDetailsCache.js';
 
 // ------------------------------------------------------------------
 // Types
@@ -54,6 +55,8 @@ interface ConversationUserInfo {
   intakeUuid?: string | null;
   [key: string]: unknown;
 }
+
+type IntakeSettings = NonNullable<Awaited<ReturnType<typeof RemoteApiService.getPracticeClientIntakeSettings>>>;
 
 interface BackendIntakeCreatePayload {
   slug: string;
@@ -151,6 +154,38 @@ const readStringField = (record: Record<string, unknown> | null | undefined, key
     }
   }
   return null;
+};
+
+const readFiniteNumberField = (record: Record<string, unknown> | null | undefined, keys: string[]): number | null => {
+  if (!record) return null;
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return value;
+    }
+  }
+  return null;
+};
+
+const getResolvedAmountMinor = ({
+  intakeSettings,
+  fallbackConsultationFeeMinor,
+}: {
+  intakeSettings: IntakeSettings | null;
+  fallbackConsultationFeeMinor: number | null;
+}): number => {
+  const prefillAmount = typeof intakeSettings?.prefillAmount === 'number' && Number.isFinite(intakeSettings.prefillAmount)
+    ? intakeSettings.prefillAmount
+    : null;
+  if (prefillAmount !== null && prefillAmount > 0) {
+    return prefillAmount;
+  }
+
+  if (typeof fallbackConsultationFeeMinor === 'number' && fallbackConsultationFeeMinor > 0) {
+    return fallbackConsultationFeeMinor;
+  }
+
+  return 0;
 };
 
 const isCaseInfoComplete = (state: IntakeConversationState | null | undefined, draft?: SlimContactDraft | null): boolean => {
@@ -395,16 +430,20 @@ export async function handleSubmitIntake(
     });
   }
 
-  const intakeSettings = await RemoteApiService.getPracticeClientIntakeSettings(env, slug, request).catch((error) => {
-    Logger.warn('[submitIntake] Failed to load intake settings; using fallback amount', {
-      conversationId,
-      practiceId,
-      slug,
-      error: error instanceof Error ? error.message : String(error),
-    });
-    return null;
+  const intakeSettings = await RemoteApiService.getPracticeClientIntakeSettings(env, slug, request);
+  const practiceDetails = await fetchPracticeDetailsWithCache(env, request, practiceId, slug);
+  const fallbackConsultationFeeMinor = readFiniteNumberField(practiceDetails.details, [
+    'paymentLinkPrefillAmount',
+    'payment_link_prefill_amount',
+    'consultationFee',
+    'consultation_fee',
+  ]);
+  const settingsPaymentLinkEnabled = intakeSettings?.paymentLinkEnabled === true;
+  let resolvedAmountMinor = getResolvedAmountMinor({
+    intakeSettings,
+    fallbackConsultationFeeMinor,
   });
-  const paymentRequiredBeforeSubmit = Boolean((intakeSettings?.prefillAmount ?? 0) > 0);
+  const paymentRequiredBeforeSubmit = settingsPaymentLinkEnabled || resolvedAmountMinor > 0;
   const paymentReceived = consultation?.submission?.paymentReceived === true;
   const generatePaymentLinkOnly = new URL(request.url).searchParams.get('generatePaymentLinkOnly') === 'true';
   const caseInfoComplete = isCaseInfoComplete(intake, draft);
@@ -437,25 +476,10 @@ export async function handleSubmitIntake(
     );
   }
 
-  // Build backend payload.
-  // When intakeSettings is null (fetch failed) and payment IS required, sending
-  // amount: 0 causes the backend to reject the submission. Use 50 minor units
-  // (i.e. $0.50) as a safe non-zero floor so the record is created; the actual
-  // charge will be determined by the Stripe payment-link amount, not this field.
-  const resolvedAmountMinor = typeof intakeSettings?.prefillAmount === 'number'
-    ? intakeSettings.prefillAmount
-    : (() => {
-        // Only use fallback when intakeSettings fetch failed (null), not when it's available but payment isn't required
-        if (intakeSettings === null) {
-          Logger.warn('[submitIntake] intakeSettings unavailable (fetch failed); using safe fallback amount=50', {
-            conversationId,
-            practiceId,
-            slug,
-          });
-          return 50;
-        }
-        return undefined;
-      })();
+  // Build backend payload. Prefer intake-settings prefillAmount, but if the
+  // settings endpoint reports payment enabled with amount=0, fall back to the
+  // consultation fee stored in practice details so we do not send an invalid
+  // zero-dollar payload to createIntake.
   const intakePayload = buildIntakePayload(conversationId, slug, draft, intake, {
     amountMinor: resolvedAmountMinor,
     userId,
@@ -498,7 +522,7 @@ export async function handleSubmitIntake(
     });
     throw error;
   }
-  const backendPayload = await backendResponse.json().catch(() => null) as BackendIntakeCreateResponse | null;
+  const backendPayload = await backendResponse.json() as BackendIntakeCreateResponse;
 
   if (!backendPayload?.success || !backendPayload.data?.uuid) {
     const errorDetails = backendPayload?.error ?? 'No uuid returned';
@@ -507,9 +531,7 @@ export async function handleSubmitIntake(
       practiceId,
       error: errorDetails,
     });
-    throw HttpErrors.internalServerError(
-      'Failed to create intake — please try again'
-    );
+    throw HttpErrors.internalServerError(`Backend intake creation failed: ${errorDetails}`);
   }
 
   const { uuid: intakeUuid, status, payment_link_url } = backendPayload.data;

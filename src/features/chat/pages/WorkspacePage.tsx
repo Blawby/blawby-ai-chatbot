@@ -97,7 +97,7 @@ import type { BackendMatter } from '@/features/matters/services/mattersApi';
 import type { MatterStatus } from '@/shared/types/matterStatus';
 import type { IntakeConversationState, DerivedIntakeStatus, IntakeFieldChangeOptions } from '@/shared/types/intake';
 
-type WorkspaceView = 'home' | 'setup' | 'list' | 'conversation' | 'matters' | 'clients' | 'invoices' | 'invoiceCreate' | 'invoiceDetail' | 'reports' | 'settings';
+type WorkspaceView = 'home' | 'setup' | 'list' | 'conversation' | 'matters' | 'clients' | 'invoices' | 'invoiceCreate' | 'invoiceEdit' | 'invoiceDetail' | 'reports' | 'settings';
 type PreviewTab = 'home' | 'messages' | 'intake';
 type WorkspacePrefetchData = {
   mattersData?: {
@@ -1585,7 +1585,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     && !clientsData.error
     && clientsData.items.length === 0
   );
-  const shouldShowDesktopInvoicesListPanel = view === 'invoiceDetail' || hasDesktopInvoiceListItems !== false;
+  const shouldShowDesktopInvoicesListPanel = view === 'invoices' && hasDesktopInvoiceListItems !== false;
   const matterListIsEmpty = layoutMode === 'desktop'
     && view === 'matters'
     && mattersDataForView.isLoaded
@@ -1686,7 +1686,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       ? clientsListContent(clientsStatusFilter, workspacePrefetchData)
       : clientsListContent)
     : undefined;
-  const invoicesListPanel = layoutMode === 'desktop' && (isPracticeWorkspace || isClientWorkspace) && (view === 'invoices' || view === 'invoiceDetail') && shouldShowDesktopInvoicesListPanel
+  const invoicesListPanel = layoutMode === 'desktop' && (isPracticeWorkspace || isClientWorkspace) && view === 'invoices' && shouldShowDesktopInvoicesListPanel
     ? (typeof invoicesListContent === 'function' ? invoicesListContent(invoicesStatusFilter) : invoicesListContent)
     : undefined;
 
@@ -1726,6 +1726,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       case 'invoices':
         return 'Invoices';
       case 'invoiceCreate':
+      case 'invoiceEdit':
       case 'invoiceDetail':
         return null;
       case 'settings':
@@ -1749,7 +1750,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       />
     )
     : undefined;
-  const invoiceCreateTopBar = view === 'invoiceCreate' ? (
+  const invoiceBuilderTopBar = (view === 'invoiceCreate' || view === 'invoiceEdit') ? (
     <WorkspaceListHeader
       leftControls={(
         <div className="flex items-center gap-3">
@@ -1757,7 +1758,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
             type="button"
             variant="icon"
             size="icon-sm"
-            aria-label="Close invoice composer"
+            aria-label={view === 'invoiceEdit' ? 'Close invoice editor' : 'Close invoice composer'}
             onClick={() => {
               if (workspace === 'practice' && practiceSlug) {
                 navigate(`/practice/${encodeURIComponent(practiceSlug)}/invoices`);
@@ -1775,7 +1776,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
           <div className="h-5 w-px bg-line-glass/30" aria-hidden="true" />
         </div>
       )}
-      title={<h1 className="workspace-header__title">Create Invoice</h1>}
+      title={<h1 className="workspace-header__title">{view === 'invoiceEdit' ? 'Edit Invoice' : 'Create Invoice'}</h1>}
       controls={primaryCreateAction ? (
         <Button
           type="button"
@@ -1802,6 +1803,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
         return clientsContent;
       case 'invoices':
       case 'invoiceCreate':
+      case 'invoiceEdit':
       case 'invoiceDetail':
         return invoicesContent;
       case 'reports':
@@ -1835,7 +1837,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     if (view === 'clients') {
       return { kind: 'full-page', overflow: 'hidden' };
     }
-    if (view === 'invoices' || view === 'invoiceDetail' || view === 'invoiceCreate') {
+    if (view === 'invoices' || view === 'invoiceDetail' || view === 'invoiceCreate' || view === 'invoiceEdit') {
       return { kind: 'full-page', overflow: 'auto' };
     }
     if (view === 'reports') {
@@ -1850,7 +1852,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       content={sectionContent}
       chatView={chatView}
       layout={sectionLayout}
-      topBar={invoiceCreateTopBar ?? (layoutMode === 'desktop' ? undefined : mobileSectionTopBar)}
+      topBar={invoiceBuilderTopBar ?? (layoutMode === 'desktop' ? undefined : mobileSectionTopBar)}
       bottomNav={bottomNav}
     />
   );
