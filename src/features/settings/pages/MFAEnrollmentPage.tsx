@@ -4,6 +4,7 @@ import { Button } from '@/shared/ui/Button';
 import { Input } from '@/shared/ui/input';
 import { SectionDivider } from '@/shared/ui/layout';
 import { ContentPageLayout } from '@/shared/ui/layout';
+import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
 import { SettingsNotice } from '@/features/settings/components/SettingsNotice';
 import { SettingsHelperText } from '@/features/settings/components/SettingsHelperText';
 import { ArrowLeftIcon } from '@heroicons/react/24/outline';
@@ -315,10 +316,10 @@ export const MFAEnrollmentPage = ({
               className="w-full"
             >
               {isVerifying ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                <span className="inline-flex items-center">
+                  <LoadingSpinner size="sm" className="mr-2" ariaLabel={t('settings:mfa.verifying')} />
                   {t('settings:mfa.verifying')}
-                </>
+                </span>
               ) : (
                 t('settings:mfa.verifyButton')
               )}

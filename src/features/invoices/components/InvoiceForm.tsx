@@ -386,27 +386,8 @@ export const InvoiceForm = forwardRef<InvoiceFormHandle, InvoiceFormProps>(({
                     disabled={resolvedReadOnly || !clientId}
                     clearable
                   />
-                  <Combobox
-                    label="Invoice type"
-                    value={invoiceType}
-                    onChange={(nextValue) => setInvoiceType(nextValue as Invoice['invoice_type'])}
-                    options={INVOICE_TYPE_OPTIONS}
-                    searchable={false}
-                    clearable={false}
-                    disabled={resolvedReadOnly}
-                  />
                 </div>
-              ) : (
-                <Combobox
-                  label="Invoice type"
-                  value={invoiceType}
-                  onChange={(nextValue) => setInvoiceType(nextValue as Invoice['invoice_type'])}
-                  options={INVOICE_TYPE_OPTIONS}
-                  searchable={false}
-                  clearable={false}
-                  disabled={resolvedReadOnly}
-                />
-              )}
+              ) : null}
               <InvoiceLineItemsForm
                 lineItems={lineItems} 
                 onChange={setLineItems} 
@@ -485,6 +466,7 @@ export const InvoiceForm = forwardRef<InvoiceFormHandle, InvoiceFormProps>(({
               clientName={resolvedClientLabel || null}
               clientEmail={resolvedClientEmail}
               billingIncrementMinutes={billingIncrementMinutes}
+              notes={notes || null}
             />
           </div>
         </div>
@@ -509,6 +491,7 @@ export const InvoiceForm = forwardRef<InvoiceFormHandle, InvoiceFormProps>(({
           clientName={resolvedClientLabel || null}
           clientEmail={resolvedClientEmail}
           billingIncrementMinutes={billingIncrementMinutes}
+          previewNotes={notes || null}
         />
       ) : null}
     </div>

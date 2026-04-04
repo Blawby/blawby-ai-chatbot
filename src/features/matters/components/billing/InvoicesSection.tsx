@@ -27,7 +27,7 @@ const toInvoiceSummary = (invoice: Invoice): InvoiceSummary => ({
   matterId: invoice.matter_id ?? null,
   matterStatus: invoice.matter?.status ?? null,
   matterBillingType: invoice.matter?.billing_type ?? null,
-  matterRetainerBalance: invoice.matter?.retainer_balance ? getMajorAmountValue(invoice.matter.retainer_balance) : null,
+  matterRetainerBalance: invoice.matter?.retainer_balance != null ? getMajorAmountValue(invoice.matter.retainer_balance) : null,
   total: getMajorAmountValue(invoice.total),
   amountDue: getMajorAmountValue(invoice.amount_due),
   amountPaid: getMajorAmountValue(invoice.amount_paid),

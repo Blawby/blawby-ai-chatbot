@@ -4,6 +4,7 @@ import { UserCircleIcon } from '@heroicons/react/24/outline';
 import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from '@/shared/ui/form';
 import { Input, EmailInput, PasswordInput } from '@/shared/ui/input';
 import { Button } from '@/shared/ui/Button';
+import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
 import { handleError } from '@/shared/utils/errorHandler';
 import { getClient } from '@/shared/lib/authClient';
 
@@ -434,7 +435,10 @@ const AuthForm = ({
                 : undefined}
             >
               {loading ? (
-                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                <LoadingSpinner
+                  size="md"
+                  ariaLabel={resolvedMode === 'signup' ? t('signup.submitting') : t('signin.submitting')}
+                />
               ) : (
                 resolvedMode === 'signup' ? t('signup.submit') : t('signin.submit')
               )}

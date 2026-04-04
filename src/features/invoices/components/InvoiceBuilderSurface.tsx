@@ -108,11 +108,6 @@ export const InvoiceBuilderSurface = forwardRef<InvoiceFormHandle, InvoiceBuilde
   }, []);
 
   useEffect(() => {
-    setInvoiceDetail(initialInvoice);
-    setConnectedAccountId(initialInvoice?.sourceInvoice.connected_account_id ?? null);
-  }, [initialInvoice]);
-
-  useEffect(() => {
     if (!practiceId) return;
 
     const controller = new AbortController();

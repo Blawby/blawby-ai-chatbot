@@ -19,6 +19,8 @@ type InvoicePreviewProps = {
   clientName?: string | null;
   clientEmail?: string | null;
   billingIncrementMinutes?: number | null;
+  /** Notes to client shown below the amount hero */
+  notes?: string | null;
 };
 
 const LogoAvatar = ({ src, name }: { src: string | null; name: string }) => {
@@ -86,6 +88,7 @@ export const InvoicePreview = ({
   clientName,
   clientEmail,
   billingIncrementMinutes,
+  notes,
 }: InvoicePreviewProps) => {
   const subtotal = lineItems.reduce(
     (sum, item) => sum + getMajorAmountValue(item.line_total),
@@ -192,8 +195,20 @@ export const InvoicePreview = ({
               {totalFormatted} USD{dueDateFormatted ? ` due ${dueDateFormatted}` : ''}
             </p>
             {(title || referenceLabel) && (
-              <p style={{ fontSize: 12, color: '#6b7280', margin: 0 }}>
+              <p style={{ fontSize: 12, color: '#6b7280', margin: '0 0 8px' }}>
                 {[title, referenceLabel].filter(Boolean).join(' · ')}
+              </p>
+            )}
+            {/* Pay online — visual only until invoice is sent */}
+            <span
+              className="text-accent-500"
+              style={{ fontSize: 13, cursor: 'default', display: 'inline-block', marginBottom: notes ? '0.75rem' : 0 }}
+            >
+              Pay online
+            </span>
+            {notes && (
+              <p style={{ fontSize: 13, color: '#374151', margin: '0.5rem 0 0', whiteSpace: 'pre-wrap' }}>
+                {notes}
               </p>
             )}
           </div>
@@ -230,7 +245,9 @@ export const InvoicePreview = ({
                       {item.description || `Line item ${index + 1}`}
                     </td>
                     <td style={{ padding: '0.6rem 0.75rem', textAlign: 'right', fontSize: 13, color: '#111827', verticalAlign: 'top' }}>
-                      {Number(item.quantity || 0).toFixed(billingIncrementMinutes ? 2 : 0)}
+                      {Number(item.quantity || 0).toFixed(
+                        billingIncrementMinutes && billingIncrementMinutes > 0 ? 2 : 1
+                      )}
                     </td>
                     <td style={{ padding: '0.6rem 0.75rem', textAlign: 'right', fontSize: 13, color: '#111827', verticalAlign: 'top' }}>
                       {formatCurrency(getMajorAmountValue(item.unit_price))}

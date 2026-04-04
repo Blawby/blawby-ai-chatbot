@@ -4,6 +4,7 @@ import { Dialog } from '@/shared/ui/dialog';
 import { Button } from '@/shared/ui/Button';
 import { Input, Textarea } from '@/shared/ui/input';
 import { DetailHeader } from '@/shared/ui/layout/DetailHeader';
+import { LoadingBlock } from '@/shared/ui/layout/LoadingBlock';
 import { formatLongDate } from '@/shared/utils/dateFormatter';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { useNavigation } from '@/shared/utils/navigation';
@@ -168,7 +169,7 @@ export function PracticeInvoiceDetailPage({
   }, [detail, refundAmount, refundReason, showError, showSuccess]);
 
   if (loading) {
-    return <div className="p-6 text-sm text-input-placeholder">Loading invoice...</div>;
+    return <LoadingBlock className="flex-1 p-6" label="Loading invoice..." />;
   }
 
   if (error) {

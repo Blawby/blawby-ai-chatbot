@@ -23,6 +23,8 @@ type SendInvoiceDialogProps = {
   clientName?: string | null;
   clientEmail?: string | null;
   billingIncrementMinutes?: number | null;
+  /** Notes to client forwarded into the preview */
+  previewNotes?: string | null;
 };
 
 export const SendInvoiceDialog = ({
@@ -42,6 +44,7 @@ export const SendInvoiceDialog = ({
   clientName,
   clientEmail,
   billingIncrementMinutes,
+  previewNotes,
 }: SendInvoiceDialogProps) => {
   const hasPreview = Array.isArray(lineItems) && lineItems.length > 0;
 
@@ -87,6 +90,7 @@ export const SendInvoiceDialog = ({
               clientName={clientName}
               clientEmail={clientEmail}
               billingIncrementMinutes={billingIncrementMinutes}
+              notes={previewNotes}
             />
           </div>
         )}

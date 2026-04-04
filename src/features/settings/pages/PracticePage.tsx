@@ -32,6 +32,7 @@ import { getFrontendHost } from '@/config/urls';
 import { normalizePracticeRole } from '@/shared/utils/practiceRoles';
 import { FormGrid, SectionDivider } from '@/shared/ui/layout';
 import { ContentPageLayout } from '@/shared/ui/layout';
+import { LoadingBlock } from '@/shared/ui/layout/LoadingBlock';
 import { SettingsNotice } from '@/features/settings/components/SettingsNotice';
 import { SettingsHelperText } from '@/features/settings/components/SettingsHelperText';
 import { PracticeServicesSummary } from '@/features/settings/components/PracticeServicesSummary';
@@ -560,14 +561,7 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
   const shouldShowLoading = loading || sessionPending;
 
   if (shouldShowLoading) {
-    return (
-      <div className={`h-full flex items-center justify-center ${className}`}>
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-accent-500 mx-auto mb-4" />
-          <p className="text-sm text-input-placeholder">Loading practice...</p>
-        </div>
-      </div>
-    );
+    return <LoadingBlock className={className} label="Loading practice..." />;
   }
 
   if (error) {

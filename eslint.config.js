@@ -141,6 +141,42 @@ export default [
     }
   },
 
+  // Loading UI guardrails
+  {
+    files: ['src/**/*.{ts,tsx,js,jsx}'],
+    ignores: [
+      'src/shared/ui/layout/LoadingSpinner.tsx',
+      'src/shared/ui/layout/LoadingBlock.tsx',
+      'src/shared/ui/layout/LoadingScreen.tsx',
+      'src/shared/ui/layout/SkeletonLoader.tsx'
+    ],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: "ImportDeclaration[source.value=/LoadingIndicator/]",
+          message: 'Use LoadingSpinner, LoadingBlock, LoadingScreen, or SkeletonLoader instead of the legacy LoadingIndicator.'
+        },
+        {
+          selector: "FunctionDeclaration[id.name=/^(LoadingScreen|LoadingBlock|LoadingSpinner|SkeletonLoader)$/]",
+          message: 'Use the shared loading primitives from src/shared/ui/layout instead of redeclaring local loading components.'
+        },
+        {
+          selector: "VariableDeclarator[id.name=/^(LoadingScreen|LoadingBlock|LoadingSpinner|SkeletonLoader)$/]",
+          message: 'Use the shared loading primitives from src/shared/ui/layout instead of redeclaring local loading components.'
+        },
+        {
+          selector: "JSXAttribute[name.name='className'] Literal[value=/\\banimate-spin\\b/]",
+          message: 'Use LoadingSpinner instead of inline animate-spin loader markup.'
+        },
+        {
+          selector: "TemplateElement[value.raw=/\\banimate-spin\\b/]",
+          message: 'Use LoadingSpinner instead of inline animate-spin loader markup.'
+        }
+      ]
+    }
+  },
+
   // Worker files (Cloudflare Workers runtime)
   {
     files: ['worker/**/*.{ts,js}'],

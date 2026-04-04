@@ -17,6 +17,7 @@ import { SettingToggle } from '@/features/settings/components/SettingToggle';
 import { SettingRow } from '@/features/settings/components/SettingRow';
 import { PasswordChangeForm } from '@/features/settings/components/PasswordChangeForm';
 import { ContentPageLayout } from '@/shared/ui/layout';
+import { LoadingBlock } from '@/shared/ui/layout/LoadingBlock';
 import { SettingsDangerButton } from '@/features/settings/components/SettingsDangerButton';
 import { SettingsHelperText } from '@/features/settings/components/SettingsHelperText';
 import { getPreferencesCategory, updatePreferencesCategory } from '@/shared/lib/preferencesApi';
@@ -412,11 +413,7 @@ export const SecurityPage = ({
 
   // Show loading state while session or preferences are loading
   if (isPending || isLoading || authAccountsLoading) {
-    return (
-      <div className={`h-full flex items-center justify-center ${className}`}>
-        <div className="w-8 h-8 border-2 border-accent-500 border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
+    return <LoadingBlock className={className} />;
   }
 
   if (authAccountsError) {

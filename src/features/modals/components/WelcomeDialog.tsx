@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { useTranslation, Trans } from '@/shared/i18n/hooks';
 import { InfoListDialog, type InfoListDialogItem } from '@/shared/ui/dialog';
+import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
 import {
   ChatBubbleLeftRightIcon,
   ShieldCheckIcon,
@@ -126,10 +127,7 @@ const WelcomeDialog = ({ isOpen, onClose, onComplete, workspace }: WelcomeDialog
       items={items}
       actionLabel={isSubmitting ? (
         <span className="inline-flex items-center gap-2">
-          <span
-            aria-hidden="true"
-            className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"
-          />
+          <LoadingSpinner size="md" ariaLabel={t('common:app.loading', { ns: 'common' })} />
           <span>{t('onboarding.welcome.letsGo')}</span>
         </span>
       ) : (

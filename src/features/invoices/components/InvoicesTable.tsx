@@ -21,6 +21,10 @@ interface InvoicesTableProps {
   emptyMessage?: string;
   onRowClick: (invoice: InvoiceSummary) => void;
   onViewCustomer?: (clientId: string) => void;
+  onSendInvoice?: () => void;
+  onResendInvoice?: () => void;
+  onVoidInvoice?: () => void;
+  onSyncInvoice?: () => void;
   toolbar?: ComponentChildren;
   loadingMore?: boolean;
   visibleOptionalColumns?: InvoiceColumnKey[];
@@ -52,6 +56,10 @@ export const InvoicesTable: FunctionComponent<InvoicesTableProps> = ({
   emptyMessage,
   onRowClick,
   onViewCustomer,
+  onSendInvoice,
+  onResendInvoice,
+  onVoidInvoice,
+  onSyncInvoice,
   toolbar,
   loadingMore = false,
   visibleOptionalColumns = [],
@@ -218,6 +226,10 @@ export const InvoicesTable: FunctionComponent<InvoicesTableProps> = ({
               callbacks={{
                 primaryLabel: invoice.status === 'draft' ? 'Edit invoice' : 'View invoice',
                 onPrimaryAction: () => onRowClick(invoice),
+                onSendInvoice,
+                onResendInvoice,
+                onVoidInvoice,
+                onSyncInvoice,
               }}
               extraMenuItems={(
                 <>
