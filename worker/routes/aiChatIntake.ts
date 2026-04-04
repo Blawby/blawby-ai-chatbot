@@ -98,7 +98,7 @@ const buildIntakeConversationCtaInstruction = (
     return `\nYou have all the required details. Ask: "Are you ready to submit your case to the firm?" in one short sentence. Do not summarize again. Do not ask if they want to add anything else.`;
   }
   if (isIntakeReadyForSubmission(mergedState) && paymentRequiredBeforeSubmit && !paymentCompleted) {
-    return '\nYou already have the required case details. Do NOT ask for more case details. Briefly explain that payment is required before submission and ask the user to tap Continue to payment. Do NOT include raw URLs or placeholders like [Insert Payment Link].';
+    return '\nTell the user warmly that you have everything you need and that the firm requires a consultation fee to review their case. Ask them to tap Continue below to proceed. Keep it to 2 sentences.';
   }
   return `\nAsk exactly ONE focused question about the single most important missing piece of information. Priority: situation description → city and state → opposing party → urgency → desired outcome → documents. Do not ask for submission readiness until all required details are collected.`;
 };
@@ -254,6 +254,14 @@ export const planNextIntakeStep = (
   if (!hasNonEmptyStringField(state, 'opposingParty')) {
     return { nextField: 'opposingParty', chips: [], chipSource: 'none' };
   }
+  if (submissionGate?.paymentRequiredBeforeSubmit === true
+    && submissionGate.paymentCompleted !== true
+    && isIntakeReadyForSubmission(state)) {
+    // Before payment exists, the frontend must route through handleConfirmSubmit
+    // to create the intake/payment request. Reuse the generic submit sentinel so
+    // the terminal CTA can render without message-level payment metadata.
+    return { nextField: null, chips: ['__submit__'], chipSource: 'payment' };
+  }
   if (typeof state.urgency !== 'string' || !state.urgency.trim()) {
     return {
       nextField: 'urgency',
@@ -270,9 +278,6 @@ export const planNextIntakeStep = (
       chips: ['Yes, I have documents', 'No, not yet'],
       chipSource: 'hasDocuments',
     };
-  }
-  if (submissionGate?.paymentRequiredBeforeSubmit === true && submissionGate.paymentCompleted !== true) {
-    return { nextField: 'payment', chips: ['__continue_payment__'], chipSource: 'payment' };
   }
   return { nextField: null, chips: [], chipSource: 'none' };
 };

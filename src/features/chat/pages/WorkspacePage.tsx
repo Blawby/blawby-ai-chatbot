@@ -15,6 +15,7 @@ import { usePracticeBillingData, type BillingWindow } from '@/features/practice-
 import ConversationListView from '@/features/chat/views/ConversationListView';
 import { AppShell } from '@/shared/ui/layout/AppShell';
 import { WorkspaceMainPane } from '@/shared/ui/layout/WorkspaceMainPane';
+import type { WorkspaceMainPaneLayout } from '@/shared/ui/layout/WorkspaceMainPane';
 import { Panel } from '@/shared/ui/layout/Panel';
 import { WorkspaceListHeader } from '@/shared/ui/layout/WorkspaceListHeader';
 import type { WorkspacePlaceholderAction } from '@/shared/ui/layout/WorkspacePlaceholderState';
@@ -658,12 +659,12 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
         const result = isPracticeWorkspace
           ? await listInvoices(
               practiceId,
-              { status: '', dateFrom: '', dateTo: '', search: '', page: 1, pageSize: 1 },
+              { rules: [], page: 1, pageSize: 1 },
               { signal: controller.signal, statusFilter: invoicesStatusFilter }
             )
           : await listClientInvoices(
               practiceId,
-              { status: '', dateFrom: '', dateTo: '', search: '', page: 1, pageSize: 1 },
+              { rules: [], page: 1, pageSize: 1 },
               { signal: controller.signal, statusFilter: invoicesStatusFilter }
             );
 
@@ -1591,7 +1592,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     && !mattersDataForView.isLoading
     && !mattersDataForView.error
     && mattersDataForView.items.length === 0;
-  const invoiceListIsEmpty = layoutMode === 'desktop' && view === 'invoices' && hasDesktopInvoiceListItems === false;
   const listContent = (
     <ConversationListView
       conversations={filteredConversations}
@@ -1813,23 +1813,45 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
         return chatContent;
     }
   })();
+  const sectionLayout: WorkspaceMainPaneLayout = (() => {
+    if (view === 'list' || view === 'conversation') {
+      return { kind: 'conversation-shell' };
+    }
+    if (view === 'matters') {
+      return {
+        kind: 'split-detail',
+        hasSelection: Boolean(selectedMatterIdFromPath || isMatterNonListRoute),
+        overflow: selectedMatterIdFromPath ? 'hidden' : 'auto',
+        placeholder: {
+          titleKey: 'workspace.empty.matter.title',
+          descriptionKey: 'workspace.empty.matter.description',
+          emptyTitleKey: 'workspace.empty.matterEmpty.title',
+          emptyDescriptionKey: 'workspace.empty.matterEmpty.description',
+          action: layoutMode === 'desktop' ? primaryCreateAction ?? undefined : undefined,
+          isEmpty: matterListIsEmpty,
+        },
+      };
+    }
+    if (view === 'clients') {
+      return { kind: 'full-page', overflow: 'hidden' };
+    }
+    if (view === 'invoices' || view === 'invoiceDetail' || view === 'invoiceCreate') {
+      return { kind: 'full-page', overflow: 'auto' };
+    }
+    if (view === 'reports') {
+      return { kind: 'full-page', overflow: 'hidden' };
+    }
+    return { kind: 'full-page', overflow: 'auto' };
+  })();
   const unifiedMainShell = (
     <WorkspaceMainPane
       layoutMode={layoutMode}
       view={view}
-      isPracticeWorkspace={isPracticeWorkspace}
-      isClientWorkspace={isClientWorkspace}
-      selectedMatterIdFromPath={selectedMatterIdFromPath}
-      isMatterNonListRoute={isMatterNonListRoute}
-      matterListIsEmpty={matterListIsEmpty}
-      invoiceListIsEmpty={invoiceListIsEmpty}
-      chatView={chatView}
       content={sectionContent}
+      chatView={chatView}
+      layout={sectionLayout}
       topBar={invoiceCreateTopBar ?? (layoutMode === 'desktop' ? undefined : mobileSectionTopBar)}
       bottomNav={bottomNav}
-      sectionPlaceholderAction={
-        layoutMode === 'desktop' && (view === 'matters' || view === 'invoices') ? primaryCreateAction ?? undefined : undefined
-      }
     />
   );
   const inspectorPanel = inspectorTarget ? (

@@ -100,6 +100,16 @@ const resolvePracticeRequiresPaymentBeforeSubmission = (details: Record<string, 
   return paymentLinkEnabled === true;
 };
 
+const LEAKED_INSTRUCTION_PATTERNS = [
+  /Do NOT ask for more case details/i,
+  /Do NOT include raw URLs or placeholders/i,
+  /Ask exactly ONE focused question/i,
+  /You have all the required details/i,
+  /You already have the required case details/i,
+  /KNOWN SO FAR/i,
+  /IMPORTANT: The next missing piece/i,
+];
+
 const buildCompactIntakeContextForExtraction = (
   state: Record<string, unknown> | null
 ): Record<string, unknown> | null => {
@@ -128,6 +138,24 @@ const buildCompactIntakeContextForExtraction = (
   copyBoolean('hasDocuments');
 
   return Object.keys(compact).length > 0 ? compact : null;
+};
+
+const unwrapToolCallJsonArgs = (rawArgs: string): string => {
+  let cleanArgs = rawArgs.trim();
+
+  const xmlMatch = cleanArgs.match(/<tool_call[^>]*>([\s\S]*?)<\/tool_call>/i);
+  if (xmlMatch) cleanArgs = xmlMatch[1].trim();
+
+  const fenceMatch = cleanArgs.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fenceMatch) cleanArgs = fenceMatch[1].trim();
+
+  const functionWrapperMatch = cleanArgs.match(/^[a-zA-Z0-9_]+\s*\(([\s\S]*)\)\s*;?$/);
+  if (functionWrapperMatch) cleanArgs = functionWrapperMatch[1].trim();
+
+  const objectMatch = cleanArgs.match(/\{[\s\S]*\}/);
+  if (objectMatch) cleanArgs = objectMatch[0].trim();
+
+  return cleanArgs;
 };
 
 
@@ -324,11 +352,7 @@ const extractIntakeFieldsForTurn = async (params: {
       }
 
       try {
-        let cleanArgs = rawArgs.trim();
-        const xmlMatch = cleanArgs.match(/<tool_call[^>]*>([\s\S]*?)<\/tool_call>/i);
-        if (xmlMatch) cleanArgs = xmlMatch[1].trim();
-        const fenceMatch = cleanArgs.match(/```(?:json)?\s*([\s\S]*?)```/i);
-        if (fenceMatch) cleanArgs = fenceMatch[1].trim();
+        const cleanArgs = unwrapToolCallJsonArgs(rawArgs);
         const parsed = normalizeKeys(JSON.parse(cleanArgs)) as Record<string, unknown>;
         return { parsed, rawArgs };
       } catch (parseError) {
@@ -1129,6 +1153,19 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
             diagnostics: streamResult.diagnostics,
           }
         );
+      }
+
+      const looksLikeLeakedPrompt = LEAKED_INSTRUCTION_PATTERNS.some((pattern) => pattern.test(accumulatedReply));
+      if (looksLikeLeakedPrompt) {
+        Logger.warn('AI reply appears to contain leaked system prompt content', {
+          conversationId: body.conversationId,
+          replyPreview: accumulatedReply.slice(0, 200),
+        });
+        if (intakeSubmissionGate.paymentRequiredBeforeSubmit && !intakeSubmissionGate.paymentCompleted) {
+          accumulatedReply = 'Your case details look good. A consultation fee is required before we can proceed. Please tap Continue to payment below.';
+        } else {
+          accumulatedReply = 'Thank you for sharing those details. Are you ready to submit your case to the firm?';
+        }
       }
 
       if (!emittedAnyToken && accumulatedReply.trim()) {

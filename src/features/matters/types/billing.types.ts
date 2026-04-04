@@ -25,6 +25,9 @@ export type Invoice = {
   invoice_number: string | null;
   stripe_invoice_id: string | null;
   stripe_invoice_number?: string | null;
+  stripe_charge_id?: string | null;
+  stripe_transfer_id?: string | null;
+  stripe_payment_intent_id?: string | null;
   stripe_hosted_invoice_url: string | null;
   invoice_type: InvoiceType;
   status: InvoiceStatus;
@@ -34,6 +37,8 @@ export type Invoice = {
   total: MajorAmount;
   amount_paid: MajorAmount;
   amount_due: MajorAmount;
+  fund_destination?: string | null;
+  payment_from_retainer?: boolean | null;
   issue_date: string | null;
   due_date: string | null;
   paid_at: string | null;
@@ -44,18 +49,20 @@ export type Invoice = {
   line_items?: InvoiceLineItem[];
   client?: {
     id?: string;
+    name?: string | null;
+    email?: string | null;
     status?: string | null;
-    user?: {
-      id?: string;
-      name?: string | null;
-      email?: string | null;
-      image?: string | null;
-    } | null;
   } | null;
   matter?: {
     id: string;
     title: string;
     status?: string;
+    billing_type?: string | null;
+    retainer_balance?: MajorAmount | null;
+  } | null;
+  connectedAccount?: {
+    email?: string | null;
+    stripe_account_id?: string | null;
   } | null;
 };
 

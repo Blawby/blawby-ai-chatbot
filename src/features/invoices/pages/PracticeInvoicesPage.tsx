@@ -1,12 +1,19 @@
-import { useCallback } from 'preact/hooks';
+import { useCallback, useState } from 'preact/hooks';
 import { useNavigation } from '@/shared/utils/navigation';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { listInvoices } from '@/features/invoices/services/invoicesService';
 import type { InvoiceSummary } from '@/features/invoices/types';
 import { InvoiceStatusBadge } from '@/features/invoices/components/InvoiceStatusBadge';
+import { InvoicesTable } from '@/features/invoices/components/InvoicesTable';
+import { InvoiceColumnsMenu } from '@/features/invoices/components/InvoiceColumnsMenu';
+import {
+  OPTIONAL_INVOICE_COLUMNS,
+  type InvoiceColumnKey,
+} from '@/features/invoices/config/invoiceCollection';
 import { Panel } from '@/shared/ui/layout/Panel';
 import { WorkspacePlaceholderState } from '@/shared/ui/layout/WorkspacePlaceholderState';
 import { EntityList } from '@/shared/ui/list/EntityList';
+import { Button } from '@/shared/ui/Button';
 import { usePaginatedList } from '@/shared/hooks/usePaginatedList';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import { formatLongDate } from '@/shared/utils/dateFormatter';
@@ -47,6 +54,7 @@ export function PracticeInvoicesPage({
 }) {
   const { navigate } = useNavigation();
   const { showError } = useToastContext();
+  const [visibleOptionalColumns, setVisibleOptionalColumns] = useState<InvoiceColumnKey[]>([]);
 
   const {
     items: invoices,
@@ -62,13 +70,21 @@ export function PracticeInvoicesPage({
       }
       const result = await listInvoices(
         practiceId,
-        { status: '', dateFrom: '', dateTo: '', search: '', page, pageSize: PAGE_SIZE },
+        {
+          rules: [],
+          page,
+          pageSize: PAGE_SIZE,
+        },
         { signal, statusFilter }
       );
       const expectedCount = page * PAGE_SIZE;
       return { items: result.items, hasMore: result.total > expectedCount };
     },
-    deps: [practiceId, renderMode, JSON.stringify(statusFilter)],
+    deps: [
+      practiceId,
+      renderMode,
+      JSON.stringify(statusFilter),
+    ],
   });
 
   const handleRowClick = useCallback((invoice: InvoiceSummary) => {
@@ -79,12 +95,64 @@ export function PracticeInvoicesPage({
     navigate(`/practice/${encodeURIComponent(practiceSlug)}/invoices/${encodeURIComponent(invoice.id)}`);
   }, [navigate, practiceSlug, showError]);
 
+  const handleViewCustomer = useCallback((clientId: string) => {
+    if (!practiceSlug) {
+      showError('People', 'Practice slug is missing from route context.');
+      return;
+    }
+    navigate(`/practice/${encodeURIComponent(practiceSlug)}/people/${encodeURIComponent(clientId)}`);
+  }, [navigate, practiceSlug, showError]);
+
   if (renderMode === 'detailOnly') {
     return null;
   }
 
   if (renderMode === 'listOnly' && !isLoading && !error && invoices.length === 0) {
     return null;
+  }
+
+  const hasFilters = statusFilter.length > 0;
+
+  if (renderMode === 'full') {
+    return (
+      <div className="flex min-h-0 flex-1 flex-col gap-4 p-4 sm:p-6">
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+            <div>
+              <h1 className="text-3xl font-semibold tracking-tight text-input-text">Invoices</h1>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <InvoiceColumnsMenu
+                visibleColumns={visibleOptionalColumns}
+                columns={OPTIONAL_INVOICE_COLUMNS}
+                onChange={setVisibleOptionalColumns}
+              />
+              {onCreateInvoice ? (
+                <Button onClick={onCreateInvoice}>
+                  New Invoice
+                </Button>
+              ) : null}
+            </div>
+          </div>
+        </div>
+        <InvoicesTable
+          invoices={invoices}
+          loading={isLoading}
+          loadingMore={isLoadingMore}
+          error={error}
+          emptyMessage={hasFilters ? 'No invoices match these filters.' : undefined}
+          onRowClick={handleRowClick}
+          onViewCustomer={handleViewCustomer}
+          visibleOptionalColumns={visibleOptionalColumns}
+          footer={(
+            <div className="flex w-full items-center justify-between gap-4">
+              <span>{invoices.length} item{invoices.length === 1 ? '' : 's'}</span>
+              {hasMore ? <div ref={loadMoreRef} className="h-6 w-6" /> : null}
+            </div>
+          )}
+        />
+      </div>
+    );
   }
 
   return (
@@ -97,16 +165,16 @@ export function PracticeInvoicesPage({
           isLoading={isLoading}
           isLoadingMore={isLoadingMore}
           error={error}
-          emptyState={<InvoicesEmptyState hasFilters={statusFilter.length > 0} onCreateInvoice={onCreateInvoice} />}
+          emptyState={<InvoicesEmptyState hasFilters={hasFilters} onCreateInvoice={onCreateInvoice} />}
           loadMoreRef={hasMore ? loadMoreRef : undefined}
           renderItem={(invoice) => (
             <div className={cn('w-full px-4 py-3 text-left hover:bg-white/[0.03]')}>
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold text-input-text">{invoice.invoiceNumber}</p>
-                  <p className="truncate text-xs text-input-placeholder">{invoice.clientName ?? 'Unknown person'}</p>
+                  <p className="truncate text-sm font-semibold text-input-text">{invoice.invoiceNumber || '—'}</p>
+                  <p className="truncate text-xs text-input-placeholder">{invoice.clientName ?? '—'}</p>
                   <p className="mt-1 text-xs text-input-placeholder">
-                    Due {invoice.dueDate ? formatLongDate(invoice.dueDate) : 'N/A'}
+                    Due {invoice.dueDate ? formatLongDate(invoice.dueDate) : '—'}
                   </p>
                 </div>
                 <div className="flex shrink-0 flex-col items-end gap-1">

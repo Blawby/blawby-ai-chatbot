@@ -42,6 +42,9 @@ export type BackendInvoice = {
   invoice_number?: string | null;
   stripe_invoice_id?: string | null;
   stripe_invoice_number?: string | null;
+  stripe_charge_id?: string | null;
+  stripe_transfer_id?: string | null;
+  stripe_payment_intent_id?: string | null;
   stripe_hosted_invoice_url?: string | null;
   invoice_type?: string | null;
   status?: string | null;
@@ -51,6 +54,8 @@ export type BackendInvoice = {
   total?: number | null;
   amount_paid?: number | null;
   amount_due?: number | null;
+  fund_destination?: string | null;
+  payment_from_retainer?: boolean | null;
   issue_date?: string | Date | null;
   due_date?: string | Date | null;
   paid_at?: string | Date | null;
@@ -61,6 +66,8 @@ export type BackendInvoice = {
   line_items?: BackendInvoiceLineItem[] | null;
   lineItems?: BackendInvoiceLineItem[] | null;
   client?: Record<string, unknown> | null;
+  matter?: Record<string, unknown> | null;
+  connectedAccount?: Record<string, unknown> | null;
 };
 
 const getErrorMessage = (error: unknown, fallback: string) => {
@@ -159,6 +166,9 @@ export const normalizeInvoice = (invoice: BackendInvoice): Invoice => {
     invoice_number: invoice.invoice_number ?? null,
     stripe_invoice_id: invoice.stripe_invoice_id ?? null,
     stripe_invoice_number: invoice.stripe_invoice_number ?? null,
+    stripe_charge_id: invoice.stripe_charge_id ?? null,
+    stripe_transfer_id: invoice.stripe_transfer_id ?? null,
+    stripe_payment_intent_id: invoice.stripe_payment_intent_id ?? null,
     stripe_hosted_invoice_url: invoice.stripe_hosted_invoice_url ?? null,
     invoice_type: (invoice.invoice_type ?? 'flat_fee') as Invoice['invoice_type'],
     status: (invoice.status ?? 'draft') as Invoice['status'],
@@ -168,6 +178,8 @@ export const normalizeInvoice = (invoice: BackendInvoice): Invoice => {
     total: asMajor(toMajorUnits(invoice.total ?? 0) ?? 0),
     amount_paid: asMajor(toMajorUnits(invoice.amount_paid ?? 0) ?? 0),
     amount_due: asMajor(toMajorUnits(invoice.amount_due ?? 0) ?? 0),
+    fund_destination: invoice.fund_destination ?? null,
+    payment_from_retainer: invoice.payment_from_retainer ?? null,
     issue_date: formatDate(invoice.issue_date),
     due_date: formatDate(invoice.due_date),
     paid_at: formatDate(invoice.paid_at),
@@ -176,7 +188,26 @@ export const normalizeInvoice = (invoice: BackendInvoice): Invoice => {
     created_at: formatDate(invoice.created_at) ?? new Date(0).toISOString(),
     updated_at: formatDate(invoice.updated_at) ?? new Date(0).toISOString(),
     line_items: lineItems.map(normalizeLineItem),
-    client: invoice.client ?? null
+    client: invoice.client ?? null,
+    matter: invoice.matter
+      ? {
+          id: typeof invoice.matter.id === 'string' ? invoice.matter.id : '',
+          title: typeof invoice.matter.title === 'string' ? invoice.matter.title : '',
+          status: typeof invoice.matter.status === 'string' ? invoice.matter.status : undefined,
+          billing_type: typeof invoice.matter.billing_type === 'string' ? invoice.matter.billing_type : null,
+          retainer_balance: typeof invoice.matter.retainer_balance === 'number'
+            ? asMajor(toMajorUnits(invoice.matter.retainer_balance) ?? 0)
+            : null,
+        }
+      : null,
+    connectedAccount: invoice.connectedAccount
+      ? {
+          email: typeof invoice.connectedAccount.email === 'string' ? invoice.connectedAccount.email : null,
+          stripe_account_id: typeof invoice.connectedAccount.stripe_account_id === 'string'
+            ? invoice.connectedAccount.stripe_account_id
+            : null,
+        }
+      : null,
   };
 };
 

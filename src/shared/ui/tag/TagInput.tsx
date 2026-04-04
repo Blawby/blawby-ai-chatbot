@@ -493,7 +493,7 @@ export const TagInput = forwardRef<HTMLInputElement, TagInputProps>(({
           >
             {isLoadingSuggestions && (
               <div className="px-3 py-2 text-sm text-input-placeholder">
-                Loading suggestions...
+                {t('loadingSuggestions', { defaultValue: 'Loading suggestions...' })}
               </div>
             )}
             {!isLoadingSuggestions && filteredSuggestions.length === 0 && inputValue.trim() && (

@@ -17,43 +17,37 @@ type WorkspaceView =
   | 'reports'
   | 'settings';
 
-type WorkspaceMainPaneProps = {
-  layoutMode: LayoutMode;
-  view: WorkspaceView;
-  isPracticeWorkspace: boolean;
-  isClientWorkspace: boolean;
-  selectedMatterIdFromPath: string | null;
-  isMatterNonListRoute: boolean;
-  matterListIsEmpty?: boolean;
-  invoiceListIsEmpty?: boolean;
-  chatView: ComponentChildren;
-  content: ComponentChildren;
-  topBar?: ComponentChildren;
-  bottomNav?: ComponentChildren;
-  sectionPlaceholderAction?: WorkspacePlaceholderAction;
-};
-
-const SectionPlaceholder = ({
-  titleKey,
-  descriptionKey,
-  emptyTitleKey,
-  emptyDescriptionKey,
-  action,
-  isEmpty = false,
-}: {
+export type WorkspaceSectionPlaceholder = {
   titleKey: string;
   descriptionKey: string;
   emptyTitleKey?: string;
   emptyDescriptionKey?: string;
   action?: WorkspacePlaceholderAction;
   isEmpty?: boolean;
-}) => {
+};
+
+export type WorkspaceMainPaneLayout =
+  | { kind: 'conversation-shell' }
+  | { kind: 'full-page'; overflow?: 'auto' | 'hidden' }
+  | { kind: 'split-detail'; hasSelection: boolean; overflow?: 'auto' | 'hidden'; placeholder: WorkspaceSectionPlaceholder };
+
+type WorkspaceMainPaneProps = {
+  layoutMode: LayoutMode;
+  view: WorkspaceView;
+  content: ComponentChildren;
+  chatView: ComponentChildren;
+  layout: WorkspaceMainPaneLayout;
+  topBar?: ComponentChildren;
+  bottomNav?: ComponentChildren;
+};
+
+const SectionPlaceholder = ({ placeholder }: { placeholder: WorkspaceSectionPlaceholder }) => {
   const { t } = useTranslation();
   return (
     <WorkspacePlaceholderState
-      title={t(isEmpty && emptyTitleKey ? emptyTitleKey : titleKey)}
-      description={t(isEmpty && emptyDescriptionKey ? emptyDescriptionKey : descriptionKey)}
-      primaryAction={action}
+      title={t(placeholder.isEmpty && placeholder.emptyTitleKey ? placeholder.emptyTitleKey : placeholder.titleKey)}
+      description={t(placeholder.isEmpty && placeholder.emptyDescriptionKey ? placeholder.emptyDescriptionKey : placeholder.descriptionKey)}
+      primaryAction={placeholder.action}
       className="p-8"
     />
   );
@@ -62,77 +56,38 @@ const SectionPlaceholder = ({
 export function WorkspaceMainPane({
   layoutMode,
   view,
-  isPracticeWorkspace,
-  isClientWorkspace,
-  selectedMatterIdFromPath,
-  isMatterNonListRoute,
-  matterListIsEmpty = false,
-  invoiceListIsEmpty = false,
-  chatView,
   content,
+  chatView,
+  layout,
   topBar,
   bottomNav,
-  sectionPlaceholderAction,
 }: WorkspaceMainPaneProps) {
   const isDesktop = layoutMode === 'desktop';
-  const isDesktopWorkspace = isPracticeWorkspace || isClientWorkspace;
-  const isDesktopConversationShell = isDesktop && isDesktopWorkspace && (view === 'list' || view === 'conversation');
-  const isDesktopMattersShell = isDesktop && isDesktopWorkspace && view === 'matters';
-  const isDesktopClientsShell = isDesktop && isPracticeWorkspace && view === 'clients';
-  const isDesktopReportsShell = isDesktop && isPracticeWorkspace && view === 'reports';
-  const isDesktopInvoicesShell = isDesktop && isDesktopWorkspace && (view === 'invoices' || view === 'invoiceDetail');
   const shouldAllowMainScroll = view !== 'conversation' && view !== 'list';
-  const isMatterDetailRoute = Boolean(selectedMatterIdFromPath);
 
-  const mainContent = isDesktopConversationShell
+  const resolveOverflowClass = (overflow?: 'auto' | 'hidden') =>
+    overflow === 'auto' ? 'overflow-y-auto' : 'overflow-hidden';
+
+  const mainContent = layout.kind === 'conversation-shell' && isDesktop
     ? (
       <div className="min-h-0 h-full flex flex-1 flex-col overflow-hidden">
         {chatView}
       </div>
     )
-    : isDesktopMattersShell
-      ? (selectedMatterIdFromPath || isMatterNonListRoute)
+    : layout.kind === 'split-detail' && isDesktop
+      ? layout.hasSelection
         ? (
-          <div className={cn(
-            'min-h-0 h-full flex flex-1 flex-col',
-            isMatterDetailRoute ? 'overflow-hidden' : 'overflow-y-auto'
-          )}>
+          <div className={cn('min-h-0 h-full flex flex-1 flex-col', resolveOverflowClass(layout.overflow))}>
             {content}
           </div>
         )
-        : (
-          <SectionPlaceholder
-            titleKey="workspace.empty.matter.title"
-            descriptionKey="workspace.empty.matter.description"
-            emptyTitleKey="workspace.empty.matterEmpty.title"
-            emptyDescriptionKey="workspace.empty.matterEmpty.description"
-            action={sectionPlaceholderAction}
-            isEmpty={matterListIsEmpty}
-          />
-        )
-      : isDesktopClientsShell || isDesktopReportsShell
+        : <SectionPlaceholder placeholder={layout.placeholder} />
+      : layout.kind === 'full-page' && isDesktop
         ? (
-          <div className="min-h-0 h-full flex flex-1 flex-col overflow-hidden">
+          <div className={cn('min-h-0 h-full flex flex-1 flex-col', resolveOverflowClass(layout.overflow))}>
             {content}
           </div>
         )
-      : isDesktopInvoicesShell
-        ? view === 'invoiceDetail'
-          ? (
-            <div className="min-h-0 h-full flex flex-1 flex-col overflow-hidden">
-              {content}
-            </div>
-          )
-          : (
-            <SectionPlaceholder
-              titleKey="workspace.empty.invoice.title"
-              descriptionKey="workspace.empty.invoice.description"
-              emptyTitleKey="workspace.empty.invoiceEmpty.title"
-              emptyDescriptionKey="workspace.empty.invoiceEmpty.description"
-              action={sectionPlaceholderAction}
-              isEmpty={invoiceListIsEmpty}
-            />
-          )
       : (
         <div className={cn('min-h-0 h-full flex flex-1 flex-col', shouldAllowMainScroll ? 'overflow-y-auto' : 'overflow-hidden')}>
           {content}

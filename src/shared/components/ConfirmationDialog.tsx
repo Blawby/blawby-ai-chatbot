@@ -4,6 +4,7 @@ import { Icon } from '@/shared/ui/Icon';
 import { Dialog, DialogBody, DialogFooter } from '@/shared/ui/dialog';
 import { FormActions } from '@/shared/ui/form';
 import { handleError } from '@/shared/utils/errorHandler';
+import { useTranslation } from 'react-i18next';
 
 interface ConfirmationDialogProps {
   isOpen: boolean;
@@ -42,6 +43,7 @@ export default function ConfirmationDialog({
   passwordPlaceholder = 'Current password',
   passwordMissingMessage = 'Please enter your password to continue.'
 }: ConfirmationDialogProps) {
+  const { t } = useTranslation();
   const [inputValue, setInputValue] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -215,7 +217,7 @@ export default function ConfirmationDialog({
             size="sm"
             onCancel={onClose}
             cancelText={cancelText}
-            submitText={isLoading ? 'Processing...' : confirmText}
+            submitText={isLoading ? t('common.processing', { defaultValue: 'Processing...' }) : confirmText}
             submitType="submit"
             submitVariant="danger"
             submitDisabled={

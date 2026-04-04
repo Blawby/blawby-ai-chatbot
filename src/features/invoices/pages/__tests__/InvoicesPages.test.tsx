@@ -78,15 +78,35 @@ const setRoutePath = (nextPath: string) => {
 const makeDetail = (status: string, stripeHostedInvoiceUrl: string | null): InvoiceDetail => ({
   id: 'inv-1',
   invoiceNumber: 'INV-1001',
+  stripeInvoiceNumber: null,
   status,
+  subtotal: 1200,
+  taxAmount: 0,
+  discountAmount: 0,
   clientName: 'Client One',
+  clientEmail: 'client.one@example.com',
+  clientStatus: 'active',
+  clientId: 'client-1',
   matterTitle: 'Matter One',
+  matterId: 'matter-1',
+  matterStatus: 'open',
+  matterBillingType: 'hourly',
   total: 1200,
   amountDue: status === 'paid' ? 0 : 1200,
   amountPaid: status === 'paid' ? 1200 : 0,
+  invoiceType: 'flat_fee',
+  fundDestination: null,
+  paymentFromRetainer: false,
   issueDate: '2026-03-01',
   dueDate: '2026-03-10',
   paidAt: status === 'paid' ? '2026-03-02' : null,
+  connectedAccountId: 'acct-1',
+  connectedAccountEmail: null,
+  connectedAccountStripeAccountId: null,
+  stripeInvoiceId: null,
+  stripeChargeId: null,
+  stripeTransferId: null,
+  stripePaymentIntentId: null,
   stripeHostedInvoiceUrl,
   createdAt: '2026-03-01T00:00:00.000Z',
   updatedAt: '2026-03-01T00:00:00.000Z',
@@ -139,8 +159,6 @@ const makeDetail = (status: string, stripeHostedInvoiceUrl: string | null): Invo
       line_total: asMajor(1200),
     },
   ],
-  downloadUrl: null,
-  receiptUrl: null,
   payments: [],
   refunds: [],
   refundRequests: [],
@@ -162,8 +180,10 @@ describe('Invoices pages', () => {
         {
           id: 'inv-1',
           invoiceNumber: 'INV-1001',
+          stripeInvoiceNumber: null,
           status: 'draft',
           clientName: 'Client One',
+          clientEmail: 'client.one@example.com',
           matterTitle: 'Matter One',
           total: 100,
           amountDue: 100,
@@ -188,7 +208,7 @@ describe('Invoices pages', () => {
       expect(screen.getByText('INV-1001')).toBeTruthy();
     });
 
-    fireEvent.click(screen.getByText('common.view'));
+    fireEvent.click(screen.getByText('INV-1001'));
     expect(mockNavigate).toHaveBeenCalledWith('/practice/demo-practice/invoices/inv-1');
   });
 
@@ -294,8 +314,10 @@ describe('Invoices pages', () => {
         {
           id: 'inv-1',
           invoiceNumber: 'INV-1001',
+          stripeInvoiceNumber: null,
           status: 'draft',
           clientName: 'Client One',
+          clientEmail: 'client.one@example.com',
           matterTitle: 'Matter One',
           total: 100,
           amountDue: 100,
@@ -337,7 +359,7 @@ describe('Invoices pages', () => {
       expect(screen.getByText('INV-1001')).toBeTruthy();
     });
 
-    fireEvent.click(screen.getByText('common.view'));
+    fireEvent.click(screen.getByText('INV-1001'));
     expect(mockNavigate).toHaveBeenCalledWith('/practice/demo-practice/invoices/inv-1');
 
     setRoutePath('/practice/demo-practice/invoices/inv-1');
@@ -354,8 +376,10 @@ describe('Invoices pages', () => {
         {
           id: 'inv-2',
           invoiceNumber: 'INV-2001',
+          stripeInvoiceNumber: null,
           status: 'open',
           clientName: 'Client Two',
+          clientEmail: 'client.two@example.com',
           matterTitle: 'Matter Two',
           total: 200,
           amountDue: 200,
@@ -397,7 +421,7 @@ describe('Invoices pages', () => {
       expect(screen.getByText('INV-2001')).toBeTruthy();
     });
 
-    fireEvent.click(screen.getByText('common.view'));
+    fireEvent.click(screen.getByText('INV-2001'));
     expect(mockNavigate).toHaveBeenCalledWith('/client/demo-practice/invoices/inv-2');
 
     setRoutePath('/client/demo-practice/invoices/inv-2');

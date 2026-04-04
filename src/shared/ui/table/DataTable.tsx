@@ -1,5 +1,6 @@
 import type { ComponentChildren } from 'preact';
 import { cn } from '@/shared/utils/cn';
+import { LoadingBlock } from '@/shared/ui/layout/LoadingBlock';
 
 export type DataTableColumn = {
   id: string;
@@ -8,6 +9,7 @@ export type DataTableColumn = {
   hideAt?: 'sm' | 'md' | 'lg';
   isPrimary?: boolean;
   isAction?: boolean;
+  disableCellWrap?: boolean;
   headerClassName?: string;
   cellClassName?: string;
   mobileClassName?: string;
@@ -25,8 +27,19 @@ interface DataTableProps {
   columns: DataTableColumn[];
   rows: DataTableRow[];
   emptyState?: ComponentChildren;
+  errorState?: ComponentChildren;
   className?: string;
   minRows?: number;
+  caption?: ComponentChildren;
+  toolbar?: ComponentChildren;
+  tableClassName?: string;
+  bodyClassName?: string;
+  rowClassName?: string;
+  stickyHeader?: boolean;
+  loading?: boolean;
+  loadingLabel?: string;
+  renderMobileRow?: (row: DataTableRow) => ComponentChildren;
+  density?: 'regular' | 'compact';
 }
 
 const ALIGN_CLASS: Record<NonNullable<DataTableColumn['align']>, string> = {
@@ -69,7 +82,24 @@ const resolveStackedHideAt = (columns: DataTableColumn[]) => {
   );
 };
 
-export const DataTable = ({ columns, rows, emptyState, className = '', minRows }: DataTableProps) => {
+export const DataTable = ({
+  columns,
+  rows,
+  emptyState,
+  errorState,
+  className = '',
+  minRows,
+  caption,
+  toolbar,
+  tableClassName = '',
+  bodyClassName = '',
+  rowClassName = '',
+  stickyHeader = false,
+  loading = false,
+  loadingLabel,
+  renderMobileRow,
+  density = 'regular',
+}: DataTableProps) => {
   const primaryColumn = columns.find((column) => column.isPrimary) ?? columns[0];
   const mobileColumns = columns.filter((column) => column.id !== primaryColumn?.id && column.hideAt);
   const stackedHideAt = resolveStackedHideAt(mobileColumns);
@@ -83,16 +113,54 @@ export const DataTable = ({ columns, rows, emptyState, className = '', minRows }
     return [...rows, ...placeholders];
   })();
 
-  return (
-    <div className={cn('relative overflow-x-auto overflow-y-visible', className)}>
-      <table className="min-w-full divide-y divide-gray-300 dark:divide-white/15">
+  const renderStackedDetails = (row: DataTableRow) => {
+    if (mobileColumns.length === 0 || row.isPlaceholder) return null;
+
+    return (
+      <dl
+        className={cn(
+          'font-normal',
+          stackedHideAt ? MOBILE_HIDE_CLASSES[stackedHideAt] : ''
+        )}
+      >
+        {mobileColumns.map((mobileColumn) => (
+          <div
+            key={`${row.id}-${mobileColumn.id}-mobile`}
+            className={mobileHideClass(mobileColumn.hideAt)}
+          >
+            <dt className="sr-only">{mobileColumn.label}</dt>
+            <dd
+              className={cn(
+                'mt-1 truncate text-gray-700 dark:text-gray-300',
+                mobileColumn.mobileClassName
+              )}
+            >
+              {row.cells[mobileColumn.id] ?? '—'}
+            </dd>
+          </div>
+        ))}
+      </dl>
+    );
+  };
+
+  const renderDesktopTable = (tableWrapperClassName: string) => (
+    <div className={tableWrapperClassName}>
+      <table className={cn('min-w-full divide-y divide-gray-300 dark:divide-white/15', tableClassName)}>
+        {caption ? <caption className="sr-only">{caption}</caption> : null}
         <thead>
-          <tr>
+          <tr className={cn(stickyHeader && 'sticky top-0 z-10 bg-surface-base')}>
             {columns.map((column, index) => {
               const isPrimary = column.id === primaryColumn?.id || (index === 0 && !primaryColumn);
               const baseHeaderClass = isPrimary
-                ? 'py-3.5 pr-3 pl-4 text-left text-sm font-semibold text-input-text sm:pl-0'
-                : 'px-3 py-3.5 text-left text-sm font-semibold text-input-text';
+                ? cn(
+                  'text-left text-sm font-semibold text-input-text sm:pl-0',
+                  density === 'compact' ? 'py-2.5 pr-3 pl-4' : 'py-3.5 pr-3 pl-4'
+                )
+                : cn(
+                  'text-left text-sm font-semibold text-input-text',
+                  density === 'compact' ? 'px-3 py-2.5' : 'px-3 py-3.5'
+                );
+
               return (
                 <th
                   key={column.id}
@@ -110,7 +178,7 @@ export const DataTable = ({ columns, rows, emptyState, className = '', minRows }
             })}
           </tr>
         </thead>
-        <tbody className="divide-y divide-line-default bg-surface-base">
+        <tbody className={cn('divide-y divide-line-default bg-surface-base', bodyClassName)}>
           {rows.length === 0 ? (
             <tr>
               <td colSpan={columns.length} className="px-4 py-6 text-sm text-gray-500 dark:text-gray-400">
@@ -120,23 +188,29 @@ export const DataTable = ({ columns, rows, emptyState, className = '', minRows }
           ) : (
             paddedRows.map((row) => {
               const isClickable = Boolean(row.onClick) && !row.isPlaceholder;
+
               return (
                 <tr
                   key={row.id}
                   className={cn(
-                    'h-20',
+                    density === 'compact' ? 'h-14' : 'h-20',
                     isClickable && 'cursor-pointer hover:bg-surface-glass/50 dark:hover:bg-white/[0.04]',
+                    rowClassName,
                     row.className
                   )}
                 >
                   {columns.map((column, index) => {
                     const isPrimary = column.id === primaryColumn?.id || (index === 0 && !primaryColumn);
-                  const baseCellClass = isPrimary
-                    ? 'w-full max-w-0 py-3 pr-3 pl-4 text-sm font-medium text-input-text sm:w-auto sm:max-w-none sm:pl-0'
-                    : 'px-3 py-3 text-sm text-gray-500 dark:text-gray-400';
-                    const cellContent = row.isPlaceholder
-                      ? '\u00A0'
-                      : (row.cells[column.id] ?? '—');
+                    const baseCellClass = isPrimary
+                      ? cn(
+                        'w-full max-w-0 text-sm font-medium text-input-text sm:w-auto sm:max-w-none sm:pl-0',
+                        density === 'compact' ? 'py-2.5 pr-3 pl-4' : 'py-3 pr-3 pl-4'
+                      )
+                      : cn(
+                        'text-sm text-gray-500 dark:text-gray-400',
+                        density === 'compact' ? 'px-3 py-2.5' : 'px-3 py-3'
+                      );
+                    const cellContent = row.isPlaceholder ? '\u00A0' : (row.cells[column.id] ?? '—');
 
                     return (
                       <td
@@ -148,63 +222,19 @@ export const DataTable = ({ columns, rows, emptyState, className = '', minRows }
                           column.cellClassName
                         )}
                       >
-                        {isClickable && !column.isAction ? (
-                          <button type="button" onClick={row.onClick} className={cn('w-full', ALIGN_CLASS[column.align ?? 'left'])}>
+                        {isClickable && !column.isAction && !column.disableCellWrap ? (
+                          <button
+                            type="button"
+                            onClick={row.onClick}
+                            className={cn('w-full', ALIGN_CLASS[column.align ?? 'left'])}
+                          >
                             {cellContent}
-                            {isPrimary && mobileColumns.length > 0 && (
-                              <dl
-                                className={cn(
-                                  'font-normal',
-                                  stackedHideAt ? MOBILE_HIDE_CLASSES[stackedHideAt] : ''
-                                )}
-                              >
-                                {mobileColumns.map((mobileColumn) => (
-                                  <div
-                                    key={`${row.id}-${mobileColumn.id}-mobile`}
-                                    className={mobileHideClass(mobileColumn.hideAt)}
-                                  >
-                                    <dt className="sr-only">{mobileColumn.label}</dt>
-                                    <dd
-                                      className={cn(
-                                        'mt-1 truncate text-gray-700 dark:text-gray-300',
-                                        mobileColumn.mobileClassName
-                                      )}
-                                    >
-                                      {row.cells[mobileColumn.id] ?? '—'}
-                                    </dd>
-                                  </div>
-                                ))}
-                              </dl>
-                            )}
+                            {isPrimary ? renderStackedDetails(row) : null}
                           </button>
                         ) : (
                           <>
                             {cellContent}
-                            {isPrimary && mobileColumns.length > 0 && !row.isPlaceholder && (
-                              <dl
-                                className={cn(
-                                  'font-normal',
-                                  stackedHideAt ? MOBILE_HIDE_CLASSES[stackedHideAt] : ''
-                                )}
-                              >
-                                {mobileColumns.map((mobileColumn) => (
-                                  <div
-                                    key={`${row.id}-${mobileColumn.id}-mobile`}
-                                    className={mobileHideClass(mobileColumn.hideAt)}
-                                  >
-                                    <dt className="sr-only">{mobileColumn.label}</dt>
-                                    <dd
-                                      className={cn(
-                                        'mt-1 truncate text-gray-700 dark:text-gray-300',
-                                        mobileColumn.mobileClassName
-                                      )}
-                                    >
-                                      {row.cells[mobileColumn.id] ?? '—'}
-                                    </dd>
-                                  </div>
-                                ))}
-                              </dl>
-                            )}
+                            {isPrimary ? renderStackedDetails(row) : null}
                           </>
                         )}
                       </td>
@@ -216,6 +246,34 @@ export const DataTable = ({ columns, rows, emptyState, className = '', minRows }
           )}
         </tbody>
       </table>
+    </div>
+  );
+
+  return (
+    <div className={cn('grid gap-3', className)}>
+      {toolbar ? <div>{toolbar}</div> : null}
+      {loading ? (
+        <div className="glass-panel min-h-[16rem]">
+          <LoadingBlock label={loadingLabel} showLabel className="p-6" />
+        </div>
+      ) : errorState ? (
+        <div>{errorState}</div>
+      ) : renderMobileRow ? (
+        <>
+          <div className="grid gap-3 sm:hidden">
+            {rows.length === 0 ? (
+              <div className="glass-panel p-4 text-sm text-input-placeholder">
+                {emptyState ?? 'No results'}
+              </div>
+            ) : (
+              rows.map((row) => <div key={`${row.id}-mobile`}>{renderMobileRow(row)}</div>)
+            )}
+          </div>
+          {renderDesktopTable('hidden overflow-x-auto sm:block')}
+        </>
+      ) : (
+        renderDesktopTable('overflow-x-auto')
+      )}
     </div>
   );
 };

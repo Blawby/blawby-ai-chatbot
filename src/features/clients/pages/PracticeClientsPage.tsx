@@ -1,14 +1,17 @@
+import { useTranslation } from 'react-i18next';
 import type { ComponentChildren } from 'preact';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { useLocation } from 'preact-iso';
 import { DetailHeader } from '@/shared/ui/layout/DetailHeader';
 import { Panel } from '@/shared/ui/layout/Panel';
 import { WorkspacePlaceholderState } from '@/shared/ui/layout/WorkspacePlaceholderState';
+import { LoadingBlock } from '@/shared/ui/layout/LoadingBlock';
 import { Button } from '@/shared/ui/Button';
 import { Dialog } from '@/shared/ui/dialog';
 import { Avatar } from '@/shared/ui/profile';
 import { FormActions } from '@/shared/ui/form';
 import { AddressExperienceForm } from '@/shared/ui/address/AddressExperienceForm';
+import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
 import { cn } from '@/shared/utils/cn';
 import { ActivityTimeline, type TimelineItem } from '@/shared/ui/activity/ActivityTimeline';
 import { formatDate } from '@/shared/utils/dateTime';
@@ -334,6 +337,7 @@ export const PracticeClientsPage = ({
   detailHeaderLeadingAction?: ComponentChildren;
   showDetailBackButton?: boolean;
 }) => {
+  const { t } = useTranslation();
   const location = useLocation();
   const { currentPractice } = usePracticeManagement();
   const { session } = useSessionContext();
@@ -910,7 +914,9 @@ export const PracticeClientsPage = ({
             </li>
           ))}
           {prefetchedLoadingMore ? (
-            <li className="px-4 py-3 text-xs text-input-placeholder text-center">Loading more people...</li>
+            <li className="px-4 py-3 text-xs text-input-placeholder text-center">
+              <LoadingSpinner size="sm" ariaLabel={t('clients.loadingMore', { defaultValue: 'Loading more people' })} />
+            </li>
           ) : null}
         </ul>
       </div>
@@ -1033,7 +1039,7 @@ export const PracticeClientsPage = ({
         <Panel className="list-panel-card-gradient min-h-0 flex-1 overflow-hidden">
           {clientsLoading ? (
             <div className="h-full flex-1 items-center justify-center flex">
-              <p className="text-sm text-input-placeholder">Loading people...</p>
+              <LoadingBlock showLabel={true} label={t('clients.loading', { defaultValue: 'Loading people...' })} />
             </div>
           ) : clientsError ? (
             <div className="h-full flex-1 items-center justify-center flex">
@@ -1057,7 +1063,7 @@ export const PracticeClientsPage = ({
         <div className="h-full min-h-0 overflow-hidden">
           {clientsLoading ? (
             <div className="h-full flex items-center justify-center">
-              <p className="text-sm text-input-placeholder">Loading people...</p>
+              <LoadingBlock showLabel={true} label={t('clients.loading', { defaultValue: 'Loading people...' })} />
             </div>
           ) : clientsError ? (
             <div className="h-full flex items-center justify-center">
@@ -1108,7 +1114,7 @@ export const PracticeClientsPage = ({
             <div className="min-h-0 flex-1 overflow-hidden px-4 pb-4 sm:px-6 sm:pb-6">
               {clientsLoading ? (
                 <div className="h-full flex items-center justify-center">
-                  <p className="text-sm text-input-placeholder">Loading people...</p>
+                  <LoadingBlock showLabel={true} label={t('clients.loading', { defaultValue: 'Loading people...' })} />
                 </div>
               ) : clientsError ? (
                 <div className="h-full flex items-center justify-center">
@@ -1136,7 +1142,7 @@ export const PracticeClientsPage = ({
         >
           {clientsLoading ? (
             <div className="h-full flex-1 items-center justify-center flex">
-              <p className="text-sm text-input-placeholder">Loading people...</p>
+              <LoadingBlock showLabel={true} label={t('clients.loading', { defaultValue: 'Loading people...' })} />
             </div>
           ) : clientsError ? (
             <div className="h-full flex-1 items-center justify-center flex">
