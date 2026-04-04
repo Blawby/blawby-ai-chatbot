@@ -90,11 +90,13 @@ const mergeSubmission = (
   const fallbackPaymentReceived = typeof source?.intakePaymentReceived === 'boolean'
     ? source.intakePaymentReceived
     : null;
+  const fallbackCheckoutSessionId = trimString(source?.checkoutSessionId) || null;
   return {
     intakeUuid: normalized.intakeUuid ?? fallbackUuid,
     submittedAt: normalized.submittedAt ?? (trimString(source?.submittedAt) || null),
     paymentRequired: normalized.paymentRequired ?? fallbackPaymentRequired,
     paymentReceived: normalized.paymentReceived ?? fallbackPaymentReceived,
+    checkoutSessionId: normalized.checkoutSessionId ?? fallbackCheckoutSessionId,
   };
 };
 

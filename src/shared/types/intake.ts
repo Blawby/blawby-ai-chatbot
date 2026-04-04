@@ -44,7 +44,7 @@ export interface ConsultationSubmissionState {
   submittedAt: string | null;
   paymentRequired: boolean | null;
   paymentReceived: boolean | null;
-  checkoutSessionId?: string | null;
+  checkoutSessionId: string | null;
 }
 
 export interface ConsultationState {

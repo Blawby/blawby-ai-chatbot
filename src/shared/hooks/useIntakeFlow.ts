@@ -575,12 +575,29 @@ export function useIntakeFlow({
         let checkoutSessionUrl: string | null = null;
         let checkoutSessionId: string | null = null;
         if (intakeUuid) {
-          const checkoutSession = await fetchIntakeCheckoutSession(intakeUuid);
-          checkoutSessionUrl = checkoutSession.url;
-          checkoutSessionId = checkoutSession.sessionId;
+          try {
+            const checkoutSession = await fetchIntakeCheckoutSession(intakeUuid);
+            checkoutSessionUrl = checkoutSession.url;
+            checkoutSessionId = checkoutSession.sessionId;
+          } catch (fetchError) {
+            console.warn('[handleConfirmSubmit] Failed to fetch checkout session, falling back to payment link', fetchError);
+            checkoutSessionUrl = null;
+            checkoutSessionId = null;
+          }
         }
 
         const paymentUrl = checkoutSessionUrl ?? paymentLinkUrl;
+        if (paymentRequired && !paymentUrl) {
+          const errorMessage = 'Payment could not be initialized. Please try again or contact support.';
+          console.error('[handleConfirmSubmit] Payment required but no payment URL is available', {
+            intakeUuid,
+            paymentRequired,
+            checkoutSessionUrl,
+            paymentLinkUrl,
+          });
+          onError?.(errorMessage);
+          return;
+        }
 
         if (checkoutSessionId) {
           try {

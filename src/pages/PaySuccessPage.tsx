@@ -35,6 +35,8 @@ export const PaySuccessPage: FunctionComponent = () => {
     return rawReturnTo;
   })();
 
+  const resolvedPracticeName = resolveQueryValue(location.query?.practice || location.query?.practiceName)?.trim() || undefined;
+
   useEffect(() => {
     if (hasRunRef.current) return;
     if (isPending) return;
@@ -61,7 +63,7 @@ export const PaySuccessPage: FunctionComponent = () => {
           window.sessionStorage.setItem(
             `intakePaymentSuccess:${resolvedUuid}`,
             JSON.stringify({
-              practiceName: 'the practice',
+              ...(resolvedPracticeName ? { practiceName: resolvedPracticeName } : {}),
               sessionId,
             })
           );
