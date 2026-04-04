@@ -30,6 +30,12 @@ const WIDGET_READY_TIMEOUT_MS = 35_000;
 const INTERACTIVE_TIMEOUT_MS = 30_000;
 const AI_RESPONSE_TIMEOUT_MS = 45_000;
 
+const formatCssRgb = (value: string): string => {
+  const parts = value.trim().split(/\s+/).filter(Boolean);
+  if (parts.length !== 3) return value.trim();
+  return `rgb(${parts.join(', ')})`;
+};
+
 // ── helpers ──────────────────────────────────────────────────────────────────
 
 /** Wait until window.__blawbyLastEvent.type === targetType inside the harness page. */
@@ -73,6 +79,19 @@ async function waitForWidgetEvent(
 /** Return all blawby postMessage events received so far. */
 async function getWidgetEvents(page: import('@playwright/test').Page) {
   return page.evaluate(() => window.__blawbyEvents ?? []);
+}
+
+async function getElementThemeStyles(locator: import('@playwright/test').Locator) {
+  return locator.evaluate((element) => {
+    const styles = window.getComputedStyle(element);
+    const rootStyles = window.getComputedStyle(document.documentElement);
+    return {
+      backgroundColor: styles.backgroundColor,
+      color: styles.color,
+      accent500: rootStyles.getPropertyValue('--accent-500').trim(),
+      accentForeground: rootStyles.getPropertyValue('--accent-foreground').trim(),
+    };
+  });
 }
 
 async function reachWidgetComposer(
@@ -307,6 +326,74 @@ test.describe('Public widget embed (cross-origin iframe flow)', () => {
     const types = events.map((e) => e.type);
     expect(types).toContain('blawby:ready');
     expect(types).toContain('widget_opened');
+  });
+
+  test('widget CTA surfaces match the resolved launcher accent theme', async ({ anonPage: page }, testInfo) => {
+    const slug = DEFAULT_WIDGET_SLUG;
+
+    await page.goto(`/mock-embed.html?slug=${encodeURIComponent(slug)}`, {
+      waitUntil: 'domcontentloaded',
+    });
+
+    await page.locator('button[data-action="open"]').click();
+    await waitForWidgetEvent(page, 'iframe_ready', WIDGET_READY_TIMEOUT_MS);
+
+    const launcher = page.locator('#blawby-launcher, [id*="blawby"][id*="launcher"], button[aria-label*="Chat"]').first();
+    await expect(launcher).toBeVisible({ timeout: 10_000 });
+
+    // Move the pointer off the floating widget so CTA colors settle to their resting state
+    // instead of a hover-transition intermediate color.
+    await page.mouse.move(20, 20);
+    await page.waitForTimeout(300);
+
+    const launcherBackground = await launcher.evaluate((element) => window.getComputedStyle(element).backgroundColor);
+    const iframe = page.frameLocator('iframe[src*="/public/"]').first();
+
+    const consultationButton = iframe.getByRole('button', { name: /request consultation/i }).first();
+    await expect(consultationButton).toBeVisible({ timeout: 15_000 });
+
+    const consultationStyles = await getElementThemeStyles(consultationButton);
+    expect(
+      consultationStyles.backgroundColor,
+      'Request Consultation CTA should use the widget accent background'
+    ).toBe(formatCssRgb(consultationStyles.accent500));
+    expect(
+      consultationStyles.backgroundColor,
+      'Request Consultation CTA should match the launcher accent color'
+    ).toBe(launcherBackground);
+    expect(
+      consultationStyles.color,
+      'Request Consultation CTA should use the accent foreground for contrast'
+    ).toBe(formatCssRgb(consultationStyles.accentForeground));
+
+    const messagesNavButton = iframe.locator('button[aria-label="nav.messages"], button[title="nav.messages"]').first();
+    await expect(messagesNavButton).toBeVisible({ timeout: 10_000 });
+    await messagesNavButton.click();
+
+    await page.mouse.move(20, 20);
+    await page.waitForTimeout(300);
+
+    const listSendMessageButton = iframe.getByRole('button', { name: /send us a message/i }).first();
+    await expect(listSendMessageButton).toBeVisible({ timeout: 15_000 });
+
+    const listSendMessageStyles = await getElementThemeStyles(listSendMessageButton);
+    expect(
+      listSendMessageStyles.backgroundColor,
+      'Conversation list Send message CTA should use the same accent background'
+    ).toBe(consultationStyles.backgroundColor);
+    expect(
+      listSendMessageStyles.color,
+      'Conversation list Send message CTA should use the accent foreground for contrast'
+    ).toBe(formatCssRgb(listSendMessageStyles.accentForeground));
+
+    await testInfo.attach('widget-theme-styles.json', {
+      body: JSON.stringify({
+        launcherBackground,
+        consultationStyles,
+        listSendMessageStyles,
+      }, null, 2),
+      contentType: 'application/json',
+    });
   });
 
   test('widget survives cookie clear and reopens after reload', async ({ anonPage: page }) => {
