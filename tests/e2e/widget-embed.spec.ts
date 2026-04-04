@@ -36,6 +36,18 @@ const formatCssRgb = (value: string): string => {
   return `rgb(${parts.join(', ')})`;
 };
 
+const hexToCssRgb = (value: string): string | null => {
+  const normalized = value.trim();
+  if (!/^#[0-9a-fA-F]{3}([0-9a-fA-F]{3})?$/.test(normalized)) return null;
+  const hex = normalized.length === 4
+    ? `#${normalized[1]}${normalized[1]}${normalized[2]}${normalized[2]}${normalized[3]}${normalized[3]}`
+    : normalized;
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgb(${r}, ${g}, ${b})`;
+};
+
 // ── helpers ──────────────────────────────────────────────────────────────────
 
 /** Wait until window.__blawbyLastEvent.type === targetType inside the harness page. */
@@ -92,6 +104,51 @@ async function getElementThemeStyles(locator: import('@playwright/test').Locator
       accentForeground: rootStyles.getPropertyValue('--accent-foreground').trim(),
     };
   });
+}
+
+async function waitForLoaderThemeApplied(
+  page: import('@playwright/test').Page,
+  source: string,
+  timeoutMs = WIDGET_READY_TIMEOUT_MS
+) {
+  let themeEvent:
+    | {
+        primaryColor: string;
+        source: string;
+      }
+    | null = null;
+
+  await expect.poll(
+    async () => {
+      themeEvent = await page.evaluate((targetSource) => {
+        const events = (window.__blawbyEvents ?? []) as Array<{
+          type?: string;
+          detail?: { primaryColor?: string; source?: string };
+        }>;
+
+        for (let index = events.length - 1; index >= 0; index -= 1) {
+          const event = events[index];
+          if (event.type !== 'theme_applied') continue;
+          if (event.detail?.source !== targetSource) continue;
+          if (typeof event.detail?.primaryColor !== 'string') continue;
+          return {
+            primaryColor: event.detail.primaryColor,
+            source: event.detail.source,
+          };
+        }
+
+        return null;
+      }, source);
+
+      return themeEvent !== null;
+    },
+    {
+      timeout: timeoutMs,
+      message: `Expected loader theme_applied event with source "${source}"`,
+    }
+  ).toBe(true);
+
+  return themeEvent as { primaryColor: string; source: string };
 }
 
 async function reachWidgetComposer(
@@ -337,6 +394,13 @@ test.describe('Public widget embed (cross-origin iframe flow)', () => {
 
     await page.locator('button[data-action="open"]').click();
     await waitForWidgetEvent(page, 'iframe_ready', WIDGET_READY_TIMEOUT_MS);
+    const resolvedTheme = await waitForLoaderThemeApplied(page, 'practice_accent', WIDGET_READY_TIMEOUT_MS);
+    const resolvedPrimaryColor = hexToCssRgb(resolvedTheme.primaryColor);
+    expect(
+      resolvedPrimaryColor,
+      `Expected practice_accent theme_applied primaryColor to be a valid hex color, got "${resolvedTheme.primaryColor}"`
+    ).not.toBeNull();
+    const expectedResolvedPrimaryColor = resolvedPrimaryColor as string;
 
     const launcher = page.locator('#blawby-launcher, [id*="blawby"][id*="launcher"], button[aria-label*="Chat"]').first();
     await expect(launcher).toBeVisible({ timeout: 10_000 });
@@ -348,6 +412,10 @@ test.describe('Public widget embed (cross-origin iframe flow)', () => {
 
     const launcherBackground = await launcher.evaluate((element) => window.getComputedStyle(element).backgroundColor);
     const iframe = page.frameLocator('iframe[src*="/public/"]').first();
+    expect(
+      launcherBackground,
+      'Launcher should match the resolved practice accent once theme_applied fires'
+    ).toBe(expectedResolvedPrimaryColor);
 
     const consultationButton = iframe.getByRole('button', { name: /request consultation/i }).first();
     await expect(consultationButton).toBeVisible({ timeout: 15_000 });
@@ -359,8 +427,8 @@ test.describe('Public widget embed (cross-origin iframe flow)', () => {
     ).toBe(formatCssRgb(consultationStyles.accent500));
     expect(
       consultationStyles.backgroundColor,
-      'Request Consultation CTA should match the launcher accent color'
-    ).toBe(launcherBackground);
+      'Request Consultation CTA should match the resolved practice accent color'
+    ).toBe(expectedResolvedPrimaryColor);
     expect(
       consultationStyles.color,
       'Request Consultation CTA should use the accent foreground for contrast'
@@ -380,7 +448,7 @@ test.describe('Public widget embed (cross-origin iframe flow)', () => {
     expect(
       listSendMessageStyles.backgroundColor,
       'Conversation list Send message CTA should use the same accent background'
-    ).toBe(consultationStyles.backgroundColor);
+    ).toBe(expectedResolvedPrimaryColor);
     expect(
       listSendMessageStyles.color,
       'Conversation list Send message CTA should use the accent foreground for contrast'
@@ -388,6 +456,8 @@ test.describe('Public widget embed (cross-origin iframe flow)', () => {
 
     await testInfo.attach('widget-theme-styles.json', {
       body: JSON.stringify({
+        resolvedTheme,
+        resolvedPrimaryColor: expectedResolvedPrimaryColor,
         launcherBackground,
         consultationStyles,
         listSendMessageStyles,
