@@ -15,6 +15,21 @@ interface CompressionOptions {
 	threshold?: number;
 }
 
+const VITE_WATCH_IGNORED_SEGMENTS = [
+	'/.tmp/',
+	'/test-results/',
+	'/playwright-report/',
+	'/.playwright-artifacts-',
+	'/trace.zip',
+	'.trace',
+	'.network',
+];
+
+const shouldIgnoreViteWatchPath = (path: string): boolean => {
+	const normalizedPath = path.replace(/\\/g, '/');
+	return VITE_WATCH_IGNORED_SEGMENTS.some((segment) => normalizedPath.includes(segment));
+};
+
 const customCompressionPlugin = (options: CompressionOptions = {}): Plugin => {
 	const {
 		algorithm = 'gzip',
@@ -406,15 +421,12 @@ export default defineConfig(({ mode }: ConfigEnv) => {
 			strictPort: true, // Fail if port is busy (tunnel expects this exact port)
 			allowedHosts: ['local.blawby.com'], // Allow the public tunnel domain
 			watch: {
-				ignored: [
-					'**/.tmp/**',
-					'**/test-results/**',
-					'**/playwright-report/**',
-					'**/.playwright-artifacts-*/**',
-					'**/*.trace',
-					'**/*.network',
-					'**/trace.zip',
-				],
+				ignored: (path, stats) => {
+					if (stats?.isFile() || stats?.isDirectory()) {
+						return shouldIgnoreViteWatchPath(path);
+					}
+					return shouldIgnoreViteWatchPath(path);
+				},
 			},
 			hmr: {
 				protocol: 'wss',
