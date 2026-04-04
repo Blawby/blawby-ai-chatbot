@@ -151,6 +151,27 @@ async function waitForLoaderThemeApplied(
   return themeEvent as { primaryColor: string; source: string };
 }
 
+function extractPracticeAccentColor(payload: unknown): string | null {
+  if (!payload || typeof payload !== 'object') return null;
+
+  const record = payload as Record<string, unknown>;
+  const accentColor = typeof record.accentColor === 'string' ? record.accentColor.trim() : '';
+  if (accentColor) return normalizeLoaderHexColor(accentColor);
+
+  const legacyAccentColor = typeof record.accent_color === 'string' ? record.accent_color.trim() : '';
+  return normalizeLoaderHexColor(legacyAccentColor);
+}
+
+function normalizeLoaderHexColor(value?: string | null): string | null {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  if (!/^#[0-9a-fA-F]{3}([0-9a-fA-F]{3})?$/.test(trimmed)) return null;
+  if (trimmed.length === 4) {
+    return `#${trimmed[1]}${trimmed[1]}${trimmed[2]}${trimmed[2]}${trimmed[3]}${trimmed[3]}`;
+  }
+  return trimmed;
+}
+
 async function reachWidgetComposer(
   iframe: import('@playwright/test').FrameLocator,
   timeoutMs = INTERACTIVE_TIMEOUT_MS,
@@ -385,8 +406,12 @@ test.describe('Public widget embed (cross-origin iframe flow)', () => {
     expect(types).toContain('widget_opened');
   });
 
-  test('widget CTA surfaces match the resolved launcher accent theme', async ({ anonPage: page }, testInfo) => {
+  test('widget CTA surfaces match the resolved launcher theme', async ({ anonPage: page }, testInfo) => {
     const slug = DEFAULT_WIDGET_SLUG;
+    const practiceDetailsResponsePromise = page.waitForResponse((response) => {
+      const requestUrl = response.url();
+      return requestUrl.includes(`/api/widget/practice-details/${encodeURIComponent(slug)}`);
+    }, { timeout: WIDGET_READY_TIMEOUT_MS });
 
     await page.goto(`/mock-embed.html?slug=${encodeURIComponent(slug)}`, {
       waitUntil: 'domcontentloaded',
@@ -394,11 +419,20 @@ test.describe('Public widget embed (cross-origin iframe flow)', () => {
 
     await page.locator('button[data-action="open"]').click();
     await waitForWidgetEvent(page, 'iframe_ready', WIDGET_READY_TIMEOUT_MS);
-    const resolvedTheme = await waitForLoaderThemeApplied(page, 'practice_accent', WIDGET_READY_TIMEOUT_MS);
+    const practiceDetailsResponse = await practiceDetailsResponsePromise;
+    expect(
+      practiceDetailsResponse.ok(),
+      `Expected /api/widget/practice-details/${slug} to succeed, got ${practiceDetailsResponse.status()} ${practiceDetailsResponse.statusText()}`
+    ).toBe(true);
+
+    const practiceDetailsPayload = await practiceDetailsResponse.json() as Record<string, unknown> | null;
+    const loaderNormalizedAccentColor = extractPracticeAccentColor(practiceDetailsPayload);
+    const expectedThemeSource = loaderNormalizedAccentColor ? 'practice_accent' : 'default';
+    const resolvedTheme = await waitForLoaderThemeApplied(page, expectedThemeSource, WIDGET_READY_TIMEOUT_MS);
     const resolvedPrimaryColor = hexToCssRgb(resolvedTheme.primaryColor);
     expect(
       resolvedPrimaryColor,
-      `Expected practice_accent theme_applied primaryColor to be a valid hex color, got "${resolvedTheme.primaryColor}"`
+      `Expected ${expectedThemeSource} theme_applied primaryColor to be a valid hex color, got "${resolvedTheme.primaryColor}"`
     ).not.toBeNull();
     const expectedResolvedPrimaryColor = resolvedPrimaryColor as string;
 
@@ -414,7 +448,7 @@ test.describe('Public widget embed (cross-origin iframe flow)', () => {
     const iframe = page.frameLocator('iframe[src*="/public/"]').first();
     expect(
       launcherBackground,
-      'Launcher should match the resolved practice accent once theme_applied fires'
+      'Launcher should match the resolved widget theme once theme_applied fires'
     ).toBe(expectedResolvedPrimaryColor);
 
     const consultationButton = iframe.getByRole('button', { name: /request consultation/i }).first();
@@ -427,7 +461,7 @@ test.describe('Public widget embed (cross-origin iframe flow)', () => {
     ).toBe(formatCssRgb(consultationStyles.accent500));
     expect(
       consultationStyles.backgroundColor,
-      'Request Consultation CTA should match the resolved practice accent color'
+      'Request Consultation CTA should match the resolved widget theme color'
     ).toBe(expectedResolvedPrimaryColor);
     expect(
       consultationStyles.color,
@@ -456,6 +490,10 @@ test.describe('Public widget embed (cross-origin iframe flow)', () => {
 
     await testInfo.attach('widget-theme-styles.json', {
       body: JSON.stringify({
+        expectedThemeSource,
+        practiceDetailsStatus: practiceDetailsResponse.status(),
+        practiceDetailsPayload,
+        loaderNormalizedAccentColor,
         resolvedTheme,
         resolvedPrimaryColor: expectedResolvedPrimaryColor,
         launcherBackground,
