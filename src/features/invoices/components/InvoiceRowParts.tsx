@@ -78,22 +78,34 @@ export const InvoiceStatusActions = ({
           {callbacks.primaryLabel}
         </DropdownMenuItem>
         {canSendDraft ? (
-          <DropdownMenuItem onSelect={() => callbacks.onSendInvoice?.()}>
+          <DropdownMenuItem 
+            onSelect={() => callbacks.onSendInvoice?.()}
+            disabled={state.pendingAction === 'send'}
+          >
             <LoadingMenuLabel label="Send invoice" isPending={state.pendingAction === 'send'} />
           </DropdownMenuItem>
         ) : null}
         {canResend ? (
-          <DropdownMenuItem onSelect={() => callbacks.onResendInvoice?.()}>
+          <DropdownMenuItem 
+            onSelect={() => callbacks.onResendInvoice?.()}
+            disabled={state.pendingAction === 'resend'}
+          >
             <LoadingMenuLabel label="Resend invoice" isPending={state.pendingAction === 'resend'} />
           </DropdownMenuItem>
         ) : null}
         {canSync ? (
-          <DropdownMenuItem onSelect={() => callbacks.onSyncInvoice?.()}>
+          <DropdownMenuItem 
+            onSelect={() => callbacks.onSyncInvoice?.()}
+            disabled={state.pendingAction === 'sync'}
+          >
             <LoadingMenuLabel label="Sync with Stripe" isPending={state.pendingAction === 'sync'} />
           </DropdownMenuItem>
         ) : null}
         {canVoid ? (
-          <DropdownMenuItem onSelect={() => callbacks.onVoidInvoice?.()}>
+          <DropdownMenuItem 
+            onSelect={() => callbacks.onVoidInvoice?.()}
+            disabled={state.pendingAction === 'void'}
+          >
             <LoadingMenuLabel label="Void invoice" isPending={state.pendingAction === 'void'} />
           </DropdownMenuItem>
         ) : null}

@@ -203,7 +203,7 @@ export const InvoiceBuilderSurface = forwardRef<InvoiceFormHandle, InvoiceBuilde
   }
 
   if (mode === 'edit' && !resolvedInvoice && !loading && !loadError) {
-    return <div className="p-6 text-sm text-input-placeholder">Loading invoice...</div>;
+    return <div className="p-6 text-sm text-input-placeholder">Invoice not found</div>;
   }
 
   return (
@@ -213,7 +213,7 @@ export const InvoiceBuilderSurface = forwardRef<InvoiceFormHandle, InvoiceBuilde
           {displayError}
         </div>
       ) : null}
-      {loading || (!clientsData.isLoaded && clientsData.isLoading) ? (
+      {loading || (!clientsData.isLoaded && clientsData.isLoading) || clientsData.error ? (
         <Panel className="p-6">
           <div className="text-sm text-input-placeholder">Loading invoice builder...</div>
         </Panel>

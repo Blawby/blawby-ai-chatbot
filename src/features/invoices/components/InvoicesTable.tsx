@@ -21,10 +21,10 @@ interface InvoicesTableProps {
   emptyMessage?: string;
   onRowClick: (invoice: InvoiceSummary) => void;
   onViewCustomer?: (clientId: string) => void;
-  onSendInvoice?: () => void;
-  onResendInvoice?: () => void;
-  onVoidInvoice?: () => void;
-  onSyncInvoice?: () => void;
+  onSendInvoice?: (invoice: InvoiceSummary) => void;
+  onResendInvoice?: (invoice: InvoiceSummary) => void;
+  onVoidInvoice?: (invoice: InvoiceSummary) => void;
+  onSyncInvoice?: (invoice: InvoiceSummary) => void;
   toolbar?: ComponentChildren;
   loadingMore?: boolean;
   visibleOptionalColumns?: InvoiceColumnKey[];
@@ -228,10 +228,10 @@ export const InvoicesTable: FunctionComponent<InvoicesTableProps> = ({
               callbacks={{
                 primaryLabel: invoice.status === 'draft' ? 'Edit invoice' : 'View invoice',
                 onPrimaryAction: () => onRowClick(invoice),
-                onSendInvoice,
-                onResendInvoice,
-                onVoidInvoice,
-                onSyncInvoice,
+                onSendInvoice: onSendInvoice ? () => onSendInvoice(invoice) : undefined,
+                onResendInvoice: onResendInvoice ? () => onResendInvoice(invoice) : undefined,
+                onVoidInvoice: onVoidInvoice ? () => onVoidInvoice(invoice) : undefined,
+                onSyncInvoice: onSyncInvoice ? () => onSyncInvoice(invoice) : undefined,
               }}
               extraMenuItems={(
                 <>

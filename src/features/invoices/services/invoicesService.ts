@@ -10,6 +10,7 @@ import {
   updateInvoice as updateMatterInvoice,
   normalizeInvoice,
   extractInvoicesArray,
+  type BackendInvoice,
 } from '@/features/matters/services/invoicesApi';
 import type { CreateInvoicePayload } from '@/features/matters/types/billing.types';
 import {
@@ -112,16 +113,11 @@ export const getInvoice = async (
     signal: options.signal,
   });
   const data = response.data;
-  // The detail endpoint returns a single invoice object (not wrapped in an array),
-  // so prefer extractInvoiceRecord first; fall back to extractInvoicesArray for
-  // any backend that wraps it.
+  // The detail endpoint returns a single invoice object (not wrapped in an array)
   const rawInvoice = extractInvoiceRecord(data);
-  const invoiceRecord = rawInvoice
-    ? extractInvoicesArray(rawInvoice)[0] ?? extractInvoicesArray(data)[0]
-    : extractInvoicesArray(data)[0];
-  if (!invoiceRecord) return null;
+  if (!rawInvoice) return null;
 
-  const invoice = normalizeInvoice(invoiceRecord);
+  const invoice = normalizeInvoice(rawInvoice as BackendInvoice);
   return normalizeInvoiceDetail(invoice, rawInvoice);
 };
 

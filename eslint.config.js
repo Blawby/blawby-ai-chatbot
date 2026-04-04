@@ -121,6 +121,31 @@ export default [
       'no-var': 'error',
       'object-shorthand': 'error',
       'prefer-template': 'error',
+
+      // Project guardrails
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: 'a[href^="/"]',
+          message: 'Use Link or navigate()/location.route() for in-app routes instead of internal <a href="/..."> anchors'
+        },
+        {
+          selector: 'ClassExpression[class*="blue"]',
+          message: 'Avoid using blue utility classes directly - use accent color system instead'
+        },
+        {
+          selector: 'ImportDeclaration[source.value=/LoadingIndicator/]',
+          message: 'Import LoadingIndicator from shared/ui/layout instead of local definitions'
+        },
+        {
+          selector: 'ClassDeclaration[id=/LoadingSpinner|LoadingBlock|LoadingScreen|SkeletonLoader/]',
+          message: 'Use shared loading components from shared/ui/layout instead of redeclaring'
+        },
+        {
+          selector: 'JSXAttribute[name="className"][value.*="animate-spin"]',
+          message: 'Use LoadingSpinner component instead of inline animate-spin classes'
+        }
+      ],
     },
     settings: {
       react: {
@@ -130,20 +155,7 @@ export default [
     }
   },
 
-  // Loading UI guardrails
-  {
-    files: ['src/**/*.{ts,tsx,js,jsx}'],
-    ignores: [
-      'src/shared/ui/layout/LoadingSpinner.tsx',
-      'src/shared/ui/layout/LoadingBlock.tsx',
-      'src/shared/ui/layout/LoadingScreen.tsx',
-      'src/shared/ui/layout/SkeletonLoader.tsx'
-    ],
-    rules: {
-      // Loading UI guardrails (no additional rules, selectors merged above)
-    }
-  },
-
+  
   // Worker files (Cloudflare Workers runtime)
   {
     files: ['worker/**/*.{ts,js}'],
