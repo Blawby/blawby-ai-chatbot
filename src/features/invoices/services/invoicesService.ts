@@ -54,7 +54,8 @@ const getErrorStatus = (error: unknown): number | undefined => {
 const filterInvoiceSummaries = (
   items: InvoiceSummary[],
   filters: InvoiceListFilters,
-  statusFilter: string[] = []
+  statusFilter: string[] = [],
+  audience: 'client' | 'practice' = 'practice'
 ): InvoiceSummary[] => {
   const rules = (filters.rules ?? []).filter((rule): rule is InvoiceFilterRule => Boolean(rule?.field && rule.operator));
   const normalizedStatusFilter = statusFilter.map((value) => value.trim().toLowerCase()).filter(Boolean);
@@ -62,7 +63,7 @@ const filterInvoiceSummaries = (
 
   return items.filter((item) => {
     if (allowedStatuses && !allowedStatuses.has(item.status.toLowerCase())) return false;
-    return rules.every((rule) => applyInvoiceFilterRule(item, rule));
+    return rules.every((rule) => applyInvoiceFilterRule(item, rule, audience));
   });
 };
 
@@ -95,7 +96,7 @@ export const listInvoices = async (
       return (Number.isNaN(timeb) ? 0 : timeb) - (Number.isNaN(timea) ? 0 : timea);
     });
   return paginate(
-    filterInvoiceSummaries(summaries, filters, options.statusFilter),
+    filterInvoiceSummaries(summaries, filters, options.statusFilter, 'practice'),
     filters.page ?? 1,
     filters.pageSize ?? FALLBACK_PAGE_SIZE
   );
@@ -134,7 +135,7 @@ export const listClientInvoices = async (
       return (Number.isNaN(timeb) ? 0 : timeb) - (Number.isNaN(timea) ? 0 : timea);
     });
   return paginate(
-    filterInvoiceSummaries(summaries, filters, options.statusFilter),
+    filterInvoiceSummaries(summaries, filters, options.statusFilter, 'client'),
     filters.page ?? 1,
     filters.pageSize ?? FALLBACK_PAGE_SIZE
   );

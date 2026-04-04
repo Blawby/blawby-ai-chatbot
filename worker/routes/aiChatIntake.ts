@@ -98,7 +98,7 @@ const buildIntakeConversationCtaInstruction = (
     return `\nYou have all the required details. Ask: "Are you ready to submit your case to the firm?" in one short sentence. Do not summarize again. Do not ask if they want to add anything else.`;
   }
   if (isIntakeReadyForSubmission(mergedState) && paymentRequiredBeforeSubmit && !paymentCompleted) {
-    return '\nYou already have the required case details. Do NOT ask for more case details. Briefly explain that payment is required before submission and ask the user to tap Continue to payment. Do NOT include raw URLs or placeholders like [Insert Payment Link].';
+    return '\nTell the user warmly that you have everything you need and that the firm requires a consultation fee to review their case. Ask them to tap the payment button below to proceed. Keep it to 2 sentences.';
   }
   return `\nAsk exactly ONE focused question about the single most important missing piece of information. Priority: situation description → city and state → opposing party → urgency → desired outcome → documents. Do not ask for submission readiness until all required details are collected.`;
 };

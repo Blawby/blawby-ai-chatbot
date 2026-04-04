@@ -116,7 +116,7 @@ export const INVOICE_FILTER_GROUP_LABELS: Record<InvoiceFilterGroupId, string> =
   stripe: 'Stripe reference filters',
 };
 
-export const INVOICE_FILTER_FIELDS: InvoiceFilterFieldDefinition[] = [
+export const CLIENT_SAFE_INVOICE_FILTER_FIELDS: InvoiceFilterFieldDefinition[] = [
   { key: 'status', label: 'Status', type: 'enum', group: 'core' },
   { key: 'createdAt', label: 'Created', type: 'date', group: 'core' },
   { key: 'dueDate', label: 'Due date', type: 'date', group: 'core' },
@@ -133,9 +133,7 @@ export const INVOICE_FILTER_FIELDS: InvoiceFilterFieldDefinition[] = [
 
   { key: 'clientName', label: 'Customer name', type: 'text', group: 'customerMatter' },
   { key: 'clientEmail', label: 'Customer email', type: 'text', group: 'customerMatter' },
-  { key: 'clientId', label: 'Client ID', type: 'text', group: 'customerMatter' },
   { key: 'clientStatus', label: 'Client status', type: 'enum', group: 'customerMatter' },
-  { key: 'matterId', label: 'Matter ID', type: 'text', group: 'customerMatter' },
   { key: 'matterTitle', label: 'Matter title', type: 'text', group: 'customerMatter' },
   { key: 'matterStatus', label: 'Matter status', type: 'enum', group: 'customerMatter' },
   { key: 'matterBillingType', label: 'Billing type', type: 'enum', group: 'customerMatter' },
@@ -144,19 +142,32 @@ export const INVOICE_FILTER_FIELDS: InvoiceFilterFieldDefinition[] = [
   { key: 'fundDestination', label: 'Fund destination', type: 'text', group: 'metadata' },
   { key: 'updatedAt', label: 'Updated at', type: 'date', group: 'metadata' },
 
-  { key: 'stripeInvoiceId', label: 'Stripe invoice ID', type: 'text', group: 'stripe' },
   { key: 'stripeInvoiceNumber', label: 'Stripe invoice number', type: 'text', group: 'stripe' },
+  { key: 'stripeHostedInvoiceUrl', label: 'Hosted invoice URL', type: 'text', group: 'stripe' },
+];
+
+export const PRACTICE_ONLY_INVOICE_FILTER_FIELDS: InvoiceFilterFieldDefinition[] = [
+  { key: 'clientId', label: 'Client ID', type: 'text', group: 'customerMatter' },
+  { key: 'matterId', label: 'Matter ID', type: 'text', group: 'customerMatter' },
+
+  { key: 'stripeInvoiceId', label: 'Stripe invoice ID', type: 'text', group: 'stripe' },
   { key: 'stripeChargeId', label: 'Stripe charge ID', type: 'text', group: 'stripe' },
   { key: 'stripeTransferId', label: 'Stripe transfer ID', type: 'text', group: 'stripe' },
   { key: 'stripePaymentIntentId', label: 'Stripe payment intent ID', type: 'text', group: 'stripe' },
-  { key: 'stripeHostedInvoiceUrl', label: 'Hosted invoice URL', type: 'text', group: 'stripe' },
   { key: 'connectedAccountId', label: 'Connected account ID', type: 'text', group: 'stripe' },
   { key: 'connectedAccountEmail', label: 'Connected account email', type: 'text', group: 'stripe' },
   { key: 'connectedAccountStripeAccountId', label: 'Stripe account ID', type: 'text', group: 'stripe' },
 ];
 
-export const getInvoiceFilterFieldDefinition = (key: InvoiceFilterFieldKey) =>
-  INVOICE_FILTER_FIELDS.find((field) => field.key === key);
+export const INVOICE_FILTER_FIELDS: InvoiceFilterFieldDefinition[] = [
+  ...CLIENT_SAFE_INVOICE_FILTER_FIELDS,
+  ...PRACTICE_ONLY_INVOICE_FILTER_FIELDS,
+];
+
+export const getInvoiceFilterFieldDefinition = (key: InvoiceFilterFieldKey, audience: 'client' | 'practice' = 'practice') => {
+  const fields = audience === 'client' ? CLIENT_SAFE_INVOICE_FILTER_FIELDS : INVOICE_FILTER_FIELDS;
+  return fields.find((field) => field.key === key);
+};
 
 export const getInvoiceFilterOperators = (type: InvoiceFilterFieldType): InvoiceFilterOperator[] => {
   if (type === 'date') return ['is', 'before', 'after', 'between', 'isEmpty', 'isNotEmpty'];
@@ -211,12 +222,21 @@ const isEmptyValue = (value: unknown) => {
 
 const normalizeDateValue = (value: unknown) => {
   if (typeof value !== 'string' || value.trim().length === 0) return null;
+  // If it's already YYYY-MM-DD format, return as is
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? null : date;
 };
 
-export const applyInvoiceFilterRule = (invoice: InvoiceSummary, rule: InvoiceFilterRule): boolean => {
-  const field = getInvoiceFilterFieldDefinition(rule.field);
+const formatLocalYMD = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+export const applyInvoiceFilterRule = (invoice: InvoiceSummary, rule: InvoiceFilterRule, audience: 'client' | 'practice' = 'practice'): boolean => {
+  const field = getInvoiceFilterFieldDefinition(rule.field, audience);
   if (!field) return false;
 
   const rawValue = getInvoiceFieldValue(invoice, rule.field);
@@ -241,9 +261,9 @@ export const applyInvoiceFilterRule = (invoice: InvoiceSummary, rule: InvoiceFil
     const target = normalizeDateValue(rule.value);
     const upper = normalizeDateValue(rule.valueTo);
     if (!value) return false;
-    const dayValue = value.toISOString().slice(0, 10);
-    const dayTarget = target?.toISOString().slice(0, 10) ?? null;
-    const dayUpper = upper?.toISOString().slice(0, 10) ?? null;
+    const dayValue = typeof value === 'string' ? value : formatLocalYMD(value);
+    const dayTarget = target ? (typeof target === 'string' ? target : formatLocalYMD(target)) : null;
+    const dayUpper = upper ? (typeof upper === 'string' ? upper : formatLocalYMD(upper)) : null;
     if (rule.operator === 'is') return dayTarget != null && dayValue === dayTarget;
     if (rule.operator === 'before') return dayTarget != null && dayValue < dayTarget;
     if (rule.operator === 'after') return dayTarget != null && dayValue > dayTarget;
