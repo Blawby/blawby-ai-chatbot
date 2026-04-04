@@ -56,9 +56,10 @@
   .dark {
     --surface-base: 3 7 18;
     --surface-overlay: 10 15 26;
-    --surface-nav-rail: 18 22 34;
-    --surface-nav-secondary: 16 20 34;
-    --surface-list-panel: 11 15 25;
+    --surface-nav-rail: 8 11 16;
+    --surface-nav-secondary: 15 20 29;
+    --surface-list-panel: 10 14 22;
+    --surface-inspector: 13 18 26;
     --surface-glass: 255 255 255;
     --line-glass: 255 255 255;
     --input-text: 249 250 251;

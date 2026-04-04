@@ -544,7 +544,7 @@ function InspectorPanelPreview() {
         role="dialog"
         aria-modal="true"
         aria-label="Inspector preview"
-        className="ui-surface-enter-right absolute inset-y-0 right-0 z-10 flex w-full max-w-[min(42rem,100vw)] flex-col overflow-hidden border-l border-line-glass/15 bg-surface-nav-secondary shadow-2xl"
+        className="ui-surface-enter-right absolute inset-y-0 right-0 z-10 flex w-full max-w-[min(42rem,100vw)] flex-col overflow-hidden bg-surface-inspector shadow-2xl"
       >
         <InspectorPanel
           entityType="invoice"

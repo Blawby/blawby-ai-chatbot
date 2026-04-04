@@ -654,7 +654,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
             />
 
             {isInspectorOpen && activeConversationId && (
-                <aside className="hidden w-80 shrink-0 overflow-y-auto border-l border-line-glass/15 bg-surface-nav-secondary shadow-2xl lg:block lg:w-96">
+                <aside className="hidden w-80 shrink-0 overflow-y-auto bg-surface-inspector shadow-2xl lg:block lg:w-96">
                   <InspectorPanel 
                     entityType="conversation"
                     entityId={activeConversationId}

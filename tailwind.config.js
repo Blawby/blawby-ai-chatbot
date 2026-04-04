@@ -21,7 +21,8 @@ export default {
           overlay: 'rgb(var(--surface-overlay) / <alpha-value>)',
           'nav-rail': 'rgb(var(--surface-nav-rail))',
           'nav-secondary': 'rgb(var(--surface-nav-secondary))',
-          'nav-list': 'rgb(var(--surface-list-panel))',
+          'list-panel': 'rgb(var(--surface-list-panel))',
+          'inspector': 'rgb(var(--surface-inspector))',
           glass: 'rgb(var(--surface-glass) / <alpha-value>)',
         },
         line: {

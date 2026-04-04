@@ -217,7 +217,7 @@ const normalizeDateValue = (value: unknown) => {
 
 export const applyInvoiceFilterRule = (invoice: InvoiceSummary, rule: InvoiceFilterRule): boolean => {
   const field = getInvoiceFilterFieldDefinition(rule.field);
-  if (!field) return true;
+  if (!field) return false;
 
   const rawValue = getInvoiceFieldValue(invoice, rule.field);
 
@@ -257,6 +257,10 @@ export const applyInvoiceFilterRule = (invoice: InvoiceSummary, rule: InvoiceFil
   if (field.type === 'enum') {
     if (rule.operator !== 'equals') return false;
     return textTarget.length > 0 && textValue === textTarget;
+  }
+
+  if ((rule.operator === 'startsWith' || rule.operator === 'contains') && textTarget.length === 0) {
+    return false;
   }
 
   if (rule.operator === 'equals') return textValue === textTarget;

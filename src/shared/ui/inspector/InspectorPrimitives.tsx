@@ -25,12 +25,12 @@ export const InfoRow = ({
         {IconComponent && (
           <IconComponent className="h-3 w-3 text-input-placeholder/70 group-hover:text-input-text transition-colors" />
         )}
-        <p className="text-[11px] font-bold uppercase tracking-wider text-input-placeholder group-hover:text-input-text transition-colors cursor-default">{label}</p>
+        <p className="text-[11px] font-bold uppercase tracking-wider text-input-placeholder/90 group-hover:text-input-text transition-colors cursor-default">{label}</p>
       </div>
       {valueNode != null ? (
         <div className="flex min-w-0 flex-1">{valueNode}</div>
       ) : (
-        <p className={`truncate text-[14px] ${muted ? 'text-input-placeholder' : 'text-input-text'}`}>
+        <p className={`truncate text-[14px] ${muted ? 'text-input-placeholder/60' : 'text-input-text'}`}>
           {hasValue ? value : '—'}
         </p>
       )}
@@ -57,7 +57,7 @@ export const InspectorGroup = ({
     <div className="mb-1.5">
       {label ? (
         <div className="flex items-center justify-between px-5 pb-0.5 pt-2">
-          <p className="text-[11px] font-bold uppercase tracking-wider text-input-placeholder/70">
+          <p className="text-[11px] font-bold uppercase tracking-wider text-input-placeholder/90">
             {label}
           </p>
           {onToggle ? (
@@ -110,15 +110,15 @@ export const InspectorEditableRow = ({
       <div className="flex items-start justify-between gap-1.5 group">
         <div className="min-w-0 flex-1">
           {label ? (
-            <p className="text-[11px] font-bold uppercase tracking-wider text-input-placeholder group-hover:text-input-text transition-colors cursor-default">{label}</p>
+            <p className="text-[11px] font-bold uppercase tracking-wider text-input-placeholder/90 group-hover:text-input-text transition-colors cursor-default">{label}</p>
           ) : null}
           {!isOpen && (
             summaryIsString ? (
-              <p className={`mt-0.5 truncate text-[14px] ${summaryMuted ? 'text-input-placeholder' : 'text-input-text'} cursor-default`}>
+              <p className={`mt-0.5 truncate text-[14px] ${summaryMuted ? 'text-input-placeholder/60' : 'text-input-text'} cursor-default`}>
                 {resolvedSummary}
               </p>
             ) : (
-              <div className={`mt-0.5 min-w-0 cursor-default text-[14px] ${summaryMuted ? 'text-input-placeholder' : 'text-input-text'}`}>
+              <div className={`mt-0.5 min-w-0 cursor-default text-[14px] ${summaryMuted ? 'text-input-placeholder/60' : 'text-input-text'}`}>
                 {resolvedSummary}
               </div>
             )
@@ -299,7 +299,7 @@ export const InspectorHeaderEntity = ({
 }: InspectorHeaderEntityProps) => {
   return (
     <div className="flex flex-col gap-1.5 px-5 pb-4 pt-5">
-      <p className="text-[10px] font-medium uppercase tracking-widest text-input-placeholder">{chip}</p>
+      <p className="text-[10px] font-medium uppercase tracking-widest text-input-placeholder/90">{chip}</p>
       <div className="flex items-start justify-between gap-2">
         <p className="min-w-0 flex-1 text-[15px] font-semibold leading-snug text-input-text">{title}</p>
         <div className="mt-0.5 shrink-0">{statusBadge}</div>

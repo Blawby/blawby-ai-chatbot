@@ -337,8 +337,7 @@ test.describe('Public widget intake flow', () => {
       const responsePromise = anonPage.waitForResponse(
         (response) =>
           response.request().method() === 'POST'
-          && response.url().includes('/api/ai/chat')
-          && response.status() === 200,
+          && response.url().includes('/api/ai/chat'),
         { timeout: LEAD_TURN_TIMEOUT_MS }
       ).catch(() => null);
       const sendButtonVisibleBeforeClick = await sendButton.isVisible().catch(() => false);
@@ -382,8 +381,9 @@ test.describe('Public widget intake flow', () => {
         });
         throw new Error(`Expected /api/ai/chat to return 200 for "${text}", but no successful response was observed.`);
       }
-      const contentType = response?.headers()['content-type'] ?? 'text/event-stream';
-      if (response.status() !== 200 || !contentType) {
+      const contentType = response?.headers()['content-type'] ?? '';
+      const hasValidContentType = contentType.includes('application/json') || contentType.startsWith('text/event-stream');
+      if (response.status() !== 200 || !hasValidContentType) {
         const invalidResponseText = await response.text().catch(() => '');
         const state = await safeCaptureLeadFlowState();
         await testInfo.attach('lead-flow-ai-invalid-response.json', {
@@ -477,6 +477,13 @@ test.describe('Public widget intake flow', () => {
           )
           .not.toMatch(/^\s*$|loading markdown/i);
         latestVisibleAiText = await getLatestMeaningfulAiText();
+
+        const latestAiTextAfterSettle = await getLatestMeaningfulAiText();
+        const aiCountAfterSettle = await aiLocator.count();
+        await expect(
+          aiCountAfterSettle > aiCountBefore || latestAiTextAfterSettle !== latestAiTextBefore,
+          `Expected AI chat output to change after SSE settled. before count=${aiCountBefore} before text=${JSON.stringify(latestAiTextBefore)} after count=${aiCountAfterSettle} after text=${JSON.stringify(latestAiTextAfterSettle)}`
+        ).toBe(true);
       }
       return {
         response,
@@ -654,13 +661,25 @@ test.describe('Public widget intake flow', () => {
           ).toBeVisible({ timeout: 10000 });
         } catch (error) {
           const state = await safeCaptureLeadFlowState();
+          const visibleButtons = await anonPage
+            .locator('button:visible')
+            .evaluateAll((els) => els.map((el) => (el.textContent ?? '').trim()).filter(Boolean))
+            .catch(() => []);
+          const terminalDebug = {
+            reachedPaymentTerminal,
+            paymentVisibleAtAction,
+            hasPaymentPromptAtAction,
+            visibleButtons,
+            state,
+          };
+          const debugDir = resolve(process.cwd(), '.tmp/playwright/public');
+          mkdirSync(debugDir, { recursive: true });
+          writeFileSync(
+            resolve(debugDir, 'payment-terminal-cta-debug.json'),
+            JSON.stringify(terminalDebug, null, 2)
+          );
           await testInfo.attach('payment-terminal-cta-debug.json', {
-            body: JSON.stringify({
-              reachedPaymentTerminal,
-              paymentVisibleAtAction,
-              hasPaymentPromptAtAction,
-              state,
-            }, null, 2),
+            body: JSON.stringify(terminalDebug, null, 2),
             contentType: 'application/json',
           });
           throw error;
@@ -675,6 +694,13 @@ test.describe('Public widget intake flow', () => {
     }
 
     const settingsResponse = await settingsResponsePromise;
+    if (!settingsResponse) {
+      throw new Error('Expected intake settings response after submit/payment action, but no settings response was observed.');
+    }
+    expect(
+      settingsResponse.status(),
+      'Expected intake settings HTTP response to be 200 after submit/payment action.'
+    ).toBe(200);
     const submitIntakeResponse = await submitIntakeResponsePromise;
     const submitIntakeDebugBody = submitIntakeResponse
       ? await submitIntakeResponse.text().catch(() => null)
@@ -1032,8 +1058,7 @@ test.describe('Public widget intake flow', () => {
       .waitForResponse(
         (r) =>
           r.request().method() === 'POST' &&
-          r.url().includes('/api/ai/chat') &&
-          r.status() === 200,
+          r.url().includes('/api/ai/chat'),
         { timeout: 40_000 }
       )
       .catch(() => null);
@@ -1102,7 +1127,8 @@ test.describe('Public widget intake flow', () => {
       throw new Error('Expected AI chat response for anon sign-in flow, but /api/ai/chat did not return 200.');
     }
     const aiResponseContentType = aiResponse.headers()['content-type'] ?? '';
-    if (aiResponse.status() !== 200 || !aiResponseContentType) {
+    const hasValidAiResponseContentType = aiResponseContentType.includes('application/json') || aiResponseContentType.startsWith('text/event-stream');
+    if (aiResponse.status() !== 200 || !hasValidAiResponseContentType) {
       const aiResponseText = await aiResponse.text().catch(() => '');
       const signinState = await anonPage.evaluate(() => {
         const bodyText = document.body?.innerText ?? '';
