@@ -240,6 +240,15 @@ test.describe('Public widget intake flow', () => {
         };
       });
     };
+    const safeCaptureLeadFlowState = async () => {
+      try {
+        return await captureLeadFlowState();
+      } catch (error) {
+        return {
+          captureError: error instanceof Error ? error.message : String(error),
+        };
+      }
+    };
     {
       const deadline = Date.now() + 30_000;
       let lastStep = 'init';
@@ -300,7 +309,7 @@ test.describe('Public widget intake flow', () => {
     const buildBriefButton = anonPage.getByRole('button', { name: /build stronger brief/i });
     const aiTranscript: Array<{ prompt?: string; user: string; contentType: string; replyText: string }> = [];
 
-    const sendAndAwaitAi = async (text: string) => {
+    const sendAndAwaitAi = async (text: string, promptText = '') => {
       const aiLocator = anonPage.locator('[data-testid="ai-message"], [data-testid="system-message"]');
       const streamingLocator = anonPage.locator('[id^="message-streaming-"]');
       const sendButton = anonPage.getByRole('button', { name: /send message/i });
@@ -338,10 +347,12 @@ test.describe('Public widget intake flow', () => {
       await sendButton.click();
       const [request, response] = await Promise.all([requestPromise, responsePromise]);
       if (!request) {
-        const state = await captureLeadFlowState();
+        const state = await safeCaptureLeadFlowState();
         await testInfo.attach('lead-flow-ai-timeout.json', {
           body: JSON.stringify({
+            promptAsked: promptText,
             prompt: text,
+            aiTranscriptTail: aiTranscript.slice(-5),
             sendButtonVisibleBeforeClick,
             sendButtonEnabledBeforeClick,
             aiChatEntriesBefore,
@@ -355,10 +366,12 @@ test.describe('Public widget intake flow', () => {
         throw new Error(`Expected /api/ai/chat request after sending "${text}", but none was observed.`);
       }
       if (!response) {
-        const state = await captureLeadFlowState();
+        const state = await safeCaptureLeadFlowState();
         await testInfo.attach('lead-flow-ai-invalid-response.json', {
           body: JSON.stringify({
+            promptAsked: promptText,
             prompt: text,
+            aiTranscriptTail: aiTranscript.slice(-5),
             responseStatus: null,
             responseHeaders: null,
             responseBodyTail: null,
@@ -372,10 +385,12 @@ test.describe('Public widget intake flow', () => {
       const contentType = response?.headers()['content-type'] ?? 'text/event-stream';
       if (response.status() !== 200 || !contentType) {
         const invalidResponseText = await response.text().catch(() => '');
-        const state = await captureLeadFlowState();
+        const state = await safeCaptureLeadFlowState();
         await testInfo.attach('lead-flow-ai-invalid-response.json', {
           body: JSON.stringify({
+            promptAsked: promptText,
             prompt: text,
+            aiTranscriptTail: aiTranscript.slice(-5),
             responseStatus: response.status(),
             responseHeaders: response.headers(),
             responseBodyTail: invalidResponseText.slice(-2000),
@@ -414,6 +429,20 @@ test.describe('Public widget intake flow', () => {
             .not.toEqual({ latestAiText: latestAiTextBefore, aiCount: aiCountBefore, streamingCount: 0 });
         } catch (error) {
           const sseBody = await responseTextPromise;
+          const state = await safeCaptureLeadFlowState();
+          await testInfo.attach('lead-flow-ai-ui-timeout.json', {
+            body: JSON.stringify({
+              promptAsked: promptText,
+              prompt: text,
+              aiTranscriptTail: aiTranscript.slice(-5),
+              responseStatus: response.status(),
+              responseHeaders: response.headers(),
+              responseBodyTail: sseBody.slice(-2000),
+              recentNetworkTail: networkLog.slice(-20),
+              state,
+            }, null, 2),
+            contentType: 'application/json',
+          });
           throw new Error(
             `SSE response started but no UI progress within ${LEAD_TURN_TIMEOUT_MS}ms.\n` +
             `SSE body (tail): ${sseBody.slice(-800)}\n` +
@@ -557,7 +586,7 @@ test.describe('Public widget intake flow', () => {
 
       const promptText = await getLatestAiPromptText();
       const answer = pickAnswerForPrompt(promptText);
-      const aiStep = await sendAndAwaitAi(answer);
+      const aiStep = await sendAndAwaitAi(answer, promptText);
       aiTranscript.push({
         prompt: promptText,
         user: answer,
@@ -596,8 +625,6 @@ test.describe('Public widget intake flow', () => {
     const bodyTextAtAction = await bodyLocator.innerText().catch(() => '');
     const hasPaymentPromptAtAction = /consultation fee|continue to payment|pay and submit|pay & submit|submit your intake/i.test(bodyTextAtAction);
     const terminalActionButton = anonPage
-      .locator('[data-testid="ai-message"]')
-      .last()
       .locator('button:visible')
       .filter({ hasText: /^(submit request|continue|continue\s+to\s+payment|pay\s*(?:&|and)\s*submit)$/i })
       .first();
@@ -620,10 +647,24 @@ test.describe('Public widget intake flow', () => {
       if (paymentVisibleAtAction) {
         await paymentContinueButton.click();
       } else {
-        await expect(
-          terminalActionButton,
-          'Expected a visible action button in the payment-gated terminal state.'
-        ).toBeVisible({ timeout: 10000 });
+        try {
+          await expect(
+            terminalActionButton,
+            'Expected a visible action button in the payment-gated terminal state.'
+          ).toBeVisible({ timeout: 10000 });
+        } catch (error) {
+          const state = await safeCaptureLeadFlowState();
+          await testInfo.attach('payment-terminal-cta-debug.json', {
+            body: JSON.stringify({
+              reachedPaymentTerminal,
+              paymentVisibleAtAction,
+              hasPaymentPromptAtAction,
+              state,
+            }, null, 2),
+            contentType: 'application/json',
+          });
+          throw error;
+        }
         await terminalActionButton.click();
       }
     } else {

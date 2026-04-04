@@ -233,7 +233,7 @@ export const applyInvoiceFilterRule = (invoice: InvoiceSummary, rule: InvoiceFil
     if (rule.operator === 'greaterThan') return target != null && value > target;
     if (rule.operator === 'lessThan') return target != null && value < target;
     if (rule.operator === 'between') return target != null && upper != null && value >= target && value <= upper;
-    return true;
+    return false;
   }
 
   if (field.type === 'date') {
@@ -248,17 +248,19 @@ export const applyInvoiceFilterRule = (invoice: InvoiceSummary, rule: InvoiceFil
     if (rule.operator === 'before') return dayTarget != null && dayValue < dayTarget;
     if (rule.operator === 'after') return dayTarget != null && dayValue > dayTarget;
     if (rule.operator === 'between') return dayTarget != null && dayUpper != null && dayValue >= dayTarget && dayValue <= dayUpper;
-    return true;
+    return false;
   }
 
   const textValue = String(rawValue ?? '').toLowerCase();
   const textTarget = String(rule.value ?? '').toLowerCase();
 
   if (field.type === 'enum') {
+    if (rule.operator !== 'equals') return false;
     return textTarget.length > 0 && textValue === textTarget;
   }
 
   if (rule.operator === 'equals') return textValue === textTarget;
   if (rule.operator === 'startsWith') return textValue.startsWith(textTarget);
-  return textValue.includes(textTarget);
+  if (rule.operator === 'contains') return textValue.includes(textTarget);
+  return false;
 };
