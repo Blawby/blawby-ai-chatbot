@@ -1,9 +1,10 @@
+import { useState } from 'preact/hooks';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import { formatLongDate } from '@/shared/utils/dateFormatter';
 import { getMajorAmountValue } from '@/shared/utils/money';
-import { Avatar } from '@/shared/ui/profile';
 import type { InvoiceLineItem } from '@/features/matters/types/billing.types';
 import { normalizePublicFileUrl } from '@/shared/lib/apiClient';
+import { sanitizeUserImageUrl } from '@/shared/utils/urlValidation';
 
 type InvoicePreviewProps = {
   title: string;
@@ -11,21 +12,66 @@ type InvoicePreviewProps = {
   lineItems: InvoiceLineItem[];
   issueDate?: string | Date | null;
   dueDate?: string;
-  /** Invoice number shown in header and bottom bar (e.g. "INV-0001") */
   invoiceNumber?: string | null;
-  /** Practice / firm name shown in the "From" block */
   practiceName?: string | null;
-  /** Absolute URL for the practice logo (already resolved via R2 proxy) */
   practiceLogoUrl?: string | null;
-  /** Practice contact email shown in the "From" block */
   practiceEmail?: string | null;
-  /** Client name shown in the "Bill to" block */
   clientName?: string | null;
-  /** Client email shown in the "Bill to" block */
   clientEmail?: string | null;
-  /** Practice billing increment in minutes */
   billingIncrementMinutes?: number | null;
 };
+
+const LogoAvatar = ({ src, name }: { src: string | null; name: string }) => {
+  const [error, setError] = useState(false);
+
+  const initials = name
+    .trim()
+    .split(/\s+/)
+    .map((w) => w[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2);
+
+  return (
+    <div
+      style={{
+        width: 56,
+        height: 56,
+        borderRadius: '50%',
+        background: '#1a1a2e',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        flexShrink: 0,
+        overflow: 'hidden',
+      }}
+    >
+      {src && !error ? (
+        <img
+          src={src}
+          alt={name}
+          onError={() => setError(true)}
+          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+        />
+      ) : (
+        <span style={{ fontSize: 18, fontWeight: 700, color: '#ffffff', letterSpacing: '-0.02em' }}>
+          {initials}
+        </span>
+      )}
+    </div>
+  );
+};
+
+const MetaRow = ({ label, value }: { label: string; value: string }) => (
+  <div style={{ display: 'flex', gap: '1rem', fontSize: 13, lineHeight: '1.6' }}>
+    <span style={{ color: '#6b7280', minWidth: 100 }}>{label}</span>
+    <span style={{ color: '#111827', fontWeight: 500 }}>{value}</span>
+  </div>
+);
+
+const HR = () => (
+  <div style={{ borderTop: '1px solid #e5e7eb', margin: '1.25rem 0' }} />
+);
 
 export const InvoicePreview = ({
   title,
@@ -45,6 +91,7 @@ export const InvoicePreview = ({
     (sum, item) => sum + getMajorAmountValue(item.line_total),
     0
   );
+
   const resolvedIssueDate =
     issueDate instanceof Date
       ? `${issueDate.getUTCFullYear()}-${String(issueDate.getUTCMonth() + 1).padStart(2, '0')}-${String(issueDate.getUTCDate()).padStart(2, '0')}`
@@ -52,137 +99,209 @@ export const InvoicePreview = ({
 
   const totalFormatted = formatCurrency(subtotal);
   const dueDateFormatted = dueDate ? formatLongDate(dueDate) : null;
-  const normalizedLogoUrl = practiceLogoUrl ? normalizePublicFileUrl(practiceLogoUrl) : null;
+  const issueDateFormatted = resolvedIssueDate ? formatLongDate(resolvedIssueDate) : null;
 
-  const hasFirmBlock = Boolean(practiceName || normalizedLogoUrl);
+  const rawLogoUrl = practiceLogoUrl ? normalizePublicFileUrl(practiceLogoUrl) : null;
+  const logoUrl = rawLogoUrl ? sanitizeUserImageUrl(rawLogoUrl) : null;
+
   const hasBillingBlock = Boolean(practiceName || clientName || practiceEmail || clientEmail);
 
+  const root: preact.JSX.CSSProperties = {
+    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif',
+    background: '#ffffff',
+    color: '#111827',
+    fontSize: 13,
+    lineHeight: '1.5',
+  };
+
   return (
-    /* Outer A4 proportioned wrapper */
-    <div className="mx-auto w-full max-w-[794px]" style={{ aspectRatio: '210 / 297' }}>
-      <div className="relative flex h-full flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl text-gray-900 text-sm">
+    <div className="mx-auto w-full max-w-[680px]" style={{ aspectRatio: '210 / 297' }}>
+      <div
+        className="relative flex h-full flex-col overflow-hidden"
+        style={{
+          ...root,
+          borderRadius: 8,
+          boxShadow: '0 1px 3px rgba(0,0,0,0.08), 0 0 0 1px rgba(0,0,0,0.07)',
+        }}
+      >
+        {/* ── Scrollable body ── */}
+        <div className="flex-1 overflow-y-auto" style={{ padding: '2rem 2rem 3rem' }}>
 
-        {/* Scrollable content area — leaves room for the sticky bottom bar */}
-        <div className="flex-1 overflow-y-auto pb-10 p-6 space-y-4">
-
-          {/* ── Header: invoice label + number (left) · firm logo + name (right) ── */}
-          <div className="flex items-start justify-between border-b border-gray-200 pb-5">
-            <div>
-              <p className="text-xs uppercase tracking-[0.18em] text-gray-400">Invoice</p>
-              {invoiceNumber && (
-                <p className="mt-1 text-sm font-medium text-gray-700">{invoiceNumber}</p>
-              )}
-              <h4 className="mt-2 text-base font-semibold">{title}</h4>
-              {referenceLabel && (
-                <p className="mt-0.5 text-xs text-gray-500">{referenceLabel}</p>
-              )}
-            </div>
-
-            {/* Firm identity block (top-right) */}
-            {hasFirmBlock && (
-              <div className="flex items-center gap-3">
-                <Avatar 
-                  src={normalizedLogoUrl} 
-                  name={practiceName ?? 'Firm'} 
-                  size="lg" 
-                  className="h-14 w-14"
-                />
-                {practiceName && (
-                  <span className="text-base font-semibold text-gray-900">{practiceName}</span>
-                )}
-              </div>
+          {/* ── Header: "Invoice" title + logo ── */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.25rem' }}>
+            <h1 style={{ fontSize: 26, fontWeight: 700, color: '#111827', margin: 0, letterSpacing: '-0.02em' }}>
+              Invoice
+            </h1>
+            {(logoUrl || practiceName) && (
+              <LogoAvatar src={logoUrl} name={practiceName ?? 'Firm'} />
             )}
           </div>
 
-          {/* ── Dates ── */}
-          <div className="flex gap-8 text-xs text-gray-500">
-            <div>
-              <span className="font-medium text-gray-700">Date of issue:</span>{' '}
-              {resolvedIssueDate ? formatLongDate(resolvedIssueDate) : 'Not set'}
-            </div>
-            <div>
-              <span className="font-medium text-gray-700">Date due:</span>{' '}
-              {dueDateFormatted ?? 'Not set'}
-            </div>
+          {/* ── Invoice meta (number, dates) ── */}
+          <div style={{ marginBottom: '0.25rem' }}>
+            {invoiceNumber && <MetaRow label="Invoice number" value={invoiceNumber} />}
+            <MetaRow label="Date of issue" value={issueDateFormatted ?? '—'} />
+            {dueDateFormatted && <MetaRow label="Date due" value={dueDateFormatted} />}
           </div>
 
-          {/* ── From / Bill-to billing block ── */}
+          <HR />
+
+          {/* ── From / Bill to ── */}
           {hasBillingBlock && (
-            <div className="flex justify-between text-xs text-gray-600">
-              <div>
-                {practiceName && <div className="font-semibold text-gray-900">{practiceName}</div>}
-                {practiceEmail && <div>{practiceEmail}</div>}
+            <>
+              <div style={{ display: 'flex', gap: '3rem', marginBottom: '0.25rem' }}>
+                {(practiceName || practiceEmail) && (
+                  <div style={{ flex: 1 }}>
+                    {practiceName && (
+                      <p style={{ fontSize: 13, fontWeight: 700, color: '#111827', margin: '0 0 2px' }}>
+                        {practiceName}
+                      </p>
+                    )}
+                    {practiceEmail && (
+                      <p style={{ fontSize: 13, color: '#6b7280', margin: 0 }}>
+                        {practiceEmail}
+                      </p>
+                    )}
+                  </div>
+                )}
+                {(clientName || clientEmail) && (
+                  <div style={{ flex: 1 }}>
+                    <p style={{ fontSize: 13, fontWeight: 700, color: '#111827', margin: '0 0 2px' }}>
+                      Bill to
+                    </p>
+                    {clientName && (
+                      <p style={{ fontSize: 13, color: '#111827', margin: '0 0 2px' }}>
+                        {clientName}
+                      </p>
+                    )}
+                    {clientEmail && (
+                      <p style={{ fontSize: 13, color: '#6b7280', margin: 0 }}>
+                        {clientEmail}
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
-              <div className="text-right">
-                <div className="font-semibold text-gray-900">Bill to</div>
-                {clientName && <div>{clientName}</div>}
-                {clientEmail && <div>{clientEmail}</div>}
-              </div>
-            </div>
+              <HR />
+            </>
           )}
 
-          {/* ── Amount-due headline ── */}
-          {dueDateFormatted && (
-            <div>
-              <h2 className="text-base font-bold text-gray-900">
-                {totalFormatted}{' '}
-                <span className="font-normal text-gray-500">due {dueDateFormatted}</span>
-              </h2>
-            </div>
-          )}
+          {/* ── Amount hero ── */}
+          <div style={{ marginBottom: '1.5rem' }}>
+            <p style={{ fontSize: 22, fontWeight: 700, color: '#111827', margin: '0 0 6px', letterSpacing: '-0.02em' }}>
+              {totalFormatted} USD{dueDateFormatted ? ` due ${dueDateFormatted}` : ''}
+            </p>
+            {(title || referenceLabel) && (
+              <p style={{ fontSize: 12, color: '#6b7280', margin: 0 }}>
+                {[title, referenceLabel].filter(Boolean).join(' · ')}
+              </p>
+            )}
+          </div>
 
-          {/* ── Line items table ── */}
-          <table className="w-full table-fixed border-collapse">
+          {/* ── Line items ── */}
+          <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '1rem' }}>
             <thead>
-              <tr className="border-b border-gray-200 text-left text-xs text-gray-500">
-                <th className="pb-2 pr-3 font-medium">Description</th>
-                <th className="w-16 pb-2 text-right font-medium">Qty</th>
-                <th className="w-24 pb-2 text-right font-medium">Unit price</th>
-                <th className="w-24 pb-2 text-right font-medium">Amount</th>
+              <tr style={{ borderBottom: '1px solid #e5e7eb' }}>
+                <th style={{ textAlign: 'left', padding: '0.5rem 0.75rem 0.5rem 0', fontSize: 12, fontWeight: 500, color: '#6b7280' }}>
+                  Description
+                </th>
+                <th style={{ textAlign: 'right', padding: '0.5rem 0.75rem', fontSize: 12, fontWeight: 500, color: '#6b7280', width: 48 }}>
+                  Qty
+                </th>
+                <th style={{ textAlign: 'right', padding: '0.5rem 0.75rem', fontSize: 12, fontWeight: 500, color: '#6b7280', width: 88 }}>
+                  Unit price
+                </th>
+                <th style={{ textAlign: 'right', padding: '0.5rem 0 0.5rem 0.75rem', fontSize: 12, fontWeight: 500, color: '#6b7280', width: 88 }}>
+                  Amount
+                </th>
               </tr>
             </thead>
             <tbody>
               {lineItems.length === 0 ? (
                 <tr>
-                  <td className="py-5 text-gray-400" colSpan={4}>
-                    No line items
+                  <td colSpan={4} style={{ padding: '1.25rem 0', fontSize: 13, color: '#9ca3af', textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>
+                    No line items added yet
                   </td>
                 </tr>
               ) : (
                 lineItems.map((item, index) => (
-                  <tr key={item.id} className="border-b border-gray-100 align-top">
-                    <td className="py-2 pr-3 text-xs leading-relaxed">{item.description || `Line item ${index + 1}`}</td>
-                    <td className="py-2 text-right">
-                      {Number(item.quantity || 0).toFixed(billingIncrementMinutes ? 2 : 1)}
+                  <tr key={item.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
+                    <td style={{ padding: '0.6rem 0.75rem 0.6rem 0', fontSize: 13, color: '#111827', verticalAlign: 'top' }}>
+                      {item.description || `Line item ${index + 1}`}
                     </td>
-                    <td className="py-2 text-right">
+                    <td style={{ padding: '0.6rem 0.75rem', textAlign: 'right', fontSize: 13, color: '#111827', verticalAlign: 'top' }}>
+                      {Number(item.quantity || 0).toFixed(billingIncrementMinutes ? 2 : 0)}
+                    </td>
+                    <td style={{ padding: '0.6rem 0.75rem', textAlign: 'right', fontSize: 13, color: '#111827', verticalAlign: 'top' }}>
                       {formatCurrency(getMajorAmountValue(item.unit_price))}
                     </td>
-                    <td className="py-2 text-right font-medium">
+                    <td style={{ padding: '0.6rem 0 0.6rem 0.75rem', textAlign: 'right', fontSize: 13, color: '#111827', verticalAlign: 'top' }}>
                       {formatCurrency(getMajorAmountValue(item.line_total))}
                     </td>
                   </tr>
                 ))
               )}
             </tbody>
-            <tfoot>
-              <tr className="font-semibold">
-                <td className="pt-3 text-right pr-3" colSpan={3}>
-                  Total
-                </td>
-                <td className="pt-3 text-right">{totalFormatted}</td>
-              </tr>
-            </tfoot>
           </table>
+
+          {/* ── Totals block (right-aligned, Stripe style) ── */}
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <table style={{ borderCollapse: 'collapse', minWidth: 240 }}>
+              <tbody>
+                <tr>
+                  <td style={{ padding: '0.35rem 1.5rem 0.35rem 0', fontSize: 13, color: '#6b7280', borderBottom: '1px solid #e5e7eb' }}>
+                    Subtotal
+                  </td>
+                  <td style={{ padding: '0.35rem 0', textAlign: 'right', fontSize: 13, color: '#111827', borderBottom: '1px solid #e5e7eb' }}>
+                    {totalFormatted}
+                  </td>
+                </tr>
+                <tr>
+                  <td style={{ padding: '0.35rem 1.5rem 0.35rem 0', fontSize: 13, color: '#6b7280', borderBottom: '1px solid #e5e7eb' }}>
+                    Total
+                  </td>
+                  <td style={{ padding: '0.35rem 0', textAlign: 'right', fontSize: 13, color: '#111827', borderBottom: '1px solid #e5e7eb' }}>
+                    {totalFormatted}
+                  </td>
+                </tr>
+                <tr>
+                  <td style={{ padding: '0.5rem 1.5rem 0 0', fontSize: 13, fontWeight: 700, color: '#111827' }}>
+                    Amount due
+                  </td>
+                  <td style={{ padding: '0.5rem 0 0', textAlign: 'right', fontSize: 13, fontWeight: 700, color: '#111827' }}>
+                    {totalFormatted} USD
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
 
-        {/* ── Sticky bottom bar ── */}
-        <div className="absolute bottom-0 left-0 right-0 flex justify-between border-t border-gray-200 bg-white px-6 py-2 text-xs text-gray-400">
-          <div>{invoiceNumber ?? 'DRAFT'}</div>
+        {/* ── Footer ── */}
+        <div
+          style={{
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            borderTop: '1px solid #e5e7eb',
+            padding: '0.6rem 2rem',
+            background: '#ffffff',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.4rem',
+          }}
+        >
+          <span style={{ fontSize: 11, color: '#6b7280' }}>
+            {invoiceNumber ?? 'DRAFT'}
+          </span>
           {dueDateFormatted && (
-            <div>
-              {totalFormatted} due {dueDateFormatted}
-            </div>
+            <>
+              <span style={{ fontSize: 11, color: '#d1d5db' }}>·</span>
+              <span style={{ fontSize: 11, color: '#6b7280' }}>
+                {totalFormatted} USD due {dueDateFormatted}
+              </span>
+            </>
           )}
         </div>
       </div>

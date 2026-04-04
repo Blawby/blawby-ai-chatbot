@@ -13,6 +13,7 @@ type WorkspaceView =
   | 'clients'
   | 'invoices'
   | 'invoiceCreate'
+  | 'invoiceEdit'
   | 'invoiceDetail'
   | 'reports'
   | 'settings';

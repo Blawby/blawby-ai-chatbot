@@ -31,6 +31,7 @@ const PracticeClientsPage = lazy(() => import('@/features/clients/pages/Practice
 const ClientMattersPage = lazy(() => import('@/features/matters/pages/ClientMattersPage').then(m => ({ default: m.ClientMattersPage })));
 const PracticeInvoicesPage = lazy(() => import('@/features/invoices/pages/PracticeInvoicesPage').then(m => ({ default: m.PracticeInvoicesPage })));
 const PracticeInvoiceCreatePage = lazy(() => import('@/features/invoices/pages/PracticeInvoiceCreatePage').then(m => ({ default: m.PracticeInvoiceCreatePage })));
+const PracticeInvoiceEditPage = lazy(() => import('@/features/invoices/pages/PracticeInvoiceEditPage').then(m => ({ default: m.PracticeInvoiceEditPage })));
 const PracticeInvoiceDetailPage = lazy(() => import('@/features/invoices/pages/PracticeInvoiceDetailPage').then(m => ({ default: m.PracticeInvoiceDetailPage })));
 const ClientInvoicesPage = lazy(() => import('@/features/invoices/pages/ClientInvoicesPage').then(m => ({ default: m.ClientInvoicesPage })));
 const ClientInvoiceDetailPage = lazy(() => import('@/features/invoices/pages/ClientInvoiceDetailPage').then(m => ({ default: m.ClientInvoiceDetailPage })));
@@ -63,7 +64,7 @@ import { features } from '@/config/features';
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
-type WorkspaceView = 'home' | 'setup' | 'list' | 'conversation' | 'matters' | 'clients' | 'invoices' | 'invoiceCreate' | 'invoiceDetail' | 'reports' | 'settings';
+type WorkspaceView = 'home' | 'setup' | 'list' | 'conversation' | 'matters' | 'clients' | 'invoices' | 'invoiceCreate' | 'invoiceEdit' | 'invoiceDetail' | 'reports' | 'settings';
 
 /**
  * LayoutMode controls how ChatContainer renders its shell.
@@ -1030,6 +1031,12 @@ export function MainApp({
                   inspectorOpen={detailInspectorOpen}
                   showBack={showPracticeInvoiceDetailBack}
                 />
+              ) : resolvedWorkspaceView === 'invoiceEdit' ? (
+                <PracticeInvoiceEditPage
+                  practiceId={effectivePracticeId ?? practiceId}
+                  practiceSlug={resolvedPracticeSlug ?? null}
+                  invoiceId={routeInvoiceId ?? null}
+                />
               ) : resolvedWorkspaceView === 'invoiceCreate' ? (
                 <PracticeInvoiceCreatePage
                   practiceId={effectivePracticeId ?? practiceId}
@@ -1112,7 +1119,7 @@ export function MainApp({
               onClick: () => navigate(`${practiceMattersPath}/new`),
               icon: PlusIcon,
             }
-          : resolvedWorkspaceView === 'invoiceCreate' && isPracticeWorkspace
+          : (resolvedWorkspaceView === 'invoiceCreate' || resolvedWorkspaceView === 'invoiceEdit') && isPracticeWorkspace
             ? {
                 label: 'Send Invoice',
                 onClick: () => window.dispatchEvent(new CustomEvent(INVOICE_CREATE_SEND_EVENT)),

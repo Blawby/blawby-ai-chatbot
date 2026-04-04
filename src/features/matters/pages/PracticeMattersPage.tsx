@@ -78,7 +78,6 @@ import {
   updateMatterTask,
   updateMatterTimeEntry
 } from '@/features/matters/services/mattersApi';
-import { sendInvoice, syncInvoice, voidInvoice as voidInvoiceRequest } from '@/features/matters/services/invoicesApi';
 import { useBillingData } from '@/features/matters/hooks/useBillingData';
 import type { Invoice, InvoiceLineItem } from '@/features/matters/types/billing.types';
 import { createPendingInvoiceDraftContext } from '@/features/invoices/utils/invoiceDraftContext';
@@ -1563,10 +1562,6 @@ export const PracticeMattersPage = ({
     navigateToInvoiceCreate(prefilledInvoiceLineItems);
   }, [selectedMatterDetail, navigateToInvoiceCreate, prefilledInvoiceLineItems]);
 
-  const handleEditDraftInvoice = useCallback((invoice: Invoice) => {
-    navigate(`${invoicesBasePath}/${encodeURIComponent(invoice.id)}`);
-  }, [invoicesBasePath, navigate]);
-
   const handleCreateMilestoneInvoice = useCallback((milestoneId: string) => {
     if (!selectedMatterDetail) return;
     const milestone = (selectedMatterDetail.milestones ?? []).find((m) => m.id === milestoneId);
@@ -1623,59 +1618,10 @@ export const PracticeMattersPage = ({
     }
   }, [activePracticeId, selectedMatterId, settlementDraft, selectedMatterDetail, navigateToInvoiceCreate, refreshMatters, showError]);
 
-  const handleSendInvoice = useCallback(async (invoice: Invoice) => {
-    if (!activePracticeId) return;
-    try {
-      await sendInvoice(activePracticeId, invoice.id);
-      await refetchBilling();
-    } catch (error) {
-      showError('Could not send invoice', error instanceof Error ? error.message : 'Please try again.');
-    }
-  }, [activePracticeId, refetchBilling, showError]);
-
   const handleViewInvoice = useCallback((invoice: Invoice) => {
-    if (!invoice.stripe_hosted_invoice_url) {
-      showError('No hosted invoice URL', 'This invoice has not been published to Stripe yet.');
-      return;
-    }
-    window.open(invoice.stripe_hosted_invoice_url, '_blank', 'noopener,noreferrer');
-  }, [showError]);
-
-  const handleResendInvoice = useCallback(async (invoice: Invoice) => {
-    if (!activePracticeId) return;
-    try {
-      const synced = await syncInvoice(activePracticeId, invoice.id);
-      const url = synced?.stripe_hosted_invoice_url ?? invoice.stripe_hosted_invoice_url;
-      if (url && typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(url);
-      }
-      await refetchBilling();
-    } catch (error) {
-      showError('Could not resend invoice', error instanceof Error ? error.message : 'Please try again.');
-    }
-  }, [activePracticeId, refetchBilling, showError]);
-
-  const handleSyncInvoice = useCallback(async (invoice: Invoice) => {
-    if (!activePracticeId) return;
-    try {
-      await syncInvoice(activePracticeId, invoice.id);
-      await refetchBilling();
-    } catch (error) {
-      showError('Could not sync invoice', error instanceof Error ? error.message : 'Please try again.');
-    }
-  }, [activePracticeId, refetchBilling, showError]);
-
-  const handleVoidInvoice = useCallback(async (invoice: Invoice) => {
-    if (!activePracticeId) return;
-    const confirmed = window.confirm('Void this invoice? This cannot be undone.');
-    if (!confirmed) return;
-    try {
-      await voidInvoiceRequest(activePracticeId, invoice.id);
-      await refetchBilling();
-    } catch (error) {
-      showError('Could not void invoice', error instanceof Error ? error.message : 'Please try again.');
-    }
-  }, [activePracticeId, refetchBilling, showError]);
+    const basePath = `${invoicesBasePath}/${encodeURIComponent(invoice.id)}`;
+    navigate(invoice.status === 'draft' ? `${basePath}/edit` : basePath);
+  }, [invoicesBasePath, navigate]);
 
   // ── Patch matter — partial update from inline field groups ───────────────
   const handlePatchMatter = useCallback(async (patch: Partial<MatterFormState>) => {
@@ -1831,10 +1777,10 @@ export const PracticeMattersPage = ({
                 <section className="relative overflow-hidden rounded-[28px] bg-gradient-to-b from-accent-500/30 via-surface-overlay/70 to-surface-overlay/85 [--accent-foreground:var(--input-text)]">
                   <div className="absolute inset-0 bg-gradient-to-t from-surface-base/45 via-transparent to-transparent" />
                   <div className="relative px-4 pb-8 pt-8 sm:px-6 sm:pb-12 sm:pt-10">
-                    <div className="flex flex-col items-center gap-5 text-center @xl:flex-row @xl:items-start @xl:text-left @xl:gap-8">
+                    <div className="flex flex-col items-center gap-5 text-center lg:flex-row lg:items-start lg:text-left lg:gap-8">
                       <Avatar
                         size="xl"
-                        className="mx-auto h-28 w-28 @xl:h-36 @xl:w-36 @xl:mx-0"
+                        className="mx-auto h-28 w-28 lg:h-36 lg:w-36 lg:mx-0"
                         src={detailClientOption?.image ?? null}
                         name={detailClientOption?.name ?? 'Unassigned client'}
                       />
@@ -1879,18 +1825,18 @@ export const PracticeMattersPage = ({
                               </div>
                             ) : (
                               <>
-                                <div className="flex flex-col items-center gap-1 @xl:flex-row @xl:items-baseline @xl:justify-between @xl:gap-3">
-                                  <h4 className="break-words text-center text-2xl font-semibold leading-tight text-[rgb(var(--accent-foreground))] @xl:text-left @xl:text-4xl @2xl:text-5xl">
+                                <div className="flex flex-col items-center gap-1 lg:flex-row lg:items-baseline lg:justify-between lg:gap-3">
+                                  <h4 className="break-words text-center text-2xl font-semibold leading-tight text-[rgb(var(--accent-foreground))] lg:text-left lg:text-4xl xl:text-5xl">
                                     {selectedMatterDetail.title?.trim() || 'Untitled matter'}
                                   </h4>
                                   {selectedMatterDetail.caseNumber?.trim() ? (
-                                    <span className="hidden shrink-0 text-sm font-normal text-[rgb(var(--accent-foreground))]/65 @xl:pt-2 @xl:inline">
+                                    <span className="hidden shrink-0 text-sm font-normal text-[rgb(var(--accent-foreground))]/65 lg:pt-2 lg:inline">
                                       #{selectedMatterDetail.caseNumber.trim()}
                                     </span>
                                   ) : null}
                                 </div>
                                 {selectedMatterDetail.caseNumber?.trim() ? (
-                                  <p className="text-xs font-medium uppercase tracking-[0.16em] text-[rgb(var(--accent-foreground))]/65 @xl:hidden">
+                                  <p className="text-xs font-medium uppercase tracking-[0.16em] text-[rgb(var(--accent-foreground))]/65 lg:hidden">
                                     #{selectedMatterDetail.caseNumber.trim()}
                                   </p>
                                 ) : null}
@@ -1901,7 +1847,7 @@ export const PracticeMattersPage = ({
                             )}
                           </div>
                         ) : null}
-                        <nav className="mt-6 flex flex-wrap items-center justify-center gap-2 @xl:gap-3 @xl:justify-start" aria-label="Matter detail tabs">
+                        <nav className="mt-6 flex flex-wrap items-center justify-center gap-2 lg:gap-3 lg:justify-start" aria-label="Matter detail tabs">
                           {DETAIL_TABS.map((tab) => {
                             const isActive = detailSection === tab.id;
                             const TabIcon = tab.icon;
@@ -1931,7 +1877,7 @@ export const PracticeMattersPage = ({
                           })}
                         </nav>
                         {selectedMatterDetail ? (
-                          <div className="mt-6 grid grid-cols-1 gap-4 text-center @xl:grid-cols-3 @xl:text-left">
+                          <div className="mt-6 grid grid-cols-1 gap-4 text-center lg:grid-cols-3 lg:text-left">
                             <div>
                               <p className="text-xs font-medium uppercase tracking-wide text-[rgb(var(--accent-foreground))]/70">Client</p>
                               <p className="mt-1 text-sm break-words text-[rgb(var(--accent-foreground))]">
@@ -1946,7 +1892,7 @@ export const PracticeMattersPage = ({
                                 const attName = assigneeNameById.get(attId);
                                 if (!attName) return <p className="mt-1 text-sm text-[rgb(var(--accent-foreground))]/60">Not set</p>;
                                 return (
-                                  <div className="mt-1 flex items-center justify-center gap-1.5 @xl:justify-start">
+                                  <div className="mt-1 flex items-center justify-center gap-1.5 lg:justify-start">
                                     <Avatar src={member?.image ?? null} name={attName} size="xs" />
                                     <span className="min-w-0 text-sm text-[rgb(var(--accent-foreground))]">{attName}</span>
                                   </div>
@@ -2238,13 +2184,7 @@ export const PracticeMattersPage = ({
                     invoices={invoices}
                     loading={invoicesLoading}
                     error={invoicesError}
-                    onCreateInvoice={handleCreateInvoiceFromSummary}
-                    onSendInvoice={handleSendInvoice}
                     onViewInvoice={handleViewInvoice}
-                    onResendInvoice={handleResendInvoice}
-                    onVoidInvoice={handleVoidInvoice}
-                    onEditDraft={handleEditDraftInvoice}
-                    onSyncInvoice={handleSyncInvoice}
                   />
                 </div>
               </BillingErrorBoundary>

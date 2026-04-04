@@ -92,7 +92,8 @@ export function PracticeInvoicesPage({
       showError('Invoices', 'Practice slug is missing from route context.');
       return;
     }
-    navigate(`/practice/${encodeURIComponent(practiceSlug)}/invoices/${encodeURIComponent(invoice.id)}`);
+    const basePath = `/practice/${encodeURIComponent(practiceSlug)}/invoices/${encodeURIComponent(invoice.id)}`;
+    navigate(invoice.status === 'draft' ? `${basePath}/edit` : basePath);
   }, [navigate, practiceSlug, showError]);
 
   const handleViewCustomer = useCallback((clientId: string) => {

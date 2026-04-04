@@ -38,7 +38,6 @@ interface DataTableProps {
   stickyHeader?: boolean;
   loading?: boolean;
   loadingLabel?: string;
-  renderMobileRow?: (row: DataTableRow) => ComponentChildren;
   density?: 'regular' | 'compact';
 }
 
@@ -97,7 +96,6 @@ export const DataTable = ({
   stickyHeader = false,
   loading = false,
   loadingLabel,
-  renderMobileRow,
   density = 'regular',
 }: DataTableProps) => {
   const primaryColumn = columns.find((column) => column.isPrimary) ?? columns[0];
@@ -131,7 +129,7 @@ export const DataTable = ({
             <dt className="sr-only">{mobileColumn.label}</dt>
             <dd
               className={cn(
-                'mt-1 truncate text-gray-700 dark:text-gray-300',
+                'mt-1 truncate text-input-text',
                 mobileColumn.mobileClassName
               )}
             >
@@ -145,7 +143,7 @@ export const DataTable = ({
 
   const renderDesktopTable = (tableWrapperClassName: string) => (
     <div className={tableWrapperClassName}>
-      <table className={cn('min-w-full divide-y divide-gray-300 dark:divide-white/15', tableClassName)}>
+      <table className={cn('min-w-full', tableClassName)}>
         {caption ? <caption className="sr-only">{caption}</caption> : null}
         <thead>
           <tr className={cn(stickyHeader && 'sticky top-0 z-10 bg-surface-base')}>
@@ -178,10 +176,10 @@ export const DataTable = ({
             })}
           </tr>
         </thead>
-        <tbody className={cn('divide-y divide-line-default bg-surface-base', bodyClassName)}>
+        <tbody className={cn('bg-surface-base', bodyClassName)}>
           {rows.length === 0 ? (
             <tr>
-              <td colSpan={columns.length} className="px-4 py-6 text-sm text-gray-500 dark:text-gray-400">
+              <td colSpan={columns.length} className="px-4 py-6 text-sm text-input-placeholder">
                 {emptyState ?? 'No results'}
               </td>
             </tr>
@@ -207,7 +205,7 @@ export const DataTable = ({
                         density === 'compact' ? 'py-2.5 pr-3 pl-4' : 'py-3 pr-3 pl-4'
                       )
                       : cn(
-                        'text-sm text-gray-500 dark:text-gray-400',
+                        'text-sm text-input-placeholder',
                         density === 'compact' ? 'px-3 py-2.5' : 'px-3 py-3'
                       );
                     const cellContent = row.isPlaceholder ? '\u00A0' : (row.cells[column.id] ?? '—');
@@ -258,19 +256,6 @@ export const DataTable = ({
         </div>
       ) : errorState ? (
         <div>{errorState}</div>
-      ) : renderMobileRow ? (
-        <>
-          <div className="grid gap-3 sm:hidden">
-            {rows.length === 0 ? (
-              <div className="glass-panel p-4 text-sm text-input-placeholder">
-                {emptyState ?? 'No results'}
-              </div>
-            ) : (
-              rows.map((row) => <div key={`${row.id}-mobile`}>{renderMobileRow(row)}</div>)
-            )}
-          </div>
-          {renderDesktopTable('hidden overflow-x-auto sm:block')}
-        </>
       ) : (
         renderDesktopTable('overflow-x-auto')
       )}

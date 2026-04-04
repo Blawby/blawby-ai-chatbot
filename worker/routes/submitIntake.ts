@@ -170,15 +170,9 @@ const readFiniteNumberField = (record: Record<string, unknown> | null | undefine
 const getResolvedAmountMinor = ({
   intakeSettings,
   fallbackConsultationFeeMinor,
-  conversationId,
-  practiceId,
-  slug,
 }: {
   intakeSettings: IntakeSettings | null;
   fallbackConsultationFeeMinor: number | null;
-  conversationId: string;
-  practiceId: string;
-  slug: string;
 }): number => {
   const prefillAmount = typeof intakeSettings?.prefillAmount === 'number' && Number.isFinite(intakeSettings.prefillAmount)
     ? intakeSettings.prefillAmount
@@ -189,26 +183,6 @@ const getResolvedAmountMinor = ({
 
   if (typeof fallbackConsultationFeeMinor === 'number' && fallbackConsultationFeeMinor > 0) {
     return fallbackConsultationFeeMinor;
-  }
-
-  if (intakeSettings?.paymentLinkEnabled === true) {
-    Logger.warn('[submitIntake] Payment link enabled but no non-zero amount was configured; using safe fallback amount=50', {
-      conversationId,
-      practiceId,
-      slug,
-      prefillAmount,
-      fallbackConsultationFeeMinor,
-    });
-    return 50;
-  }
-
-  if (intakeSettings === null) {
-    Logger.warn('[submitIntake] intakeSettings unavailable (fetch failed); using safe fallback amount=50', {
-      conversationId,
-      practiceId,
-      slug,
-    });
-    return 50;
   }
 
   return 0;
@@ -456,24 +430,8 @@ export async function handleSubmitIntake(
     });
   }
 
-  const intakeSettings = await RemoteApiService.getPracticeClientIntakeSettings(env, slug, request).catch((error) => {
-    Logger.warn('[submitIntake] Failed to load intake settings; using fallback amount', {
-      conversationId,
-      practiceId,
-      slug,
-      error: error instanceof Error ? error.message : String(error),
-    });
-    return null;
-  });
-  const practiceDetails = await fetchPracticeDetailsWithCache(env, request, practiceId, slug).catch((error) => {
-    Logger.warn('[submitIntake] Failed to load practice details for consultation fee fallback', {
-      conversationId,
-      practiceId,
-      slug,
-      error: error instanceof Error ? error.message : String(error),
-    });
-    return { details: null, isPublic: false };
-  });
+  const intakeSettings = await RemoteApiService.getPracticeClientIntakeSettings(env, slug, request);
+  const practiceDetails = await fetchPracticeDetailsWithCache(env, request, practiceId, slug);
   const fallbackConsultationFeeMinor = readFiniteNumberField(practiceDetails.details, [
     'paymentLinkPrefillAmount',
     'payment_link_prefill_amount',
@@ -484,21 +442,7 @@ export async function handleSubmitIntake(
   let resolvedAmountMinor = getResolvedAmountMinor({
     intakeSettings,
     fallbackConsultationFeeMinor,
-    conversationId,
-    practiceId,
-    slug,
   });
-  if (settingsPaymentLinkEnabled && resolvedAmountMinor === 0) {
-    Logger.warn('[submitIntake] Payment link enabled but no amount was configured; using safe fallback amount=50', {
-      conversationId,
-      practiceId,
-      slug,
-      intakeSettings,
-      fallbackConsultationFeeMinor,
-      resolvedAmountMinor,
-    });
-    resolvedAmountMinor = 50;
-  }
   const paymentRequiredBeforeSubmit = settingsPaymentLinkEnabled || resolvedAmountMinor > 0;
   const paymentReceived = consultation?.submission?.paymentReceived === true;
   const generatePaymentLinkOnly = new URL(request.url).searchParams.get('generatePaymentLinkOnly') === 'true';
@@ -578,7 +522,7 @@ export async function handleSubmitIntake(
     });
     throw error;
   }
-  const backendPayload = await backendResponse.json().catch(() => null) as BackendIntakeCreateResponse | null;
+  const backendPayload = await backendResponse.json() as BackendIntakeCreateResponse;
 
   if (!backendPayload?.success || !backendPayload.data?.uuid) {
     const errorDetails = backendPayload?.error ?? 'No uuid returned';
@@ -587,9 +531,7 @@ export async function handleSubmitIntake(
       practiceId,
       error: errorDetails,
     });
-    throw HttpErrors.internalServerError(
-      'Failed to create intake — please try again'
-    );
+    throw HttpErrors.internalServerError(`Backend intake creation failed: ${errorDetails}`);
   }
 
   const { uuid: intakeUuid, status, payment_link_url } = backendPayload.data;
