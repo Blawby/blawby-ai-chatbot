@@ -56,6 +56,8 @@ interface ConversationUserInfo {
   [key: string]: unknown;
 }
 
+type IntakeSettings = NonNullable<Awaited<ReturnType<typeof RemoteApiService.getPracticeClientIntakeSettings>>>;
+
 interface BackendIntakeCreatePayload {
   slug: string;
   amount: number;
@@ -163,6 +165,53 @@ const readFiniteNumberField = (record: Record<string, unknown> | null | undefine
     }
   }
   return null;
+};
+
+const getResolvedAmountMinor = ({
+  intakeSettings,
+  fallbackConsultationFeeMinor,
+  conversationId,
+  practiceId,
+  slug,
+}: {
+  intakeSettings: IntakeSettings | null;
+  fallbackConsultationFeeMinor: number | null;
+  conversationId: string;
+  practiceId: string;
+  slug: string;
+}): number => {
+  const prefillAmount = typeof intakeSettings?.prefillAmount === 'number' && Number.isFinite(intakeSettings.prefillAmount)
+    ? intakeSettings.prefillAmount
+    : null;
+  if (prefillAmount !== null && prefillAmount > 0) {
+    return prefillAmount;
+  }
+
+  if (typeof fallbackConsultationFeeMinor === 'number' && fallbackConsultationFeeMinor > 0) {
+    return fallbackConsultationFeeMinor;
+  }
+
+  if (intakeSettings?.paymentLinkEnabled === true) {
+    Logger.warn('[submitIntake] Payment link enabled but no non-zero amount was configured; using safe fallback amount=50', {
+      conversationId,
+      practiceId,
+      slug,
+      prefillAmount,
+      fallbackConsultationFeeMinor,
+    });
+    return 50;
+  }
+
+  if (intakeSettings === null) {
+    Logger.warn('[submitIntake] intakeSettings unavailable (fetch failed); using safe fallback amount=50', {
+      conversationId,
+      practiceId,
+      slug,
+    });
+    return 50;
+  }
+
+  return 0;
 };
 
 const isCaseInfoComplete = (state: IntakeConversationState | null | undefined, draft?: SlimContactDraft | null): boolean => {
@@ -432,21 +481,24 @@ export async function handleSubmitIntake(
     'consultation_fee',
   ]);
   const settingsPaymentLinkEnabled = intakeSettings?.paymentLinkEnabled === true;
-  const resolvedAmountMinor = typeof intakeSettings?.prefillAmount === 'number' && intakeSettings.prefillAmount > 0
-    ? intakeSettings.prefillAmount
-    : typeof fallbackConsultationFeeMinor === 'number' && fallbackConsultationFeeMinor > 0
-      ? fallbackConsultationFeeMinor
-      : (() => {
-          if (intakeSettings === null) {
-            Logger.warn('[submitIntake] intakeSettings unavailable (fetch failed); using safe fallback amount=50', {
-              conversationId,
-              practiceId,
-              slug,
-            });
-            return 50;
-          }
-          return 0;
-        })();
+  let resolvedAmountMinor = getResolvedAmountMinor({
+    intakeSettings,
+    fallbackConsultationFeeMinor,
+    conversationId,
+    practiceId,
+    slug,
+  });
+  if (settingsPaymentLinkEnabled && resolvedAmountMinor === 0) {
+    Logger.warn('[submitIntake] Payment link enabled but no amount was configured; using safe fallback amount=50', {
+      conversationId,
+      practiceId,
+      slug,
+      intakeSettings,
+      fallbackConsultationFeeMinor,
+      resolvedAmountMinor,
+    });
+    resolvedAmountMinor = 50;
+  }
   const paymentRequiredBeforeSubmit = settingsPaymentLinkEnabled || resolvedAmountMinor > 0;
   const paymentReceived = consultation?.submission?.paymentReceived === true;
   const generatePaymentLinkOnly = new URL(request.url).searchParams.get('generatePaymentLinkOnly') === 'true';

@@ -410,7 +410,7 @@ export default defineConfig(({ mode }: ConfigEnv) => {
 					'**/.tmp/**',
 					'**/test-results/**',
 					'**/playwright-report/**',
-					'**/.playwright-artifacts-**',
+					'**/.playwright-artifacts-*/**',
 					'**/trace.zip',
 					'**/*.trace',
 					'**/*.network',
