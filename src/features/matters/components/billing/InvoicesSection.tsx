@@ -9,6 +9,11 @@ type InvoicesSectionProps = {
   loading?: boolean;
   error?: string | null;
   onViewInvoice: (invoice: Invoice) => void;
+  onViewCustomer?: (clientId: string) => void;
+  onSendInvoice?: () => void;
+  onResendInvoice?: () => void;
+  onVoidInvoice?: () => void;
+  onSyncInvoice?: () => void;
 };
 
 const toInvoiceSummary = (invoice: Invoice): InvoiceSummary => ({
@@ -56,6 +61,11 @@ export const InvoicesSection = ({
   loading = false,
   error = null,
   onViewInvoice,
+  onViewCustomer,
+  onSendInvoice,
+  onResendInvoice,
+  onVoidInvoice,
+  onSyncInvoice,
 }: InvoicesSectionProps) => {
   const summaries = useMemo(() => invoices.map(toInvoiceSummary), [invoices]);
   const invoiceById = useMemo(() => new Map(invoices.map((invoice) => [invoice.id, invoice] as const)), [invoices]);
@@ -72,6 +82,11 @@ export const InvoicesSection = ({
           onViewInvoice(sourceInvoice);
         }
       }}
+      onViewCustomer={onViewCustomer}
+      onSendInvoice={onSendInvoice}
+      onResendInvoice={onResendInvoice}
+      onVoidInvoice={onVoidInvoice}
+      onSyncInvoice={onSyncInvoice}
     />
   );
 };

@@ -222,6 +222,8 @@ export const InvoicesTable: FunctionComponent<InvoicesTableProps> = ({
               state={{
                 status: invoice.status,
                 stripeInvoiceNumber: invoice.stripeInvoiceNumber,
+                pendingAction: null,
+                syncDelayElapsed: false,
               }}
               callbacks={{
                 primaryLabel: invoice.status === 'draft' ? 'Edit invoice' : 'View invoice',

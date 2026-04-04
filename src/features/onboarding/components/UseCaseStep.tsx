@@ -207,8 +207,7 @@ const UseCaseStep = ({ data, onComplete, isSubmitting: parentSubmitting = false 
             >
               {isFormSubmitting ? (
                   <div className="flex items-center justify-center space-x-2">
-                    <LoadingSpinner size="md" ariaLabel="Submitting" />
-                    <span className="sr-only">Submitting...</span>
+                    <LoadingSpinner size="md" ariaLabel={t('submitting')} />
                   </div>
                 ) : (
                   t('onboarding.step2.next')

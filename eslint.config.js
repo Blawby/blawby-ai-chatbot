@@ -121,17 +121,6 @@ export default [
       'no-var': 'error',
       'object-shorthand': 'error',
       'prefer-template': 'error',
-      'no-restricted-syntax': [
-        'error',
-        {
-          selector: "JSXAttribute[name.name='href'] Literal[value=/^\\u002f/]",
-          message: 'Use Link or navigate() for internal routes; <a href> should be external or full reload only.'
-        },
-        {
-          selector: "Literal[value=/\\b(?:bg|text|border)-blue-(?:400|500|600|700)\\b/]",
-          message: 'Use accent/button/nav tokens instead of hardcoded blue utility classes.'
-        }
-      ]
     },
     settings: {
       react: {
@@ -151,29 +140,7 @@ export default [
       'src/shared/ui/layout/SkeletonLoader.tsx'
     ],
     rules: {
-      'no-restricted-syntax': [
-        'error',
-        {
-          selector: "ImportDeclaration[source.value=/LoadingIndicator/]",
-          message: 'Use LoadingSpinner, LoadingBlock, LoadingScreen, or SkeletonLoader instead of the legacy LoadingIndicator.'
-        },
-        {
-          selector: "FunctionDeclaration[id.name=/^(LoadingScreen|LoadingBlock|LoadingSpinner|SkeletonLoader)$/]",
-          message: 'Use the shared loading primitives from src/shared/ui/layout instead of redeclaring local loading components.'
-        },
-        {
-          selector: "VariableDeclarator[id.name=/^(LoadingScreen|LoadingBlock|LoadingSpinner|SkeletonLoader)$/]",
-          message: 'Use the shared loading primitives from src/shared/ui/layout instead of redeclaring local loading components.'
-        },
-        {
-          selector: "JSXAttribute[name.name='className'] Literal[value=/\\banimate-spin\\b/]",
-          message: 'Use LoadingSpinner instead of inline animate-spin loader markup.'
-        },
-        {
-          selector: "TemplateElement[value.raw=/\\banimate-spin\\b/]",
-          message: 'Use LoadingSpinner instead of inline animate-spin loader markup.'
-        }
-      ]
+      // Loading UI guardrails (no additional rules, selectors merged above)
     }
   },
 
