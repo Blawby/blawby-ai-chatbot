@@ -1827,13 +1827,14 @@ export const PracticeMattersPage = ({
               inspectorOpen={detailInspectorOpen}
             />
             {detailHeaderMeta ? (
-              <div className="px-4 py-4">
-                <section className="relative overflow-hidden rounded-[28px] bg-gradient-to-b from-accent-500/30 via-surface-glass/70 to-surface-overlay/85 [--accent-foreground:var(--input-text)]">
-                  <div className="absolute inset-0 bg-gradient-to-t from-surface-base/45 via-transparent to-white/10" />
-                  <div className="relative px-6 pb-12 pt-10">
-                    <div className="flex flex-col items-start gap-6 md:flex-row md:items-start md:gap-8">
+          <div className="px-4 py-4 @container">
+                <section className="relative overflow-hidden rounded-[28px] bg-gradient-to-b from-accent-500/30 via-surface-overlay/70 to-surface-overlay/85 [--accent-foreground:var(--input-text)]">
+                  <div className="absolute inset-0 bg-gradient-to-t from-surface-base/45 via-transparent to-transparent" />
+                  <div className="relative px-4 pb-8 pt-8 sm:px-6 sm:pb-12 sm:pt-10">
+                    <div className="flex flex-col items-center gap-5 text-center @xl:flex-row @xl:items-start @xl:text-left @xl:gap-8">
                       <Avatar
                         size="xl"
+                        className="mx-auto h-28 w-28 @xl:h-36 @xl:w-36 @xl:mx-0"
                         src={detailClientOption?.image ?? null}
                         name={detailClientOption?.name ?? 'Unassigned client'}
                       />
@@ -1878,24 +1879,29 @@ export const PracticeMattersPage = ({
                               </div>
                             ) : (
                               <>
-                                <div className="flex items-baseline justify-between gap-3">
-                                  <h4 className="text-4xl font-semibold leading-tight text-[rgb(var(--accent-foreground))] md:text-5xl">
+                                <div className="flex flex-col items-center gap-1 @xl:flex-row @xl:items-baseline @xl:justify-between @xl:gap-3">
+                                  <h4 className="break-words text-center text-2xl font-semibold leading-tight text-[rgb(var(--accent-foreground))] @xl:text-left @xl:text-4xl @2xl:text-5xl">
                                     {selectedMatterDetail.title?.trim() || 'Untitled matter'}
                                   </h4>
                                   {selectedMatterDetail.caseNumber?.trim() ? (
-                                    <span className="shrink-0 text-sm font-normal text-[rgb(var(--accent-foreground))]/65">
+                                    <span className="hidden shrink-0 text-sm font-normal text-[rgb(var(--accent-foreground))]/65 @xl:pt-2 @xl:inline">
                                       #{selectedMatterDetail.caseNumber.trim()}
                                     </span>
                                   ) : null}
                                 </div>
-                                <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-[rgb(var(--accent-foreground))]/85">
+                                {selectedMatterDetail.caseNumber?.trim() ? (
+                                  <p className="text-xs font-medium uppercase tracking-[0.16em] text-[rgb(var(--accent-foreground))]/65 @xl:hidden">
+                                    #{selectedMatterDetail.caseNumber.trim()}
+                                  </p>
+                                ) : null}
+                                <p className="mt-2 break-words whitespace-pre-wrap text-sm leading-relaxed text-[rgb(var(--accent-foreground))]/85">
                                   {selectedMatterDetail.description?.trim() || 'No description yet.'}
                                 </p>
                               </>
                             )}
                           </div>
                         ) : null}
-                        <nav className="mt-6 flex items-center gap-3" aria-label="Matter detail tabs">
+                        <nav className="mt-6 flex flex-wrap items-center justify-center gap-2 @xl:gap-3 @xl:justify-start" aria-label="Matter detail tabs">
                           {DETAIL_TABS.map((tab) => {
                             const isActive = detailSection === tab.id;
                             const TabIcon = tab.icon;
@@ -1912,7 +1918,7 @@ export const PracticeMattersPage = ({
                                 title={tab.label}
                                 role="tab"
                                 className={[
-                                  'flex h-11 w-11 items-center justify-center rounded-full transition-colors duration-150',
+                                  'flex h-10 w-10 items-center justify-center rounded-full transition-colors duration-150 sm:h-11 sm:w-11',
                                   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500',
                                   isActive
                                     ? 'bg-white/20 text-[rgb(var(--accent-foreground))]'
@@ -1925,10 +1931,10 @@ export const PracticeMattersPage = ({
                           })}
                         </nav>
                         {selectedMatterDetail ? (
-                          <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+                          <div className="mt-6 grid grid-cols-1 gap-4 text-center @xl:grid-cols-3 @xl:text-left">
                             <div>
                               <p className="text-xs font-medium uppercase tracking-wide text-[rgb(var(--accent-foreground))]/70">Client</p>
-                              <p className="mt-1 text-sm text-[rgb(var(--accent-foreground))]">
+                              <p className="mt-1 text-sm break-words text-[rgb(var(--accent-foreground))]">
                                 {detailClientOption?.name ?? 'Unassigned client'}
                               </p>
                             </div>
@@ -1940,9 +1946,9 @@ export const PracticeMattersPage = ({
                                 const attName = assigneeNameById.get(attId);
                                 if (!attName) return <p className="mt-1 text-sm text-[rgb(var(--accent-foreground))]/60">Not set</p>;
                                 return (
-                                  <div className="mt-1 flex items-center gap-1.5">
+                                  <div className="mt-1 flex items-center justify-center gap-1.5 @xl:justify-start">
                                     <Avatar src={member?.image ?? null} name={attName} size="xs" />
-                                    <span className="text-sm text-[rgb(var(--accent-foreground))]">{attName}</span>
+                                    <span className="min-w-0 text-sm text-[rgb(var(--accent-foreground))]">{attName}</span>
                                   </div>
                                 );
                               })()}
