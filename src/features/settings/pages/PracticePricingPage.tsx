@@ -110,8 +110,7 @@ export const PracticePricingPage = ({ className }: PracticePricingPageProps) => 
     try {
       await updatePracticeDetails(currentPractice.id, {
         consultationFee: nextVal as MajorAmount | null,
-        paymentLinkEnabled: feeEnabledDraft,
-        paymentLinkPrefillAmount: nextVal as MajorAmount | null
+        paymentLinkEnabled: feeEnabledDraft
       });
       showSuccess(
         feeEnabledDraft ? 'Consultation fee enabled' : 'Consultation fee disabled',
@@ -187,8 +186,7 @@ export const PracticePricingPage = ({ className }: PracticePricingPageProps) => 
     try {
       await updatePracticeDetails(currentPractice.id, {
         consultationFee: null,
-        paymentLinkEnabled: false,
-        paymentLinkPrefillAmount: null
+        paymentLinkEnabled: false
       });
       showSuccess('Consultation fee disabled', 'New intakes will no longer require payment.');
       setFeeEnabledOverride(null);

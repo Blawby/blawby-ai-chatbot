@@ -87,10 +87,10 @@ test.describe('Public widget intake flow', () => {
         success?: boolean;
         data?: {
           settings?: {
-            prefillAmount?: number;
-            prefill_amount?: number;
             paymentLinkEnabled?: boolean;
             payment_link_enabled?: boolean;
+            consultationFee?: number;
+            consultation_fee?: number;
           };
         };
       } | null;
@@ -142,10 +142,10 @@ test.describe('Public widget intake flow', () => {
                 success?: boolean;
                 data?: {
                   settings?: {
-                    prefillAmount?: number;
-                    prefill_amount?: number;
                     paymentLinkEnabled?: boolean;
                     payment_link_enabled?: boolean;
+                    consultationFee?: number;
+                    consultation_fee?: number;
                   };
                 };
               } | null,
@@ -502,7 +502,7 @@ test.describe('Public widget intake flow', () => {
 
     const answered = new Set<string>();
     const defaultSituation =
-      'I am going through a divorce and my wife is asking for most of our money and assets. I need help protecting my finances and getting a fair outcome.';
+      'I am going through a divorce. My wife Ashley Luke is asking for most of our money and assets. I need help protecting my finances and getting a fair outcome.';
     const defaultOpposingParty = 'my spouse, Ashley Luke';
     const defaultDesiredOutcome = 'I want a fair division of assets and a custody agreement.';
 
@@ -545,9 +545,9 @@ test.describe('Public widget intake flow', () => {
         answered.add('documents');
         return 'Yes, I have documents';
       }
-      if (/anything else|other details|add anything/.test(prompt)) {
+      if (/anything else|more to share|other details|add anything|anything you'd like to share/.test(prompt)) {
         answered.add('other-details');
-        return 'No, that covers the main issue right now.';
+        return 'The opposing party is my wife, Ashley Luke.';
       }
       if (!answered.has('situation')) {
         answered.add('situation');
@@ -728,10 +728,10 @@ test.describe('Public widget intake flow', () => {
 
     const latestSettingsPayload = intakeSettingsPayloads[intakeSettingsPayloads.length - 1] ?? null;
     const latestSettingsRecord = latestSettingsPayload?.payload?.data?.settings;
-    const resolvedPrefillAmount = typeof latestSettingsRecord?.prefillAmount === 'number'
-      ? latestSettingsRecord.prefillAmount
-      : typeof latestSettingsRecord?.prefill_amount === 'number'
-        ? latestSettingsRecord.prefill_amount
+    const resolvedConsultationFee = typeof latestSettingsRecord?.consultationFee === 'number'
+      ? latestSettingsRecord.consultationFee
+      : typeof latestSettingsRecord?.consultation_fee === 'number'
+        ? latestSettingsRecord.consultation_fee
         : null;
     const resolvedPaymentLinkEnabled = typeof latestSettingsRecord?.paymentLinkEnabled === 'boolean'
       ? latestSettingsRecord.paymentLinkEnabled
@@ -752,7 +752,7 @@ test.describe('Public widget intake flow', () => {
       `Expected payment link to be enabled for widget intake.\nObserved settings: ${JSON.stringify(latestSettingsPayload, null, 2)}`
     ).toBe(true);
     expect(
-      resolvedPrefillAmount,
+      resolvedConsultationFee,
       `Expected consultation fee amount ${EXPECTED_CONSULTATION_FEE_MINOR} minor units (${EXPECTED_CONSULTATION_FEE_LABEL}).\nObserved settings: ${JSON.stringify(latestSettingsPayload, null, 2)}`
     ).toBe(EXPECTED_CONSULTATION_FEE_MINOR);
 

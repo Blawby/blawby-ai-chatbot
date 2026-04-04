@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef } from 'preact/hooks';
 import axios from 'axios';
 import { postSystemMessage } from '@/shared/lib/conversationApi';
-import { fetchIntakePaymentStatus, isPaidIntakeStatus, isTerminalUnpaidStatus } from '@/shared/utils/intakePayments';
+import {
+  fetchIntakeCheckoutSession,
+  fetchPostPayIntakeStatus,
+} from '@/shared/utils/intakePayments';
 import type { IntakePaymentRequest } from '@/shared/utils/intakePayments';
 import type { ContactData } from '@/features/intake/components/ContactForm';
 import type { ConversationMetadata, ConversationMessage } from '@/shared/types/conversation';
@@ -27,7 +30,9 @@ import {
   resolveConsultationState,
 } from '@/shared/utils/consultationState';
 import { quickActionDebugLog } from '@/shared/utils/quickActionDebug';
-import { getPracticeClientIntakeSettingsEndpoint } from '@/config/api';
+import {
+  getPracticeClientIntakeSettingsEndpoint,
+} from '@/config/api';
 
 /** Minimal sanitizer for user-provided name in greeting — no XSS risk in system messages but keeps intent clear */
 const sanitizeName = (name: string): string =>
@@ -524,7 +529,7 @@ export function useIntakeFlow({
       // Fetch intake settings to determine whether a consultation fee is required
       // BEFORE creating the intake record. The API call (finalizeRef.current) must
       // only happen after payment is confirmed.
-      let prefillAmount = 0;
+      let consultationFee = 0;
       try {
         const settingsUrl = getPracticeClientIntakeSettingsEndpoint(effectivePracticeSlug);
         const settingsRes = await fetch(settingsUrl, {
@@ -535,23 +540,23 @@ export function useIntakeFlow({
           const settingsPayload = await settingsRes.json() as {
             success?: boolean;
             data?: {
-              settings?: { prefillAmount?: number; prefill_amount?: number };
+              settings?: { consultationFee?: number; consultation_fee?: number };
             };
           };
           const settings = settingsPayload.data?.settings;
-          prefillAmount =
-            (typeof settings?.prefillAmount === 'number' ? settings.prefillAmount : 0) ||
-            (typeof settings?.prefill_amount === 'number' ? settings.prefill_amount : 0);
+          consultationFee =
+            (typeof settings?.consultationFee === 'number' ? settings.consultationFee : 0) ||
+            (typeof settings?.consultation_fee === 'number' ? settings.consultation_fee : 0);
         }
       } catch (settingsError) {
         // Fail open: if we can't fetch settings, proceed without payment gate.
         // This prevents a settings API outage from blocking intake submissions entirely.
         console.warn('[handleConfirmSubmit] Failed to fetch intake settings, proceeding without payment gate', settingsError);
-        prefillAmount = 0;
+        consultationFee = 0;
       }
 
-      const paymentRequired = prefillAmount > 0;
-      quickActionDebugLog('payment gate evaluated', { prefillAmount, paymentRequired, effectivePracticeSlug });
+      const paymentRequired = consultationFee > 0;
+      quickActionDebugLog('payment gate evaluated', { consultationFee, paymentRequired, effectivePracticeSlug });
 
       if (paymentRequired) {
         // ── Conversational payment flow ──────────────────────────────────────
@@ -567,9 +572,35 @@ export function useIntakeFlow({
         const latestConsultation = resolveConsultationState(conversationMetadataRef.current);
         const intakeUuid = latestConsultation?.submission?.intakeUuid ?? null;
 
-        if (intakeUuid && paymentLinkUrl && conversationId && practiceId) {
-          const formattedAmount = prefillAmount > 0
-            ? new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' }).format(prefillAmount / 100)
+        let checkoutSessionUrl: string | null = null;
+        let checkoutSessionId: string | null = null;
+        if (intakeUuid) {
+          const checkoutSession = await fetchIntakeCheckoutSession(intakeUuid);
+          checkoutSessionUrl = checkoutSession.url;
+          checkoutSessionId = checkoutSession.sessionId;
+        }
+
+        const paymentUrl = checkoutSessionUrl ?? paymentLinkUrl;
+
+        if (checkoutSessionId) {
+          try {
+            await updateConversationMetadata(
+              applyConsultationPatchToMetadata(
+                conversationMetadataRef.current,
+                {
+                  submission: { checkoutSessionId },
+                },
+                { mirrorLegacyFields: true }
+              )
+            );
+          } catch (metadataError) {
+            console.warn('[handleConfirmSubmit] Failed to persist checkout session id', metadataError);
+          }
+        }
+
+        if (intakeUuid && paymentUrl && conversationId && practiceId) {
+          const formattedAmount = consultationFee > 0
+            ? new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' }).format(consultationFee / 100)
             : null;
           const practiceName =
             (conversationMetadataRef.current as Record<string, unknown> | null)?.practiceName as string | undefined
@@ -585,7 +616,8 @@ export function useIntakeFlow({
               metadata: {
                 intakeUuid,
                 paymentRequired: true,
-                quickReplies: [`__pay__:${paymentLinkUrl}`],
+                checkoutSessionId,
+                quickReplies: [`__pay__:${paymentUrl}`],
               },
             });
             if (paymentMsg) applyServerMessages([paymentMsg]);
@@ -598,109 +630,92 @@ export function useIntakeFlow({
           // overlap with the next scheduled check. An inFlight bool adds a
           // second layer of protection. On timeout we surface an error so the
           // user knows to refresh rather than waiting indefinitely.
-          if (paymentPollingTimerRef.current !== null) {
-            clearTimeout(paymentPollingTimerRef.current);
-            paymentPollingTimerRef.current = null;
-          }
           if (!enabled) {
             return;
           }
-          paymentPollingCancelledRef.current = false;
-          const POLL_INTERVAL_MS = 5_000;
-          const POLL_TIMEOUT_MS = 10 * 60 * 1_000;
-          const pollStart = Date.now();
-          let inFlight = false;
+          if (checkoutSessionId) {
+            if (paymentPollingTimerRef.current !== null) {
+              clearTimeout(paymentPollingTimerRef.current);
+              paymentPollingTimerRef.current = null;
+            }
+            paymentPollingCancelledRef.current = false;
+            const POLL_INTERVAL_MS = 5_000;
+            const POLL_TIMEOUT_MS = 10 * 60 * 1_000;
+            const pollStart = Date.now();
+            let inFlight = false;
 
-          // Dedicated confirmation: only posts the success message and bypasses
-          // the intakeUuid existence guard inside handleFinalizeSubmit, which
-          // would otherwise cause the callback to return early with no message.
-          const capturedConversationId = conversationId;
-          const capturedPracticeId = practiceId;
-          const postPaymentConfirmedMessage = async () => {
-            if (paymentPollingCancelledRef.current) return;
-            const name =
-              (conversationMetadataRef.current as Record<string, unknown> | null)?.practiceName as string | undefined
-              ?? 'the practice';
-            const messageId = `system-intake-paid-${intakeUuid}`;
-            try {
-              const msg = await postSystemMessage(capturedConversationId, capturedPracticeId, {
-                clientId: messageId,
-                content: `Payment received. ${name} will review your intake and follow up with you here shortly.`,
-                metadata: { intakeUuid, intakeSubmitted: true, paymentStatus: 'succeeded' },
-              });
-              if (msg) applyServerMessages([msg]);
-            } catch (msgError) {
-              console.warn('[handleConfirmSubmit] Failed to post payment confirmation message', msgError);
-            }
-          };
+            // Dedicated confirmation: only posts the success message and bypasses
+            // the intakeUuid existence guard inside handleFinalizeSubmit, which
+            // would otherwise cause the callback to return early with no message.
+            const capturedConversationId = conversationId;
+            const capturedPracticeId = practiceId;
+            const postPaymentConfirmedMessage = async () => {
+              if (paymentPollingCancelledRef.current) return;
+              const name =
+                (conversationMetadataRef.current as Record<string, unknown> | null)?.practiceName as string | undefined
+                ?? 'the practice';
+              const messageId = `system-intake-paid-${intakeUuid}`;
+              try {
+                const msg = await postSystemMessage(capturedConversationId, capturedPracticeId, {
+                  clientId: messageId,
+                  content: `Payment received. ${name} will review your intake and follow up with you here shortly.`,
+                  metadata: { intakeUuid, intakeSubmitted: true, paymentStatus: 'succeeded' },
+                });
+                if (msg) applyServerMessages([msg]);
+              } catch (msgError) {
+                console.warn('[handleConfirmSubmit] Failed to post payment confirmation message', msgError);
+              }
+            };
 
-          const pollOnce = () => {
-            if (paymentPollingCancelledRef.current) {
-              if (paymentPollingTimerRef.current !== null) {
-                clearTimeout(paymentPollingTimerRef.current);
-                paymentPollingTimerRef.current = null;
-              }
-              return;
-            }
-            if (Date.now() - pollStart > POLL_TIMEOUT_MS) {
-              if (paymentPollingTimerRef.current !== null) {
-                clearTimeout(paymentPollingTimerRef.current);
-                paymentPollingTimerRef.current = null;
-              }
-              if (paymentPollingCancelledRef.current) return;
-              onError?.('Payment not confirmed after 10 minutes. Please refresh the page to check your status.');
-              return;
-            }
-            if (inFlight) {
-              // Previous fetch still running — skip this tick and reschedule.
-              if (paymentPollingCancelledRef.current) return;
-              paymentPollingTimerRef.current = setTimeout(pollOnce, POLL_INTERVAL_MS) as unknown as ReturnType<typeof setTimeout>;
-              return;
-            }
-            inFlight = true;
-            fetchIntakePaymentStatus(intakeUuid)
-              .then(async (status) => {
-                if (paymentPollingCancelledRef.current) return;
-                if (isPaidIntakeStatus(status)) {
-                  if (paymentPollingTimerRef.current !== null) {
-                    clearTimeout(paymentPollingTimerRef.current);
-                    paymentPollingTimerRef.current = null;
-                  }
-                  if (paymentPollingCancelledRef.current) return;
-                  await postPaymentConfirmedMessage();
-                } else if (isTerminalUnpaidStatus(status)) {
-                  if (paymentPollingTimerRef.current !== null) {
-                    clearTimeout(paymentPollingTimerRef.current);
-                    paymentPollingTimerRef.current = null;
-                  }
-                  if (paymentPollingCancelledRef.current) return;
-                  const name =
-                    (conversationMetadataRef.current as Record<string, unknown> | null)?.practiceName as string | undefined
-                    ?? 'the practice';
-                  try {
-                    const msg = await postSystemMessage(capturedConversationId, capturedPracticeId, {
-                      clientId: `system-intake-pay-failed-${intakeUuid}`,
-                      content: `Payment failed or was canceled. Please try again when you're ready, or reach out to ${name} directly.`,
-                      metadata: { intakeUuid, paymentStatus: status },
-                    });
-                    if (msg) applyServerMessages([msg]);
-                  } catch (msgError) {
-                    console.warn('[handleConfirmSubmit] Failed to post payment failed message', msgError);
-                  }
-                } else {
-                  if (paymentPollingCancelledRef.current) return;
-                  paymentPollingTimerRef.current = setTimeout(pollOnce, POLL_INTERVAL_MS) as unknown as ReturnType<typeof setTimeout>;
+            const pollOnce = () => {
+              if (paymentPollingCancelledRef.current) {
+                if (paymentPollingTimerRef.current !== null) {
+                  clearTimeout(paymentPollingTimerRef.current);
+                  paymentPollingTimerRef.current = null;
                 }
-              })
-              .catch((pollErr) => {
-                console.warn('[handleConfirmSubmit] Payment status poll failed', pollErr);
+                return;
+              }
+              if (Date.now() - pollStart > POLL_TIMEOUT_MS) {
+                if (paymentPollingTimerRef.current !== null) {
+                  clearTimeout(paymentPollingTimerRef.current);
+                  paymentPollingTimerRef.current = null;
+                }
+                if (paymentPollingCancelledRef.current) return;
+                onError?.('Payment not confirmed after 10 minutes. Please refresh the page to check your status.');
+                return;
+              }
+              if (inFlight) {
+                // Previous fetch still running — skip this tick and reschedule.
                 if (paymentPollingCancelledRef.current) return;
                 paymentPollingTimerRef.current = setTimeout(pollOnce, POLL_INTERVAL_MS) as unknown as ReturnType<typeof setTimeout>;
-              })
-              .finally(() => { inFlight = false; });
-          };
+                return;
+              }
+              inFlight = true;
+              fetchPostPayIntakeStatus(checkoutSessionId)
+                .then(async (confirmedIntakeUuid) => {
+                  if (paymentPollingCancelledRef.current) return;
+                  if (confirmedIntakeUuid) {
+                    if (paymentPollingTimerRef.current !== null) {
+                      clearTimeout(paymentPollingTimerRef.current);
+                      paymentPollingTimerRef.current = null;
+                    }
+                    if (paymentPollingCancelledRef.current) return;
+                    await postPaymentConfirmedMessage();
+                  } else {
+                    if (paymentPollingCancelledRef.current) return;
+                    paymentPollingTimerRef.current = setTimeout(pollOnce, POLL_INTERVAL_MS) as unknown as ReturnType<typeof setTimeout>;
+                  }
+                })
+                .catch((pollErr) => {
+                  console.warn('[handleConfirmSubmit] Payment status poll failed', pollErr);
+                  if (paymentPollingCancelledRef.current) return;
+                  paymentPollingTimerRef.current = setTimeout(pollOnce, POLL_INTERVAL_MS) as unknown as ReturnType<typeof setTimeout>;
+                })
+                .finally(() => { inFlight = false; });
+            };
 
-          paymentPollingTimerRef.current = setTimeout(pollOnce, POLL_INTERVAL_MS) as unknown as ReturnType<typeof setTimeout>;
+            paymentPollingTimerRef.current = setTimeout(pollOnce, POLL_INTERVAL_MS) as unknown as ReturnType<typeof setTimeout>;
+          }
         }
 
         return;

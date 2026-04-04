@@ -79,14 +79,6 @@ const readFiniteNumberField = (record: Record<string, unknown> | null, keys: str
 
 const resolvePracticeRequiresPaymentBeforeSubmission = (details: Record<string, unknown> | null): boolean => {
   if (!details) return false;
-  const prefillAmount = readFiniteNumberField(details, [
-    'paymentLinkPrefillAmount',
-    'payment_link_prefill_amount',
-    'prefillAmount',
-    'prefill_amount',
-  ]);
-  if (prefillAmount !== null && prefillAmount > 0) return true;
-
   const consultationFee = readFiniteNumberField(details, [
     'consultationFee',
     'consultation_fee',

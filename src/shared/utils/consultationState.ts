@@ -183,6 +183,7 @@ const normalizeConsultationSubmission = (value: unknown): ConsultationState['sub
     submittedAt: trimString(record.submittedAt) || null,
     paymentRequired: normalizeBooleanOrNull(record.paymentRequired),
     paymentReceived: normalizeBooleanOrNull(record.paymentReceived),
+    checkoutSessionId: trimString(record.checkoutSessionId) || null,
   };
 };
 
@@ -331,6 +332,10 @@ export const mergeConsultationState = (
         patch.submission.paymentReceived === undefined
           ? base.submission.paymentReceived
           : normalizeBooleanOrNull(patch.submission.paymentReceived),
+      checkoutSessionId:
+        patch.submission.checkoutSessionId === undefined
+          ? base.submission.checkoutSessionId ?? null
+          : trimString(patch.submission.checkoutSessionId) || null,
     };
   })();
 

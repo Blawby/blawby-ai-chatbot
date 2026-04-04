@@ -1,41 +1,16 @@
 import type { FunctionComponent } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { useLocation } from 'preact-iso';
-import { apiClient } from '@/shared/lib/apiClient';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { useNavigation } from '@/shared/utils/navigation';
 import { Button } from '@/shared/ui/Button';
 import { getSession } from '@/shared/lib/authClient';
 import { claimIntakePayment } from '@/features/intake/api/intakesApi';
+import { fetchPostPayIntakeStatus } from '@/shared/utils/intakePayments';
 
 const resolveQueryValue = (value?: string | string[]) => {
   if (!value) return undefined;
   return Array.isArray(value) ? value[0] : value;
-};
-
-const fetchPostPayStatus = async (sessionId: string): Promise<string | null> => {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 10000);
-  try {
-    const params = new URLSearchParams({ session_id: sessionId });
-    const response = await apiClient.get(
-      `/api/practice-client-intakes/post-pay/status?${params.toString()}`,
-      { signal: controller.signal }
-    );
-    const payload = response.data as {
-      success?: boolean;
-      data?: { paid?: boolean; intake_uuid?: string };
-    } | null;
-    if (!payload?.success || !payload.data?.paid) {
-      return null;
-    }
-    return typeof payload.data.intake_uuid === 'string' ? payload.data.intake_uuid : null;
-  } catch (error) {
-    console.error('[PaySuccessPage] Failed to fetch post-pay status:', error);
-    throw error;
-  } finally {
-    clearTimeout(timeoutId);
-  }
 };
 
 export const PaySuccessPage: FunctionComponent = () => {
@@ -72,7 +47,7 @@ export const PaySuccessPage: FunctionComponent = () => {
       if (!resolvedUuid && sessionId) {
         setMessage('Confirming payment…');
         try {
-          resolvedUuid = await fetchPostPayStatus(sessionId);
+          resolvedUuid = await fetchPostPayIntakeStatus(sessionId);
         } catch (error) {
           setMessage("We couldn't verify your payment; please check your account or contact support.");
           console.error('[PaySuccessPage] Error confirming payment:', error);
@@ -82,6 +57,15 @@ export const PaySuccessPage: FunctionComponent = () => {
       }
 
       if (resolvedUuid) {
+        if (typeof window !== 'undefined') {
+          window.sessionStorage.setItem(
+            `intakePaymentSuccess:${resolvedUuid}`,
+            JSON.stringify({
+              practiceName: 'the practice',
+              sessionId,
+            })
+          );
+        }
         if (isAnonymous) {
           setMessage('Payment confirmed. Please sign in to continue.');
           return;

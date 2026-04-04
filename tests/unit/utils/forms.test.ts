@@ -39,7 +39,7 @@ describe('submitContactForm', () => {
             success: true,
             data: {
               organization: { name: 'Acme Law', logo: 'logo.png' },
-              settings: { paymentLinkEnabled: true, prefillAmount: 75.6 }
+              settings: { paymentLinkEnabled: true, consultationFee: 75.6 }
             }
           })
         });
@@ -104,7 +104,7 @@ describe('submitContactForm', () => {
             success: true,
             data: {
               organization: { name: 'Acme Law', logo: 'logo.png' },
-              settings: { paymentLinkEnabled: false, prefillAmount: 50 }
+              settings: { paymentLinkEnabled: false, consultationFee: 50 }
             }
           })
         });
