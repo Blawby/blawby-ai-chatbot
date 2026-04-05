@@ -594,7 +594,14 @@ export function useIntakeFlow({
 
         if (intakeUuid && paymentUrl && conversationId && practiceId) {
           if (typeof window !== 'undefined') {
-            window.open(paymentUrl, '_blank', 'noopener,noreferrer');
+            const popup = window.open(paymentUrl, '_blank', 'noopener,noreferrer');
+            
+            if (!popup) {
+              // Popup was blocked, fallback to current tab
+              console.warn('[handleConfirmSubmit] Popup blocked, opening in current tab');
+              window.location.assign(paymentUrl);
+              return;
+            }
           }
 
           // ── Payment confirmation polling ──────────────────────────────────

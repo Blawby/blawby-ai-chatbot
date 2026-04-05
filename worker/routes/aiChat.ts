@@ -777,19 +777,23 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       let accumulatedIntakePatch: Record<string, unknown> = {};
 
       for (const toolCall of streamResult.toolCalls) {
-        // Log raw tool call details
-        Logger.info('ai.tool.raw', {
-          requestId,
-          conversationId: body.conversationId,
-          toolName: toolCall.name,
-          toolArgs: toolCall.arguments,
-        });
+        // Log raw tool call details - removed PII
+        if (debugEnabled) {
+          Logger.info('ai.tool.raw', {
+            requestId,
+            conversationId: body.conversationId,
+            toolName: toolCall.name,
+            argLength: toolCall.arguments.length,
+          });
+        }
         
-        sendSseDebug('debug_tool_call', {
-          requestId,
-          toolName: toolCall.name,
-          args: toolCall.arguments,
-        });
+        if (debugEnabled) {
+          sendSseDebug('debug_tool_call', {
+            requestId,
+            toolName: toolCall.name,
+            argLength: toolCall.arguments.length,
+          });
+        }
         
         if (isIntakeMode && (
           toolCall.name === 'save_case_details' ||
@@ -908,15 +912,27 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       }
       
       // Log normalization and final turn debug info
-      Logger.warn(wasToolOnly ? 'ai.turn.normalized' : 'ai.turn.normal', {
-        requestId,
-        conversationId: body.conversationId,
-        originalTextLength: accumulatedReply.length,
-        originalToolCalls: streamResult.toolCalls.length,
-        normalizedReply: syntheticReply || accumulatedReply,
-        normalizationReasons,
-        wasToolOnly,
-      });
+      if (wasToolOnly) {
+        Logger.warn('ai.turn.normalized', {
+          requestId,
+          conversationId: body.conversationId,
+          originalTextLength: accumulatedReply.length,
+          originalToolCalls: streamResult.toolCalls.length,
+          normalizedReply: syntheticReply || accumulatedReply,
+          normalizationReasons,
+          wasToolOnly,
+        });
+      } else {
+        Logger.info('ai.turn.normal', {
+          requestId,
+          conversationId: body.conversationId,
+          originalTextLength: accumulatedReply.length,
+          originalToolCalls: streamResult.toolCalls.length,
+          normalizedReply: syntheticReply || accumulatedReply,
+          normalizationReasons,
+          wasToolOnly,
+        });
+      }
       
       sendSseDebug('debug_normalization', {
         requestId,
@@ -925,32 +941,28 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         wasToolOnly,
       });
       
-      // Comprehensive turn debug log
-      Logger.info('ai.turn.debug', {
-        requestId,
-        conversationId: body.conversationId,
-        input: {
-          systemPrompt,
-          messages: requestPayload.messages,
-          tools: requestPayload.tools,
-          intakeState: storedIntakeState,
-        },
-        providerOutput: {
-          text: streamResult.reply,
-          toolCalls: streamResult.toolCalls,
-          emittedToken: streamResult.emittedToken,
-          rawFinishReason: streamResult.diagnostics.finishReasons[streamResult.diagnostics.finishReasons.length - 1] || null,
-        },
-        normalization: {
-          wasToolOnly,
-          reasons: normalizationReasons,
-          syntheticReply,
-        },
-        persisted: {
-          assistantMessage: syntheticReply || accumulatedReply,
-          actionMessage: actions,
-        },
-      });
+      // Comprehensive turn debug log - removed PII
+      if (debugEnabled) {
+        Logger.info('ai.turn.debug', {
+          requestId,
+          conversationId: body.conversationId,
+          providerOutput: {
+            textLength: streamResult.reply.length,
+            toolCallCount: streamResult.toolCalls.length,
+            emittedToken: streamResult.emittedToken,
+            rawFinishReason: streamResult.diagnostics.finishReasons[streamResult.diagnostics.finishReasons.length - 1] || null,
+          },
+          normalization: {
+            wasToolOnly,
+            reasons: normalizationReasons,
+            hasSyntheticReply: Boolean(syntheticReply),
+          },
+          persisted: {
+            replyLength: (syntheticReply || accumulatedReply).length,
+            actionCount: actions?.length ?? 0,
+          },
+        });
+      }
 
       // Emit done before persisting — client acts on fields immediately
       const finalReply = syntheticReply || accumulatedReply;
@@ -961,10 +973,9 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         onboardingFields: onboardingFields ?? null,
         onboardingProfile: onboardingProfile ?? null,
         actions: actions ?? null,
-        triggerEditModal: triggerEditModal ?? null,
-        triggerPayment: lastToolResult?.triggerPayment ?? false,
-        triggerSubmit: lastToolResult?.triggerSubmit ?? false,
+        wasToolOnly,
       });
+
       close();
       responseClosed = true;
 
@@ -1007,16 +1018,6 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
             content: finalReply,
             actions: actions || null,
             wasToolOnly,
-          });
-          
-          sendSseDebug('debug_persisted', {
-            requestId,
-            assistantMessage: {
-              id: storedMessage.id,
-              content: finalReply,
-              wasToolOnly,
-            },
-            actionMessage: actions,
           });
 
           if (debugEnabled) {

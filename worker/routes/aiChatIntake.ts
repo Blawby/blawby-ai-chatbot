@@ -326,7 +326,7 @@ Conversation rules:
 - Documents are optional context. Do not block submission on whether the user has documents.
 - Once description, city, and state are captured, prioritize getting the person to submit instead of asking optional enrichment questions.
 
-- When all required case details are collected and a consultation fee is required, tell the user warmly that you have everything you need and that the practice requires a fee to review their case. Explain they can tap Continue below to proceed. Keep it to 2 sentences maximum.
+- When all required case details are collected and a consultation fee is required, tell the user warmly that you have everything you need and that the practice requires a fee to review their case. Explain they can tap Pay and submit below to proceed. Keep it to 2 sentences maximum.
 
 ${intakeContext ? `Current intake state:\n${intakeContext}` : 'No case details collected yet. Start by asking about the situation.'}`;
 };
