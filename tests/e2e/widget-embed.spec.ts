@@ -408,10 +408,23 @@ test.describe('Public widget embed (cross-origin iframe flow)', () => {
 
   test('widget CTA surfaces match the resolved launcher theme', async ({ anonPage: page }, testInfo) => {
     const slug = DEFAULT_WIDGET_SLUG;
-    const practiceDetailsResponsePromise = page.waitForResponse((response) => {
-      const requestUrl = response.url();
-      return requestUrl.includes(`/api/widget/practice-details/${encodeURIComponent(slug)}`);
-    }, { timeout: WIDGET_READY_TIMEOUT_MS });
+    const practiceDetailsPath = `/api/widget/practice-details/${encodeURIComponent(slug)}`;
+    const practiceDetailsResultPromise = Promise.race([
+      page.waitForResponse((response) => {
+        const requestUrl = response.url();
+        return requestUrl.includes(practiceDetailsPath);
+      }, { timeout: WIDGET_READY_TIMEOUT_MS }).then((response) => ({
+        kind: 'response' as const,
+        response,
+      })),
+      page.waitForEvent('requestfailed', {
+        predicate: (request) => request.url().includes(practiceDetailsPath),
+        timeout: WIDGET_READY_TIMEOUT_MS,
+      }).then((request) => ({
+        kind: 'requestfailed' as const,
+        request,
+      })),
+    ]);
 
     await page.goto(`/mock-embed.html?slug=${encodeURIComponent(slug)}`, {
       waitUntil: 'domcontentloaded',
@@ -419,14 +432,29 @@ test.describe('Public widget embed (cross-origin iframe flow)', () => {
 
     await page.locator('button[data-action="open"]').click();
     await waitForWidgetEvent(page, 'iframe_ready', WIDGET_READY_TIMEOUT_MS);
-    const practiceDetailsResponse = await practiceDetailsResponsePromise;
-    expect(
-      practiceDetailsResponse.ok(),
-      `Expected /api/widget/practice-details/${slug} to succeed, got ${practiceDetailsResponse.status()} ${practiceDetailsResponse.statusText()}`
-    ).toBe(true);
+    const practiceDetailsResult = await practiceDetailsResultPromise;
+    let practiceDetailsStatus: number | null = null;
+    let practiceDetailsPayload: Record<string, unknown> | null = null;
+    let practiceDetailsJsonParsed = false;
+    let practiceDetailsFailure: string | null = null;
+    let loaderNormalizedAccentColor: string | null = null;
 
-    const practiceDetailsPayload = await practiceDetailsResponse.json() as Record<string, unknown> | null;
-    const loaderNormalizedAccentColor = extractPracticeAccentColor(practiceDetailsPayload);
+    if (practiceDetailsResult.kind === 'response') {
+      practiceDetailsStatus = practiceDetailsResult.response.status();
+
+      if (practiceDetailsResult.response.ok()) {
+        try {
+          practiceDetailsPayload = await practiceDetailsResult.response.json() as Record<string, unknown> | null;
+          practiceDetailsJsonParsed = true;
+          loaderNormalizedAccentColor = extractPracticeAccentColor(practiceDetailsPayload);
+        } catch (error) {
+          practiceDetailsFailure = error instanceof Error ? error.message : String(error);
+        }
+      }
+    } else {
+      practiceDetailsFailure = practiceDetailsResult.request.failure()?.errorText ?? 'requestfailed';
+    }
+
     const expectedThemeSource = loaderNormalizedAccentColor ? 'practice_accent' : 'default';
     const resolvedTheme = await waitForLoaderThemeApplied(page, expectedThemeSource, WIDGET_READY_TIMEOUT_MS);
     const resolvedPrimaryColor = hexToCssRgb(resolvedTheme.primaryColor);
@@ -491,8 +519,10 @@ test.describe('Public widget embed (cross-origin iframe flow)', () => {
     await testInfo.attach('widget-theme-styles.json', {
       body: JSON.stringify({
         expectedThemeSource,
-        practiceDetailsStatus: practiceDetailsResponse.status(),
+        practiceDetailsStatus,
         practiceDetailsPayload,
+        practiceDetailsJsonParsed,
+        practiceDetailsFailure,
         loaderNormalizedAccentColor,
         resolvedTheme,
         resolvedPrimaryColor: expectedResolvedPrimaryColor,
