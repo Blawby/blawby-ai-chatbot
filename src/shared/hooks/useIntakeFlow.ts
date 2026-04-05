@@ -70,13 +70,8 @@ const PERSISTED_INTAKE_FIELD_KEYS = [
 
 type PersistedIntakeFieldKey = (typeof PERSISTED_INTAKE_FIELD_KEYS)[number];
 
-const assignIntakeField = <K extends PersistedIntakeFieldKey>(
-  state: IntakeConversationState,
-  key: K,
-  value: IntakeConversationState[K]
-) => {
-  state[key] = value;
-};
+
+
 
 const WIDGET_ATTRIBUTION_STORAGE_KEY = 'blawby:widget:attribution';
 
@@ -270,27 +265,33 @@ export function useIntakeFlow({
 
   const applyIntakeFields = useCallback(async (payload: IntakeFieldsPayload, options?: IntakeFieldChangeOptions) => {
     if (!enabled) return;
-    const currentConsultation = resolveConsultationState(conversationMetadataRef.current);
-    const current = currentConsultation?.case ?? intakeConversationState;
-    const next: IntakeConversationState = { ...current };
 
+    // Build only the delta — fields that are explicitly provided in payload.
+    // updateConversationMetadata reads conversationMetadataRef.current as the base,
+    // so we must not pre-merge here (that would cause a double stale-ref spread).
+    const delta: Partial<IntakeConversationState> = {};
     const changedFields: string[] = [];
-    PERSISTED_INTAKE_FIELD_KEYS.forEach(key => {
+
+    const currentConsultation = resolveConsultationState(conversationMetadataRef.current);
+    const currentCase = currentConsultation?.case ?? intakeConversationState;
+
+    PERSISTED_INTAKE_FIELD_KEYS.forEach((key: PersistedIntakeFieldKey) => {
       const val = payload[key];
       if (val !== undefined) {
-        if (current[key] !== val) {
+        if (currentCase[key] !== val) {
           const label = INTAKE_FIELD_LABELS[key];
           if (label) changedFields.push(label);
         }
-        assignIntakeField(next, key, val);
+        (delta as Record<string, unknown>)[key] = val;
       }
     });
+
+    if (Object.keys(delta).length === 0) return;
+
     await updateConversationMetadata(
       applyConsultationPatchToMetadata(
         conversationMetadataRef.current,
-        {
-          case: next,
-        },
+        { case: { ...(currentCase), ...delta } },
         { mirrorLegacyFields: true }
       )
     );
@@ -311,6 +312,7 @@ export function useIntakeFlow({
       }
     }
   }, [conversationId, enabled, practiceId, conversationMetadataRef, updateConversationMetadata, intakeConversationState]);
+
 
   const resetIntakeCta = useCallback(async () => {
     if (!enabled) return;

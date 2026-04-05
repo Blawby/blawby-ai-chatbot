@@ -8,13 +8,9 @@ import {
   isIntakeSubmittable as isSharedIntakeSubmittable,
 } from '../../src/shared/utils/consultationState';
 
-// messageCount includes both user and assistant turns; 10 total turns is roughly
-// 5 user turns before we pivot to closing language. This is a UX default and may
-// need tuning per firm/intake context in future configuration.
-const INTAKE_CLOSING_MESSAGE_THRESHOLD = 6;
 const MAX_SERVICES_IN_PROMPT = 20;
 const MAX_SERVICES_IN_CONVERSATION_PROMPT = 8;
-const MAX_KNOWN_FIELDS_IN_PROMPT = 7;
+
 const US_STATE_NAME_TO_CODE: Record<string, string> = {
   alabama: 'AL', alaska: 'AK', arizona: 'AZ', arkansas: 'AR', california: 'CA',
   colorado: 'CO', connecticut: 'CT', delaware: 'DE', florida: 'FL', georgia: 'GA',
@@ -29,514 +25,404 @@ const US_STATE_NAME_TO_CODE: Record<string, string> = {
   'district of columbia': 'DC',
 };
 
-const INTAKE_TOOL = {
+// ---------------------------------------------------------------------------
+// Tool definitions — three discrete tools the model calls naturally
+// ---------------------------------------------------------------------------
+
+
+export const SAVE_CASE_DETAILS_TOOL = {
   type: 'function',
   function: {
-    name: 'update_intake_fields',
-    description: 'Extract structured intake fields from the conversation so far',
+    name: 'save_case_details',
+    description: 'Save case information collected in the conversation. Call when you have description, city, and state at minimum. Can be called incrementally as more information is gathered.',
     parameters: {
       type: 'object',
       properties: {
-        practiceArea: {
-          type: 'string',
-          description: 'The service key from the firm services list, e.g. FAMILY_LAW'
-        },
         description: {
           type: 'string',
-          description: 'Plain-English summary of the case, max 300 chars'
+          description: 'Plain-English summary of the case situation, max 300 chars',
         },
-        urgency: { type: 'string', enum: ['routine', 'time_sensitive', 'emergency'] },
-        opposingParty: { type: 'string', description: 'Name of the opposing person, company, or organization. Never extract descriptions, emotions, or circumstances (e.g. "at the hospital").' },
-        city: { type: 'string' },
-        state: { type: 'string', description: '2-letter US state code' },
-        desiredOutcome: { type: 'string', description: 'What the user wants to achieve, max 150 chars' },
-        courtDate: { type: 'string', description: 'Court date or hard deadline in ISO 8601 format (YYYY-MM-DD). Omit if not explicitly stated as a specific date.' },
-        hasDocuments: { type: 'boolean', description: 'Whether the user has mentioned having relevant documents' },
+        city: { type: 'string', description: 'City where the legal matter is located' },
+        state: { type: 'string', description: '2-letter US state code, e.g. CA, TX' },
+        opposingParty: {
+          type: 'string',
+          description: 'Name of opposing person, company, or organization explicitly mentioned. Never extract descriptions or circumstances.',
+        },
+        practiceArea: {
+          type: 'string',
+          description: 'Service key from the firm services list provided in context, e.g. FAMILY_LAW',
+        },
+        urgency: {
+          type: 'string',
+          enum: ['routine', 'time_sensitive', 'emergency'],
+          description: 'How urgent the matter is',
+        },
+        desiredOutcome: {
+          type: 'string',
+          description: 'What the user wants to achieve, max 150 chars',
+        },
+        courtDate: {
+          type: 'string',
+          description: 'Court date or hard deadline in ISO 8601 format (YYYY-MM-DD). Omit if not explicitly stated.',
+        },
+        hasDocuments: {
+          type: 'boolean',
+          description: 'Whether the user has mentioned having relevant documents',
+        },
       },
-      required: []
-    }
-  }
+      required: ['description', 'city', 'state'],
+    },
+  },
 } as const;
 
-const buildIntakeSystemPrompt = (services: Array<{ name: string; key: string }>): string => {
-  const cappedServices = services.slice(0, MAX_SERVICES_IN_PROMPT);
-  const serviceList = cappedServices.length > 0
-    ? cappedServices.map((service) => `- ${service.name} (key: ${service.key})`).join('\n')
-    : '- General intake (no service list provided)';
-  const omittedCount = Math.max(0, services.length - cappedServices.length);
-  const overflowNote = omittedCount > 0 ? `\n- ...and ${omittedCount} more practice areas` : '';
+export const REQUEST_PAYMENT_TOOL = {
+  type: 'function',
+  function: {
+    name: 'request_payment',
+    description: 'Trigger the payment flow when the practice requires a consultation fee and intake is complete. Call only when all required case details are collected.',
+    parameters: {
+      type: 'object',
+      properties: {
+        reason: {
+          type: 'string',
+          description: 'Brief explanation shown to the user about why payment is required',
+        },
+      },
+      required: ['reason'],
+    },
+  },
+} as const;
 
-  return `You are a legal intake data extractor for a law firm. Extract structured information from the conversation and save it using the update_intake_fields tool.
+export const SUBMIT_INTAKE_TOOL = {
+  type: 'function',
+  function: {
+    name: 'submit_intake',
+    description: 'Submit the intake to the firm. Call only after the user has explicitly confirmed they are ready to submit.',
+    parameters: {
+      type: 'object',
+      properties: {
+        confirmed: {
+          type: 'boolean',
+          description: 'Must be true — the user confirmed they are ready',
+        },
+      },
+      required: ['confirmed'],
+    },
+  },
+} as const;
 
-This firm handles the following practice areas only:
-${serviceList}${overflowNote}
+export const INTAKE_TOOLS = [
+  SAVE_CASE_DETAILS_TOOL,
+  REQUEST_PAYMENT_TOOL,
+  SUBMIT_INTAKE_TOOL,
+] as const;
 
-Rules:
-- Extract only what the user has explicitly stated. Do not infer or guess.
-- Use camelCase keys only (practiceArea, opposingParty, etc).
-- Map the practice area to the correct key from the list above.
-- opposingParty must be a person, company, or organization name explicitly mentioned by the user. Never extract a description, emotion, or circumstance as opposingParty.
-- Call the tool after every user message with everything known so far.
-- Do not write anything to the user. Only call the tool.
-- Tool arguments must be a raw JSON object only (no function name wrapper, no markdown fences, no XML tags).
-- Never include caseStrength or missingSummary in the tool call.`;
+// ---------------------------------------------------------------------------
+// Tool result types
+// ---------------------------------------------------------------------------
+
+export interface ToolResult {
+  success: boolean;
+  message?: string;
+  suggestedReplies?: string[];
+  intakeFields?: Record<string, unknown>;
+  triggerPayment?: boolean;
+  triggerSubmit?: boolean;
+}
+
+// ---------------------------------------------------------------------------
+// Tool handlers — persist to DB, return structured results
+// ---------------------------------------------------------------------------
+
+export const handleSaveCaseDetails = (
+  args: Record<string, unknown>,
+  storedIntakeState: Record<string, unknown> | null,
+  submissionGate: IntakeSubmissionGate,
+): ToolResult => {
+  const patch: Record<string, unknown> = {};
+
+  const description = typeof args.description === 'string' ? args.description.trim().slice(0, 300) : '';
+  const city = typeof args.city === 'string' ? args.city.trim() : '';
+  const rawState = typeof args.state === 'string' ? args.state.trim() : '';
+  const state = normalizeStateCode(rawState);
+
+  if (!description || !city || !state) {
+    return {
+      success: false,
+      message: 'Case details incomplete — description, city, and state are required.',
+    };
+  }
+
+  patch.description = description;
+  patch.city = city;
+  patch.state = state;
+
+  if (typeof args.opposingParty === 'string' && args.opposingParty.trim()) {
+    patch.opposingParty = args.opposingParty.trim();
+  }
+  if (typeof args.practiceArea === 'string' && args.practiceArea.trim()) {
+    patch.practiceArea = args.practiceArea.trim();
+  }
+  if (args.urgency === 'routine' || args.urgency === 'time_sensitive' || args.urgency === 'emergency') {
+    patch.urgency = args.urgency;
+  }
+  if (typeof args.desiredOutcome === 'string' && args.desiredOutcome.trim()) {
+    patch.desiredOutcome = args.desiredOutcome.trim().slice(0, 150);
+  }
+  if (typeof args.courtDate === 'string' && args.courtDate.trim()) {
+    patch.courtDate = args.courtDate.trim();
+  }
+  if (typeof args.hasDocuments === 'boolean') {
+    patch.hasDocuments = args.hasDocuments;
+  }
+
+  const merged = mergeIntakeState(storedIntakeState, patch);
+  const isSubmittable = isIntakeSubmittable(merged, submissionGate);
+
+  // Derive suggested replies for the next open field
+  const suggestedReplies = deriveNextSuggestedReplies(merged, submissionGate);
+
+  return {
+    success: true,
+    message: isSubmittable
+      ? 'Case details saved. All required fields collected.'
+      : 'Case details saved. Continue collecting remaining fields.',
+    intakeFields: patch,
+    suggestedReplies: suggestedReplies.length > 0 ? suggestedReplies : undefined,
+  };
 };
 
-const buildIntakeConversationCtaInstruction = (
+export const handleRequestPayment = (
+  _args: Record<string, unknown>,
+): ToolResult => {
+  return {
+    success: true,
+    message: 'Payment requested.',
+    triggerPayment: true,
+    suggestedReplies: ['__submit__'],
+  };
+};
+
+export const handleSubmitIntake = (
+  args: Record<string, unknown>,
+): ToolResult => {
+  const confirmed = args.confirmed === true;
+  if (!confirmed) {
+    return {
+      success: false,
+      message: 'Submit not confirmed by user.',
+    };
+  }
+  return {
+    success: true,
+    message: 'Intake submission confirmed.',
+    triggerSubmit: true,
+    suggestedReplies: ['__submit__'],
+  };
+};
+
+// ---------------------------------------------------------------------------
+// Execute a tool call by name
+// ---------------------------------------------------------------------------
+
+export const executeIntakeTool = (
+  toolName: string,
+  rawArgs: string,
+  storedIntakeState: Record<string, unknown> | null,
+  submissionGate: IntakeSubmissionGate,
+): ToolResult => {
+  let args: Record<string, unknown>;
+  try {
+    args = JSON.parse(rawArgs) as Record<string, unknown>;
+  } catch {
+    return { success: false, message: `Failed to parse tool arguments for ${toolName}` };
+  }
+
+  switch (toolName) {
+    case 'save_case_details':
+      return handleSaveCaseDetails(args, storedIntakeState, submissionGate);
+    case 'request_payment':
+      return handleRequestPayment(args);
+    case 'submit_intake':
+      return handleSubmitIntake(args);
+    default:
+      return { success: false, message: `Unknown tool: ${toolName}` };
+  }
+};
+
+// ---------------------------------------------------------------------------
+// Suggested replies derived from tool results (not from model output)
+// ---------------------------------------------------------------------------
+
+const deriveNextSuggestedReplies = (
   mergedState: Record<string, unknown> | null,
-  messageCount: number,
-  submissionGate?: IntakeSubmissionGate | null,
-  isPlannerFinished?: boolean,
-): string => {
-  const isSubmissionReady = isIntakeSubmittable(mergedState, submissionGate);
-  const paymentRequiredBeforeSubmit = submissionGate?.paymentRequiredBeforeSubmit === true;
-  const paymentCompleted = submissionGate?.paymentCompleted === true;
-  if (messageCount >= INTAKE_CLOSING_MESSAGE_THRESHOLD && isSubmissionReady) {
-    return `\nYou have all the required details. Briefly summarize what you know in 2-3 sentences, then ask: "Are you ready to submit your case to the firm?" Do not ask if they want to add anything else.`;
+  submissionGate: IntakeSubmissionGate,
+): string[] => {
+  if (!mergedState) return [];
+
+  // All required fields collected — either payment or submit
+  if (isIntakeSubmittable(mergedState, submissionGate)) {
+    return ['__submit__'];
   }
-  if (isSubmissionReady && isPlannerFinished && messageCount < INTAKE_CLOSING_MESSAGE_THRESHOLD) {
-    return `\nYou have all the required details. Ask: "Are you ready to submit your case to the firm?" in one short sentence. Do not summarize again. Do not ask if they want to add anything else.`;
+
+  // Payment required (case info complete, payment pending)
+  if (
+    submissionGate.paymentRequiredBeforeSubmit &&
+    !submissionGate.paymentCompleted &&
+    isIntakeReadyForSubmission(mergedState)
+  ) {
+    return ['__submit__'];
   }
-  if (isIntakeReadyForSubmission(mergedState) && paymentRequiredBeforeSubmit && !paymentCompleted) {
-    return '\nTell the user warmly that you have everything you need and that the firm requires a consultation fee to review their case. Ask them to tap Continue below to proceed. Keep it to 2 sentences.';
+
+  // Urgency is the next closed-choice field
+  if (typeof mergedState.urgency !== 'string' || !mergedState.urgency.trim()) {
+    if (
+      hasNonEmptyStringField(mergedState, 'description') &&
+      hasNonEmptyStringField(mergedState, 'city') &&
+      hasNonEmptyStringField(mergedState, 'state') &&
+      hasNonEmptyStringField(mergedState, 'opposingParty')
+    ) {
+      return ['Routine (no deadline)', 'Time-sensitive', 'Emergency'];
+    }
   }
-  return `\nAsk exactly ONE focused question about the single most important missing piece of information. Priority: situation description → city and state → opposing party → urgency → desired outcome → documents. Do not ask for submission readiness until all required details are collected.`;
+
+  // hasDocuments is the next closed-choice field
+  if (typeof mergedState.hasDocuments !== 'boolean') {
+    if (
+      hasNonEmptyStringField(mergedState, 'description') &&
+      hasNonEmptyStringField(mergedState, 'city') &&
+      hasNonEmptyStringField(mergedState, 'state') &&
+      hasNonEmptyStringField(mergedState, 'opposingParty') &&
+      typeof mergedState.urgency === 'string' && mergedState.urgency.trim()
+    ) {
+      return ['Yes, I have documents', 'No, not yet'];
+    }
+  }
+
+  return [];
 };
 
-const buildIntakeConversationStablePrompt = (
+// ---------------------------------------------------------------------------
+// The unified system prompt — one prompt, no KNOWN SO FAR injection
+// ---------------------------------------------------------------------------
+
+export const buildIntakeSystemPrompt = (
   services: Array<{ name: string; key: string }>,
+  practiceContext: Record<string, unknown> | null,
+  storedIntakeState: Record<string, unknown> | null,
+  submissionGate: IntakeSubmissionGate,
 ): string => {
-  const compactServiceNames = services.slice(0, MAX_SERVICES_IN_CONVERSATION_PROMPT).map((s) => s.name);
-  const omittedServiceCount = Math.max(0, services.length - compactServiceNames.length);
-  const servicesLine = compactServiceNames.length > 0
-    ? `${compactServiceNames.join(', ')}${omittedServiceCount > 0 ? `, and ${omittedServiceCount} more` : ''}`
-    : 'general legal matters';
+  const cappedServices = services.slice(0, MAX_SERVICES_IN_CONVERSATION_PROMPT);
+  const serviceList = cappedServices.length > 0
+    ? cappedServices.map((s) => `- ${s.name} (key: ${s.key})`).join('\n')
+    : '- General legal matters';
 
-  return `You are a warm, helpful legal intake assistant for a law firm. The structured intake fields have already been saved by a separate process. Your only job is to respond naturally to the user.
+  const practiceName = typeof practiceContext?.practiceName === 'string'
+    ? practiceContext.practiceName.trim()
+    : 'this law firm';
+  const consultationFee = typeof practiceContext?.consultationFee === 'number' && practiceContext.consultationFee > 0
+    ? `$${(practiceContext.consultationFee / 100).toFixed(2)}`
+    : null;
 
-This firm handles: ${servicesLine}.
+  const intakeContext = buildIntakeContextSummary(storedIntakeState, services);
+
+  const paymentNote = submissionGate.paymentRequiredBeforeSubmit && !submissionGate.paymentCompleted
+    ? `\n\nNote: This practice requires a consultation fee${consultationFee ? ` of ${consultationFee}` : ''} before submission. Once all case details are collected, use the request_payment tool.`
+    : '';
+
+  return `You are a warm, helpful legal intake assistant for ${practiceName}. Your job is to collect case information conversationally and call tools to save it.
+
+This firm handles the following practice areas:
+${serviceList}
+
+Tool usage rules:
+- Call save_case_details when you have description, city, and state at minimum. You can call it again as more fields are collected.
+- Call request_payment when all required case details are gathered AND the practice requires payment.
+- Call submit_intake only when the user explicitly says they are ready to submit.
+- Never call a tool mid-sentence. Finish your message, then call the tool, or call first then continue.
 
 Conversation rules:
 - Be warm and human — like a knowledgeable friend, not a form
 - Never give legal advice
-- Never ask for contact info (name, email, phone) — already collected
-- If the prompt says "IMPORTANT: The next missing piece is ...", you must ask only about that exact missing piece next
-- Never revisit or ask for more detail about fields already listed under "KNOWN SO FAR"
-- Never output JSON, tool names, or structured data
-- If your question has 2-3 predictable short answers, end your response with a line formatted exactly as: QUICK_REPLIES: Option 1 | Option 2 | Option 3. Otherwise omit this line entirely. Never use QUICK_REPLIES for open-ended questions like description or desired outcome.`;
+- Never ask for contact info (name, email, phone) — it is already collected via the intake form
+- Ask exactly ONE focused question per message about the most important missing piece
+- Never output raw JSON, tool names, or structured data in your reply text
+- When you have description, city, and state, call save_case_details immediately${paymentNote}
+
+${intakeContext ? `Current intake state:\n${intakeContext}` : 'No case details collected yet. Start by asking about the situation.'}`;
 };
 
-const buildIntakeConversationStatePrompt = (
+const buildIntakeContextSummary = (
+  state: Record<string, unknown> | null,
   services: Array<{ name: string; key: string }>,
-  mergedState: Record<string, unknown> | null,
-  messageCount: number,
-  submissionGate?: IntakeSubmissionGate | null,
 ): string => {
-  const serviceNameByKey = new Map(services.map((service) => [service.key, service.name]));
-  const resolvePracticeAreaLabel = (): string | null => {
-    if (!mergedState || typeof mergedState.practiceArea !== 'string') return null;
-    const key = mergedState.practiceArea.trim();
-    if (!key) return null;
-    return serviceNameByKey.get(key) ?? key;
-  };
+  if (!state) return '';
+  const serviceNameByKey = new Map(services.map((s) => [s.key, s.name]));
+  const lines: string[] = [];
 
-  const knownFields: string[] = [];
-  if (mergedState) {
-    if (typeof mergedState.description === 'string' && mergedState.description.trim()) knownFields.push(`Situation: ${mergedState.description.trim()}`);
-    const practiceAreaLabel = resolvePracticeAreaLabel();
-    if (practiceAreaLabel) knownFields.push(`Practice area: ${practiceAreaLabel}`);
-    if (typeof mergedState.city === 'string' && mergedState.city.trim()) knownFields.push(`City: ${mergedState.city.trim()}`);
-    if (typeof mergedState.state === 'string' && mergedState.state.trim()) knownFields.push(`State: ${mergedState.state.trim()}`);
-    if (typeof mergedState.opposingParty === 'string' && mergedState.opposingParty.trim()) knownFields.push(`Opposing party: ${mergedState.opposingParty.trim()}`);
-    if (typeof mergedState.desiredOutcome === 'string' && mergedState.desiredOutcome.trim()) knownFields.push(`Desired outcome: ${mergedState.desiredOutcome.trim()}`);
-    if (typeof mergedState.urgency === 'string' && mergedState.urgency.trim()) knownFields.push(`Urgency: ${mergedState.urgency.trim()}`);
-    if (typeof mergedState.hasDocuments === 'boolean') knownFields.push(`Has documents: ${mergedState.hasDocuments}`);
+  if (typeof state.description === 'string' && state.description.trim()) {
+    lines.push(`Situation: ${state.description.trim().slice(0, 200)}`);
   }
+  if (typeof state.practiceArea === 'string' && state.practiceArea.trim()) {
+    const label = serviceNameByKey.get(state.practiceArea.trim()) ?? state.practiceArea.trim();
+    lines.push(`Practice area: ${label}`);
+  }
+  if (typeof state.city === 'string' && state.city.trim()) lines.push(`City: ${state.city.trim()}`);
+  if (typeof state.state === 'string' && state.state.trim()) lines.push(`State: ${state.state.trim()}`);
+  if (typeof state.opposingParty === 'string' && state.opposingParty.trim()) lines.push(`Opposing party: ${state.opposingParty.trim()}`);
+  if (typeof state.urgency === 'string' && state.urgency.trim()) lines.push(`Urgency: ${state.urgency.trim()}`);
+  if (typeof state.desiredOutcome === 'string' && state.desiredOutcome.trim()) lines.push(`Desired outcome: ${state.desiredOutcome.trim().slice(0, 150)}`);
+  if (typeof state.hasDocuments === 'boolean') lines.push(`Has documents: ${state.hasDocuments}`);
 
-  const compactKnownFields = knownFields.slice(0, MAX_KNOWN_FIELDS_IN_PROMPT);
-  const omittedKnownCount = Math.max(0, knownFields.length - compactKnownFields.length);
-  const knownSection = compactKnownFields.length > 0
-    ? `\nKNOWN SO FAR (do not ask for these again):\n${compactKnownFields.map((f) => `- ${f}`).join('\n')}${omittedKnownCount > 0 ? `\n- ...and ${omittedKnownCount} more known fields omitted` : ''}`
-    : '';
-
-  const plannerStep = planNextIntakeStep(mergedState, submissionGate);
-  const isSubmissionReady = isIntakeSubmittable(mergedState, submissionGate);
-  const isPlannerFinished = plannerStep?.nextField === null;
-  
-  const fieldLabels: Record<string, string> = {
-    description: 'what happened',
-    location: 'your city and state',
-    opposingParty: 'who the other party is',
-    urgency: 'how urgent this is',
-    desiredOutcome: 'what outcome you are hoping for',
-    hasDocuments: 'whether you have any documents',
-  };
-
-  const nextFieldHint = plannerStep && plannerStep.nextField && plannerStep.chips.length === 0 && !isSubmissionReady
-    ? `\nIMPORTANT: The next missing piece is: ${fieldLabels[plannerStep.nextField] ?? plannerStep.nextField}. Ask exactly one short question about this and nothing else. Do not revisit any other field.`
-    : '';
-
-  return `${knownSection}${nextFieldHint}${buildIntakeConversationCtaInstruction(mergedState, messageCount, submissionGate, isPlannerFinished)}`.trim();
+  return lines.length > 0 ? lines.map((l) => `- ${l}`).join('\n') : '';
 };
 
-export const buildIntakeConversationPrompt = (
-  services: Array<{ name: string; key: string }>,
-  mergedState: Record<string, unknown> | null,
-  messageCount: number,
-  submissionGate?: IntakeSubmissionGate | null,
-): string => {
-  const stable = buildIntakeConversationStablePrompt(services);
-  const dynamic = buildIntakeConversationStatePrompt(services, mergedState, messageCount, submissionGate);
-  return [stable, dynamic].filter(Boolean).join('\n\n');
-};
+// ---------------------------------------------------------------------------
+// State merge
+// ---------------------------------------------------------------------------
 
 const mergeIntakeState = (
   base: Record<string, unknown> | null,
-  patch: Record<string, unknown> | null
+  patch: Record<string, unknown> | null,
 ): Record<string, unknown> | null => {
   if (!base && !patch) return null;
   return { ...(base ?? {}), ...(patch ?? {}) };
 };
+
+// ---------------------------------------------------------------------------
+// Submission gate
+// ---------------------------------------------------------------------------
 
 export interface IntakeSubmissionGate {
   paymentRequiredBeforeSubmit: boolean;
   paymentCompleted: boolean;
 }
 
-const isIntakeReadyForSubmission = (state: Record<string, unknown> | null): boolean => (
-  isSharedIntakeReadyForSubmission(state as Parameters<typeof isSharedIntakeReadyForSubmission>[0])
-);
+const isIntakeReadyForSubmission = (state: Record<string, unknown> | null): boolean =>
+  isSharedIntakeReadyForSubmission(state as Parameters<typeof isSharedIntakeReadyForSubmission>[0]);
 
 const isIntakeSubmittable = (
   state: Record<string, unknown> | null,
   submissionGate?: IntakeSubmissionGate | null,
-): boolean => {
-  return isSharedIntakeSubmittable(state as Parameters<typeof isSharedIntakeSubmittable>[0], {
+): boolean =>
+  isSharedIntakeSubmittable(state as Parameters<typeof isSharedIntakeSubmittable>[0], {
     paymentRequired: submissionGate?.paymentRequiredBeforeSubmit === true,
     paymentReceived: submissionGate?.paymentCompleted === true,
   });
-};
 
-/**
- * Deterministic next-step planner. Inspects merged intake state and returns
- * the canonical next missing field along with any chip-eligible choices.
- *
- * Chip eligibility rules (derived from field semantics, never from the model):
- *   description, city/state, opposingParty, desiredOutcome → open-text → no chips
- *   urgency   → closed enum  → fixed chips
- *   hasDocuments → boolean    → yes/no chips
- *   payment pending → continue-to-payment chip
- *   all fields present + submittable → emit __submit__ chip (done in aiChat.ts)
- */
-export interface IntakeNextStep {
-  /** The field being asked about, or null when submit-ready */
-  nextField: string | null;
-  /** Pre-computed UI chips; empty array means render no chips for this field */
-  chips: string[];
-  chipSource: 'none' | 'urgency' | 'hasDocuments' | 'payment' | 'submit';
-}
+// ---------------------------------------------------------------------------
+// Utilities reused by aiChat.ts
+// ---------------------------------------------------------------------------
 
-type DeterministicIntakePatch = Partial<Pick<Record<string, unknown>, 'urgency' | 'hasDocuments' | 'city' | 'state' | 'opposingParty' | 'desiredOutcome'>>;
-
-export const planNextIntakeStep = (
-  state: Record<string, unknown> | null,
-  submissionGate?: IntakeSubmissionGate | null,
-): IntakeNextStep => {
-  if (!state) {
-    return { nextField: 'description', chips: [], chipSource: 'none' };
-  }
-  if (!hasNonEmptyStringField(state, 'description')) {
-    return { nextField: 'description', chips: [], chipSource: 'none' };
-  }
-  if (!hasNonEmptyStringField(state, 'city') || !hasNonEmptyStringField(state, 'state')) {
-    return { nextField: 'location', chips: [], chipSource: 'none' };
-  }
-  if (!hasNonEmptyStringField(state, 'opposingParty')) {
-    return { nextField: 'opposingParty', chips: [], chipSource: 'none' };
-  }
-  if (submissionGate?.paymentRequiredBeforeSubmit === true
-    && submissionGate.paymentCompleted !== true
-    && isIntakeReadyForSubmission(state)) {
-    // Before payment exists, the frontend must route through handleConfirmSubmit
-    // to create the intake/payment request. Reuse the generic submit sentinel so
-    // the terminal CTA can render without message-level payment metadata.
-    return { nextField: null, chips: ['__submit__'], chipSource: 'payment' };
-  }
-  if (typeof state.urgency !== 'string' || !state.urgency.trim()) {
-    return {
-      nextField: 'urgency',
-      chips: ['Routine (no deadline)', 'Time-sensitive', 'Emergency'],
-      chipSource: 'urgency',
-    };
-  }
-  if (!hasNonEmptyStringField(state, 'desiredOutcome')) {
-    return { nextField: 'desiredOutcome', chips: [], chipSource: 'none' };
-  }
-  if (typeof state.hasDocuments !== 'boolean') {
-    return {
-      nextField: 'hasDocuments',
-      chips: ['Yes, I have documents', 'No, not yet'],
-      chipSource: 'hasDocuments',
-    };
-  }
-  return { nextField: null, chips: [], chipSource: 'none' };
-};
-
-const normalizeIntentText = (value: string): string => (
-  value.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
-);
-
-const parseUrgencyFromLatestMessage = (content: string): 'routine' | 'time_sensitive' | 'emergency' | null => {
-  const normalized = normalizeIntentText(content);
-  if (!normalized) return null;
-
-  const bareEmergency = /^(emergency|urgent|asap|right away|immediately)$/i.test(normalized);
-  const bareTimeSensitive = /^(time sensitive|time-sensitive|soon|deadline)$/i.test(normalized);
-  const bareRoutine = /^(routine|standard|normal|not urgent|no rush|no deadline)$/i.test(normalized);
-  if (bareEmergency) return 'emergency';
-  if (bareTimeSensitive) return 'time_sensitive';
-  if (bareRoutine) return 'routine';
-
-  if (
-    /\bemergency\b/.test(normalized)
-    || /\bimmediately\b/.test(normalized)
-    || /\basap\b/.test(normalized)
-    || /\bright away\b/.test(normalized)
-    || /\burgent\b/.test(normalized)
-  ) {
-    return 'emergency';
-  }
-
-  if (
-    /\btime sensitive\b/.test(normalized)
-    || /\btime-sensitive\b/.test(content.toLowerCase())
-    || /\bsoon\b/.test(normalized)
-    || /\bquickly\b/.test(normalized)
-    || /\bdeadline\b/.test(normalized)
-  ) {
-    return 'time_sensitive';
-  }
-
-  if (
-    /\broutine\b/.test(normalized)
-    || /\bstandard\b/.test(normalized)
-    || /\bnormal\b/.test(normalized)
-    || /\bno deadline\b/.test(normalized)
-    || /\bnon urgent\b/.test(normalized)
-    || /\bnot urgent\b/.test(normalized)
-    || /\bno rush\b/.test(normalized)
-  ) {
-    return 'routine';
-  }
-
-  return null;
-};
-
-const parseHasDocumentsFromLatestMessage = (content: string): boolean | null => {
-  const normalized = normalizeIntentText(content);
-  if (!normalized) return null;
-
-  const bareYes = /^(yes|yep|yeah|y|affirmative)$/i.test(normalized);
-  const bareNo = /^(no|nope|nah|n|negative|not yet|false)$/i.test(normalized);
-  if (/^(true)$/.test(normalized)) return true;
-  if (bareYes) return true;
-  if (bareNo) return false;
-
-  const mentionsDocuments = /\b(doc|docs|document|documents|paperwork|files|records|evidence)\b/.test(normalized);
-
-  if (
-    mentionsDocuments
-    && (
-      /\byes\b/.test(normalized)
-    || /\bi have documents\b/.test(normalized)
-    || /\bi have them\b/.test(normalized)
-    || /\bi do\b/.test(normalized)
-    || /\bi can upload\b/.test(normalized)
-    || /\bi have paperwork\b/.test(normalized)
-    )
-  ) {
-    return true;
-  }
-
-  if (
-    mentionsDocuments
-    && (
-      /\bno\b/.test(normalized)
-    || /\bnot yet\b/.test(normalized)
-    || /\bno documents\b/.test(normalized)
-    || /\bdon t have\b/.test(normalized)
-    || /\bi don t\b/.test(normalized)
-    || /\bno paperwork\b/.test(normalized)
-    )
-  ) {
-    return false;
-  }
-
-  return null;
-};
-
-const parseStateCode = (value: string): string | null => {
+const normalizeStateCode = (value: string): string => {
   const trimmed = value.trim().toLowerCase();
-  if (!trimmed) return null;
+  if (!trimmed) return '';
   if (/^[a-z]{2}$/i.test(trimmed)) return trimmed.toUpperCase();
-  return US_STATE_NAME_TO_CODE[trimmed] ?? null;
-};
-
-const parseSimpleCityName = (value: string): string | null => {
-  const trimmed = value.trim().replace(/[.!,;:]+$/g, '').replace(/\s+/g, ' ');
-  if (!trimmed) return null;
-  if (trimmed.length < 2 || trimmed.length > 60) return null;
-  if (/^\d+$/.test(trimmed)) return null;
-  if (/^(?:i|my|the|a|an|it|we|they|you|other|opposing|spouse|ex|husband|wife|partner|boyfriend|girlfriend|landlord|tenant|employer|business)\b/i.test(trimmed)) return null;
-  if (!/^[A-Za-z][A-Za-z\s.'-]*$/.test(trimmed)) return null;
-  return trimmed;
-};
-
-const parseLocationPatchFromLatestMessage = (
-  content: string,
-  state: Record<string, unknown> | null
-): Pick<DeterministicIntakePatch, 'city' | 'state'> | null => {
-  const trimmed = content.trim();
-  if (!trimmed) return null;
-
-  const knownCity = typeof state?.city === 'string' && state.city.trim() ? state.city.trim() : null;
-  const knownState = typeof state?.state === 'string' && state.state.trim() ? state.state.trim().toUpperCase() : null;
-  const needsCity = !knownCity;
-  const needsState = !knownState;
-  if (!needsCity && !needsState) return null;
-
-  const commaMatch = trimmed.match(/(?:^|.*\b(?:in|at|from)\s+)?([A-Za-z][A-Za-z\s.'-]{1,60}?)\s*,\s*([A-Za-z][A-Za-z\s]{1,30})(?:\b|$)/i);
-  if (commaMatch) {
-    const city = commaMatch[1].trim().replace(/\s+/g, ' ');
-    const parsedState = parseStateCode(commaMatch[2]);
-    if (city && city.length >= 2 && parsedState) {
-      const patch: Pick<DeterministicIntakePatch, 'city' | 'state'> = {};
-      if (needsCity) patch.city = city;
-      if (needsState) patch.state = parsedState;
-      return Object.keys(patch).length > 0 ? patch : null;
-    }
-  }
-
-  if (needsState) {
-    const normalized = trimmed.toLowerCase();
-    if (/^(ok|okay|thanks|thank you|got it|sounds good|cool|sure|fine)$/.test(normalized)) {
-      return null;
-    }
-    const stateOnly = parseStateCode(trimmed.replace(/^i(?:\s*am|'m)?\s*(?:in\s+)?/i, ''));
-    if (stateOnly) {
-      return { state: stateOnly };
-    }
-    if (/^(?:i(?:\s*am|'m)?\s*)?(?:in\s+)?[A-Za-z][A-Za-z\s]{1,30}$/i.test(trimmed)) {
-      const candidate = trimmed.replace(/^(?:i(?:\s*am|'m)?\s*)?(?:in\s+)?/i, '');
-      const parsed = parseStateCode(candidate);
-      if (parsed) return { state: parsed };
-    }
-  }
-
-  if (needsCity && knownState) {
-    const cityOnly = parseSimpleCityName(trimmed
-      .replace(/^(?:i(?:\s*am|'m)?\s*)?(?:in\s+|at\s+|from\s+)?/i, '')
-      .replace(/[.!,;:]+$/g, '')
-      .trim());
-    if (cityOnly) {
-      return { city: cityOnly };
-    }
-  }
-
-  const spaceSeparatedMatch = trimmed.match(/^(?:i(?:\s*am|'m)?\s*)?(?:in\s+|at\s+|from\s+)?([A-Za-z][A-Za-z\s.'-]{1,60})\s+([A-Za-z]{2})$/i);
-  if (spaceSeparatedMatch) {
-    const city = spaceSeparatedMatch[1].trim().replace(/\s+/g, ' ');
-    const parsedState = parseStateCode(spaceSeparatedMatch[2]);
-    if (city && city.length >= 2 && parsedState) {
-      const patch: Pick<DeterministicIntakePatch, 'city' | 'state'> = {};
-      if (needsCity) patch.city = city;
-      if (needsState) patch.state = parsedState;
-      return Object.keys(patch).length > 0 ? patch : null;
-    }
-  }
-
-  if (needsCity && !needsState) {
-    const cityOnly = parseSimpleCityName(trimmed.replace(/^(?:i(?:\s*am|'m)?\s*)?(?:in\s+|at\s+|from\s+)?/i, ''));
-    if (cityOnly) return { city: cityOnly };
-  }
-
-  if (needsCity && needsState) {
-    const cityOnly = parseSimpleCityName(trimmed);
-    if (cityOnly && cityOnly.split(' ').length <= 4) {
-      return { city: cityOnly };
-    }
-  }
-
-  return null;
-};
-
-const parseOpposingPartyFromLatestMessage = (content: string): string | null => {
-  if (!content.trim()) return null;
-  if (content.includes('?')) return null;
-
-  let normalized = content.trim();
-  normalized = normalized.replace(/^(it(?:'?s)?|it is)\s+(my\s+)?/i, '');
-  normalized = normalized.replace(/^(against|vs\.?|versus)\s+/i, '');
-  normalized = normalized.replace(/^(opposing party(?: is)?|other party(?: is)?)\s+/i, '');
-  normalized = normalized.replace(/^(my )?(spouse|ex|ex[-\s]?spouse|husband|wife|partner|boyfriend|girlfriend|landlord|tenant|employer|business partner)(?: is)?\s*/i, '$2 ');
-  normalized = normalized.replace(/^(the )?(other side|other party)\s+(is|would be)\s+/i, '');
-  normalized = normalized.replace(/[.!,;:]+$/g, '').trim();
-
-  if (!normalized || normalized.length < 2) return null;
-  if (normalized.length > 80) return null;
-  return normalized;
-};
-
-const parseDesiredOutcomeFromLatestMessage = (content: string): string | null => {
-  const trimmed = content.trim();
-  if (!trimmed || trimmed.includes('?')) return null;
-
-  let normalized = trimmed;
-  normalized = normalized.replace(/^to\s+/i, '');
-  normalized = normalized.replace(/^(i\s+want|i\s+need|i'?d\s+like|looking\s+to)\s+/i, '');
-  normalized = normalized.replace(/^(my\s+goal\s+is|desired\s+outcome\s+(?:is|:))\s*/i, '');
-  normalized = normalized.replace(/^(goal|outcome)\s*:\s*/i, '');
-  normalized = normalized.replace(/[.!,;:]+$/g, '').trim();
-
-  if (!normalized || normalized.length < 4) return null;
-  if (normalized.length > 150) return null;
-  return normalized;
-};
-
-const deriveDeterministicIntakePatchFromLatestMessage = (
-  latestUserMessage: string | null | undefined,
-  mergedState: Record<string, unknown> | null,
-  submissionGate?: IntakeSubmissionGate | null,
-): DeterministicIntakePatch | null => {
-  if (!latestUserMessage || latestUserMessage.trim().length === 0) return null;
-
-  const nextStep = planNextIntakeStep(mergedState, submissionGate);
-  if (nextStep.nextField === 'urgency') {
-    const urgency = parseUrgencyFromLatestMessage(latestUserMessage);
-    return urgency ? { urgency } : null;
-  }
-  if (nextStep.nextField === 'hasDocuments') {
-    const hasDocuments = parseHasDocumentsFromLatestMessage(latestUserMessage);
-    return typeof hasDocuments === 'boolean' ? { hasDocuments } : null;
-  }
-  if (nextStep.nextField === 'location') {
-    const location = parseLocationPatchFromLatestMessage(latestUserMessage, mergedState);
-    return location ?? null;
-  }
-  if (nextStep.nextField === 'opposingParty') {
-    const opposingParty = parseOpposingPartyFromLatestMessage(latestUserMessage);
-    return opposingParty ? { opposingParty } : null;
-  }
-  if (nextStep.nextField === 'desiredOutcome') {
-    const desiredOutcome = parseDesiredOutcomeFromLatestMessage(latestUserMessage);
-    return desiredOutcome ? { desiredOutcome } : null;
-  }
-
-  return null;
+  return US_STATE_NAME_TO_CODE[trimmed] ?? value.trim().toUpperCase().slice(0, 2);
 };
 
 const normalizeServicesForPrompt = (
-  details: Record<string, unknown> | null
+  details: Record<string, unknown> | null,
 ): Array<{ name: string; key: string }> => {
   if (!details) return [];
   const services = details.services;
@@ -588,29 +474,6 @@ const shouldRequireDisclaimer = (messages: Array<{ role: 'user' | 'assistant'; c
   return LEGAL_INTENT_REGEX.test(lastUserMessage.content);
 };
 
-const buildPracticeContactErrorReply = (
-  practiceName: string,
-  details: Record<string, unknown> | null
-): string => {
-  const phone = readAnyString(details, ['businessPhone', 'business_phone', 'contactPhone', 'contact_phone']);
-  const email = readAnyString(details, ['businessEmail', 'business_email', 'email']);
-  const website = readAnyString(details, ['website']);
-  const lines = [
-    `We hit an internal error while continuing your consultation with ${practiceName}.`,
-    'Please contact the practice directly so they can help you from here:',
-  ];
-
-  if (phone) lines.push(`Phone: ${phone}`);
-  if (email) lines.push(`Email: ${email}`);
-  if (website) lines.push(`Website: ${website}`);
-
-  if (!phone && !email && !website) {
-    lines.push(`Please reach out to ${practiceName} directly using the contact information on their website.`);
-  }
-
-  return lines.join('\n');
-};
-
 const normalizePracticeDetailsForAi = (details: Record<string, unknown> | null): Record<string, unknown> | null => {
   if (!details) return null;
   const normalized = { ...details };
@@ -631,7 +494,7 @@ const normalizePracticeDetailsForAi = (details: Record<string, unknown> | null):
 };
 
 const buildCompactPracticeContextForPrompt = (
-  details: Record<string, unknown> | null
+  details: Record<string, unknown> | null,
 ): Record<string, unknown> | null => {
   const normalized = normalizePracticeDetailsForAi(details);
   if (!normalized) return null;
@@ -661,14 +524,30 @@ const buildCompactPracticeContextForPrompt = (
   return compact;
 };
 
-// Suggested quick-reply chips are now derived via model self-annotation (QUICK_REPLIES: ...)
-// parsed in aiChat.ts, so deriveQuickRepliesFromReply is deprecated/removed.
+const buildPracticeContactErrorReply = (
+  practiceName: string,
+  details: Record<string, unknown> | null,
+): string => {
+  const phone = readAnyString(details, ['businessPhone', 'business_phone', 'contactPhone', 'contact_phone']);
+  const email = readAnyString(details, ['businessEmail', 'business_email', 'email']);
+  const website = readAnyString(details, ['website']);
+  const lines = [
+    `We hit an internal error while continuing your consultation with ${practiceName}.`,
+    'Please contact the practice directly so they can help you from here:',
+  ];
+
+  if (phone) lines.push(`Phone: ${phone}`);
+  if (email) lines.push(`Email: ${email}`);
+  if (website) lines.push(`Website: ${website}`);
+
+  if (!phone && !email && !website) {
+    lines.push(`Please reach out to ${practiceName} directly using the contact information on their website.`);
+  }
+
+  return lines.join('\n');
+};
 
 export {
-  INTAKE_TOOL,
-  buildIntakeSystemPrompt,
-  buildIntakeConversationStablePrompt,
-  buildIntakeConversationStatePrompt,
   mergeIntakeState,
   isIntakeReadyForSubmission,
   isIntakeSubmittable,
@@ -676,8 +555,9 @@ export {
   extractServiceNames,
   formatServiceList,
   shouldRequireDisclaimer,
-  deriveDeterministicIntakePatchFromLatestMessage,
   buildPracticeContactErrorReply,
   normalizePracticeDetailsForAi,
   buildCompactPracticeContextForPrompt,
+  deriveNextSuggestedReplies,
+  MAX_SERVICES_IN_PROMPT,
 };

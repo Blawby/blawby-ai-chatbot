@@ -18,6 +18,10 @@ const MAX_INTERACTIVE_MS = Number(process.env.E2E_WIDGET_INTERACTIVE_BUDGET_MS ?
 const MAX_AI_RESPONSE_MS = Number(process.env.E2E_WIDGET_AI_RESPONSE_BUDGET_MS ?? 90000);
 const MAX_FORM_OPEN_MS = Number(process.env.E2E_WIDGET_FORM_OPEN_BUDGET_MS ?? 15000);
 const MAX_FORM_SUBMIT_FEEDBACK_MS = Number(process.env.E2E_WIDGET_FORM_SUBMIT_BUDGET_MS ?? 15000);
+// NEW: Updated expectations for new architecture
+const MAX_FIRST_TOKEN_MS = Number(process.env.E2E_WIDGET_FIRST_TOKEN_BUDGET_MS ?? 2000);
+const MAX_TOOL_EXECUTION_MS = Number(process.env.E2E_WIDGET_TOOL_EXECUTION_BUDGET_MS ?? 500);
+const MAX_TOTAL_TURN_MS = Number(process.env.E2E_WIDGET_TOTAL_TURN_BUDGET_MS ?? 3000);
 const DEFAULT_WIDGET_SLUG = process.env.E2E_WIDGET_SLUG ?? process.env.E2E_PRACTICE_SLUG ?? 'paul-yahoo';
 const ACCESS_FALLBACK_REGEX = /\bi (?:do not|don't) have access to this practice['']?s details\b/i;
 const GENERIC_AI_FALLBACK_REGEX = /i wasn['']t able to generate a response/i;
@@ -420,5 +424,220 @@ test.describe('Public widget performance', () => {
       expect(formSubmitFeedbackMs, 'Consultation form submit feedback exceeded budget').toBeLessThan(MAX_FORM_SUBMIT_FEEDBACK_MS);
     }
     expect(listUnresolvedTrackedRequests().length, 'all tracked /api/ requests must settle (no pending hang)').toBe(0);
+  });
+
+  // NEW: Architecture-specific performance tests
+  test('first-byte response is < 2 seconds with new architecture', async ({ anonPage }, testInfo) => {
+    const practiceSlug = normalizePracticeSlug(DEFAULT_WIDGET_SLUG);
+    const records: ApiRecord[] = [];
+    const inFlight = new Map();
+    
+    const trackable = (request: PWRequest): boolean => {
+      const requestUrl = request.url();
+      const resourceType = request.resourceType();
+      return requestUrl.includes('/api/') && (resourceType === 'fetch' || resourceType === 'xhr');
+    };
+
+    anonPage.on('request', (request) => {
+      const requestUrl = request.url();
+      if (!trackable(request)) return;
+
+      const record: ApiRecord = {
+        method: request.method(),
+        url: requestUrl,
+        path: toPath(requestUrl),
+        startedAtMs: Date.now(),
+        endedAtMs: null,
+        durationMs: null,
+        status: null,
+        failedText: null,
+      };
+      records.push(record);
+      inFlight.set(request, record);
+    });
+
+    anonPage.on('response', (response) => {
+      const request = response.request();
+      const record = inFlight.get(request);
+      if (!record) return;
+      record.endedAtMs = Date.now();
+      record.durationMs = Math.max(0, record.endedAtMs - record.startedAtMs);
+      record.status = response.status();
+      inFlight.delete(request);
+    });
+
+    await anonPage.goto(`/public/${encodeURIComponent(practiceSlug)}?v=widget`, {
+      waitUntil: 'domcontentloaded',
+    });
+
+    // Complete slim form
+    const slimFormName = anonPage.locator('input[placeholder*="full name" i], input[name="name"], label:has-text("Name") + input').first();
+    const slimFormEmail = anonPage.locator('input[type="email"]').first();
+    const slimFormPhone = anonPage.locator('input[type="tel"]').first();
+    const slimFormContinue = anonPage.getByRole('button', { name: /continue/i }).first();
+    const consultationCta = anonPage.getByRole('button', { name: /request consultation/i }).first();
+    const messageInput = anonPage.getByTestId('message-input');
+
+    if (await consultationCta.isVisible({ timeout: 1000 }).catch(() => false)) {
+      await consultationCta.click();
+    }
+
+    if (await slimFormName.isVisible({ timeout: 500 }).catch(() => false)) {
+      await slimFormName.fill('Performance Test User');
+      if (await slimFormEmail.isVisible().catch(() => false)) {
+        await slimFormEmail.fill('perf-test@example.com');
+      }
+      if (await slimFormPhone.isVisible().catch(() => false)) {
+        await slimFormPhone.fill('555-555-1212');
+      }
+      await slimFormContinue.click();
+      await expect(messageInput).toBeEnabled({ timeout: MAX_FORM_SUBMIT_FEEDBACK_MS });
+    }
+
+    // Measure first token timing
+    const startTime = Date.now();
+    await messageInput.fill('I need legal help with a contract dispute');
+    const aiResponsePromise = anonPage.waitForResponse(
+      (response) => response.request().method() === 'POST' && response.url().includes('/api/ai/chat') && response.status() === 200,
+      { timeout: MAX_AI_RESPONSE_MS }
+    );
+    
+    await anonPage.getByRole('button', { name: /send message/i }).click();
+    const aiNetworkResponse = await aiResponsePromise;
+    
+    // Wait for first SSE token
+    const firstTokenPromise = anonPage.waitForFunction(() => {
+      const messages = Array.from(document.querySelectorAll('[data-testid="ai-message"]'));
+      return messages.some(msg => msg.textContent && msg.textContent.trim().length > 0);
+    }, { timeout: MAX_FIRST_TOKEN_MS });
+    
+    await firstTokenPromise;
+    const firstTokenMs = Date.now() - startTime;
+
+    const report = {
+      firstTokenMs,
+      baseline: MAX_FIRST_TOKEN_MS,
+      regression: firstTokenMs > MAX_FIRST_TOKEN_MS * 1.2,
+      apiWaterfall: records.sort((a, b) => a.startedAtMs - b.startedAtMs),
+    };
+
+    await testInfo.attach('first-token-performance.json', {
+      body: JSON.stringify(report, null, 2),
+      contentType: 'application/json',
+    });
+
+    console.log('[performance] First token (ms):', firstTokenMs);
+    console.log('[performance] First token budget (ms):', MAX_FIRST_TOKEN_MS);
+    expect(firstTokenMs, 'First token response exceeded budget').toBeLessThan(MAX_FIRST_TOKEN_MS);
+  });
+
+  test('tool execution performance benchmarks', async ({ anonPage }, testInfo) => {
+    const practiceSlug = normalizePracticeSlug(DEFAULT_WIDGET_SLUG);
+    const toolTimings: Record<string, { durationMs: number; expectedMs: number }> = {};
+    
+    await anonPage.goto(`/public/${encodeURIComponent(practiceSlug)}?v=widget`, {
+      waitUntil: 'domcontentloaded',
+    });
+
+    // Complete slim form to get to chat
+    const consultationCta = anonPage.getByRole('button', { name: /request consultation/i }).first();
+    const slimFormName = anonPage.locator('input[placeholder*="full name" i], input[name="name"], label:has-text("Name") + input').first();
+    const slimFormEmail = anonPage.locator('input[type="email"]').first();
+    const slimFormPhone = anonPage.locator('input[type="tel"]').first();
+    const slimFormContinue = anonPage.getByRole('button', { name: /continue/i }).first();
+    const messageInput = anonPage.getByTestId('message-input');
+
+    if (await consultationCta.isVisible({ timeout: 1000 }).catch(() => false)) {
+      await consultationCta.click();
+    }
+
+    if (await slimFormName.isVisible({ timeout: 500 }).catch(() => false)) {
+      await slimFormName.fill('Tool Performance User');
+      await slimFormEmail.fill('tool-perf@example.com');
+      await slimFormPhone.fill('555-555-1212');
+      await slimFormContinue.click();
+      await expect(messageInput).toBeEnabled({ timeout: MAX_FORM_SUBMIT_FEEDBACK_MS });
+    }
+
+    // Setup tool execution monitoring
+    anonPage.addInitScript(() => {
+      (window as any).toolExecutionTimings = {};
+      
+      // Intercept tool execution
+      const originalFetch = window.fetch;
+      (window as any).fetch = function(...args) {
+        const [url, options] = args;
+        const startTime = Date.now();
+        
+        return originalFetch.apply(this, args).then(response => {
+          if (url.includes('/api/ai/chat')) {
+            const endTime = Date.now();
+            const duration = endTime - startTime;
+            
+            // Parse SSE events to detect tool execution
+            response.clone().text().then(text => {
+              const toolEvents = text.split('\n').filter(line => line.startsWith('data: ')).map(line => JSON.parse(line.slice(6)));
+              toolEvents.forEach(event => {
+                if (event.type === 'tool_use') {
+                  (window as any).toolExecutionTimings[event.name] = {
+                    durationMs: duration,
+                    timestamp: startTime
+                  };
+                }
+              });
+            });
+          }
+          return response;
+        });
+      };
+    });
+
+    // Test save_contact_info tool execution
+    const contactStartTime = Date.now();
+    await messageInput.fill('My name is John Smith, email is john@example.com, phone is 555-123-4567');
+    await anonPage.getByRole('button', { name: /send message/i }).click();
+    await anonPage.waitForTimeout(2000);
+    
+    const contactTimings = await anonPage.evaluate(() => (window as any).toolExecutionTimings);
+    toolTimings['save_contact_info'] = {
+      durationMs: contactTimings?.['save_contact_info']?.durationMs || 0,
+      expectedMs: MAX_TOOL_EXECUTION_MS
+    };
+
+    // Test save_case_details tool execution
+    const caseStartTime = Date.now();
+    await messageInput.fill('I need help with a divorce case in California against my spouse Jane. It\'s time sensitive because we have a court date next month.');
+    await anonPage.getByRole('button', { name: /send message/i }).click();
+    await anonPage.waitForTimeout(3000);
+    
+    const caseTimings = await anonPage.evaluate(() => (window as any).toolExecutionTimings);
+    toolTimings['save_case_details'] = {
+      durationMs: caseTimings?.['save_case_details']?.durationMs || 0,
+      expectedMs: MAX_TOOL_EXECUTION_MS
+    };
+
+    const report = {
+      toolTimings,
+      regression: Object.values(toolTimings).some(t => t.durationMs > t.expectedMs * 1.5),
+      baseline: {
+        'save_contact_info': MAX_TOOL_EXECUTION_MS,
+        'save_case_details': MAX_TOOL_EXECUTION_MS,
+        'request_payment': MAX_TOOL_EXECUTION_MS,
+        'submit_intake': MAX_TOOL_EXECUTION_MS
+      }
+    };
+
+    await testInfo.attach('tool-execution-performance.json', {
+      body: JSON.stringify(report, null, 2),
+      contentType: 'application/json',
+    });
+
+    console.log('[performance] Tool execution timings:', toolTimings);
+    
+    Object.entries(toolTimings).forEach(([tool, timing]) => {
+      if (timing.durationMs > 0) {
+        expect(timing.durationMs, `Tool ${tool} execution exceeded budget`).toBeLessThan(timing.expectedMs * 1.5);
+      }
+    });
   });
 });
