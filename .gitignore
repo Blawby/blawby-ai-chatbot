@@ -85,5 +85,8 @@ cookies.txt
 # E2E credentials (local only)
 tests/e2e/fixtures/e2e-credentials.json
 
+# Playwright test results and artifacts
+playwright/results/
+
 # Billing plan (sensitive financial/pricing information)
 BILLING_PLAN.md

@@ -30,6 +30,24 @@ const WIDGET_READY_TIMEOUT_MS = 35_000;
 const INTERACTIVE_TIMEOUT_MS = 30_000;
 const AI_RESPONSE_TIMEOUT_MS = 45_000;
 
+const formatCssRgb = (value: string): string => {
+  const parts = value.trim().split(/\s+/).filter(Boolean);
+  if (parts.length !== 3) return value.trim();
+  return `rgb(${parts.join(', ')})`;
+};
+
+const hexToCssRgb = (value: string): string | null => {
+  const normalized = value.trim();
+  if (!/^#[0-9a-fA-F]{3}([0-9a-fA-F]{3})?$/.test(normalized)) return null;
+  const hex = normalized.length === 4
+    ? `#${normalized[1]}${normalized[1]}${normalized[2]}${normalized[2]}${normalized[3]}${normalized[3]}`
+    : normalized;
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgb(${r}, ${g}, ${b})`;
+};
+
 // ── helpers ──────────────────────────────────────────────────────────────────
 
 /** Wait until window.__blawbyLastEvent.type === targetType inside the harness page. */
@@ -73,6 +91,85 @@ async function waitForWidgetEvent(
 /** Return all blawby postMessage events received so far. */
 async function getWidgetEvents(page: import('@playwright/test').Page) {
   return page.evaluate(() => window.__blawbyEvents ?? []);
+}
+
+async function getElementThemeStyles(locator: import('@playwright/test').Locator) {
+  return locator.evaluate((element) => {
+    const styles = window.getComputedStyle(element);
+    const rootStyles = window.getComputedStyle(document.documentElement);
+    return {
+      backgroundColor: styles.backgroundColor,
+      color: styles.color,
+      accent500: rootStyles.getPropertyValue('--accent-500').trim(),
+      accentForeground: rootStyles.getPropertyValue('--accent-foreground').trim(),
+    };
+  });
+}
+
+async function waitForLoaderThemeApplied(
+  page: import('@playwright/test').Page,
+  source: string,
+  timeoutMs = WIDGET_READY_TIMEOUT_MS
+) {
+  let themeEvent:
+    | {
+        primaryColor: string;
+        source: string;
+      }
+    | null = null;
+
+  await expect.poll(
+    async () => {
+      themeEvent = await page.evaluate((targetSource) => {
+        const events = (window.__blawbyEvents ?? []) as Array<{
+          type?: string;
+          detail?: { primaryColor?: string; source?: string };
+        }>;
+
+        for (let index = events.length - 1; index >= 0; index -= 1) {
+          const event = events[index];
+          if (event.type !== 'theme_applied') continue;
+          if (event.detail?.source !== targetSource) continue;
+          if (typeof event.detail?.primaryColor !== 'string') continue;
+          return {
+            primaryColor: event.detail.primaryColor,
+            source: event.detail.source,
+          };
+        }
+
+        return null;
+      }, source);
+
+      return themeEvent !== null;
+    },
+    {
+      timeout: timeoutMs,
+      message: `Expected loader theme_applied event with source "${source}"`,
+    }
+  ).toBe(true);
+
+  return themeEvent as { primaryColor: string; source: string };
+}
+
+function extractPracticeAccentColor(payload: unknown): string | null {
+  if (!payload || typeof payload !== 'object') return null;
+
+  const record = payload as Record<string, unknown>;
+  const accentColor = typeof record.accentColor === 'string' ? record.accentColor.trim() : '';
+  if (accentColor) return normalizeLoaderHexColor(accentColor);
+
+  const legacyAccentColor = typeof record.accent_color === 'string' ? record.accent_color.trim() : '';
+  return normalizeLoaderHexColor(legacyAccentColor);
+}
+
+function normalizeLoaderHexColor(value?: string | null): string | null {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  if (!/^#[0-9a-fA-F]{3}([0-9a-fA-F]{3})?$/.test(trimmed)) return null;
+  if (trimmed.length === 4) {
+    return `#${trimmed[1]}${trimmed[1]}${trimmed[2]}${trimmed[2]}${trimmed[3]}${trimmed[3]}`;
+  }
+  return trimmed;
 }
 
 async function reachWidgetComposer(
@@ -307,6 +404,134 @@ test.describe('Public widget embed (cross-origin iframe flow)', () => {
     const types = events.map((e) => e.type);
     expect(types).toContain('blawby:ready');
     expect(types).toContain('widget_opened');
+  });
+
+  test('widget CTA surfaces match the resolved launcher theme', async ({ anonPage: page }, testInfo) => {
+    const slug = DEFAULT_WIDGET_SLUG;
+    const practiceDetailsPath = `/api/widget/practice-details/${encodeURIComponent(slug)}`;
+    const practiceDetailsResultPromise = Promise.race([
+      page.waitForResponse((response) => {
+        const requestUrl = response.url();
+        return requestUrl.includes(practiceDetailsPath);
+      }, { timeout: WIDGET_READY_TIMEOUT_MS }).then((response) => ({
+        kind: 'response' as const,
+        response,
+      })),
+      page.waitForEvent('requestfailed', {
+        predicate: (request) => request.url().includes(practiceDetailsPath),
+        timeout: WIDGET_READY_TIMEOUT_MS,
+      }).then((request) => ({
+        kind: 'requestfailed' as const,
+        request,
+      })),
+    ]);
+
+    await page.goto(`/mock-embed.html?slug=${encodeURIComponent(slug)}`, {
+      waitUntil: 'domcontentloaded',
+    });
+
+    await page.locator('button[data-action="open"]').click();
+    await waitForWidgetEvent(page, 'iframe_ready', WIDGET_READY_TIMEOUT_MS);
+    const practiceDetailsResult = await practiceDetailsResultPromise;
+    let practiceDetailsStatus: number | null = null;
+    let practiceDetailsPayload: Record<string, unknown> | null = null;
+    let practiceDetailsJsonParsed = false;
+    let practiceDetailsFailure: string | null = null;
+    let loaderNormalizedAccentColor: string | null = null;
+
+    if (practiceDetailsResult.kind === 'response') {
+      practiceDetailsStatus = practiceDetailsResult.response.status();
+
+      if (practiceDetailsResult.response.ok()) {
+        try {
+          practiceDetailsPayload = await practiceDetailsResult.response.json() as Record<string, unknown> | null;
+          practiceDetailsJsonParsed = true;
+          loaderNormalizedAccentColor = extractPracticeAccentColor(practiceDetailsPayload);
+        } catch (error) {
+          practiceDetailsFailure = error instanceof Error ? error.message : String(error);
+        }
+      }
+    } else {
+      practiceDetailsFailure = practiceDetailsResult.request.failure()?.errorText ?? 'requestfailed';
+    }
+
+    const expectedThemeSource = loaderNormalizedAccentColor ? 'practice_accent' : 'default';
+    const resolvedTheme = await waitForLoaderThemeApplied(page, expectedThemeSource, WIDGET_READY_TIMEOUT_MS);
+    const resolvedPrimaryColor = hexToCssRgb(resolvedTheme.primaryColor);
+    expect(
+      resolvedPrimaryColor,
+      `Expected ${expectedThemeSource} theme_applied primaryColor to be a valid hex color, got "${resolvedTheme.primaryColor}"`
+    ).not.toBeNull();
+    const expectedResolvedPrimaryColor = resolvedPrimaryColor as string;
+
+    const launcher = page.locator('#blawby-launcher, [id*="blawby"][id*="launcher"], button[aria-label*="Chat"]').first();
+    await expect(launcher).toBeVisible({ timeout: 10_000 });
+
+    // Move the pointer off the floating widget so CTA colors settle to their resting state
+    // instead of a hover-transition intermediate color.
+    await page.mouse.move(20, 20);
+    await page.waitForTimeout(300);
+
+    const launcherBackground = await launcher.evaluate((element) => window.getComputedStyle(element).backgroundColor);
+    const iframe = page.frameLocator('iframe[src*="/public/"]').first();
+    expect(
+      launcherBackground,
+      'Launcher should match the resolved widget theme once theme_applied fires'
+    ).toBe(expectedResolvedPrimaryColor);
+
+    const consultationButton = iframe.getByRole('button', { name: /request consultation/i }).first();
+    await expect(consultationButton).toBeVisible({ timeout: 15_000 });
+
+    const consultationStyles = await getElementThemeStyles(consultationButton);
+    expect(
+      consultationStyles.backgroundColor,
+      'Request Consultation CTA should use the widget accent background'
+    ).toBe(formatCssRgb(consultationStyles.accent500));
+    expect(
+      consultationStyles.backgroundColor,
+      'Request Consultation CTA should match the resolved widget theme color'
+    ).toBe(expectedResolvedPrimaryColor);
+    expect(
+      consultationStyles.color,
+      'Request Consultation CTA should use the accent foreground for contrast'
+    ).toBe(formatCssRgb(consultationStyles.accentForeground));
+
+    const messagesNavButton = iframe.locator('button[aria-label="nav.messages"], button[title="nav.messages"]').first();
+    await expect(messagesNavButton).toBeVisible({ timeout: 10_000 });
+    await messagesNavButton.click();
+
+    await page.mouse.move(20, 20);
+    await page.waitForTimeout(300);
+
+    const listSendMessageButton = iframe.getByRole('button', { name: /send us a message/i }).first();
+    await expect(listSendMessageButton).toBeVisible({ timeout: 15_000 });
+
+    const listSendMessageStyles = await getElementThemeStyles(listSendMessageButton);
+    expect(
+      listSendMessageStyles.backgroundColor,
+      'Conversation list Send message CTA should use the same accent background'
+    ).toBe(expectedResolvedPrimaryColor);
+    expect(
+      listSendMessageStyles.color,
+      'Conversation list Send message CTA should use the accent foreground for contrast'
+    ).toBe(formatCssRgb(listSendMessageStyles.accentForeground));
+
+    await testInfo.attach('widget-theme-styles.json', {
+      body: JSON.stringify({
+        expectedThemeSource,
+        practiceDetailsStatus,
+        practiceDetailsPayload,
+        practiceDetailsJsonParsed,
+        practiceDetailsFailure,
+        loaderNormalizedAccentColor,
+        resolvedTheme,
+        resolvedPrimaryColor: expectedResolvedPrimaryColor,
+        launcherBackground,
+        consultationStyles,
+        listSendMessageStyles,
+      }, null, 2),
+      contentType: 'application/json',
+    });
   });
 
   test('widget survives cookie clear and reopens after reload', async ({ anonPage: page }) => {
