@@ -1054,7 +1054,7 @@ export class RemoteApiService {
     request?: Request
   ): Promise<{
     paymentLinkEnabled?: boolean;
-    prefillAmount?: number;
+    consultationFee?: number;
     organization?: {
       id?: string;
       slug?: string;
@@ -1088,19 +1088,19 @@ export class RemoteApiService {
       const orgRecord = data.organization && typeof data.organization === 'object'
         ? data.organization as Record<string, unknown>
         : null;
-      const prefillAmount = typeof settingsRecord.prefillAmount === 'number'
-        ? settingsRecord.prefillAmount as number
-        : typeof settingsRecord.prefill_amount === 'number'
-          ? settingsRecord.prefill_amount as number
+      const consultationFee = typeof settingsRecord.consultationFee === 'number'
+        ? settingsRecord.consultationFee as number
+        : typeof settingsRecord.consultation_fee === 'number'
+          ? settingsRecord.consultation_fee as number
           : undefined;
-      warnIfNotMinorUnits(prefillAmount, 'remote.intakeSettings.prefillAmount');
+      warnIfNotMinorUnits(consultationFee, 'remote.intakeSettings.consultationFee');
       return {
         paymentLinkEnabled: typeof settingsRecord.paymentLinkEnabled === 'boolean'
           ? settingsRecord.paymentLinkEnabled as boolean
           : typeof settingsRecord.payment_link_enabled === 'boolean'
             ? settingsRecord.payment_link_enabled as boolean
           : undefined,
-        prefillAmount,
+        consultationFee,
         organization: orgRecord
           ? {
               id: typeof orgRecord.id === 'string' ? orgRecord.id : undefined,

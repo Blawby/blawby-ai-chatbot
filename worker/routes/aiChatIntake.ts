@@ -627,14 +627,6 @@ const normalizePracticeDetailsForAi = (details: Record<string, unknown> | null):
     const next = normalizeMoney(normalized.consultationFee);
     if (next !== undefined) normalized.consultationFee = next;
   }
-  if ('payment_link_prefill_amount' in normalized) {
-    const next = normalizeMoney(normalized.payment_link_prefill_amount);
-    if (next !== undefined) normalized.payment_link_prefill_amount = next;
-  }
-  if ('paymentLinkPrefillAmount' in normalized) {
-    const next = normalizeMoney(normalized.paymentLinkPrefillAmount);
-    if (next !== undefined) normalized.paymentLinkPrefillAmount = next;
-  }
   return normalized;
 };
 
@@ -661,7 +653,6 @@ const buildCompactPracticeContextForPrompt = (
   copyIfPresent('businessEmail', ['businessEmail', 'business_email', 'email']);
   copyIfPresent('website', ['website']);
   copyIfPresent('consultationFee', ['consultationFee', 'consultation_fee']);
-  copyIfPresent('paymentLinkPrefillAmount', ['paymentLinkPrefillAmount', 'payment_link_prefill_amount']);
 
   if (Array.isArray(normalized.services)) {
     compact.services = normalizeServicesForPrompt(normalized);

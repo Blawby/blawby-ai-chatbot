@@ -129,6 +129,7 @@ export const useMessageHandling = (options: UseMessageHandlingOptions) => {
     latestIntakeSubmission: {
       intakeUuid: consultation?.submission?.intakeUuid ?? null,
       paymentRequired: consultation?.submission?.paymentRequired ?? false,
+      checkoutSessionId: consultation?.submission?.checkoutSessionId ?? null,
     },
     onPaymentConfirmed: (uuid) => {
       setVerifiedPaidIntakeUuids(prev => {

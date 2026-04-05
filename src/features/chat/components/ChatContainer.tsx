@@ -552,6 +552,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
         if (paymentRequest.practiceName) payload.practiceName = paymentRequest.practiceName;
         if (paymentRequest.practiceId) payload.practiceId = paymentRequest.practiceId;
         if (paymentRequest.conversationId) payload.conversationId = paymentRequest.conversationId;
+        if (paymentRequest.checkoutSessionId) payload.sessionId = paymentRequest.checkoutSessionId;
 
         window.sessionStorage.setItem(
           `intakePaymentSuccess:${paymentRequest.intakeUuid}`,

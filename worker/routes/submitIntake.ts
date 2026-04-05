@@ -174,13 +174,12 @@ const getResolvedAmountMinor = ({
   intakeSettings: IntakeSettings | null;
   fallbackConsultationFeeMinor: number | null;
 }): number => {
-  const prefillAmount = typeof intakeSettings?.prefillAmount === 'number' && Number.isFinite(intakeSettings.prefillAmount)
-    ? intakeSettings.prefillAmount
+  const consultationFee = typeof intakeSettings?.consultationFee === 'number' && Number.isFinite(intakeSettings.consultationFee)
+    ? intakeSettings.consultationFee
     : null;
-  if (prefillAmount !== null && prefillAmount > 0) {
-    return prefillAmount;
+  if (consultationFee !== null && consultationFee > 0) {
+    return consultationFee;
   }
-
   if (typeof fallbackConsultationFeeMinor === 'number' && fallbackConsultationFeeMinor > 0) {
     return fallbackConsultationFeeMinor;
   }
@@ -433,8 +432,6 @@ export async function handleSubmitIntake(
   const intakeSettings = await RemoteApiService.getPracticeClientIntakeSettings(env, slug, request);
   const practiceDetails = await fetchPracticeDetailsWithCache(env, request, practiceId, slug);
   const fallbackConsultationFeeMinor = readFiniteNumberField(practiceDetails.details, [
-    'paymentLinkPrefillAmount',
-    'payment_link_prefill_amount',
     'consultationFee',
     'consultation_fee',
   ]);
@@ -476,10 +473,7 @@ export async function handleSubmitIntake(
     );
   }
 
-  // Build backend payload. Prefer intake-settings prefillAmount, but if the
-  // settings endpoint reports payment enabled with amount=0, fall back to the
-  // consultation fee stored in practice details so we do not send an invalid
-  // zero-dollar payload to createIntake.
+  // Build backend payload using the canonical consultation fee resolved above.
   const intakePayload = buildIntakePayload(conversationId, slug, draft, intake, {
     amountMinor: resolvedAmountMinor,
     userId,
