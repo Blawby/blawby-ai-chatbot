@@ -1298,13 +1298,12 @@ test.describe('Public widget intake flow', () => {
       ).toBe(true);
 
       // ASSERTION 2b: Verify normalization layer prevents tool-only responses
-      expect(
-        done2?.replySource !== 'empty',
-        'Normalization layer should prevent empty replies when actions exist'
-      ).toBe(true);
-
       // Verify persistedMessageId exists when actions are present
       if (done2?.actions && done2.actions.length > 0) {
+        expect(
+          done2?.replySource !== 'empty',
+          'Normalization layer should prevent empty replies when actions exist'
+        ).toBe(true);
         expect(
           done2?.persistedMessageId,
           'SSE done should include persistedMessageId when actions exist'

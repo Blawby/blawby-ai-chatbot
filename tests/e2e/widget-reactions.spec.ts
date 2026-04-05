@@ -17,13 +17,13 @@ test.describe('Message Reactions with Normalization', () => {
     await page.waitForSelector('[data-testid="ai-message"]', { timeout: 30000 });
 
     // Send location to trigger the tool-only scenario
-    await page.fill('[data-testid="message-input"]', 'charlotte nc');
-    await page.click('[data-testid="send-button"]');
-    
     // Wait for response and capture SSE done payload
     const responsePromise = page.waitForResponse(response => 
       response.url().includes('/api/ai/chat') && response.status() === 200
     );
+    
+    await page.fill('[data-testid="message-input"]', 'charlotte nc');
+    await page.click('[data-testid="send-button"]');
     
     const response = await responsePromise;
     const responseText = await response.text();

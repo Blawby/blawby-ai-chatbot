@@ -7,7 +7,7 @@ import {
   isIntakeSubmittable as isSharedIntakeSubmittable,
 } from '../../src/shared/utils/consultationState';
 import type { ChatMessageAction } from '../../src/shared/types/conversation';
-import { createSubmitAction } from '../../src/shared/utils/chatActions';
+import { createSubmitAction, createContinuePaymentAction } from '../../src/shared/utils/chatActions';
 
 const MAX_SERVICES_IN_PROMPT = 20;
 const MAX_SERVICES_IN_CONVERSATION_PROMPT = 8;
@@ -203,7 +203,7 @@ export const handleRequestPayment = (
     success: true,
     message: 'Payment requested.',
     triggerPayment: true,
-    actions: [createSubmitAction('Continue')],
+    actions: [createContinuePaymentAction('Continue')],
   };
 };
 
@@ -270,7 +270,7 @@ const deriveNextActions = (
 
   // All required fields collected — either payment or submit
   if (isIntakeSubmittable(mergedState, submissionGate)) {
-    return [createSubmitAction(submissionGate.paymentRequiredBeforeSubmit && !submissionGate.paymentCompleted ? 'Continue' : 'Submit request')];
+    return [submissionGate.paymentRequiredBeforeSubmit && !submissionGate.paymentCompleted ? createContinuePaymentAction('Continue') : createSubmitAction('Submit request')];
   }
 
   // Payment required (case info complete, payment pending)
@@ -279,7 +279,7 @@ const deriveNextActions = (
     !submissionGate.paymentCompleted &&
     isIntakeReadyForSubmission(mergedState)
   ) {
-    return [createSubmitAction('Continue')];
+    return [createContinuePaymentAction('Continue')];
   }
 
   return [];
