@@ -19,6 +19,7 @@ import ChatContainer from '@/features/chat/components/ChatContainer';
 import type { ChatMessageUI } from '../../../../worker/types';
 import type { PracticeSetupStatus } from '../utils/status';
 import { calculatePracticeSetupProgress } from '../utils/progress';
+import { features } from '@/config/features';
 import type { Practice } from '@/shared/hooks/usePracticeManagement';
 import type { PracticeDetails } from '@/shared/lib/apiClient';
 import type { FileAttachment } from '../../../../worker/types';
@@ -484,7 +485,7 @@ export const PracticeSetup = ({
           isSessionReady={!waitingForRealChat}
           isSocketReady={waitingForRealChat ? false : (chatAdapter?.isSocketReady ?? true)}
           messagesReady={chatMessagesReady}
-          onToggleReaction={chatAdapter?.onToggleReaction}
+          onToggleReaction={chatAdapter?.onToggleReaction && features.enableMessageReactions ? chatAdapter.onToggleReaction : undefined}
           onRequestReactions={chatAdapter?.onRequestReactions}
           hasMoreMessages={chatAdapter?.hasMoreMessages}
           isLoadingMoreMessages={chatAdapter?.isLoadingMoreMessages}

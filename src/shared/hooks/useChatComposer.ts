@@ -24,6 +24,7 @@ import { type IntakeFieldsPayload } from '@/shared/types/intake';
 import { STREAMING_BUBBLE_PREFIX } from './useConversation';
 import { withWidgetAuthHeaders } from '@/shared/utils/widgetAuth';
 import { applyConsultationPatchToMetadata, resolveConsultationState } from '@/shared/utils/consultationState';
+import { normalizeChatActions } from '@/shared/utils/chatActions';
 
 // ─── constants ────────────────────────────────────────────────────────────────
 
@@ -386,6 +387,64 @@ export const useChatComposer = ({
               : msg
           ));
         }
+        const doneActions = normalizeChatActions(parsed.actions);
+        if (doneActions.length > 0) {
+          const currentBubble = messagesRef.current.find((message) => message.id === bubbleId);
+          if (!currentBubble?.content?.trim()) {
+            removeStreamingBubble(bubbleId);
+            pendingStreamMessageIdRef.current = null;
+            if (activeStreamingBubbleIdRef.current === bubbleId) {
+              activeStreamingBubbleIdRef.current = null;
+            }
+            if (orphanTimerRef.current !== null) {
+              clearTimeout(orphanTimerRef.current);
+              orphanTimerRef.current = null;
+            }
+            return;
+          }
+
+          setMessages(prev => prev.map(msg =>
+            msg.id === bubbleId
+              ? {
+                  ...msg,
+                  isLoading: false,
+                  metadata: {
+                    ...(msg.metadata ?? {}),
+                    __client_id: bubbleId,
+                    actions: doneActions,
+                  },
+                }
+              : msg
+          ));
+          if (activeStreamingBubbleIdRef.current === bubbleId) {
+            activeStreamingBubbleIdRef.current = null;
+          }
+          pendingStreamMessageIdRef.current = null;
+          if (orphanTimerRef.current !== null) {
+            clearTimeout(orphanTimerRef.current);
+            orphanTimerRef.current = null;
+          }
+          return;
+        }
+        let removedEmptyBubble = false;
+        setMessages(prev => {
+          const currentBubble = prev.find((message) => message.id === bubbleId);
+          if (currentBubble?.content?.trim()) {
+            return prev;
+          }
+          removedEmptyBubble = prev.some((message) => message.id === bubbleId);
+          return prev.filter((message) => message.id !== bubbleId);
+        });
+        if (removedEmptyBubble || activeStreamingBubbleIdRef.current === bubbleId) {
+          if (activeStreamingBubbleIdRef.current === bubbleId) {
+            activeStreamingBubbleIdRef.current = null;
+          }
+          pendingStreamMessageIdRef.current = null;
+          if (orphanTimerRef.current !== null) {
+            clearTimeout(orphanTimerRef.current);
+            orphanTimerRef.current = null;
+          }
+        }
         return;
       }
       if (parsed.error === true) {
@@ -465,8 +524,7 @@ export const useChatComposer = ({
     const normalizedBubble = typeof currentBubble?.content === 'string' && currentBubble.content.trim().length > 0
       ? normalizeMessage(currentBubble.content)
       : null;
-    const hasMatchingPersistedAssistant = Boolean(
-      normalizedBubble && currentMessages.some(message => {
+    const hasMatchingPersistedAssistant = currentMessages.some(message => {
         if (message.id === bubbleIdToHandle) return false;
         if (message.id.startsWith(STREAMING_BUBBLE_PREFIX)) return false;
         const isAiMessage = message.role === 'assistant' || (message.role === 'system' && message.metadata?.source === 'ai');
@@ -477,16 +535,16 @@ export const useChatComposer = ({
           message.reply_to_message_id === bubbleIdToHandle ||
           (message.metadata && message.metadata.sourceBubbleId === bubbleIdToHandle);
 
+        if (isLinked) return true;
+        if (!normalizedBubble) return false;
         if (typeof message.content !== 'string' || message.content.trim().length === 0) return false;
         const normalizedAssistant = normalizeMessage(message.content);
-        if (isLinked) return isSufficientlySimilar(normalizedAssistant, normalizedBubble);
 
         const messageAgeMs = Math.abs(Date.now() - message.timestamp);
         const RECENT_PERSISTED_ASSISTANT_WINDOW_MS = 15_000;
         if (messageAgeMs > RECENT_PERSISTED_ASSISTANT_WINDOW_MS) return false;
         return isSufficientlySimilar(normalizedAssistant, normalizedBubble);
-      })
-    );
+      });
 
     if (hasMatchingPersistedAssistant) {
       setMessages(prev => prev.filter(message => message.id !== bubbleIdToHandle));

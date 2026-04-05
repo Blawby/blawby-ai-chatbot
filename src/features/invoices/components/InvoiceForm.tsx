@@ -66,7 +66,7 @@ const buildDefaultDueDate = () => {
   return `${year}-${month}-${day}`;
 };
 
-const INVOICE_TYPE_OPTIONS = [
+const _INVOICE_TYPE_OPTIONS = [
   { value: 'flat_fee', label: 'Flat fee' },
   { value: 'hourly', label: 'Hourly' },
   { value: 'phase_fee', label: 'Milestone / phase fee' },
@@ -188,7 +188,7 @@ export const InvoiceForm = forwardRef<InvoiceFormHandle, InvoiceFormProps>(({
       : null
   ));
   const [sendError, setSendError] = useState<string | null>(null);
-  const [invoiceType, setInvoiceType] = useState<Invoice['invoice_type']>(defaultInvoiceType);
+  const [invoiceType, _setInvoiceType] = useState<Invoice['invoice_type']>(defaultInvoiceType);
   const isMatterScoped = Boolean(matter);
   const resolvedMatterId = isMatterScoped ? matter?.id ?? '' : matterId;
   const resolvedClientId = isMatterScoped ? matter?.clientId ?? '' : clientId;

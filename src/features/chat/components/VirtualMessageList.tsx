@@ -7,6 +7,7 @@ import { Icon } from '@/shared/ui/Icon';
 import { debounce } from '@/shared/utils/debounce';
 import { ErrorBoundary } from '@/app/ErrorBoundary';
 import { ChatMessageUI } from '../../../../worker/types';
+import type { ChatMessageAction } from '@/shared/types/conversation';
 import type { IntakePaymentRequest } from '@/shared/utils/intakePayments';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { useToastContext } from '@/shared/contexts/ToastContext';
@@ -18,6 +19,8 @@ import { isIntakeSubmittable } from '@/shared/utils/consultationState';
 import { MessageRowSkeleton } from '@/shared/ui/layout/skeleton-presets/MessageRowSkeleton';
 import { getPracticeIntake, updateIntakeTriageStatus, type PracticeIntakeDetail } from '@/features/intake/api/intakesApi';
 import { quickActionDebugLog, isQuickActionDebugEnabled } from '@/shared/utils/quickActionDebug';
+import { createBuildBriefAction, createSubmitAction, hasTerminalChatAction, hasBuildBriefAction, normalizeChatActions } from '@/shared/utils/chatActions';
+import { features } from '@/config/features';
 
 export interface OnboardingActions {
     onSaveAll?: () => void | Promise<void>;
@@ -59,7 +62,6 @@ interface VirtualMessageListProps {
     };
     intakeConversationState?: IntakeConversationState | null;
     hasSlimContactDraft?: boolean;
-    onIntakeCtaResponse?: (response: 'ready' | 'not_yet') => void;
     onSubmitNow?: () => void | Promise<void>;
     onBuildBrief?: () => void;
     onQuickReply?: (text: string) => void;
@@ -104,7 +106,6 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
     intakeStatus: _intakeStatus,
     intakeConversationState,
     hasSlimContactDraft = false,
-    onIntakeCtaResponse,
     onSubmitNow,
     onBuildBrief,
     onQuickReply,
@@ -704,6 +705,41 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
         paymentReceived: _intakeStatus?.paymentReceived ?? null,
     });
 
+    const buildMessageActions = useCallback((
+        baseActions: ChatMessageAction[],
+        message: ChatMessageUI,
+        isLast: boolean
+    ): ChatMessageAction[] => {
+        const messageActions = [...baseActions];
+        const shouldAppendSubmitAction =
+            !message.isUser &&
+            isLast &&
+            intakeReady &&
+            intakeConversationState?.ctaResponse !== 'ready' &&
+            _intakeStatus?.step !== 'pending_review' &&
+            _intakeStatus?.step !== 'completed';
+        const shouldAppendDecisionActions =
+            !message.isUser &&
+            isLast &&
+            message.metadata?.intakeDecisionPrompt === true &&
+            _intakeStatus?.step === 'contact_form_decision';
+
+        if (shouldAppendDecisionActions) {
+            if (!hasTerminalChatAction(messageActions)) {
+                messageActions.push(createSubmitAction(_intakeStatus?.paymentRequired ? 'Continue' : 'Submit'));
+            }
+            if (!hasBuildBriefAction(messageActions)) {
+                messageActions.push(createBuildBriefAction('Build a stronger brief'));
+            }
+        } else if (shouldAppendSubmitAction && !hasTerminalChatAction(messageActions)) {
+            messageActions.push(
+                createSubmitAction(_intakeStatus?.paymentRequired ? 'Continue' : 'Submit request')
+            );
+        }
+
+        return messageActions;
+    }, [intakeReady, intakeConversationState?.ctaResponse, _intakeStatus?.paymentRequired, _intakeStatus?.step]);
+
     const scrollToMessage = useCallback((messageId: string) => {
         if (!messageId) {
             return;
@@ -746,6 +782,8 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
         }
         
         const requestVisibleReactions = () => {
+            if (!features.enableMessageReactions) return;
+            
             const messagesToRequest = visibleMessagesRef.current.filter(message => {
                 if (!message.id) return false;
                 // Skip if reactions are already loaded on the message object.
@@ -780,31 +818,19 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
         const actionableMessages = visibleMessages
             .map((message, index) => {
                 const isLast = (index + derivedStart) === (dedupedMessages.length - 1);
-                const rawQuickReplies = Array.isArray(message.metadata?.quickReplies)
-                    ? message.metadata.quickReplies.filter((value: unknown): value is string => typeof value === 'string')
-                    : [];
-                const derivedQuickReplies = isLast ? rawQuickReplies : [];
-                const hasQuickReplies = derivedQuickReplies.length > 0;
-                const showSharedIntakeCta =
-                    !message.isUser &&
-                    isLast &&
-                    intakeReady &&
-                    !hasQuickReplies &&
-                    intakeConversationState?.ctaResponse !== 'ready' &&
-                    _intakeStatus?.step !== 'pending_review' &&
-                    _intakeStatus?.step !== 'completed';
+                const rawActions = normalizeChatActions(message.metadata?.actions);
+                const baseActions = isLast ? rawActions : [];
+                const messageActions = buildMessageActions(baseActions, message, isLast);
 
-                const isActionable = isLast || rawQuickReplies.length > 0 || Boolean(message.paymentRequest) || showSharedIntakeCta;
+                const isActionable = isLast || rawActions.length > 0 || Boolean(message.paymentRequest) || messageActions.length > 0;
                 if (!isActionable) return null;
 
                 return {
                     messageId: message.id ?? null,
                     role: message.role,
                     isLast,
-                    rawQuickReplies,
-                    derivedQuickReplies,
-                    hasQuickReplies,
-                    showSharedIntakeCta,
+                    rawActions,
+                    messageActions,
                     hasPaymentRequest: Boolean(message.paymentRequest),
                 };
             })
@@ -828,7 +854,15 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
             ctaResponse: intakeConversationState?.ctaResponse ?? null,
             actionableMessages,
         });
-    }, [visibleMessages, derivedStart, dedupedMessages.length, intakeReady, intakeConversationState?.ctaResponse, _intakeStatus?.step]);
+    }, [
+        visibleMessages,
+        derivedStart,
+        dedupedMessages.length,
+        buildMessageActions,
+        intakeReady,
+        intakeConversationState?.ctaResponse,
+        _intakeStatus?.step,
+    ]);
 
     return (
         <div className="relative min-h-0 flex flex-1 flex-col">
@@ -902,10 +936,15 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                         _intakeStatus?.step === 'submitted' ||
                         _intakeStatus?.step === 'pending_review' ||
                         _intakeStatus?.step === 'completed';
-                    const quickReplies = isLast && Array.isArray(message.metadata?.quickReplies) && !intakeIsTerminal
-                        ? message.metadata.quickReplies.filter((value: unknown): value is string => typeof value === 'string')
-                        : undefined;
-                    const hasQuickReplies = Array.isArray(quickReplies) && quickReplies.length > 0;
+                    const baseActions = isLast
+                        ? normalizeChatActions(message.metadata?.actions).filter((action) => {
+                            if (!intakeIsTerminal) return true;
+                            return action.type === 'submit'
+                                || action.type === 'continue_payment'
+                                || action.type === 'open_url';
+                        })
+                        : [];
+                    const messageActions = buildMessageActions(baseActions, message, isLast);
                     const onboardingMetaFromMessage = (
                         message.metadata && typeof message.metadata.onboardingProfile === 'object' && message.metadata.onboardingProfile
                     ) ? (message.metadata.onboardingProfile as Record<string, unknown>) : null;
@@ -941,14 +980,6 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                             onChange: onboardingActions.onLogoChange,
                         } : undefined,
                     } : undefined;
-                    const showSharedIntakeCta =
-                        !message.isUser &&
-                        isLast &&
-                        intakeReady &&
-                        !hasQuickReplies &&
-                        intakeConversationState?.ctaResponse !== 'ready' &&
-                        _intakeStatus?.step !== 'pending_review' &&
-                        _intakeStatus?.step !== 'completed';
                     const stableClientId = typeof message.metadata?.__client_id === 'string'
                         ? message.metadata.__client_id
                         : null;
@@ -981,7 +1012,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                                     avatar
                                 });
                             } : undefined}
-                            onToggleReaction={onToggleReaction ? (emoji: string) => {
+                            onToggleReaction={onToggleReaction && features.enableMessageReactions ? (emoji: string) => {
                                 if (!message.id) return;
                                 onToggleReaction(message.id, emoji);
                             } : undefined}
@@ -999,15 +1030,12 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                             assistantRetry={message.assistantRetry}
                             modeSelector={modeSelector}
                             leadReview={leadReview}
-                            authCta={authCta}
+                                authCta={authCta}
                                 onAuthPromptRequest={onAuthPromptRequest}
                                 intakeStatus={_intakeStatus}
                                 intakeConversationState={intakeConversationState}
-                                quickReplies={quickReplies}
-                                onQuickReply={onQuickReply}
-                                showIntakeCta={showSharedIntakeCta}
-                                showIntakeDecisionPrompt={message.metadata?.intakeDecisionPrompt === true}
-                                onIntakeCtaResponse={onIntakeCtaResponse}
+                                actions={messageActions}
+                                onActionReply={onQuickReply}
                                 onSubmitNow={onSubmitNow}
                                 onBuildBrief={onBuildBrief}
                                 onboardingProfile={onboardingProfile}

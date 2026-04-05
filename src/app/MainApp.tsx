@@ -38,16 +38,8 @@ const ClientInvoiceDetailPage = lazy(() => import('@/features/invoices/pages/Cli
 const PracticeReportsPage = lazy(() => import('@/features/reports/pages/PracticeReportsPage').then(m => ({ default: m.PracticeReportsPage })));
 import { useConversationSystemMessages } from '@/shared/hooks/useConversationSystemMessages';
 import { initializeAccentColor } from '@/shared/utils/accentColors';
-import { linkConversationToUser } from '@/shared/lib/apiClient';
 import { useMentionCandidates } from '@/shared/hooks/useMentionCandidates';
 import { isIntakeReadyForSubmission, resolveConsultationState } from '@/shared/utils/consultationState';
-import {
-  peekAnonymousSessionId,
-  peekAnonymousUserId,
-  peekConversationAnonymousParticipant,
-  consumePostAuthConversationContext,
-  peekPostAuthConversationContext,
-} from '@/shared/utils/anonymousIdentity';
 import type { SettingsView } from '@/features/settings/pages/SettingsContent';
 import { InformationCircleIcon, PaperAirplaneIcon } from '@heroicons/react/24/outline';
 import { PlusIcon } from '@heroicons/react/24/solid';
@@ -113,9 +105,7 @@ export function MainApp({
   const [isRecording, setIsRecording] = useState(false);
   const [showBusinessWelcome, setShowBusinessWelcome] = useState(false);
   const [conversationMode, setConversationMode] = useState<ConversationMode | null>(null);
-  const [dismissedIntakeAuthFor, setDismissedIntakeAuthFor] = useState<string | null>(null);
   const [isPaymentAuthPromptOpen, setIsPaymentAuthPromptOpen] = useState(false);
-  const preAuthUserIdRef = useRef<string | null>(null);
 
   const { navigate } = useNavigation();
   const { showError, showInfo } = useToastContext();
@@ -232,7 +222,7 @@ export function MainApp({
   // ── conversation setup ─────────────────────────────────────────────────────
   const {
     conversationId: setupConversationId,
-    setConversationId,
+    setConversationId: _setConversationId,
     isCreatingConversation,
     ensureConversation,
     applyConversationMode,
@@ -251,38 +241,6 @@ export function MainApp({
   const activeConversationId = normalizedRouteConversationId ?? setupConversationId;
   const shouldEnableConversationTransport = workspaceView !== 'settings';
   const liveConversationId = shouldEnableConversationTransport ? activeConversationId : null;
-
-  useEffect(() => {
-    if (sessionIsPending) return;
-    if (!session?.user || isAnonymous) return;
-    const pending = peekPostAuthConversationContext();
-    if (!pending) return;
-    if (pending.practiceId) {
-      const matchesPractice =
-        pending.practiceId === practiceId ||
-        pending.practiceId === effectivePracticeId;
-      if (!matchesPractice) return;
-    }
-
-    const consumedPending = consumePostAuthConversationContext();
-    if (!consumedPending) return;
-
-    if (consumedPending.workspace === 'public' && consumedPending.practiceSlug) {
-      const slug = consumedPending.practiceSlug;
-      navigate(`/public/${encodeURIComponent(slug)}/conversations/${encodeURIComponent(consumedPending.conversationId)}`, true);
-      return;
-    }
-
-    setConversationId(consumedPending.conversationId);
-  }, [
-    effectivePracticeId,
-    isAnonymous,
-    navigate,
-    practiceId,
-    session?.user,
-    sessionIsPending,
-    setConversationId,
-  ]);
 
   // ── message handling ───────────────────────────────────────────────────────
   const handleMessageError = useCallback((error: string | Error) => {
@@ -303,13 +261,7 @@ export function MainApp({
     }
   }, []);
 
-  // Bridge for payment gate: useIntakeFlow calls onOpenPayment imperatively;
-  // ChatContainer registers its handleOpenPayment here on mount.
-  const openPaymentRef = useRef<((req: import('@/shared/utils/intakePayments').IntakePaymentRequest) => void) | null>(null);
-  const handleOpenPaymentBridge = useCallback(
-    (req: import('@/shared/utils/intakePayments').IntakePaymentRequest) => openPaymentRef.current?.(req),
-    []
-  );
+
 
   const messageHandling = useMessageHandling({
     enabled: shouldEnableConversationTransport,
@@ -321,14 +273,13 @@ export function MainApp({
     mode: conversationMode,
     onConversationMetadataUpdated: handleConversationMetadataUpdated,
     onError: handleMessageError,
-    onOpenPayment: handleOpenPaymentBridge,
   });
 
   const {
     messages, conversationMetadata, sendMessage, addMessage, clearMessages,
     requestMessageReactions, toggleMessageReaction,
     intakeStatus, intakeConversationState, handleIntakeCtaResponse,
-    slimContactDraft, handleSlimFormContinue, handleBuildBrief, handleSubmitNow, handleFinalizeSubmit,
+    slimContactDraft, handleSlimFormContinue, handleBuildBrief, handleSubmitNow, handleFinalizeSubmit: _handleFinalizeSubmit,
     startConsultFlow, updateConversationMetadata: _updateConversationMetadata,
     ingestServerMessages, messagesReady, hasMoreMessages, isLoadingMoreMessages,
     loadMoreMessages, isSocketReady, applyIntakeFields,
@@ -338,88 +289,19 @@ export function MainApp({
 
   useEffect(() => { clearMessages(); }, [practiceId, clearMessages]);
 
-  // ── intake auth prompt ─────────────────────────────────────────────────────
-  const intakeUuid = intakeStatus?.intakeUuid ?? null;
-
-  const intakeAuthTarget = useMemo(() => {
-    if (!isPublicWorkspace || !intakeUuid) return null;
-    if (intakeStatus?.paymentRequired && !intakeStatus?.paymentReceived) return null;
-    return intakeUuid;
-  }, [intakeUuid, intakeStatus?.paymentReceived, intakeStatus?.paymentRequired, isPublicWorkspace]);
-
-  const shouldShowIntakeAuthPrompt = Boolean(isAnonymous && intakeAuthTarget && dismissedIntakeAuthFor !== intakeAuthTarget);
-  const shouldShowAuthPrompt = Boolean(isAnonymous && (shouldShowIntakeAuthPrompt || isPaymentAuthPromptOpen));
-
-  const intakePostAuthPath = useMemo(() => {
-    if (!isPublicWorkspace) return null;
-    if (!resolvedPublicPracticeSlug || !activeConversationId) return null;
-    return `/public/${encodeURIComponent(resolvedPublicPracticeSlug)}/conversations/${encodeURIComponent(activeConversationId)}`;
-  }, [activeConversationId, isPublicWorkspace, resolvedPublicPracticeSlug]);
-
-  const handleIntakeAuthSuccess = useCallback(async () => {
-    if (!intakePostAuthPath) return;
-    if (intakeAuthTarget) setDismissedIntakeAuthFor(intakeAuthTarget);
-    navigate(intakePostAuthPath, true);
-  }, [intakePostAuthPath, intakeAuthTarget, navigate]);
-
-  const capturePreAuthUserId = useCallback(() => {
-    if (preAuthUserIdRef.current) return;
-    preAuthUserIdRef.current = session?.user?.id ?? null;
-  }, [session?.user?.id]);
+  // ── optional auth prompt ───────────────────────────────────────────────────
+  const shouldShowAuthPrompt = Boolean(isAnonymous && isPaymentAuthPromptOpen);
   const handlePaymentAuthRequest = useCallback(() => {
-    capturePreAuthUserId();
     setIsPaymentAuthPromptOpen(true);
-  }, [capturePreAuthUserId]);
+  }, []);
 
   const handleAuthPromptClose = useCallback(() => {
-    if (typeof window !== 'undefined') {
-      try { window.sessionStorage.removeItem('intakeAwaitingInvitePath'); } catch { /* noop */ }
-    }
     if (isPaymentAuthPromptOpen) setIsPaymentAuthPromptOpen(false);
-    if (intakeAuthTarget) setDismissedIntakeAuthFor(intakeAuthTarget);
-    preAuthUserIdRef.current = null;
-  }, [intakeAuthTarget, isPaymentAuthPromptOpen]);
+  }, [isPaymentAuthPromptOpen]);
 
   const handleAuthPromptSuccess = useCallback(async () => {
-    const hadPreAuthIdentity = Boolean(preAuthUserIdRef.current);
-    const linkPracticeId = effectivePracticeId ?? practiceId;
-    if (activeConversationId && linkPracticeId && hadPreAuthIdentity) {
-      try {
-        const previousParticipantId =
-          peekConversationAnonymousParticipant(activeConversationId) ??
-          peekAnonymousUserId();
-        const anonymousSessionId = peekAnonymousSessionId();
-        await linkConversationToUser(
-          activeConversationId,
-          linkPracticeId,
-          undefined,
-          {
-            previousParticipantId: previousParticipantId ?? undefined,
-            anonymousSessionId: anonymousSessionId ?? undefined,
-          }
-        );
-        preAuthUserIdRef.current = null;
-      } catch (error) {
-        console.warn('[MainApp] Conversation link after auth failed', error);
-      }
-    }
     if (isPaymentAuthPromptOpen) setIsPaymentAuthPromptOpen(false);
-    if (isWidget) {
-      if (intakeAuthTarget) setDismissedIntakeAuthFor(intakeAuthTarget);
-      return;
-    }
-    await handleIntakeAuthSuccess();
-  }, [activeConversationId, effectivePracticeId, handleIntakeAuthSuccess, intakeAuthTarget, isPaymentAuthPromptOpen, isWidget, practiceId]);
-
-  useEffect(() => {
-    if (!intakePostAuthPath || !shouldShowAuthPrompt || typeof window === 'undefined') return;
-    try { window.sessionStorage.setItem('intakeAwaitingInvitePath', intakePostAuthPath); } catch { /* noop */ }
-  }, [intakePostAuthPath, shouldShowAuthPrompt]);
-
-  useEffect(() => {
-    if (!shouldShowAuthPrompt) return;
-    capturePreAuthUserId();
-  }, [capturePreAuthUserId, shouldShowAuthPrompt]);
+  }, [isPaymentAuthPromptOpen]);
 
   // ── conversation mode selection ────────────────────────────────────────────
   const isSelectingRef = useRef(false);
@@ -678,7 +560,6 @@ export function MainApp({
         || slimContactDraft?.phone
         || intakeStatus?.intakeUuid
         || intakeStatus?.step !== 'contact_form_slim'
-        || intakeConversationState?.turnCount
         || intakeConversationState?.ctaShown
         || isIntakeReadyForSubmission(intakeConversationState)
         || intakeConversationState?.description
@@ -800,7 +681,7 @@ export function MainApp({
             onAddMessage={addMessage}
             conversationMode={conversationMode}
             onSelectMode={handleModeSelection}
-            onToggleReaction={toggleMessageReaction}
+            onToggleReaction={features.enableMessageReactions ? toggleMessageReaction : undefined}
             onRequestReactions={requestMessageReactions}
             composerDisabled={isComposerDisabled}
             isPublicWorkspace={isPublicWorkspace}
@@ -845,15 +726,13 @@ export function MainApp({
             onSlimFormDismiss={handleSlimFormDismiss}
             onBuildBrief={handleBuildBrief}
             onSubmitNow={handleSubmitNow}
-            onFinalizeSubmit={handleFinalizeSubmit}
-            onRegisterOpenPayment={(fn) => { openPaymentRef.current = fn; }}
+
             isAnonymousUser={isAnonymous}
             canChat={canChat}
             hasMoreMessages={hasMoreMessages}
             isLoadingMoreMessages={isLoadingMoreMessages}
             onLoadMoreMessages={loadMoreMessages}
             showAuthPrompt={shouldShowAuthPrompt}
-            authPromptCallbackUrl={intakePostAuthPath ?? undefined}
             onAuthPromptRequest={isAnonymous ? handlePaymentAuthRequest : undefined}
             onAuthPromptClose={handleAuthPromptClose}
             onAuthPromptSuccess={handleAuthPromptSuccess}

@@ -85,6 +85,10 @@ interface BackendIntakeCreateResponse {
     uuid: string;
     status: string;
     payment_link_url: string | null;
+    organization?: {
+      name?: string | null;
+      [key: string]: unknown;
+    } | null;
     [key: string]: unknown;
   };
   error?: string;
@@ -528,7 +532,7 @@ export async function handleSubmitIntake(
     throw HttpErrors.internalServerError(`Backend intake creation failed: ${errorDetails}`);
   }
 
-  const { uuid: intakeUuid, status, payment_link_url } = backendPayload.data;
+  const { uuid: intakeUuid, status, payment_link_url, organization } = backendPayload.data;
 
   // Persist intake_uuid back into D1 conversation metadata
   try {
@@ -573,6 +577,7 @@ export async function handleSubmitIntake(
         intake_uuid: intakeUuid,
         status,
         payment_link_url: payment_link_url ?? null,
+        organization: organization ?? null,
       },
     }),
     {
