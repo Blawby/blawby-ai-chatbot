@@ -74,7 +74,7 @@ const getOrCreateConversation = async (options: {
       'Cookie': cookieHeader,
     },
     data: {
-      practiceId: options.practiceId,
+      practice_id: options.practiceId,
       mode: 'REQUEST_CONSULTATION',
     },
   });
@@ -166,6 +166,9 @@ test.describe('Widget Integration & Edge Cases', () => {
     await page.click('[data-testid="send-button"]');
     await page.waitForSelector('[data-testid="ai-message"]', { timeout: 30000 });
     
+    // Store the first message to verify conversation changes
+    const firstMessage = await page.locator('[data-testid="ai-message"]').first().textContent();
+    
     // Switch to different client (simulate client switching)
     await page.evaluate(() => {
       window.location.href = '/clients';
@@ -174,6 +177,22 @@ test.describe('Widget Integration & Edge Cases', () => {
     await page.waitForURL(/\/clients/);
     await expect(page.locator('body')).toContainText('clients', { timeout: 10000 });
     
+    // Select a different client from the list
+    // Try to find a client item that's not the first one
+    const clientItems = page.locator('[data-testid="client-item"], [data-testid*="client"]');
+    const itemCount = await clientItems.count();
+    
+    if (itemCount > 1) {
+      // Click on the second client item (index 1)
+      await clientItems.nth(1).click({ timeout: 5000 });
+    } else {
+      // Fallback: try clicking any client selector available
+      await page.click('[data-testid="client-selector"], [data-testid*="client"]', { timeout: 5000 });
+    }
+    
+    // Wait for client selection to take effect
+    await page.waitForTimeout(1000);
+    
     // Go back to chat
     await page.evaluate(() => {
       window.location.href = '/';
@@ -181,6 +200,14 @@ test.describe('Widget Integration & Edge Cases', () => {
     
     await page.waitForURL(/^\/$/);
     await expect(page.locator('[data-testid="message-input"]')).toBeVisible({ timeout: 10000 });
+    
+    // Verify the conversation has changed (different content or new conversation state)
+    const currentMessage = await page.locator('[data-testid="ai-message"]').first().textContent();
+    const messagesExist = await page.locator('[data-testid="ai-message"]').count();
+    
+    // Either we have a different conversation or we're in a fresh state
+    const conversationChanged = messagesExist === 0 || currentMessage !== firstMessage;
+    expect(conversationChanged).toBe(true);
     
     await page.close();
   });

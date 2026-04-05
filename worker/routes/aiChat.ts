@@ -43,6 +43,7 @@ import {
   shouldRequireDisclaimer,
   buildCompactPracticeContextForPrompt,
   executeIntakeTool,
+  deriveCaseSavedAcknowledgment,
   type IntakeSubmissionGate,
   type ToolResult,
 } from './aiChatIntake.js';
@@ -854,6 +855,17 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         !hasSlimContactDraft &&
         (shouldRequireDisclaimer(body.messages) || CONSULTATION_CTA_REGEX.test(accumulatedReply));
       const includeActionsInMetadata = Boolean(actions && actions.length > 0);
+
+      // ── Generate deterministic acknowledgment for tool-only turns ─────────────────────
+      // When the model produces no text but calls a tool successfully, generate context-aware fallback
+      if (!accumulatedReply.trim() && lastToolResult?.success && isIntakeMode && patchToMerge) {
+        accumulatedReply = deriveCaseSavedAcknowledgment(
+          lastToolResult,
+          patchToMerge,
+          intakeSubmissionGate,
+          mergedIntakeState
+        );
+      }
 
       // Emit done before persisting — client acts on fields immediately
       write({

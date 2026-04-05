@@ -344,7 +344,16 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 										size="sm"
 										className="shrink-0"
 										onClick={() => {
-											window.open(action.url, '_blank', 'noopener,noreferrer');
+											try {
+												const parsed = new URL(action.url);
+												if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+													window.open(action.url, '_blank', 'noopener,noreferrer');
+												} else {
+													console.warn('[MessageActions] Blocked unsafe URL protocol:', parsed.protocol);
+												}
+											} catch {
+												console.warn('[MessageActions] Invalid URL format:', action.url);
+											}
 										}}
 									>
 									{action.label}

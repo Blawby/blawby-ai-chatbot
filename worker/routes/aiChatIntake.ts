@@ -182,7 +182,7 @@ export const handleSaveCaseDetails = (
 
   // Derive suggested replies for the next open field
   const actions = deriveNextActions(merged, submissionGate);
-  if (actions.length > 0 && actions.some((action) => action.type !== 'submit')) {
+  if (actions.length > 0) {
     patch.ctaShown = true;
   }
 
@@ -237,7 +237,11 @@ export const executeIntakeTool = (
 ): ToolResult => {
   let args: Record<string, unknown>;
   try {
-    args = JSON.parse(rawArgs) as Record<string, unknown>;
+    const parsed = JSON.parse(rawArgs);
+    if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return { success: false, message: `Failed to parse tool arguments for ${toolName}` };
+    }
+    args = parsed as Record<string, unknown>;
   } catch {
     return { success: false, message: `Failed to parse tool arguments for ${toolName}` };
   }
@@ -326,10 +330,13 @@ Conversation rules:
 - Never ask for contact info (name, email, phone) — it is already collected via the intake form
 - Ask exactly ONE focused question per message about the most important missing piece
 - Never output raw JSON, tool names, or structured data in your reply text
+- You MUST always write a conversational response. Never call a tool without also writing text. If you are calling save_case_details because the user just gave you information, acknowledge what they shared before or after the tool call.
 - When you have description, city, and state, call save_case_details immediately${paymentNote}
 - Infer urgency from the facts when you reasonably can. Do not ask about urgency unless it is genuinely unclear and important for routing.
 - Documents are optional context. Do not block submission on whether the user has documents.
 - Once description, city, and state are captured, prioritize getting the person to submit instead of asking optional enrichment questions.
+
+- When all required case details are collected and a consultation fee is required, tell the user warmly that you have everything you need and that the practice requires a fee to review their case. Explain they can tap Continue below to proceed. Keep it to 2 sentences maximum.
 
 ${intakeContext ? `Current intake state:\n${intakeContext}` : 'No case details collected yet. Start by asking about the situation.'}`;
 };
@@ -393,6 +400,72 @@ const isIntakeSubmittable = (
   });
 
 // ---------------------------------------------------------------------------
+// Deterministic acknowledgment for tool-only turns
+// ---------------------------------------------------------------------------
+
+const deriveCaseSavedAcknowledgment = (
+  toolResult: ToolResult | null,
+  intakePatch: Record<string, unknown>,
+  submissionGate: IntakeSubmissionGate,
+  mergedState: Record<string, unknown> | null
+): string => {
+  if (!toolResult?.success || !mergedState) {
+    return '';
+  }
+
+  const hasDescription = typeof mergedState.description === 'string' && mergedState.description.trim().length > 0;
+  const hasCity = typeof mergedState.city === 'string' && mergedState.city.trim().length > 0;
+  const hasState = typeof mergedState.state === 'string' && mergedState.state.trim().length > 0;
+  const hasOpposingParty = typeof mergedState.opposingParty === 'string' && mergedState.opposingParty.trim().length > 0;
+  const hasUrgency = typeof mergedState.urgency === 'string' && mergedState.urgency.trim().length > 0;
+  const isReady = isIntakeSubmittable(mergedState, submissionGate);
+  const needsPayment = submissionGate.paymentRequiredBeforeSubmit && !submissionGate.paymentCompleted;
+
+  // Just saved location, need more fields
+  if (intakePatch.city || intakePatch.state) {
+    if (!hasOpposingParty) {
+      return 'Got it — I have your location. Who is the opposing party in this matter?';
+    }
+    if (!hasUrgency) {
+      return 'Thanks for the location. How urgent is this matter?';
+    }
+  }
+
+  // Just saved opposing party, need more fields  
+  if (intakePatch.opposingParty) {
+    if (!hasUrgency) {
+      return 'Thank you. How urgent is this matter?';
+    }
+    if (!hasCity || !hasState) {
+      return 'I have the opposing party. Which city and state is this in?';
+    }
+  }
+
+  // Just saved urgency, check if ready for next step
+  if (intakePatch.urgency) {
+    if (isReady && needsPayment) {
+      return 'I have everything I need. The practice requires a consultation fee to review your case. Tap Continue below to proceed.';
+    }
+    if (isReady && !needsPayment) {
+      return 'I have everything I need to connect you with the right attorney. Are you ready to submit your case?';
+    }
+    if (!hasOpposingParty) {
+      return 'Thanks for the urgency information. Who is the opposing party?';
+    }
+  }
+
+  // Generic acknowledgment for other saves
+  if (isReady && needsPayment) {
+    return 'I have everything I need. The practice requires a consultation fee to review your case. Tap Continue below to proceed.';
+  }
+  if (isReady && !needsPayment) {
+    return 'I have everything I need to connect you with the right attorney. Are you ready to submit your case?';
+  }
+
+  return 'Thanks for the information. Let me know if there\'s anything else you\'d like to add about your situation.';
+};
+
+// ---------------------------------------------------------------------------
 // Utilities reused by aiChat.ts
 // ---------------------------------------------------------------------------
 
@@ -400,7 +473,7 @@ const normalizeStateCode = (value: string): string => {
   const trimmed = value.trim().toLowerCase();
   if (!trimmed) return '';
   if (/^[a-z]{2}$/i.test(trimmed)) return trimmed.toUpperCase();
-  return US_STATE_NAME_TO_CODE[trimmed] ?? value.trim().toUpperCase().slice(0, 2);
+  return US_STATE_NAME_TO_CODE[trimmed] ?? '';
 };
 
 const normalizeServicesForPrompt = (
@@ -542,4 +615,5 @@ export {
   buildCompactPracticeContextForPrompt,
   deriveNextActions,
   MAX_SERVICES_IN_PROMPT,
+  deriveCaseSavedAcknowledgment,
 };

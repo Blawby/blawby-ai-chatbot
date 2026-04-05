@@ -7,6 +7,7 @@ import { Icon } from '@/shared/ui/Icon';
 import { debounce } from '@/shared/utils/debounce';
 import { ErrorBoundary } from '@/app/ErrorBoundary';
 import { ChatMessageUI } from '../../../../worker/types';
+import type { ChatMessageAction } from '@/shared/types/conversation';
 import type { IntakePaymentRequest } from '@/shared/utils/intakePayments';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { useToastContext } from '@/shared/contexts/ToastContext';
@@ -60,7 +61,6 @@ interface VirtualMessageListProps {
     };
     intakeConversationState?: IntakeConversationState | null;
     hasSlimContactDraft?: boolean;
-    onIntakeCtaResponse?: (response: 'ready' | 'not_yet') => void;
     onSubmitNow?: () => void | Promise<void>;
     onBuildBrief?: () => void;
     onQuickReply?: (text: string) => void;
@@ -105,7 +105,6 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
     intakeStatus: _intakeStatus,
     intakeConversationState,
     hasSlimContactDraft = false,
-    onIntakeCtaResponse: _onIntakeCtaResponse,
     onSubmitNow,
     onBuildBrief,
     onQuickReply,
@@ -705,6 +704,39 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
         paymentReceived: _intakeStatus?.paymentReceived ?? null,
     });
 
+    const buildMessageActions = useCallback((
+        baseActions: ChatMessageAction[],
+        message: ChatMessageUI,
+        isLast: boolean
+    ): ChatMessageAction[] => {
+        const messageActions = [...baseActions];
+        const shouldAppendSubmitAction =
+            !message.isUser &&
+            isLast &&
+            intakeReady &&
+            intakeConversationState?.ctaResponse !== 'ready' &&
+            _intakeStatus?.step !== 'pending_review' &&
+            _intakeStatus?.step !== 'completed';
+        const shouldAppendDecisionActions =
+            !message.isUser &&
+            isLast &&
+            message.metadata?.intakeDecisionPrompt === true &&
+            _intakeStatus?.step === 'contact_form_decision';
+
+        if (shouldAppendDecisionActions) {
+            if (!hasTerminalChatAction(messageActions)) {
+                messageActions.push(createSubmitAction(_intakeStatus?.paymentRequired ? 'Continue' : 'Submit'));
+            }
+            messageActions.push(createBuildBriefAction('Build a stronger brief'));
+        } else if (shouldAppendSubmitAction && !hasTerminalChatAction(messageActions)) {
+            messageActions.push(
+                createSubmitAction(_intakeStatus?.paymentRequired ? 'Continue' : 'Submit request')
+            );
+        }
+
+        return messageActions;
+    }, [intakeReady, intakeConversationState?.ctaResponse, _intakeStatus?.paymentRequired, _intakeStatus?.step]);
+
     const scrollToMessage = useCallback((messageId: string) => {
         if (!messageId) {
             return;
@@ -782,31 +814,8 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
             .map((message, index) => {
                 const isLast = (index + derivedStart) === (dedupedMessages.length - 1);
                 const rawActions = normalizeChatActions(message.metadata?.actions);
-                const derivedActions = isLast ? rawActions : [];
-                const shouldAppendSubmitAction =
-                    !message.isUser &&
-                    isLast &&
-                    intakeReady &&
-                    intakeConversationState?.ctaResponse !== 'ready' &&
-                    _intakeStatus?.step !== 'pending_review' &&
-                    _intakeStatus?.step !== 'completed';
-                const shouldAppendDecisionActions =
-                    !message.isUser &&
-                    isLast &&
-                    message.metadata?.intakeDecisionPrompt === true &&
-                    _intakeStatus?.step === 'contact_form_decision';
-
-                    const messageActions = [...derivedActions];
-                    if (shouldAppendDecisionActions) {
-                        if (!hasTerminalChatAction(messageActions)) {
-                            messageActions.push(createSubmitAction(_intakeStatus?.paymentRequired ? 'Continue' : 'Continue'));
-                        }
-                        messageActions.push(createBuildBriefAction('Build a stronger brief'));
-                    } else if (shouldAppendSubmitAction && !hasTerminalChatAction(messageActions)) {
-                        messageActions.push(
-                            createSubmitAction(_intakeStatus?.paymentRequired ? 'Continue' : 'Submit request')
-                        );
-                    }
+                const baseActions = isLast ? rawActions : [];
+                const messageActions = buildMessageActions(baseActions, message, isLast);
 
                 const isActionable = isLast || rawActions.length > 0 || Boolean(message.paymentRequest) || messageActions.length > 0;
                 if (!isActionable) return null;
@@ -840,7 +849,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
             ctaResponse: intakeConversationState?.ctaResponse ?? null,
             actionableMessages,
         });
-    }, [visibleMessages, derivedStart, dedupedMessages.length, intakeReady, intakeConversationState?.ctaResponse, _intakeStatus?.paymentRequired, _intakeStatus?.step]);
+    }, [visibleMessages, derivedStart, dedupedMessages.length, buildMessageActions]);
 
     return (
         <div className="relative min-h-0 flex flex-1 flex-col">
@@ -922,6 +931,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                                 || action.type === 'open_url';
                         })
                         : [];
+                    const messageActions = buildMessageActions(baseActions, message, isLast);
                     const onboardingMetaFromMessage = (
                         message.metadata && typeof message.metadata.onboardingProfile === 'object' && message.metadata.onboardingProfile
                     ) ? (message.metadata.onboardingProfile as Record<string, unknown>) : null;
@@ -957,29 +967,6 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                             onChange: onboardingActions.onLogoChange,
                         } : undefined,
                     } : undefined;
-                    const shouldAppendSubmitAction =
-                        !message.isUser &&
-                        isLast &&
-                        intakeReady &&
-                        intakeConversationState?.ctaResponse !== 'ready' &&
-                        _intakeStatus?.step !== 'pending_review' &&
-                        _intakeStatus?.step !== 'completed';
-                    const shouldAppendDecisionActions =
-                        !message.isUser &&
-                        isLast &&
-                        message.metadata?.intakeDecisionPrompt === true &&
-                        _intakeStatus?.step === 'contact_form_decision';
-                    const messageActions = [...baseActions];
-                    if (shouldAppendDecisionActions) {
-                        if (!hasTerminalChatAction(messageActions)) {
-                            messageActions.push(createSubmitAction(_intakeStatus?.paymentRequired ? 'Continue' : 'Continue'));
-                        }
-                        messageActions.push(createBuildBriefAction('Build a stronger brief'));
-                    } else if (shouldAppendSubmitAction && !hasTerminalChatAction(messageActions)) {
-                        messageActions.push(
-                            createSubmitAction(_intakeStatus?.paymentRequired ? 'Continue' : 'Submit request')
-                        );
-                    }
                     const stableClientId = typeof message.metadata?.__client_id === 'string'
                         ? message.metadata.__client_id
                         : null;

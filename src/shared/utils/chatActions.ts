@@ -36,12 +36,22 @@ export const createOpenUrlAction = (
   label: string,
   url: string,
   variant: ChatMessageActionVariant = 'primary',
-): ChatMessageAction => ({
-  type: 'open_url',
-  label,
-  url,
-  variant,
-});
+): ChatMessageAction | null => {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      return null;
+    }
+    return {
+      type: 'open_url',
+      label,
+      url,
+      variant,
+    };
+  } catch {
+    return null;
+  }
+};
 
 export const createBuildBriefAction = (
   label = 'Build a stronger brief',
@@ -99,7 +109,7 @@ export const getChatActionKey = (action: ChatMessageAction, index: number): stri
     case 'continue_payment':
       return `continue-payment-${index}`;
     case 'open_url':
-      return `open-url-${encodeURIComponent(action.url)}`;
+      return `open-url-${index}-${encodeURIComponent(action.url)}`;
     case 'build_brief':
       return `build-brief-${index}`;
   }

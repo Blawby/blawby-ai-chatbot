@@ -1277,7 +1277,14 @@ test.describe('Public widget intake flow', () => {
       }
       
       // Verify model did not ask for contact info (system prompt violation)
-      const contactInfoRequested = /name|email|phone|contact/i.test(reply2);
+      // Check for direct request phrases and actual contact formats, not generic mentions
+      const contactInfoRequested = 
+        // Direct request patterns
+        /(what'?s?\s+(your|the)\s+(name|email|phone|contact)|please\s+(provide|share|give)\s+(your|the)\s+(name|email|phone)|can\s+i\s+have\s+(your|the)\s+(name|email|phone)|tell\s+me\s+(your|the)\s+(name|email|phone))/i.test(reply2) ||
+        // Email pattern detection
+        /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/.test(reply2) ||
+        // Phone pattern detection (basic US format)
+        /\b(\d{3}[-.\s]?\d{3}[-.\s]?\d{4}|\(\d{3}\)\s?\d{3}[-.\s]?\d{4})\b/.test(reply2);
       expect(
         contactInfoRequested,
         `Model should not ask for contact info. Got: "${reply2.slice(0, 300)}"`
