@@ -55,6 +55,7 @@ describe('submit_intake tool', () => {
     expect(result.success).toBe(false);
     expect(result.message).toBe('Submit not confirmed by user.');
     expect(result.triggerSubmit).toBeUndefined();
+    expect(result.actions).toBeUndefined();
   });
 
   test('should ignore extra fields', () => {

@@ -858,7 +858,12 @@ test.describe('Public widget intake flow', () => {
     }
 
     expect(
-      submitIntakeResponse.status(),
+      submitIntakeResponse,
+      'Expected submit-intake response to be captured after payment/submit action.'
+    ).not.toBeNull();
+
+    expect(
+      submitIntakeResponse?.status(),
       `submit-intake should succeed for anonymous-first intake.\nPayload: ${submitIntakeText.slice(0, 500)}`
     ).toBe(200);
     expect(
@@ -1243,11 +1248,9 @@ test.describe('Public widget intake flow', () => {
 
       // ASSERTION 1: Tool should be called when sufficient info provided
       
-      // Check if tool was called
-      if (done1?.intakeFields?.description) {
-        expect(done1?.intakeFields?.description).toBeTruthy();
-        expect(done1?.intakeFields).not.toBeNull();
-      }
+      expect(done1, 'Expected a done payload with intake fields after Turn 1.').not.toBeNull();
+      expect(done1?.intakeFields, 'Expected intakeFields in Turn 1 response.').toBeDefined();
+      expect(done1?.intakeFields?.description, 'Expected extracted description in Turn 1 fields.').toBeTruthy();
 
       const submitNowButton = anonPage.getByRole('button', { name: /submit request/i });
       const paymentButton = anonPage.locator('button:visible').filter({ hasText: /^(continue|continue\s+to\s+payment|pay\s*(?:&|and)\s*submit)$/i }).first();

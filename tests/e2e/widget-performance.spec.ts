@@ -496,22 +496,19 @@ test.describe('Public widget performance', () => {
 
     // Measure first token timing
     await messageInput.fill('I need legal help with a contract dispute');
-    const aiResponsePromise = anonPage.waitForResponse(
-      (response) => response.request().method() === 'POST' && response.url().includes('/api/ai/chat') && response.status() === 200,
-      { timeout: MAX_AI_RESPONSE_MS }
-    );
     
     // Start timing right before the click to measure only server/stream latency
     const startTime = Date.now();
-    await anonPage.getByRole('button', { name: /send message/i }).click();
-    const aiNetworkResponse = await aiResponsePromise;
     
-    // Wait for first SSE token
+    // Create the DOM polling promise BEFORE clicking so we don't miss the start
     const firstTokenPromise = anonPage.waitForFunction(() => {
       const messages = Array.from(document.querySelectorAll('[data-testid="ai-message"]'));
       return messages.some(msg => msg.textContent && msg.textContent.trim().length > 0);
     }, { timeout: MAX_FIRST_TOKEN_MS });
+
+    await anonPage.getByRole('button', { name: /send message/i }).click();
     
+    // Await first token immediately to compute firstTokenMs accurately
     await firstTokenPromise;
     const firstTokenMs = Date.now() - startTime;
 
@@ -549,7 +546,7 @@ test.describe('Public widget performance', () => {
         return originalFetch.apply(this, args).then(response => {
           if (url.includes('/api/ai/chat')) {
             const endTime = Date.now();
-            const duration = endTime - startTime;
+            const totalTurnDurationMs = endTime - startTime;
             
             // Parse SSE events to detect tool execution
             response.clone().text().then(text => {
@@ -570,7 +567,7 @@ test.describe('Public widget performance', () => {
               toolEvents.forEach(event => {
                 if (event.type === 'tool_use') {
                   (window as any).toolExecutionTimings[event.name] = {
-                    durationMs: duration,
+                    totalTurnDurationMs,
                     timestamp: startTime
                   };
                 }
@@ -611,26 +608,28 @@ test.describe('Public widget performance', () => {
     }
 
     // Test request_payment tool execution
-    const paymentStartTime = Date.now();
     await messageInput.fill('I need help with a case and I\'m ready to proceed with payment');
     await anonPage.getByRole('button', { name: /send message/i }).click();
-    await anonPage.waitForTimeout(2000);
+    
+    // Deterministic wait for tool execution timings to be populated
+    await anonPage.waitForFunction(() => (window as any).toolExecutionTimings['request_payment'], { timeout: 10000 });
     
     const paymentTimings = await anonPage.evaluate(() => (window as any).toolExecutionTimings);
     toolTimings['request_payment'] = {
-      durationMs: paymentTimings?.['request_payment']?.durationMs || 0,
+      durationMs: paymentTimings?.['request_payment']?.totalTurnDurationMs || 0,
       expectedMs: MAX_TOOL_EXECUTION_MS
     };
 
     // Test save_case_details tool execution
-    const caseStartTime = Date.now();
     await messageInput.fill('I need help with a divorce case in California against my spouse Jane. It\'s time sensitive because we have a court date next month.');
     await anonPage.getByRole('button', { name: /send message/i }).click();
-    await anonPage.waitForTimeout(3000);
+    
+    // Deterministic wait for tool execution timings to be populated
+    await anonPage.waitForFunction(() => (window as any).toolExecutionTimings['save_case_details'], { timeout: 10000 });
     
     const caseTimings = await anonPage.evaluate(() => (window as any).toolExecutionTimings);
     toolTimings['save_case_details'] = {
-      durationMs: caseTimings?.['save_case_details']?.durationMs || 0,
+      durationMs: caseTimings?.['save_case_details']?.totalTurnDurationMs || 0,
       expectedMs: MAX_TOOL_EXECUTION_MS
     };
 

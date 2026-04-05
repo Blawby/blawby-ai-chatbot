@@ -74,8 +74,8 @@ export const normalizeChatActions = (value: unknown): ChatMessageAction[] => {
     switch (record.type) {
       case 'reply': {
         const actionValue = typeof record.value === 'string' ? record.value.trim() : '';
-        if (!label || !actionValue) return [];
-        return [{ type: 'reply', label, value: actionValue, variant }];
+        if (!label) return [];
+        return [{ type: 'reply', label, value: actionValue || label, variant }];
       }
       case 'submit':
         return label ? [{ type: 'submit', label, variant }] : [];
@@ -120,3 +120,6 @@ export const hasTerminalChatAction = (actions: ChatMessageAction[]): boolean =>
     action.type === 'submit'
     || action.type === 'continue_payment'
     || action.type === 'open_url');
+
+export const hasBuildBriefAction = (actions: ChatMessageAction[]): boolean =>
+  actions.some((action) => action.type === 'build_brief');

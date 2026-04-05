@@ -812,17 +812,6 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
           if (result.success && result.intakeFields) {
             accumulatedIntakePatch = { ...accumulatedIntakePatch, ...result.intakeFields };
           }
-
-          if (debugEnabled) {
-            Logger.info('Intake tool executed', {
-              conversationId: body.conversationId,
-              toolName: toolCall.name,
-              success: result.success,
-              actions: result.actions ?? null,
-              triggerPayment: result.triggerPayment ?? false,
-              triggerSubmit: result.triggerSubmit ?? false,
-            });
-          }
         } else if (toolCall.name === 'update_practice_fields' && toolCall.arguments.length > 0) {
           try {
             const rawParams = JSON.parse(unwrapToolCallJsonArgs(toolCall.arguments));
@@ -898,7 +887,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       const wasToolOnly = accumulatedReply.trim().length === 0 && streamResult.toolCalls.length > 0;
       const normalizationReasons: string[] = [];
       let syntheticReply = '';
-      
+
       if (wasToolOnly) {
         normalizationReasons.push('tool_only_completion');
         if (isIntakeMode && lastToolResult?.success && patchToMerge) {
@@ -911,61 +900,56 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         }
       }
       
-      // Log normalization and final turn debug info
-      if (wasToolOnly) {
-        Logger.warn('ai.turn.normalized', {
-          requestId,
-          conversationId: body.conversationId,
-          originalTextLength: accumulatedReply.length,
-          originalToolCalls: streamResult.toolCalls.length,
-          normalizedReply: syntheticReply || accumulatedReply,
-          normalizationReasons,
-          wasToolOnly,
-        });
-      } else {
-        Logger.info('ai.turn.normal', {
-          requestId,
-          conversationId: body.conversationId,
-          originalTextLength: accumulatedReply.length,
-          originalToolCalls: streamResult.toolCalls.length,
-          normalizedReply: syntheticReply || accumulatedReply,
-          normalizationReasons,
-          wasToolOnly,
-        });
-      }
-      
       sendSseDebug('debug_normalization', {
         requestId,
         reasons: normalizationReasons,
         syntheticReply: syntheticReply || accumulatedReply,
         wasToolOnly,
       });
-      
-      // Comprehensive turn debug log - removed PII
-      if (debugEnabled) {
-        Logger.info('ai.turn.debug', {
+
+      // Store message BEFORE emitting done — client acts on fields immediately
+      const finalReply = syntheticReply || accumulatedReply;
+      if (finalReply.trim()) {
+        const storedMessage = await conversationService.sendSystemMessage({
+          conversationId: body.conversationId,
+          practiceId: conversation.practice_id,
+          content: finalReply,
+          metadata: {
+            source: 'ai',
+            model,
+            ...(body.sourceBubbleId ? { sourceBubbleId: body.sourceBubbleId } : {}),
+            ...(aigStep ? { aigStep } : {}),
+            ...(patchToMerge ? { intakeFields: patchToMerge } : {}),
+            ...(onboardingFields ? { onboardingFields } : {}),
+            ...(onboardingProfile ? { onboardingProfile } : {}),
+            ...(includeActionsInMetadata ? { actions } : {}),
+            ...(triggerEditModal ? { triggerEditModal } : {}),
+            ...(shouldPromptConsultation
+              ? { modeSelector: { showAskQuestion: false, showRequestConsultation: true, source: 'ai' } }
+              : {}),
+            ...(wasToolOnly ? { wasToolOnly, normalizationReasons } : {}),
+          },
+          recipientUserId: authContext.user.id,
+          skipPracticeValidation: shouldSkipPracticeValidation,
+          request
+        });
+
+        // Log message persistence
+        Logger.info('ai.message.persisted', {
           requestId,
           conversationId: body.conversationId,
-          providerOutput: {
-            textLength: streamResult.reply.length,
-            toolCallCount: streamResult.toolCalls.length,
-            emittedToken: streamResult.emittedToken,
-            rawFinishReason: streamResult.diagnostics.finishReasons[streamResult.diagnostics.finishReasons.length - 1] || null,
-          },
-          normalization: {
-            wasToolOnly,
-            reasons: normalizationReasons,
-            hasSyntheticReply: Boolean(syntheticReply),
-          },
-          persisted: {
-            replyLength: (syntheticReply || accumulatedReply).length,
-            actionCount: actions?.length ?? 0,
-          },
+          messageId: storedMessage.id,
+          role: 'assistant',
+          kind: wasToolOnly ? 'synthetic' : 'original',
+          wasToolOnly,
         });
+
+        if (debugEnabled) {
+          write({ debug: { persistedId: storedMessage.id } });
+        }
       }
 
-      // Emit done before persisting — client acts on fields immediately
-      const finalReply = syntheticReply || accumulatedReply;
+      // Emit done — client acts on fields immediately after persistence is confirmed
       write({
         done: true,
         reply: finalReply,
@@ -980,56 +964,6 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       responseClosed = true;
 
       const postStreamTasks: Promise<unknown>[] = [];
-
-      // Store message if we have content (original or synthetic)
-      if (finalReply.trim()) {
-        postStreamTasks.push((async () => {
-          const storedMessage = await conversationService.sendSystemMessage({
-            conversationId: body.conversationId,
-            practiceId: conversation.practice_id,
-            content: finalReply,
-            metadata: {
-              source: 'ai',
-              model,
-              ...(body.sourceBubbleId ? { sourceBubbleId: body.sourceBubbleId } : {}),
-              ...(aigStep ? { aigStep } : {}),
-              ...(patchToMerge ? { intakeFields: patchToMerge } : {}),
-              ...(onboardingFields ? { onboardingFields } : {}),
-              ...(onboardingProfile ? { onboardingProfile } : {}),
-              ...(includeActionsInMetadata ? { actions } : {}),
-              ...(triggerEditModal ? { triggerEditModal } : {}),
-              ...(shouldPromptConsultation
-                ? { modeSelector: { showAskQuestion: false, showRequestConsultation: true, source: 'ai' } }
-                : {}),
-              ...(wasToolOnly ? { wasToolOnly, normalizationReasons } : {}),
-            },
-            recipientUserId: authContext.user.id,
-            skipPracticeValidation: shouldSkipPracticeValidation,
-            request
-          });
-
-          // Log message persistence
-          Logger.info('ai.message.persisted', {
-            requestId,
-            conversationId: body.conversationId,
-            messageId: storedMessage.id,
-            role: 'assistant',
-            kind: wasToolOnly ? 'synthetic' : 'original',
-            content: finalReply,
-            actions: actions || null,
-            wasToolOnly,
-          });
-
-          if (debugEnabled) {
-            Logger.info('AI chat stored message', {
-              conversationId: body.conversationId,
-              messageId: storedMessage.id,
-              actionsCount: actions?.length ?? 0,
-              hasIntakePatch: Boolean(patchToMerge),
-            });
-          }
-        })());
-      }
 
       // Persist intake metadata off the stream-critical path
       if (isIntakeMode && mergedIntakeState) {

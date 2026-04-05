@@ -197,11 +197,12 @@ export const handleSaveCaseDetails = (
 };
 
 export const handleRequestPayment = (
-  _args: Record<string, unknown>,
+  args: Record<string, unknown>,
 ): ToolResult => {
+  const reason = typeof args.reason === 'string' ? args.reason.trim() : '';
   return {
     success: true,
-    message: 'Payment requested.',
+    message: reason ? `Payment requested: ${reason}` : 'Payment requested.',
     triggerPayment: true,
     actions: [createSubmitAction('Continue')],
   };

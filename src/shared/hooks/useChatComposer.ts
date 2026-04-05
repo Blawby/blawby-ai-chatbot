@@ -417,7 +417,7 @@ export const useChatComposer = ({
               : msg
           ));
           if (activeStreamingBubbleIdRef.current === bubbleId) {
-            activeStreamingBubbleIdRef.current = bubbleId;
+            activeStreamingBubbleIdRef.current = null;
           }
           pendingStreamMessageIdRef.current = null;
           if (orphanTimerRef.current !== null) {

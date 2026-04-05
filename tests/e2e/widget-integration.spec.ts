@@ -81,8 +81,9 @@ const getOrCreateConversation = async (options: {
     },
   });
 
-  if (createConversationResponse.status() !== 200) {
-    throw new Error(`Failed to create conversation: ${createConversationResponse.status()}`);
+  const createStatus = createConversationResponse.status();
+  if (createStatus !== 200 && createStatus !== 201) {
+    throw new Error(`Failed to create conversation. Expected 200 or 201, got status=${createStatus}`);
   }
 
   const createPayload = await createConversationResponse.json().catch(() => null);

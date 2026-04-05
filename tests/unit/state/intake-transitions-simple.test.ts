@@ -61,7 +61,7 @@ describe('Intake State Transitions', () => {
         opposingParty: '' // Missing
       });
 
-      expect(isIntakeReadyForSubmission(intake)).toBe(true);
+      expect(isIntakeReadyForSubmission(intake)).toBe(false);
     });
   });
 

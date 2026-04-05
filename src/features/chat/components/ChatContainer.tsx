@@ -112,12 +112,6 @@ export interface ChatContainerProps {
     name: string;
     email?: string;
   }>;
-  /**
-   * Called once (after first render) with ChatContainer's handleOpenPayment function.
-   * Allows ancestors to imperatively open the payment card from outside the component,
-   * e.g. from useIntakeFlow's payment gate in handleConfirmSubmit.
-   */
-  onRegisterOpenPayment?: (open: (request: import('@/shared/utils/intakePayments').IntakePaymentRequest) => void) => void;
 }
 
 const ChatContainer: FunctionComponent<ChatContainerProps> = ({
@@ -174,7 +168,6 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   onAuthPromptSuccess,
   onboardingActions,
   mentionCandidates = [],
-  onRegisterOpenPayment,
 }) => {
   const [inputValue, setInputValue] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -376,28 +369,26 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     baseKeyHandler(e);
   };
 
-  const openPayment = useCallback((request: IntakePaymentRequest): void => {
-    if (typeof window === 'undefined') return;
+  const openPayment = useCallback((request: IntakePaymentRequest): boolean => {
+    if (typeof window === 'undefined') return false;
     if (request.paymentLinkUrl) {
-      window.open(request.paymentLinkUrl, '_blank', 'noopener,noreferrer');
-      return;
+      const opened = window.open(request.paymentLinkUrl, '_blank', 'noopener,noreferrer');
+      if (opened === null) {
+        console.info('[Chat] Popup blocked, falling back to same-tab navigation');
+        window.location.assign(request.paymentLinkUrl);
+        return false; // Navigated away from the app
+      }
+      return true; // Opened in new tab, app stays active
     }
     console.warn('[Chat] Missing payment link URL, cannot open payment');
+    return false;
   }, []);
 
   const handleOpenPayment = useCallback((request: IntakePaymentRequest) => {
     openPayment(request);
   }, [openPayment]);
 
-  // Register handleOpenPayment with the parent once it is stable.
-  // The parent (WidgetApp/MainApp) stores the ref and passes it as onOpenPayment
-  // to useMessageHandling → useIntakeFlow so the payment gate can open the card
-  // without going through message metadata parsing.
-  useEffect(() => {
-    if (onRegisterOpenPayment) {
-      onRegisterOpenPayment(handleOpenPayment);
-    }
-  }, [onRegisterOpenPayment, handleOpenPayment]);
+
 
   const handleModeSelection = (mode: ConversationMode, source: 'intro_gate' | 'composer_footer') => {
     if (!onSelectMode) return;

@@ -243,13 +243,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
     if (metadata?.mode) setConversationMode(metadata.mode);
   }, []);
 
-  // Bridge for payment gate: useIntakeFlow calls onOpenPayment imperatively;
-  // ChatContainer registers its handleOpenPayment here on mount.
-  const openPaymentRef = useRef<((req: import('@/shared/utils/intakePayments').IntakePaymentRequest) => void) | null>(null);
-  const handleOpenPaymentBridge = useCallback(
-    (req: import('@/shared/utils/intakePayments').IntakePaymentRequest) => openPaymentRef.current?.(req),
-    []
-  );
+
 
   const messageHandling = useMessageHandling({
     practiceId,
@@ -261,7 +255,6 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
     mode: conversationMode,
     onConversationMetadataUpdated: handleConversationMetadataUpdated,
     onError: handleMessageError,
-    onOpenPayment: handleOpenPaymentBridge,
   });
 
   const {
@@ -617,7 +610,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
               }}
               onBuildBrief={handleBuildBrief}
               onSubmitNow={handleSubmitNow}
-              onRegisterOpenPayment={(fn) => { openPaymentRef.current = fn; }}
+
               isAnonymousUser={isAnonymous}
               canChat={canChat}
               hasMoreMessages={hasMoreMessages}

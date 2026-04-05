@@ -19,7 +19,7 @@ import { isIntakeSubmittable } from '@/shared/utils/consultationState';
 import { MessageRowSkeleton } from '@/shared/ui/layout/skeleton-presets/MessageRowSkeleton';
 import { getPracticeIntake, updateIntakeTriageStatus, type PracticeIntakeDetail } from '@/features/intake/api/intakesApi';
 import { quickActionDebugLog, isQuickActionDebugEnabled } from '@/shared/utils/quickActionDebug';
-import { createBuildBriefAction, createSubmitAction, hasTerminalChatAction, normalizeChatActions } from '@/shared/utils/chatActions';
+import { createBuildBriefAction, createSubmitAction, hasTerminalChatAction, hasBuildBriefAction, normalizeChatActions } from '@/shared/utils/chatActions';
 import { features } from '@/config/features';
 
 export interface OnboardingActions {
@@ -728,7 +728,9 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
             if (!hasTerminalChatAction(messageActions)) {
                 messageActions.push(createSubmitAction(_intakeStatus?.paymentRequired ? 'Continue' : 'Submit'));
             }
-            messageActions.push(createBuildBriefAction('Build a stronger brief'));
+            if (!hasBuildBriefAction(messageActions)) {
+                messageActions.push(createBuildBriefAction('Build a stronger brief'));
+            }
         } else if (shouldAppendSubmitAction && !hasTerminalChatAction(messageActions)) {
             messageActions.push(
                 createSubmitAction(_intakeStatus?.paymentRequired ? 'Continue' : 'Submit request')
