@@ -1048,6 +1048,8 @@ test.describe('Public widget intake flow', () => {
     type DonePayload = {
       intakeFields?: Record<string, unknown> | null;
       actions?: Array<Record<string, unknown>> | null;
+      persistedMessageId?: string | null;
+      replySource?: 'model' | 'synthetic' | 'empty';
     };
 
     const parseDonePayloads = (text: string) => {
@@ -1295,6 +1297,29 @@ test.describe('Public widget intake flow', () => {
         `After location, AI should ask about opposing party, urgency, or move to payment/submit. Got: "${reply2.slice(0, 300)}"`
       ).toBe(true);
 
+      // ASSERTION 2b: Verify normalization layer prevents tool-only responses
+      expect(
+        done2?.replySource !== 'empty',
+        'Normalization layer should prevent empty replies when actions exist'
+      ).toBe(true);
+
+      // Verify persistedMessageId exists when actions are present
+      if (done2?.actions && done2.actions.length > 0) {
+        expect(
+          done2?.persistedMessageId,
+          'SSE done should include persistedMessageId when actions exist'
+        ).toBeTruthy();
+      }
+
+      // Log observability data for model behavior analysis
+      if (done2?.replySource === 'synthetic') {
+        console.log('Model produced tool-only response, synthetic reply applied:', {
+          replyLength: reply2.length,
+          actionCount: done2?.actions?.length || 0,
+          persistedMessageId: done2?.persistedMessageId
+        });
+      }
+
       let reachedTerminalAfterTurn3 = paymentAfterTurn2 || submitAfterTurn2 || paymentPromptAfterTurn2;
 
       if (!reachedTerminalAfterTurn3) {
@@ -1303,6 +1328,24 @@ test.describe('Public widget intake flow', () => {
         
         // ASSERTION 3: Tool called with opposing party and single question
         expect(done3?.intakeFields?.opposingParty, 'opposingParty should be extracted after turn 3').toBeTruthy();
+        
+        // Verify persistedMessageId exists for turn 3 as well
+        if (done3?.actions && done3.actions.length > 0) {
+          expect(
+            done3?.persistedMessageId,
+            'SSE done should include persistedMessageId when actions exist on turn 3'
+          ).toBeTruthy();
+        }
+        
+        // Log observability data for turn 3
+        if (done3?.replySource) {
+          console.log('Turn 3 model behavior:', {
+            replySource: done3.replySource,
+            replyLength: reply3.length,
+            actionCount: done3?.actions?.length || 0,
+            persistedMessageId: done3?.persistedMessageId
+          });
+        }
         
         // Verify model asked exactly one question (not multiple)
         const questionMarkCount = (reply3.match(/\?/g) || []).length;
@@ -1391,6 +1434,24 @@ test.describe('Public widget intake flow', () => {
         body: JSON.stringify(finalDone, null, 2),
         contentType: 'application/json',
       });
+
+      // Final observability assertions
+      if (finalDone?.replySource) {
+        console.log('Final turn model behavior summary:', {
+          replySource: finalDone.replySource,
+          persistedMessageId: finalDone.persistedMessageId,
+          actionCount: finalDone?.actions?.length || 0,
+          intakeReady: finalDone?.intakeFields?.intakeReady
+        });
+      }
+
+      // Verify final state has persistedMessageId if it has actions
+      if (finalDone?.actions && finalDone.actions.length > 0) {
+        expect(
+          finalDone?.persistedMessageId,
+          'Final state should have persistedMessageId when actions exist'
+        ).toBeTruthy();
+      }
 
       // ASSERTION 4: No premature submit trigger
       expect(finalDone?.intakeFields?.description, 'final state: description must be present').toBeTruthy();
