@@ -16,7 +16,9 @@ describe('request_payment tool', () => {
     expect(result.success).toBe(true);
     expect(result.message).toBe('Payment requested.');
     expect(result.triggerPayment).toBe(true);
-    expect(result.suggestedReplies).toEqual(['__submit__']);
+    expect(result.actions).toEqual([
+      { type: 'submit', label: 'Continue', variant: 'primary' }
+    ]);
   });
 
   test('should ignore args and always trigger payment', () => {
@@ -29,7 +31,9 @@ describe('request_payment tool', () => {
     
     expect(result.success).toBe(true);
     expect(result.triggerPayment).toBe(true);
-    expect(result.suggestedReplies).toEqual(['__submit__']);
+    expect(result.actions).toEqual([
+      { type: 'submit', label: 'Continue', variant: 'primary' }
+    ]);
   });
 
   test('should work with empty args', () => {
@@ -39,7 +43,9 @@ describe('request_payment tool', () => {
     
     expect(result.success).toBe(true);
     expect(result.triggerPayment).toBe(true);
-    expect(result.suggestedReplies).toEqual(['__submit__']);
+    expect(result.actions).toEqual([
+      { type: 'submit', label: 'Continue', variant: 'primary' }
+    ]);
   });
 
   test('should return consistent structure', () => {
@@ -53,7 +59,7 @@ describe('request_payment tool', () => {
     expect(typeof result.success).toBe('boolean');
     expect(typeof result.message).toBe('string');
     expect(typeof result.triggerPayment).toBe('boolean');
-    expect(Array.isArray(result.suggestedReplies)).toBe(true);
+    expect(Array.isArray(result.actions)).toBe(true);
     expect(result.intakeFields).toBeUndefined();
     expect(result.triggerSubmit).toBeUndefined();
   });

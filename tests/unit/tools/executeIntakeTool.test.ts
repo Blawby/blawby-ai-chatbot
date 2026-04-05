@@ -40,7 +40,9 @@ describe('executeIntakeTool', () => {
     
     expect(result.success).toBe(true);
     expect(result.triggerPayment).toBe(true);
-    expect(result.suggestedReplies).toEqual(['__submit__']);
+    expect(result.actions).toEqual([
+      { type: 'submit', label: 'Continue', variant: 'primary' }
+    ]);
   });
 
   test('should execute submit_intake tool', () => {
@@ -53,7 +55,9 @@ describe('executeIntakeTool', () => {
     
     expect(result.success).toBe(true);
     expect(result.triggerSubmit).toBe(true);
-    expect(result.suggestedReplies).toEqual(['__submit__']);
+    expect(result.actions).toEqual([
+      { type: 'submit', label: 'Submit request', variant: 'primary' }
+    ]);
   });
 
   test('should handle invalid JSON args', () => {
@@ -95,7 +99,9 @@ describe('executeIntakeTool', () => {
     const result = executeIntakeTool(toolName, rawArgs, storedIntakeState, submissionGate);
     
     expect(result.success).toBe(true);
-    expect(result.suggestedReplies).toEqual(['__submit__']); // Should suggest submit when ready
+    expect(result.actions).toEqual([
+      { type: 'submit', label: 'Submit request', variant: 'primary' }
+    ]);
   });
 
   test('should handle empty args for request_payment', () => {

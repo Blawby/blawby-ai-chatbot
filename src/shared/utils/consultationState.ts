@@ -445,8 +445,11 @@ export const deriveIntakeStatusFromConsultation = (
     if (consultation.status === 'completed') return 'completed';
     if (consultation.status === 'submitted') return 'pending_review';
     if (consultation.status === 'collecting_contact') return 'contact_form_slim';
-    if (consultation.case.turnCount <= 0) return 'contact_form_decision';
-    return 'ai_brief';
+    if (consultation.case.ctaResponse === 'ready') return 'ready_to_submit';
+    if (consultation.case.ctaShown === true) return 'contact_form_decision';
+    if (hasCoreIntakeFields(consultation.case)) return 'ai_brief';
+    if (hasConsultationContact(consultation.contact)) return 'collecting_case';
+    return 'contact_form_slim';
   })();
 
   return {

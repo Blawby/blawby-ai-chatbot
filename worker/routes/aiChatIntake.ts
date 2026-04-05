@@ -3,10 +3,11 @@ import {
   LEGAL_INTENT_REGEX,
 } from './aiChatShared.js';
 import {
-  hasCoreIntakeFields,
   isIntakeReadyForSubmission as isSharedIntakeReadyForSubmission,
   isIntakeSubmittable as isSharedIntakeSubmittable,
 } from '../../src/shared/utils/consultationState';
+import type { ChatMessageAction } from '../../src/shared/types/conversation';
+import { createSubmitAction } from '../../src/shared/utils/chatActions';
 
 const MAX_SERVICES_IN_PROMPT = 20;
 const MAX_SERVICES_IN_CONVERSATION_PROMPT = 8;
@@ -124,7 +125,7 @@ export const INTAKE_TOOLS = [
 export interface ToolResult {
   success: boolean;
   message?: string;
-  suggestedReplies?: string[];
+  actions?: ChatMessageAction[];
   intakeFields?: Record<string, unknown>;
   triggerPayment?: boolean;
   triggerSubmit?: boolean;
@@ -180,7 +181,10 @@ export const handleSaveCaseDetails = (
   const isSubmittable = isIntakeSubmittable(merged, submissionGate);
 
   // Derive suggested replies for the next open field
-  const suggestedReplies = deriveNextSuggestedReplies(merged, submissionGate);
+  const actions = deriveNextActions(merged, submissionGate);
+  if (actions.length > 0 && actions.some((action) => action.type !== 'submit')) {
+    patch.ctaShown = true;
+  }
 
   return {
     success: true,
@@ -188,7 +192,7 @@ export const handleSaveCaseDetails = (
       ? 'Case details saved. All required fields collected.'
       : 'Case details saved. Continue collecting remaining fields.',
     intakeFields: patch,
-    suggestedReplies: suggestedReplies.length > 0 ? suggestedReplies : undefined,
+    actions: actions.length > 0 ? actions : undefined,
   };
 };
 
@@ -199,7 +203,7 @@ export const handleRequestPayment = (
     success: true,
     message: 'Payment requested.',
     triggerPayment: true,
-    suggestedReplies: ['__submit__'],
+    actions: [createSubmitAction('Continue')],
   };
 };
 
@@ -217,7 +221,7 @@ export const handleSubmitIntake = (
     success: true,
     message: 'Intake submission confirmed.',
     triggerSubmit: true,
-    suggestedReplies: ['__submit__'],
+    actions: [createSubmitAction('Submit request')],
   };
 };
 
@@ -254,32 +258,15 @@ export const executeIntakeTool = (
 // Suggested replies derived from tool results (not from model output)
 // ---------------------------------------------------------------------------
 
-const deriveNextSuggestedReplies = (
+const deriveNextActions = (
   mergedState: Record<string, unknown> | null,
   submissionGate: IntakeSubmissionGate,
-): string[] => {
+): ChatMessageAction[] => {
   if (!mergedState) return [];
-
-  // Urgency is the next closed-choice field
-  if (typeof mergedState.urgency !== 'string' || !mergedState.urgency.trim()) {
-    if (hasCoreIntakeFields(mergedState)) {
-      return ['Routine (no deadline)', 'Time-sensitive', 'Emergency'];
-    }
-  }
-
-  // hasDocuments is the next closed-choice field
-  if (typeof mergedState.hasDocuments !== 'boolean') {
-    if (
-      hasCoreIntakeFields(mergedState) &&
-      typeof mergedState.urgency === 'string' && mergedState.urgency.trim()
-    ) {
-      return ['Yes, I have documents', 'No, not yet'];
-    }
-  }
 
   // All required fields collected — either payment or submit
   if (isIntakeSubmittable(mergedState, submissionGate)) {
-    return ['__submit__'];
+    return [createSubmitAction(submissionGate.paymentRequiredBeforeSubmit && !submissionGate.paymentCompleted ? 'Continue' : 'Submit request')];
   }
 
   // Payment required (case info complete, payment pending)
@@ -288,7 +275,7 @@ const deriveNextSuggestedReplies = (
     !submissionGate.paymentCompleted &&
     isIntakeReadyForSubmission(mergedState)
   ) {
-    return ['__submit__'];
+    return [createSubmitAction('Continue')];
   }
 
   return [];
@@ -340,6 +327,9 @@ Conversation rules:
 - Ask exactly ONE focused question per message about the most important missing piece
 - Never output raw JSON, tool names, or structured data in your reply text
 - When you have description, city, and state, call save_case_details immediately${paymentNote}
+- Infer urgency from the facts when you reasonably can. Do not ask about urgency unless it is genuinely unclear and important for routing.
+- Documents are optional context. Do not block submission on whether the user has documents.
+- Once description, city, and state are captured, prioritize getting the person to submit instead of asking optional enrichment questions.
 
 ${intakeContext ? `Current intake state:\n${intakeContext}` : 'No case details collected yet. Start by asking about the situation.'}`;
 };
@@ -550,6 +540,6 @@ export {
   buildPracticeContactErrorReply,
   normalizePracticeDetailsForAi,
   buildCompactPracticeContextForPrompt,
-  deriveNextSuggestedReplies,
+  deriveNextActions,
   MAX_SERVICES_IN_PROMPT,
 };

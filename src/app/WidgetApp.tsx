@@ -58,7 +58,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
   const [setupConversationId, setConversationId] = useState<string | null>(null);
   const [conversationMode, setConversationMode] = useState<ConversationMode | null>(null);
   const [isInspectorOpen, setIsInspectorOpen] = useState(false);
-  const [hasPersistError, setHasPersistError] = useState(false);
+  const [isPaymentAuthPromptOpen, setIsPaymentAuthPromptOpen] = useState(false);
   const widgetVisibleRef = useRef(false);
   const showErrorRef = useRef<((msg: string) => void) | null>(null);
   const inFlightCreateRef = useRef<Promise<string> | null>(null);
@@ -278,37 +278,20 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
 
   const activeConversationId = effectiveConversationId;
 
-  // Intake Auth (simplistic for widget, just redirecting or showing prompt if needed)
-  const intakeUuid = intakeStatus?.intakeUuid ?? null;
-  const intakeAuthTarget = useMemo(() => {
-    if (!intakeUuid) return null;
-    if (intakeStatus?.paymentRequired && !intakeStatus?.paymentReceived) return null;
-    return intakeUuid;
-  }, [intakeUuid, intakeStatus?.paymentReceived, intakeStatus?.paymentRequired]);
+  // Optional auth prompt is manual only; intake submission itself stays anonymous.
+  const shouldShowAuthPrompt = Boolean(isAnonymous && isPaymentAuthPromptOpen);
 
-  const shouldShowAuthPrompt = Boolean(isAnonymous && intakeAuthTarget);
+  const handlePaymentAuthRequest = useCallback(() => {
+    setIsPaymentAuthPromptOpen(true);
+  }, []);
 
-  const intakePostAuthPath = useMemo(() => {
-    if (!intakeUuid) return null;
-    if (!practiceConfig.slug || !activeConversationId) return null;
-    return `/public/${encodeURIComponent(practiceConfig.slug)}/conversations/${encodeURIComponent(activeConversationId)}`;
-  }, [activeConversationId, intakeUuid, practiceConfig.slug]);
+  const handleAuthPromptClose = useCallback(() => {
+    setIsPaymentAuthPromptOpen(false);
+  }, []);
 
-  useEffect(() => {
-    if (!isAnonymous || !intakeUuid || !intakePostAuthPath) return;
-
-    try {
-      const currentPendingPath = window.sessionStorage.getItem('intakeAwaitingInvitePath');
-      if (currentPendingPath !== intakePostAuthPath) {
-        window.sessionStorage.setItem('intakeAwaitingInvitePath', intakePostAuthPath);
-      }
-    } catch (error) {
-      console.warn('[Widget] Failed to persist intake returning path', error);
-      setHasPersistError(true);
-    }
-
-    if (shouldShowAuthPrompt || window.location.pathname.startsWith('/auth')) return;
-  }, [activeConversationId, intakePostAuthPath, isAnonymous, intakeUuid, shouldShowAuthPrompt]);
+  const handleAuthPromptSuccess = useCallback(() => {
+    setIsPaymentAuthPromptOpen(false);
+  }, []);
 
   // System Messages
   useConversationSystemMessages({
@@ -532,15 +515,6 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
     <>
       <DragDropOverlay isVisible={isDragging} />
       <div className={`absolute inset-x-0 inset-y-0 h-[100dvh] w-full overflow-hidden flex flex-col supports-[height:100cqh]:h-[100cqh] supports-[height:100svh]:h-[100svh] widget-shell-gradient justify-end`}>
-        {hasPersistError ? (
-          <div
-            className="absolute left-4 right-4 top-4 z-[70] rounded-2xl border border-amber-400/40 bg-amber-500/15 px-4 py-3 text-sm text-[rgb(var(--accent-foreground))] shadow-lg backdrop-blur-md"
-            role="alert"
-            aria-live="polite"
-          >
-            {t('widget.persistIntakePathError')}
-          </div>
-        ) : null}
         {view === 'home' ? (
           <div className="flex h-full flex-col overflow-hidden relative">
              <div className="flex-1 overflow-y-auto">
@@ -651,6 +625,9 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
               isLoadingMoreMessages={isLoadingMoreMessages}
               onLoadMoreMessages={loadMoreMessages}
               showAuthPrompt={shouldShowAuthPrompt}
+              onAuthPromptRequest={isAnonymous ? handlePaymentAuthRequest : undefined}
+              onAuthPromptClose={handleAuthPromptClose}
+              onAuthPromptSuccess={handleAuthPromptSuccess}
             />
 
             {isInspectorOpen && activeConversationId && (

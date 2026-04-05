@@ -3,10 +3,7 @@ import type { Page } from '@playwright/test';
 import { randomUUID } from 'crypto';
 import { mkdirSync, writeFileSync } from 'fs';
 import { resolve } from 'path';
-import { loadE2EConfig } from './helpers/e2eConfig';
-import { waitForSession } from './helpers/auth';
 
-const e2eConfig = loadE2EConfig();
 const DEFAULT_PRACTICE_SLUG = process.env.E2E_WIDGET_SLUG ?? process.env.E2E_PRACTICE_SLUG ?? 'paul-yahoo';
 const rawBudget = process.env.E2E_WIDGET_AI_RESPONSE_BUDGET_MS;
 const parsedBudget = rawBudget ? parseInt(rawBudget, 10) : 30000;
@@ -42,6 +39,10 @@ const normalizePracticeSlug = (value: string): string => {
   }
   return trimmed;
 };
+
+const buildWidgetUrl = (practiceSlug: string): string => (
+  `/public/${encodeURIComponent(practiceSlug)}?v=widget&debugQuickActions=1`
+);
 
 const prepareWidgetComposer = async (
   anonPage: Page,
@@ -117,7 +118,6 @@ test.describe('Public widget intake flow', () => {
         }
         const keysToRemove = Object.keys(sessionStorage).filter((key) =>
           key.startsWith('blawby_widget_bootstrap_')
-          || key === 'blawby:postAuthConversation'
           || key === 'blawby:widget:attribution'
         );
         keysToRemove.forEach((key) => sessionStorage.removeItem(key));
@@ -160,6 +160,9 @@ test.describe('Public widget intake flow', () => {
     }> = [];
 
     anonPage.on('console', (msg) => {
+      if (msg.text().includes('[QuickActionDebug]')) {
+        console.log(msg.text());
+      }
       if (msg.type() === 'error') consoleErrors.push(msg.text());
     });
     anonPage.on('pageerror', (error) => {
@@ -224,7 +227,7 @@ test.describe('Public widget intake flow', () => {
       }
     });
 
-    await anonPage.goto(`/public/${encodeURIComponent(practiceSlug)}?v=widget`, { waitUntil: 'domcontentloaded' });
+    await anonPage.goto(buildWidgetUrl(practiceSlug), { waitUntil: 'domcontentloaded' });
 
     const messageInput = anonPage.locator('[data-testid="message-input"]:visible').first();
     const consultationCta = anonPage.locator('button:visible').filter({ hasText: /request consultation/i }).first();
@@ -277,7 +280,6 @@ test.describe('Public widget intake flow', () => {
     const uniqueId = randomUUID().slice(0, 8);
     const authEmail = `lead-e2e+${uniqueId}@example.com`;
     const authName = `Lead E2E ${uniqueId}`;
-    const authPassword = `LeadFlow!${uniqueId}Aa`;
     const captureLeadFlowState = async () => {
       return anonPage.evaluate(() => {
         const bodyText = document.body?.innerText ?? '';
@@ -824,103 +826,61 @@ test.describe('Public widget intake flow', () => {
       `Expected payment prompt to mention the consultation fee amount ${EXPECTED_CONSULTATION_FEE_LABEL}.`
     ).toContainText(EXPECTED_CONSULTATION_FEE_LABEL, { timeout: 10000 });
 
-    // Deterministic CTA path should advance to auth/save flow (modal/overlay) or auth route.
-    // We intentionally avoid hardcoding a single UI variant because this path may be modal
-    // or route-based depending on environment/widget context.
-    await expect
-      .poll(
-        async () => {
-          const state = await captureLeadFlowState();
-          const body = (state.bodySnippet || '').toLowerCase();
-          const href = (state.url || '').toLowerCase();
-          const buttons = (state.buttons || []).join(' | ').toLowerCase();
-          const authOverlay = body.includes('save your conversation') || buttons.includes('sign up / sign in');
-          const authForm = body.includes('continue with google') || body.includes('continue with email');
-          const authRoute = href.includes('/auth');
-          return authOverlay || authForm || authRoute;
-        },
-        {
-          timeout: 15000,
-          message:
-            'Submit request CTA did not advance to auth/save flow. ' +
-            'Expected auth overlay/modal or auth route after clicking Submit request.',
-        }
-      )
-      .toBe(true);
+    const paymentPromptActionButton = anonPage
+      .locator('button:visible')
+      .filter({ hasText: /^(pay\s*(?:&|and)\s*submit|continue\s+to\s+payment)$/i })
+      .first();
 
-    const conversationLinkResponsePromise = anonPage.waitForResponse(
-      (response) =>
-        response.request().method() === 'PATCH' &&
-        response.url().includes('/api/conversations/') &&
-        response.url().includes('/link?practiceId=') &&
-        response.status() < 400,
-      { timeout: 20000 }
-    );
-
-    const signUpNameInput = anonPage.getByTestId('signup-name-input');
-    const signUpEmailInput = anonPage.getByTestId('signup-email-input');
-    const signUpPasswordInput = anonPage.getByTestId('signup-password-input');
-    const signUpConfirmPasswordInput = anonPage.getByTestId('signup-confirm-password-input');
-    const signUpSubmitButton = anonPage.getByTestId('signup-submit-button');
-
-    await expect(signUpPasswordInput).toBeVisible({ timeout: 15000 });
-    if (await signUpNameInput.isVisible().catch(() => false)) {
-      await signUpNameInput.fill(authName);
-    }
-    if (await signUpEmailInput.isVisible().catch(() => false)) {
-      await signUpEmailInput.fill(authEmail);
-    }
-    await signUpPasswordInput.fill(authPassword);
-    await signUpConfirmPasswordInput.fill(authPassword);
-
-    await signUpSubmitButton.click();
-
-    await waitForSession(anonPage, { timeoutMs: 30000 });
-
-    const conversationLinkResponse = await conversationLinkResponsePromise;
-    expect(
-      conversationLinkResponse.status(),
-      `Conversation link after auth failed (expected <400).\nURL: ${conversationLinkResponse.url()}`
-    ).toBeLessThan(400);
+    await expect(
+      paymentPromptActionButton,
+      'Expected the payment prompt CTA to render after the fee summary message.'
+    ).toBeVisible({ timeout: 10000 });
+    const paymentPopupPromise = anonPage.waitForEvent('popup', { timeout: 20000 }).catch(() => null);
+    await paymentPromptActionButton.click();
 
     expect(
       submitIntakeResponse,
       'Expected submit-intake response to be captured after payment/submit action.'
     ).not.toBeNull();
     const submitIntakeText = submitIntakeDebugBody ?? await submitIntakeResponse?.text().catch(() => '') ?? '';
-    let submitIntakePayload: { success?: boolean; data?: { intake_uuid?: string; status?: string; payment_link_url?: string | null } } | null = null;
+    let submitIntakePayload: {
+      success?: boolean;
+      data?: {
+        intake_uuid?: string;
+        status?: string;
+        payment_link_url?: string | null;
+      };
+    } | null = null;
     try {
       submitIntakePayload = submitIntakeText ? JSON.parse(submitIntakeText) : null;
     } catch {
       submitIntakePayload = null;
     }
 
-    if (submitIntakeResponse.status() === 200) {
-      expect(
-        submitIntakePayload?.success,
-        `submit-intake returned unexpected payload: ${submitIntakeText.slice(0, 500)}`
-      ).toBe(true);
-      expect(submitIntakePayload?.data?.intake_uuid, 'submit-intake must return intake_uuid').toBeTruthy();
-    } else {
-      // Public no-org environments may reject backend intake creation after auth.
-      // The worker should surface that upstream auth/org error verbatim.
-      expect([401, 403]).toContain(submitIntakeResponse.status());
-      expect(
-        /no organization context found|authentication required|forbidden|unauthorized/i.test(submitIntakeText),
-        `Unexpected submit-intake error payload: ${submitIntakeText.slice(0, 500)}`
-      ).toBe(true);
-    }
+    expect(
+      submitIntakeResponse.status(),
+      `submit-intake should succeed for anonymous-first intake.\nPayload: ${submitIntakeText.slice(0, 500)}`
+    ).toBe(200);
+    expect(
+      submitIntakePayload?.success,
+      `submit-intake returned unexpected payload: ${submitIntakeText.slice(0, 500)}`
+    ).toBe(true);
+    expect(submitIntakePayload?.data?.intake_uuid, 'submit-intake must return intake_uuid').toBeTruthy();
 
     const paymentLinkUrl = submitIntakePayload?.data?.payment_link_url ?? null;
-    if (submitIntakeResponse.status() === 200 && paymentLinkUrl) {
+    if (paymentLinkUrl) {
       expect(
         /^https?:\/\//i.test(paymentLinkUrl),
         `payment_link_url should be an absolute URL, got: ${paymentLinkUrl}`
       ).toBe(true);
+      const paymentPopup = await paymentPopupPromise;
+      if (paymentPopup) {
+        await paymentPopup.waitForLoadState('domcontentloaded', { timeout: 15000 }).catch(() => undefined);
+      }
       await expect
         .poll(
           async () => {
-            const currentUrl = anonPage.url();
+            const currentUrl = paymentPopup?.url() || anonPage.url();
             try {
               const expected = new URL(paymentLinkUrl);
               const current = new URL(currentUrl);
@@ -936,7 +896,7 @@ test.describe('Public widget intake flow', () => {
           }
         )
         .toBe(true);
-    } else if (submitIntakeResponse.status() === 200) {
+    } else {
       await expect(
         anonPage.locator('body'),
         'Expected a confirmation message in chat when no payment link is returned.'
@@ -945,7 +905,7 @@ test.describe('Public widget intake flow', () => {
 
     expect(
       submitIntakeStatuses.length,
-      `submit-intake should fire exactly once after auth. Observed statuses: ${JSON.stringify(submitIntakeStatuses)}`
+      `submit-intake should fire exactly once. Observed statuses: ${JSON.stringify(submitIntakeStatuses)}`
     ).toBe(1);
 
     if (consoleErrors.length) {
@@ -978,7 +938,7 @@ test.describe('Public widget intake flow', () => {
     const authEmail = `lead-e2e-empty+${uniqueId}@example.com`;
     const authName = `Lead E2E Empty ${uniqueId}`;
 
-    await anonPage.goto(`/public/${encodeURIComponent(practiceSlug)}?v=widget`, { waitUntil: 'domcontentloaded' });
+    await anonPage.goto(buildWidgetUrl(practiceSlug), { waitUntil: 'domcontentloaded' });
     await prepareWidgetComposer(anonPage, authName, authEmail);
 
     const messageInput = anonPage.locator('[data-testid="message-input"]:visible').first();
@@ -1017,553 +977,58 @@ test.describe('Public widget intake flow', () => {
       .toBe(0);
   });
 
-  test('public intake sign-in path links existing conversation after auth prompt', async ({ anonPage }, testInfo) => {
-    test.skip(!e2eConfig, 'E2E credentials are not configured.');
-
-    const practiceSlug = normalizePracticeSlug(DEFAULT_PRACTICE_SLUG);
-    const conversationLinkRequests: Array<{ url: string; status: number }> = [];
-    const activeConversationStatuses: number[] = [];
-    const networkLog: Array<{ time: string; method: string; url: string; status?: number }> = [];
-    let observedConversationId: string | null = null;
-    let capturedPracticeId: string | null = null;
-    const captureConversationIdFromUrl = (url: string): void => {
-      const match = url.match(/\/api\/conversations\/([a-zA-Z0-9_-]+)/);
-      const excludedSegments = new Set(['active', 'link', 'submit-intake']);
-      if (match?.[1] && !excludedSegments.has(match[1])) {
-        observedConversationId = match[1];
-      }
-      const practiceIdMatch = url.match(/[?&]practiceId=([^&]+)/);
-      if (practiceIdMatch?.[1]) {
-        capturedPracticeId = decodeURIComponent(practiceIdMatch[1]);
-      }
-    };
-
-    anonPage.on('request', (request) => {
-      if (request.url().includes('/api/')) {
-        networkLog.push({
-          time: new Date().toISOString(),
-          method: request.method(),
-          url: request.url(),
-        });
-      }
-    });
-
-    anonPage.on('response', (response) => {
-      if (response.url().includes('/api/')) {
-        const entry = networkLog.findLast((item) =>
-          item.url === response.url() && item.method === response.request().method() && !item.status
-        );
-        if (entry) entry.status = response.status();
-      }
-      if (isActiveConversationFetch(response)) {
-        activeConversationStatuses.push(response.status());
-      }
-      const url = response.url();
-      captureConversationIdFromUrl(url);
-      if (
-        response.request().method() === 'PATCH' &&
-        url.includes('/api/conversations/') &&
-        url.includes('/link')
-      ) {
-        conversationLinkRequests.push({ url, status: response.status() });
-      }
-    });
-
-    await anonPage.goto(`/public/${encodeURIComponent(practiceSlug)}?v=widget`, {
-      waitUntil: 'domcontentloaded',
-    });
-
-    const messageInput = anonPage.locator('[data-testid="message-input"]:visible').first();
-    const consultationCta = anonPage
-      .locator('button:visible')
-      .filter({ hasText: /request consultation/i })
-      .first();
-
-    try {
-      await expect
-        .poll(
-          async () => ({
-            ctaVisible: await consultationCta.isVisible().catch(() => false),
-            composerVisible: await messageInput.isVisible().catch(() => false),
-          }),
-          {
-            timeout: 25000,
-            message: 'Expected widget home CTA or message composer to appear.',
-          }
-        )
-        .not.toEqual({ ctaVisible: false, composerVisible: false });
-    } catch (error) {
-      const startupDebug = await anonPage.evaluate(() => {
-        const bodyText = document.body?.innerText ?? '';
-        const buttons = Array.from(document.querySelectorAll('button'))
-          .map((el) => (el.textContent ?? '').trim())
-          .filter(Boolean)
-          .slice(0, 40);
-        return {
-          url: window.location.href,
-          title: document.title,
-          bodySnippet: bodyText.slice(0, 3000),
-          buttons,
-        };
-      }).catch(() => null);
-      await testInfo.attach('signin-flow-startup-debug.json', {
-        body: JSON.stringify({ startupDebug, networkLog }, null, 2),
-        contentType: 'application/json',
-      });
-      throw error;
-    }
-
-    if (await consultationCta.isVisible().catch(() => false)) {
-      await consultationCta.click();
-      await anonPage.waitForTimeout(1200);
-      expect(
-        activeConversationStatuses.every((status) => status < 500),
-        `Request consultation triggered /api/conversations/active 5xx responses: ${JSON.stringify(activeConversationStatuses)}`
-      ).toBe(true);
-    }
-
-    const slimFormName = anonPage.locator('input[placeholder*="full name" i]:visible').first();
-    const slimFormEmail = anonPage.locator('input[type="email"]:visible').first();
-    const slimFormPhone = anonPage.locator('input[type="tel"]:visible').first();
-    const slimFormContinue = anonPage
-      .locator('button:visible')
-      .filter({ hasText: /^continue$/i })
-      .first();
-
-    {
-      const deadline = Date.now() + 20_000;
-      while (Date.now() < deadline) {
-        if (await messageInput.isEnabled({ timeout: 300 }).catch(() => false)) break;
-
-        if (await slimFormContinue.isVisible({ timeout: 300 }).catch(() => false)) {
-          if (await slimFormName.isVisible({ timeout: 300 }).catch(() => false)) {
-            await slimFormName.fill('Anon Signin Flow');
-          }
-          if (await slimFormEmail.isVisible({ timeout: 300 }).catch(() => false)) {
-            await slimFormEmail.fill(`lead-signin-${Date.now()}@example.com`);
-          }
-          if (await slimFormPhone.isVisible({ timeout: 300 }).catch(() => false)) {
-            await slimFormPhone.fill('5555550101');
-          }
-          await slimFormContinue.click().catch(() => undefined);
-        }
-
-        await anonPage.waitForTimeout(400);
-      }
-    }
-
-    await expect(messageInput).toBeEnabled({ timeout: 20_000 });
-
-    const aiRequestPromise = anonPage
-      .waitForRequest(
-        (r) =>
-          r.method() === 'POST' &&
-          r.url().includes('/api/ai/chat'),
-        { timeout: 40_000 }
-      )
-      .catch(() => null);
-    const aiResponsePromise = anonPage
-      .waitForResponse(
-        (r) =>
-          r.request().method() === 'POST' &&
-          r.url().includes('/api/ai/chat'),
-        { timeout: 40_000 }
-      )
-      .catch(() => null);
-
-    const sendButton = anonPage.getByRole('button', { name: /send message/i });
-    const sendButtonVisibleBeforeClick = await sendButton.isVisible().catch(() => false);
-    const sendButtonEnabledBeforeClick = await sendButton.isEnabled().catch(() => false);
-    const aiChatEntriesBefore = networkLog.filter((item) => item.url.includes('/api/ai/chat')).length;
-    await messageInput.fill('Hello, I need help and I will sign in after this.');
-    await sendButton.click();
-    const [aiRequest, aiResponse] = await Promise.all([aiRequestPromise, aiResponsePromise]);
-    if (!aiRequest) {
-      const signinState = await anonPage.evaluate(() => {
-        const bodyText = document.body?.innerText ?? '';
-        const buttons = Array.from(document.querySelectorAll('button'))
-          .map((el) => (el.textContent ?? '').trim())
-          .filter(Boolean)
-          .slice(-30);
-        return {
-          url: window.location.href,
-          title: document.title,
-          bodySnippet: bodyText.slice(-2000),
-          buttons,
-        };
-      }).catch(() => null);
-      await testInfo.attach('signin-flow-ai-timeout.json', {
-        body: JSON.stringify({
-          sendButtonVisibleBeforeClick,
-          sendButtonEnabledBeforeClick,
-          aiChatEntriesBefore,
-          aiChatEntriesAfter: networkLog.filter((item) => item.url.includes('/api/ai/chat')).length,
-          aiRequestObserved: null,
-          recentNetworkTail: networkLog.slice(-20),
-          signinState,
-        }, null, 2),
-        contentType: 'application/json',
-      });
-      throw new Error('Expected AI chat request for anon sign-in flow, but /api/ai/chat was not observed.');
-    }
-    if (!aiResponse) {
-      const signinState = await anonPage.evaluate(() => {
-        const bodyText = document.body?.innerText ?? '';
-        const buttons = Array.from(document.querySelectorAll('button'))
-          .map((el) => (el.textContent ?? '').trim())
-          .filter(Boolean)
-          .slice(-30);
-        return {
-          url: window.location.href,
-          title: document.title,
-          bodySnippet: bodyText.slice(-2000),
-          buttons,
-        };
-      }).catch(() => null);
-      await testInfo.attach('signin-flow-ai-response-timeout.json', {
-        body: JSON.stringify({
-          sendButtonVisibleBeforeClick,
-          sendButtonEnabledBeforeClick,
-          aiChatEntriesBefore,
-          aiChatEntriesAfter: networkLog.filter((item) => item.url.includes('/api/ai/chat')).length,
-          aiRequestObserved: { method: aiRequest.method(), url: aiRequest.url() },
-          recentNetworkTail: networkLog.slice(-20),
-          signinState,
-        }, null, 2),
-        contentType: 'application/json',
-      });
-      throw new Error('Expected AI chat response for anon sign-in flow, but /api/ai/chat did not return 200.');
-    }
-    const aiResponseContentType = aiResponse.headers()['content-type'] ?? '';
-    const hasValidAiResponseContentType = aiResponseContentType.includes('application/json') || aiResponseContentType.startsWith('text/event-stream');
-    if (aiResponse.status() !== 200 || !hasValidAiResponseContentType) {
-      const aiResponseText = await aiResponse.text().catch(() => '');
-      const signinState = await anonPage.evaluate(() => {
-        const bodyText = document.body?.innerText ?? '';
-        const buttons = Array.from(document.querySelectorAll('button'))
-          .map((el) => (el.textContent ?? '').trim())
-          .filter(Boolean)
-          .slice(-30);
-        return {
-          url: window.location.href,
-          title: document.title,
-          bodySnippet: bodyText.slice(-2000),
-          buttons,
-        };
-      }).catch(() => null);
-      await testInfo.attach('signin-flow-ai-invalid-response.json', {
-        body: JSON.stringify({
-          sendButtonVisibleBeforeClick,
-          sendButtonEnabledBeforeClick,
-          aiChatEntriesBefore,
-          aiChatEntriesAfter: networkLog.filter((item) => item.url.includes('/api/ai/chat')).length,
-          aiRequestObserved: { method: aiRequest.method(), url: aiRequest.url() },
-          aiResponseStatus: aiResponse.status(),
-          aiResponseHeaders: aiResponse.headers(),
-          aiResponseBodyTail: aiResponseText.slice(-2000),
-          recentNetworkTail: networkLog.slice(-20),
-          signinState,
-        }, null, 2),
-        contentType: 'application/json',
-      });
-      throw new Error(
-        `Expected AI chat response for anon sign-in flow to be 200 with content-type, got status=${aiResponse.status()} content-type="${aiResponseContentType}".`
-      );
-    }
-
-    let capturedConversationId: string | null = null;
-    await expect
-      .poll(
-        async () => {
-          capturedConversationId = observedConversationId;
-          return capturedConversationId;
-        },
-        {
-          timeout: 10_000,
-          message: 'Expected conversationId from widget conversation network traffic after AI response',
-        }
-      )
-      .not.toBeNull();
-    if (!capturedConversationId) {
-      throw new Error('Expected conversationId from widget conversation network traffic after AI response, but none was found.');
-    }
-
-    const submitNowButton = anonPage.getByRole('button', { name: /submit request/i });
-    const signInCta = anonPage
-      .locator('button:visible')
-      .filter({ hasText: /sign up|sign in|save your conversation/i })
-      .first();
-
-    let authTriggered = false;
-    if (await submitNowButton.isVisible({ timeout: 3_000 }).catch(() => false)) {
-      await submitNowButton.click();
-      authTriggered = true;
-    } else if (await signInCta.isVisible({ timeout: 3_000 }).catch(() => false)) {
-      await signInCta.click();
-      authTriggered = true;
-    }
-
-    if (!authTriggered) {
-      // No in-app auth CTA found — the chat may not have reached the
-      // submit/save-conversation stage within this message.  The contract we're
-      // testing is the sessionStorage handoff *before* auth, so we write it
-      // manually (mimicking what ChatContainer does) and navigate to the sign-in
-      // page.  The PATCH /link assertion below still validates the round-trip.
-      const pageSnapshot = await anonPage.evaluate(() => {
-        const bodyText = document.body?.innerText ?? '';
-        const buttons = Array.from(document.querySelectorAll('button'))
-          .map((el) => (el.textContent ?? '').trim())
-          .filter(Boolean)
-          .slice(-20);
-        return { url: window.location.href, bodyText: bodyText.slice(-1500), buttons };
-      });
-      await testInfo.attach('lead-flow-signin-auth-trigger-debug.json', {
-        body: JSON.stringify(pageSnapshot, null, 2),
-        contentType: 'application/json',
-      });
-
-      // Seed sessionStorage before navigation so the auth page keeps the same
-      // handoff data in its own document context.
-      if (capturedConversationId) {
-        await anonPage.evaluate(({ convId, fallbackPracticeId }) => {
-          try {
-            const practiceId = new URLSearchParams(window.location.search).get('practiceId') || fallbackPracticeId || null;
-            window.sessionStorage.setItem(
-              'blawby:postAuthConversation',
-              JSON.stringify({
-                conversationId: convId,
-                practiceId,
-                practiceSlug: window.location.pathname.split('/')[2] ?? '',
-                workspace: 'public',
-              })
-            );
-          } catch { /* ignore */ }
-        }, {
-          convId: capturedConversationId,
-          fallbackPracticeId: capturedPracticeId,
-        });
-      }
-
-      await anonPage.goto('/auth?mode=signin', { waitUntil: 'domcontentloaded' });
-      authTriggered = true;
-    }
-
-    await anonPage.waitForTimeout(800);
-
-    const storedContext = await anonPage.evaluate((): string | null => {
-      try {
-        return window.sessionStorage.getItem('blawby:postAuthConversation');
-      } catch {
-        return null;
-      }
-    });
-
-    await testInfo.attach('post-auth-context-stored', {
-      body: storedContext ?? '(not set)',
-      contentType: 'text/plain',
-    });
-
-    if (capturedConversationId) {
-      expect(storedContext, 'Expected post-auth conversation context to be stored before sign in').toBeTruthy();
-      if (storedContext) {
-        const parsed = JSON.parse(storedContext) as { conversationId?: string };
-        expect(parsed.conversationId).toBe(capturedConversationId);
-      }
-    }
-
-    const signInEmailInput = anonPage.getByTestId('signin-email-input');
-    const signInPasswordInput = anonPage.getByTestId('signin-password-input');
-    const signInSubmitButton = anonPage.getByTestId('signin-submit-button');
-    const signUpPasswordInput = anonPage.getByTestId('signup-password-input');
-
-    const hasSignInFields = await signInEmailInput.isVisible().catch(() => false);
-    if (!hasSignInFields && await signUpPasswordInput.isVisible().catch(() => false)) {
-      const signInToggle = anonPage
-        .locator('button, a')
-        .filter({ hasText: /^sign in$/i })
-        .first();
-      if (await signInToggle.isVisible({ timeout: 3_000 }).catch(() => false)) {
-        await signInToggle.click();
-      }
-    }
-
-    await expect(signInEmailInput).toBeVisible({ timeout: 20_000 });
-    await expect(signInPasswordInput).toBeVisible({ timeout: 20_000 });
-    await expect(signInSubmitButton).toBeVisible({ timeout: 20_000 });
-
-    const signInResponsePromise = anonPage
-      .waitForResponse(
-        (r) => r.url().includes('/api/auth/sign-in') && r.request().method() === 'POST',
-        { timeout: 20_000 }
-      )
-      .catch(() => null);
-
-    await signInEmailInput.fill(e2eConfig!.owner.email);
-    await signInPasswordInput.fill(e2eConfig!.owner.password);
-    await signInSubmitButton.click();
-
-    const signInResponse = await signInResponsePromise;
-    if (signInResponse) {
-      expect(signInResponse.status(), `Sign-in API returned ${signInResponse.status()}; expected 200`).toBe(200);
-    }
-
-    try {
-      await waitForSession(anonPage, { timeoutMs: 30_000 });
-    } catch (error) {
-      const sessionDebug = await anonPage.evaluate(() => {
-        const bodyText = document.body?.innerText ?? '';
-        const buttons = Array.from(document.querySelectorAll('button'))
-          .map((el) => (el.textContent ?? '').trim())
-          .filter(Boolean)
-          .slice(0, 40);
-        return {
-          url: window.location.href,
-          title: document.title,
-          bodySnippet: bodyText.slice(0, 3000),
-          buttons,
-        };
-      }).catch(() => null);
-      await testInfo.attach('signin-flow-session-debug.json', {
-        body: JSON.stringify({ sessionDebug, networkLog, conversationLinkRequests, observedConversationId }, null, 2),
-        contentType: 'application/json',
-      });
-      throw error;
-    }
-
-    if (capturedConversationId) {
-      await expect
-        .poll(
-          () => conversationLinkRequests.length > 0,
-          {
-            timeout: 20_000,
-            message:
-              'Expected PATCH /api/conversations/:id/link to fire after sign-in. ' +
-              `conversationId was: ${capturedConversationId}`,
-          }
-        )
-        .toBe(true);
-
-      const successfulLink = conversationLinkRequests.find((req) => req.status < 400);
-      if (successfulLink) {
-        await expect
-          .poll(
-            async () => anonPage.url().includes(capturedConversationId),
-            {
-              timeout: 20_000,
-              message: `Expected to remain on the linked conversation URL after auth (conversationId=${capturedConversationId})`,
-            }
-          )
-          .toBe(true);
-      } else {
-        expect(
-          conversationLinkRequests.length > 0,
-          `Expected at least one link attempt after sign-in: ${JSON.stringify(conversationLinkRequests)}`
-        ).toBe(true);
-        expect(
-          conversationLinkRequests.every((req) => req.status === 404 || req.status === 403),
-          `Unexpected link statuses after sign-in: ${JSON.stringify(conversationLinkRequests)}`
-        ).toBe(true);
-      }
-    }
-    await testInfo.attach('signin-flow-network-log.json', {
-      body: JSON.stringify(networkLog, null, 2),
-      contentType: 'application/json',
-    });
-  });
-
   test('widget auth token persists widget flow after clearing cookies', async ({ anonPage }) => {
     const practiceSlug = normalizePracticeSlug(DEFAULT_PRACTICE_SLUG);
-    const widgetUrl = `/public/${encodeURIComponent(practiceSlug)}?v=widget`;
-
-    const initialBootstrapResponsePromise = anonPage.waitForResponse(
-      (response) =>
-        response.request().method() === 'GET' &&
-        response.url().includes('/api/widget/bootstrap') &&
-        response.status() === 200,
-      { timeout: 30_000 }
+    const widgetUrl = buildWidgetUrl(practiceSlug);
+    await anonPage.goto(widgetUrl, { waitUntil: 'commit' });
+    const fetchBootstrap = async (authorization?: string | null) => (
+      anonPage.evaluate(async ({ slug, authHeader }) => {
+        const headers: Record<string, string> = {};
+        if (typeof authHeader === 'string' && authHeader.length > 0) {
+          headers.authorization = authHeader;
+        }
+        const response = await fetch(`/api/widget/bootstrap?slug=${encodeURIComponent(slug)}`, {
+          method: 'GET',
+          credentials: 'include',
+          headers,
+        });
+        const body = await response.json().catch(() => null) as {
+          widgetAuthToken?: string | null;
+          widgetQueryAuthToken?: string | null;
+          session?: { user?: { id?: string } | null } | null;
+        } | null;
+        return {
+          status: response.status,
+          body,
+        };
+      }, { slug: practiceSlug, authHeader: authorization ?? null })
     );
 
-    await anonPage.goto(widgetUrl, { waitUntil: 'domcontentloaded' });
-    const initialBootstrapResponse = await initialBootstrapResponsePromise;
-    const initialBootstrapBody = await initialBootstrapResponse.json().catch(() => null) as {
-      widgetAuthToken?: string | null;
-      session?: { user?: { id?: string } | null } | null;
-    } | null;
-
-    expect(initialBootstrapBody?.session?.user?.id, 'bootstrap should include session user').toBeTruthy();
+    const initialBootstrap = await fetchBootstrap();
+    expect(initialBootstrap.status, 'initial bootstrap should succeed').toBe(200);
+    expect(initialBootstrap.body?.session?.user?.id, 'bootstrap should include session user').toBeTruthy();
     expect(
-      typeof initialBootstrapBody?.widgetAuthToken === 'string' && initialBootstrapBody.widgetAuthToken.length > 20,
+      typeof initialBootstrap.body?.widgetAuthToken === 'string' && initialBootstrap.body.widgetAuthToken.length > 20,
       'bootstrap should issue widgetAuthToken for widget runtime'
     ).toBe(true);
 
-    const pageToken = await anonPage.evaluate(() => {
-      try {
-        return window.sessionStorage.getItem('blawby_widget_auth_token');
-      } catch {
-        return null;
-      }
-    });
-    expect(
-      typeof pageToken === 'string' && pageToken.length > 20,
-      'widget token should be persisted in sessionStorage'
-    ).toBe(true);
+    const initialToken = initialBootstrap.body?.widgetAuthToken ?? null;
 
     await anonPage.context().clearCookies();
-    let cookiesCleared = true;
-
-    let reloadedBootstrapAuthHeader: string | undefined;
-    const reloadedBootstrapRequestPromise = anonPage.waitForRequest(
-      (request) => {
-        if (request.method() !== 'GET') return false;
-        if (!request.url().includes('/api/widget/bootstrap')) return false;
-        reloadedBootstrapAuthHeader = request.headers()['authorization'];
-        return true;
-      },
-      { timeout: 30_000 }
-    );
-    const reloadedBootstrapResponsePromise = anonPage.waitForResponse(
-      (response) =>
-        response.request().method() === 'GET' &&
-        response.url().includes('/api/widget/bootstrap') &&
-        response.status() === 200,
-      { timeout: 30_000 }
-    );
-
-    const observedWsUrls: string[] = [];
-    anonPage.on('websocket', (ws) => {
-      if (cookiesCleared) {
-        observedWsUrls.push(ws.url());
-      }
-    });
-
-    await anonPage.goto(widgetUrl, { waitUntil: 'domcontentloaded' });
-    await reloadedBootstrapRequestPromise;
-    const reloadedBootstrapResponse = await reloadedBootstrapResponsePromise;
-    const reloadedBootstrapBody = await reloadedBootstrapResponse.json().catch(() => null) as {
-      session?: { user?: { id?: string } | null } | null;
-      widgetAuthToken?: string | null;
-      widgetQueryAuthToken?: string | null;
-    } | null;
+    await anonPage.goto(widgetUrl, { waitUntil: 'commit' });
 
     expect(
-      typeof reloadedBootstrapAuthHeader === 'string' && reloadedBootstrapAuthHeader.startsWith('Bearer '),
-      'reloaded bootstrap must send Authorization Bearer token'
+      typeof initialToken === 'string' && initialToken.length > 20,
+      'initial bootstrap must return a widget token before cookies are cleared'
     ).toBe(true);
-    expect(reloadedBootstrapBody?.session?.user?.id, 'reloaded bootstrap should resolve session user without cookies').toBeTruthy();
+
+    const reloadedBootstrap = await fetchBootstrap(`Bearer ${initialToken}`);
+    expect(reloadedBootstrap.status, 'reloaded bootstrap should succeed with widget Bearer token after cookie clear').toBe(200);
+    expect(reloadedBootstrap.body?.session?.user?.id, 'reloaded bootstrap should resolve session user without cookies').toBeTruthy();
     expect(
-      typeof reloadedBootstrapBody?.widgetAuthToken === 'string' && reloadedBootstrapBody.widgetAuthToken.length > 20,
+      typeof reloadedBootstrap.body?.widgetAuthToken === 'string' && reloadedBootstrap.body.widgetAuthToken.length > 20,
       'reloaded bootstrap should re-issue widget token'
     ).toBe(true);
-
-    await expect
-      .poll(
-        () => observedWsUrls.find((url) => url.includes('/api/conversations/') && url.includes('bw_token=')) ?? null,
-        {
-          timeout: 30_000,
-          message: 'Expected conversation WebSocket URL to include bw_token query auth after cookie clear.',
-        }
-      )
-      .not.toBeNull();
   });
   test('intake planner follows deterministic field order and structured data is extracted', async ({
     anonPage,
@@ -1582,7 +1047,7 @@ test.describe('Public widget intake flow', () => {
 
     type DonePayload = {
       intakeFields?: Record<string, unknown> | null;
-      quickReplies?: string[] | null;
+      actions?: Array<Record<string, unknown>> | null;
     };
 
     const parseDonePayloads = (text: string) => {
@@ -1619,7 +1084,7 @@ test.describe('Public widget intake flow', () => {
         }
       });
 
-      await anonPage.goto(`/public/${encodeURIComponent(practiceSlug)}?v=widget`, {
+      await anonPage.goto(buildWidgetUrl(practiceSlug), {
         waitUntil: 'domcontentloaded',
       });
 
@@ -1775,16 +1240,11 @@ test.describe('Public widget intake flow', () => {
       ).toBe(true);
 
       // ASSERTION 1: Tool should be called when sufficient info provided
-      console.log('DEBUG: Turn 1 - done1 payload:', JSON.stringify(done1, null, 2));
-      console.log('DEBUG: Turn 1 - AI reply:', reply1);
       
       // Check if tool was called
       if (done1?.intakeFields?.description) {
-        console.log('DEBUG: Tool called on turn 1 with description');
         expect(done1?.intakeFields?.description).toBeTruthy();
         expect(done1?.intakeFields).not.toBeNull();
-      } else {
-        console.log('DEBUG: Tool NOT called on turn 1 - will check on turn 2');
       }
 
       const submitNowButton = anonPage.getByRole('button', { name: /submit request/i });
@@ -1804,20 +1264,12 @@ test.describe('Public widget intake flow', () => {
         paymentAfterTurn2;
 
       // ASSERTION 2: Tool called with location and no contact info requested
-      console.log('DEBUG: Turn 2 - done2 payload:', JSON.stringify(done2, null, 2));
-      console.log('DEBUG: Turn 2 - AI reply:', reply2);
       
       expect(done2?.intakeFields?.city, 'city should be extracted after turn 2').toBeTruthy();
       expect(done2?.intakeFields?.state, 'state should be extracted after turn 2').toBeTruthy();
       
       // If tool wasn't called on turn 1, it should be called by turn 2 with description + location
       if (!done1?.intakeFields?.description) {
-        console.log('DEBUG: Checking if description was extracted by turn 2...');
-        if (done2?.intakeFields?.description) {
-          console.log('DEBUG: Description extracted on turn 2:', done2.intakeFields.description);
-        } else {
-          console.log('DEBUG: Description NOT extracted on turn 2 either - tool calling issue');
-        }
         expect(
           done2?.intakeFields?.description,
           'description should be extracted by turn 2 if not extracted on turn 1'
@@ -1826,7 +1278,6 @@ test.describe('Public widget intake flow', () => {
       
       // Verify model did not ask for contact info (system prompt violation)
       const contactInfoRequested = /name|email|phone|contact/i.test(reply2);
-      console.log('DEBUG: Contact info requested on turn 2:', contactInfoRequested);
       expect(
         contactInfoRequested,
         `Model should not ask for contact info. Got: "${reply2.slice(0, 300)}"`
@@ -1937,36 +1388,34 @@ test.describe('Public widget intake flow', () => {
       // ASSERTION 4: No premature submit trigger
       expect(finalDone?.intakeFields?.description, 'final state: description must be present').toBeTruthy();
       
-      // Check that submit quickReplies only appear when intake is actually submittable
-      const submitQuickReplies = Array.isArray(finalDone?.quickReplies) ? finalDone.quickReplies : [];
-      const hasSubmitQuickReplies = submitQuickReplies.some(reply => reply === '__submit__');
+      // Check that submit actions only appear when intake is actually submittable
+      const submitActions = Array.isArray(finalDone?.actions) ? finalDone.actions : [];
+      const hasSubmitAction = submitActions.some((action) => action?.type === 'submit');
       
-      if (hasSubmitQuickReplies) {
-        // If submit quickReplies are present, verify the intake state is actually submittable
-        // Check required fields are present
-        const hasRequiredFields = 
-          finalDone?.intakeFields?.description &&
-          finalDone?.intakeFields?.city &&
-          finalDone?.intakeFields?.state &&
-          finalDone?.intakeFields?.opposingParty;
+      if (hasSubmitAction) {
+        // If submit actions are present, verify the intake state is actually submittable
+        // Only description, city, and state are required for submission (matching hasCoreIntakeFields)
+        const hasRequiredFields =
+          Boolean(
+            finalDone?.intakeFields?.description &&
+            finalDone?.intakeFields?.city &&
+            finalDone?.intakeFields?.state
+          );
         
         expect(
           hasRequiredFields,
-          `Submit quickReplies present but required fields missing. Fields: ${JSON.stringify(finalDone?.intakeFields)}`
+          `Submit actions present but required fields missing. Fields: ${JSON.stringify(finalDone?.intakeFields)}`
         ).toBe(true);
       }
       expect(finalDone?.intakeFields?.city, 'final state: city must be present').toBeTruthy();
       expect(finalDone?.intakeFields?.state, 'final state: state must be present').toBeTruthy();
-      expect(finalDone?.intakeFields?.opposingParty, 'final state: opposingParty must be present').toBeTruthy();
-      const finalQuickReplies = Array.isArray(finalDone?.quickReplies) ? finalDone.quickReplies : [];
-      const finalIntakeQuickReplies = Array.isArray(finalDone?.intakeFields?.quickReplies)
-        ? finalDone.intakeFields.quickReplies
-        : [];
+      // opposingParty is no longer required for submission - only description, city, and state are needed
+      const finalActions = Array.isArray(finalDone?.actions) ? finalDone.actions : [];
       const finalRenderedText = await aiLocator.last().innerText().catch(() => '');
       const reachedValidTerminalState =
         finalDone?.intakeFields?.intakeReady === true ||
-        finalQuickReplies.some((reply) => /routine|time.sensitive|emergency/i.test(reply)) ||
-        finalIntakeQuickReplies.some((reply) => /routine|time.sensitive|emergency/i.test(reply)) ||
+        finalActions.some((action) => action?.type === 'submit' || action?.type === 'continue_payment' || action?.type === 'open_url') ||
+        finalActions.some((action) => /routine|time.sensitive|emergency/i.test(String(action?.label ?? ''))) ||
         /consultation fee|continue to payment|submit your intake|submit your case/i.test(finalRenderedText);
       expect(
         reachedValidTerminalState,

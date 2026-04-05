@@ -24,6 +24,7 @@ import { type IntakeFieldsPayload } from '@/shared/types/intake';
 import { STREAMING_BUBBLE_PREFIX } from './useConversation';
 import { withWidgetAuthHeaders } from '@/shared/utils/widgetAuth';
 import { applyConsultationPatchToMetadata, resolveConsultationState } from '@/shared/utils/consultationState';
+import { normalizeChatActions } from '@/shared/utils/chatActions';
 
 // ─── constants ────────────────────────────────────────────────────────────────
 
@@ -386,9 +387,52 @@ export const useChatComposer = ({
               : msg
           ));
         }
-        const currentBubble = messagesRef.current.find((message) => message.id === bubbleId);
-        if (!currentBubble?.content?.trim()) {
-          cleanupStreamingState(bubbleId);
+        const doneActions = normalizeChatActions(parsed.actions);
+        if (doneActions.length > 0) {
+          const finalBubbleId = createClientId('ai-quick-reply');
+          setMessages(prev => prev.map(msg =>
+            msg.id === bubbleId
+              ? {
+                  ...msg,
+                  id: finalBubbleId,
+                  content: msg.content,
+                  isLoading: false,
+                  metadata: {
+                    ...(msg.metadata ?? {}),
+                    __client_id: finalBubbleId,
+                    actions: doneActions,
+                  },
+                }
+              : msg
+          ));
+          if (activeStreamingBubbleIdRef.current === bubbleId) {
+            activeStreamingBubbleIdRef.current = finalBubbleId;
+          }
+          pendingStreamMessageIdRef.current = null;
+          if (orphanTimerRef.current !== null) {
+            clearTimeout(orphanTimerRef.current);
+            orphanTimerRef.current = null;
+          }
+          return;
+        }
+        let removedEmptyBubble = false;
+        setMessages(prev => {
+          const currentBubble = prev.find((message) => message.id === bubbleId);
+          if (currentBubble?.content?.trim()) {
+            return prev;
+          }
+          removedEmptyBubble = prev.some((message) => message.id === bubbleId);
+          return prev.filter((message) => message.id !== bubbleId);
+        });
+        if (removedEmptyBubble || activeStreamingBubbleIdRef.current === bubbleId) {
+          if (activeStreamingBubbleIdRef.current === bubbleId) {
+            activeStreamingBubbleIdRef.current = null;
+          }
+          pendingStreamMessageIdRef.current = null;
+          if (orphanTimerRef.current !== null) {
+            clearTimeout(orphanTimerRef.current);
+            orphanTimerRef.current = null;
+          }
         }
         return;
       }
@@ -526,7 +570,7 @@ export const useChatComposer = ({
         }, orphanExpiryMs);
       }
     }
-  }, [appendStreamingToken, applyIntakeFields, cleanupStreamingState, messagesRef, onError, orphanTimerRef, pendingStreamMessageIdRef, removeStreamingBubble, setMessages]);
+  }, [appendStreamingToken, applyIntakeFields, messagesRef, onError, orphanTimerRef, pendingStreamMessageIdRef, removeStreamingBubble, setMessages]);
 
   // ── main send ─────────────────────────────────────────────────────────────
 

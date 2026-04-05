@@ -52,6 +52,8 @@ import {
   buildOnboardingSystemPrompt,
   buildOnboardingProfileMetadata,
 } from './aiChatOnboarding.js';
+import type { ChatMessageAction } from '../../src/shared/types/conversation';
+import { normalizeChatActions } from '../../src/shared/utils/chatActions';
 
 const normalizeText = (text: string): string =>
   text.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
@@ -178,23 +180,17 @@ const deriveQuickActionState = (params: {
   details: Record<string, unknown> | null;
 }) => {
   let onboardingFields = params.onboardingFields;
-  let quickReplies: string[] | null = null;
-  let quickRepliesSource: 'none' | 'onboardingFields' | 'tool_result' = 'none';
+  let actions: ChatMessageAction[] | null = null;
   let onboardingProfile: Record<string, unknown> | null = null;
   let triggerEditModal: string | null = null;
 
-  const fieldsForQuickReplies = params.isOnboardingMode ? onboardingFields : null;
-  if (fieldsForQuickReplies && Array.isArray(fieldsForQuickReplies.quickReplies)) {
-    quickReplies = (fieldsForQuickReplies.quickReplies as unknown[])
-      .filter((v): v is string => typeof v === 'string')
-      .map((v) => v.trim())
-      .filter((v) => v.length > 0)
-      .slice(0, 3);
-    if (quickReplies.length === 0) quickReplies = null;
-    if (quickReplies) quickRepliesSource = 'onboardingFields';
+  const fieldsForActions = params.isOnboardingMode ? onboardingFields : null;
+  if (fieldsForActions && Array.isArray(fieldsForActions.actions)) {
+    actions = normalizeChatActions(fieldsForActions.actions).slice(0, 3);
+    if (actions.length === 0) actions = null;
   }
-  if (onboardingFields && 'quickReplies' in onboardingFields) {
-    const { quickReplies: _q, ...rest } = onboardingFields as Record<string, unknown>;
+  if (onboardingFields && 'actions' in onboardingFields) {
+    const { actions: _actions, ...rest } = onboardingFields as Record<string, unknown>;
     onboardingFields = rest;
   }
   if (onboardingFields && 'triggerEditModal' in onboardingFields) {
@@ -210,8 +206,7 @@ const deriveQuickActionState = (params: {
     onboardingFields,
     onboardingProfile,
     triggerEditModal,
-    quickReplies,
-    quickRepliesSource,
+    actions,
   };
 };
 
@@ -328,16 +323,80 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
   const auditService = new SessionAuditService(env);
 
   // Load practice details - audit write is best-effort and should not crash the flow
-  const practiceDetailsPromise = fetchPracticeDetailsWithCache(
-    env,
-    request,
-    practiceId || '',
-    practiceSlug || undefined,
-    {
-      bypassCache: effectiveMode === 'PRACTICE_ONBOARDING',
-      preferPracticeIdLookup: authContext.isAnonymous !== true,
-    }
-  );
+  let practiceDetailsPromise: ReturnType<typeof fetchPracticeDetailsWithCache>;
+  
+  // For anonymous sessions, try to use the prefetch if available and practiceId matches
+  if (anonymousPracticeDetailsPrefetch && practiceId) {
+    practiceDetailsPromise = (async () => {
+      try {
+        // Wait for the prefetch to complete
+        const prefetchResult = await anonymousPracticeDetailsPrefetch;
+        
+        // Check if the prefetch result contains practice details that match our practiceId
+        // We need to extract the practice ID from the prefetch result to validate
+        const prefetchPayload = prefetchResult.details;
+        const prefetchPracticeId = prefetchPayload?.id || prefetchPayload?.practiceId;
+        
+        if (prefetchPracticeId === practiceId) {
+          // Prefetch matches our conversation's practice - use it!
+          Logger.info('Using anonymous prefetch result - practiceId matches', {
+            conversationId: body.conversationId,
+            practiceId,
+            prefetchPracticeId,
+            anonymousPrefetch: true
+          });
+          return prefetchResult;
+        } else {
+          // Prefetch doesn't match - fall back to proper lookup
+          Logger.info('Anonymous prefetch practiceId mismatch - falling back to practiceId lookup', {
+            conversationId: body.conversationId,
+            practiceId,
+            prefetchPracticeId,
+            anonymousPrefetch: true
+          });
+          return fetchPracticeDetailsWithCache(
+            env,
+            request,
+            practiceId,
+            practiceSlug || undefined,
+            {
+              bypassCache: effectiveMode === 'PRACTICE_ONBOARDING',
+              preferPracticeIdLookup: authContext.isAnonymous !== true,
+            }
+          );
+        }
+      } catch (error) {
+        // Prefetch failed - fall back to normal lookup
+        Logger.warn('Anonymous prefetch failed - falling back to practiceId lookup', {
+          conversationId: body.conversationId,
+          practiceId,
+          error: error instanceof Error ? error.message : String(error)
+        });
+        return fetchPracticeDetailsWithCache(
+          env,
+          request,
+          practiceId,
+          practiceSlug || undefined,
+          {
+            bypassCache: effectiveMode === 'PRACTICE_ONBOARDING',
+            preferPracticeIdLookup: authContext.isAnonymous !== true,
+          }
+        );
+      }
+    })();
+  } else {
+    // Normal practice details lookup for authenticated sessions or when no prefetch available
+    practiceDetailsPromise = fetchPracticeDetailsWithCache(
+      env,
+      request,
+      practiceId || '',
+      practiceSlug || undefined,
+      {
+        bypassCache: effectiveMode === 'PRACTICE_ONBOARDING',
+        preferPracticeIdLookup: authContext.isAnonymous !== true,
+      }
+    );
+  }
 
   // Best-effort audit write - errors are caught and logged
   auditService.createEvent({
@@ -720,7 +779,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
               conversationId: body.conversationId,
               toolName: toolCall.name,
               success: result.success,
-              suggestedReplies: result.suggestedReplies ?? null,
+              actions: result.actions ?? null,
               triggerPayment: result.triggerPayment ?? false,
               triggerSubmit: result.triggerSubmit ?? false,
             });
@@ -763,14 +822,14 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         }
       }
 
-      // ── Derive quick replies from last tool result ────────────────────────
-      // Chips come from tool execution results, never from model output parsing.
-      let quickReplies: string[] | null = null;
+      // ── Derive chat actions from tool results ─────────────────────────────
+      // Action buttons come from tool execution results, never from model output parsing.
+      let actions: ChatMessageAction[] | null = null;
       let onboardingProfile: Record<string, unknown> | null = null;
       let triggerEditModal: string | null = null;
 
-      if (isIntakeMode && lastToolResult?.suggestedReplies && lastToolResult.suggestedReplies.length > 0) {
-        quickReplies = lastToolResult.suggestedReplies;
+      if (isIntakeMode && lastToolResult?.actions && lastToolResult.actions.length > 0) {
+        actions = lastToolResult.actions;
       }
 
       if (isOnboardingMode) {
@@ -782,7 +841,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         onboardingFields = quickActionState.onboardingFields;
         onboardingProfile = quickActionState.onboardingProfile;
         triggerEditModal = quickActionState.triggerEditModal;
-        quickReplies = quickActionState.quickReplies;
+        actions = quickActionState.actions;
       }
 
       // Merge tool-collected fields into intake state
@@ -794,7 +853,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       const shouldPromptConsultation =
         !hasSlimContactDraft &&
         (shouldRequireDisclaimer(body.messages) || CONSULTATION_CTA_REGEX.test(accumulatedReply));
-      const includeQuickRepliesInMetadata = Boolean(quickReplies);
+      const includeActionsInMetadata = Boolean(actions && actions.length > 0);
 
       // Emit done before persisting — client acts on fields immediately
       write({
@@ -802,7 +861,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         intakeFields: mergedIntakeState ?? null,
         onboardingFields: onboardingFields ?? null,
         onboardingProfile: onboardingProfile ?? null,
-        quickReplies: quickReplies ?? null,
+        actions: actions ?? null,
         triggerEditModal: triggerEditModal ?? null,
         triggerPayment: lastToolResult?.triggerPayment ?? false,
         triggerSubmit: lastToolResult?.triggerSubmit ?? false,
@@ -826,7 +885,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
               ...(patchToMerge ? { intakeFields: patchToMerge } : {}),
               ...(onboardingFields ? { onboardingFields } : {}),
               ...(onboardingProfile ? { onboardingProfile } : {}),
-              ...(includeQuickRepliesInMetadata ? { quickReplies } : {}),
+              ...(includeActionsInMetadata ? { actions } : {}),
               ...(triggerEditModal ? { triggerEditModal } : {}),
               ...(shouldPromptConsultation
                 ? { modeSelector: { showAskQuestion: false, showRequestConsultation: true, source: 'ai' } }
@@ -841,7 +900,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
             Logger.info('AI chat stored message', {
               conversationId: body.conversationId,
               messageId: storedMessage.id,
-              quickRepliesCount: quickReplies?.length ?? 0,
+              actionsCount: actions?.length ?? 0,
               hasIntakePatch: Boolean(patchToMerge),
             });
           }

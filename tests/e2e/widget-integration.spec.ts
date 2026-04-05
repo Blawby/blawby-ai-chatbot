@@ -185,13 +185,16 @@ test.describe('Widget Integration & Edge Cases', () => {
     await page.close();
   });
 
-  test('embed widget works in iframe context', async ({ unauthContext }) => {
+  test('embed widget works in iframe context', async ({ unauthContext, baseURL }) => {
     if (!e2eConfig) return;
 
     const page = await unauthContext.newPage();
     
-    // Create a simple HTML page with embedded widget
-    const widgetUrl = `/public/${encodeURIComponent(e2eConfig.practice.slug)}?v=widget`;
+    // Navigate to a base URL first to establish a real origin
+    await page.goto(baseURL, { waitUntil: 'domcontentloaded' });
+    
+    // Create a simple HTML page with embedded widget using absolute URL
+    const widgetUrl = `${baseURL}/public/${encodeURIComponent(e2eConfig.practice.slug)}?v=widget`;
     const embedHtml = `
       <!DOCTYPE html>
       <html>

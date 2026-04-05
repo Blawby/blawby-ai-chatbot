@@ -34,19 +34,20 @@ describe('save_case_details tool', () => {
     expect(result.intakeFields?.state).toBe('NC');
   });
 
-  test('should not return suggested replies when urgency is not provided', () => {
+  test('should return submit when the core intake fields are present', () => {
     const args = {
       description: 'Divorce case in California',
       city: 'Los Angeles',
       state: 'CA'
-      // urgency missing - should suggest urgency options
     };
 
     const submissionGate = { paymentRequiredBeforeSubmit: false, paymentCompleted: false };
     const result = handleSaveCaseDetails(args, null, submissionGate);
     
     expect(result.success).toBe(true);
-    expect(result.suggestedReplies).toBeUndefined(); // No suggested replies when urgency not ready yet
+    expect(result.actions).toEqual([
+      { type: 'submit', label: 'Submit request', variant: 'primary' }
+    ]);
   });
 
   test('should merge with existing intake state', () => {
@@ -157,22 +158,25 @@ describe('save_case_details tool', () => {
     
     expect(result.success).toBe(true);
     expect(result.message).toBe('Case details saved. All required fields collected.');
-    expect(result.suggestedReplies).toEqual(['__submit__']);
+    expect(result.actions).toEqual([
+      { type: 'submit', label: 'Submit request', variant: 'primary' }
+    ]);
   });
 
-  test('should indicate when more fields needed', () => {
+  test('should indicate submit even when optional fields are still missing', () => {
     const args = {
       description: 'Partial case description',
       city: 'Partial City',
       state: 'CA'
-      // Missing urgency and opposingParty
     };
 
     const submissionGate = { paymentRequiredBeforeSubmit: false, paymentCompleted: false };
     const result = handleSaveCaseDetails(args, null, submissionGate);
     
     expect(result.success).toBe(true);
-    expect(result.message).toBe('Case details saved. Continue collecting remaining fields.');
-    expect(result.suggestedReplies).toBeUndefined();
+    expect(result.message).toBe('Case details saved. All required fields collected.');
+    expect(result.actions).toEqual([
+      { type: 'submit', label: 'Submit request', variant: 'primary' }
+    ]);
   });
 });

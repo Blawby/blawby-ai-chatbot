@@ -18,6 +18,37 @@ export type MessageRole = 'user' | 'assistant' | 'system';
 
 export type ConversationMode = 'ASK_QUESTION' | 'REQUEST_CONSULTATION' | 'PRACTICE_ONBOARDING';
 
+export type ChatMessageActionVariant = 'primary' | 'secondary';
+
+export type ChatMessageAction =
+  | {
+      type: 'reply';
+      label: string;
+      value: string;
+      variant?: ChatMessageActionVariant;
+    }
+  | {
+      type: 'submit';
+      label: string;
+      variant?: ChatMessageActionVariant;
+    }
+  | {
+      type: 'continue_payment';
+      label: string;
+      variant?: ChatMessageActionVariant;
+    }
+  | {
+      type: 'open_url';
+      label: string;
+      url: string;
+      variant?: ChatMessageActionVariant;
+    }
+  | {
+      type: 'build_brief';
+      label: string;
+      variant?: ChatMessageActionVariant;
+    };
+
 export interface FirstMessageIntent {
   intent: ConversationMode | 'UNCLEAR';
   confidence: number;

@@ -4,6 +4,8 @@ export type IntakeStep =
   | 'contact_form_slim'
   | 'contact_form_decision'
   | 'ai_brief'
+  | 'collecting_case'
+  | 'ready_to_submit'
   | 'pending_review'
   | 'accepted'
   | 'rejected'
@@ -94,7 +96,6 @@ export type IntakeFieldsPayload = {
   hasDocuments?: boolean;
   ctaShown?: boolean;
   intakeReady?: boolean;
-  quickReplies?: string[] | null;
 };
 
 export type IntakeFieldChangeOptions = {

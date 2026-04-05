@@ -17,7 +17,6 @@ import { isIntakeSubmittable } from '@/shared/utils/consultationState';
 import { getChatPatterns } from '../config/chatPatterns';
 import type { OnboardingActions } from './VirtualMessageList';
 import { getSession as refreshAuthSession } from '@/shared/lib/authClient';
-import { rememberPostAuthConversationContext, type PostAuthConversationContext } from '@/shared/utils/anonymousIdentity';
 import { ChatActionCard } from './ChatActionCard';
 import { features } from '@/config/features';
 
@@ -138,7 +137,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   layoutMode,
   onOpenSidebar,
   practiceId,
-  conversationId,
+  conversationId: _conversationId,
   onToggleReaction,
   onRequestReactions,
   previewFiles,
@@ -186,7 +185,6 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [paymentRequest, setPaymentRequest] = useState<IntakePaymentRequest | null>(null);
   const [pendingPaymentRequest, setPendingPaymentRequest] = useState<IntakePaymentRequest | null>(null);
-  const [pendingSubmitAfterAuth, setPendingSubmitAfterAuth] = useState(false);
   const authSuccessCloseRef = useRef(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [replyTarget, setReplyTarget] = useState<ReplyTarget | null>(null);
@@ -299,27 +297,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     const isPatternAffirmative = affirmative.test(normalized);
     const isNegative = negative.test(normalized);
 
-    // Treat either the affirmative regex pattern OR a literal sentinel string as actionable.
-    // Ensure we only process these if the intake is actually submittable (canHandleCta).
-    const isSubmitSentinel = normalized === '__submit__';
-    const isContinuePaymentSentinel = normalized === '__continue_payment__';
-    
-    if (canHandleCta && onIntakeCtaResponse && (isSubmitSentinel || isContinuePaymentSentinel || isPatternAffirmative)) {
-      if (isContinuePaymentSentinel) {
-        const lastMsgWithPayment = [...messages].reverse().find(m => !m.isUser && m.paymentRequest);
-        if (lastMsgWithPayment?.paymentRequest) {
-          handleOpenPayment(lastMsgWithPayment.paymentRequest);
-          setInputValue('');
-          setReplyTarget(null);
-          return;
-        }
-        // If no explicit payment request is found, we should NOT proceed to submission.
-        console.warn('[Chat] __continue_payment__ received but no payment request found in recent messages.');
-        setInputValue('');
-        setReplyTarget(null);
-        return;
-      }
-
+    if (canHandleCta && onIntakeCtaResponse && isPatternAffirmative) {
       (async () => {
         try {
           await handleSubmitNowAction();
@@ -358,44 +336,11 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     }
   };
 
-  const onSubmitNowRef = useRef(onSubmitNow);
   const submitActionInFlightRef = useRef(false);
-  useEffect(() => {
-    onSubmitNowRef.current = onSubmitNow;
-  }, [onSubmitNow]);
-
-  const effectiveLayout: LayoutMode = layoutMode ?? 'widget';
-  const resolvedWorkspaceType: PostAuthConversationContext['workspace'] = isPublicWorkspace
-    ? 'public'
-    : effectiveLayout === 'mobile'
-      ? 'client'
-      : effectiveLayout === 'widget'
-        ? 'widget'
-        : 'practice';
-
-  const rememberPostAuthContext = useCallback(() => {
-    if (!isAnonymousUser) return;
-    if (!conversationId) return;
-    const resolvedPracticeId = practiceConfig?.practiceId || practiceId;
-    const resolvedPracticeSlug = practiceConfig?.slug || null;
-    if (!resolvedPracticeId && !resolvedPracticeSlug) return;
-    rememberPostAuthConversationContext({
-      conversationId,
-      practiceId: resolvedPracticeId ?? null,
-      practiceSlug: resolvedPracticeSlug,
-      workspace: resolvedWorkspaceType,
-    });
-  }, [conversationId, isAnonymousUser, practiceConfig?.practiceId, practiceConfig?.slug, practiceId, resolvedWorkspaceType]);
 
   const emitAuthPromptRequest = useCallback(() => {
-    rememberPostAuthContext();
     onAuthPromptRequest?.();
-  }, [rememberPostAuthContext, onAuthPromptRequest]);
-
-  useEffect(() => {
-    if (!showAuthPrompt) return;
-    rememberPostAuthContext();
-  }, [rememberPostAuthContext, showAuthPrompt]);
+  }, [onAuthPromptRequest]);
 
   const handleSubmitNowAction = async () => {
     if (submitActionInFlightRef.current) {
@@ -418,33 +363,6 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
       submitActionInFlightRef.current = false;
     }
   };
-
-  useEffect(() => {
-    if (!pendingSubmitAfterAuth) return;
-    if (isAnonymousUser) return;
-    if (!onSubmitNowRef.current) {
-      onIntakeCtaResponse?.('ready');
-      setPendingSubmitAfterAuth(false);
-      return;
-    }
-
-    let cancelled = false;
-    (async () => {
-      try {
-        await onSubmitNowRef.current?.();
-      } catch (error) {
-        console.error('Failed to continue intake after auth', error);
-      } finally {
-        if (!cancelled) {
-          setPendingSubmitAfterAuth(false);
-        }
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [isAnonymousUser, pendingSubmitAfterAuth, onIntakeCtaResponse]);
 
   const baseKeyHandler = createKeyPressHandler(handleSubmit);
 
@@ -484,9 +402,6 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
 
   const handleAuthPromptClose = () => {
     setPendingPaymentRequest(null);
-    if (!authSuccessCloseRef.current) {
-      setPendingSubmitAfterAuth(false);
-    }
     authSuccessCloseRef.current = false;
     onAuthPromptClose?.();
   };

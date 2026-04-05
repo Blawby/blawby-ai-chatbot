@@ -16,7 +16,9 @@ describe('submit_intake tool', () => {
     expect(result.success).toBe(true);
     expect(result.message).toBe('Intake submission confirmed.');
     expect(result.triggerSubmit).toBe(true);
-    expect(result.suggestedReplies).toEqual(['__submit__']);
+    expect(result.actions).toEqual([
+      { type: 'submit', label: 'Submit request', variant: 'primary' }
+    ]);
   });
 
   test('should reject submission without confirmation', () => {
@@ -29,7 +31,7 @@ describe('submit_intake tool', () => {
     expect(result.success).toBe(false);
     expect(result.message).toBe('Submit not confirmed by user.');
     expect(result.triggerSubmit).toBeUndefined();
-    expect(result.suggestedReplies).toBeUndefined();
+    expect(result.actions).toBeUndefined();
   });
 
   test('should reject submission with missing confirmation', () => {
@@ -40,7 +42,7 @@ describe('submit_intake tool', () => {
     expect(result.success).toBe(false);
     expect(result.message).toBe('Submit not confirmed by user.');
     expect(result.triggerSubmit).toBeUndefined();
-    expect(result.suggestedReplies).toBeUndefined();
+    expect(result.actions).toBeUndefined();
   });
 
   test('should reject submission with invalid confirmation type', () => {
@@ -66,7 +68,9 @@ describe('submit_intake tool', () => {
     
     expect(result.success).toBe(true);
     expect(result.triggerSubmit).toBe(true);
-    expect(result.suggestedReplies).toEqual(['__submit__']);
+    expect(result.actions).toEqual([
+      { type: 'submit', label: 'Submit request', variant: 'primary' }
+    ]);
   });
 
   test('should return consistent structure', () => {
@@ -80,7 +84,7 @@ describe('submit_intake tool', () => {
     expect(typeof result.success).toBe('boolean');
     expect(typeof result.message).toBe('string');
     expect(typeof result.triggerSubmit).toBe('boolean');
-    expect(Array.isArray(result.suggestedReplies)).toBe(true);
+    expect(Array.isArray(result.actions)).toBe(true);
     expect(result.intakeFields).toBeUndefined();
     expect(result.triggerPayment).toBeUndefined();
   });

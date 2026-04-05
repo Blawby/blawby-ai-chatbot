@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef } from 'preact/hooks';
-import axios from 'axios';
 import { postSystemMessage } from '@/shared/lib/conversationApi';
 import {
   fetchIntakeCheckoutSession,
@@ -17,11 +16,6 @@ import {
   type DerivedIntakeStatus,
   type IntakeFieldChangeOptions,
 } from '@/shared/types/intake';
-import { useSessionContext } from '@/shared/contexts/SessionContext';
-import { linkConversationToUser } from '@/shared/lib/apiClient';
-import {
-  clearConversationAnonymousParticipant,
-} from '@/shared/utils/anonymousIdentity';
 import { withWidgetAuthHeaders } from '@/shared/utils/widgetAuth';
 import { resolveAllowedParentOrigins } from '@/shared/utils/widgetEvents';
 import {
@@ -29,6 +23,7 @@ import {
   deriveIntakeStatusFromConsultation,
   resolveConsultationState,
 } from '@/shared/utils/consultationState';
+import { createOpenUrlAction } from '@/shared/utils/chatActions';
 import { quickActionDebugLog } from '@/shared/utils/quickActionDebug';
 import {
   getPracticeClientIntakeSettingsEndpoint,
@@ -191,7 +186,7 @@ interface UseIntakeFlowResult {
    * Phase 2: call the submit-intake API and post the success/payment-prompt message.
    * Called by the parent after payment is confirmed, or immediately if no payment needed.
    */
-  handleFinalizeSubmit: (options?: { generatePaymentLinkOnly?: boolean }) => Promise<{ paymentLinkUrl: string | null }>;
+  handleFinalizeSubmit: (options?: { generatePaymentLinkOnly?: boolean }) => Promise<{ paymentLinkUrl: string | null; intakeUuid: string | null }>;
   /** Backward-compat alias: runs the full confirm+finalize flow (used where no payment UI is wired) */
   handleSubmitNow: () => Promise<void>;
   /** Apply fields extracted by AI or manual edits */
@@ -215,11 +210,9 @@ export function useIntakeFlow({
   onError,
   onOpenPayment: _onOpenPayment,
 }: UseIntakeFlowOptions): UseIntakeFlowResult {
-  const { session, isAnonymous } = useSessionContext();
-  const currentUserId = session?.user?.id ?? null;
   const submitInFlightRef = useRef(false);
   const phase1InFlightRef = useRef(false);
-  const finalizeRef = useRef<(options?: { generatePaymentLinkOnly?: boolean }) => Promise<{ paymentLinkUrl: string | null }>>(async () => ({ paymentLinkUrl: null }));
+  const finalizeRef = useRef<(options?: { generatePaymentLinkOnly?: boolean }) => Promise<{ paymentLinkUrl: string | null; intakeUuid: string | null }>>(async () => ({ paymentLinkUrl: null, intakeUuid: null }));
   const paymentPollingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const paymentPollingCancelledRef = useRef(false);
 
@@ -467,8 +460,8 @@ export function useIntakeFlow({
   }, [conversationMetadataRef, enabled, intakeConversationState, sendMessage, updateConversationMetadata]);
 
   /**
-   * Phase 1 — validate contact, link user identity, persist practice slug.
-   * Delegates straight to handleFinalizeSubmit.
+   * Phase 1 — validate contact, persist practice slug, and decide whether to
+   * continue into payment or create the intake immediately.
    */
   const handleConfirmSubmit = useCallback(async () => {
     if (!enabled) return;
@@ -497,18 +490,6 @@ export function useIntakeFlow({
 
     phase1InFlightRef.current = true;
     try {
-      // Link auth identity first so the API call has the right session.
-      if (currentUserId && !isAnonymous) {
-        try {
-          await linkConversationToUser(conversationId, practiceId);
-          clearConversationAnonymousParticipant(conversationId);
-        } catch (linkError) {
-          if (!axios.isAxiosError(linkError) || linkError.response?.status !== 409) {
-            console.warn('[handleConfirmSubmit] Conversation link check failed', linkError);
-          }
-        }
-      }
-
       const effectivePracticeSlug =
         (typeof conversationMetadataRef.current?.practiceSlug === 'string'
           ? conversationMetadataRef.current.practiceSlug.trim()
@@ -562,17 +543,12 @@ export function useIntakeFlow({
 
       if (paymentRequired) {
         // ── Conversational payment flow ──────────────────────────────────────
-        // Step 1: Create the intake record. handleFinalizeSubmit now returns
-        // paymentLinkUrl directly — reading it from conversation metadata was
-        // always wrong because handleFinalizeSubmit stores it in the system
-        // *message* metadata, not in the conversation metadata object.
+        // Step 1: Create the intake record. handleFinalizeSubmit returns the
+        // identifiers we need directly so this flow does not race the metadata
+        // persistence round-trip.
         const finalizeResult = await finalizeRef.current({ generatePaymentLinkOnly: true });
         const paymentLinkUrl = finalizeResult?.paymentLinkUrl ?? null;
-
-        // Step 2: Read the intakeUuid that handleFinalizeSubmit just persisted
-        // into conversation metadata (updateConversationMetadata runs inside it).
-        const latestConsultation = resolveConsultationState(conversationMetadataRef.current);
-        const intakeUuid = latestConsultation?.submission?.intakeUuid ?? null;
+        const intakeUuid = finalizeResult?.intakeUuid ?? null;
 
         let checkoutSessionUrl: string | null = null;
         let checkoutSessionId: string | null = null;
@@ -630,13 +606,13 @@ export function useIntakeFlow({
 
           try {
             const paymentMsg = await postSystemMessage(conversationId, practiceId, {
-              clientId: `system-intake-pay-prompt-${intakeUuid}`,
+              clientId: `system-payment-intake-prompt-${intakeUuid}`,
               content,
               metadata: {
                 intakeUuid,
                 paymentRequired: true,
                 checkoutSessionId,
-                quickReplies: [`__pay__:${paymentUrl}`],
+                actions: [createOpenUrlAction('Pay and submit', paymentUrl)],
               },
             });
             if (paymentMsg) applyServerMessages([paymentMsg]);
@@ -673,7 +649,7 @@ export function useIntakeFlow({
               const name =
                 (conversationMetadataRef.current as Record<string, unknown> | null)?.practiceName as string | undefined
                 ?? 'the practice';
-              const messageId = `system-intake-paid-${intakeUuid}`;
+              const messageId = `system-payment-confirmed-${intakeUuid}`;
               try {
                 const msg = await postSystemMessage(capturedConversationId, capturedPracticeId, {
                   clientId: messageId,
@@ -752,9 +728,7 @@ export function useIntakeFlow({
     applyServerMessages,
     conversationId,
     conversationMetadataRef,
-    currentUserId,
     enabled,
-    isAnonymous,
     onError,
     practiceId,
     resolvedSlimContactDraft,
@@ -768,9 +742,9 @@ export function useIntakeFlow({
    *   - directly by handleConfirmSubmit when no payment is required, OR
    *   - by the payment UI's onSuccess callback after payment completes.
    */
-  const handleFinalizeSubmit = useCallback(async (options?: { generatePaymentLinkOnly?: boolean }): Promise<{ paymentLinkUrl: string | null }> => {
-    if (!enabled) return { paymentLinkUrl: null };
-    if (!conversationId || !practiceId) return { paymentLinkUrl: null };
+  const handleFinalizeSubmit = useCallback(async (options?: { generatePaymentLinkOnly?: boolean }): Promise<{ paymentLinkUrl: string | null; intakeUuid: string | null }> => {
+    if (!enabled) return { paymentLinkUrl: null, intakeUuid: null };
+    if (!conversationId || !practiceId) return { paymentLinkUrl: null, intakeUuid: null };
 
     const existingSubmission = conversationMetadataRef.current?.submission as { intakeUuid?: string } | undefined;
     if (existingSubmission?.intakeUuid) {
@@ -781,7 +755,7 @@ export function useIntakeFlow({
           intakeUuid: existingSubmission.intakeUuid,
         });
       }
-      return { paymentLinkUrl: null };
+      return { paymentLinkUrl: null, intakeUuid: existingSubmission.intakeUuid };
     }
     if (submitInFlightRef.current) {
       if (import.meta.env.DEV) {
@@ -790,7 +764,7 @@ export function useIntakeFlow({
           practiceId,
         });
       }
-      return { paymentLinkUrl: null };
+      return { paymentLinkUrl: null, intakeUuid: null };
     }
     submitInFlightRef.current = true;
     try {
@@ -811,7 +785,14 @@ export function useIntakeFlow({
       }
       const result = await response.json() as {
         success: boolean;
-        data: { intake_uuid: string; status: string; payment_link_url: string | null };
+        data: {
+          intake_uuid: string;
+          status: string;
+          payment_link_url: string | null;
+          organization?: {
+            name?: string | null;
+          } | null;
+        };
       };
       quickActionDebugLog('submit-intake response received', {
         conversationId,
@@ -835,14 +816,15 @@ export function useIntakeFlow({
       // If no payment is required, post the standard success message.
       // (If payment is required, the prompt is handled by handleConfirmSubmit).
       if (!paymentLinkUrl) {
-        const practiceName =
-          (conversationMetadataRef.current as Record<string, unknown>)?.practiceName as string | undefined
-          ?? 'the practice';
+        const organizationName = typeof result.data?.organization?.name === 'string' && result.data.organization.name.trim().length > 0
+          ? result.data.organization.name.trim()
+          : (conversationMetadataRef.current as Record<string, unknown>)?.practiceName as string | undefined
+            ?? 'the practice';
         const messageId = `system-intake-submit-${intakeUuid}`;
         try {
           const persistedMessage = await postSystemMessage(conversationId, practiceId, {
             clientId: messageId,
-            content: `Your intake has been submitted. ${practiceName} will review it and follow up with you here shortly.`,
+            content: `Your intake has been submitted. ${organizationName} will review it and follow up with you here shortly.`,
             metadata: { intakeUuid, intakeSubmitted: true },
           });
           if (persistedMessage) applyServerMessages([persistedMessage]);
@@ -869,11 +851,11 @@ export function useIntakeFlow({
           { mirrorLegacyFields: true }
         )
       );
-      return { paymentLinkUrl: paymentLinkUrl ?? null };
+      return { paymentLinkUrl: paymentLinkUrl ?? null, intakeUuid };
     } catch (error) {
       console.error('[handleFinalizeSubmit] Intake submission failed', error);
       onError?.(error instanceof Error ? error.message : 'Failed to submit intake. Please try again.');
-      return { paymentLinkUrl: null };
+      return { paymentLinkUrl: null, intakeUuid: null };
     } finally {
       submitInFlightRef.current = false;
     }
@@ -889,7 +871,7 @@ export function useIntakeFlow({
   ]);
 
    
-  finalizeRef.current = handleFinalizeSubmit as (options?: { generatePaymentLinkOnly?: boolean }) => Promise<{ paymentLinkUrl: string | null }>;
+  finalizeRef.current = handleFinalizeSubmit as (options?: { generatePaymentLinkOnly?: boolean }) => Promise<{ paymentLinkUrl: string | null; intakeUuid: string | null }>;
 
   // Cancel any in-flight payment polling when the hook unmounts.
   useEffect(() => {

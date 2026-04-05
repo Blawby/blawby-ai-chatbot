@@ -413,7 +413,6 @@ const normalizeKeys = (obj: unknown): unknown => {
     accent_color: 'accentColor',
     completion_score: 'completionScore',
     missing_fields: 'missingFields',
-    quick_replies: 'quickReplies',
     trigger_edit_modal: 'triggerEditModal',
   };
 

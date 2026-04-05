@@ -2,7 +2,8 @@ import { describe, test, expect, vi, beforeEach } from 'vitest';
 import { 
   isIntakeReadyForSubmission, 
   isIntakeSubmittable,
-  normalizeIntakeConversationState
+  normalizeIntakeConversationState,
+  deriveIntakeStatusFromConsultation,
 } from '../../../src/shared/utils/consultationState';
 import type { IntakeConversationState, ConsultationState, ConsultationSubmissionState } from '../../../src/shared/types/intake';
 
@@ -77,7 +78,7 @@ describe('Intake State Transitions', () => {
         opposingParty: '' // Missing
       });
 
-      expect(isIntakeReadyForSubmission(intake)).toBe(false);
+      expect(isIntakeReadyForSubmission(intake)).toBe(true);
     });
   });
 
@@ -96,6 +97,25 @@ describe('Intake State Transitions', () => {
       expect(result.city).toBeNull();
       expect(result.state).toBe('CA');
       expect(result.opposingParty).toBeNull();
+    });
+
+    test('should return the initial intake state for null or undefined input', () => {
+      const result = normalizeIntakeConversationState(null);
+      expect(result).toMatchObject({
+        practiceArea: null,
+        description: null,
+        urgency: null,
+        opposingParty: null,
+        city: null,
+        state: null,
+        desiredOutcome: null,
+        courtDate: null,
+        hasDocuments: null,
+        turnCount: 0,
+        ctaShown: false,
+        ctaResponse: null,
+        notYetCount: 0,
+      });
     });
 
     test('should trim whitespace from string values', () => {
@@ -151,6 +171,38 @@ describe('Intake State Transitions', () => {
   });
 
   describe('State Transition Validations', () => {
+    test('should derive ai_brief when core fields are present but decision chips were not shown', () => {
+      const consultation = createMinimalConsultationState({
+        status: 'collecting_case',
+        contact: { name: 'Client', email: 'client@example.com', phone: '555-555-1212' },
+        case: createMinimalIntakeState({
+          description: 'Complete case',
+          city: 'City',
+          state: 'CA',
+          ctaShown: false,
+          ctaResponse: null,
+        }),
+      });
+
+      expect(deriveIntakeStatusFromConsultation({ consultation }).step).toBe('ai_brief');
+    });
+
+    test('should derive contact_form_decision when the intake decision chips have been shown', () => {
+      const consultation = createMinimalConsultationState({
+        status: 'collecting_case',
+        contact: { name: 'Client', email: 'client@example.com', phone: '555-555-1212' },
+        case: createMinimalIntakeState({
+          description: 'Complete case',
+          city: 'City',
+          state: 'CA',
+          ctaShown: true,
+          ctaResponse: null,
+        }),
+      });
+
+      expect(deriveIntakeStatusFromConsultation({ consultation }).step).toBe('contact_form_decision');
+    });
+
     test('should validate collecting_case -> ready_to_submit transition', () => {
       const intake = createMinimalIntakeState({
         description: 'Complete case',
