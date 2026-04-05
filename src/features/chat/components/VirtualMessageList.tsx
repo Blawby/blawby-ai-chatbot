@@ -808,7 +808,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
         };
         
         requestVisibleReactions();
-    }, [onRequestReactions, visibleMessageIdsKey, features.enableMessageReactions]); // Only re-run when message IDs change, not on every render
+    }, [onRequestReactions, visibleMessageIdsKey]); // Only re-run when message IDs change, not on every render
 
     useEffect(() => {
         if (!isQuickActionDebugEnabled()) return;

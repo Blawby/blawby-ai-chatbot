@@ -268,7 +268,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
     messages, conversationMetadata, sendMessage, addMessage: _addMessage, clearMessages,
     requestMessageReactions, toggleMessageReaction,
     intakeStatus, intakeConversationState, handleIntakeCtaResponse,
-    slimContactDraft, handleSlimFormContinue, handleBuildBrief, handleSubmitNow, handleFinalizeSubmit,
+    slimContactDraft, handleSlimFormContinue, handleBuildBrief, handleSubmitNow, handleFinalizeSubmit: _handleFinalizeSubmit,
     startConsultFlow: _startConsultFlow, updateConversationMetadata: _updateConversationMetadata, isConsultFlowActive: _isConsultFlowActive,
     ingestServerMessages, messagesReady, hasMoreMessages, isLoadingMoreMessages,
     loadMoreMessages, isSocketReady, applyIntakeFields,
@@ -617,7 +617,6 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
               }}
               onBuildBrief={handleBuildBrief}
               onSubmitNow={handleSubmitNow}
-              onFinalizeSubmit={handleFinalizeSubmit}
               onRegisterOpenPayment={(fn) => { openPaymentRef.current = fn; }}
               isAnonymousUser={isAnonymous}
               canChat={canChat}

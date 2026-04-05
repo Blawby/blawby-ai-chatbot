@@ -389,6 +389,20 @@ export const useChatComposer = ({
         }
         const doneActions = normalizeChatActions(parsed.actions);
         if (doneActions.length > 0) {
+          const currentBubble = messagesRef.current.find((message) => message.id === bubbleId);
+          if (!currentBubble?.content?.trim()) {
+            removeStreamingBubble(bubbleId);
+            pendingStreamMessageIdRef.current = null;
+            if (activeStreamingBubbleIdRef.current === bubbleId) {
+              activeStreamingBubbleIdRef.current = null;
+            }
+            if (orphanTimerRef.current !== null) {
+              clearTimeout(orphanTimerRef.current);
+              orphanTimerRef.current = null;
+            }
+            return;
+          }
+
           setMessages(prev => prev.map(msg =>
             msg.id === bubbleId
               ? {
@@ -510,8 +524,7 @@ export const useChatComposer = ({
     const normalizedBubble = typeof currentBubble?.content === 'string' && currentBubble.content.trim().length > 0
       ? normalizeMessage(currentBubble.content)
       : null;
-    const hasMatchingPersistedAssistant = Boolean(
-      normalizedBubble && currentMessages.some(message => {
+    const hasMatchingPersistedAssistant = currentMessages.some(message => {
         if (message.id === bubbleIdToHandle) return false;
         if (message.id.startsWith(STREAMING_BUBBLE_PREFIX)) return false;
         const isAiMessage = message.role === 'assistant' || (message.role === 'system' && message.metadata?.source === 'ai');
@@ -522,16 +535,16 @@ export const useChatComposer = ({
           message.reply_to_message_id === bubbleIdToHandle ||
           (message.metadata && message.metadata.sourceBubbleId === bubbleIdToHandle);
 
+        if (isLinked) return true;
+        if (!normalizedBubble) return false;
         if (typeof message.content !== 'string' || message.content.trim().length === 0) return false;
         const normalizedAssistant = normalizeMessage(message.content);
-        if (isLinked) return isSufficientlySimilar(normalizedAssistant, normalizedBubble);
 
         const messageAgeMs = Math.abs(Date.now() - message.timestamp);
         const RECENT_PERSISTED_ASSISTANT_WINDOW_MS = 15_000;
         if (messageAgeMs > RECENT_PERSISTED_ASSISTANT_WINDOW_MS) return false;
         return isSufficientlySimilar(normalizedAssistant, normalizedBubble);
-      })
-    );
+      });
 
     if (hasMatchingPersistedAssistant) {
       setMessages(prev => prev.filter(message => message.id !== bubbleIdToHandle));

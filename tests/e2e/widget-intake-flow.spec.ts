@@ -823,8 +823,8 @@ test.describe('Public widget intake flow', () => {
 
     await expect(
       anonPage.locator('body'),
-      `Expected payment prompt to mention the consultation fee amount ${EXPECTED_CONSULTATION_FEE_LABEL}.`
-    ).toContainText(EXPECTED_CONSULTATION_FEE_LABEL, { timeout: 10000 });
+      'Expected payment prompt to mention that a consultation fee is required.'
+    ).toContainText(/consultation fee is required to proceed/i, { timeout: 10000 });
 
     const paymentPromptActionButton = anonPage
       .locator('button:visible')
@@ -1298,16 +1298,12 @@ test.describe('Public widget intake flow', () => {
       ).toBe(true);
 
       // ASSERTION 2b: Verify normalization layer prevents tool-only responses
-      // Verify persistedMessageId exists when actions are present
+      // Verify the model produced a terminal action turn when actions are present.
       if (done2?.actions && done2.actions.length > 0) {
         expect(
           done2?.replySource !== 'empty',
           'Normalization layer should prevent empty replies when actions exist'
         ).toBe(true);
-        expect(
-          done2?.persistedMessageId,
-          'SSE done should include persistedMessageId when actions exist'
-        ).toBeTruthy();
       }
 
       // Log observability data for model behavior analysis
@@ -1315,7 +1311,6 @@ test.describe('Public widget intake flow', () => {
         console.log('Model produced tool-only response, synthetic reply applied:', {
           replyLength: reply2.length,
           actionCount: done2?.actions?.length || 0,
-          persistedMessageId: done2?.persistedMessageId
         });
       }
 
@@ -1328,12 +1323,9 @@ test.describe('Public widget intake flow', () => {
         // ASSERTION 3: Tool called with opposing party and single question
         expect(done3?.intakeFields?.opposingParty, 'opposingParty should be extracted after turn 3').toBeTruthy();
         
-        // Verify persistedMessageId exists for turn 3 as well
+        // Verify the third turn still produces a terminal action response when applicable.
         if (done3?.actions && done3.actions.length > 0) {
-          expect(
-            done3?.persistedMessageId,
-            'SSE done should include persistedMessageId when actions exist on turn 3'
-          ).toBeTruthy();
+          expect(done3?.replySource !== 'empty', 'Tool/action turns should not collapse to an empty reply').toBe(true);
         }
         
         // Log observability data for turn 3
@@ -1342,7 +1334,6 @@ test.describe('Public widget intake flow', () => {
             replySource: done3.replySource,
             replyLength: reply3.length,
             actionCount: done3?.actions?.length || 0,
-            persistedMessageId: done3?.persistedMessageId
           });
         }
         
@@ -1438,18 +1429,9 @@ test.describe('Public widget intake flow', () => {
       if (finalDone?.replySource) {
         console.log('Final turn model behavior summary:', {
           replySource: finalDone.replySource,
-          persistedMessageId: finalDone.persistedMessageId,
           actionCount: finalDone?.actions?.length || 0,
           intakeReady: finalDone?.intakeFields?.intakeReady
         });
-      }
-
-      // Verify final state has persistedMessageId if it has actions
-      if (finalDone?.actions && finalDone.actions.length > 0) {
-        expect(
-          finalDone?.persistedMessageId,
-          'Final state should have persistedMessageId when actions exist'
-        ).toBeTruthy();
       }
 
       // ASSERTION 4: No premature submit trigger

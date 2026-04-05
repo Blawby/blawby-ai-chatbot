@@ -6,7 +6,7 @@ import MessageComposer from './MessageComposer';
 import { ChatMessageUI } from '../../../../worker/types';
 import { FileAttachment } from '../../../../worker/types';
 import { ContactData } from '@/features/intake/components/ContactForm';
-import { isValidStripePaymentLink, type IntakePaymentRequest } from '@/shared/utils/intakePayments';
+import { type IntakePaymentRequest } from '@/shared/utils/intakePayments';
 import { createKeyPressHandler } from '@/shared/utils/keyboard';
 import type { UploadingFile } from '@/shared/types/upload';
 import type { ConversationMode } from '@/shared/types/conversation';
@@ -16,7 +16,6 @@ import type { IntakeConversationState } from '@/shared/types/intake';
 import { isIntakeSubmittable } from '@/shared/utils/consultationState';
 import { getChatPatterns } from '../config/chatPatterns';
 import type { OnboardingActions } from './VirtualMessageList';
-import { getSession as refreshAuthSession } from '@/shared/lib/authClient';
 import { ChatActionCard } from './ChatActionCard';
 import { features } from '@/config/features';
 
@@ -78,8 +77,6 @@ export interface ChatContainerProps {
   onSlimFormDismiss?: () => void | Promise<void>;
   onBuildBrief?: () => void;
   onSubmitNow?: () => void | Promise<void>;
-  /** Phase 2: called after payment is confirmed; creates the intake record */
-  onFinalizeSubmit?: () => void | Promise<{ paymentLinkUrl: string | null }>;
   slimContactDraft?: {
     name: string;
     email: string;
@@ -160,10 +157,8 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   onSlimFormDismiss,
   onBuildBrief,
   onSubmitNow,
-  onFinalizeSubmit,
   slimContactDraft,
   clearInput,
-  isAnonymousUser,
   canChat = true,
   onSelectMode,
   composerDisabled,
@@ -183,10 +178,6 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
 }) => {
   const [inputValue, setInputValue] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const [paymentRequest, setPaymentRequest] = useState<IntakePaymentRequest | null>(null);
-  const [pendingPaymentRequest, setPendingPaymentRequest] = useState<IntakePaymentRequest | null>(null);
-  const authSuccessCloseRef = useRef(false);
-  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [replyTarget, setReplyTarget] = useState<ReplyTarget | null>(null);
   const composerDockRef = useRef<HTMLDivElement>(null);
   const [composerInsetPx, setComposerInsetPx] = useState(104);
@@ -385,55 +376,18 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     baseKeyHandler(e);
   };
 
-  const openPayment = useCallback((request: IntakePaymentRequest): boolean => {
-    const hasClientSecret = typeof request.clientSecret === 'string' &&
-      request.clientSecret.trim().length > 0;
-    if (!hasClientSecret &&
-      request.paymentLinkUrl &&
-      isValidStripePaymentLink(request.paymentLinkUrl) &&
-      typeof window !== 'undefined') {
-      window.open(request.paymentLinkUrl, '_blank', 'noopener');
-      return false;
-    }
-    setPaymentRequest(request);
-    setIsPaymentModalOpen(true);
-    return true;
-  }, []);
-
-  const handleAuthPromptClose = () => {
-    setPendingPaymentRequest(null);
-    authSuccessCloseRef.current = false;
-    onAuthPromptClose?.();
-  };
-
-  const handleAuthSuccess = async () => {
-    authSuccessCloseRef.current = true;
-    try {
-      await refreshAuthSession().catch(() => undefined);
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('auth:session-updated'));
-      }
-    } catch {
-      // best effort: the auth form has already completed the sign-in
-    }
-    let modalOpened = false;
-    if (pendingPaymentRequest) {
-      modalOpened = openPayment(pendingPaymentRequest);
-      setPendingPaymentRequest(null);
-    }
-    if (!modalOpened) {
-      onAuthPromptSuccess?.();
-    }
-  };
-
-  const handleOpenPayment = useCallback((request: IntakePaymentRequest) => {
-    if (isAnonymousUser) {
-      setPendingPaymentRequest(request);
-      emitAuthPromptRequest();
+  const openPayment = useCallback((request: IntakePaymentRequest): void => {
+    if (typeof window === 'undefined') return;
+    if (request.paymentLinkUrl) {
+      window.open(request.paymentLinkUrl, '_blank', 'noopener,noreferrer');
       return;
     }
+    console.warn('[Chat] Missing payment link URL, cannot open payment');
+  }, []);
+
+  const handleOpenPayment = useCallback((request: IntakePaymentRequest) => {
     openPayment(request);
-  }, [isAnonymousUser, emitAuthPromptRequest, openPayment, setPendingPaymentRequest]);
+  }, [openPayment]);
 
   // Register handleOpenPayment with the parent once it is stable.
   // The parent (WidgetApp/MainApp) stores the ref and passes it as onOpenPayment
@@ -444,59 +398,6 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
       onRegisterOpenPayment(handleOpenPayment);
     }
   }, [onRegisterOpenPayment, handleOpenPayment]);
-
-  const handleClosePayment = () => {
-    setIsPaymentModalOpen(false);
-  };
-
-  const handlePaymentSuccess = async () => {
-    if (!paymentRequest) {
-      handleClosePayment();
-      return;
-    }
-
-    const isValidUuid = typeof paymentRequest.intakeUuid === 'string'
-      && (
-        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(paymentRequest.intakeUuid)
-        || /^[0-9A-HJKMNP-TV-Z]{26}$/i.test(paymentRequest.intakeUuid)
-      );
-
-    if (typeof window !== 'undefined' && isValidUuid && paymentRequest.intakeUuid) {
-      try {
-        const payload: Record<string, string> = {};
-        if (paymentRequest.practiceName) payload.practiceName = paymentRequest.practiceName;
-        if (paymentRequest.practiceId) payload.practiceId = paymentRequest.practiceId;
-        if (paymentRequest.conversationId) payload.conversationId = paymentRequest.conversationId;
-        if (paymentRequest.checkoutSessionId) payload.sessionId = paymentRequest.checkoutSessionId;
-
-        window.sessionStorage.setItem(
-          `intakePaymentSuccess:${paymentRequest.intakeUuid}`,
-          JSON.stringify(payload)
-        );
-      } catch (error) {
-        console.warn('[Chat] Failed to persist payment success flag', error);
-      }
-    } else if (paymentRequest.intakeUuid) {
-      console.warn('[Chat] Skipped persisting invalid intakeUuid', paymentRequest.intakeUuid);
-    }
-    handleClosePayment();
-    // Phase 2: now that payment is confirmed, create the intake record.
-    if (onFinalizeSubmit) {
-      try {
-        const result = await onFinalizeSubmit();
-        if (result && typeof result === 'object' && 'paymentLinkUrl' in result && result.paymentLinkUrl) {
-          openPayment({
-            intakeUuid: paymentRequest?.intakeUuid ?? '',
-            paymentLinkUrl: result.paymentLinkUrl,
-            practiceId: paymentRequest?.practiceId ?? '',
-            conversationId: paymentRequest?.conversationId ?? '',
-          });
-        }
-      } catch (finalizeError) {
-        console.error('[ChatContainer] handleFinalizeSubmit failed after payment success', finalizeError);
-      }
-    }
-  };
 
   const handleModeSelection = (mode: ConversationMode, source: 'intro_gate' | 'composer_footer') => {
     if (!onSelectMode) return;
@@ -618,11 +519,10 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
 
             <div ref={composerDockRef} className="sticky bottom-0 z-[1000] w-full">
               <ChatActionCard
-                isOpen={isPaymentModalOpen || showAuthPrompt || shouldShowSlimForm}
-                type={isPaymentModalOpen ? 'payment' : showAuthPrompt ? 'auth' : shouldShowSlimForm ? 'slim-form' : null}
+                isOpen={showAuthPrompt || shouldShowSlimForm}
+                type={showAuthPrompt ? 'auth' : shouldShowSlimForm ? 'slim-form' : null}
                 onClose={() => {
-                  if (isPaymentModalOpen) handleClosePayment();
-                  else if (showAuthPrompt) handleAuthPromptClose();
+                  if (showAuthPrompt) onAuthPromptClose?.();
                   else if (shouldShowSlimForm) dismissSlimForm('manual');
                 }}
                 authProps={{
@@ -630,11 +530,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
                   initialEmail: slimContactDraft?.email ?? '',
                   initialName: slimContactDraft?.name ?? '',
                   callbackURL: authPromptCallbackUrl,
-                  onSuccess: handleAuthSuccess
-                }}
-                paymentProps={{
-                  request: paymentRequest,
-                  onSuccess: handlePaymentSuccess
+                  onSuccess: onAuthPromptSuccess
                 }}
                 slimFormProps={{
                   onContinue: onSlimFormContinue as NonNullable<typeof onSlimFormContinue>,
@@ -642,7 +538,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
                 }}
               />
 
-              {(!isPaymentModalOpen && !showAuthPrompt && !shouldShowSlimForm) && (
+              {(!showAuthPrompt && !shouldShowSlimForm) && (
                 <MessageComposer
                   inputValue={inputValue}
                   setInputValue={setInputValue}

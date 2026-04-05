@@ -270,7 +270,7 @@ const deriveNextActions = (
 
   // All required fields collected — either payment or submit
   if (isIntakeSubmittable(mergedState, submissionGate)) {
-    return [createSubmitAction(submissionGate.paymentRequiredBeforeSubmit && !submissionGate.paymentCompleted ? 'Continue' : 'Submit request')];
+    return [createSubmitAction(submissionGate.paymentRequiredBeforeSubmit && !submissionGate.paymentCompleted ? 'Pay and submit' : 'Submit request')];
   }
 
   // Payment required (case info complete, payment pending)
@@ -279,7 +279,7 @@ const deriveNextActions = (
     !submissionGate.paymentCompleted &&
     isIntakeReadyForSubmission(mergedState)
   ) {
-    return [createSubmitAction('Continue')];
+    return [createSubmitAction('Pay and submit')];
   }
 
   return [];
@@ -293,7 +293,6 @@ export const buildIntakeSystemPrompt = (
   services: Array<{ name: string; key: string }>,
   practiceContext: Record<string, unknown> | null,
   storedIntakeState: Record<string, unknown> | null,
-  submissionGate: IntakeSubmissionGate,
 ): string => {
   const cappedServices = services.slice(0, MAX_SERVICES_IN_CONVERSATION_PROMPT);
   const serviceList = cappedServices.length > 0
@@ -303,15 +302,7 @@ export const buildIntakeSystemPrompt = (
   const practiceName = typeof practiceContext?.practiceName === 'string'
     ? practiceContext.practiceName.trim()
     : 'this law firm';
-  const consultationFee = typeof practiceContext?.consultationFee === 'number' && practiceContext.consultationFee > 0
-    ? `$${(practiceContext.consultationFee / 100).toFixed(2)}`
-    : null;
-
   const intakeContext = buildIntakeContextSummary(storedIntakeState, services);
-
-  const paymentNote = submissionGate.paymentRequiredBeforeSubmit && !submissionGate.paymentCompleted
-    ? `\n\nNote: This practice requires a consultation fee${consultationFee ? ` of ${consultationFee}` : ''} before submission. Once all case details are collected, use the request_payment tool.`
-    : '';
 
   return `You are a warm, helpful legal intake assistant for ${practiceName}. Your job is to collect case information conversationally and call tools to save it.
 
@@ -405,39 +396,61 @@ const isIntakeSubmittable = (
 const deriveCaseSavedAcknowledgment = (
   toolResult: ToolResult | null,
   submissionGate: IntakeSubmissionGate,
-  mergedState: Record<string, unknown> | null
+  mergedState: Record<string, unknown> | null,
+  services: Array<{ name: string; key: string }> = [],
 ): string => {
-  if (!toolResult?.success || !mergedState) {
-    return '';
-  }
+  if (!toolResult?.success || !mergedState) return '';
 
-  const hasDescription = typeof mergedState.description === 'string' && mergedState.description.trim().length > 0;
-  const hasCity = typeof mergedState.city === 'string' && mergedState.city.trim().length > 0;
-  const hasState = typeof mergedState.state === 'string' && mergedState.state.trim().length > 0;
-  const isReady = isIntakeSubmittable(mergedState, submissionGate);
-  const isReadyForSubmission = isIntakeReadyForSubmission(mergedState);
+  const description = typeof mergedState.description === 'string' ? mergedState.description.trim() : '';
+  const city = typeof mergedState.city === 'string' ? mergedState.city.trim() : '';
+  const state = typeof mergedState.state === 'string' ? mergedState.state.trim() : '';
+  const practiceAreaKey = typeof mergedState.practiceArea === 'string' ? mergedState.practiceArea.trim() : '';
+  const urgency = typeof mergedState.urgency === 'string' ? mergedState.urgency.trim() : '';
+
+  const serviceNameByKey = new Map(services.map((s) => [s.key, s.name]));
+  const practiceAreaLabel = practiceAreaKey
+    ? (serviceNameByKey.get(practiceAreaKey) ?? practiceAreaKey.toLowerCase().replace(/_/g, ' '))
+    : null;
+
   const needsPayment = submissionGate.paymentRequiredBeforeSubmit && !submissionGate.paymentCompleted;
+  const isReady = isIntakeReadyForSubmission(mergedState);
 
-  if (isReady && needsPayment) {
-    return 'I have everything I need. The practice requires a consultation fee to review your case. Tap Continue below to proceed.';
-  }
-  if (isReady && !needsPayment) {
-    return 'I have everything I need to connect you with the right attorney. Are you ready to submit your case?';
+  const buildSummary = (): string => {
+    const locationPart = city && state ? `${city}, ${state}` : city || state || null;
+    const areaPart = practiceAreaLabel ?? null;
+    const urgencyPart = urgency === 'emergency' ? 'emergency matter'
+      : urgency === 'time_sensitive' ? 'time-sensitive matter'
+      : 'legal matter';
+
+    if (areaPart && locationPart) {
+      return `a ${areaPart} ${urgencyPart !== 'legal matter' ? urgencyPart : 'matter'} in ${locationPart}`.replace(/\s+/g, ' ').trim();
+    }
+    if (areaPart) {
+      return `a ${areaPart} ${urgencyPart !== 'legal matter' ? urgencyPart : 'matter'}`.replace(/\s+/g, ' ').trim();
+    }
+    if (locationPart) {
+      return `a ${urgencyPart} in ${locationPart}`.replace(/\s+/g, ' ').trim();
+    }
+    return 'your legal matter';
+  };
+
+  if (isReady) {
+    const summary = buildSummary();
+    if (needsPayment) {
+      return `I have what I need for ${summary}. A consultation fee is required to proceed — tap Pay and submit below.`;
+    }
+    return `I have what I need for ${summary}. Are you ready to submit this to the practice?`;
   }
 
-  if (isReadyForSubmission && needsPayment) {
-    return 'I have everything I need. The practice requires a consultation fee to review your case. Tap Continue below to proceed.';
-  }
-
-  if (!hasDescription) {
+  if (!description) {
     return 'Thanks for that detail. Can you tell me a bit more about your situation?';
   }
 
-  if (!hasCity || !hasState) {
-    return 'Thanks for sharing that. Which city and state is this matter located in?';
+  if (!city || !state) {
+    return 'Got it. Which city and state is this matter located in?';
   }
 
-  return 'Got it, thank you. Is there anything else you’d like to add before we connect you with the practice?';
+  return 'Got it. Is there anything else you\'d like to add before we connect you with the practice?';
 };
 
 // ---------------------------------------------------------------------------

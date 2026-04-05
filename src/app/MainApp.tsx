@@ -286,7 +286,7 @@ export function MainApp({
     messages, conversationMetadata, sendMessage, addMessage, clearMessages,
     requestMessageReactions, toggleMessageReaction,
     intakeStatus, intakeConversationState, handleIntakeCtaResponse,
-    slimContactDraft, handleSlimFormContinue, handleBuildBrief, handleSubmitNow, handleFinalizeSubmit,
+    slimContactDraft, handleSlimFormContinue, handleBuildBrief, handleSubmitNow, handleFinalizeSubmit: _handleFinalizeSubmit,
     startConsultFlow, updateConversationMetadata: _updateConversationMetadata,
     ingestServerMessages, messagesReady, hasMoreMessages, isLoadingMoreMessages,
     loadMoreMessages, isSocketReady, applyIntakeFields,
@@ -733,7 +733,6 @@ export function MainApp({
             onSlimFormDismiss={handleSlimFormDismiss}
             onBuildBrief={handleBuildBrief}
             onSubmitNow={handleSubmitNow}
-            onFinalizeSubmit={handleFinalizeSubmit}
             onRegisterOpenPayment={(fn) => { openPaymentRef.current = fn; }}
             isAnonymousUser={isAnonymous}
             canChat={canChat}

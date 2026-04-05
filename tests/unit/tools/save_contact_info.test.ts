@@ -21,9 +21,8 @@ describe('save_contact_info tool', () => {
     const services = [];
     const practiceContext = { practiceName: 'Test Firm' };
     const storedIntakeState = null;
-    const submissionGate = { paymentRequiredBeforeSubmit: false, paymentCompleted: false };
     
-    const prompt = buildIntakeSystemPrompt(services, practiceContext, storedIntakeState, submissionGate);
+    const prompt = buildIntakeSystemPrompt(services, practiceContext, storedIntakeState);
     
     expect(prompt).toContain('Never ask for contact info (name, email, phone) — it is already collected via the intake form');
   });
@@ -32,9 +31,8 @@ describe('save_contact_info tool', () => {
     const services = [];
     const practiceContext = { practiceName: 'Test Firm' };
     const storedIntakeState = null;
-    const submissionGate = { paymentRequiredBeforeSubmit: false, paymentCompleted: false };
     
-    const prompt = buildIntakeSystemPrompt(services, practiceContext, storedIntakeState, submissionGate);
+    const prompt = buildIntakeSystemPrompt(services, practiceContext, storedIntakeState);
     
     expect(prompt).toContain('it is already collected via the intake form');
   });

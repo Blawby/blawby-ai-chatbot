@@ -36,6 +36,7 @@ import type { DebuggableAiError } from './aiChatShared.js';
 import {
   INTAKE_TOOLS,
   buildIntakeSystemPrompt,
+  deriveCaseSavedAcknowledgment,
   mergeIntakeState,
   normalizeServicesForPrompt,
   extractServiceNames,
@@ -216,7 +217,6 @@ const deriveQuickActionState = (params: {
 
 export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionContext): Promise<Response> {
   const requestStartedAt = Date.now();
-  const requestId = crypto.randomUUID();
 
   if (request.method !== 'POST') {
     throw HttpErrors.methodNotAllowed('Method not allowed');
@@ -249,13 +249,6 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
     conversationId: body.conversationId ?? null,
     elapsedMs: Date.now() - requestStartedAt,
     messageCount: Array.isArray(body.messages) ? body.messages.length : null,
-  });
-
-  Logger.info('ai.request.start', {
-    requestId,
-    conversationId: body.conversationId,
-    messageCount: body.messages.length,
-    mode: body.mode,
   });
 
   if (!body.conversationId || typeof body.conversationId !== 'string') {
@@ -604,16 +597,18 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
     messages: [],
   };
 
+  let systemPrompt: string;
+
   if (isIntakeMode) {
     // One unified system prompt — no KNOWN SO FAR injection, no dynamic split
-    const intakeSystemPrompt = [
-      buildIntakeSystemPrompt(servicesForPrompt, aiPromptContext, storedIntakeState, intakeSubmissionGate),
+    systemPrompt = [
+      buildIntakeSystemPrompt(servicesForPrompt, aiPromptContext, storedIntakeState),
       `PRACTICE_CONTEXT: ${JSON.stringify(aiPromptContext)}`,
       body.additionalContext ? `SEARCH_CONTEXT: ${body.additionalContext}` : null,
     ].filter(Boolean).join('\n\n');
 
     requestPayload.messages = [
-      { role: 'system', content: intakeSystemPrompt },
+      { role: 'system', content: systemPrompt },
       ...body.messages.map((m) => ({ role: m.role, content: m.content })),
     ];
     requestPayload.tools = INTAKE_TOOLS;
@@ -629,18 +624,21 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         'If you don\'t have practice details: say you don\'t have access and recommend consultation.',
       ].join('\n');
 
-    const stableSystemPrompt = [
+    systemPrompt = [
       nonIntakeSystemPrompt,
       `PRACTICE_CONTEXT: ${JSON.stringify(aiPromptContext)}`,
     ].join('\n\n');
 
     requestPayload.messages = [
-      { role: 'system', content: stableSystemPrompt },
+      { role: 'system', content: systemPrompt },
       ...(body.additionalContext
         ? [{ role: 'system' as const, content: `SEARCH_CONTEXT: ${body.additionalContext}` }]
         : []),
       ...body.messages.map((message) => ({ role: message.role, content: message.content })),
     ];
+  } else {
+    // This should not happen, but TypeScript needs it
+    systemPrompt = 'You are an assistant.';
   }
 
   if (isOnboardingMode) {
@@ -653,35 +651,6 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
   }
 
   const { response: sseResponse, write, close } = createSseResponse();
-  
-  // Debug SSE events in development
-  const debugEnabled = isDebugEnabled(env.DEBUG);
-  const sendSseDebug = (event: string, data: Record<string, unknown>) => {
-    if (debugEnabled || env.NODE_ENV === 'development') {
-      write({ debug_event: event, ...data });
-    }
-  };
-  
-  // Log the exact model input before sending to provider
-  const systemPrompt = (requestPayload.messages as Array<{role: string, content: string}>).find(m => m.role === 'system')?.content || '';
-  Logger.info('ai.request.final', {
-    requestId,
-    conversationId: body.conversationId,
-    mode: effectiveMode,
-    messageCount: body.messages.length,
-    messages: requestPayload.messages,
-    systemPrompt,
-    tools: requestPayload.tools || null,
-    intakeState: storedIntakeState,
-  });
-
-  // Send debug input to browser
-  sendSseDebug('debug_input', {
-    requestId,
-    messages: requestPayload.messages,
-    tools: requestPayload.tools,
-    intakeState: storedIntakeState,
-  });
   Logger.info('AI chat timing: SSE response prepared', {
     conversationId: body.conversationId,
     elapsedMs: Date.now() - requestStartedAt,
@@ -690,10 +659,18 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
   });
 
   const streamAndPersist = async (env: Env) => {
+    const requestId = crypto.randomUUID();
     let accumulatedReply = '';
     let onboardingFields: Record<string, unknown> | null = null;
     let emittedAnyToken = false;
     const debugEnabled = isDebugEnabled(env.DEBUG);
+    
+    // Define debug function for SSE
+    const sendSseDebug = (event: string, data: Record<string, unknown>) => {
+      if (debugEnabled) {
+        write({ type: 'debug', event, ...data });
+      }
+    };
 
     const startedAt = Date.now();
     let responseClosed = false;
@@ -920,15 +897,13 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       
       if (wasToolOnly) {
         normalizationReasons.push('tool_only_completion');
-        // Generate synthetic reply for tool-only responses
-        if (lastToolResult?.actions?.length > 0) {
-          syntheticReply = 'I\'ve updated the case details based on your information.';
-        } else if (lastToolResult?.triggerPayment) {
-          syntheticReply = 'Please complete the payment to submit your consultation request.';
-        } else if (lastToolResult?.triggerSubmit) {
-          syntheticReply = 'Your consultation request has been submitted successfully.';
-        } else {
-          syntheticReply = 'I\'ve processed your request.';
+        if (isIntakeMode && lastToolResult?.success && patchToMerge) {
+          syntheticReply = deriveCaseSavedAcknowledgment(
+            lastToolResult,
+            intakeSubmissionGate,
+            mergedIntakeState,
+            servicesForPrompt,
+          );
         }
       }
       

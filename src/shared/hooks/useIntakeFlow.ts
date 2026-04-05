@@ -23,7 +23,6 @@ import {
   deriveIntakeStatusFromConsultation,
   resolveConsultationState,
 } from '@/shared/utils/consultationState';
-import { createOpenUrlAction } from '@/shared/utils/chatActions';
 import { quickActionDebugLog } from '@/shared/utils/quickActionDebug';
 import {
   getPracticeClientIntakeSettingsEndpoint,
@@ -183,7 +182,7 @@ interface UseIntakeFlowResult {
    */
   handleConfirmSubmit: () => Promise<void>;
   /**
-   * Phase 2: call the submit-intake API and post the success/payment-prompt message.
+   * Phase 2: call the submit-intake API and post the success message.
    * Called by the parent after payment is confirmed, or immediately if no payment needed.
    */
   handleFinalizeSubmit: (options?: { generatePaymentLinkOnly?: boolean }) => Promise<{ paymentLinkUrl: string | null; intakeUuid: string | null }>;
@@ -542,7 +541,7 @@ export function useIntakeFlow({
       quickActionDebugLog('payment gate evaluated', { consultationFee, paymentRequired, effectivePracticeSlug });
 
       if (paymentRequired) {
-        // ── Conversational payment flow ──────────────────────────────────────
+        // ── Direct payment handoff ──────────────────────────────────────────
         // Step 1: Create the intake record. handleFinalizeSubmit returns the
         // identifiers we need directly so this flow does not race the metadata
         // persistence round-trip.
@@ -594,30 +593,8 @@ export function useIntakeFlow({
         }
 
         if (intakeUuid && paymentUrl && conversationId && practiceId) {
-          const formattedAmount = consultationFee > 0
-            ? new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' }).format(consultationFee / 100)
-            : null;
-          const practiceName =
-            (conversationMetadataRef.current as Record<string, unknown> | null)?.practiceName as string | undefined
-            ?? 'The practice';
-          const content = formattedAmount
-            ? `Your brief looks great. ${practiceName} charges a ${formattedAmount} consultation fee to review your case. Tap below to pay and submit.`
-            : `Your brief looks great. ${practiceName} requires a consultation fee to review your case. Tap below to pay and submit.`;
-
-          try {
-            const paymentMsg = await postSystemMessage(conversationId, practiceId, {
-              clientId: `system-payment-intake-prompt-${intakeUuid}`,
-              content,
-              metadata: {
-                intakeUuid,
-                paymentRequired: true,
-                checkoutSessionId,
-                actions: [createOpenUrlAction('Pay and submit', paymentUrl)],
-              },
-            });
-            if (paymentMsg) applyServerMessages([paymentMsg]);
-          } catch (msgError) {
-            console.warn('[handleConfirmSubmit] Failed to post conversational payment prompt', msgError);
+          if (typeof window !== 'undefined') {
+            window.open(paymentUrl, '_blank', 'noopener,noreferrer');
           }
 
           // ── Payment confirmation polling ──────────────────────────────────
@@ -737,7 +714,7 @@ export function useIntakeFlow({
   ]);
 
   /**
-   * Phase 2 — call the submit-intake API and post outcome messages.
+   * Phase 2 — call the submit-intake API and post the success message.
    * Should be invoked:
    *   - directly by handleConfirmSubmit when no payment is required, OR
    *   - by the payment UI's onSuccess callback after payment completes.
