@@ -389,24 +389,21 @@ export const useChatComposer = ({
         }
         const doneActions = normalizeChatActions(parsed.actions);
         if (doneActions.length > 0) {
-          const finalBubbleId = createClientId('ai-quick-reply');
           setMessages(prev => prev.map(msg =>
             msg.id === bubbleId
               ? {
                   ...msg,
-                  id: finalBubbleId,
-                  content: msg.content,
                   isLoading: false,
                   metadata: {
                     ...(msg.metadata ?? {}),
-                    __client_id: finalBubbleId,
+                    __client_id: bubbleId,
                     actions: doneActions,
                   },
                 }
               : msg
           ));
           if (activeStreamingBubbleIdRef.current === bubbleId) {
-            activeStreamingBubbleIdRef.current = finalBubbleId;
+            activeStreamingBubbleIdRef.current = bubbleId;
           }
           pendingStreamMessageIdRef.current = null;
           if (orphanTimerRef.current !== null) {

@@ -330,8 +330,7 @@ Conversation rules:
 - Never ask for contact info (name, email, phone) — it is already collected via the intake form
 - Ask exactly ONE focused question per message about the most important missing piece
 - Never output raw JSON, tool names, or structured data in your reply text
-- You MUST always write a conversational response. Never call a tool without also writing text. If you are calling save_case_details because the user just gave you information, acknowledge what they shared before or after the tool call.
-- When you have description, city, and state, call save_case_details immediately${paymentNote}
+- You MUST always write a conversational response. Never call a tool without also writing text.
 - Infer urgency from the facts when you reasonably can. Do not ask about urgency unless it is genuinely unclear and important for routing.
 - Documents are optional context. Do not block submission on whether the user has documents.
 - Once description, city, and state are captured, prioritize getting the person to submit instead of asking optional enrichment questions.
@@ -405,7 +404,6 @@ const isIntakeSubmittable = (
 
 const deriveCaseSavedAcknowledgment = (
   toolResult: ToolResult | null,
-  intakePatch: Record<string, unknown>,
   submissionGate: IntakeSubmissionGate,
   mergedState: Record<string, unknown> | null
 ): string => {
@@ -416,47 +414,10 @@ const deriveCaseSavedAcknowledgment = (
   const hasDescription = typeof mergedState.description === 'string' && mergedState.description.trim().length > 0;
   const hasCity = typeof mergedState.city === 'string' && mergedState.city.trim().length > 0;
   const hasState = typeof mergedState.state === 'string' && mergedState.state.trim().length > 0;
-  const hasOpposingParty = typeof mergedState.opposingParty === 'string' && mergedState.opposingParty.trim().length > 0;
-  const hasUrgency = typeof mergedState.urgency === 'string' && mergedState.urgency.trim().length > 0;
   const isReady = isIntakeSubmittable(mergedState, submissionGate);
+  const isReadyForSubmission = isIntakeReadyForSubmission(mergedState);
   const needsPayment = submissionGate.paymentRequiredBeforeSubmit && !submissionGate.paymentCompleted;
 
-  // Just saved location, need more fields
-  if (intakePatch.city || intakePatch.state) {
-    if (isReady) return;
-    if (!hasOpposingParty) {
-      return 'Got it — I have your location. Who is the opposing party in this matter?';
-    }
-    if (!hasUrgency) {
-      return 'Thanks for the location. How urgent is this matter?';
-    }
-  }
-
-  // Just saved opposing party, need more fields  
-  if (intakePatch.opposingParty) {
-    if (isReady) return;
-    if (!hasUrgency) {
-      return 'Thank you. How urgent is this matter?';
-    }
-    if (!hasCity || !hasState) {
-      return 'I have the opposing party. Which city and state is this in?';
-    }
-  }
-
-  // Just saved urgency, check if ready for next step
-  if (intakePatch.urgency) {
-    if (isReady && needsPayment) {
-      return 'I have everything I need. The practice requires a consultation fee to review your case. Tap Continue below to proceed.';
-    }
-    if (isReady && !needsPayment) {
-      return 'I have everything I need to connect you with the right attorney. Are you ready to submit your case?';
-    }
-    if (!hasOpposingParty) {
-      return 'Thanks for the urgency information. Who is the opposing party?';
-    }
-  }
-
-  // Generic acknowledgment for other saves
   if (isReady && needsPayment) {
     return 'I have everything I need. The practice requires a consultation fee to review your case. Tap Continue below to proceed.';
   }
@@ -464,7 +425,19 @@ const deriveCaseSavedAcknowledgment = (
     return 'I have everything I need to connect you with the right attorney. Are you ready to submit your case?';
   }
 
-  return 'Thanks for the information. Let me know if there\'s anything else you\'d like to add about your situation.';
+  if (isReadyForSubmission && needsPayment) {
+    return 'I have everything I need. The practice requires a consultation fee to review your case. Tap Continue below to proceed.';
+  }
+
+  if (!hasDescription) {
+    return 'Thanks for that detail. Can you tell me a bit more about your situation?';
+  }
+
+  if (!hasCity || !hasState) {
+    return 'Thanks for sharing that. Which city and state is this matter located in?';
+  }
+
+  return 'Got it, thank you. Is there anything else you’d like to add before we connect you with the practice?';
 };
 
 // ---------------------------------------------------------------------------

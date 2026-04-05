@@ -20,6 +20,7 @@ import { MessageRowSkeleton } from '@/shared/ui/layout/skeleton-presets/MessageR
 import { getPracticeIntake, updateIntakeTriageStatus, type PracticeIntakeDetail } from '@/features/intake/api/intakesApi';
 import { quickActionDebugLog, isQuickActionDebugEnabled } from '@/shared/utils/quickActionDebug';
 import { createBuildBriefAction, createSubmitAction, hasTerminalChatAction, normalizeChatActions } from '@/shared/utils/chatActions';
+import { features } from '@/config/features';
 
 export interface OnboardingActions {
     onSaveAll?: () => void | Promise<void>;
@@ -779,6 +780,8 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
         }
         
         const requestVisibleReactions = () => {
+            if (!features.enableMessageReactions) return;
+            
             const messagesToRequest = visibleMessagesRef.current.filter(message => {
                 if (!message.id) return false;
                 // Skip if reactions are already loaded on the message object.
@@ -805,7 +808,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
         };
         
         requestVisibleReactions();
-    }, [onRequestReactions, visibleMessageIdsKey]); // Only re-run when message IDs change, not on every render
+    }, [onRequestReactions, visibleMessageIdsKey, features.enableMessageReactions]); // Only re-run when message IDs change, not on every render
 
     useEffect(() => {
         if (!isQuickActionDebugEnabled()) return;
@@ -849,7 +852,15 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
             ctaResponse: intakeConversationState?.ctaResponse ?? null,
             actionableMessages,
         });
-    }, [visibleMessages, derivedStart, dedupedMessages.length, buildMessageActions]);
+    }, [
+        visibleMessages,
+        derivedStart,
+        dedupedMessages.length,
+        buildMessageActions,
+        intakeReady,
+        intakeConversationState?.ctaResponse,
+        _intakeStatus?.step,
+    ]);
 
     return (
         <div className="relative min-h-0 flex flex-1 flex-col">
@@ -999,7 +1010,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                                     avatar
                                 });
                             } : undefined}
-                            onToggleReaction={onToggleReaction ? (emoji: string) => {
+                            onToggleReaction={onToggleReaction && features.enableMessageReactions ? (emoji: string) => {
                                 if (!message.id) return;
                                 onToggleReaction(message.id, emoji);
                             } : undefined}

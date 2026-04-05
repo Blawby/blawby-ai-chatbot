@@ -216,6 +216,7 @@ const deriveQuickActionState = (params: {
 
 export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionContext): Promise<Response> {
   const requestStartedAt = Date.now();
+  const requestId = crypto.randomUUID();
 
   if (request.method !== 'POST') {
     throw HttpErrors.methodNotAllowed('Method not allowed');
@@ -248,6 +249,13 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
     conversationId: body.conversationId ?? null,
     elapsedMs: Date.now() - requestStartedAt,
     messageCount: Array.isArray(body.messages) ? body.messages.length : null,
+  });
+
+  Logger.info('ai.request.start', {
+    requestId,
+    conversationId: body.conversationId,
+    messageCount: body.messages.length,
+    mode: body.mode,
   });
 
   if (!body.conversationId || typeof body.conversationId !== 'string') {
@@ -645,6 +653,35 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
   }
 
   const { response: sseResponse, write, close } = createSseResponse();
+  
+  // Debug SSE events in development
+  const debugEnabled = isDebugEnabled(env.DEBUG);
+  const sendSseDebug = (event: string, data: Record<string, unknown>) => {
+    if (debugEnabled || env.NODE_ENV === 'development') {
+      write({ debug_event: event, ...data });
+    }
+  };
+  
+  // Log the exact model input before sending to provider
+  const systemPrompt = (requestPayload.messages as Array<{role: string, content: string}>).find(m => m.role === 'system')?.content || '';
+  Logger.info('ai.request.final', {
+    requestId,
+    conversationId: body.conversationId,
+    mode: effectiveMode,
+    messageCount: body.messages.length,
+    messages: requestPayload.messages,
+    systemPrompt,
+    tools: requestPayload.tools || null,
+    intakeState: storedIntakeState,
+  });
+
+  // Send debug input to browser
+  sendSseDebug('debug_input', {
+    requestId,
+    messages: requestPayload.messages,
+    tools: requestPayload.tools,
+    intakeState: storedIntakeState,
+  });
   Logger.info('AI chat timing: SSE response prepared', {
     conversationId: body.conversationId,
     elapsedMs: Date.now() - requestStartedAt,
@@ -728,7 +765,14 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       const aigStep = aiResponse.headers.get('cf-aig-step');
 
       // Stream tokens live to the user — intake mode now streams directly
-      const streamResult = await consumeAiStream(aiResponse, true, streamWrite, body.conversationId);
+      const streamResult = await consumeAiStream(
+        aiResponse, 
+        true, 
+        streamWrite, 
+        body.conversationId,
+        requestId,
+        sendSseDebug
+      );
       const conversationTotalResponseMs = Date.now() - conversationRequestStartedAt;
       const latencyMs = Date.now() - startedAt;
 
@@ -756,6 +800,20 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       let accumulatedIntakePatch: Record<string, unknown> = {};
 
       for (const toolCall of streamResult.toolCalls) {
+        // Log raw tool call details
+        Logger.info('ai.tool.raw', {
+          requestId,
+          conversationId: body.conversationId,
+          toolName: toolCall.name,
+          toolArgs: toolCall.arguments,
+        });
+        
+        sendSseDebug('debug_tool_call', {
+          requestId,
+          toolName: toolCall.name,
+          args: toolCall.arguments,
+        });
+        
         if (isIntakeMode && (
           toolCall.name === 'save_case_details' ||
           toolCall.name === 'request_payment' ||
@@ -854,10 +912,76 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         !hasSlimContactDraft &&
         (shouldRequireDisclaimer(body.messages) || CONSULTATION_CTA_REGEX.test(accumulatedReply));
       const includeActionsInMetadata = Boolean(actions && actions.length > 0);
+      
+      // Detect tool-only behavior and normalization
+      const wasToolOnly = accumulatedReply.trim().length === 0 && streamResult.toolCalls.length > 0;
+      const normalizationReasons: string[] = [];
+      let syntheticReply = '';
+      
+      if (wasToolOnly) {
+        normalizationReasons.push('tool_only_completion');
+        // Generate synthetic reply for tool-only responses
+        if (lastToolResult?.actions?.length > 0) {
+          syntheticReply = 'I\'ve updated the case details based on your information.';
+        } else if (lastToolResult?.triggerPayment) {
+          syntheticReply = 'Please complete the payment to submit your consultation request.';
+        } else if (lastToolResult?.triggerSubmit) {
+          syntheticReply = 'Your consultation request has been submitted successfully.';
+        } else {
+          syntheticReply = 'I\'ve processed your request.';
+        }
+      }
+      
+      // Log normalization and final turn debug info
+      Logger.warn(wasToolOnly ? 'ai.turn.normalized' : 'ai.turn.normal', {
+        requestId,
+        conversationId: body.conversationId,
+        originalTextLength: accumulatedReply.length,
+        originalToolCalls: streamResult.toolCalls.length,
+        normalizedReply: syntheticReply || accumulatedReply,
+        normalizationReasons,
+        wasToolOnly,
+      });
+      
+      sendSseDebug('debug_normalization', {
+        requestId,
+        reasons: normalizationReasons,
+        syntheticReply: syntheticReply || accumulatedReply,
+        wasToolOnly,
+      });
+      
+      // Comprehensive turn debug log
+      Logger.info('ai.turn.debug', {
+        requestId,
+        conversationId: body.conversationId,
+        input: {
+          systemPrompt,
+          messages: requestPayload.messages,
+          tools: requestPayload.tools,
+          intakeState: storedIntakeState,
+        },
+        providerOutput: {
+          text: streamResult.reply,
+          toolCalls: streamResult.toolCalls,
+          emittedToken: streamResult.emittedToken,
+          rawFinishReason: streamResult.diagnostics.finishReasons[streamResult.diagnostics.finishReasons.length - 1] || null,
+        },
+        normalization: {
+          wasToolOnly,
+          reasons: normalizationReasons,
+          syntheticReply,
+        },
+        persisted: {
+          assistantMessage: syntheticReply || accumulatedReply,
+          actionMessage: actions,
+        },
+      });
 
       // Emit done before persisting — client acts on fields immediately
+      const finalReply = syntheticReply || accumulatedReply;
       write({
         done: true,
+        reply: finalReply,
         intakeFields: mergedIntakeState ?? null,
         onboardingFields: onboardingFields ?? null,
         onboardingProfile: onboardingProfile ?? null,
@@ -871,12 +995,13 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
 
       const postStreamTasks: Promise<unknown>[] = [];
 
-      if (accumulatedReply.trim()) {
+      // Store message if we have content (original or synthetic)
+      if (finalReply.trim()) {
         postStreamTasks.push((async () => {
           const storedMessage = await conversationService.sendSystemMessage({
             conversationId: body.conversationId,
             practiceId: conversation.practice_id,
-            content: accumulatedReply,
+            content: finalReply,
             metadata: {
               source: 'ai',
               model,
@@ -889,11 +1014,34 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
               ...(triggerEditModal ? { triggerEditModal } : {}),
               ...(shouldPromptConsultation
                 ? { modeSelector: { showAskQuestion: false, showRequestConsultation: true, source: 'ai' } }
-                : {})
+                : {}),
+              ...(wasToolOnly ? { wasToolOnly, normalizationReasons } : {}),
             },
             recipientUserId: authContext.user.id,
             skipPracticeValidation: shouldSkipPracticeValidation,
             request
+          });
+
+          // Log message persistence
+          Logger.info('ai.message.persisted', {
+            requestId,
+            conversationId: body.conversationId,
+            messageId: storedMessage.id,
+            role: 'assistant',
+            kind: wasToolOnly ? 'synthetic' : 'original',
+            content: finalReply,
+            actions: actions || null,
+            wasToolOnly,
+          });
+          
+          sendSseDebug('debug_persisted', {
+            requestId,
+            assistantMessage: {
+              id: storedMessage.id,
+              content: finalReply,
+              wasToolOnly,
+            },
+            actionMessage: actions,
           });
 
           if (debugEnabled) {
