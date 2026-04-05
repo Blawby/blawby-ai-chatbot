@@ -43,7 +43,6 @@ import {
   shouldRequireDisclaimer,
   buildCompactPracticeContextForPrompt,
   executeIntakeTool,
-  deriveIntakeTurnDisplayReply,
   type IntakeSubmissionGate,
   type ToolResult,
 } from './aiChatIntake.js';
@@ -174,285 +173,6 @@ const schedulePostStreamTasks = (
     });
   });
 };
-
-// ---------------------------------------------------------------------------
-// Normalized AI turn — the explicit contract between raw stream and persistence
-// ---------------------------------------------------------------------------
-
-/**
- * NormalizedAiTurn is the single structured artifact produced by one AI
- * response cycle. It is the boundary between raw model output and the
- * persistence / UI contract layer.
- *
- * Design mirrors the sister-project pattern:
- *   Raw model stream → consumeAiStream → tool execution → normalizeAiTurn
- *   → shouldPersistNormalizedTurn → persistNormalizedTurn → SSE done
- *
- * The key invariant: SSE done is emitted AFTER a backing message is persisted
- * whenever the turn is action-bearing. The frontend receives persistedMessageId
- * in the done payload and anchors action rendering to it.
- */
-type NormalizedAiTurn = {
-  /** Reply text that will be stored and displayed to the user. */
-  displayReply: string;
-  /** Where the display reply originated. */
-  replySource: 'model' | 'synthetic' | 'empty';
-  /** Intake state patch accumulated from all tool calls this turn. */
-  intakePatch: Record<string, unknown> | null;
-  /** Onboarding fields parsed from the update_practice_fields tool call. */
-  onboardingFields: Record<string, unknown> | null;
-  /** Onboarding profile metadata built for the stored message. */
-  onboardingProfile: Record<string, unknown> | null;
-  /** Quick-action buttons to render on this message. */
-  actions: ChatMessageAction[] | null;
-  /** triggerEditModal value from onboarding tool output. */
-  triggerEditModal: string | null;
-  /** Whether to trigger the payment flow. */
-  triggerPayment: boolean;
-  /** Whether to trigger the submit flow. */
-  triggerSubmit: boolean;
-  /** Whether the turn required a synthetic display reply (model was tool-only). */
-  requiresRepair: boolean;
-  /** Human-readable reasons the turn needed repair. */
-  repairReasons: string[];
-  /** Observable diagnostics — preserved verbatim from consumeAiStream. */
-  diagnostics: {
-    contentChunkCount: number;
-    deltaToolCallChunkCount: number;
-    finishReasons: string[];
-    toolCallNames: string[];
-    streamStalled: boolean;
-  };
-  /** Observability flags for regression detection. */
-  hadModelText: boolean;
-  usedSyntheticReply: boolean;
-  toolOnlyCompletion: boolean;
-};
-
-/**
- * Normalizes the raw stream result + tool execution results into one
- * structured turn object.
- *
- * Strict mode: throws when the terminal turn is malformed (tool-only AND no
- * synthetic reply is derivable).
- * Repair mode (default): derives displayReply deterministically, sets
- * requiresRepair = true, and logs diagnostics.
- */
-const normalizeAiTurn = (params: {
-  accumulatedReply: string;
-  lastToolResult: ToolResult | null;
-  accumulatedIntakePatch: Record<string, unknown>;
-  /** Previously persisted intake state from prior turns. Required for correct
-   * synthetic reply derivation — the acknowledgment logic must know what was
-   * already collected, not just what changed this turn. */
-  storedIntakeState: Record<string, unknown> | null;
-  onboardingFields: Record<string, unknown> | null;
-  isIntakeMode: boolean;
-  isOnboardingMode: boolean;
-  intakeSubmissionGate: IntakeSubmissionGate;
-  details: Record<string, unknown> | null;
-  streamResult: {
-    diagnostics: {
-      contentChunkCount: number;
-      deltaToolCallChunkCount: number;
-      finishReasons: string[];
-      toolCalls: Array<{ name: string; arguments: string }>;
-    };
-    streamStalled: boolean;
-  };
-  strictMode?: boolean;
-}): NormalizedAiTurn => {
-  const rawReplyText = params.accumulatedReply.trim();
-  const patchToMerge = Object.keys(params.accumulatedIntakePatch).length > 0
-    ? params.accumulatedIntakePatch
-    : null;
-  const repairReasons: string[] = [];
-
-  // ── Determine reply source ───────────────────────────────────────────────
-  let displayReply = rawReplyText;
-  let replySource: NormalizedAiTurn['replySource'] = rawReplyText.length > 0 ? 'model' : 'empty';
-  const toolOnlyCompletion = rawReplyText.length === 0 && (
-    params.lastToolResult !== null ||
-    params.onboardingFields !== null
-  );
-
-  if (toolOnlyCompletion) {
-    // Attempt deterministic synthetic reply.
-    // mergedForReply must include storedIntakeState so the acknowledgment
-    // logic knows what was already collected in prior turns — not just what
-    // changed this turn. Without this, the reply can ask for fields already
-    // on record or choose the wrong next step.
-    if (params.isIntakeMode && params.lastToolResult) {
-      const mergedForReply = mergeIntakeState(
-        params.storedIntakeState,
-        Object.keys(params.accumulatedIntakePatch).length > 0 ? params.accumulatedIntakePatch : null
-      );
-      const syntheticReply = deriveIntakeTurnDisplayReply(
-        params.lastToolResult,
-        params.accumulatedIntakePatch,
-        params.intakeSubmissionGate,
-        mergedForReply
-      );
-      if (syntheticReply.length > 0) {
-        displayReply = syntheticReply;
-        replySource = 'synthetic';
-        repairReasons.push('tool_only_completion_synthetic_reply_derived');
-      } else {
-        repairReasons.push('tool_only_completion_no_synthetic_reply');
-        if (params.strictMode) {
-          throw createAiDebugError(
-            'Tool-only intake turn produced no derivable display reply (strict mode).',
-            'ai_normalized_turn_strict_failure',
-            { toolCallNames: params.streamResult.diagnostics.toolCalls.map((tc) => tc.name) }
-          );
-        }
-      }
-    } else if (!params.isIntakeMode) {
-      repairReasons.push('tool_only_completion_non_intake');
-      if (params.strictMode) {
-        throw createAiDebugError(
-          'Tool-only non-intake turn has no display reply (strict mode).',
-          'ai_normalized_turn_strict_failure',
-          {}
-        );
-      }
-    }
-  }
-
-  // ── Derive quick-action state ────────────────────────────────────────────
-  let actions: ChatMessageAction[] | null = null;
-  let onboardingProfile: Record<string, unknown> | null = null;
-  let triggerEditModal: string | null = null;
-  let normalizedOnboardingFields = params.onboardingFields;
-
-  if (params.isIntakeMode && params.lastToolResult?.actions && params.lastToolResult.actions.length > 0) {
-    actions = params.lastToolResult.actions;
-  }
-
-  if (params.isOnboardingMode) {
-    const quickActionState = deriveQuickActionState({
-      isOnboardingMode: true,
-      onboardingFields: params.onboardingFields,
-      details: params.details,
-    });
-    normalizedOnboardingFields = quickActionState.onboardingFields;
-    onboardingProfile = quickActionState.onboardingProfile;
-    triggerEditModal = quickActionState.triggerEditModal;
-    actions = quickActionState.actions;
-  }
-
-  const requiresRepair = repairReasons.length > 0;
-  const hadModelText = rawReplyText.length > 0;
-  const usedSyntheticReply = replySource === 'synthetic';
-
-  return {
-    displayReply,
-    replySource,
-    intakePatch: patchToMerge,
-    onboardingFields: normalizedOnboardingFields,
-    onboardingProfile,
-    actions,
-    triggerEditModal,
-    triggerPayment: params.lastToolResult?.triggerPayment === true,
-    triggerSubmit: params.lastToolResult?.triggerSubmit === true,
-    requiresRepair,
-    repairReasons,
-    diagnostics: {
-      contentChunkCount: params.streamResult.diagnostics.contentChunkCount,
-      deltaToolCallChunkCount: params.streamResult.diagnostics.deltaToolCallChunkCount,
-      finishReasons: params.streamResult.diagnostics.finishReasons,
-      toolCallNames: params.streamResult.diagnostics.toolCalls.map((tc) => tc.name),
-      streamStalled: params.streamResult.streamStalled,
-    },
-    hadModelText,
-    usedSyntheticReply,
-    toolOnlyCompletion,
-  };
-};
-
-/**
- * Returns true when the normalized turn must be persisted as a system message.
- *
- * Invariant: any turn that carries action-bearing metadata MUST have a
- * persisted backing message so that VirtualMessageList can anchor reaction
- * and action rendering to a real stored message ID.
- */
-const shouldPersistNormalizedTurn = (turn: NormalizedAiTurn): boolean => {
-  if (turn.displayReply.length > 0) return true;
-  if (turn.actions !== null && turn.actions.length > 0) return true;
-  if (turn.intakePatch !== null) return true;
-  if (turn.onboardingFields !== null) return true;
-  if (turn.triggerPayment) return true;
-  if (turn.triggerSubmit) return true;
-  return false;
-};
-
-/**
- * Persists a normalized AI turn as a system message.
- *
- * Returns the stored message ID so the SSE done event can include it,
- * giving the frontend a stable anchor for action rendering.
- */
-const persistNormalizedTurn = async (
-  conversationService: ConversationService,
-  params: {
-    turn: NormalizedAiTurn;
-    conversationId: string;
-    practiceId: string;
-    recipientUserId: string;
-    skipPracticeValidation: boolean;
-    model: string;
-    aigStep: string | null;
-    sourceBubbleId?: string;
-    shouldPromptConsultation: boolean;
-    request: Request;
-  }
-): Promise<string | null> => {
-  if (!shouldPersistNormalizedTurn(params.turn)) return null;
-
-  const { turn } = params;
-  const includeActionsInMetadata = turn.actions !== null && turn.actions.length > 0;
-
-  const metadata: Record<string, unknown> = {
-    source: 'ai',
-    model: params.model,
-    ...(params.sourceBubbleId ? { sourceBubbleId: params.sourceBubbleId } : {}),
-    ...(params.aigStep ? { aigStep: params.aigStep } : {}),
-    ...(turn.intakePatch ? { intakeFields: turn.intakePatch } : {}),
-    ...(turn.onboardingFields ? { onboardingFields: turn.onboardingFields } : {}),
-    ...(turn.onboardingProfile ? { onboardingProfile: turn.onboardingProfile } : {}),
-    ...(includeActionsInMetadata ? { actions: turn.actions } : {}),
-    ...(turn.triggerEditModal ? { triggerEditModal: turn.triggerEditModal } : {}),
-    ...(params.shouldPromptConsultation
-      ? { modeSelector: { showAskQuestion: false, showRequestConsultation: true, source: 'ai' } }
-      : {}),
-    // Observability fields
-    hadModelText: turn.hadModelText,
-    usedSyntheticReply: turn.usedSyntheticReply,
-    toolOnlyCompletion: turn.toolOnlyCompletion,
-    ...(turn.requiresRepair ? {
-      repairApplied: true,
-      repairReasons: turn.repairReasons,
-    } : {}),
-  };
-
-  const storedMessage = await conversationService.sendSystemMessage({
-    conversationId: params.conversationId,
-    practiceId: params.practiceId,
-    content: turn.displayReply,
-    metadata,
-    recipientUserId: params.recipientUserId,
-    skipPracticeValidation: params.skipPracticeValidation,
-    allowEmptyContent: turn.displayReply.length === 0,
-    request: params.request,
-  });
-
-  return storedMessage.id;
-};
-
-// ---------------------------------------------------------------------------
-// Quick action state derivation (onboarding only)
-// ---------------------------------------------------------------------------
 
 const deriveQuickActionState = (params: {
   isOnboardingMode: boolean;
@@ -1030,6 +750,8 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       emittedAnyToken = streamResult.emittedToken;
 
       // ── Execute tool calls inline ─────────────────────────────────────────
+      // When the model emits tool_use blocks, execute each handler immediately
+      // after streaming completes. Persist the result. No second model call.
       let lastToolResult: ToolResult | null = null;
       let accumulatedIntakePatch: Record<string, unknown> = {};
 
@@ -1100,116 +822,90 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         }
       }
 
-      // ── Normalize the raw turn into one structured artifact ───────────────
-      // This is the boundary between model output and persistence contract.
-      const normalizedTurn = normalizeAiTurn({
-        accumulatedReply,
-        lastToolResult,
-        accumulatedIntakePatch,
-        storedIntakeState,
-        onboardingFields,
-        isIntakeMode,
-        isOnboardingMode,
-        intakeSubmissionGate,
-        details,
-        streamResult: {
-          diagnostics: {
-            contentChunkCount: streamResult.diagnostics.contentChunkCount,
-            deltaToolCallChunkCount: streamResult.diagnostics.deltaToolCallChunkCount,
-            finishReasons: streamResult.diagnostics.finishReasons,
-            toolCalls: streamResult.toolCalls,
-          },
-          streamStalled: streamResult.streamStalled,
-        },
-        strictMode: false,
-      });
+      // ── Derive chat actions from tool results ─────────────────────────────
+      // Action buttons come from tool execution results, never from model output parsing.
+      let actions: ChatMessageAction[] | null = null;
+      let onboardingProfile: Record<string, unknown> | null = null;
+      let triggerEditModal: string | null = null;
 
-      if (normalizedTurn.requiresRepair) {
-        Logger.warn('AI turn required normalization repair', {
-          conversationId: body.conversationId,
-          repairReasons: normalizedTurn.repairReasons,
-          replySource: normalizedTurn.replySource,
-          toolOnlyCompletion: normalizedTurn.toolOnlyCompletion,
-          toolCallNames: normalizedTurn.diagnostics.toolCallNames,
-        });
+      if (isIntakeMode && lastToolResult?.actions && lastToolResult.actions.length > 0) {
+        actions = lastToolResult.actions;
       }
 
-      // ── Merge tool-collected fields into intake state ─────────────────────
+      if (isOnboardingMode) {
+        const quickActionState = deriveQuickActionState({
+          isOnboardingMode,
+          onboardingFields,
+          details,
+        });
+        onboardingFields = quickActionState.onboardingFields;
+        onboardingProfile = quickActionState.onboardingProfile;
+        triggerEditModal = quickActionState.triggerEditModal;
+        actions = quickActionState.actions;
+      }
+
+      // Merge tool-collected fields into intake state
+      const patchToMerge = Object.keys(accumulatedIntakePatch).length > 0 ? accumulatedIntakePatch : null;
       const mergedIntakeState = isIntakeMode
-        ? mergeIntakeState(storedIntakeState, normalizedTurn.intakePatch)
+        ? mergeIntakeState(storedIntakeState, patchToMerge)
         : null;
 
       const shouldPromptConsultation =
         !hasSlimContactDraft &&
-        (shouldRequireDisclaimer(body.messages) || CONSULTATION_CTA_REGEX.test(normalizedTurn.displayReply));
+        (shouldRequireDisclaimer(body.messages) || CONSULTATION_CTA_REGEX.test(accumulatedReply));
+      const includeActionsInMetadata = Boolean(actions && actions.length > 0);
 
-      // ── Persist BEFORE emitting done ──────────────────────────────────────
-      // This is the core contract fix: the frontend receives persistedMessageId
-      // in the done event and anchors action rendering to a real stored message.
-      // VirtualMessageList is designed to expect this: any action-bearing
-      // rendered turn without a real stored ID is unsafe by design.
-      let persistedMessageId: string | null = null;
+      // Emit done before persisting — client acts on fields immediately
+      write({
+        done: true,
+        intakeFields: mergedIntakeState ?? null,
+        onboardingFields: onboardingFields ?? null,
+        onboardingProfile: onboardingProfile ?? null,
+        actions: actions ?? null,
+        triggerEditModal: triggerEditModal ?? null,
+        triggerPayment: lastToolResult?.triggerPayment ?? false,
+        triggerSubmit: lastToolResult?.triggerSubmit ?? false,
+      });
+      close();
+      responseClosed = true;
 
-      if (shouldPersistNormalizedTurn(normalizedTurn)) {
-        try {
-          persistedMessageId = await persistNormalizedTurn(conversationService, {
-            turn: normalizedTurn,
+      const postStreamTasks: Promise<unknown>[] = [];
+
+      if (accumulatedReply.trim()) {
+        postStreamTasks.push((async () => {
+          const storedMessage = await conversationService.sendSystemMessage({
             conversationId: body.conversationId,
             practiceId: conversation.practice_id,
+            content: accumulatedReply,
+            metadata: {
+              source: 'ai',
+              model,
+              ...(body.sourceBubbleId ? { sourceBubbleId: body.sourceBubbleId } : {}),
+              ...(aigStep ? { aigStep } : {}),
+              ...(patchToMerge ? { intakeFields: patchToMerge } : {}),
+              ...(onboardingFields ? { onboardingFields } : {}),
+              ...(onboardingProfile ? { onboardingProfile } : {}),
+              ...(includeActionsInMetadata ? { actions } : {}),
+              ...(triggerEditModal ? { triggerEditModal } : {}),
+              ...(shouldPromptConsultation
+                ? { modeSelector: { showAskQuestion: false, showRequestConsultation: true, source: 'ai' } }
+                : {})
+            },
             recipientUserId: authContext.user.id,
             skipPracticeValidation: shouldSkipPracticeValidation,
-            model,
-            aigStep,
-            sourceBubbleId: body.sourceBubbleId,
-            shouldPromptConsultation,
-            request,
+            request
           });
 
           if (debugEnabled) {
             Logger.info('AI chat stored message', {
               conversationId: body.conversationId,
-              messageId: persistedMessageId,
-              actionsCount: normalizedTurn.actions?.length ?? 0,
-              hasIntakePatch: Boolean(normalizedTurn.intakePatch),
-              replySource: normalizedTurn.replySource,
-              requiresRepair: normalizedTurn.requiresRepair,
-              persistedMessageId,
+              messageId: storedMessage.id,
+              actionsCount: actions?.length ?? 0,
+              hasIntakePatch: Boolean(patchToMerge),
             });
           }
-        } catch (persistError) {
-          // Hard failure: re-throw so the outer catch emits an SSE error event
-          // and closes the stream. This enforces the contract invariant:
-          // no action-bearing turn reaches the client without a backing message ID.
-          // The client will see an error state rather than a dangling action UI.
-          Logger.warn('AI turn persistence failed — failing closed, no done emitted', {
-            conversationId: body.conversationId,
-            error: persistError instanceof Error ? persistError.message : String(persistError),
-            replySource: normalizedTurn.replySource,
-            toolOnlyCompletion: normalizedTurn.toolOnlyCompletion,
-            requiresRepair: normalizedTurn.requiresRepair,
-          });
-          throw persistError;
-        }
+        })());
       }
-
-      // ── Emit done — after persistence ─────────────────────────────────────
-      write({
-        done: true,
-        intakeFields: mergedIntakeState ?? null,
-        onboardingFields: normalizedTurn.onboardingFields ?? null,
-        onboardingProfile: normalizedTurn.onboardingProfile ?? null,
-        actions: normalizedTurn.actions ?? null,
-        triggerEditModal: normalizedTurn.triggerEditModal ?? null,
-        triggerPayment: normalizedTurn.triggerPayment,
-        triggerSubmit: normalizedTurn.triggerSubmit,
-        // The key contract field: frontend anchors action rendering here
-        persistedMessageId,
-      });
-      close();
-      responseClosed = true;
-
-      // ── Post-stream tasks (best-effort, off critical path) ─────────────────
-      const postStreamTasks: Promise<unknown>[] = [];
 
       // Persist intake metadata off the stream-critical path
       if (isIntakeMode && mergedIntakeState) {

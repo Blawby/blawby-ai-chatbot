@@ -688,7 +688,7 @@ export function MainApp({
             onAddMessage={addMessage}
             conversationMode={conversationMode}
             onSelectMode={handleModeSelection}
-            onToggleReaction={toggleMessageReaction}
+            onToggleReaction={features.enableMessageReactions ? toggleMessageReaction : undefined}
             onRequestReactions={requestMessageReactions}
             composerDisabled={isComposerDisabled}
             isPublicWorkspace={isPublicWorkspace}

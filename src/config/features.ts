@@ -108,6 +108,12 @@ interface FeatureFlags {
      * source of truth for activity events.
      */
     enableActivity: boolean;
+
+    /**
+     * Enable message reactions feature
+     * When false, reaction UI and functionality will be hidden from messages
+     */
+    enableMessageReactions: boolean;
 }
 
 // Immutable base configuration
@@ -129,6 +135,7 @@ const baseFeatureConfig: FeatureFlags = {
 
     enablePlusTier: false, // Hide Plus plan by default (not available at launch)
     enableActivity: false, // Disabled until activity is migrated off Worker/D1
+    enableMessageReactions: false, // Disable message reactions for MVP
 };
 
 // DEV-only overrides (computed via spread, no mutation)

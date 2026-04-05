@@ -7,7 +7,7 @@ import {
   isIntakeSubmittable as isSharedIntakeSubmittable,
 } from '../../src/shared/utils/consultationState';
 import type { ChatMessageAction } from '../../src/shared/types/conversation';
-import { createSubmitAction, createContinuePaymentAction } from '../../src/shared/utils/chatActions';
+import { createSubmitAction } from '../../src/shared/utils/chatActions';
 
 const MAX_SERVICES_IN_PROMPT = 20;
 const MAX_SERVICES_IN_CONVERSATION_PROMPT = 8;
@@ -203,7 +203,7 @@ export const handleRequestPayment = (
     success: true,
     message: 'Payment requested.',
     triggerPayment: true,
-    actions: [createContinuePaymentAction('Continue')],
+    actions: [createSubmitAction('Continue')],
   };
 };
 
@@ -270,7 +270,7 @@ const deriveNextActions = (
 
   // All required fields collected — either payment or submit
   if (isIntakeSubmittable(mergedState, submissionGate)) {
-    return [submissionGate.paymentRequiredBeforeSubmit && !submissionGate.paymentCompleted ? createContinuePaymentAction('Continue') : createSubmitAction('Submit request')];
+    return [createSubmitAction(submissionGate.paymentRequiredBeforeSubmit && !submissionGate.paymentCompleted ? 'Continue' : 'Submit request')];
   }
 
   // Payment required (case info complete, payment pending)
@@ -279,7 +279,7 @@ const deriveNextActions = (
     !submissionGate.paymentCompleted &&
     isIntakeReadyForSubmission(mergedState)
   ) {
-    return [createContinuePaymentAction('Continue')];
+    return [createSubmitAction('Continue')];
   }
 
   return [];
@@ -403,18 +403,7 @@ const isIntakeSubmittable = (
 // Deterministic acknowledgment for tool-only turns
 // ---------------------------------------------------------------------------
 
-/**
- * Derive a deterministic, user-facing display reply for an intake turn.
- *
- * Used by the normalization layer when the model produced a tool-only turn
- * (no conversational text). Returns '' when the tool result was unsuccessful
- * or when there is no accumulated state to describe.
- *
- * This is the server-side analogue of SyntheticOutputTool from the sister
- * project: the server, not the model, is the terminal owner of the UI copy
- * when a tool-only completion occurs.
- */
-const deriveIntakeTurnDisplayReply = (
+const deriveCaseSavedAcknowledgment = (
   toolResult: ToolResult | null,
   intakePatch: Record<string, unknown>,
   submissionGate: IntakeSubmissionGate,
@@ -424,6 +413,7 @@ const deriveIntakeTurnDisplayReply = (
     return '';
   }
 
+  const hasDescription = typeof mergedState.description === 'string' && mergedState.description.trim().length > 0;
   const hasCity = typeof mergedState.city === 'string' && mergedState.city.trim().length > 0;
   const hasState = typeof mergedState.state === 'string' && mergedState.state.trim().length > 0;
   const hasOpposingParty = typeof mergedState.opposingParty === 'string' && mergedState.opposingParty.trim().length > 0;
@@ -433,7 +423,7 @@ const deriveIntakeTurnDisplayReply = (
 
   // Just saved location, need more fields
   if (intakePatch.city || intakePatch.state) {
-    if (isReady) return '';
+    if (isReady) return;
     if (!hasOpposingParty) {
       return 'Got it — I have your location. Who is the opposing party in this matter?';
     }
@@ -442,9 +432,9 @@ const deriveIntakeTurnDisplayReply = (
     }
   }
 
-  // Just saved opposing party, need more fields
+  // Just saved opposing party, need more fields  
   if (intakePatch.opposingParty) {
-    if (isReady) return '';
+    if (isReady) return;
     if (!hasUrgency) {
       return 'Thank you. How urgent is this matter?';
     }
@@ -627,5 +617,5 @@ export {
   buildCompactPracticeContextForPrompt,
   deriveNextActions,
   MAX_SERVICES_IN_PROMPT,
-  deriveIntakeTurnDisplayReply,
+  deriveCaseSavedAcknowledgment,
 };
