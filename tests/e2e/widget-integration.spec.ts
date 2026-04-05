@@ -74,12 +74,14 @@ const getOrCreateConversation = async (options: {
       'Cookie': cookieHeader,
     },
     data: {
-      practice_id: options.practiceId,
-      mode: 'REQUEST_CONSULTATION',
+      participantUserIds: [],
+      metadata: {
+        mode: 'REQUEST_CONSULTATION'
+      }
     },
   });
 
-  if (createConversationResponse.status() !== 201) {
+  if (createConversationResponse.status() !== 200) {
     throw new Error(`Failed to create conversation: ${createConversationResponse.status()}`);
   }
 
@@ -141,7 +143,7 @@ test.describe('Widget Integration & Edge Cases', () => {
     await page.click('[data-testid="send-button"]');
     
     // Should show error state
-    await expect(page.locator('body')).toContainText('error', { timeout: 10000 });
+    await expect(page.locator('body')).toContainText('Failed to send message. Please try again.', { timeout: 10000 });
     
     // Remove the route and try again
     await page.unroute('**/api/ai/chat');

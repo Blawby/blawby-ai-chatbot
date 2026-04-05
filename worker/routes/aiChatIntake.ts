@@ -423,6 +423,7 @@ const deriveCaseSavedAcknowledgment = (
 
   // Just saved location, need more fields
   if (intakePatch.city || intakePatch.state) {
+    if (isReady) return;
     if (!hasOpposingParty) {
       return 'Got it — I have your location. Who is the opposing party in this matter?';
     }
@@ -433,6 +434,7 @@ const deriveCaseSavedAcknowledgment = (
 
   // Just saved opposing party, need more fields  
   if (intakePatch.opposingParty) {
+    if (isReady) return;
     if (!hasUrgency) {
       return 'Thank you. How urgent is this matter?';
     }
