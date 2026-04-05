@@ -1,9 +1,9 @@
 import {
-  hasNonEmptyStringField,
   readAnyString,
   LEGAL_INTENT_REGEX,
 } from './aiChatShared.js';
 import {
+  hasCoreIntakeFields,
   isIntakeReadyForSubmission as isSharedIntakeReadyForSubmission,
   isIntakeSubmittable as isSharedIntakeSubmittable,
 } from '../../src/shared/utils/consultationState';
@@ -260,6 +260,23 @@ const deriveNextSuggestedReplies = (
 ): string[] => {
   if (!mergedState) return [];
 
+  // Urgency is the next closed-choice field
+  if (typeof mergedState.urgency !== 'string' || !mergedState.urgency.trim()) {
+    if (hasCoreIntakeFields(mergedState)) {
+      return ['Routine (no deadline)', 'Time-sensitive', 'Emergency'];
+    }
+  }
+
+  // hasDocuments is the next closed-choice field
+  if (typeof mergedState.hasDocuments !== 'boolean') {
+    if (
+      hasCoreIntakeFields(mergedState) &&
+      typeof mergedState.urgency === 'string' && mergedState.urgency.trim()
+    ) {
+      return ['Yes, I have documents', 'No, not yet'];
+    }
+  }
+
   // All required fields collected — either payment or submit
   if (isIntakeSubmittable(mergedState, submissionGate)) {
     return ['__submit__'];
@@ -272,31 +289,6 @@ const deriveNextSuggestedReplies = (
     isIntakeReadyForSubmission(mergedState)
   ) {
     return ['__submit__'];
-  }
-
-  // Urgency is the next closed-choice field
-  if (typeof mergedState.urgency !== 'string' || !mergedState.urgency.trim()) {
-    if (
-      hasNonEmptyStringField(mergedState, 'description') &&
-      hasNonEmptyStringField(mergedState, 'city') &&
-      hasNonEmptyStringField(mergedState, 'state') &&
-      hasNonEmptyStringField(mergedState, 'opposingParty')
-    ) {
-      return ['Routine (no deadline)', 'Time-sensitive', 'Emergency'];
-    }
-  }
-
-  // hasDocuments is the next closed-choice field
-  if (typeof mergedState.hasDocuments !== 'boolean') {
-    if (
-      hasNonEmptyStringField(mergedState, 'description') &&
-      hasNonEmptyStringField(mergedState, 'city') &&
-      hasNonEmptyStringField(mergedState, 'state') &&
-      hasNonEmptyStringField(mergedState, 'opposingParty') &&
-      typeof mergedState.urgency === 'string' && mergedState.urgency.trim()
-    ) {
-      return ['Yes, I have documents', 'No, not yet'];
-    }
   }
 
   return [];

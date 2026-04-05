@@ -386,6 +386,10 @@ export const useChatComposer = ({
               : msg
           ));
         }
+        const currentBubble = messagesRef.current.find((message) => message.id === bubbleId);
+        if (!currentBubble?.content?.trim()) {
+          cleanupStreamingState(bubbleId);
+        }
         return;
       }
       if (parsed.error === true) {
@@ -522,7 +526,7 @@ export const useChatComposer = ({
         }, orphanExpiryMs);
       }
     }
-  }, [appendStreamingToken, applyIntakeFields, messagesRef, onError, orphanTimerRef, pendingStreamMessageIdRef, removeStreamingBubble, setMessages]);
+  }, [appendStreamingToken, applyIntakeFields, cleanupStreamingState, messagesRef, onError, orphanTimerRef, pendingStreamMessageIdRef, removeStreamingBubble, setMessages]);
 
   // ── main send ─────────────────────────────────────────────────────────────
 

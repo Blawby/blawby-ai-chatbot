@@ -327,36 +327,39 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
 
   const auditService = new SessionAuditService(env);
 
-  // Run audit write and practice details fetch concurrently — neither depends on the other.
-  // The audit result is never read; its side effect (the DB write) is what matters.
-  // For anonymous sessions, anonymousPracticeDetailsPrefetch is already in-flight.
+  // Load practice details - audit write is best-effort and should not crash the flow
+  const practiceDetailsPromise = fetchPracticeDetailsWithCache(
+    env,
+    request,
+    practiceId || '',
+    practiceSlug || undefined,
+    {
+      bypassCache: effectiveMode === 'PRACTICE_ONBOARDING',
+      preferPracticeIdLookup: authContext.isAnonymous !== true,
+    }
+  );
+
+  // Best-effort audit write - errors are caught and logged
+  auditService.createEvent({
+    conversationId: body.conversationId,
+    practiceId,
+    eventType: 'ai_message_sent',
+    actorType: 'user',
+    actorId: authContext.user.id,
+    payload: { conversationId: body.conversationId }
+  }).catch(error => {
+    Logger.error('Failed to create audit event for ai_message_sent', {
+      conversationId: body.conversationId,
+      practiceId,
+      error: error instanceof Error ? error.message : String(error)
+    });
+  });
+
+  // Run practice details fetch
   let details: Record<string, unknown> | null = null;
   let isPublic = false;
   try {
-    const practiceDetailsPromise = anonymousPracticeDetailsPrefetch ?? fetchPracticeDetailsWithCache(
-      env,
-      request,
-      practiceId,
-      practiceSlug || undefined,
-      {
-        bypassCache: effectiveMode === 'PRACTICE_ONBOARDING',
-        preferPracticeIdLookup: authContext.isAnonymous !== true,
-      }
-    );
-
-    const [, practiceResult] = await Promise.all([
-      auditService.createEvent({
-        conversationId: body.conversationId,
-        practiceId,
-        eventType: 'ai_message_sent',
-        actorType: 'user',
-        actorId: authContext.user.id,
-        payload: { conversationId: body.conversationId }
-      }),
-      practiceDetailsPromise,
-    ]);
-
-    ({ details, isPublic } = practiceResult);
+    ({ details, isPublic } = await practiceDetailsPromise);
     Logger.info('AI chat timing: practice details loaded', {
       conversationId: body.conversationId,
       practiceId,
@@ -809,39 +812,41 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
 
       const postStreamTasks: Promise<unknown>[] = [];
 
-      postStreamTasks.push((async () => {
-        const storedMessage = await conversationService.sendSystemMessage({
-          conversationId: body.conversationId,
-          practiceId: conversation.practice_id,
-          content: accumulatedReply,
-          metadata: {
-            source: 'ai',
-            model,
-            ...(body.sourceBubbleId ? { sourceBubbleId: body.sourceBubbleId } : {}),
-            ...(aigStep ? { aigStep } : {}),
-            ...(patchToMerge ? { intakeFields: patchToMerge } : {}),
-            ...(onboardingFields ? { onboardingFields } : {}),
-            ...(onboardingProfile ? { onboardingProfile } : {}),
-            ...(includeQuickRepliesInMetadata ? { quickReplies } : {}),
-            ...(triggerEditModal ? { triggerEditModal } : {}),
-            ...(shouldPromptConsultation
-              ? { modeSelector: { showAskQuestion: false, showRequestConsultation: true, source: 'ai' } }
-              : {})
-          },
-          recipientUserId: authContext.user.id,
-          skipPracticeValidation: shouldSkipPracticeValidation,
-          request
-        });
-
-        if (debugEnabled) {
-          Logger.info('AI chat stored message', {
+      if (accumulatedReply.trim()) {
+        postStreamTasks.push((async () => {
+          const storedMessage = await conversationService.sendSystemMessage({
             conversationId: body.conversationId,
-            messageId: storedMessage.id,
-            quickRepliesCount: quickReplies?.length ?? 0,
-            hasIntakePatch: Boolean(patchToMerge),
+            practiceId: conversation.practice_id,
+            content: accumulatedReply,
+            metadata: {
+              source: 'ai',
+              model,
+              ...(body.sourceBubbleId ? { sourceBubbleId: body.sourceBubbleId } : {}),
+              ...(aigStep ? { aigStep } : {}),
+              ...(patchToMerge ? { intakeFields: patchToMerge } : {}),
+              ...(onboardingFields ? { onboardingFields } : {}),
+              ...(onboardingProfile ? { onboardingProfile } : {}),
+              ...(includeQuickRepliesInMetadata ? { quickReplies } : {}),
+              ...(triggerEditModal ? { triggerEditModal } : {}),
+              ...(shouldPromptConsultation
+                ? { modeSelector: { showAskQuestion: false, showRequestConsultation: true, source: 'ai' } }
+                : {})
+            },
+            recipientUserId: authContext.user.id,
+            skipPracticeValidation: shouldSkipPracticeValidation,
+            request
           });
-        }
-      })());
+
+          if (debugEnabled) {
+            Logger.info('AI chat stored message', {
+              conversationId: body.conversationId,
+              messageId: storedMessage.id,
+              quickRepliesCount: quickReplies?.length ?? 0,
+              hasIntakePatch: Boolean(patchToMerge),
+            });
+          }
+        })());
+      }
 
       // Persist intake metadata off the stream-critical path
       if (isIntakeMode && mergedIntakeState) {

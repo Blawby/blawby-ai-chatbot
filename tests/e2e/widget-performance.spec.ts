@@ -495,13 +495,14 @@ test.describe('Public widget performance', () => {
     }
 
     // Measure first token timing
-    const startTime = Date.now();
     await messageInput.fill('I need legal help with a contract dispute');
     const aiResponsePromise = anonPage.waitForResponse(
       (response) => response.request().method() === 'POST' && response.url().includes('/api/ai/chat') && response.status() === 200,
       { timeout: MAX_AI_RESPONSE_MS }
     );
     
+    // Start timing right before the click to measure only server/stream latency
+    const startTime = Date.now();
     await anonPage.getByRole('button', { name: /send message/i }).click();
     const aiNetworkResponse = await aiResponsePromise;
     
@@ -535,6 +536,52 @@ test.describe('Public widget performance', () => {
     const practiceSlug = normalizePracticeSlug(DEFAULT_WIDGET_SLUG);
     const toolTimings: Record<string, { durationMs: number; expectedMs: number }> = {};
     
+    // Setup tool execution monitoring BEFORE page load
+    anonPage.addInitScript(() => {
+      (window as any).toolExecutionTimings = {};
+      
+      // Intercept tool execution
+      const originalFetch = window.fetch;
+      (window as any).fetch = function(...args) {
+        const [url, options] = args;
+        const startTime = Date.now();
+        
+        return originalFetch.apply(this, args).then(response => {
+          if (url.includes('/api/ai/chat')) {
+            const endTime = Date.now();
+            const duration = endTime - startTime;
+            
+            // Parse SSE events to detect tool execution
+            response.clone().text().then(text => {
+              const lines = text.split('\n').filter(line => line.startsWith('data: '));
+              const toolEvents = [];
+              lines.forEach(line => {
+                try {
+                  const eventData = line.slice(6);
+                  if (eventData === '[DONE]') return;
+                  const parsed = JSON.parse(eventData);
+                  if (parsed.type === 'tool_use') {
+                    toolEvents.push(parsed);
+                  }
+                } catch (e) {
+                  // Skip invalid JSON lines
+                }
+              });
+              toolEvents.forEach(event => {
+                if (event.type === 'tool_use') {
+                  (window as any).toolExecutionTimings[event.name] = {
+                    durationMs: duration,
+                    timestamp: startTime
+                  };
+                }
+              });
+            });
+          }
+          return response;
+        });
+      };
+    });
+
     await anonPage.goto(`/public/${encodeURIComponent(practiceSlug)}?v=widget`, {
       waitUntil: 'domcontentloaded',
     });
@@ -553,54 +600,25 @@ test.describe('Public widget performance', () => {
 
     if (await slimFormName.isVisible({ timeout: 500 }).catch(() => false)) {
       await slimFormName.fill('Tool Performance User');
-      await slimFormEmail.fill('tool-perf@example.com');
-      await slimFormPhone.fill('555-555-1212');
+      if (await slimFormEmail.isVisible({ timeout: 500 }).catch(() => false)) {
+        await slimFormEmail.fill('tool-perf@example.com');
+      }
+      if (await slimFormPhone.isVisible({ timeout: 500 }).catch(() => false)) {
+        await slimFormPhone.fill('555-555-1212');
+      }
       await slimFormContinue.click();
       await expect(messageInput).toBeEnabled({ timeout: MAX_FORM_SUBMIT_FEEDBACK_MS });
     }
 
-    // Setup tool execution monitoring
-    anonPage.addInitScript(() => {
-      (window as any).toolExecutionTimings = {};
-      
-      // Intercept tool execution
-      const originalFetch = window.fetch;
-      (window as any).fetch = function(...args) {
-        const [url, options] = args;
-        const startTime = Date.now();
-        
-        return originalFetch.apply(this, args).then(response => {
-          if (url.includes('/api/ai/chat')) {
-            const endTime = Date.now();
-            const duration = endTime - startTime;
-            
-            // Parse SSE events to detect tool execution
-            response.clone().text().then(text => {
-              const toolEvents = text.split('\n').filter(line => line.startsWith('data: ')).map(line => JSON.parse(line.slice(6)));
-              toolEvents.forEach(event => {
-                if (event.type === 'tool_use') {
-                  (window as any).toolExecutionTimings[event.name] = {
-                    durationMs: duration,
-                    timestamp: startTime
-                  };
-                }
-              });
-            });
-          }
-          return response;
-        });
-      };
-    });
-
-    // Test save_contact_info tool execution
-    const contactStartTime = Date.now();
-    await messageInput.fill('My name is John Smith, email is john@example.com, phone is 555-123-4567');
+    // Test request_payment tool execution
+    const paymentStartTime = Date.now();
+    await messageInput.fill('I need help with a case and I\'m ready to proceed with payment');
     await anonPage.getByRole('button', { name: /send message/i }).click();
     await anonPage.waitForTimeout(2000);
     
-    const contactTimings = await anonPage.evaluate(() => (window as any).toolExecutionTimings);
-    toolTimings['save_contact_info'] = {
-      durationMs: contactTimings?.['save_contact_info']?.durationMs || 0,
+    const paymentTimings = await anonPage.evaluate(() => (window as any).toolExecutionTimings);
+    toolTimings['request_payment'] = {
+      durationMs: paymentTimings?.['request_payment']?.durationMs || 0,
       expectedMs: MAX_TOOL_EXECUTION_MS
     };
 
@@ -620,9 +638,8 @@ test.describe('Public widget performance', () => {
       toolTimings,
       regression: Object.values(toolTimings).some(t => t.durationMs > t.expectedMs * 1.5),
       baseline: {
-        'save_contact_info': MAX_TOOL_EXECUTION_MS,
-        'save_case_details': MAX_TOOL_EXECUTION_MS,
         'request_payment': MAX_TOOL_EXECUTION_MS,
+        'save_case_details': MAX_TOOL_EXECUTION_MS,
         'submit_intake': MAX_TOOL_EXECUTION_MS
       }
     };
@@ -633,6 +650,10 @@ test.describe('Public widget performance', () => {
     });
 
     console.log('[performance] Tool execution timings:', toolTimings);
+    
+    // Assert that at least one tool was executed
+    const executedTools = Object.entries(toolTimings).filter(([, timing]) => timing.durationMs > 0);
+    expect(executedTools.length, 'Expected at least one tool to be executed with timing data').toBeGreaterThan(0);
     
     Object.entries(toolTimings).forEach(([tool, timing]) => {
       if (timing.durationMs > 0) {

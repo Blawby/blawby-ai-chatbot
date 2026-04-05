@@ -93,7 +93,8 @@ test.describe('Widget Authentication', () => {
     expect(hasSessionWithoutCookies).toBeFalsy();
 
     const unauthCookies = await unauthContext.cookies(baseURL);
-    console.info('[Auth modes] Unauth context cookies:', unauthCookies);
+    console.info('[Auth modes] Unauth context cookies count:', unauthCookies.length);
+    console.info('[Auth modes] Unauth context cookie names:', unauthCookies.map(c => c.name));
     console.info('[Auth modes] Unauth request headers:', { Cookie: '' });
 
     const conversationWithoutAuthResponse = await unauthContext.request.get(
@@ -126,9 +127,8 @@ test.describe('Widget Authentication', () => {
     expect(userId).toBeTruthy();
     
     // Verify session persists
-    const sessionResponse = await page.request.get('/api/auth/get-session');
-    const sessionPayload = await sessionResponse.json();
-    expect(sessionPayload.user?.id).toBe(userId);
+    const session = await waitForSession(page, { timeoutMs: 30000 });
+    expect(session).toBe(userId);
     
     await page.close();
   });
@@ -171,9 +171,15 @@ test.describe('Widget Authentication', () => {
     // Switch to signin mode
     await page.getByRole('button', { name: /sign in/i }).click();
     
-    // Use existing E2E credentials from config
-    await page.getByTestId('signin-email-input').fill(process.env.E2E_USER_EMAIL || 'test@example.com');
-    await page.getByTestId('signin-password-input').fill(process.env.E2E_USER_PASSWORD || 'testpassword');
+    // Verify required environment variables are present
+    const e2eEmail = process.env.E2E_USER_EMAIL;
+    const e2ePassword = process.env.E2E_USER_PASSWORD;
+    if (!e2eEmail || !e2ePassword) {
+      throw new Error('E2E_USER_EMAIL and E2E_USER_PASSWORD must be set for auth tests');
+    }
+    
+    await page.getByTestId('signin-email-input').fill(e2eEmail);
+    await page.getByTestId('signin-password-input').fill(e2ePassword);
     await page.getByTestId('signin-submit-button').click();
     
     const userId = await waitForSession(page, { timeoutMs: 30000 });
@@ -299,11 +305,8 @@ test.describe('Widget Authentication', () => {
     await page.waitForTimeout(2000);
     
     // Session should be invalid
-    const sessionResponse = await page.request.get('/api/auth/get-session');
-    expect(sessionResponse.status()).toBe(200);
-    
-    const sessionPayload = await sessionResponse.json();
-    expect(sessionPayload.user).toBeFalsy();
+    const session = await waitForSession(page, { timeoutMs: 10000 }).catch(() => null);
+    expect(session).toBeNull();
     
     await page.close();
   });

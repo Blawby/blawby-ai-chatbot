@@ -63,8 +63,8 @@ const getOrCreateConversation = async (options: {
 
   if (activeConversationResponse.status() === 200) {
     const activePayload = await activeConversationResponse.json().catch(() => null);
-    if (activePayload?.data?.id && typeof activePayload.data.id === 'string') {
-      return activePayload.data.id;
+    if (activePayload?.data?.conversation?.id && typeof activePayload.data.conversation.id === 'string') {
+      return activePayload.data.conversation.id;
     }
   }
 
@@ -83,7 +83,7 @@ const getOrCreateConversation = async (options: {
     throw new Error(`Failed to create conversation: ${createConversationResponse.status()}`);
   }
 
-  const createPayload = await createConversationResponse.json();
+  const createPayload = await createConversationResponse.json().catch(() => null);
   if (!createPayload?.data?.id || typeof createPayload.data.id !== 'string') {
     throw new Error('Created conversation response missing valid ID');
   }
@@ -134,7 +134,7 @@ test.describe('Widget Integration & Edge Cases', () => {
     await page.goto('/', { waitUntil: 'domcontentloaded' });
     
     // Intercept and fail the next AI chat request
-    await page.route('/api/ai/chat', route => route.abort('failed'));
+    await page.route('**/api/ai/chat', route => route.abort('failed'));
     
     // Send a message
     await page.fill('[data-testid="message-input"]', 'This should fail');
@@ -144,7 +144,7 @@ test.describe('Widget Integration & Edge Cases', () => {
     await expect(page.locator('body')).toContainText('error', { timeout: 10000 });
     
     // Remove the route and try again
-    await page.unroute('/api/ai/chat');
+    await page.unroute('**/api/ai/chat');
     
     await page.fill('[data-testid="message-input"]', 'This should work');
     await page.click('[data-testid="send-button"]');
@@ -179,17 +179,19 @@ test.describe('Widget Integration & Edge Cases', () => {
       window.location.href = '/';
     });
     
-    await page.waitForURL(/\//);
+    await page.waitForURL(/^\/$/);
     await expect(page.locator('[data-testid="message-input"]')).toBeVisible({ timeout: 10000 });
     
     await page.close();
   });
 
   test('embed widget works in iframe context', async ({ unauthContext }) => {
+    if (!e2eConfig) return;
+
     const page = await unauthContext.newPage();
     
     // Create a simple HTML page with embedded widget
-    const widgetUrl = `http://localhost:8787/public/${encodeURIComponent(e2eConfig?.practice.slug || 'test')}?v=widget`;
+    const widgetUrl = `/public/${encodeURIComponent(e2eConfig.practice.slug)}?v=widget`;
     const embedHtml = `
       <!DOCTYPE html>
       <html>

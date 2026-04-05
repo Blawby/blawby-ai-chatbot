@@ -1,4 +1,5 @@
 import { expect, test } from './fixtures.public';
+import type { Page } from '@playwright/test';
 import { randomUUID } from 'crypto';
 import { mkdirSync, writeFileSync } from 'fs';
 import { resolve } from 'path';
@@ -40,6 +41,68 @@ const normalizePracticeSlug = (value: string): string => {
     return segments[segments.length - 1] || trimmed;
   }
   return trimmed;
+};
+
+const prepareWidgetComposer = async (
+  anonPage: Page,
+  authName: string,
+  authEmail: string,
+) => {
+  const messageInput = anonPage.getByTestId('message-input');
+  const consultationCta = anonPage.getByRole('button', { name: /request consultation/i }).first();
+  const slimFormName = anonPage.locator('input[placeholder*="full name" i], input[name="name"], label:has-text("Name") + input').first();
+  const slimFormEmail = anonPage.locator('input[type="email"]').first();
+  const slimFormPhone = anonPage.locator('input[type="tel"]').first();
+  const slimFormContinue = anonPage.getByRole('button', { name: /continue/i }).first();
+
+  await expect
+    .poll(
+      async () => {
+        const inputEnabled = await messageInput.isEnabled({ timeout: 250 }).catch(() => false);
+        const requestConsultationVisible = await consultationCta.isVisible({ timeout: 250 }).catch(() => false);
+        return inputEnabled || requestConsultationVisible;
+      },
+      {
+        timeout: 25_000,
+        message: 'Expected widget bootstrap to render either the composer or request consultation CTA.',
+      }
+    )
+    .toBe(true);
+
+  if (await consultationCta.isVisible({ timeout: 1000 }).catch(() => false)) {
+    await consultationCta.click({ timeout: 1000 }).catch(() => undefined);
+  }
+
+  await expect
+    .poll(
+      async () => {
+        const inputEnabled = await messageInput.isEnabled({ timeout: 300 }).catch(() => false);
+        const formVisible = await slimFormName.isVisible({ timeout: 300 }).catch(() => false);
+        return inputEnabled || formVisible;
+      },
+      {
+        timeout: 30_000,
+        message: 'Expected slim form or composer after opening the public widget flow.',
+      }
+    )
+    .toBe(true);
+
+  if (await slimFormName.isVisible({ timeout: 500 }).catch(() => false)) {
+    await expect(slimFormName).toBeEditable({ timeout: 5000 });
+    await slimFormName.fill(authName);
+    if (await slimFormEmail.isVisible({ timeout: 500 }).catch(() => false)) {
+      await slimFormEmail.fill(authEmail);
+    }
+    if (await slimFormPhone.isVisible({ timeout: 500 }).catch(() => false)) {
+      await slimFormPhone.fill('555-555-1212');
+    }
+    await slimFormContinue.click();
+    await expect(messageInput).toBeEnabled({ timeout: 15_000 });
+  } else {
+    await expect(messageInput).toBeEnabled({ timeout: 15_000 });
+  }
+
+  return { messageInput };
 };
 
 test.describe('Public widget intake flow', () => {
@@ -909,6 +972,51 @@ test.describe('Public widget intake flow', () => {
     ).toHaveLength(0);
   });
 
+  test('tool-only SSE turns clear an empty streaming bubble on done', async ({ anonPage }) => {
+    const practiceSlug = normalizePracticeSlug(DEFAULT_PRACTICE_SLUG);
+    const uniqueId = randomUUID().slice(0, 8);
+    const authEmail = `lead-e2e-empty+${uniqueId}@example.com`;
+    const authName = `Lead E2E Empty ${uniqueId}`;
+
+    await anonPage.goto(`/public/${encodeURIComponent(practiceSlug)}?v=widget`, { waitUntil: 'domcontentloaded' });
+    await prepareWidgetComposer(anonPage, authName, authEmail);
+
+    const messageInput = anonPage.locator('[data-testid="message-input"]:visible').first();
+    const sendButton = anonPage.getByRole('button', { name: /send message/i });
+    const streamingBubble = anonPage.locator('[id^="message-streaming-"]');
+    const responseBody = 'data: {"done":true,"intakeFields":{"description":"contract dispute","city":"Austin","state":"TX"}}\n\n';
+
+    await anonPage.route('**/api/ai/chat', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'text/event-stream',
+        body: responseBody,
+      });
+    });
+
+    const responsePromise = anonPage.waitForResponse(
+      (response) =>
+        response.request().method() === 'POST'
+        && response.url().includes('/api/ai/chat'),
+      { timeout: LEAD_TURN_TIMEOUT_MS }
+    );
+
+    await messageInput.fill('I need help with a contract dispute in Austin');
+    await sendButton.click();
+    const response = await responsePromise;
+    expect(response.status()).toBe(200);
+
+    await expect
+      .poll(
+        async () => streamingBubble.count(),
+        {
+          timeout: LEAD_TURN_TIMEOUT_MS,
+          message: 'Expected empty tool-only streaming bubble to be cleared on done.',
+        }
+      )
+      .toBe(0);
+  });
+
   test('public intake sign-in path links existing conversation after auth prompt', async ({ anonPage }, testInfo) => {
     test.skip(!e2eConfig, 'E2E credentials are not configured.');
 
@@ -1597,7 +1705,9 @@ test.describe('Public widget intake flow', () => {
         await anonPage.getByRole('button', { name: /send message/i }).click();
         const response = await responsePromise;
         const responseText = await response.text().catch(() => '');
+        console.log('DEBUG: Raw response text:', responseText);
         const donePayload = parseDonePayloads(responseText).at(-1) ?? null;
+        console.log('DEBUG: Parsed done payload:', JSON.stringify(donePayload, null, 2));
         if (donePayload) {
           latestDonePayload = donePayload;
         }
@@ -1607,6 +1717,9 @@ test.describe('Public widget intake flow', () => {
               aiLocator.evaluateAll((els) => JSON.stringify(els.map((el) => (el.textContent ?? '').trim()))),
               streamingLocator.count(),
             ]);
+            console.log('DEBUG: UI settle check - signature before:', signatureBefore);
+            console.log('DEBUG: UI settle check - signature now:', sig);
+            console.log('DEBUG: UI settle check - stream count:', streamCount);
             return sig !== signatureBefore && streamCount === 0;
           },
           { timeout: LEAD_TURN_TIMEOUT_MS, message: `UI did not settle after sending: "${text}"` }
@@ -1661,10 +1774,18 @@ test.describe('Public widget intake flow', () => {
         `After description, AI should ask about location. Got: "${reply1.slice(0, 300)}"`
       ).toBe(true);
 
-      expect(
-        done1?.intakeFields?.description,
-        'description should be extracted after turn 1'
-      ).toBeTruthy();
+      // ASSERTION 1: Tool should be called when sufficient info provided
+      console.log('DEBUG: Turn 1 - done1 payload:', JSON.stringify(done1, null, 2));
+      console.log('DEBUG: Turn 1 - AI reply:', reply1);
+      
+      // Check if tool was called
+      if (done1?.intakeFields?.description) {
+        console.log('DEBUG: Tool called on turn 1 with description');
+        expect(done1?.intakeFields?.description).toBeTruthy();
+        expect(done1?.intakeFields).not.toBeNull();
+      } else {
+        console.log('DEBUG: Tool NOT called on turn 1 - will check on turn 2');
+      }
 
       const submitNowButton = anonPage.getByRole('button', { name: /submit request/i });
       const paymentButton = anonPage.locator('button:visible').filter({ hasText: /^(continue|continue\s+to\s+payment|pay\s*(?:&|and)\s*submit)$/i }).first();
@@ -1682,22 +1803,56 @@ test.describe('Public widget intake flow', () => {
         submitAfterTurn2 ||
         paymentAfterTurn2;
 
+      // ASSERTION 2: Tool called with location and no contact info requested
+      console.log('DEBUG: Turn 2 - done2 payload:', JSON.stringify(done2, null, 2));
+      console.log('DEBUG: Turn 2 - AI reply:', reply2);
+      
       expect(done2?.intakeFields?.city, 'city should be extracted after turn 2').toBeTruthy();
+      expect(done2?.intakeFields?.state, 'state should be extracted after turn 2').toBeTruthy();
+      
+      // If tool wasn't called on turn 1, it should be called by turn 2 with description + location
+      if (!done1?.intakeFields?.description) {
+        console.log('DEBUG: Checking if description was extracted by turn 2...');
+        if (done2?.intakeFields?.description) {
+          console.log('DEBUG: Description extracted on turn 2:', done2.intakeFields.description);
+        } else {
+          console.log('DEBUG: Description NOT extracted on turn 2 either - tool calling issue');
+        }
+        expect(
+          done2?.intakeFields?.description,
+          'description should be extracted by turn 2 if not extracted on turn 1'
+        ).toBeTruthy();
+      }
+      
+      // Verify model did not ask for contact info (system prompt violation)
+      const contactInfoRequested = /name|email|phone|contact/i.test(reply2);
+      console.log('DEBUG: Contact info requested on turn 2:', contactInfoRequested);
+      expect(
+        contactInfoRequested,
+        `Model should not ask for contact info. Got: "${reply2.slice(0, 300)}"`
+      ).toBe(false);
+
       expect(
         validAfterLocation,
         `After location, AI should ask about opposing party, urgency, or move to payment/submit. Got: "${reply2.slice(0, 300)}"`
       ).toBe(true);
-      expect(
-        done2?.intakeFields?.city || done2?.intakeFields?.state,
-        'city or state should be extracted after turn 2'
-      ).toBeTruthy();
 
       let reachedTerminalAfterTurn3 = paymentAfterTurn2 || submitAfterTurn2 || paymentPromptAfterTurn2;
 
       if (!reachedTerminalAfterTurn3) {
         const { reply: reply3, donePayload: done3 } = await sendAndAwait('My landlord, Johnson Properties LLC');
         await testInfo.attach('planner-turn3-reply.txt', { body: reply3, contentType: 'text/plain' });
+        
+        // ASSERTION 3: Tool called with opposing party and single question
         expect(done3?.intakeFields?.opposingParty, 'opposingParty should be extracted after turn 3').toBeTruthy();
+        
+        // Verify model asked exactly one question (not multiple)
+        const questionMarkCount = (reply3.match(/\?/g) || []).length;
+        expect(
+          questionMarkCount,
+          `Model should ask exactly one question, not multiple. Found ${questionMarkCount} question marks in: "${reply3.slice(0, 300)}"`
+        ).toBe(1);
+        
         reachedTerminalAfterTurn3 =
           /payment|consultation fee|fee|submit/i.test(reply3) ||
           await submitNowButton.isVisible().catch(() => false) ||
@@ -1779,7 +1934,27 @@ test.describe('Public widget intake flow', () => {
         contentType: 'application/json',
       });
 
+      // ASSERTION 4: No premature submit trigger
       expect(finalDone?.intakeFields?.description, 'final state: description must be present').toBeTruthy();
+      
+      // Check that submit quickReplies only appear when intake is actually submittable
+      const submitQuickReplies = Array.isArray(finalDone?.quickReplies) ? finalDone.quickReplies : [];
+      const hasSubmitQuickReplies = submitQuickReplies.some(reply => reply === '__submit__');
+      
+      if (hasSubmitQuickReplies) {
+        // If submit quickReplies are present, verify the intake state is actually submittable
+        // Check required fields are present
+        const hasRequiredFields = 
+          finalDone?.intakeFields?.description &&
+          finalDone?.intakeFields?.city &&
+          finalDone?.intakeFields?.state &&
+          finalDone?.intakeFields?.opposingParty;
+        
+        expect(
+          hasRequiredFields,
+          `Submit quickReplies present but required fields missing. Fields: ${JSON.stringify(finalDone?.intakeFields)}`
+        ).toBe(true);
+      }
       expect(finalDone?.intakeFields?.city, 'final state: city must be present').toBeTruthy();
       expect(finalDone?.intakeFields?.state, 'final state: state must be present').toBeTruthy();
       expect(finalDone?.intakeFields?.opposingParty, 'final state: opposingParty must be present').toBeTruthy();

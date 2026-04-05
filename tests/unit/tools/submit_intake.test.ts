@@ -40,6 +40,7 @@ describe('submit_intake tool', () => {
     expect(result.success).toBe(false);
     expect(result.message).toBe('Submit not confirmed by user.');
     expect(result.triggerSubmit).toBeUndefined();
+    expect(result.suggestedReplies).toBeUndefined();
   });
 
   test('should reject submission with invalid confirmation type', () => {

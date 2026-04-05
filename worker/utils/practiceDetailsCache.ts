@@ -23,7 +23,15 @@ export const invalidatePracticeDetailsCache = async (
 ): Promise<void> => {
   const trimmed = typeof practiceId === 'string' ? practiceId.trim() : '';
   if (!trimmed || !env.CHAT_SESSIONS) return;
-  await env.CHAT_SESSIONS.delete(`practice_details:${trimmed}`);
+  
+  // Delete both UUID and slug-based cache entries
+  const uuidKey = `practice_details:${trimmed}`;
+  const slugKey = `practice_details:slug:${trimmed}`;
+  
+  await Promise.all([
+    env.CHAT_SESSIONS.delete(uuidKey),
+    env.CHAT_SESSIONS.delete(slugKey)
+  ]);
 };
 
 export const fetchPracticeDetailsWithCache = async (
@@ -55,13 +63,21 @@ export const fetchPracticeDetailsWithCache = async (
   const uuidKey = practiceId ? `practice_details:${practiceId}` : null;
   const slugKey = trimmedSlug ? `practice_details:slug:${trimmedSlug}` : null;
 
-  const writeToCache = async (payload: unknown): Promise<void> => {
+  const writeToCache = async (payload: unknown, isPublicResponse: boolean): Promise<void> => {
     if (options?.bypassCache || !env.CHAT_SESSIONS || !payload) return;
     const serialized = JSON.stringify({ payload });
     const ttl = { expirationTtl: CACHE_TTL_SECONDS };
     const writes: Promise<void>[] = [];
+    
+    // Always write to UUID key for authenticated responses
     if (uuidKey) writes.push(env.CHAT_SESSIONS.put(uuidKey, serialized, ttl));
-    if (slugKey) writes.push(env.CHAT_SESSIONS.put(slugKey, serialized, ttl));
+    
+    // Only write to slug key for public/canonical responses to prevent
+    // auth-gated payloads from being accessible via slug namespace
+    if (slugKey && isPublicResponse) {
+      writes.push(env.CHAT_SESSIONS.put(slugKey, serialized, ttl));
+    }
+    
     await Promise.all(writes);
   };
 
@@ -88,7 +104,7 @@ export const fetchPracticeDetailsWithCache = async (
       const payload = await response.json().catch(() => null);
       const details = extractDetailsContainer(payload);
       const isPublic = Boolean(details?.is_public ?? details?.isPublic);
-      await writeToCache(payload);
+      await writeToCache(payload, isPublic);
       return { details, isPublic };
     } catch (error) {
       // Fall through to slug lookup on auth/not-found errors.
@@ -128,7 +144,7 @@ export const fetchPracticeDetailsWithCache = async (
   const payload = await response.json().catch(() => null);
   const details = extractDetailsContainer(payload);
   const isPublic = Boolean(details?.is_public ?? details?.isPublic);
-  await writeToCache(payload);
+  await writeToCache(payload, isPublic);
 
   return { details, isPublic };
 };

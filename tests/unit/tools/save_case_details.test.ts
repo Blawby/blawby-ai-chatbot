@@ -34,7 +34,7 @@ describe('save_case_details tool', () => {
     expect(result.intakeFields?.state).toBe('NC');
   });
 
-  test('should return suggested replies for next missing field', () => {
+  test('should not return suggested replies when urgency is not provided', () => {
     const args = {
       description: 'Divorce case in California',
       city: 'Los Angeles',
@@ -60,7 +60,7 @@ describe('save_case_details tool', () => {
       description: 'Updated description', // Should overwrite
       city: 'New city', // Should overwrite
       state: 'CA' // Should be added
-      // urgency not provided - should keep existing
+      // urgency not provided - intakeFields contains only provided args
     };
 
     const submissionGate = { paymentRequiredBeforeSubmit: false, paymentCompleted: false };
@@ -70,7 +70,8 @@ describe('save_case_details tool', () => {
     expect(result.intakeFields?.description).toBe('Updated description');
     expect(result.intakeFields?.city).toBe('New city');
     expect(result.intakeFields?.state).toBe('CA');
-    // Note: urgency is not in intakeFields because it wasn't provided in args
+    // intakeFields contains only fields provided in args, not existing merged fields
+    expect(result.intakeFields?.urgency).toBeUndefined();
   });
 
   test('should handle optional fields gracefully', () => {
