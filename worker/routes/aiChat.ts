@@ -28,6 +28,7 @@ import {
   createAiDebugError,
   isRecord,
   readStringField,
+  readAnyString,
   hasNonEmptyStringField,
   isDebugEnabled,
 } from './aiChatShared.js';
@@ -456,6 +457,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       hasNonEmptyStringField(slimDraft, 'phone')
     )
   );
+  const userName = readAnyString(slimDraft, ['name', 'displayName']);
   const intakeBriefActive = consultation
     ? consultation.status === 'collecting_case' || consultation.status === 'ready_to_submit'
     : conversationMetadata?.intakeAiBriefActive === true;
@@ -588,6 +590,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       (consultation?.submission?.paymentRequired === true) ||
       resolvePracticeRequiresPaymentBeforeSubmission(details),
     paymentCompleted: consultation?.submission?.paymentReceived === true,
+    details,
   };
 
   const requestPayload: Record<string, unknown> = {
@@ -602,7 +605,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
   if (isIntakeMode) {
     // One unified system prompt — no KNOWN SO FAR injection, no dynamic split
     systemPrompt = [
-      buildIntakeSystemPrompt(servicesForPrompt, aiPromptContext, storedIntakeState),
+      buildIntakeSystemPrompt(servicesForPrompt, aiPromptContext, storedIntakeState, userName),
       `PRACTICE_CONTEXT: ${JSON.stringify(aiPromptContext)}`,
       body.additionalContext ? `SEARCH_CONTEXT: ${body.additionalContext}` : null,
     ].filter(Boolean).join('\n\n');
@@ -891,11 +894,14 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       if (wasToolOnly) {
         normalizationReasons.push('tool_only_completion');
         if (isIntakeMode && lastToolResult?.success && patchToMerge) {
+          const consultationFee = readFiniteNumberField(details, ['consultationFee', 'consultation_fee']);
           syntheticReply = deriveCaseSavedAcknowledgment(
             lastToolResult,
             intakeSubmissionGate,
             mergedIntakeState,
             servicesForPrompt,
+            consultationFee,
+            userName,
           );
         }
       }

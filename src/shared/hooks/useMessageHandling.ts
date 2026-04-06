@@ -7,8 +7,6 @@ import { useChatComposer } from '@/shared/hooks/useChatComposer';
 import { usePaymentStatus } from '@/shared/hooks/usePaymentStatus';
 import { resolveConsultationState } from '@/shared/utils/consultationState';
 
-import type { IntakePaymentRequest } from '@/shared/utils/intakePayments';
-
 export interface UseMessageHandlingOptions {
   enabled?: boolean;
   practiceId?: string;

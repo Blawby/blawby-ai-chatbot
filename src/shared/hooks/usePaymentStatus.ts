@@ -97,7 +97,7 @@ export const usePaymentStatus = ({
 
       const persistedMessage = await postSystemMessage(conversationId, practiceId, {
         clientId: messageId,
-        content: `Payment received. ${practiceName} will review your intake and follow up here shortly.`,
+        content: `Thank you! Your payment was successful and your case details are being processed. A member of our team will contact you at the information you provided.`,
         metadata: { intakePaymentUuid: uuid, paymentStatus: 'succeeded' },
       });
 
@@ -118,15 +118,30 @@ export const usePaymentStatus = ({
     }
   }, [applyServerMessages, conversationId, enabled, onError, onPaymentConfirmed, practiceId]);
 
-  // ── sessionStorage reconciliation (Stripe return) ─────────────────────────
-
+  // ── sessionStorage & URL reconciliation (Stripe return) ───────────────────
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
     const controller = new AbortController();
     let cancelled = false;
 
-    // Collect keys written by the Stripe return URL handler
+    // 1. Process URL parameters (Fast path for direct Stripe returns)
+    const url = new URL(window.location.href);
+    const sessionIdFromUrl = url.searchParams.get('session_id');
+    const uuidFromUrl = url.searchParams.get('uuid');
+
+    if (sessionIdFromUrl && uuidFromUrl && UUID_PATTERN.test(uuidFromUrl)) {
+      // Clear URL params immediately to avoid re-triggering on refresh
+      const nextUrl = new URL(window.location.href);
+      nextUrl.searchParams.delete('session_id');
+      nextUrl.searchParams.delete('uuid');
+      window.history.replaceState({}, '', nextUrl.pathname + nextUrl.search);
+
+      postPaymentConfirmation(uuidFromUrl, practiceName || 'the practice', controller.signal)
+        .catch(err => console.warn('[usePaymentStatus] URL-based confirmation failed', err));
+    }
+
+    // 2. Collect keys written by legacy sessionStorage (Fallback)
     const paymentSuccessKeys: string[] = [];
     const paymentPendingKeys: string[] = [];
 
@@ -137,33 +152,29 @@ export const usePaymentStatus = ({
       if (key.startsWith('intakePaymentPending:')) paymentPendingKeys.push(key);
     }
 
-    // Clean up stale "pending" keys — these are written before the Stripe redirect
-    // and should always be removed once we're back on the page.
+    // Clean up stale "pending" keys
     paymentPendingKeys.forEach(key => window.sessionStorage.removeItem(key));
 
-    // Process confirmed payments
+    // Process confirmed payments from storage
     paymentSuccessKeys.forEach(key => {
       const uuid = key.split(':')[1];
-      if (!uuid || !UUID_PATTERN.test(uuid)) {
-        console.warn('[usePaymentStatus] Skipping malformed payment confirmation key', { key });
-        return;
-      }
+      if (!uuid || !UUID_PATTERN.test(uuid)) return;
 
-      let practiceName = 'the practice';
+      let pName = 'the practice';
       const raw = window.sessionStorage.getItem(key);
       const parsed = parseStoredFlag(raw);
-      if (parsed?.practiceName?.trim()) practiceName = parsed.practiceName.trim();
+      if (parsed?.practiceName?.trim()) pName = parsed.practiceName.trim();
 
-      postPaymentConfirmation(uuid, practiceName, controller.signal)
+      postPaymentConfirmation(uuid, pName, controller.signal)
         .then(() => { if (!cancelled) window.sessionStorage.removeItem(key); })
-        .catch(err => { console.warn('[usePaymentStatus] Payment confirmation retry failed, keeping session key', err); });
+        .catch(err => { console.warn('[usePaymentStatus] SessionStorage confirmation failed', err); });
     });
 
     return () => {
       cancelled = true;
       controller.abort();
     };
-  }, [conversationId, practiceId, postPaymentConfirmation]);
+  }, [conversationId, practiceId, postPaymentConfirmation, practiceName]);
 
   // ── backend payment reconciliation ────────────────────────────────────────
   // Runs whenever the latest intake submission changes — handles the case

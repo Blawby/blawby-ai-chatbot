@@ -1,5 +1,5 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest';
-import { handleSaveCaseDetails, type ToolResult } from '../../../worker/routes/aiChatIntake';
+import { handleSaveCaseDetails } from '../../../worker/routes/aiChatIntake';
 
 describe('save_case_details tool', () => {
   beforeEach(() => {
@@ -17,7 +17,7 @@ describe('save_case_details tool', () => {
     const result = handleSaveCaseDetails(args, null, submissionGate);
     
     expect(result.success).toBe(false);
-    expect(result.message).toBe('Case details incomplete — description, city, and state are required.');
+    expect(result.message).toBe('Case details incomplete — description, city, and state are required at minimum.');
   });
 
   test('should normalize state codes', () => {
@@ -125,7 +125,7 @@ describe('save_case_details tool', () => {
     
     expect(result.success).toBe(true);
     expect(result.intakeFields?.description).toHaveLength(300);
-    expect(result.intakeFields?.description).not.toMatch(/^  /); // Leading/trailing spaces trimmed
+    expect(result.intakeFields?.description).not.toMatch(/^ {2}/); // Leading/trailing spaces trimmed
   });
 
   test('should trim and limit desiredOutcome length', () => {
@@ -141,7 +141,7 @@ describe('save_case_details tool', () => {
     
     expect(result.success).toBe(true);
     expect(result.intakeFields?.desiredOutcome).toHaveLength(150);
-    expect(result.intakeFields?.desiredOutcome).not.toMatch(/^  /); // Leading/trailing spaces trimmed
+    expect(result.intakeFields?.desiredOutcome).not.toMatch(/^ {2}/); // Leading/trailing spaces trimmed
   });
 
   test('should indicate when intake is submittable', () => {

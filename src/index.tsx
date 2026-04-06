@@ -26,7 +26,6 @@ import { useWorkspaceResolver } from '@/shared/hooks/useWorkspaceResolver';
 import {
   getWorkspaceHomePath,
 } from '@/shared/utils/workspace';
-import { PaySuccessPage } from '@/pages/PaySuccessPage';
 import { AppGuard } from '@/app/AppGuard';
 import { App404 } from '@/features/practice/components/404';
 import { normalizePracticeRole } from '@/shared/utils/practiceRoles';
@@ -91,6 +90,20 @@ if (import.meta.env.DEV && typeof navigator !== 'undefined' && 'serviceWorker' i
 // Client routes align with public structure
 
 // Main App component with routing
+function PayRedirect() {
+  const { navigate } = useNavigation();
+  const location = useLocation();
+  useEffect(() => {
+    // Preserve query params when redirecting from /pay to host
+    const returnTo = location.query.return_to || '/';
+    const params = new URLSearchParams(window.location.search);
+    params.delete('return_to');
+    const search = params.toString();
+    navigate(`${returnTo}${search ? `?${search}` : ''}`, true);
+  }, [location, navigate]);
+  return <LoadingScreen />;
+}
+
 export function App() {
   return (
     <LocationProvider>
@@ -111,8 +124,7 @@ function AppShell() {
   const shouldFetchWorkspacePractices =
     !location.path.startsWith('/public/') &&
     !location.path.startsWith('/auth') &&
-    !location.path.startsWith('/pricing') &&
-    !location.path.startsWith('/pay');
+    !location.path.startsWith('/pricing');
   const { defaultWorkspace, currentPractice, practices } = useWorkspaceResolver({
     autoFetchPractices: shouldFetchWorkspacePractices
   });
@@ -139,8 +151,7 @@ function AppShell() {
     const isDebugRoute = import.meta.env.DEV && location.path.startsWith('/debug');
     const isPublicIntakeRoute =
       location.path.startsWith('/public/') ||
-      location.path.startsWith('/client/') ||
-      location.path.startsWith('/pay');
+      location.path.startsWith('/client/');
     const bypassOnboardingForRoute = isPublicIntakeRoute || isDebugRoute;
 
     if (typeof window !== 'undefined') {
@@ -230,7 +241,7 @@ function AppShell() {
           <Route path="/debug/chat" component={DevDebugChatRoute} />
           <Route path="/debug/conversations" component={DevDebugConversationsRoute} />
           <Route path="/debug/matters" component={DevDebugMatterRoute} />
-          <Route path="/pay" component={PaySuccessPage} />
+          <Route path="/pay" component={PayRedirect} />
           <Route path="/public/:practiceSlug" component={PublicPracticeRoute} workspaceView="home" />
           <Route path="/public/:practiceSlug/conversations" component={PublicPracticeRoute} workspaceView="list" />
           <Route path="/public/:practiceSlug/conversations/:conversationId" component={PublicPracticeRoute} workspaceView="conversation" />

@@ -1,5 +1,5 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest';
-import { handleSubmitIntake, type ToolResult } from '../../../worker/routes/aiChatIntake';
+import { handleSubmitIntake } from '../../../worker/routes/aiChatIntake';
 
 describe('submit_intake tool', () => {
   beforeEach(() => {
