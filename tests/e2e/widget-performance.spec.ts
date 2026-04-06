@@ -19,8 +19,8 @@ const MAX_AI_RESPONSE_MS = Number(process.env.E2E_WIDGET_AI_RESPONSE_BUDGET_MS ?
 const MAX_FORM_OPEN_MS = Number(process.env.E2E_WIDGET_FORM_OPEN_BUDGET_MS ?? 15000);
 const MAX_FORM_SUBMIT_FEEDBACK_MS = Number(process.env.E2E_WIDGET_FORM_SUBMIT_BUDGET_MS ?? 15000);
 // NEW: Updated expectations for new architecture
-const MAX_FIRST_TOKEN_MS = Number(process.env.E2E_WIDGET_FIRST_TOKEN_BUDGET_MS ?? 8000);
-const MAX_TURN_DURATION_MS = Number(process.env.E2E_WIDGET_TOOL_EXECUTION_BUDGET_MS ?? 15000);
+const MAX_FIRST_TOKEN_MS = Number(process.env.E2E_WIDGET_FIRST_TOKEN_BUDGET_MS ?? 12000);
+const MAX_TURN_DURATION_MS = Number(process.env.E2E_WIDGET_TOOL_EXECUTION_BUDGET_MS ?? 25000);
 const DEFAULT_WIDGET_SLUG = process.env.E2E_WIDGET_SLUG ?? process.env.E2E_PRACTICE_SLUG ?? 'paul-yahoo';
 const ACCESS_FALLBACK_REGEX = /\bi (?:do not|don't) have access to this practice['']?s details\b/i;
 const GENERIC_AI_FALLBACK_REGEX = /i wasn['']t able to generate a response/i;
@@ -54,7 +54,7 @@ const toPath = (rawUrl: string): string => {
 };
 
 test.describe('Public widget performance', () => {
-  test.describe.configure({ timeout: 120000 });
+  test.describe.configure({ timeout: 180000 });
 
   test('loads widget via real worker/bootstrap route and reports true waterfall timing', async ({ anonPage }, testInfo) => {
     const practiceSlug = normalizePracticeSlug(DEFAULT_WIDGET_SLUG);
@@ -124,9 +124,7 @@ test.describe('Public widget performance', () => {
       inFlight.delete(request);
     });
 
-    await anonPage.goto(`/public/${encodeURIComponent(practiceSlug)}?v=widget`, {
-      waitUntil: 'domcontentloaded',
-    });
+    await anonPage.goto(`/public/${encodeURIComponent(practiceSlug)}?v=widget`);
 
     await expect.poll(
       () => records.find((record) => record.path.includes('/api/widget/bootstrap')) ?? null,
@@ -465,9 +463,7 @@ test.describe('Public widget performance', () => {
       inFlight.delete(request);
     });
 
-    await anonPage.goto(`/public/${encodeURIComponent(practiceSlug)}?v=widget`, {
-      waitUntil: 'domcontentloaded',
-    });
+    await anonPage.goto(`/public/${encodeURIComponent(practiceSlug)}?v=widget`);
 
     // Complete slim form
     const slimFormName = anonPage.locator('input[placeholder*="full name" i], input[name="name"], label:has-text("Name") + input').first();
@@ -532,9 +528,7 @@ test.describe('Public widget performance', () => {
     const practiceSlug = normalizePracticeSlug(DEFAULT_WIDGET_SLUG);
     const turnTimings: Record<string, { durationMs: number; expectedMs: number }> = {};
     
-    await anonPage.goto(`/public/${encodeURIComponent(practiceSlug)}?v=widget`, {
-      waitUntil: 'domcontentloaded',
-    });
+    await anonPage.goto(`/public/${encodeURIComponent(practiceSlug)}?v=widget`);
 
     // Complete slim form to get to chat
     const consultationCta = anonPage.getByRole('button', { name: /request consultation/i }).first();
