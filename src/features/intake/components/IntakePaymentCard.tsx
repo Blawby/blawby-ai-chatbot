@@ -1,10 +1,9 @@
 import { FunctionComponent } from 'preact';
-import { useMemo, useState, useEffect } from 'preact/hooks';
+import { useMemo, useState } from 'preact/hooks';
 import { Button } from '@/shared/ui/Button';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import { toMajorUnits, type MinorAmount } from '@/shared/utils/money';
 import {
-  buildIntakePaymentUrl,
   type IntakePaymentRequest
 } from '@/shared/utils/intakePayments';
 
@@ -29,7 +28,6 @@ export const IntakePaymentCard: FunctionComponent<IntakePaymentCardProps> = ({ p
     [paymentRequest.amount, paymentRequest.currency, locale]
   );
 
-  const paymentUrl = buildIntakePaymentUrl(paymentRequest);
   const buttonLabel = formattedAmount ? `Pay ${formattedAmount}` : 'Pay consultation fee';
 
   const openPayment = async (request: IntakePaymentRequest): Promise<void> => {
