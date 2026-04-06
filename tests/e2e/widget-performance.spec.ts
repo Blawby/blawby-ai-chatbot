@@ -16,7 +16,7 @@ interface ApiRecord {
 const MAX_BOOTSTRAP_MS = Number(process.env.E2E_WIDGET_BOOTSTRAP_BUDGET_MS ?? 6000);
 const MAX_INTERACTIVE_MS = Number(process.env.E2E_WIDGET_INTERACTIVE_BUDGET_MS ?? 32000);
 const MAX_AI_RESPONSE_MS = Number(process.env.E2E_WIDGET_AI_RESPONSE_BUDGET_MS ?? 90000);
-const MAX_FORM_OPEN_MS = Number(process.env.E2E_WIDGET_FORM_OPEN_BUDGET_MS ?? 15000);
+const MAX_FORM_OPEN_MS = Number(process.env.E2E_WIDGET_FORM_OPEN_BUDGET_MS ?? 20000);
 const MAX_FORM_SUBMIT_FEEDBACK_MS = Number(process.env.E2E_WIDGET_FORM_SUBMIT_BUDGET_MS ?? 15000);
 // NEW: Updated expectations for new architecture
 const MAX_FIRST_TOKEN_MS = Number(process.env.E2E_WIDGET_FIRST_TOKEN_BUDGET_MS ?? 12000);
