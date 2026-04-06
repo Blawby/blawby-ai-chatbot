@@ -350,11 +350,13 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 													window.open(action.url, '_blank', 'noopener,noreferrer');
 												} else {
 													console.warn('[MessageActions] Blocked unsafe URL protocol:', parsed.protocol);
-												}
-											} catch {
-												console.warn('[MessageActions] Invalid URL format:', action.url);
+												showInfo('Link Cannot Open', `This link uses an unsafe protocol: ${parsed.protocol}`);
 											}
-										}}
+										} catch {
+											console.warn('[MessageActions] Invalid URL format:', action.url);
+											showInfo('Invalid Link', `Cannot open link with invalid URL format: ${action.url}`);
+										}
+									}}
 									>
 									{action.label}
 								</Button>

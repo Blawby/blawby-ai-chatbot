@@ -60,7 +60,7 @@ export const IntakePaymentCard: FunctionComponent<IntakePaymentCardProps> = ({ p
       const opened = window.open(paymentRequest.paymentLinkUrl, '_blank', 'noopener');
       if (opened === null) {
         window.location.assign(paymentRequest.paymentLinkUrl);
-        return false; // same-tab fallback
+        return true; // same-tab fallback succeeded
       }
       return true; // new tab
     }

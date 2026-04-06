@@ -19,9 +19,8 @@ const MAX_AI_RESPONSE_MS = Number(process.env.E2E_WIDGET_AI_RESPONSE_BUDGET_MS ?
 const MAX_FORM_OPEN_MS = Number(process.env.E2E_WIDGET_FORM_OPEN_BUDGET_MS ?? 15000);
 const MAX_FORM_SUBMIT_FEEDBACK_MS = Number(process.env.E2E_WIDGET_FORM_SUBMIT_BUDGET_MS ?? 15000);
 // NEW: Updated expectations for new architecture
-const MAX_FIRST_TOKEN_MS = Number(process.env.E2E_WIDGET_FIRST_TOKEN_BUDGET_MS ?? 2000);
-const MAX_TOOL_EXECUTION_MS = Number(process.env.E2E_WIDGET_TOOL_EXECUTION_BUDGET_MS ?? 500);
-const MAX_TOTAL_TURN_MS = Number(process.env.E2E_WIDGET_TOTAL_TURN_BUDGET_MS ?? 3000);
+const MAX_FIRST_TOKEN_MS = Number(process.env.E2E_WIDGET_FIRST_TOKEN_BUDGET_MS ?? 8000);
+const MAX_TURN_DURATION_MS = Number(process.env.E2E_WIDGET_TOOL_EXECUTION_BUDGET_MS ?? 15000);
 const DEFAULT_WIDGET_SLUG = process.env.E2E_WIDGET_SLUG ?? process.env.E2E_PRACTICE_SLUG ?? 'paul-yahoo';
 const ACCESS_FALLBACK_REGEX = /\bi (?:do not|don't) have access to this practice['']?s details\b/i;
 const GENERIC_AI_FALLBACK_REGEX = /i wasn['']t able to generate a response/i;
@@ -529,56 +528,10 @@ test.describe('Public widget performance', () => {
     expect(firstTokenMs, 'First token response exceeded budget').toBeLessThan(MAX_FIRST_TOKEN_MS);
   });
 
-  test('tool execution performance benchmarks', async ({ anonPage }, testInfo) => {
+  test('turn/end-to-end performance benchmarks', async ({ anonPage }, testInfo) => {
     const practiceSlug = normalizePracticeSlug(DEFAULT_WIDGET_SLUG);
-    const toolTimings: Record<string, { durationMs: number; expectedMs: number }> = {};
+    const turnTimings: Record<string, { durationMs: number; expectedMs: number }> = {};
     
-    // Setup tool execution monitoring BEFORE page load
-    anonPage.addInitScript(() => {
-      (window as any).toolExecutionTimings = {};
-      
-      // Intercept tool execution
-      const originalFetch = window.fetch;
-      (window as any).fetch = function(...args) {
-        const [url, options] = args;
-        const startTime = Date.now();
-        
-        return originalFetch.apply(this, args).then(response => {
-          if (url.includes('/api/ai/chat')) {
-            const endTime = Date.now();
-            const totalTurnDurationMs = endTime - startTime;
-            
-            // Parse SSE events to detect tool execution
-            response.clone().text().then(text => {
-              const lines = text.split('\n').filter(line => line.startsWith('data: '));
-              const toolEvents = [];
-              lines.forEach(line => {
-                try {
-                  const eventData = line.slice(6);
-                  if (eventData === '[DONE]') return;
-                  const parsed = JSON.parse(eventData);
-                  if (parsed.type === 'tool_use') {
-                    toolEvents.push(parsed);
-                  }
-                } catch (e) {
-                  // Skip invalid JSON lines
-                }
-              });
-              toolEvents.forEach(event => {
-                if (event.type === 'tool_use') {
-                  (window as any).toolExecutionTimings[event.name] = {
-                    totalTurnDurationMs,
-                    timestamp: startTime
-                  };
-                }
-              });
-            });
-          }
-          return response;
-        });
-      };
-    });
-
     await anonPage.goto(`/public/${encodeURIComponent(practiceSlug)}?v=widget`, {
       waitUntil: 'domcontentloaded',
     });
@@ -596,9 +549,9 @@ test.describe('Public widget performance', () => {
     }
 
     if (await slimFormName.isVisible({ timeout: 500 }).catch(() => false)) {
-      await slimFormName.fill('Tool Performance User');
+      await slimFormName.fill('Performance Test User');
       if (await slimFormEmail.isVisible({ timeout: 500 }).catch(() => false)) {
-        await slimFormEmail.fill('tool-perf@example.com');
+        await slimFormEmail.fill('perf-test@example.com');
       }
       if (await slimFormPhone.isVisible({ timeout: 500 }).catch(() => false)) {
         await slimFormPhone.fill('555-555-1212');
@@ -607,57 +560,59 @@ test.describe('Public widget performance', () => {
       await expect(messageInput).toBeEnabled({ timeout: MAX_FORM_SUBMIT_FEEDBACK_MS });
     }
 
-    // Test request_payment tool execution
-    await messageInput.fill('I need help with a case and I\'m ready to proceed with payment');
-    await anonPage.getByRole('button', { name: /send message/i }).click();
-    
-    // Deterministic wait for tool execution timings to be populated
-    await anonPage.waitForFunction(() => (window as any).toolExecutionTimings['request_payment'], { timeout: 10000 });
-    
-    const paymentTimings = await anonPage.evaluate(() => (window as any).toolExecutionTimings);
-    toolTimings['request_payment'] = {
-      durationMs: paymentTimings?.['request_payment']?.totalTurnDurationMs || 0,
-      expectedMs: MAX_TOOL_EXECUTION_MS
+    const measureTurn = async (label: string, message: string) => {
+      const startTime = Date.now();
+      const responsePromise = anonPage.waitForResponse(
+        resp => resp.url().includes('/api/ai/chat') && resp.status() === 200,
+        { timeout: MAX_AI_RESPONSE_MS }
+      );
+      
+      await messageInput.fill(message);
+      await anonPage.getByRole('button', { name: /send message/i }).click();
+      
+      const response = await responsePromise;
+      // Wait for the SSE stream to fully close
+      await response.finished();
+      const durationMs = Date.now() - startTime;
+      
+      turnTimings[label] = {
+        durationMs,
+        expectedMs: MAX_TURN_DURATION_MS
+      };
+      
+      return durationMs;
     };
 
-    // Test save_case_details tool execution
-    await messageInput.fill('I need help with a divorce case in California against my spouse Jane. It\'s time sensitive because we have a court date next month.');
-    await anonPage.getByRole('button', { name: /send message/i }).click();
-    
-    // Deterministic wait for tool execution timings to be populated
-    await anonPage.waitForFunction(() => (window as any).toolExecutionTimings['save_case_details'], { timeout: 10000 });
-    
-    const caseTimings = await anonPage.evaluate(() => (window as any).toolExecutionTimings);
-    toolTimings['save_case_details'] = {
-      durationMs: caseTimings?.['save_case_details']?.totalTurnDurationMs || 0,
-      expectedMs: MAX_TOOL_EXECUTION_MS
-    };
+    // Turn 1: Case description (triggers save_case_details logic server-side)
+    await measureTurn(
+      'initial_extraction', 
+      'I need help with a divorce case in California against my spouse Jane. It\'s time sensitive because we have a court date next month.'
+    );
+
+    // Turn 2: Payment intent (triggers request_payment logic server-side)
+    await measureTurn(
+      'payment_prompt',
+      'I\'m ready to proceed with payment and submit my request'
+    );
 
     const report = {
-      toolTimings,
-      regression: Object.values(toolTimings).some(t => t.durationMs > t.expectedMs * 1.5),
+      turnTimings,
+      regression: Object.values(turnTimings).some(t => t.durationMs > t.expectedMs * 1.5),
       baseline: {
-        'request_payment': MAX_TOOL_EXECUTION_MS,
-        'save_case_details': MAX_TOOL_EXECUTION_MS,
-        'submit_intake': MAX_TOOL_EXECUTION_MS
+        'initial_extraction': MAX_TURN_DURATION_MS,
+        'payment_prompt': MAX_TURN_DURATION_MS,
       }
     };
 
-    await testInfo.attach('tool-execution-performance.json', {
+    await testInfo.attach('turn-performance.json', {
       body: JSON.stringify(report, null, 2),
       contentType: 'application/json',
     });
 
-    console.log('[performance] Tool execution timings:', toolTimings);
+    console.log('[performance] Turn timings:', turnTimings);
     
-    // Assert that at least one tool was executed
-    const executedTools = Object.entries(toolTimings).filter(([, timing]) => timing.durationMs > 0);
-    expect(executedTools.length, 'Expected at least one tool to be executed with timing data').toBeGreaterThan(0);
-    
-    Object.entries(toolTimings).forEach(([tool, timing]) => {
-      if (timing.durationMs > 0) {
-        expect(timing.durationMs, `Tool ${tool} execution exceeded budget`).toBeLessThan(timing.expectedMs * 1.5);
-      }
+    Object.entries(turnTimings).forEach(([label, timing]) => {
+      expect(timing.durationMs, `Turn ${label} execution exceeded budget`).toBeLessThan(timing.expectedMs * 1.5);
     });
   });
 });

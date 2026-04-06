@@ -909,6 +909,9 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
 
       // Store message BEFORE emitting done — client acts on fields immediately
       const finalReply = syntheticReply || accumulatedReply;
+      let persistedMessageId: string | null = null;
+      let messagePersisted = false;
+      
       if (finalReply.trim()) {
         const storedMessage = await conversationService.sendSystemMessage({
           conversationId: body.conversationId,
@@ -947,6 +950,16 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         if (debugEnabled) {
           write({ debug: { persistedId: storedMessage.id } });
         }
+        
+        persistedMessageId = storedMessage.id;
+        messagePersisted = true;
+      } else {
+        Logger.info('ai.message.skipped', {
+          requestId,
+          conversationId: body.conversationId,
+          reason: 'empty_reply',
+          wasToolOnly,
+        });
       }
 
       // Emit done — client acts on fields immediately after persistence is confirmed
@@ -958,6 +971,8 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         onboardingProfile: onboardingProfile ?? null,
         actions: actions ?? null,
         wasToolOnly,
+        messagePersisted,
+        persistedMessageId,
       });
 
       close();

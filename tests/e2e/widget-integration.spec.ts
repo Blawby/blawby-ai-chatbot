@@ -193,15 +193,12 @@ test.describe('Widget Integration & Edge Cases', () => {
       await page.click('[data-testid="client-selector"], [data-testid*="client"]', { timeout: 5000 });
     }
     
-    // Wait for client selection to take effect
-    await page.waitForTimeout(1000);
-    
     // Go back to chat
     await page.evaluate(() => {
       window.location.href = '/';
     });
     
-    await page.waitForURL(/^\/$/);
+    await page.waitForURL(url => new URL(url).pathname === '/');
     await expect(page.locator('[data-testid="message-input"]')).toBeVisible({ timeout: 10000 });
     
     // Verify the conversation has changed (different content or new conversation state)

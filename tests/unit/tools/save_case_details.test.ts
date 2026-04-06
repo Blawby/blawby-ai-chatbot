@@ -50,7 +50,7 @@ describe('save_case_details tool', () => {
     ]);
   });
 
-  test('should merge with existing intake state', () => {
+  test('should return only provided args in intakeFields, ignoring existing state', () => {
     const existingState = {
       description: 'Existing description',
       city: 'Existing city',
