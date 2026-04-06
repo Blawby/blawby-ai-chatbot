@@ -29,6 +29,7 @@ import { resolveStrengthStyle, resolveStrengthTier } from '@/shared/utils/intake
 import { DetailHeader } from '@/shared/ui/layout/DetailHeader';
 import { resolveConsultationState } from '@/shared/utils/consultationState';
 import { MobileInspectorOverlay } from '@/shared/ui/inspector/MobileInspectorOverlay';
+import { initializeAccentColor } from '@/shared/utils/accentColors';
 import { features } from '@/config/features';
 import type { FileAttachment } from '../../worker/types';
 import type { UploadingFile } from '@/shared/types/upload';
@@ -68,6 +69,10 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
   useEffect(() => {
     showErrorRef.current = (msg: string) => showToastError('Error', msg);
   }, [showToastError]);
+
+  useEffect(() => {
+    initializeAccentColor(practiceConfig.accentColor);
+  }, [practiceConfig.accentColor]);
 
   const currentUserId = bootstrapSession?.user?.id ?? null;
   const isAnonymous = bootstrapSession?.user?.isAnonymous ?? bootstrapSession?.user?.is_anonymous ?? true;
