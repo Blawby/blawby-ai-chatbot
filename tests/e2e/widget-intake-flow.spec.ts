@@ -41,7 +41,7 @@ const normalizePracticeSlug = (value: string): string => {
 };
 
 const buildWidgetUrl = (practiceSlug: string): string => (
-  `/public/${encodeURIComponent(practiceSlug)}?v=widget&debugQuickActions=1`
+  `/public/${encodeURIComponent(practiceSlug)}?v=widget`
 );
 
 const prepareWidgetComposer = async (
