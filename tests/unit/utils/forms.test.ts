@@ -69,7 +69,7 @@ describe('submitContactForm', () => {
     });
 
     const result = await submitContactForm(
-      { name: 'Test User', email: 'test@example.com' },
+      { name: 'Test User', email: 'test@test-blawby.com' },
       'acme-law'
     );
 
@@ -130,7 +130,7 @@ describe('submitContactForm', () => {
     });
 
     const result = await submitContactForm(
-      { name: 'Test User', email: 'test@example.com' },
+      { name: 'Test User', email: 'test@test-blawby.com' },
       'acme-law'
     );
 

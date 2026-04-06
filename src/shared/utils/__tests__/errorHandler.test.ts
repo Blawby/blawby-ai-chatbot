@@ -70,7 +70,7 @@ describe('errorHandler', () => {
       const context = {
         component: 'TestComponent',
         token: 'secret-token-123',
-        email: 'user@example.com',
+        email: 'user@test-blawby.com',
         password: 'secret-password',
         url: 'https://api.example.com/secret'
       };

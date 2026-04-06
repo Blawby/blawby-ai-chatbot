@@ -140,7 +140,7 @@ test.describe('Widget Authentication', () => {
     await page.goto('/', { waitUntil: 'domcontentloaded' });
     
     const uniqueId = randomUUID().slice(0, 8);
-    const email = `test-auth+${uniqueId}@example.com`;
+    const email = `test-auth+${uniqueId}@test-blawby.com`;
     const password = `TestAuth!${uniqueId}Aa`;
     
     // Click email signup
@@ -198,7 +198,7 @@ test.describe('Widget Authentication', () => {
     await page.close();
 
     const uniqueId = randomUUID().slice(0, 8);
-    const clientEmail = `intake-invite+${uniqueId}@example.com`;
+    const clientEmail = `intake-invite+${uniqueId}@test-blawby.com`;
     const clientName = `Intake Invite ${uniqueId}`;
     const practiceSlug = normalizePracticeSlug(e2eConfig.practice.slug);
 

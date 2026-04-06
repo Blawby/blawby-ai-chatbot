@@ -70,7 +70,7 @@ vi.mock('@/shared/contexts/SessionContext', () => ({
     session: {
       user: {
         id: 'user-1',
-        email: 'owner@example.com'
+        email: 'owner@test-blawby.com'
       }
     },
     isPending: false,

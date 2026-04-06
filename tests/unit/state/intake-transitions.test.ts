@@ -169,7 +169,7 @@ describe('Intake State Transitions', () => {
     test('should derive ai_brief when core fields are present but decision chips were not shown', () => {
       const consultation = createMinimalConsultationState({
         status: 'collecting_case',
-        contact: { name: 'Client', email: 'client@example.com', phone: '555-555-1212' },
+        contact: { name: 'Client', email: 'client@test-blawby.com', phone: '555-555-1212' },
         case: createMinimalIntakeState({
           description: 'Complete case',
           city: 'City',
@@ -185,7 +185,7 @@ describe('Intake State Transitions', () => {
     test('should derive contact_form_decision when the intake decision chips have been shown', () => {
       const consultation = createMinimalConsultationState({
         status: 'collecting_case',
-        contact: { name: 'Client', email: 'client@example.com', phone: '555-555-1212' },
+        contact: { name: 'Client', email: 'client@test-blawby.com', phone: '555-555-1212' },
         case: createMinimalIntakeState({
           description: 'Complete case',
           city: 'City',

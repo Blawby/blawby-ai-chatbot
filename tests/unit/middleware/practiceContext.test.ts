@@ -109,7 +109,7 @@ describe('PracticeContext Middleware Security Tests', () => {
       });
 
       vi.mocked(optionalAuth).mockResolvedValue({
-        user: { id: 'user-1', email: 'test@example.com', name: 'Test User', emailVerified: true },
+        user: { id: 'user-1', email: 'test@test-blawby.com', name: 'Test User', emailVerified: true },
         session: { id: 'session-1', expiresAt: new Date() },
         cookie: 'session=abc123'
       });
@@ -196,7 +196,7 @@ describe('PracticeContext Middleware Security Tests', () => {
         const cookieHeader = req.headers.get('Cookie');
         if (cookieHeader === originalCookie) {
           return {
-            user: { id: originalUserId, email: 'user123@example.com', name: 'User 123', emailVerified: true },
+            user: { id: originalUserId, email: 'user123@test-blawby.com', name: 'User 123', emailVerified: true },
             session: { id: 'session-123', expiresAt: new Date() },
             cookie: originalCookie
           };
@@ -253,7 +253,7 @@ describe('PracticeContext Middleware Security Tests', () => {
       });
 
       const mockAuthContext = {
-        user: { id: 'authenticated-user', email: 'auth@example.com', name: 'Auth User', emailVerified: true },
+        user: { id: 'authenticated-user', email: 'auth@test-blawby.com', name: 'Auth User', emailVerified: true },
         session: { id: 'session-1', expiresAt: new Date() },
         cookie: 'session=valid-session'
       };
@@ -289,7 +289,7 @@ describe('PracticeContext Middleware Security Tests', () => {
       });
 
       vi.mocked(optionalAuth).mockResolvedValue({
-        user: { id: 'user-1', email: 'test@example.com', name: 'Test', emailVerified: true },
+        user: { id: 'user-1', email: 'test@test-blawby.com', name: 'Test', emailVerified: true },
         session: { id: 'session-1', expiresAt: new Date() },
         cookie: 'session=valid-session'
       });

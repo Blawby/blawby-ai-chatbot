@@ -23,7 +23,7 @@ describe('handlePracticeTeam', () => {
       members: [
         {
           userId: 'staff-1',
-          email: 'staff@example.com',
+          email: 'staff@test-blawby.com',
           name: 'Staff Member',
           image: null,
           role: 'member',
