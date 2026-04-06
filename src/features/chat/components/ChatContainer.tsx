@@ -369,23 +369,21 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     baseKeyHandler(e);
   };
 
-  const openPayment = useCallback((request: IntakePaymentRequest): boolean => {
-    if (typeof window === 'undefined') return false;
+  const openPayment = useCallback((request: IntakePaymentRequest): void => {
+    if (typeof window === 'undefined') return;
     if (request.paymentLinkUrl) {
       const opened = window.open(request.paymentLinkUrl, '_blank', 'noopener,noreferrer');
       if (opened === null) {
         console.info('[Chat] Popup blocked, falling back to same-tab navigation');
         window.location.assign(request.paymentLinkUrl);
-        return false; // Navigated away from the app
       }
-      return true; // Opened in new tab, app stays active
+      return;
     }
     console.warn('[Chat] Missing payment link URL, cannot open payment');
-    return false;
   }, []);
 
-  const handleOpenPayment = useCallback((request: IntakePaymentRequest) => {
-    return openPayment(request);
+  const handleOpenPayment = useCallback((request: IntakePaymentRequest): void => {
+    openPayment(request);
   }, [openPayment]);
 
 

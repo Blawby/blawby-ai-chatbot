@@ -867,8 +867,8 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       : '';
     if (resolvedConversations.length > 0) {
       const sorted = [...resolvedConversations].sort((a, b) => {
-        const aTime = new Date(a.last_message_at ?? a.updated_at ?? a.created_at).getTime() || 0;
-        const bTime = new Date(b.last_message_at ?? b.updated_at ?? b.created_at).getTime() || 0;
+        const aTime = new Date(a.updated_at).getTime();
+        const bTime = new Date(b.updated_at).getTime();
         return bTime - aTime;
       });
       const top = sorted.find((conversation) => {
@@ -882,9 +882,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
           ? (previewText.length > 90 ? `${previewText.slice(0, 90)}…` : previewText)
           : 'Open to view messages.';
         const title = resolveConversationDisplayTitle(top, fallbackPracticeName);
-        const timestampLabel = preview?.createdAt
-          ? formatRelativeTime(preview.createdAt)
-          : (top.last_message_at ? formatRelativeTime(top.last_message_at) : '');
+        const timestampLabel = formatRelativeTime(top.updated_at);
         return {
           preview: clipped,
           timestampLabel,
@@ -1359,8 +1357,8 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
         : [];
       const latestConversation = shouldReuseConversation && reusableAskQuestionConversations.length > 0
         ? [...reusableAskQuestionConversations].sort((a, b) => {
-            const aTime = new Date(a.last_message_at ?? a.updated_at ?? a.created_at).getTime() || 0;
-            const bTime = new Date(b.last_message_at ?? b.updated_at ?? b.created_at).getTime() || 0;
+            const aTime = new Date(a.updated_at).getTime();
+            const bTime = new Date(b.updated_at).getTime();
             return bTime - aTime;
           })[0]
         : null;

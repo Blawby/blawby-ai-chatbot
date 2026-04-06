@@ -53,11 +53,8 @@ export const MatterMessagesPanel = ({ matter, practiceId, conversationBasePath }
 
   const sortedConversations = useMemo(() => (
     [...conversations].sort((a, b) => {
-      const aTime = a.last_message_at ?? a.updated_at;
-      const bTime = b.last_message_at ?? b.updated_at;
-      if (!aTime && !bTime) return 0;
-      if (!aTime) return 1;
-      if (!bTime) return -1;
+      const aTime = a.updated_at;
+      const bTime = b.updated_at;
       return new Date(bTime).getTime() - new Date(aTime).getTime();
     })
   ), [conversations]);

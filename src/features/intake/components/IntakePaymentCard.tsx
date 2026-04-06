@@ -14,7 +14,7 @@ import { useToastContext } from '@/shared/contexts/ToastContext';
 
 interface IntakePaymentCardProps {
   paymentRequest: IntakePaymentRequest;
-  onOpenPayment?: (request: IntakePaymentRequest) => boolean | Promise<boolean>;
+  onOpenPayment?: (request: IntakePaymentRequest) => void;
 }
 
 const resolveDisplayAmount = (amount?: MinorAmount, currency?: string, locale?: string) => {
@@ -68,14 +68,11 @@ export const IntakePaymentCard: FunctionComponent<IntakePaymentCardProps> = ({ p
   };
 
   const openPayment = async (request: IntakePaymentRequest) => {
-    if (!onOpenPayment) return { success: false };
+    if (!onOpenPayment) return;
     try {
-      const result = await Promise.resolve(onOpenPayment(request));
-      // result is explicitly false if same-tab fallback occurred
-      return { success: true, newTab: result !== false };
+      onOpenPayment(request);
     } catch (error) {
       console.warn('[IntakePayment] Failed to open payment flow', error);
-      return { success: false };
     }
   };
 
@@ -86,20 +83,14 @@ export const IntakePaymentCard: FunctionComponent<IntakePaymentCardProps> = ({ p
     setIsPaying(true);
     try {
       if (hasClientSecret && onOpenPayment) {
-        const { success } = await openPayment(paymentRequest);
-        if (!success) {
-          showError('Payment unavailable', 'Payment is currently unavailable.');
-        }
+        await openPayment(paymentRequest);
         return;
       }
       if (hasCheckoutSession && paymentRequest.checkoutSessionUrl) {
         const isValid = isValidStripeCheckoutSessionUrl(paymentRequest.checkoutSessionUrl);
         if (isValid) {
           if (onOpenPayment) {
-            const { success } = await openPayment(paymentRequest);
-            if (!success) {
-              showError('Payment unavailable', 'Payment is currently unavailable.');
-            }
+            await openPayment(paymentRequest);
             return;
           }
           if (typeof window !== 'undefined') {
@@ -118,8 +109,8 @@ export const IntakePaymentCard: FunctionComponent<IntakePaymentCardProps> = ({ p
           } else if (onOpenPayment) {
             const sanitizedRequest = { ...paymentRequest };
             delete sanitizedRequest.checkoutSessionUrl;
-            const res = await openPayment(sanitizedRequest);
-            fallbackSucceeded = res.success;
+            await openPayment(sanitizedRequest);
+            fallbackSucceeded = true;
           } else {
             // Try simple navigation to payment URL as last resort if it differs from checkout session
             if (paymentUrl && paymentUrl !== paymentRequest.checkoutSessionUrl) {
@@ -145,10 +136,7 @@ export const IntakePaymentCard: FunctionComponent<IntakePaymentCardProps> = ({ p
         return;
       }
       if (onOpenPayment) {
-        const { success } = await openPayment(paymentRequest);
-        if (!success) {
-          showError('Payment unavailable', 'Payment is currently unavailable.');
-        }
+        await openPayment(paymentRequest);
         return;
       }
       try {

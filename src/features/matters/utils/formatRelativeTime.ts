@@ -1,39 +1,59 @@
-export const formatRelativeTime = (dateValue: string | Date) => {
+export const formatRelativeTime = (dateValue: string | Date, now = new Date()) => {
   const date = dateValue instanceof Date ? dateValue : new Date(dateValue);
   if (Number.isNaN(date.getTime())) return '';
-  const diffMs = Date.now() - date.getTime();
+  
+  const diffMs = now.getTime() - date.getTime();
   
   // Handle future dates
   if (diffMs < 0) {
     const absDiffMs = Math.abs(diffMs);
-    const minutes = Math.floor(absDiffMs / (1000 * 60));
-    const hours = Math.floor(absDiffMs / (1000 * 60 * 60));
-    const days = Math.floor(absDiffMs / (1000 * 60 * 60 * 24));
+    const sec = Math.round(absDiffMs / 1000);
+    const min = Math.round(sec / 60);
+    const hr = Math.round(min / 60);
+    const day = Math.round(hr / 24);
     
-    if (minutes < 1) return 'in less than a minute';
-    if (minutes < 60) return `in ${minutes}m`;
-    if (hours < 24) return `in ${hours}h`;
-    if (days < 7) return `in ${days}d`;
-    const weeks = Math.floor(days / 7);
-    if (weeks < 4) return `in ${weeks}w`;
+    if (sec < 45) return 'in just now';
+    if (sec < 90) return 'in 1 min';
+    if (min < 45) return `in ${min} min`;
+    if (min < 90) return 'in 1 hr';
+    if (hr < 24) return `in ${hr} hr`;
+    if (hr < 36) return 'in yesterday';
+    if (day < 30) return `in ${day} days`;
     
-    return `in the future`;
+    // For future dates beyond 30 days, use calendar format
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined
+    });
   }
   
-  const minutes = Math.floor(diffMs / (1000 * 60));
-  const hours = Math.floor(diffMs / (1000 * 60 * 60));
-  const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  // Past dates - use proper rounding thresholds
+  const sec = Math.round(diffMs / 1000);
+  const min = Math.round(sec / 60);
+  const hr = Math.round(min / 60);
+  const day = Math.round(hr / 24);
 
-  if (minutes < 1) return 'just now';
-  if (minutes < 60) return `${minutes}m ago`;
-  if (hours < 24) return `${hours}h ago`;
-  if (days < 7) return `${days}d ago`;
-  const weeks = Math.floor(days / 7);
-  if (weeks < 4) return `${weeks}w ago`;
+  if (sec < 45) return 'just now';
+  if (sec < 90) return '1 min ago';
+  if (min < 45) return `${min} min ago`;
+  if (min < 90) return '1 hr ago';
+  if (hr < 24) return `${hr} hr ago`;
+  if (hr < 36) return 'yesterday';
+  if (day < 30) return `${day} days ago`;
 
-  return date.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric'
-  });
+  // Calendar-aware month calculation
+  let months = (now.getFullYear() - date.getFullYear()) * 12 + (now.getMonth() - date.getMonth());
+  if (now.getDate() < date.getDate()) months -= 1;
+
+  if (months < 1) return '1 mo ago';
+  if (months < 12) return `${months} mo ago`;
+
+  // Calendar-aware year calculation
+  let years = now.getFullYear() - date.getFullYear();
+  if (now.getMonth() < date.getMonth() || (now.getMonth() === date.getMonth() && now.getDate() < date.getDate())) {
+    years -= 1;
+  }
+
+  return years <= 1 ? '1 yr ago' : `${years} yr ago`;
 };

@@ -164,11 +164,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
     const latestPreview = conversationPreviews[latestConversation.id];
     return {
       preview: latestPreview?.content || latestConversation.last_message_content || latestConversation.user_info?.title || 'Click to continue your conversation',
-      timestampLabel: latestPreview?.createdAt
-        ? formatRelativeTime(latestPreview.createdAt)
-        : latestConversation.last_message_at
-          ? formatRelativeTime(latestConversation.last_message_at)
-          : '',
+      timestampLabel: formatRelativeTime(latestConversation.updated_at),
       senderLabel: conversationLabel,
       avatarSrc: practiceConfig.profileImage,
       conversationId: latestConversation.id
@@ -230,7 +226,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
       map[c.id] = {
         content: preview?.content || c.last_message_content || c.user_info?.title || 'No messages yet',
         role: preview?.role || 'assistant',
-        createdAt: preview?.createdAt || c.last_message_at || c.updated_at || ''
+        createdAt: c.updated_at
       };
     });
     return map;

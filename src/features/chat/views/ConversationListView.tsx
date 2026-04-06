@@ -51,8 +51,8 @@ const ConversationListView: FunctionComponent<ConversationListViewProps> = ({
         : null;
   const fallbackName = typeof practiceName === 'string' ? practiceName.trim() : '';
   const sorted = [...conversations].sort((a, b) => {
-    const aTime = new Date(a.last_message_at ?? a.updated_at ?? a.created_at).getTime() || 0;
-    const bTime = new Date(b.last_message_at ?? b.updated_at ?? b.created_at).getTime() || 0;
+    const aTime = new Date(a.updated_at).getTime();
+    const bTime = new Date(b.updated_at).getTime();
     return bTime - aTime;
   });
 
@@ -72,9 +72,7 @@ const ConversationListView: FunctionComponent<ConversationListViewProps> = ({
             {sorted.map((conversation) => {
               const preview = previews[conversation.id];
               const title = resolveConversationDisplayTitle(conversation, fallbackName);
-              const timeLabel = preview?.createdAt
-                ? formatRelativeTime(preview.createdAt)
-                : (conversation.last_message_at ? formatRelativeTime(conversation.last_message_at) : '');
+              const timeLabel = formatRelativeTime(conversation.updated_at);
               const previewText = preview?.content
                 ? preview.content
                 : t('workspace.conversationList.previewPlaceholder');
