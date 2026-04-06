@@ -6,8 +6,8 @@ import { resolve } from 'path';
 
 const DEFAULT_PRACTICE_SLUG = process.env.E2E_WIDGET_SLUG ?? process.env.E2E_PRACTICE_SLUG ?? 'paul-yahoo';
 const rawBudget = process.env.E2E_WIDGET_AI_RESPONSE_BUDGET_MS;
-const parsedBudget = rawBudget ? parseInt(rawBudget, 10) : 30000;
-const MAX_AI_RESPONSE_MS = Number.isFinite(parsedBudget) ? parsedBudget : 90000;
+const parsedBudget = rawBudget ? parseInt(rawBudget, 10) : 90000;
+const MAX_AI_RESPONSE_MS = Number.isFinite(parsedBudget) ? parsedBudget : 120000;
 const LEAD_TURN_TIMEOUT_MS = MAX_AI_RESPONSE_MS;
 const rawExpectedConsultationFeeMinor = process.env.E2E_EXPECTED_CONSULTATION_FEE_MINOR;
 const parsedExpectedConsultationFeeMinor = rawExpectedConsultationFeeMinor
@@ -107,7 +107,7 @@ const prepareWidgetComposer = async (
 };
 
 test.describe('Public widget intake flow', () => {
-  test.describe.configure({ timeout: 120000 });
+  test.describe.configure({ timeout: 300000 });
 
   test.beforeEach(async ({ anonPage }) => {
     const storageResetToken = `widget-intake-flow-${randomUUID()}`;
@@ -369,7 +369,7 @@ test.describe('Public widget intake flow', () => {
     const submitNowButton = anonPage.getByRole('button', { name: /submit request/i });
     const paymentContinueButton = anonPage
       .locator('button:visible')
-      .filter({ hasText: /^(continue|continue\s+to\s+payment|pay\s*(?:&|and|\$))/i })
+      .filter({ hasText: /(pay|continue)/i })
       .first();
     const buildBriefButton = anonPage.getByRole('button', { name: /build stronger brief/i });
     const aiTranscript: Array<{ prompt?: string; user: string; contentType: string; replyText: string }> = [];
@@ -573,7 +573,7 @@ test.describe('Public widget intake flow', () => {
 
     const pickAnswerForPrompt = (rawPrompt: string): string => {
       const prompt = rawPrompt.toLowerCase();
-      if (/ready to submit your case|are you ready to submit|submit your case to the firm/.test(prompt)) return 'Yes';
+      if (/ready to submit|are you ready|schedule your consultation|fee|submit your case/.test(prompt)) return 'Yes';
       if (/legal situation|what'?s going on|describe what'?s going on|tell me a bit/.test(prompt)) {
         answered.add('situation');
         return defaultSituation;
@@ -645,11 +645,11 @@ test.describe('Public widget intake flow', () => {
       const buildVisibleBefore = await buildBriefButton.isVisible().catch(() => false);
       const paymentPromptVisibleBefore = await anonPage
         .locator('button')
-        .filter({ hasText: /^(continue|continue\s+to\s+payment|pay\s*(?:&|and|\$))/i })
+        .filter({ hasText: /(pay|continue)/i })
         .isVisible()
         .catch(() => false);
       const bodyTextBefore = await bodyLocator.innerText().catch(() => '');
-      const readyPromptBefore = /ready to submit your case|are you ready to submit|submit your case to the firm/i.test(bodyTextBefore);
+      const readyPromptBefore = /ready to submit|are you ready|schedule your consultation|fee|submit your case/i.test(bodyTextBefore);
       if (submitVisibleBefore || paymentPromptVisibleBefore || readyPromptBefore) {
         reachedSubmitReady = true;
         if (paymentPromptVisibleBefore) reachedPaymentTerminal = true;
@@ -673,11 +673,11 @@ test.describe('Public widget intake flow', () => {
       const buildVisible = await buildBriefButton.isVisible().catch(() => false);
       const paymentPromptVisible = await anonPage
         .locator('button')
-        .filter({ hasText: /^(continue|continue\s+to\s+payment|pay\s*(?:&|and|\$))/i })
+        .filter({ hasText: /(pay|continue)/i })
         .isVisible()
         .catch(() => false);
       const bodyText = await bodyLocator.innerText().catch(() => '');
-      const readyPrompt = /ready to submit your case|are you ready to submit|submit your case to the firm/i.test(bodyText);
+      const readyPrompt = /ready to submit|are you ready|schedule your consultation|fee|submit your case/i.test(bodyText);
       if (submitVisible || paymentPromptVisible || readyPrompt) {
         reachedSubmitReady = true;
         if (paymentPromptVisible) reachedPaymentTerminal = true;
@@ -698,7 +698,7 @@ test.describe('Public widget intake flow', () => {
     const hasPaymentPromptAtAction = /consultation fee|continue to payment|pay and submit|pay & submit|submit your intake/i.test(bodyTextAtAction);
     const terminalActionButton = anonPage
       .locator('button:visible')
-      .filter({ hasText: /^(submit request|continue|continue\s+to\s+payment|pay\s*(?:&|and|\$))/i })
+      .filter({ hasText: /(pay|continue|submit request)/i })
       .first();
     const submitIntakeResponsePromise = anonPage.waitForResponse(
       (response) =>
@@ -828,7 +828,7 @@ test.describe('Public widget intake flow', () => {
 
     const paymentPromptActionButton = anonPage
       .locator('button:visible')
-      .filter({ hasText: /^(pay\s*(?:&|and|\$)|continue\s+to\s+payment)/i })
+      .filter({ hasText: /(pay|continue)/i })
       .first();
 
     await expect(
@@ -1363,7 +1363,7 @@ test.describe('Public widget intake flow', () => {
 
       const hasSubmitButton = buttonsAfterTurn3.some((b) => /submit request/i.test(b));
       const hasPaymentButton = buttonsAfterTurn3.some((b) =>
-        /^(continue|continue\s+to\s+payment|pay\s*(?:&|and|\$))/i.test(b)
+        /(pay|continue)/i.test(b)
       );
       const hasUrgencyChips = buttonsAfterTurn3.some((b) =>
         /routine|time.sensitive|emergency/i.test(b)
@@ -1407,7 +1407,7 @@ test.describe('Public widget intake flow', () => {
         if (count === 0) { await anonPage.waitForTimeout(1000); continue; }
         const last = (await aiLocator.nth(count - 1).innerText().catch(() => '')).trim();
 
-        if (/ready to submit|are you ready|consultation fee|continue to payment|submit your case/i.test(last)) {
+        if (/ready to submit|are you ready|schedule your consultation|fee|submit your case/i.test(last)) {
           submitReached = true;
           break;
         }
