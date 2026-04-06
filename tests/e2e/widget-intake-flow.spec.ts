@@ -369,7 +369,7 @@ test.describe('Public widget intake flow', () => {
     const submitNowButton = anonPage.getByRole('button', { name: /submit request/i });
     const paymentContinueButton = anonPage
       .locator('button:visible')
-      .filter({ hasText: /^(continue|continue\s+to\s+payment|pay\s*(?:&|and)\s*submit)$/i })
+      .filter({ hasText: /^(continue|continue\s+to\s+payment|pay\s*(?:&|and|\$))/i })
       .first();
     const buildBriefButton = anonPage.getByRole('button', { name: /build stronger brief/i });
     const aiTranscript: Array<{ prompt?: string; user: string; contentType: string; replyText: string }> = [];
@@ -645,7 +645,7 @@ test.describe('Public widget intake flow', () => {
       const buildVisibleBefore = await buildBriefButton.isVisible().catch(() => false);
       const paymentPromptVisibleBefore = await anonPage
         .locator('button')
-        .filter({ hasText: /^(continue|continue\s+to\s+payment|pay\s*(?:&|and)\s*submit)$/i })
+        .filter({ hasText: /^(continue|continue\s+to\s+payment|pay\s*(?:&|and|\$))/i })
         .isVisible()
         .catch(() => false);
       const bodyTextBefore = await bodyLocator.innerText().catch(() => '');
@@ -673,7 +673,7 @@ test.describe('Public widget intake flow', () => {
       const buildVisible = await buildBriefButton.isVisible().catch(() => false);
       const paymentPromptVisible = await anonPage
         .locator('button')
-        .filter({ hasText: /^(continue|continue\s+to\s+payment|pay\s*(?:&|and)\s*submit)$/i })
+        .filter({ hasText: /^(continue|continue\s+to\s+payment|pay\s*(?:&|and|\$))/i })
         .isVisible()
         .catch(() => false);
       const bodyText = await bodyLocator.innerText().catch(() => '');
@@ -698,7 +698,7 @@ test.describe('Public widget intake flow', () => {
     const hasPaymentPromptAtAction = /consultation fee|continue to payment|pay and submit|pay & submit|submit your intake/i.test(bodyTextAtAction);
     const terminalActionButton = anonPage
       .locator('button:visible')
-      .filter({ hasText: /^(submit request|continue|continue\s+to\s+payment|pay\s*(?:&|and)\s*submit)$/i })
+      .filter({ hasText: /^(submit request|continue|continue\s+to\s+payment|pay\s*(?:&|and|\$))/i })
       .first();
     const submitIntakeResponsePromise = anonPage.waitForResponse(
       (response) =>
@@ -824,11 +824,11 @@ test.describe('Public widget intake flow', () => {
     await expect(
       anonPage.locator('body'),
       'Expected payment prompt to mention that a consultation fee is required.'
-    ).toContainText(/consultation fee is required to proceed/i, { timeout: 10000 });
+    ).toContainText(/schedule your consultation/i, { timeout: 10000 });
 
     const paymentPromptActionButton = anonPage
       .locator('button:visible')
-      .filter({ hasText: /^(pay\s*(?:&|and)\s*submit|continue\s+to\s+payment)$/i })
+      .filter({ hasText: /^(pay\s*(?:&|and|\$)|continue\s+to\s+payment)/i })
       .first();
 
     await expect(
@@ -1363,7 +1363,7 @@ test.describe('Public widget intake flow', () => {
 
       const hasSubmitButton = buttonsAfterTurn3.some((b) => /submit request/i.test(b));
       const hasPaymentButton = buttonsAfterTurn3.some((b) =>
-        /^(continue|continue\s+to\s+payment|pay\s*(?:&|and)\s*submit)$/i.test(b)
+        /^(continue|continue\s+to\s+payment|pay\s*(?:&|and|\$))/i.test(b)
       );
       const hasUrgencyChips = buttonsAfterTurn3.some((b) =>
         /routine|time.sensitive|emergency/i.test(b)

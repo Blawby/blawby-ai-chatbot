@@ -94,8 +94,12 @@ function PayRedirect() {
   const { navigate } = useNavigation();
   const location = useLocation();
   useEffect(() => {
-    // Preserve query params when redirecting from /pay to host
-    const returnTo = location.query.return_to || '/';
+    // Validate returnTo: must be a safe relative path starting with a single '/'
+    let returnTo = location.query.return_to || '/';
+    if (!returnTo.startsWith('/') || returnTo.startsWith('//') || returnTo.includes(':')) {
+      returnTo = '/';
+    }
+    
     const params = new URLSearchParams(window.location.search);
     params.delete('return_to');
     const search = params.toString();

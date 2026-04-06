@@ -81,6 +81,7 @@ export const usePaymentStatus = ({
     uuid: string,
     practiceName: string,
     signal?: AbortSignal,
+    sessionId?: string | null,
   ) => {
     if (!enabled) return;
     if (!conversationId || !practiceId) return;
@@ -98,7 +99,11 @@ export const usePaymentStatus = ({
       const persistedMessage = await postSystemMessage(conversationId, practiceId, {
         clientId: messageId,
         content: `Thank you! Your payment was successful and your case details are being processed. A member of our team will contact you at the information you provided.`,
-        metadata: { intakePaymentUuid: uuid, paymentStatus: 'succeeded' },
+        metadata: {
+          intakePaymentUuid: uuid,
+          paymentStatus: 'succeeded',
+          ...(sessionId ? { checkoutSessionId: sessionId } : {}),
+        },
       });
 
       // After successful persistence, always update client state regardless of abort status
@@ -131,14 +136,18 @@ export const usePaymentStatus = ({
     const uuidFromUrl = url.searchParams.get('uuid');
 
     if (sessionIdFromUrl && uuidFromUrl && UUID_PATTERN.test(uuidFromUrl)) {
-      // Clear URL params immediately to avoid re-triggering on refresh
-      const nextUrl = new URL(window.location.href);
-      nextUrl.searchParams.delete('session_id');
-      nextUrl.searchParams.delete('uuid');
-      window.history.replaceState({}, '', nextUrl.pathname + nextUrl.search);
-
-      postPaymentConfirmation(uuidFromUrl, practiceName || 'the practice', controller.signal)
-        .catch(err => console.warn('[usePaymentStatus] URL-based confirmation failed', err));
+      postPaymentConfirmation(uuidFromUrl, practiceName || 'the practice', controller.signal, sessionIdFromUrl)
+        .then(() => {
+          // Clear URL params only after successful confirmation to allow retry on error
+          const nextUrl = new URL(window.location.href);
+          nextUrl.searchParams.delete('session_id');
+          nextUrl.searchParams.delete('uuid');
+          window.history.replaceState({}, '', nextUrl.pathname + nextUrl.search);
+        })
+        .catch(err => {
+          console.warn('[usePaymentStatus] URL-based confirmation failed', err);
+          // Keep params intact on error to allow user to retry or for debugging
+        });
     }
 
     // 2. Collect keys written by legacy sessionStorage (Fallback)

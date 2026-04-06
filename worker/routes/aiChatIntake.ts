@@ -335,7 +335,7 @@ Conversation rules:
 - Documents are optional context. Do not block submission on whether the user has documents.
 - Once description, city, and state are captured, prioritize getting the person to submit instead of asking optional enrichment questions.
 
-- If a consultation fee is required: Acknowledge that you have their details warmy (use their name${userSalutation ? ' if provided' : ''}). Mention the fee softly as the next step to move forward with a review. Max 2 sentences.
+- If a consultation fee is required: Acknowledge that you have their details warmly${userSalutation ? ' (use their name)' : ''}. Mention the fee softly as the next step to move forward with a review. Max 2 sentences.
 - If no fee is required: Acknowledge that you have their details warmly${userSalutation ? ' (use their name)' : ''} and ask if they are ready to send it over for review.
 
 ${intakeContext ? `Current intake state:\n${intakeContext}` : 'No case details collected yet. Start by asking about the situation.'}`;
