@@ -18,6 +18,7 @@ import type { Practice } from '@/shared/hooks/usePracticeManagement';
 import type { PracticeDetails } from '@/shared/lib/apiClient';
 import type { FileAttachment } from '../../../../worker/types';
 import type { ExtractedFields } from '../types/onboardingFields';
+import { features } from '@/config/features';
 
 export interface OnboardingChatProps {
   status: PracticeSetupStatus;
@@ -164,8 +165,8 @@ const OnboardingChat: FunctionComponent<OnboardingChatProps> = ({
             isSessionReady={!waitingForRealChat && Boolean(chatAdapter?.messagesReady)}
             isSocketReady={waitingForRealChat ? false : (chatAdapter?.isSocketReady ?? true)}
             messagesReady={waitingForRealChat ? false : (chatAdapter?.messagesReady ?? true)}
-            onToggleReaction={chatAdapter?.onToggleReaction}
-            onRequestReactions={chatAdapter?.onRequestReactions}
+            onToggleReaction={chatAdapter?.onToggleReaction && features.enableMessageReactions ? chatAdapter.onToggleReaction : undefined}
+            onRequestReactions={chatAdapter?.onRequestReactions && features.enableMessageReactions ? chatAdapter.onRequestReactions : undefined}
             hasMoreMessages={chatAdapter?.hasMoreMessages}
             isLoadingMoreMessages={chatAdapter?.isLoadingMoreMessages}
             onLoadMoreMessages={chatAdapter?.onLoadMoreMessages}

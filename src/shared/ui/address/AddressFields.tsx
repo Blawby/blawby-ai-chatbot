@@ -2,6 +2,7 @@ import { forwardRef } from 'preact/compat';
 import { useRef, useEffect } from 'preact/hooks';
 import { Input } from '@/shared/ui/input/Input';
 import { Combobox, type ComboboxOption } from '@/shared/ui/input/Combobox';
+import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
 import { cn } from '@/shared/utils/cn';
 import { useUniqueId } from '@/shared/hooks/useUniqueId';
 import type { Address, AddressSuggestion } from '@/shared/types/address';
@@ -228,9 +229,11 @@ export const AddressFields = forwardRef<HTMLDivElement, AddressFieldsProps>(
 
             {/* Spinner — uses accent token, not hardcoded blue */}
             {streetAddressProps?.isLoading && (
-              <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center">
-                <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/10 border-t-accent-500" />
-              </div>
+              <LoadingSpinner
+                size="md"
+                ariaLabel="Loading address suggestions"
+                className="pointer-events-none absolute inset-y-0 right-3 flex items-center"
+              />
             )}
           </div>
 

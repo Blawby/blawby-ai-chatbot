@@ -39,6 +39,15 @@ const hasNonEmptyString = (value: unknown): boolean => (
   typeof value === 'string' && value.trim().length > 0
 );
 
+export const hasCoreIntakeFields = (
+  state: IntakeConversationState | Partial<IntakeConversationState> | null | undefined
+): boolean => {
+  if (!state) return false;
+  return hasNonEmptyString(state.description)
+    && hasNonEmptyString(state.city)
+    && hasNonEmptyString(state.state);
+};
+
 const isEmptyContact = (value: SlimContactDraft | null | undefined): boolean => !value
   || (!trimString(value.name) && !trimString(value.email) && !trimString(value.phone));
 
@@ -90,11 +99,13 @@ const mergeSubmission = (
   const fallbackPaymentReceived = typeof source?.intakePaymentReceived === 'boolean'
     ? source.intakePaymentReceived
     : null;
+  const fallbackCheckoutSessionId = trimString(source?.checkoutSessionId) || null;
   return {
     intakeUuid: normalized.intakeUuid ?? fallbackUuid,
     submittedAt: normalized.submittedAt ?? (trimString(source?.submittedAt) || null),
     paymentRequired: normalized.paymentRequired ?? fallbackPaymentRequired,
     paymentReceived: normalized.paymentReceived ?? fallbackPaymentReceived,
+    checkoutSessionId: normalized.checkoutSessionId ?? fallbackCheckoutSessionId,
   };
 };
 
@@ -126,11 +137,7 @@ export const hasConsultationContact = (value: SlimContactDraft | null | undefine
 export const isIntakeReadyForSubmission = (
   state: IntakeConversationState | Partial<IntakeConversationState> | null | undefined
 ): boolean => {
-  if (!state) return false;
-  const hasDescription = hasNonEmptyString(state.description);
-  const hasLocation = hasNonEmptyString(state.city) && hasNonEmptyString(state.state);
-  const hasOpposingParty = hasNonEmptyString(state.opposingParty);
-  return hasDescription && hasLocation && hasOpposingParty;
+  return hasCoreIntakeFields(state);
 };
 
 export const isIntakeSubmittable = (
@@ -183,6 +190,7 @@ const normalizeConsultationSubmission = (value: unknown): ConsultationState['sub
     submittedAt: trimString(record.submittedAt) || null,
     paymentRequired: normalizeBooleanOrNull(record.paymentRequired),
     paymentReceived: normalizeBooleanOrNull(record.paymentReceived),
+    checkoutSessionId: trimString(record.checkoutSessionId) || null,
   };
 };
 
@@ -331,6 +339,10 @@ export const mergeConsultationState = (
         patch.submission.paymentReceived === undefined
           ? base.submission.paymentReceived
           : normalizeBooleanOrNull(patch.submission.paymentReceived),
+      checkoutSessionId:
+        patch.submission.checkoutSessionId === undefined
+          ? base.submission.checkoutSessionId ?? null
+          : trimString(patch.submission.checkoutSessionId) || null,
     };
   })();
 
@@ -433,8 +445,11 @@ export const deriveIntakeStatusFromConsultation = (
     if (consultation.status === 'completed') return 'completed';
     if (consultation.status === 'submitted') return 'pending_review';
     if (consultation.status === 'collecting_contact') return 'contact_form_slim';
-    if (consultation.case.turnCount <= 0) return 'contact_form_decision';
-    return 'ai_brief';
+    if (consultation.case.ctaResponse === 'ready') return 'ready_to_submit';
+    if (consultation.case.ctaShown === true) return 'contact_form_decision';
+    if (hasCoreIntakeFields(consultation.case)) return 'ai_brief';
+    if (hasConsultationContact(consultation.contact)) return 'collecting_case';
+    return 'contact_form_slim';
   })();
 
   return {

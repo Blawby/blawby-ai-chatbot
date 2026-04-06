@@ -3,7 +3,6 @@ import { forwardRef, useImperativeHandle } from 'preact/compat';
 import { Button } from '@/shared/ui/Button';
 import { Combobox, Input, Textarea } from '@/shared/ui/input';
 import { asMajor, safeAdd } from '@/shared/utils/money';
-import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import type { MatterDetail } from '@/features/matters/data/matterTypes';
 import type { Invoice, InvoiceLineItem } from '@/features/matters/types/billing.types';
@@ -29,7 +28,6 @@ type InvoiceFormProps = {
   initialInvoiceType?: Invoice['invoice_type'];
   editMode?: boolean;
   readOnly?: boolean;
-  hideFooterActions?: boolean;
   invoiceContext?: 'default' | 'milestone' | 'retainer';
   existingInvoiceId?: string;
   closeAfterSuccess?: boolean;
@@ -68,7 +66,7 @@ const buildDefaultDueDate = () => {
   return `${year}-${month}-${day}`;
 };
 
-const INVOICE_TYPE_OPTIONS = [
+const _INVOICE_TYPE_OPTIONS = [
   { value: 'flat_fee', label: 'Flat fee' },
   { value: 'hourly', label: 'Hourly' },
   { value: 'phase_fee', label: 'Milestone / phase fee' },
@@ -133,7 +131,6 @@ export const InvoiceForm = forwardRef<InvoiceFormHandle, InvoiceFormProps>(({
   initialInvoiceType,
   editMode = false,
   readOnly = false,
-  hideFooterActions = false,
   invoiceContext = 'default',
   existingInvoiceId,
   closeAfterSuccess = true,
@@ -153,7 +150,6 @@ export const InvoiceForm = forwardRef<InvoiceFormHandle, InvoiceFormProps>(({
   }, [editMode, mode, readOnly]);
   const resolvedReadOnly = resolvedMode === 'readOnly' || readOnly;
   const resolvedEditMode = resolvedMode === 'edit' || resolvedMode === 'readOnly' || editMode;
-  const resolvedHideFooterActions = hideFooterActions || resolvedMode === 'create';
 
   const defaultInvoiceType = detectDefaultInvoiceType(
     initialLineItems,
@@ -192,7 +188,7 @@ export const InvoiceForm = forwardRef<InvoiceFormHandle, InvoiceFormProps>(({
       : null
   ));
   const [sendError, setSendError] = useState<string | null>(null);
-  const [invoiceType, setInvoiceType] = useState<Invoice['invoice_type']>(defaultInvoiceType);
+  const [invoiceType, _setInvoiceType] = useState<Invoice['invoice_type']>(defaultInvoiceType);
   const isMatterScoped = Boolean(matter);
   const resolvedMatterId = isMatterScoped ? matter?.id ?? '' : matterId;
   const resolvedClientId = isMatterScoped ? matter?.clientId ?? '' : clientId;
@@ -390,27 +386,8 @@ export const InvoiceForm = forwardRef<InvoiceFormHandle, InvoiceFormProps>(({
                     disabled={resolvedReadOnly || !clientId}
                     clearable
                   />
-                  <Combobox
-                    label="Invoice type"
-                    value={invoiceType}
-                    onChange={(nextValue) => setInvoiceType(nextValue as Invoice['invoice_type'])}
-                    options={INVOICE_TYPE_OPTIONS}
-                    searchable={false}
-                    clearable={false}
-                    disabled={resolvedReadOnly}
-                  />
                 </div>
-              ) : (
-                <Combobox
-                  label="Invoice type"
-                  value={invoiceType}
-                  onChange={(nextValue) => setInvoiceType(nextValue as Invoice['invoice_type'])}
-                  options={INVOICE_TYPE_OPTIONS}
-                  searchable={false}
-                  clearable={false}
-                  disabled={resolvedReadOnly}
-                />
-              )}
+              ) : null}
               <InvoiceLineItemsForm
                 lineItems={lineItems} 
                 onChange={setLineItems} 
@@ -489,35 +466,11 @@ export const InvoiceForm = forwardRef<InvoiceFormHandle, InvoiceFormProps>(({
               clientName={resolvedClientLabel || null}
               clientEmail={resolvedClientEmail}
               billingIncrementMinutes={billingIncrementMinutes}
+              notes={notes || null}
             />
           </div>
         </div>
 
-        {!resolvedHideFooterActions ? (
-          <footer className="flex flex-col gap-3 py-4 lg:flex-row lg:items-center lg:justify-between">
-            <p className="text-sm font-semibold text-input-text">
-              Total: {formatCurrency(total)}
-            </p>
-            {!resolvedReadOnly && !isValidConnectedAccount ? (
-              <div className="rounded-lg border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-800">
-                <strong className="block font-semibold">Payment account not connected.</strong>
-                Finish Stripe onboarding to save or send invoices.
-              </div>
-            ) : null}
-            <div className="flex items-center gap-2">
-              <Button variant="secondary" onClick={onClose} disabled={isSaving || isSending}>
-                {resolvedReadOnly ? 'Back' : 'Cancel'}
-              </Button>
-              {!resolvedReadOnly ? (
-                <>
-                  <Button onClick={openSendDialog} disabled={disableActions}>
-                    Send invoice
-                  </Button>
-                </>
-              ) : null}
-            </div>
-          </footer>
-        ) : null}
       </div>
 
       {!resolvedReadOnly ? (
@@ -538,6 +491,7 @@ export const InvoiceForm = forwardRef<InvoiceFormHandle, InvoiceFormProps>(({
           clientName={resolvedClientLabel || null}
           clientEmail={resolvedClientEmail}
           billingIncrementMinutes={billingIncrementMinutes}
+          previewNotes={notes || null}
         />
       ) : null}
     </div>

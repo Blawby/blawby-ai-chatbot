@@ -1,6 +1,7 @@
 import { Button } from '@/shared/ui/Button';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import { getMajorAmountValue, type MajorAmount } from '@/shared/utils/money';
+import { cn } from '@/shared/utils/cn';
 
 type SummaryTab = 'overview' | 'time' | 'messages';
 
@@ -33,8 +34,8 @@ interface MatterSummaryCardsProps {
   } | null;
 }
 
-const summaryItemBase = 'min-w-0 py-1 flex flex-col gap-1';
-const gridBase = 'grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-4';
+const summaryItemBase = 'min-w-0 flex flex-col gap-1';
+const gridBase = 'grid grid-cols-2 gap-x-4 gap-y-5 md:grid-cols-4 md:gap-x-6';
 const wrapperBase = 'glass-panel p-4 sm:p-5';
 
 const formatDurationFromSeconds = (totalSeconds?: number | null) => {
@@ -133,21 +134,48 @@ export const MatterSummaryCards = ({
       ];
 
       const fixedGridClass = hasMilestones
-        ? 'grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2 xl:grid-cols-5'
-        : 'grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2 xl:grid-cols-3';
+        ? 'grid grid-cols-4 gap-x-4 gap-y-5 md:grid-cols-6 md:gap-x-6'
+        : 'grid grid-cols-4 gap-x-4 gap-y-5 md:grid-cols-6 md:gap-x-6';
 
       return (
         <section className={wrapperBase}>
           <div className={fixedGridClass}>
-            {fixedCards.map((card) => (
-              <div key={card.label} className={`${summaryItemBase} text-center`}>
-                <p className="text-xs font-medium text-input-placeholder leading-tight">{card.label}</p>
-                <p className="mt-2 text-lg font-semibold text-input-text leading-tight break-words">{card.value}</p>
-                {card.helper ? (
-                  <p className="mt-1 text-xs text-input-placeholder leading-tight">{card.helper}</p>
-                ) : null}
+            {fixedCards.map((card, index) => {
+              const isFirst = index === 0;
+              const spanClass = isFirst ? 'col-span-2 md:col-span-4' : 'col-span-1';
+              return (
+                <div key={card.label} className={cn(summaryItemBase, spanClass)}>
+                  <p className="text-xs font-medium text-input-placeholder leading-tight">{card.label}</p>
+                  <p className="mt-2 text-lg font-semibold text-input-text leading-tight break-words">{card.value}</p>
+                  {card.helper ? (
+                    <p className="mt-1 text-xs text-input-placeholder leading-tight">{card.helper}</p>
+                  ) : null}
+                </div>
+              );
+            })}
+            <div className="col-span-2 flex flex-col gap-2 md:col-span-2 md:justify-start">
+              <Button
+                size="xs"
+                onClick={() => onCreateInvoice?.()}
+                disabled={!onCreateInvoice}
+                className="w-full justify-center"
+              >
+                Invoice
+              </Button>
+              <div className="text-center md:text-left">
+                {onViewTimesheet ? (
+                  <button
+                    type="button"
+                    onClick={() => onViewTimesheet()}
+                    className="text-xs font-medium text-accent-500 hover:underline"
+                  >
+                    View timesheet
+                  </button>
+                ) : (
+                  <span className="text-xs font-medium text-input-placeholder/60">View timesheet</span>
+                )}
               </div>
-            ))}
+            </div>
           </div>
         </section>
       );
@@ -156,25 +184,25 @@ export const MatterSummaryCards = ({
     return (
       <section className={wrapperBase}>
         <div className={gridBase}>
-          <div className={summaryItemBase}>
-          <p className="text-xs font-medium text-input-placeholder leading-tight">Billable time this week</p>
-          <p className="mt-2 text-lg font-semibold text-input-text leading-tight break-words">{billableDisplay}</p>
-          <p className="mt-1 text-xs text-input-placeholder leading-tight">
-            Based on recorded billable entries this week.
-          </p>
-          {onLearnMore ? (
-            <button
-              type="button"
-              className="mt-2 text-xs font-medium text-accent-500 hover:underline"
-              onClick={onLearnMore}
-            >
-              Learn more
-            </button>
-          ) : (
-            <span className="mt-2 text-xs font-medium text-input-placeholder/60">
-              Learn more (coming soon)
-            </span>
-          )}
+          <div className={cn(summaryItemBase, 'col-span-2 md:col-span-1')}>
+            <p className="text-xs font-medium text-input-placeholder leading-tight">Billable time this week</p>
+            <p className="mt-2 text-lg font-semibold text-input-text leading-tight break-words">{billableDisplay}</p>
+            <p className="mt-1 text-xs text-input-placeholder leading-tight">
+              Based on recorded billable entries this week.
+            </p>
+            {onLearnMore ? (
+              <button
+                type="button"
+                className="mt-2 text-xs font-medium text-accent-500 hover:underline"
+                onClick={onLearnMore}
+              >
+                Learn more
+              </button>
+            ) : (
+              <span className="mt-2 text-xs font-medium text-input-placeholder/60">
+                Learn more (coming soon)
+              </span>
+            )}
           </div>
           <div className={summaryItemBase}>
             <p className="text-xs font-medium text-input-placeholder leading-tight">{billingTypeLabel}</p>
@@ -193,18 +221,16 @@ export const MatterSummaryCards = ({
             <p className="mt-2 text-lg font-semibold text-input-text leading-tight break-words">{totalDisplay}</p>
             <p className="mt-1 text-xs text-input-placeholder leading-tight">Across all logged entries this week</p>
           </div>
-          <div className={`${summaryItemBase} items-center text-center`}>
-            <div className="mt-3 flex flex-col items-center gap-2">
-              <Button
-                size="xs"
-                onClick={() => onCreateInvoice?.()}
-                disabled={!onCreateInvoice}
-                className="w-auto"
-              >
-                Invoice
-              </Button>
-            </div>
-            <div className="mt-2 flex justify-center">
+              <div className="col-span-2 flex flex-col gap-2 md:col-span-1">
+            <Button
+              size="xs"
+              onClick={() => onCreateInvoice?.()}
+              disabled={!onCreateInvoice}
+              className="w-full justify-center"
+            >
+              Invoice
+            </Button>
+            <div className="text-center md:text-left">
               {onViewTimesheet ? (
                 <button
                   type="button"

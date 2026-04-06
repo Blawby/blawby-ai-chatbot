@@ -13,6 +13,7 @@ import {
 import { Icon } from '@/shared/ui/Icon';
 import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from '@/shared/ui/form';
 import { Textarea } from '@/shared/ui/input';
+import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
 
 interface UseCaseData {
   primaryUseCase: 'messaging' | 'legal_payments' | 'matter_management' | 'intake_forms' | 'other';
@@ -205,12 +206,8 @@ const UseCaseStep = ({ data, onComplete, isSubmitting: parentSubmitting = false 
               className="w-full"
             >
               {isFormSubmitting ? (
-                  <div className="flex items-center justify-center space-x-2" aria-live="polite" role="status">
-                    <div 
-                      className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" 
-                      aria-label="Submitting"
-                    />
-                    <span className="sr-only">Submitting...</span>
+                  <div className="flex items-center justify-center space-x-2">
+                    <LoadingSpinner size="md" ariaLabel={t('submitting')} />
                   </div>
                 ) : (
                   t('onboarding.step2.next')

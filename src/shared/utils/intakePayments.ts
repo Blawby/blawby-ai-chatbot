@@ -1,4 +1,8 @@
-import { getPracticeClientIntakeStatusEndpoint } from '@/config/api';
+import {
+  getPracticeClientIntakeCheckoutSessionEndpoint,
+  getPracticeClientIntakeStatusEndpoint,
+  getPracticeClientPostPayStatusEndpoint,
+} from '@/config/api';
 import { assertMinorUnits, type MinorAmount } from '@/shared/utils/money';
 
 export type IntakePaymentRequest = {
@@ -20,7 +24,17 @@ export type IntakePaymentRequest = {
 type IntakeStatusResponse = {
   success?: boolean;
   data?: {
+    paid?: boolean;
     status?: string;
+    intake_uuid?: string;
+  };
+};
+
+type IntakeCheckoutSessionResponse = {
+  success?: boolean;
+  data?: {
+    url?: string;
+    session_id?: string;
   };
 };
 
@@ -179,6 +193,88 @@ export const fetchIntakePaymentStatus = async (
       return null;
     }
     console.warn('[IntakePayment] Failed to fetch intake status', error);
+    return null;
+  }
+};
+
+export const fetchIntakeCheckoutSession = async (
+  intakeUuid?: string,
+  options?: { timeoutMs?: number }
+): Promise<{ url: string | null; sessionId: string | null }> => {
+  const trimmed = getQueryValue(intakeUuid);
+  if (!trimmed) {
+    return { url: null, sessionId: null };
+  }
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), options?.timeoutMs ?? 8000);
+  try {
+    const response = await fetch(getPracticeClientIntakeCheckoutSessionEndpoint(trimmed), {
+      method: 'POST',
+      signal: controller.signal,
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      return { url: null, sessionId: null };
+    }
+
+    const payload = await response.json() as IntakeCheckoutSessionResponse;
+    if (!payload?.success || !payload.data) {
+      return { url: null, sessionId: null };
+    }
+
+    return {
+      url: typeof payload.data.url === 'string' ? payload.data.url : null,
+      sessionId: typeof payload.data.session_id === 'string' ? payload.data.session_id : null,
+    };
+  } catch (error) {
+    clearTimeout(timeoutId);
+    if (error instanceof Error && error.name === 'AbortError') {
+      return { url: null, sessionId: null };
+    }
+    console.warn('[IntakePayment] Failed to fetch checkout session', error);
+    return { url: null, sessionId: null };
+  }
+};
+
+export const fetchPostPayIntakeStatus = async (
+  sessionId?: string,
+  options?: { timeoutMs?: number }
+): Promise<string | null> => {
+  const trimmed = getQueryValue(sessionId);
+  if (!trimmed) return null;
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), options?.timeoutMs ?? 8000);
+  try {
+    const response = await fetch(getPracticeClientPostPayStatusEndpoint(trimmed), {
+      method: 'GET',
+      signal: controller.signal,
+      credentials: 'include',
+    });
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const payload = await response.json() as IntakeStatusResponse;
+    if (!payload?.success || payload.data?.paid !== true || !payload.data?.intake_uuid) {
+      return null;
+    }
+
+    return payload.data.intake_uuid;
+  } catch (error) {
+    clearTimeout(timeoutId);
+    if (error instanceof Error && error.name === 'AbortError') {
+      return null;
+    }
+    console.warn('[IntakePayment] Failed to fetch post-pay status', error);
     return null;
   }
 };

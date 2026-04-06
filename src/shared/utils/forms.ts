@@ -94,8 +94,8 @@ type IntakeSettingsResponse = {
     settings?: {
       paymentLinkEnabled?: boolean;
       payment_link_enabled?: boolean;
-      prefillAmount?: number;
-      prefill_amount?: number;
+      consultationFee?: number;
+      consultation_fee?: number;
     };
   };
   error?: string;
@@ -323,10 +323,10 @@ export async function submitContactForm(
     const formPayload = formatFormData(formData, practiceSlug);
     const settings = await fetchIntakeSettings(practiceSlug);
     const settingsRecord = settings?.data?.settings;
-    const prefillAmount = typeof settingsRecord?.prefillAmount === 'number'
-      ? settingsRecord.prefillAmount
-      : typeof settingsRecord?.prefill_amount === 'number'
-        ? settingsRecord.prefill_amount
+    const consultationFee = typeof settingsRecord?.consultationFee === 'number'
+      ? settingsRecord.consultationFee
+      : typeof settingsRecord?.consultation_fee === 'number'
+        ? settingsRecord.consultation_fee
         : undefined;
     const paymentLinkEnabled = typeof settingsRecord?.paymentLinkEnabled === 'boolean'
       ? settingsRecord.paymentLinkEnabled
@@ -337,18 +337,18 @@ export async function submitContactForm(
       console.info('[Intake] Settings resolved', {
         practiceSlug,
         paymentLinkEnabled,
-        prefillAmount,
+        consultationFee,
         rawSettings: settingsRecord
       });
     }
-    let resolvedPrefillAmount = prefillAmount;
-    if ((resolvedPrefillAmount === undefined || resolvedPrefillAmount <= 0) && paymentLinkEnabled) {
+    let resolvedConsultationFee = consultationFee;
+    if ((resolvedConsultationFee === undefined || resolvedConsultationFee <= 0) && paymentLinkEnabled) {
       try {
         const practiceDetails = await getPublicPracticeDetails(practiceSlug);
-        const consultationFee = practiceDetails?.details?.consultationFee;
-        const fallbackMinor = toMinorUnitsValue(consultationFee);
+        const practiceConsultationFee = practiceDetails?.details?.consultationFee;
+        const fallbackMinor = toMinorUnitsValue(practiceConsultationFee);
         if (typeof fallbackMinor === 'number' && fallbackMinor > 0) {
-          resolvedPrefillAmount = fallbackMinor;
+          resolvedConsultationFee = fallbackMinor;
         }
       } catch (error) {
         if (import.meta.env.DEV) {
@@ -358,17 +358,17 @@ export async function submitContactForm(
     }
 
     if (paymentLinkEnabled) {
-      if (typeof resolvedPrefillAmount !== 'number' || !Number.isFinite(resolvedPrefillAmount)) {
+      if (typeof resolvedConsultationFee !== 'number' || !Number.isFinite(resolvedConsultationFee)) {
         throw new Error('Consultation fee is not configured for this practice.');
       }
-      if (resolvedPrefillAmount < 50) {
+      if (resolvedConsultationFee < 50) {
         throw new Error('Consultation fee must be at least $0.50.');
       }
     }
 
     const amount = clampAmount(
-      typeof resolvedPrefillAmount === 'number' && Number.isFinite(resolvedPrefillAmount)
-        ? resolvedPrefillAmount
+      typeof resolvedConsultationFee === 'number' && Number.isFinite(resolvedConsultationFee)
+        ? resolvedConsultationFee
         : 0
     );
     assertMinorUnits(amount, 'intake.create.amount');

@@ -4,6 +4,8 @@ export type IntakeStep =
   | 'contact_form_slim'
   | 'contact_form_decision'
   | 'ai_brief'
+  | 'collecting_case'
+  | 'ready_to_submit'
   | 'pending_review'
   | 'accepted'
   | 'rejected'
@@ -44,6 +46,7 @@ export interface ConsultationSubmissionState {
   submittedAt: string | null;
   paymentRequired: boolean | null;
   paymentReceived: boolean | null;
+  checkoutSessionId: string | null;
 }
 
 export interface ConsultationState {
@@ -76,6 +79,7 @@ export const initialConsultationSubmissionState: ConsultationSubmissionState = {
   submittedAt: null,
   paymentRequired: null,
   paymentReceived: null,
+  checkoutSessionId: null,
 };
 
 export const CONSULTATION_STATE_VERSION = 1;
@@ -92,7 +96,6 @@ export type IntakeFieldsPayload = {
   hasDocuments?: boolean;
   ctaShown?: boolean;
   intakeReady?: boolean;
-  quickReplies?: string[] | null;
 };
 
 export type IntakeFieldChangeOptions = {

@@ -1,5 +1,7 @@
 import { ComponentChildren } from 'preact';
+import { useContext } from 'preact/hooks';
 import { cn } from '@/shared/utils/cn';
+import { DropdownContext } from './DropdownMenu';
 
 export interface DropdownMenuItemProps {
   children: ComponentChildren;
@@ -14,9 +16,15 @@ export const DropdownMenuItem = ({
   disabled = false,
   className = ''
 }: DropdownMenuItemProps) => {
+  const context = useContext(DropdownContext);
+
   const handleClick = () => {
     if (!disabled && onSelect) {
       onSelect();
+    }
+
+    if (!disabled) {
+      context?.handleOpenChange(false);
     }
   };
 

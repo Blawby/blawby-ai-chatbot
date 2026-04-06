@@ -232,8 +232,8 @@ const ClientDetailPanel = ({
   return (
     <div className={cn('h-full overflow-y-auto', paddingClassName)}>
       <div className="space-y-6">
-        <section className="relative overflow-hidden rounded-[28px] bg-gradient-to-b from-accent-500/30 via-surface-glass/70 to-surface-overlay/85 [--accent-foreground:var(--input-text)]">
-          <div className="absolute inset-0 bg-gradient-to-t from-surface-base/45 via-transparent to-white/10" />
+        <section className="relative overflow-hidden rounded-[28px] bg-gradient-to-b from-accent-500/30 via-surface-overlay/70 to-surface-overlay/85 [--accent-foreground:var(--input-text)]">
+          <div className="absolute inset-0 bg-gradient-to-t from-surface-base/45 via-transparent to-transparent" />
           <div className="relative px-6 pb-12 pt-10">
             <div className="flex flex-col items-center text-center">
               <Avatar name={client.name} size="xl" />

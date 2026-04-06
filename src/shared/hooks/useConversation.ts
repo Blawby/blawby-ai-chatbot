@@ -51,6 +51,7 @@ import {
 } from '@/shared/utils/anonymousIdentity';
 import { appendWidgetTokenToUrl, withWidgetAuthHeaders } from '@/shared/utils/widgetAuth';
 import { quickActionDebugLog, isQuickActionDebugEnabled } from '@/shared/utils/quickActionDebug';
+import { normalizeChatActions } from '@/shared/utils/chatActions';
 
 // ─── constants ───────────────────────────────────────────────────────────────
 
@@ -352,16 +353,16 @@ export const useConversation = ({
     const metadataRecord = (msg.metadata && typeof msg.metadata === 'object' && !Array.isArray(msg.metadata))
       ? msg.metadata as Record<string, unknown>
       : null;
-    const rawQuickReplies = Array.isArray(metadataRecord?.quickReplies) ? metadataRecord.quickReplies : null;
+    const rawActions = normalizeChatActions(metadataRecord?.actions);
     if (isQuickActionDebugEnabled()) {
-      const hasQuickReplies = (rawQuickReplies?.length ?? 0) > 0;
+      const hasActions = rawActions.length > 0;
       const hasPaymentRequest = Boolean(paymentRequest);
-      if (hasQuickReplies || hasPaymentRequest) {
+      if (hasActions || hasPaymentRequest) {
         const debugKey = msg.id || msg.client_id || `${msg.role}:${msg.created_at}`;
         const snapshot = JSON.stringify({
           role: normalizedRole,
           hasPaymentRequest,
-          rawQuickReplies,
+          rawActions,
           metadataKeys: metadataRecord ? Object.keys(metadataRecord) : [],
         });
         const previous = quickActionMessageDebugRef.current.get(debugKey);
@@ -372,8 +373,8 @@ export const useConversation = ({
             role: normalizedRole,
             metadataKeys: metadataRecord ? Object.keys(metadataRecord) : [],
             hasPaymentRequest,
-            rawQuickRepliesCount: rawQuickReplies?.length ?? 0,
-            rawQuickReplies,
+            rawActionsCount: rawActions.length,
+            rawActions,
           });
         }
       }

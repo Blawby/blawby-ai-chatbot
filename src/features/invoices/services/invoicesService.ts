@@ -10,6 +10,7 @@ import {
   updateInvoice as updateMatterInvoice,
   normalizeInvoice,
   extractInvoicesArray,
+  type BackendInvoice,
 } from '@/features/matters/services/invoicesApi';
 import type { CreateInvoicePayload } from '@/features/matters/types/billing.types';
 import {
@@ -108,16 +109,15 @@ export const getInvoice = async (
   options: FetchOptions = {}
 ): Promise<InvoiceDetail | null> => {
   if (!practiceId || !invoiceId) return null;
-  const response = await apiClient.get(urls.invoices(practiceId), {
-    params: { invoice_id: invoiceId },
+  const response = await apiClient.get(urls.invoice(practiceId, invoiceId), {
     signal: options.signal,
   });
   const data = response.data;
-  const invoiceRecord = extractInvoicesArray(data)[0];
-  if (!invoiceRecord) return null;
-
-  const invoice = normalizeInvoice(invoiceRecord);
+  // The detail endpoint returns a single invoice object (not wrapped in an array)
   const rawInvoice = extractInvoiceRecord(data);
+  if (!rawInvoice) return null;
+
+  const invoice = normalizeInvoice(rawInvoice as BackendInvoice);
   return normalizeInvoiceDetail(invoice, rawInvoice);
 };
 

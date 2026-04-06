@@ -20,8 +20,6 @@ export interface UseMessageHandlingOptions {
   mode?: ConversationMode | null;
   onConversationMetadataUpdated?: (metadata: ConversationMetadata | null) => void;
   onError?: (error: unknown, context?: Record<string, unknown>) => void;
-  /** Called when payment is required before intake creation. ChatContainer wires this to its handleOpenPayment. */
-  onOpenPayment?: (request: IntakePaymentRequest) => void;
 }
 
 export const useMessageHandlingWithContext = (options: Omit<UseMessageHandlingOptions, 'practiceId'>) => {
@@ -40,7 +38,6 @@ export const useMessageHandling = (options: UseMessageHandlingOptions) => {
     mode,
     onConversationMetadataUpdated,
     onError,
-    onOpenPayment,
     linkAnonymousConversationOnLoad = false
   } = options;
 
@@ -76,7 +73,6 @@ export const useMessageHandling = (options: UseMessageHandlingOptions) => {
     sendMessage: (content, att, reply, opts) => composerRef.current?.sendMessage(content, att, reply, opts),
     sendMessageOverWs: (content, att, meta, reply, convId) => composerRef.current?.sendMessageOverWs(content, att, meta, reply, convId),
     onError,
-    onOpenPayment,
   });
 
   // 3. User Actions & AI (Streaming, Intent, etc)
@@ -129,6 +125,7 @@ export const useMessageHandling = (options: UseMessageHandlingOptions) => {
     latestIntakeSubmission: {
       intakeUuid: consultation?.submission?.intakeUuid ?? null,
       paymentRequired: consultation?.submission?.paymentRequired ?? false,
+      checkoutSessionId: consultation?.submission?.checkoutSessionId ?? null,
     },
     onPaymentConfirmed: (uuid) => {
       setVerifiedPaidIntakeUuids(prev => {

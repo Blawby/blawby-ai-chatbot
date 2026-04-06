@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef } from 'preact/hooks';
-import axios from 'axios';
 import { postSystemMessage } from '@/shared/lib/conversationApi';
-import { fetchIntakePaymentStatus, isPaidIntakeStatus, isTerminalUnpaidStatus } from '@/shared/utils/intakePayments';
+import {
+  fetchIntakeCheckoutSession,
+  fetchPostPayIntakeStatus,
+} from '@/shared/utils/intakePayments';
 import type { IntakePaymentRequest } from '@/shared/utils/intakePayments';
 import type { ContactData } from '@/features/intake/components/ContactForm';
 import type { ConversationMetadata, ConversationMessage } from '@/shared/types/conversation';
@@ -14,11 +16,6 @@ import {
   type DerivedIntakeStatus,
   type IntakeFieldChangeOptions,
 } from '@/shared/types/intake';
-import { useSessionContext } from '@/shared/contexts/SessionContext';
-import { linkConversationToUser } from '@/shared/lib/apiClient';
-import {
-  clearConversationAnonymousParticipant,
-} from '@/shared/utils/anonymousIdentity';
 import { withWidgetAuthHeaders } from '@/shared/utils/widgetAuth';
 import { resolveAllowedParentOrigins } from '@/shared/utils/widgetEvents';
 import {
@@ -27,7 +24,9 @@ import {
   resolveConsultationState,
 } from '@/shared/utils/consultationState';
 import { quickActionDebugLog } from '@/shared/utils/quickActionDebug';
-import { getPracticeClientIntakeSettingsEndpoint } from '@/config/api';
+import {
+  getPracticeClientIntakeSettingsEndpoint,
+} from '@/config/api';
 
 /** Minimal sanitizer for user-provided name in greeting — no XSS risk in system messages but keeps intent clear */
 const sanitizeName = (name: string): string =>
@@ -65,13 +64,8 @@ const PERSISTED_INTAKE_FIELD_KEYS = [
 
 type PersistedIntakeFieldKey = (typeof PERSISTED_INTAKE_FIELD_KEYS)[number];
 
-const assignIntakeField = <K extends PersistedIntakeFieldKey>(
-  state: IntakeConversationState,
-  key: K,
-  value: IntakeConversationState[K]
-) => {
-  state[key] = value;
-};
+
+
 
 const WIDGET_ATTRIBUTION_STORAGE_KEY = 'blawby:widget:attribution';
 
@@ -162,10 +156,7 @@ interface UseIntakeFlowOptions {
   ) => Promise<unknown>;
   onError?: (error: unknown) => void;
   /**
-   * Called when payment is required before intake creation.
-   * The host renders the payment UI; after payment succeeds it calls handleFinalizeSubmit.
    */
-  onOpenPayment?: (request: IntakePaymentRequest) => void;
 }
 
 interface UseIntakeFlowResult {
@@ -188,10 +179,10 @@ interface UseIntakeFlowResult {
    */
   handleConfirmSubmit: () => Promise<void>;
   /**
-   * Phase 2: call the submit-intake API and post the success/payment-prompt message.
+   * Phase 2: call the submit-intake API and post the success message.
    * Called by the parent after payment is confirmed, or immediately if no payment needed.
    */
-  handleFinalizeSubmit: (options?: { generatePaymentLinkOnly?: boolean }) => Promise<{ paymentLinkUrl: string | null }>;
+  handleFinalizeSubmit: (options?: { generatePaymentLinkOnly?: boolean }) => Promise<{ paymentLinkUrl: string | null; intakeUuid: string | null }>;
   /** Backward-compat alias: runs the full confirm+finalize flow (used where no payment UI is wired) */
   handleSubmitNow: () => Promise<void>;
   /** Apply fields extracted by AI or manual edits */
@@ -213,13 +204,10 @@ export function useIntakeFlow({
   sendMessage,
   sendMessageOverWs,
   onError,
-  onOpenPayment: _onOpenPayment,
 }: UseIntakeFlowOptions): UseIntakeFlowResult {
-  const { session, isAnonymous } = useSessionContext();
-  const currentUserId = session?.user?.id ?? null;
   const submitInFlightRef = useRef(false);
   const phase1InFlightRef = useRef(false);
-  const finalizeRef = useRef<(options?: { generatePaymentLinkOnly?: boolean }) => Promise<{ paymentLinkUrl: string | null }>>(async () => ({ paymentLinkUrl: null }));
+  const finalizeRef = useRef<(options?: { generatePaymentLinkOnly?: boolean }) => Promise<{ paymentLinkUrl: string | null; intakeUuid: string | null }>>(async () => ({ paymentLinkUrl: null, intakeUuid: null }));
   const paymentPollingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const paymentPollingCancelledRef = useRef(false);
 
@@ -265,27 +253,33 @@ export function useIntakeFlow({
 
   const applyIntakeFields = useCallback(async (payload: IntakeFieldsPayload, options?: IntakeFieldChangeOptions) => {
     if (!enabled) return;
-    const currentConsultation = resolveConsultationState(conversationMetadataRef.current);
-    const current = currentConsultation?.case ?? intakeConversationState;
-    const next: IntakeConversationState = { ...current };
 
+    // Build only the delta — fields that are explicitly provided in payload.
+    // updateConversationMetadata reads conversationMetadataRef.current as the base,
+    // so we must not pre-merge here (that would cause a double stale-ref spread).
+    const delta: Partial<IntakeConversationState> = {};
     const changedFields: string[] = [];
-    PERSISTED_INTAKE_FIELD_KEYS.forEach(key => {
+
+    const currentConsultation = resolveConsultationState(conversationMetadataRef.current);
+    const currentCase = currentConsultation?.case ?? intakeConversationState;
+
+    PERSISTED_INTAKE_FIELD_KEYS.forEach((key: PersistedIntakeFieldKey) => {
       const val = payload[key];
       if (val !== undefined) {
-        if (current[key] !== val) {
+        if (currentCase[key] !== val) {
           const label = INTAKE_FIELD_LABELS[key];
           if (label) changedFields.push(label);
         }
-        assignIntakeField(next, key, val);
+        (delta as Record<string, unknown>)[key] = val;
       }
     });
+
+    if (Object.keys(delta).length === 0) return;
+
     await updateConversationMetadata(
       applyConsultationPatchToMetadata(
         conversationMetadataRef.current,
-        {
-          case: next,
-        },
+        { case: { ...(currentCase), ...delta } },
         { mirrorLegacyFields: true }
       )
     );
@@ -306,6 +300,7 @@ export function useIntakeFlow({
       }
     }
   }, [conversationId, enabled, practiceId, conversationMetadataRef, updateConversationMetadata, intakeConversationState]);
+
 
   const resetIntakeCta = useCallback(async () => {
     if (!enabled) return;
@@ -459,9 +454,160 @@ export function useIntakeFlow({
     }
   }, [conversationMetadataRef, enabled, intakeConversationState, sendMessage, updateConversationMetadata]);
 
+  const handlePaymentHandoff = useCallback(async (handoffParams: {
+    paymentLinkUrl: string | null;
+    intakeUuid: string | null;
+    practiceSlug: string;
+  }) => {
+    const { paymentLinkUrl, intakeUuid, practiceSlug } = handoffParams;
+    if (!intakeUuid || !conversationId || !practiceId) return;
+
+    let checkoutSessionUrl: string | null = null;
+    let checkoutSessionId: string | null = null;
+
+    try {
+      const checkoutSession = await fetchIntakeCheckoutSession(intakeUuid);
+      checkoutSessionUrl = checkoutSession.url;
+      checkoutSessionId = checkoutSession.sessionId;
+    } catch (fetchError) {
+      console.warn('[handlePaymentHandoff] Failed to fetch checkout session, falling back to payment link', fetchError);
+      checkoutSessionUrl = null;
+      checkoutSessionId = null;
+    }
+
+    const paymentUrl = checkoutSessionUrl ?? paymentLinkUrl;
+    if (!paymentUrl) {
+      const errorMessage = 'Payment could not be initialized. Please try again or contact support.';
+      console.error('[handlePaymentHandoff] Payment required but no payment URL is available', {
+        intakeUuid,
+        checkoutSessionUrl,
+        paymentLinkUrl,
+      });
+      onError?.(errorMessage);
+      return;
+    }
+
+    if (checkoutSessionId) {
+      try {
+        await updateConversationMetadata(
+          applyConsultationPatchToMetadata(
+            conversationMetadataRef.current,
+            {
+              submission: { checkoutSessionId },
+            },
+            { mirrorLegacyFields: true }
+          )
+        );
+      } catch (metadataError) {
+        console.warn('[handlePaymentHandoff] Failed to persist checkout session id', metadataError);
+      }
+    }
+
+    if (typeof window !== 'undefined') {
+      const popup = window.open(paymentUrl, '_blank', 'noopener,noreferrer');
+      
+      if (!popup) {
+        // Popup was blocked, fallback to current tab
+        console.warn('[handlePaymentHandoff] Popup blocked, opening in current tab');
+        window.location.assign(paymentUrl);
+        return;
+      }
+    }
+
+    // ── Payment confirmation polling ──────────────────────────────────
+    if (!enabled) return;
+    if (checkoutSessionId) {
+      if (paymentPollingTimerRef.current !== null) {
+        clearTimeout(paymentPollingTimerRef.current);
+        paymentPollingTimerRef.current = null;
+      }
+      paymentPollingCancelledRef.current = false;
+      const POLL_INTERVAL_MS = 5_000;
+      const POLL_TIMEOUT_MS = 10 * 60 * 1_000;
+      const pollStart = Date.now();
+      let inFlight = false;
+
+      const capturedConversationId = conversationId;
+      const capturedPracticeId = practiceId;
+      const postPaymentConfirmedMessage = async () => {
+        if (paymentPollingCancelledRef.current) return;
+        const name =
+          (conversationMetadataRef.current as Record<string, unknown> | null)?.practiceName as string | undefined
+          ?? 'the practice';
+        const messageId = `system-payment-confirmed-${intakeUuid}`;
+        try {
+          const msg = await postSystemMessage(capturedConversationId, capturedPracticeId, {
+            clientId: messageId,
+            content: `Payment received. ${name} will review your intake and follow up with you here shortly.`,
+            metadata: { intakeUuid, intakeSubmitted: true, paymentStatus: 'succeeded' },
+          });
+          if (msg) applyServerMessages([msg]);
+        } catch (msgError) {
+          console.warn('[handlePaymentHandoff] Failed to post payment confirmation message', msgError);
+        }
+      };
+
+      const pollOnce = () => {
+        if (paymentPollingCancelledRef.current) {
+          if (paymentPollingTimerRef.current !== null) {
+            clearTimeout(paymentPollingTimerRef.current);
+            paymentPollingTimerRef.current = null;
+          }
+          return;
+        }
+        if (Date.now() - pollStart > POLL_TIMEOUT_MS) {
+          if (paymentPollingTimerRef.current !== null) {
+            clearTimeout(paymentPollingTimerRef.current);
+            paymentPollingTimerRef.current = null;
+          }
+          if (paymentPollingCancelledRef.current) return;
+          onError?.('Payment not confirmed after 10 minutes. Please refresh the page to check your status.');
+          return;
+        }
+        if (inFlight) {
+          if (paymentPollingCancelledRef.current) return;
+          paymentPollingTimerRef.current = setTimeout(pollOnce, POLL_INTERVAL_MS) as unknown as ReturnType<typeof setTimeout>;
+          return;
+        }
+        inFlight = true;
+        fetchPostPayIntakeStatus(checkoutSessionId!)
+          .then(async (confirmedIntakeUuid) => {
+            if (paymentPollingCancelledRef.current) return;
+            if (confirmedIntakeUuid) {
+              if (paymentPollingTimerRef.current !== null) {
+                clearTimeout(paymentPollingTimerRef.current);
+                paymentPollingTimerRef.current = null;
+              }
+              if (paymentPollingCancelledRef.current) return;
+              await postPaymentConfirmedMessage();
+            } else {
+              if (paymentPollingCancelledRef.current) return;
+              paymentPollingTimerRef.current = setTimeout(pollOnce, POLL_INTERVAL_MS) as unknown as ReturnType<typeof setTimeout>;
+            }
+          })
+          .catch((pollErr) => {
+            console.warn('[handlePaymentHandoff] Payment status poll failed', pollErr);
+            if (paymentPollingCancelledRef.current) return;
+            paymentPollingTimerRef.current = setTimeout(pollOnce, POLL_INTERVAL_MS) as unknown as ReturnType<typeof setTimeout>;
+          })
+          .finally(() => { inFlight = false; });
+      };
+
+      paymentPollingTimerRef.current = setTimeout(pollOnce, POLL_INTERVAL_MS) as unknown as ReturnType<typeof setTimeout>;
+    }
+  }, [
+    applyServerMessages,
+    conversationId,
+    conversationMetadataRef,
+    enabled,
+    onError,
+    practiceId,
+    updateConversationMetadata,
+  ]);
+
   /**
-   * Phase 1 — validate contact, link user identity, persist practice slug.
-   * Delegates straight to handleFinalizeSubmit.
+   * Phase 1 — validate contact, persist practice slug, and decide whether to
+   * continue into payment or create the intake immediately.
    */
   const handleConfirmSubmit = useCallback(async () => {
     if (!enabled) return;
@@ -490,18 +636,6 @@ export function useIntakeFlow({
 
     phase1InFlightRef.current = true;
     try {
-      // Link auth identity first so the API call has the right session.
-      if (currentUserId && !isAnonymous) {
-        try {
-          await linkConversationToUser(conversationId, practiceId);
-          clearConversationAnonymousParticipant(conversationId);
-        } catch (linkError) {
-          if (!axios.isAxiosError(linkError) || linkError.response?.status !== 409) {
-            console.warn('[handleConfirmSubmit] Conversation link check failed', linkError);
-          }
-        }
-      }
-
       const effectivePracticeSlug =
         (typeof conversationMetadataRef.current?.practiceSlug === 'string'
           ? conversationMetadataRef.current.practiceSlug.trim()
@@ -524,7 +658,7 @@ export function useIntakeFlow({
       // Fetch intake settings to determine whether a consultation fee is required
       // BEFORE creating the intake record. The API call (finalizeRef.current) must
       // only happen after payment is confirmed.
-      let prefillAmount = 0;
+      let consultationFee = 0;
       try {
         const settingsUrl = getPracticeClientIntakeSettingsEndpoint(effectivePracticeSlug);
         const settingsRes = await fetch(settingsUrl, {
@@ -535,179 +669,48 @@ export function useIntakeFlow({
           const settingsPayload = await settingsRes.json() as {
             success?: boolean;
             data?: {
-              settings?: { prefillAmount?: number; prefill_amount?: number };
+              settings?: { consultationFee?: number; consultation_fee?: number };
             };
           };
           const settings = settingsPayload.data?.settings;
-          prefillAmount =
-            (typeof settings?.prefillAmount === 'number' ? settings.prefillAmount : 0) ||
-            (typeof settings?.prefill_amount === 'number' ? settings.prefill_amount : 0);
+          consultationFee =
+            (typeof settings?.consultationFee === 'number' ? settings.consultationFee : 0) ||
+            (typeof settings?.consultation_fee === 'number' ? settings.consultation_fee : 0);
         }
       } catch (settingsError) {
         // Fail open: if we can't fetch settings, proceed without payment gate.
         // This prevents a settings API outage from blocking intake submissions entirely.
         console.warn('[handleConfirmSubmit] Failed to fetch intake settings, proceeding without payment gate', settingsError);
-        prefillAmount = 0;
+        consultationFee = 0;
       }
 
-      const paymentRequired = prefillAmount > 0;
-      quickActionDebugLog('payment gate evaluated', { prefillAmount, paymentRequired, effectivePracticeSlug });
+      const paymentRequired = consultationFee > 0;
+      quickActionDebugLog('payment gate evaluated', { consultationFee, paymentRequired, effectivePracticeSlug });
 
       if (paymentRequired) {
-        // ── Conversational payment flow ──────────────────────────────────────
-        // Step 1: Create the intake record. handleFinalizeSubmit now returns
-        // paymentLinkUrl directly — reading it from conversation metadata was
-        // always wrong because handleFinalizeSubmit stores it in the system
-        // *message* metadata, not in the conversation metadata object.
+        // ── Direct payment handoff ──────────────────────────────────────────
+        // Step 1: Create the intake record. handleFinalizeSubmit returns the
+        // identifiers we need directly so this flow does not race the metadata
+        // persistence round-trip.
         const finalizeResult = await finalizeRef.current({ generatePaymentLinkOnly: true });
-        const paymentLinkUrl = finalizeResult?.paymentLinkUrl ?? null;
-
-        // Step 2: Read the intakeUuid that handleFinalizeSubmit just persisted
-        // into conversation metadata (updateConversationMetadata runs inside it).
-        const latestConsultation = resolveConsultationState(conversationMetadataRef.current);
-        const intakeUuid = latestConsultation?.submission?.intakeUuid ?? null;
-
-        if (intakeUuid && paymentLinkUrl && conversationId && practiceId) {
-          const formattedAmount = prefillAmount > 0
-            ? new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' }).format(prefillAmount / 100)
-            : null;
-          const practiceName =
-            (conversationMetadataRef.current as Record<string, unknown> | null)?.practiceName as string | undefined
-            ?? 'The practice';
-          const content = formattedAmount
-            ? `Your brief looks great. ${practiceName} charges a ${formattedAmount} consultation fee to review your case. Tap below to pay and submit.`
-            : `Your brief looks great. ${practiceName} requires a consultation fee to review your case. Tap below to pay and submit.`;
-
-          try {
-            const paymentMsg = await postSystemMessage(conversationId, practiceId, {
-              clientId: `system-intake-pay-prompt-${intakeUuid}`,
-              content,
-              metadata: {
-                intakeUuid,
-                paymentRequired: true,
-                quickReplies: [`__pay__:${paymentLinkUrl}`],
-              },
-            });
-            if (paymentMsg) applyServerMessages([paymentMsg]);
-          } catch (msgError) {
-            console.warn('[handleConfirmSubmit] Failed to post conversational payment prompt', msgError);
-          }
-
-          // ── Payment confirmation polling ──────────────────────────────────
-          // Uses recursive setTimeout (not setInterval) so slow fetches cannot
-          // overlap with the next scheduled check. An inFlight bool adds a
-          // second layer of protection. On timeout we surface an error so the
-          // user knows to refresh rather than waiting indefinitely.
-          if (paymentPollingTimerRef.current !== null) {
-            clearTimeout(paymentPollingTimerRef.current);
-            paymentPollingTimerRef.current = null;
-          }
-          if (!enabled) {
-            return;
-          }
-          paymentPollingCancelledRef.current = false;
-          const POLL_INTERVAL_MS = 5_000;
-          const POLL_TIMEOUT_MS = 10 * 60 * 1_000;
-          const pollStart = Date.now();
-          let inFlight = false;
-
-          // Dedicated confirmation: only posts the success message and bypasses
-          // the intakeUuid existence guard inside handleFinalizeSubmit, which
-          // would otherwise cause the callback to return early with no message.
-          const capturedConversationId = conversationId;
-          const capturedPracticeId = practiceId;
-          const postPaymentConfirmedMessage = async () => {
-            if (paymentPollingCancelledRef.current) return;
-            const name =
-              (conversationMetadataRef.current as Record<string, unknown> | null)?.practiceName as string | undefined
-              ?? 'the practice';
-            const messageId = `system-intake-paid-${intakeUuid}`;
-            try {
-              const msg = await postSystemMessage(capturedConversationId, capturedPracticeId, {
-                clientId: messageId,
-                content: `Payment received. ${name} will review your intake and follow up with you here shortly.`,
-                metadata: { intakeUuid, intakeSubmitted: true, paymentStatus: 'succeeded' },
-              });
-              if (msg) applyServerMessages([msg]);
-            } catch (msgError) {
-              console.warn('[handleConfirmSubmit] Failed to post payment confirmation message', msgError);
-            }
-          };
-
-          const pollOnce = () => {
-            if (paymentPollingCancelledRef.current) {
-              if (paymentPollingTimerRef.current !== null) {
-                clearTimeout(paymentPollingTimerRef.current);
-                paymentPollingTimerRef.current = null;
-              }
-              return;
-            }
-            if (Date.now() - pollStart > POLL_TIMEOUT_MS) {
-              if (paymentPollingTimerRef.current !== null) {
-                clearTimeout(paymentPollingTimerRef.current);
-                paymentPollingTimerRef.current = null;
-              }
-              if (paymentPollingCancelledRef.current) return;
-              onError?.('Payment not confirmed after 10 minutes. Please refresh the page to check your status.');
-              return;
-            }
-            if (inFlight) {
-              // Previous fetch still running — skip this tick and reschedule.
-              if (paymentPollingCancelledRef.current) return;
-              paymentPollingTimerRef.current = setTimeout(pollOnce, POLL_INTERVAL_MS) as unknown as ReturnType<typeof setTimeout>;
-              return;
-            }
-            inFlight = true;
-            fetchIntakePaymentStatus(intakeUuid)
-              .then(async (status) => {
-                if (paymentPollingCancelledRef.current) return;
-                if (isPaidIntakeStatus(status)) {
-                  if (paymentPollingTimerRef.current !== null) {
-                    clearTimeout(paymentPollingTimerRef.current);
-                    paymentPollingTimerRef.current = null;
-                  }
-                  if (paymentPollingCancelledRef.current) return;
-                  await postPaymentConfirmedMessage();
-                } else if (isTerminalUnpaidStatus(status)) {
-                  if (paymentPollingTimerRef.current !== null) {
-                    clearTimeout(paymentPollingTimerRef.current);
-                    paymentPollingTimerRef.current = null;
-                  }
-                  if (paymentPollingCancelledRef.current) return;
-                  const name =
-                    (conversationMetadataRef.current as Record<string, unknown> | null)?.practiceName as string | undefined
-                    ?? 'the practice';
-                  try {
-                    const msg = await postSystemMessage(capturedConversationId, capturedPracticeId, {
-                      clientId: `system-intake-pay-failed-${intakeUuid}`,
-                      content: `Payment failed or was canceled. Please try again when you're ready, or reach out to ${name} directly.`,
-                      metadata: { intakeUuid, paymentStatus: status },
-                    });
-                    if (msg) applyServerMessages([msg]);
-                  } catch (msgError) {
-                    console.warn('[handleConfirmSubmit] Failed to post payment failed message', msgError);
-                  }
-                } else {
-                  if (paymentPollingCancelledRef.current) return;
-                  paymentPollingTimerRef.current = setTimeout(pollOnce, POLL_INTERVAL_MS) as unknown as ReturnType<typeof setTimeout>;
-                }
-              })
-              .catch((pollErr) => {
-                console.warn('[handleConfirmSubmit] Payment status poll failed', pollErr);
-                if (paymentPollingCancelledRef.current) return;
-                paymentPollingTimerRef.current = setTimeout(pollOnce, POLL_INTERVAL_MS) as unknown as ReturnType<typeof setTimeout>;
-              })
-              .finally(() => { inFlight = false; });
-          };
-
-          paymentPollingTimerRef.current = setTimeout(pollOnce, POLL_INTERVAL_MS) as unknown as ReturnType<typeof setTimeout>;
-        }
-
+        await handlePaymentHandoff({
+          paymentLinkUrl: finalizeResult?.paymentLinkUrl,
+          intakeUuid: finalizeResult?.intakeUuid,
+          practiceSlug: effectivePracticeSlug,
+        });
         return;
       }
 
-      // No payment required — create the intake record immediately.
-      await finalizeRef.current();
+      // No payment pre-calculated — create the intake record immediately.
+      // If the backend returns a paymentLinkUrl, we still hand off to payment.
+      const finalizeResult = await finalizeRef.current();
+      if (finalizeResult?.paymentLinkUrl) {
+        await handlePaymentHandoff({
+          paymentLinkUrl: finalizeResult.paymentLinkUrl,
+          intakeUuid: finalizeResult.intakeUuid,
+          practiceSlug: effectivePracticeSlug,
+        });
+      }
     } catch (error) {
       console.error('[handleConfirmSubmit] Intake submission failed', error);
       onError?.(error instanceof Error ? error.message : 'Failed to submit intake. Please try again.');
@@ -718,9 +721,7 @@ export function useIntakeFlow({
     applyServerMessages,
     conversationId,
     conversationMetadataRef,
-    currentUserId,
     enabled,
-    isAnonymous,
     onError,
     practiceId,
     resolvedSlimContactDraft,
@@ -729,14 +730,14 @@ export function useIntakeFlow({
   ]);
 
   /**
-   * Phase 2 — call the submit-intake API and post outcome messages.
+   * Phase 2 — call the submit-intake API and post the success message.
    * Should be invoked:
    *   - directly by handleConfirmSubmit when no payment is required, OR
    *   - by the payment UI's onSuccess callback after payment completes.
    */
-  const handleFinalizeSubmit = useCallback(async (options?: { generatePaymentLinkOnly?: boolean }): Promise<{ paymentLinkUrl: string | null }> => {
-    if (!enabled) return { paymentLinkUrl: null };
-    if (!conversationId || !practiceId) return { paymentLinkUrl: null };
+  const handleFinalizeSubmit = useCallback(async (options?: { generatePaymentLinkOnly?: boolean }): Promise<{ paymentLinkUrl: string | null; intakeUuid: string | null }> => {
+    if (!enabled) return { paymentLinkUrl: null, intakeUuid: null };
+    if (!conversationId || !practiceId) return { paymentLinkUrl: null, intakeUuid: null };
 
     const existingSubmission = conversationMetadataRef.current?.submission as { intakeUuid?: string } | undefined;
     if (existingSubmission?.intakeUuid) {
@@ -747,7 +748,7 @@ export function useIntakeFlow({
           intakeUuid: existingSubmission.intakeUuid,
         });
       }
-      return { paymentLinkUrl: null };
+      return { paymentLinkUrl: null, intakeUuid: existingSubmission.intakeUuid };
     }
     if (submitInFlightRef.current) {
       if (import.meta.env.DEV) {
@@ -756,7 +757,7 @@ export function useIntakeFlow({
           practiceId,
         });
       }
-      return { paymentLinkUrl: null };
+      return { paymentLinkUrl: null, intakeUuid: null };
     }
     submitInFlightRef.current = true;
     try {
@@ -777,7 +778,14 @@ export function useIntakeFlow({
       }
       const result = await response.json() as {
         success: boolean;
-        data: { intake_uuid: string; status: string; payment_link_url: string | null };
+        data: {
+          intake_uuid: string;
+          status: string;
+          payment_link_url: string | null;
+          organization?: {
+            name?: string | null;
+          } | null;
+        };
       };
       quickActionDebugLog('submit-intake response received', {
         conversationId,
@@ -801,14 +809,15 @@ export function useIntakeFlow({
       // If no payment is required, post the standard success message.
       // (If payment is required, the prompt is handled by handleConfirmSubmit).
       if (!paymentLinkUrl) {
-        const practiceName =
-          (conversationMetadataRef.current as Record<string, unknown>)?.practiceName as string | undefined
-          ?? 'the practice';
+        const organizationName = typeof result.data?.organization?.name === 'string' && result.data.organization.name.trim().length > 0
+          ? result.data.organization.name.trim()
+          : (conversationMetadataRef.current as Record<string, unknown>)?.practiceName as string | undefined
+            ?? 'the practice';
         const messageId = `system-intake-submit-${intakeUuid}`;
         try {
           const persistedMessage = await postSystemMessage(conversationId, practiceId, {
             clientId: messageId,
-            content: `Your intake has been submitted. ${practiceName} will review it and follow up with you here shortly.`,
+            content: `Your intake has been submitted. ${organizationName} will review it and follow up with you here shortly.`,
             metadata: { intakeUuid, intakeSubmitted: true },
           });
           if (persistedMessage) applyServerMessages([persistedMessage]);
@@ -835,11 +844,11 @@ export function useIntakeFlow({
           { mirrorLegacyFields: true }
         )
       );
-      return { paymentLinkUrl: paymentLinkUrl ?? null };
+      return { paymentLinkUrl: paymentLinkUrl ?? null, intakeUuid };
     } catch (error) {
       console.error('[handleFinalizeSubmit] Intake submission failed', error);
       onError?.(error instanceof Error ? error.message : 'Failed to submit intake. Please try again.');
-      return { paymentLinkUrl: null };
+      return { paymentLinkUrl: null, intakeUuid: null };
     } finally {
       submitInFlightRef.current = false;
     }
@@ -855,7 +864,7 @@ export function useIntakeFlow({
   ]);
 
    
-  finalizeRef.current = handleFinalizeSubmit as (options?: { generatePaymentLinkOnly?: boolean }) => Promise<{ paymentLinkUrl: string | null }>;
+  finalizeRef.current = handleFinalizeSubmit as (options?: { generatePaymentLinkOnly?: boolean }) => Promise<{ paymentLinkUrl: string | null; intakeUuid: string | null }>;
 
   // Cancel any in-flight payment polling when the hook unmounts.
   useEffect(() => {

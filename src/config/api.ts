@@ -40,6 +40,10 @@ export const getPracticeClientIntakeStatusEndpoint = (uuid: string) => {
   return `${getFormsApiUrl()}/api/practice-client-intakes/${encodeURIComponent(uuid)}/status`;
 };
 
+export const getPracticeClientPostPayStatusEndpoint = (sessionId: string) => {
+  return `${getFormsApiUrl()}/api/practice-client-intakes/post-pay/status?session_id=${encodeURIComponent(sessionId)}`;
+};
+
 export const getPracticeClientIntakeCheckoutSessionEndpoint = (uuid: string) => {
   return `${getFormsApiUrl()}/api/practice-client-intakes/${encodeURIComponent(uuid)}/checkout-session`;
 };

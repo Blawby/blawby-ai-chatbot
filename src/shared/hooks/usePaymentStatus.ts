@@ -5,7 +5,7 @@
  *   1. On mount, reads `intakePaymentSuccess:*` keys from sessionStorage
  *      (written by the Stripe return URL handler) and posts a confirmation
  *      system message.
- *   2. For pending payments, checks the backend intake status endpoint
+ *   2. For pending payments, checks the backend post-pay status endpoint
  *      on load to reconcile if the user returned without a success flag
  *      (e.g., closed the Stripe tab and refreshed).
  *   3. Exposes `verifiedPaidIntakeUuids` so the rest of the UI can gate
@@ -19,8 +19,9 @@
 
 import { useState, useEffect, useRef, useCallback } from 'preact/hooks';
 import type { ConversationMessage } from '@/shared/types/conversation';
-import { getPracticeClientIntakeStatusEndpoint } from '@/config/api';
-import { isPaidIntakeStatus } from '@/shared/utils/intakePayments';
+import {
+  fetchPostPayIntakeStatus,
+} from '@/shared/utils/intakePayments';
 import { postSystemMessage } from '@/shared/lib/conversationApi';
 
 // ─── types ────────────────────────────────────────────────────────────────────
@@ -28,6 +29,7 @@ import { postSystemMessage } from '@/shared/lib/conversationApi';
 export interface LatestIntakeSubmission {
   intakeUuid: string | null;
   paymentRequired: boolean;
+  checkoutSessionId?: string | null;
 }
 
 export interface UsePaymentStatusOptions {
@@ -45,25 +47,13 @@ export interface UsePaymentStatusOptions {
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
-const fetchIntakePaidStatus = async (intakeUuid: string, signal?: AbortSignal): Promise<boolean> => {
-  const response = await fetch(getPracticeClientIntakeStatusEndpoint(intakeUuid), {
-    credentials: 'include',
-    signal,
-  });
-  if (!response.ok) throw new Error(`Failed to fetch intake status (${response.status})`);
-  const payload = await response.json() as {
-    success?: boolean;
-    data?: { status?: string; succeeded_at?: string | null };
-  };
-  if (!payload?.success || !payload.data) return false;
-  return isPaidIntakeStatus(payload.data.status, payload.data.succeeded_at);
-};
-
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-const parseStoredFlag = (raw: string | null): { practiceName?: string; practiceId?: string; conversationId?: string } | null => {
+const parseStoredFlag = (
+  raw: string | null
+): { practiceName?: string; practiceId?: string; conversationId?: string; sessionId?: string } | null => {
   if (!raw) return null;
-  try { return JSON.parse(raw) as { practiceName?: string }; }
+  try { return JSON.parse(raw) as { practiceName?: string; practiceId?: string; conversationId?: string; sessionId?: string }; }
   catch (err) { console.warn('[usePaymentStatus] Failed to parse payment flag', err); return null; }
 };
 
@@ -177,11 +167,11 @@ export const usePaymentStatus = ({
 
   // ── backend payment reconciliation ────────────────────────────────────────
   // Runs whenever the latest intake submission changes — handles the case
-  // where a user paid but sessionStorage was cleared (different device, tab crash, etc.)
+  // where a user returned without a persisted payment-success flag.
 
   useEffect(() => {
-    const { intakeUuid, paymentRequired } = latestIntakeSubmission;
-    if (!intakeUuid || !paymentRequired) return;
+    const { checkoutSessionId, paymentRequired } = latestIntakeSubmission;
+    if (!checkoutSessionId || !paymentRequired) return;
     if (!conversationId || !practiceId) return;
 
     let cancelled = false;
@@ -189,13 +179,13 @@ export const usePaymentStatus = ({
 
     (async () => {
       try {
-        const isPaid = await fetchIntakePaidStatus(intakeUuid, controller.signal);
-        if (!isPaid || cancelled) return;
+        const intakeUuid = await fetchPostPayIntakeStatus(checkoutSessionId, { timeoutMs: 8_000 });
+        if (!intakeUuid || cancelled) return;
         await postPaymentConfirmation(intakeUuid, practiceName || 'the practice', controller.signal);
       } catch (error) {
         if (controller.signal.aborted || cancelled) return;
         const errorMessage = error instanceof Error ? error.message : String(error);
-        onError?.(errorMessage, { source: 'fetchIntakePaidStatus', intakeUuid });
+        onError?.(errorMessage, { source: 'fetchPostPayIntakeStatus', checkoutSessionId });
         console.warn('[usePaymentStatus] Failed to reconcile payment status on refresh', error);
       }
     })();
