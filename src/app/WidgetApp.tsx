@@ -268,7 +268,14 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
     loadMoreMessages, isSocketReady, applyIntakeFields,
   } = messageHandling;
 
-  useEffect(() => { clearMessages(); }, [practiceId, clearMessages]);
+  const lastWipedPracticeIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!practiceId) return;
+    if (lastWipedPracticeIdRef.current !== null && lastWipedPracticeIdRef.current !== practiceId) {
+      clearMessages();
+    }
+    lastWipedPracticeIdRef.current = practiceId;
+  }, [practiceId, clearMessages]);
 
   const activeConversationId = effectiveConversationId;
 

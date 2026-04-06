@@ -1,10 +1,6 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest';
 import { 
-  executeIntakeTool, 
-  handleSaveCaseDetails, 
-  handleRequestPayment, 
-  handleSubmitIntake,
-  type ToolResult 
+  executeIntakeTool
 } from '../../../worker/routes/aiChatIntake';
 
 describe('executeIntakeTool', () => {

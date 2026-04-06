@@ -1,11 +1,10 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest';
 import { 
   isIntakeReadyForSubmission, 
-  isIntakeSubmittable,
   normalizeIntakeConversationState,
   deriveIntakeStatusFromConsultation,
 } from '../../../src/shared/utils/consultationState';
-import type { IntakeConversationState, ConsultationState } from '../../../src/shared/types/intake';
+import type { IntakeConversationState } from '../../../src/shared/types/intake';
 
 // Helper function to create minimal intake state for testing
 const createMinimalIntakeState = (overrides: Partial<IntakeConversationState> = {}): IntakeConversationState => ({

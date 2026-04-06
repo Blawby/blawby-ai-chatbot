@@ -1,5 +1,5 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest';
-import { handleRequestPayment, type ToolResult } from '../../../worker/routes/aiChatIntake';
+import { handleRequestPayment } from '../../../worker/routes/aiChatIntake';
 
 describe('request_payment tool', () => {
   beforeEach(() => {

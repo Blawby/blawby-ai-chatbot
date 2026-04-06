@@ -349,7 +349,7 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
             Payment successful
           </h3>
           <p className="text-input-placeholder">
-            {formattedAmount ? `Thank you for your payment of ${formattedAmount}.` : 'Thank you for your payment.'}
+            Thank you! Your payment was successful and your case details are being processed. A member of our team will contact you at the information you provided.
           </p>
           <div className="mt-4 border-t border-line-glass/30 pt-4 text-xs text-emerald-700 dark:text-emerald-300">
             Payment processed successfully. You will receive confirmation if an email is on file.

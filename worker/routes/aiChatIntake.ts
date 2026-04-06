@@ -182,7 +182,8 @@ export const handleSaveCaseDetails = (
   const isSubmittable = isIntakeSubmittable(merged, submissionGate);
 
   // Derive suggested replies for the next open field
-  const actions = deriveNextActions(merged, submissionGate);
+  const consultationFee = readFiniteNumberField(submissionGate.details, ['consultationFee', 'consultation_fee']);
+  const actions = deriveNextActions(merged, submissionGate, consultationFee);
   if (actions.length > 0) {
     patch.ctaShown = true;
   }
@@ -267,12 +268,16 @@ export const executeIntakeTool = (
 const deriveNextActions = (
   mergedState: Record<string, unknown> | null,
   submissionGate: IntakeSubmissionGate,
+  consultationFee?: number | null,
 ): ChatMessageAction[] => {
   if (!mergedState) return [];
 
+  const formattedFee = typeof consultationFee === 'number' && consultationFee > 0 ? formatCurrency(consultationFee / 100) : null;
+  const payLabel = formattedFee ? `Pay ${formattedFee}` : 'Pay and submit';
+
   // All required fields collected — either payment or submit
   if (isIntakeSubmittable(mergedState, submissionGate)) {
-    return [createSubmitAction(submissionGate.paymentRequiredBeforeSubmit && !submissionGate.paymentCompleted ? 'Pay and submit' : 'Submit request')];
+    return [createSubmitAction(submissionGate.paymentRequiredBeforeSubmit && !submissionGate.paymentCompleted ? payLabel : 'Submit request')];
   }
 
   // Payment required (case info complete, payment pending)
@@ -281,7 +286,7 @@ const deriveNextActions = (
     !submissionGate.paymentCompleted &&
     isIntakeReadyForSubmission(mergedState)
   ) {
-    return [createSubmitAction('Pay and submit')];
+    return [createSubmitAction(payLabel)];
   }
 
   return [];
@@ -295,6 +300,7 @@ export const buildIntakeSystemPrompt = (
   services: Array<{ name: string; key: string }>,
   practiceContext: Record<string, unknown> | null,
   storedIntakeState: Record<string, unknown> | null,
+  userName?: string | null,
 ): string => {
   const cappedServices = services.slice(0, MAX_SERVICES_IN_CONVERSATION_PROMPT);
   const serviceList = cappedServices.length > 0
@@ -305,8 +311,11 @@ export const buildIntakeSystemPrompt = (
     ? practiceContext.practiceName.trim()
     : 'this law firm';
   const intakeContext = buildIntakeContextSummary(storedIntakeState, services);
+  const firstName = userName ? getFirstName(userName) : null;
+  const userSalutationSnippet = firstName ? `The user's first name is ${firstName}. ` : '';
+  const userNamingInstruction = firstName ? ' (use their name)' : '';
 
-  return `You are a warm, helpful legal intake assistant for ${practiceName}. Your job is to collect case information conversationally and call tools to save it.
+  return `${userSalutationSnippet}You are a warm, helpful legal intake assistant for ${practiceName}. Your job is to collect case information conversationally and call tools to save it.
 
 This firm handles the following practice areas:
 ${serviceList}
@@ -328,15 +337,16 @@ Conversation rules:
 - Documents are optional context. Do not block submission on whether the user has documents.
 - Once description, city, and state are captured, prioritize getting the person to submit instead of asking optional enrichment questions.
 
-- When all required case details are collected and a consultation fee is required, tell the user warmly that you have everything you need and that the practice requires a fee to review their case. Explain they can tap Pay and submit below to proceed. Keep it to 2 sentences maximum.
+- If a consultation fee is required: Acknowledge that you have their details warmly${userNamingInstruction}. Mention the fee softly as the next step to move forward with a review. Max 2 sentences.
+- If no fee is required: Acknowledge that you have their details warmly${userNamingInstruction} and ask if they are ready to send it over for review.
 
 ${intakeContext ? `Current intake state:\n${intakeContext}` : 'No case details collected yet. Start by asking about the situation.'}`;
 };
 
-const buildIntakeContextSummary = (
+function buildIntakeContextSummary(
   state: Record<string, unknown> | null,
   services: Array<{ name: string; key: string }>,
-): string => {
+): string {
   if (!state) return '';
   const serviceNameByKey = new Map(services.map((s) => [s.key, s.name]));
   const lines: string[] = [];
@@ -377,19 +387,22 @@ const mergeIntakeState = (
 export interface IntakeSubmissionGate {
   paymentRequiredBeforeSubmit: boolean;
   paymentCompleted: boolean;
+  details?: Record<string, unknown> | null;
 }
 
-const isIntakeReadyForSubmission = (state: Record<string, unknown> | null): boolean =>
-  isSharedIntakeReadyForSubmission(state as Parameters<typeof isSharedIntakeReadyForSubmission>[0]);
+function isIntakeReadyForSubmission(state: Record<string, unknown> | null): boolean {
+  return isSharedIntakeReadyForSubmission(state as Parameters<typeof isSharedIntakeReadyForSubmission>[0]);
+}
 
-const isIntakeSubmittable = (
+function isIntakeSubmittable(
   state: Record<string, unknown> | null,
   submissionGate?: IntakeSubmissionGate | null,
-): boolean =>
-  isSharedIntakeSubmittable(state as Parameters<typeof isSharedIntakeSubmittable>[0], {
+): boolean {
+  return isSharedIntakeSubmittable(state as Parameters<typeof isSharedIntakeSubmittable>[0], {
     paymentRequired: submissionGate?.paymentRequiredBeforeSubmit === true,
     paymentReceived: submissionGate?.paymentCompleted === true,
   });
+}
 
 // ---------------------------------------------------------------------------
 // Deterministic acknowledgment for tool-only turns
@@ -399,49 +412,30 @@ const deriveCaseSavedAcknowledgment = (
   toolResult: ToolResult | null,
   submissionGate: IntakeSubmissionGate,
   mergedState: Record<string, unknown> | null,
-  services: Array<{ name: string; key: string }> = [],
+  _services: Array<{ name: string; key: string }> = [],
+  consultationFee?: number | null,
+  userName?: string | null,
 ): string => {
   if (!toolResult?.success || !mergedState) return '';
 
   const description = typeof mergedState.description === 'string' ? mergedState.description.trim() : '';
   const city = typeof mergedState.city === 'string' ? mergedState.city.trim() : '';
   const state = typeof mergedState.state === 'string' ? mergedState.state.trim() : '';
-  const practiceAreaKey = typeof mergedState.practiceArea === 'string' ? mergedState.practiceArea.trim() : '';
-  const urgency = typeof mergedState.urgency === 'string' ? mergedState.urgency.trim() : '';
-
-  const serviceNameByKey = new Map(services.map((s) => [s.key, s.name]));
-  const practiceAreaLabel = practiceAreaKey
-    ? (serviceNameByKey.get(practiceAreaKey) ?? practiceAreaKey.toLowerCase().replace(/_/g, ' '))
-    : null;
+  const _practiceAreaKey = typeof mergedState.practiceArea === 'string' ? mergedState.practiceArea.trim() : '';
 
   const needsPayment = submissionGate.paymentRequiredBeforeSubmit && !submissionGate.paymentCompleted;
   const isReady = isIntakeReadyForSubmission(mergedState);
 
-  const buildSummary = (): string => {
-    const locationPart = city && state ? `${city}, ${state}` : city || state || null;
-    const areaPart = practiceAreaLabel ?? null;
-    const urgencyPart = urgency === 'emergency' ? 'emergency matter'
-      : urgency === 'time_sensitive' ? 'time-sensitive matter'
-      : 'legal matter';
-
-    if (areaPart && locationPart) {
-      return `a ${areaPart} ${urgencyPart !== 'legal matter' ? urgencyPart : 'matter'} in ${locationPart}`.replace(/\s+/g, ' ').trim();
-    }
-    if (areaPart) {
-      return `a ${areaPart} ${urgencyPart !== 'legal matter' ? urgencyPart : 'matter'}`.replace(/\s+/g, ' ').trim();
-    }
-    if (locationPart) {
-      return `a ${urgencyPart} in ${locationPart}`.replace(/\s+/g, ' ').trim();
-    }
-    return 'your legal matter';
-  };
+  const userPart = userName ? `, ${getFirstName(userName)}` : '';
 
   if (isReady) {
-    const summary = buildSummary();
     if (needsPayment) {
-      return `I have what I need for ${summary}. A consultation fee is required to proceed — tap Pay and submit below.`;
+      const formattedFee = typeof consultationFee === 'number' && consultationFee > 0 ? formatCurrency(consultationFee / 100) : null;
+      const feePart = formattedFee ? `a ${formattedFee}` : 'a';
+
+      return `I’ve got your case details${userPart}. To move forward with a formal review and schedule your consultation, there is ${feePart} fee.`;
     }
-    return `I have what I need for ${summary}. Are you ready to submit this to the practice?`;
+    return `I’ve got your details${userPart}. Our team is ready to review these details. Ready to send?`;
   }
 
   if (!description) {
@@ -453,6 +447,28 @@ const deriveCaseSavedAcknowledgment = (
   }
 
   return 'Got it. Is there anything else you\'d like to add before we connect you with the practice?';
+};
+
+function formatCurrency(amount: number): string {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+  }).format(amount);
+}
+
+function getFirstName(name: string): string {
+  const trimmed = name.trim();
+  if (!trimmed) return '';
+  return trimmed.split(/\s+/)[0];
+}
+
+function readFiniteNumberField(record: Record<string, unknown> | null | undefined, keys: string[]): number | null {
+  if (!record) return null;
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
+  }
+  return null;
 };
 
 // ---------------------------------------------------------------------------

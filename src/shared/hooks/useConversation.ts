@@ -160,13 +160,32 @@ export const useConversation = ({
   const currentUserId = externalUserId ?? session?.user?.id ?? null;
 
   // ── state ──────────────────────────────────────────────────────────────────
+  // ── cache sync initialization ──────────────────────────────────────────
+  const { initialMessages, initialMessagesReady } = useMemo(() => {
+    if (typeof window === 'undefined' || !enabled || !conversationId || !practiceId) {
+      return { initialMessages: [], initialMessagesReady: false };
+    }
+    try {
+      const key = `chat:messages:${practiceId}:${conversationId}`;
+      const raw = window.localStorage.getItem(key);
+      if (!raw) return { initialMessages: [], initialMessagesReady: false };
+      const parsed = JSON.parse(raw) as ChatMessageUI[];
+      if (!Array.isArray(parsed) || parsed.length === 0) return { initialMessages: [], initialMessagesReady: false };
+      const isValid = parsed.every(m => typeof m.id === 'string' && typeof m.content === 'string' && typeof m.timestamp === 'number');
+      if (!isValid) { window.localStorage.removeItem(key); return { initialMessages: [], initialMessagesReady: false }; }
+      const filtered = parsed.filter(m => !m.id.startsWith(STREAMING_BUBBLE_PREFIX));
+      return { initialMessages: filtered, initialMessagesReady: true };
+    } catch { return { initialMessages: [], initialMessagesReady: false }; }
+  }, [enabled, conversationId, practiceId]);
+
+  // ── state ──────────────────────────────────────────────────────────────────
   const [isConversationLinkReady, setIsConversationLinkReady] = useState(!linkAnonymousConversationOnLoad);
-  const [messages, setMessages] = useState<ChatMessageUI[]>([]);
+  const [messages, setMessages] = useState<ChatMessageUI[]>(initialMessages);
   const [conversationMetadata, setConversationMetadata] = useState<ConversationMetadata | null>(null);
   const [hasMoreMessages, setHasMoreMessages] = useState(false);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [isLoadingMoreMessages, setIsLoadingMoreMessages] = useState(false);
-  const [messagesReady, setMessagesReady] = useState(false);
+  const [messagesReady, setMessagesReady] = useState(initialMessagesReady);
   const [isSocketReady, setIsSocketReady] = useState(false);
 
   // ── stable refs ───────────────────────────────────────────────────────────
@@ -198,7 +217,7 @@ export const useConversation = ({
 
   // Message tracking refs — exposed so useChatComposer can share them
   /** Tracks all message IDs that have been applied to avoid duplicates */
-  const messageIdSetRef = useRef(new Set<string>());
+  const messageIdSetRef = useRef(new Set<string>(initialMessages.map(m => m.id)));
   /** Maps client_id → temp UI message ID for optimistic update resolution */
   const pendingClientMessageRef = useRef(new Map<string, string>());
   /** Maps client_id → ack promise handlers */
@@ -1152,23 +1171,7 @@ export const useConversation = ({
 
   // ── lifecycle effects ──────────────────────────────────────────────────────
 
-  // Message cache restore
-  useEffect(() => {
-    if (!enabled) return;
-    if (typeof window === 'undefined' || !conversationId || !practiceId) return;
-    try {
-      const raw = window.localStorage.getItem(getMessageCacheKey(practiceId, conversationId));
-      if (!raw) return;
-      const parsed = JSON.parse(raw) as ChatMessageUI[];
-      if (!Array.isArray(parsed) || parsed.length === 0) return;
-      const isValid = parsed.every(m => typeof m.id === 'string' && typeof m.content === 'string' && typeof m.timestamp === 'number');
-      if (!isValid) { window.localStorage.removeItem(getMessageCacheKey(practiceId, conversationId)); return; }
-      const filtered = parsed.filter(m => !m.id.startsWith(STREAMING_BUBBLE_PREFIX));
-      messageIdSetRef.current = new Set(filtered.map(m => m.id));
-      setMessages(filtered);
-      setMessagesReady(true);
-    } catch (err) { if (import.meta.env.DEV) console.warn('[useConversation] Failed to load cached messages', err); }
-  }, [conversationId, enabled, practiceId]);
+
 
   // Message cache write
   useEffect(() => {

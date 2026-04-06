@@ -2,9 +2,7 @@ import { useCallback, useEffect, useMemo, useRef } from 'preact/hooks';
 import { postSystemMessage } from '@/shared/lib/conversationApi';
 import {
   fetchIntakeCheckoutSession,
-  fetchPostPayIntakeStatus,
 } from '@/shared/utils/intakePayments';
-import type { IntakePaymentRequest } from '@/shared/utils/intakePayments';
 import type { ContactData } from '@/features/intake/components/ContactForm';
 import type { ConversationMetadata, ConversationMessage } from '@/shared/types/conversation';
 import type { FileAttachment } from '../../../worker/types';
@@ -459,7 +457,7 @@ export function useIntakeFlow({
     intakeUuid: string | null;
     practiceSlug: string;
   }) => {
-    const { paymentLinkUrl, intakeUuid, practiceSlug } = handoffParams;
+    const { paymentLinkUrl, intakeUuid } = handoffParams;
     if (!intakeUuid || !conversationId || !practiceId) return;
 
     let checkoutSessionUrl: string | null = null;
@@ -478,11 +476,6 @@ export function useIntakeFlow({
     const paymentUrl = checkoutSessionUrl ?? paymentLinkUrl;
     if (!paymentUrl) {
       const errorMessage = 'Payment could not be initialized. Please try again or contact support.';
-      console.error('[handlePaymentHandoff] Payment required but no payment URL is available', {
-        intakeUuid,
-        checkoutSessionUrl,
-        paymentLinkUrl,
-      });
       onError?.(errorMessage);
       return;
     }
@@ -493,7 +486,7 @@ export function useIntakeFlow({
           applyConsultationPatchToMetadata(
             conversationMetadataRef.current,
             {
-              submission: { checkoutSessionId },
+              submission: { checkoutSessionId, intakeUuid },
             },
             { mirrorLegacyFields: true }
           )
@@ -505,104 +498,17 @@ export function useIntakeFlow({
 
     if (typeof window !== 'undefined') {
       const popup = window.open(paymentUrl, '_blank', 'noopener,noreferrer');
-      
       if (!popup) {
-        // Popup was blocked, fallback to current tab
-        console.warn('[handlePaymentHandoff] Popup blocked, opening in current tab');
         window.location.assign(paymentUrl);
         return;
       }
     }
-
-    // ── Payment confirmation polling ──────────────────────────────────
-    if (!enabled) return;
-    if (checkoutSessionId) {
-      if (paymentPollingTimerRef.current !== null) {
-        clearTimeout(paymentPollingTimerRef.current);
-        paymentPollingTimerRef.current = null;
-      }
-      paymentPollingCancelledRef.current = false;
-      const POLL_INTERVAL_MS = 5_000;
-      const POLL_TIMEOUT_MS = 10 * 60 * 1_000;
-      const pollStart = Date.now();
-      let inFlight = false;
-
-      const capturedConversationId = conversationId;
-      const capturedPracticeId = practiceId;
-      const postPaymentConfirmedMessage = async () => {
-        if (paymentPollingCancelledRef.current) return;
-        const name =
-          (conversationMetadataRef.current as Record<string, unknown> | null)?.practiceName as string | undefined
-          ?? 'the practice';
-        const messageId = `system-payment-confirmed-${intakeUuid}`;
-        try {
-          const msg = await postSystemMessage(capturedConversationId, capturedPracticeId, {
-            clientId: messageId,
-            content: `Payment received. ${name} will review your intake and follow up with you here shortly.`,
-            metadata: { intakeUuid, intakeSubmitted: true, paymentStatus: 'succeeded' },
-          });
-          if (msg) applyServerMessages([msg]);
-        } catch (msgError) {
-          console.warn('[handlePaymentHandoff] Failed to post payment confirmation message', msgError);
-        }
-      };
-
-      const pollOnce = () => {
-        if (paymentPollingCancelledRef.current) {
-          if (paymentPollingTimerRef.current !== null) {
-            clearTimeout(paymentPollingTimerRef.current);
-            paymentPollingTimerRef.current = null;
-          }
-          return;
-        }
-        if (Date.now() - pollStart > POLL_TIMEOUT_MS) {
-          if (paymentPollingTimerRef.current !== null) {
-            clearTimeout(paymentPollingTimerRef.current);
-            paymentPollingTimerRef.current = null;
-          }
-          if (paymentPollingCancelledRef.current) return;
-          onError?.('Payment not confirmed after 10 minutes. Please refresh the page to check your status.');
-          return;
-        }
-        if (inFlight) {
-          if (paymentPollingCancelledRef.current) return;
-          paymentPollingTimerRef.current = setTimeout(pollOnce, POLL_INTERVAL_MS) as unknown as ReturnType<typeof setTimeout>;
-          return;
-        }
-        inFlight = true;
-        fetchPostPayIntakeStatus(checkoutSessionId!)
-          .then(async (confirmedIntakeUuid) => {
-            if (paymentPollingCancelledRef.current) return;
-            if (confirmedIntakeUuid) {
-              if (paymentPollingTimerRef.current !== null) {
-                clearTimeout(paymentPollingTimerRef.current);
-                paymentPollingTimerRef.current = null;
-              }
-              if (paymentPollingCancelledRef.current) return;
-              await postPaymentConfirmedMessage();
-            } else {
-              if (paymentPollingCancelledRef.current) return;
-              paymentPollingTimerRef.current = setTimeout(pollOnce, POLL_INTERVAL_MS) as unknown as ReturnType<typeof setTimeout>;
-            }
-          })
-          .catch((pollErr) => {
-            console.warn('[handlePaymentHandoff] Payment status poll failed', pollErr);
-            if (paymentPollingCancelledRef.current) return;
-            paymentPollingTimerRef.current = setTimeout(pollOnce, POLL_INTERVAL_MS) as unknown as ReturnType<typeof setTimeout>;
-          })
-          .finally(() => { inFlight = false; });
-      };
-
-      paymentPollingTimerRef.current = setTimeout(pollOnce, POLL_INTERVAL_MS) as unknown as ReturnType<typeof setTimeout>;
-    }
   }, [
-    applyServerMessages,
     conversationId,
     conversationMetadataRef,
-    enabled,
     onError,
     practiceId,
-    updateConversationMetadata,
+    updateConversationMetadata
   ]);
 
   /**
@@ -718,7 +624,6 @@ export function useIntakeFlow({
       phase1InFlightRef.current = false;
     }
   }, [
-    applyServerMessages,
     conversationId,
     conversationMetadataRef,
     enabled,
@@ -727,6 +632,7 @@ export function useIntakeFlow({
     resolvedSlimContactDraft,
     updateConversationMetadata,
     normalizedPracticeSlug,
+    handlePaymentHandoff,
   ]);
 
   /**
@@ -809,15 +715,11 @@ export function useIntakeFlow({
       // If no payment is required, post the standard success message.
       // (If payment is required, the prompt is handled by handleConfirmSubmit).
       if (!paymentLinkUrl) {
-        const organizationName = typeof result.data?.organization?.name === 'string' && result.data.organization.name.trim().length > 0
-          ? result.data.organization.name.trim()
-          : (conversationMetadataRef.current as Record<string, unknown>)?.practiceName as string | undefined
-            ?? 'the practice';
         const messageId = `system-intake-submit-${intakeUuid}`;
         try {
           const persistedMessage = await postSystemMessage(conversationId, practiceId, {
             clientId: messageId,
-            content: `Your intake has been submitted. ${organizationName} will review it and follow up with you here shortly.`,
+            content: 'Thank you, we will be in touch.',
             metadata: { intakeUuid, intakeSubmitted: true },
           });
           if (persistedMessage) applyServerMessages([persistedMessage]);
@@ -876,7 +778,7 @@ export function useIntakeFlow({
       }
     };
    
-  }, []);
+  }, [handlePaymentHandoff]);
 
   /** Backward-compat alias for callers that don't have a payment UI wired */
   const handleSubmitNow = useCallback(async () => {
