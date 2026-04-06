@@ -4,8 +4,6 @@ import { useLocation } from 'preact-iso';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { useNavigation } from '@/shared/utils/navigation';
 import { Button } from '@/shared/ui/Button';
-import { getSession } from '@/shared/lib/authClient';
-import { claimIntakePayment } from '@/features/intake/api/intakesApi';
 import { fetchPostPayIntakeStatus } from '@/shared/utils/intakePayments';
 
 const resolveQueryValue = (value?: string | string[]) => {
@@ -49,7 +47,7 @@ export const PaySuccessPage: FunctionComponent = () => {
       if (!resolvedUuid && sessionId) {
         setMessage('Confirming payment…');
         try {
-          resolvedUuid = await fetchPostPayIntakeStatus(sessionId);
+          resolvedUuid = await fetchPostPayIntakeStatus(sessionId) ?? undefined;
         } catch (error) {
           setMessage("We couldn't verify your payment; please check your account or contact support.");
           console.error('[PaySuccessPage] Error confirming payment:', error);
@@ -71,20 +69,6 @@ export const PaySuccessPage: FunctionComponent = () => {
         if (isAnonymous) {
           setMessage('Payment confirmed. Please sign in to continue.');
           return;
-        }
-        if (sessionId) {
-          setMessage('Payment confirmed. Claiming your intake…');
-          try {
-            await claimIntakePayment(sessionId);
-            await getSession().catch(() => undefined);
-            if (typeof window !== 'undefined') {
-              window.dispatchEvent(new CustomEvent('auth:session-updated'));
-            }
-          } catch (error) {
-            setMessage("Your payment was confirmed, but we couldn't finish linking your intake yet.");
-            console.error('[PaySuccessPage] Error claiming intake:', error);
-            return;
-          }
         }
         if (cancelled) return;
         if (returnTo) {

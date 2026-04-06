@@ -1,4 +1,4 @@
-import { clientIntakeClaim, clientIntakeStatus, clientIntakes } from '@/config/urls';
+import { clientIntakeStatus, clientIntakes } from '@/config/urls';
 
 export interface IntakeListParams {
   page: number;
@@ -177,7 +177,10 @@ export async function updateIntakeTriageStatus(
     headers: {
       'Content-Type': 'application/json'
     },
-    body: JSON.stringify(payload)
+    body: JSON.stringify({
+      triage_status: payload.status,
+      triage_reason: payload.reason ?? null,
+    }),
   });
 
   const json = await response.json().catch(() => null) as {
@@ -209,11 +212,6 @@ export interface IntakeStatusResponse {
   metadata?: Record<string, unknown>;
 }
 
-export interface ClaimIntakePaymentResponse {
-  intake_uuid: string;
-  organization_id: string;
-}
-
 export async function getIntakeStatus(intakeUuid: string) {
   // This endpoint currently exists
   const response = await fetch(clientIntakeStatus(intakeUuid), {
@@ -226,37 +224,3 @@ export async function getIntakeStatus(intakeUuid: string) {
   return json.data;
 }
 
-export async function claimIntakePayment(sessionId: string): Promise<ClaimIntakePaymentResponse | null> {
-  if (!sessionId) {
-    throw new Error('sessionId is required');
-  }
-
-  const response = await fetch(clientIntakeClaim(), {
-    method: 'POST',
-    credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({ session_id: sessionId })
-  });
-
-  const json = await response.json().catch(() => null) as {
-    success?: boolean;
-    data?: ClaimIntakePaymentResponse;
-    error?: string;
-    message?: string;
-  } | null;
-
-  const errorText = [json?.error, json?.message].filter((value): value is string => typeof value === 'string' && value.length > 0).join(' ');
-  const isConflict = response.status === 409 || /already\s+(?:claimed|attached)|duplicate|conflict/i.test(errorText);
-
-  if (isConflict) {
-    return json?.data ?? null;
-  }
-
-  if (!response.ok || json?.success === false || !json?.data) {
-    throw new Error(json?.error || 'Failed to claim intake');
-  }
-
-  return json.data;
-}

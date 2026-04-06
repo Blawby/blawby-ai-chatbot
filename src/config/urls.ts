@@ -70,7 +70,6 @@ export const clientIntake = (
 export const clientIntakeStatus = (intakeId: string): string =>
 	`/api/practice-client-intakes/${encodeSegment(intakeId)}/status`;
 
-export const clientIntakeClaim = (): string => '/api/practice-client-intakes/claim';
 
 export const matterCollectionPath = (practiceId: string): string => `/api/matters/${encodeSegment(practiceId)}`;
 
@@ -256,7 +255,6 @@ export const urls = {
 	clientIntakes,
 	clientIntake,
 	clientIntakeStatus,
-	clientIntakeClaim,
 	invoices: (practiceId: string) => `/api/invoices/${encodeURIComponent(practiceId)}`,
 	invoice: (practiceId: string, invoiceId: string) => `/api/invoices/${encodeURIComponent(practiceId)}/${encodeURIComponent(invoiceId)}`,
 	createInvoice: (practiceId: string) => `/api/invoices/${encodeURIComponent(practiceId)}`,
