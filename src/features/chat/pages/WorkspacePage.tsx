@@ -96,6 +96,7 @@ import type { UserDetailRecord, UserDetailStatus, PracticeDetails } from '@/shar
 import type { BackendMatter } from '@/features/matters/services/mattersApi';
 import type { MatterStatus } from '@/shared/types/matterStatus';
 import type { IntakeConversationState, DerivedIntakeStatus, IntakeFieldChangeOptions } from '@/shared/types/intake';
+import { features } from '@/config/features';
 
 type WorkspaceView = 'home' | 'setup' | 'list' | 'conversation' | 'matters' | 'clients' | 'invoices' | 'invoiceCreate' | 'invoiceEdit' | 'invoiceDetail' | 'reports' | 'settings';
 type PreviewTab = 'home' | 'messages' | 'intake';
@@ -1441,7 +1442,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
         hasMoreMessages: onboardingMessageHandling.hasMoreMessages,
         isLoadingMoreMessages: onboardingMessageHandling.isLoadingMoreMessages,
         onLoadMoreMessages: onboardingMessageHandling.loadMoreMessages,
-        onToggleReaction: onboardingMessageHandling.toggleMessageReaction,
+        onToggleReaction: features.enableMessageReactions ? onboardingMessageHandling.toggleMessageReaction : undefined,
         onRequestReactions: onboardingMessageHandling.requestMessageReactions,
       } : null}
       fallbackContent={workspaceFallbackHome}

@@ -6,7 +6,7 @@ import MessageComposer from './MessageComposer';
 import { ChatMessageUI } from '../../../../worker/types';
 import { FileAttachment } from '../../../../worker/types';
 import { ContactData } from '@/features/intake/components/ContactForm';
-import { isValidStripePaymentLink, type IntakePaymentRequest } from '@/shared/utils/intakePayments';
+import { type IntakePaymentRequest } from '@/shared/utils/intakePayments';
 import { createKeyPressHandler } from '@/shared/utils/keyboard';
 import type { UploadingFile } from '@/shared/types/upload';
 import type { ConversationMode } from '@/shared/types/conversation';
@@ -16,8 +16,6 @@ import type { IntakeConversationState } from '@/shared/types/intake';
 import { isIntakeSubmittable } from '@/shared/utils/consultationState';
 import { getChatPatterns } from '../config/chatPatterns';
 import type { OnboardingActions } from './VirtualMessageList';
-import { getSession as refreshAuthSession } from '@/shared/lib/authClient';
-import { rememberPostAuthConversationContext, type PostAuthConversationContext } from '@/shared/utils/anonymousIdentity';
 import { ChatActionCard } from './ChatActionCard';
 import { features } from '@/config/features';
 
@@ -79,8 +77,6 @@ export interface ChatContainerProps {
   onSlimFormDismiss?: () => void | Promise<void>;
   onBuildBrief?: () => void;
   onSubmitNow?: () => void | Promise<void>;
-  /** Phase 2: called after payment is confirmed; creates the intake record */
-  onFinalizeSubmit?: () => void | Promise<{ paymentLinkUrl: string | null }>;
   slimContactDraft?: {
     name: string;
     email: string;
@@ -116,12 +112,6 @@ export interface ChatContainerProps {
     name: string;
     email?: string;
   }>;
-  /**
-   * Called once (after first render) with ChatContainer's handleOpenPayment function.
-   * Allows ancestors to imperatively open the payment card from outside the component,
-   * e.g. from useIntakeFlow's payment gate in handleConfirmSubmit.
-   */
-  onRegisterOpenPayment?: (open: (request: import('@/shared/utils/intakePayments').IntakePaymentRequest) => void) => void;
 }
 
 const ChatContainer: FunctionComponent<ChatContainerProps> = ({
@@ -138,7 +128,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   layoutMode,
   onOpenSidebar,
   practiceId,
-  conversationId,
+  conversationId: _conversationId,
   onToggleReaction,
   onRequestReactions,
   previewFiles,
@@ -161,10 +151,8 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   onSlimFormDismiss,
   onBuildBrief,
   onSubmitNow,
-  onFinalizeSubmit,
   slimContactDraft,
   clearInput,
-  isAnonymousUser,
   canChat = true,
   onSelectMode,
   composerDisabled,
@@ -180,15 +168,9 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   onAuthPromptSuccess,
   onboardingActions,
   mentionCandidates = [],
-  onRegisterOpenPayment,
 }) => {
   const [inputValue, setInputValue] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const [paymentRequest, setPaymentRequest] = useState<IntakePaymentRequest | null>(null);
-  const [pendingPaymentRequest, setPendingPaymentRequest] = useState<IntakePaymentRequest | null>(null);
-  const [pendingSubmitAfterAuth, setPendingSubmitAfterAuth] = useState(false);
-  const authSuccessCloseRef = useRef(false);
-  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [replyTarget, setReplyTarget] = useState<ReplyTarget | null>(null);
   const composerDockRef = useRef<HTMLDivElement>(null);
   const [composerInsetPx, setComposerInsetPx] = useState(104);
@@ -299,27 +281,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     const isPatternAffirmative = affirmative.test(normalized);
     const isNegative = negative.test(normalized);
 
-    // Treat either the affirmative regex pattern OR a literal sentinel string as actionable.
-    // Ensure we only process these if the intake is actually submittable (canHandleCta).
-    const isSubmitSentinel = normalized === '__submit__';
-    const isContinuePaymentSentinel = normalized === '__continue_payment__';
-    
-    if (canHandleCta && onIntakeCtaResponse && (isSubmitSentinel || isContinuePaymentSentinel || isPatternAffirmative)) {
-      if (isContinuePaymentSentinel) {
-        const lastMsgWithPayment = [...messages].reverse().find(m => !m.isUser && m.paymentRequest);
-        if (lastMsgWithPayment?.paymentRequest) {
-          handleOpenPayment(lastMsgWithPayment.paymentRequest);
-          setInputValue('');
-          setReplyTarget(null);
-          return;
-        }
-        // If no explicit payment request is found, we should NOT proceed to submission.
-        console.warn('[Chat] __continue_payment__ received but no payment request found in recent messages.');
-        setInputValue('');
-        setReplyTarget(null);
-        return;
-      }
-
+    if (canHandleCta && onIntakeCtaResponse && isPatternAffirmative) {
       (async () => {
         try {
           await handleSubmitNowAction();
@@ -358,44 +320,11 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     }
   };
 
-  const onSubmitNowRef = useRef(onSubmitNow);
   const submitActionInFlightRef = useRef(false);
-  useEffect(() => {
-    onSubmitNowRef.current = onSubmitNow;
-  }, [onSubmitNow]);
-
-  const effectiveLayout: LayoutMode = layoutMode ?? 'widget';
-  const resolvedWorkspaceType: PostAuthConversationContext['workspace'] = isPublicWorkspace
-    ? 'public'
-    : effectiveLayout === 'mobile'
-      ? 'client'
-      : effectiveLayout === 'widget'
-        ? 'widget'
-        : 'practice';
-
-  const rememberPostAuthContext = useCallback(() => {
-    if (!isAnonymousUser) return;
-    if (!conversationId) return;
-    const resolvedPracticeId = practiceConfig?.practiceId || practiceId;
-    const resolvedPracticeSlug = practiceConfig?.slug || null;
-    if (!resolvedPracticeId && !resolvedPracticeSlug) return;
-    rememberPostAuthConversationContext({
-      conversationId,
-      practiceId: resolvedPracticeId ?? null,
-      practiceSlug: resolvedPracticeSlug,
-      workspace: resolvedWorkspaceType,
-    });
-  }, [conversationId, isAnonymousUser, practiceConfig?.practiceId, practiceConfig?.slug, practiceId, resolvedWorkspaceType]);
 
   const emitAuthPromptRequest = useCallback(() => {
-    rememberPostAuthContext();
     onAuthPromptRequest?.();
-  }, [rememberPostAuthContext, onAuthPromptRequest]);
-
-  useEffect(() => {
-    if (!showAuthPrompt) return;
-    rememberPostAuthContext();
-  }, [rememberPostAuthContext, showAuthPrompt]);
+  }, [onAuthPromptRequest]);
 
   const handleSubmitNowAction = async () => {
     if (submitActionInFlightRef.current) {
@@ -419,33 +348,6 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     }
   };
 
-  useEffect(() => {
-    if (!pendingSubmitAfterAuth) return;
-    if (isAnonymousUser) return;
-    if (!onSubmitNowRef.current) {
-      onIntakeCtaResponse?.('ready');
-      setPendingSubmitAfterAuth(false);
-      return;
-    }
-
-    let cancelled = false;
-    (async () => {
-      try {
-        await onSubmitNowRef.current?.();
-      } catch (error) {
-        console.error('Failed to continue intake after auth', error);
-      } finally {
-        if (!cancelled) {
-          setPendingSubmitAfterAuth(false);
-        }
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [isAnonymousUser, pendingSubmitAfterAuth, onIntakeCtaResponse]);
-
   const baseKeyHandler = createKeyPressHandler(handleSubmit);
 
   const handleKeyDown = (e: KeyboardEvent, mentionedUserIds?: string[]) => {
@@ -468,120 +370,25 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   };
 
   const openPayment = useCallback((request: IntakePaymentRequest): boolean => {
-    const hasClientSecret = typeof request.clientSecret === 'string' &&
-      request.clientSecret.trim().length > 0;
-    if (!hasClientSecret &&
-      request.paymentLinkUrl &&
-      isValidStripePaymentLink(request.paymentLinkUrl) &&
-      typeof window !== 'undefined') {
-      window.open(request.paymentLinkUrl, '_blank', 'noopener');
-      return false;
+    if (typeof window === 'undefined') return false;
+    if (request.paymentLinkUrl) {
+      const opened = window.open(request.paymentLinkUrl, '_blank', 'noopener,noreferrer');
+      if (opened === null) {
+        console.info('[Chat] Popup blocked, falling back to same-tab navigation');
+        window.location.assign(request.paymentLinkUrl);
+        return false; // Navigated away from the app
+      }
+      return true; // Opened in new tab, app stays active
     }
-    setPaymentRequest(request);
-    setIsPaymentModalOpen(true);
-    return true;
+    console.warn('[Chat] Missing payment link URL, cannot open payment');
+    return false;
   }, []);
 
-  const handleAuthPromptClose = () => {
-    setPendingPaymentRequest(null);
-    if (!authSuccessCloseRef.current) {
-      setPendingSubmitAfterAuth(false);
-    }
-    authSuccessCloseRef.current = false;
-    onAuthPromptClose?.();
-  };
-
-  const handleAuthSuccess = async () => {
-    authSuccessCloseRef.current = true;
-    try {
-      await refreshAuthSession().catch(() => undefined);
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('auth:session-updated'));
-      }
-    } catch {
-      // best effort: the auth form has already completed the sign-in
-    }
-    let modalOpened = false;
-    if (pendingPaymentRequest) {
-      modalOpened = openPayment(pendingPaymentRequest);
-      setPendingPaymentRequest(null);
-    }
-    if (!modalOpened) {
-      onAuthPromptSuccess?.();
-    }
-  };
-
   const handleOpenPayment = useCallback((request: IntakePaymentRequest) => {
-    if (isAnonymousUser) {
-      setPendingPaymentRequest(request);
-      emitAuthPromptRequest();
-      return;
-    }
-    openPayment(request);
-  }, [isAnonymousUser, emitAuthPromptRequest, openPayment, setPendingPaymentRequest]);
+    return openPayment(request);
+  }, [openPayment]);
 
-  // Register handleOpenPayment with the parent once it is stable.
-  // The parent (WidgetApp/MainApp) stores the ref and passes it as onOpenPayment
-  // to useMessageHandling → useIntakeFlow so the payment gate can open the card
-  // without going through message metadata parsing.
-  useEffect(() => {
-    if (onRegisterOpenPayment) {
-      onRegisterOpenPayment(handleOpenPayment);
-    }
-  }, [onRegisterOpenPayment, handleOpenPayment]);
 
-  const handleClosePayment = () => {
-    setIsPaymentModalOpen(false);
-  };
-
-  const handlePaymentSuccess = async () => {
-    if (!paymentRequest) {
-      handleClosePayment();
-      return;
-    }
-
-    const isValidUuid = typeof paymentRequest.intakeUuid === 'string'
-      && (
-        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(paymentRequest.intakeUuid)
-        || /^[0-9A-HJKMNP-TV-Z]{26}$/i.test(paymentRequest.intakeUuid)
-      );
-
-    if (typeof window !== 'undefined' && isValidUuid && paymentRequest.intakeUuid) {
-      try {
-        const payload: Record<string, string> = {};
-        if (paymentRequest.practiceName) payload.practiceName = paymentRequest.practiceName;
-        if (paymentRequest.practiceId) payload.practiceId = paymentRequest.practiceId;
-        if (paymentRequest.conversationId) payload.conversationId = paymentRequest.conversationId;
-        if (paymentRequest.checkoutSessionId) payload.sessionId = paymentRequest.checkoutSessionId;
-
-        window.sessionStorage.setItem(
-          `intakePaymentSuccess:${paymentRequest.intakeUuid}`,
-          JSON.stringify(payload)
-        );
-      } catch (error) {
-        console.warn('[Chat] Failed to persist payment success flag', error);
-      }
-    } else if (paymentRequest.intakeUuid) {
-      console.warn('[Chat] Skipped persisting invalid intakeUuid', paymentRequest.intakeUuid);
-    }
-    handleClosePayment();
-    // Phase 2: now that payment is confirmed, create the intake record.
-    if (onFinalizeSubmit) {
-      try {
-        const result = await onFinalizeSubmit();
-        if (result && typeof result === 'object' && 'paymentLinkUrl' in result && result.paymentLinkUrl) {
-          openPayment({
-            intakeUuid: paymentRequest?.intakeUuid ?? '',
-            paymentLinkUrl: result.paymentLinkUrl,
-            practiceId: paymentRequest?.practiceId ?? '',
-            conversationId: paymentRequest?.conversationId ?? '',
-          });
-        }
-      } catch (finalizeError) {
-        console.error('[ChatContainer] handleFinalizeSubmit failed after payment success', finalizeError);
-      }
-    }
-  };
 
   const handleModeSelection = (mode: ConversationMode, source: 'intro_gate' | 'composer_footer') => {
     if (!onSelectMode) return;
@@ -675,14 +482,13 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
                   onOpenPayment={handleOpenPayment}
                   practiceId={practiceId}
                   onReply={handleReply}
-                  onToggleReaction={onToggleReaction}
+                  onToggleReaction={onToggleReaction && features.enableMessageReactions ? onToggleReaction : undefined}
                   onRequestReactions={onRequestReactions}
                   onAuthPromptRequest={emitAuthPromptRequest}
                   intakeStatus={intakeStatus}
                   intakeConversationState={intakeConversationState}
                   hasSlimContactDraft={Boolean(slimContactDraft)}
                   onQuickReply={handleQuickReply}
-                  onIntakeCtaResponse={onIntakeCtaResponse}
                   onSubmitNow={handleSubmitNowAction}
                   onBuildBrief={onBuildBrief}
                   modeSelectorActions={onSelectMode ? {
@@ -704,11 +510,10 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
 
             <div ref={composerDockRef} className="sticky bottom-0 z-[1000] w-full">
               <ChatActionCard
-                isOpen={isPaymentModalOpen || showAuthPrompt || shouldShowSlimForm}
-                type={isPaymentModalOpen ? 'payment' : showAuthPrompt ? 'auth' : shouldShowSlimForm ? 'slim-form' : null}
+                isOpen={showAuthPrompt || shouldShowSlimForm}
+                type={showAuthPrompt ? 'auth' : shouldShowSlimForm ? 'slim-form' : null}
                 onClose={() => {
-                  if (isPaymentModalOpen) handleClosePayment();
-                  else if (showAuthPrompt) handleAuthPromptClose();
+                  if (showAuthPrompt) onAuthPromptClose?.();
                   else if (shouldShowSlimForm) dismissSlimForm('manual');
                 }}
                 authProps={{
@@ -716,11 +521,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
                   initialEmail: slimContactDraft?.email ?? '',
                   initialName: slimContactDraft?.name ?? '',
                   callbackURL: authPromptCallbackUrl,
-                  onSuccess: handleAuthSuccess
-                }}
-                paymentProps={{
-                  request: paymentRequest,
-                  onSuccess: handlePaymentSuccess
+                  onSuccess: onAuthPromptSuccess
                 }}
                 slimFormProps={{
                   onContinue: onSlimFormContinue as NonNullable<typeof onSlimFormContinue>,
@@ -728,7 +529,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
                 }}
               />
 
-              {(!isPaymentModalOpen && !showAuthPrompt && !shouldShowSlimForm) && (
+              {(!showAuthPrompt && !shouldShowSlimForm) && (
                 <MessageComposer
                   inputValue={inputValue}
                   setInputValue={setInputValue}

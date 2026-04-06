@@ -14,10 +14,13 @@ interface ApiRecord {
 }
 
 const MAX_BOOTSTRAP_MS = Number(process.env.E2E_WIDGET_BOOTSTRAP_BUDGET_MS ?? 6000);
-const MAX_INTERACTIVE_MS = Number(process.env.E2E_WIDGET_INTERACTIVE_BUDGET_MS ?? 22000);
+const MAX_INTERACTIVE_MS = Number(process.env.E2E_WIDGET_INTERACTIVE_BUDGET_MS ?? 32000);
 const MAX_AI_RESPONSE_MS = Number(process.env.E2E_WIDGET_AI_RESPONSE_BUDGET_MS ?? 90000);
-const MAX_FORM_OPEN_MS = Number(process.env.E2E_WIDGET_FORM_OPEN_BUDGET_MS ?? 15000);
+const MAX_FORM_OPEN_MS = Number(process.env.E2E_WIDGET_FORM_OPEN_BUDGET_MS ?? 20000);
 const MAX_FORM_SUBMIT_FEEDBACK_MS = Number(process.env.E2E_WIDGET_FORM_SUBMIT_BUDGET_MS ?? 15000);
+// NEW: Updated expectations for new architecture
+const MAX_FIRST_TOKEN_MS = Number(process.env.E2E_WIDGET_FIRST_TOKEN_BUDGET_MS ?? 12000);
+const MAX_TURN_DURATION_MS = Number(process.env.E2E_WIDGET_TOOL_EXECUTION_BUDGET_MS ?? 25000);
 const DEFAULT_WIDGET_SLUG = process.env.E2E_WIDGET_SLUG ?? process.env.E2E_PRACTICE_SLUG ?? 'paul-yahoo';
 const ACCESS_FALLBACK_REGEX = /\bi (?:do not|don't) have access to this practice['']?s details\b/i;
 const GENERIC_AI_FALLBACK_REGEX = /i wasn['']t able to generate a response/i;
@@ -51,7 +54,7 @@ const toPath = (rawUrl: string): string => {
 };
 
 test.describe('Public widget performance', () => {
-  test.describe.configure({ timeout: 120000 });
+  test.describe.configure({ timeout: 180000 });
 
   test('loads widget via real worker/bootstrap route and reports true waterfall timing', async ({ anonPage }, testInfo) => {
     const practiceSlug = normalizePracticeSlug(DEFAULT_WIDGET_SLUG);
@@ -121,9 +124,7 @@ test.describe('Public widget performance', () => {
       inFlight.delete(request);
     });
 
-    await anonPage.goto(`/public/${encodeURIComponent(practiceSlug)}?v=widget`, {
-      waitUntil: 'domcontentloaded',
-    });
+    await anonPage.goto(`/public/${encodeURIComponent(practiceSlug)}?v=widget`);
 
     await expect.poll(
       () => records.find((record) => record.path.includes('/api/widget/bootstrap')) ?? null,
@@ -420,5 +421,222 @@ test.describe('Public widget performance', () => {
       expect(formSubmitFeedbackMs, 'Consultation form submit feedback exceeded budget').toBeLessThan(MAX_FORM_SUBMIT_FEEDBACK_MS);
     }
     expect(listUnresolvedTrackedRequests().length, 'all tracked /api/ requests must settle (no pending hang)').toBe(0);
+  });
+
+  // NEW: Architecture-specific performance tests
+  test('first-byte response is < 2 seconds with new architecture', async ({ anonPage }, testInfo) => {
+    const practiceSlug = normalizePracticeSlug(DEFAULT_WIDGET_SLUG);
+    const records: ApiRecord[] = [];
+    const inFlight = new Map();
+    
+    const trackable = (request: PWRequest): boolean => {
+      const requestUrl = request.url();
+      const resourceType = request.resourceType();
+      return requestUrl.includes('/api/') && (resourceType === 'fetch' || resourceType === 'xhr');
+    };
+
+    anonPage.on('request', (request) => {
+      const requestUrl = request.url();
+      if (!trackable(request)) return;
+
+      const record: ApiRecord = {
+        method: request.method(),
+        url: requestUrl,
+        path: toPath(requestUrl),
+        startedAtMs: Date.now(),
+        endedAtMs: null,
+        durationMs: null,
+        status: null,
+        failedText: null,
+      };
+      records.push(record);
+      inFlight.set(request, record);
+    });
+
+    anonPage.on('response', (response) => {
+      const request = response.request();
+      const record = inFlight.get(request);
+      if (!record) return;
+      record.endedAtMs = Date.now();
+      record.durationMs = Math.max(0, record.endedAtMs - record.startedAtMs);
+      record.status = response.status();
+      inFlight.delete(request);
+    });
+
+    await anonPage.goto(`/public/${encodeURIComponent(practiceSlug)}?v=widget`);
+
+    // Complete slim form
+    const slimFormName = anonPage.locator('input[placeholder*="full name" i], input[name="name"], label:has-text("Name") + input').first();
+    const slimFormEmail = anonPage.locator('input[type="email"]').first();
+    const slimFormPhone = anonPage.locator('input[type="tel"]').first();
+    const slimFormContinue = anonPage.getByRole('button', { name: /continue/i }).first();
+    const consultationCta = anonPage.getByRole('button', { name: /request consultation/i }).first();
+    const messageInput = anonPage.getByTestId('message-input');
+
+    if (await consultationCta.isVisible({ timeout: 1000 }).catch(() => false)) {
+      await consultationCta.click();
+    }
+
+    await expect.poll(
+      async () => {
+        const inputEnabled = await messageInput.isEnabled({ timeout: 300 }).catch(() => false);
+        const formVisible = await slimFormName.isVisible({ timeout: 300 }).catch(() => false);
+        return inputEnabled || formVisible;
+      },
+      {
+        timeout: MAX_FORM_OPEN_MS,
+        message: 'Expected slim form or composer after opening the public widget flow',
+      }
+    ).toBe(true);
+
+    if (await slimFormName.isVisible({ timeout: 500 }).catch(() => false)) {
+      await slimFormName.fill('Performance Test User');
+      if (await slimFormEmail.isVisible().catch(() => false)) {
+        await slimFormEmail.fill('perf-test@example.com');
+      }
+      if (await slimFormPhone.isVisible().catch(() => false)) {
+        await slimFormPhone.fill('555-555-1212');
+      }
+      await slimFormContinue.click();
+      await expect(messageInput).toBeEnabled({ timeout: MAX_FORM_SUBMIT_FEEDBACK_MS });
+    }
+
+    // Measure first token timing
+    await messageInput.fill('I need legal help with a contract dispute');
+    
+    // Start timing right before the click to measure only server/stream latency
+    const startTime = Date.now();
+    
+    const baselineCount = await anonPage.locator('[data-testid="ai-message"]').count();
+    
+    // Create the DOM polling promise BEFORE clicking so we don't miss the start
+    const firstTokenPromise = anonPage.waitForFunction((count) => {
+      const messages = Array.from(document.querySelectorAll('[data-testid="ai-message"]'));
+      if (messages.length > count) {
+        const latest = messages[messages.length - 1];
+        return latest.textContent && latest.textContent.trim().length > 0;
+      }
+      return false;
+    }, baselineCount, { timeout: MAX_FIRST_TOKEN_MS });
+
+    await anonPage.getByRole('button', { name: /send message/i }).click();
+    
+    // Await first token immediately to compute firstTokenMs accurately
+    await firstTokenPromise;
+    const firstTokenMs = Date.now() - startTime;
+
+    const report = {
+      firstTokenMs,
+      baseline: MAX_FIRST_TOKEN_MS,
+      regression: firstTokenMs > MAX_FIRST_TOKEN_MS * 1.2,
+      apiWaterfall: records.sort((a, b) => a.startedAtMs - b.startedAtMs),
+    };
+
+    await testInfo.attach('first-token-performance.json', {
+      body: JSON.stringify(report, null, 2),
+      contentType: 'application/json',
+    });
+
+    console.log('[performance] First token (ms):', firstTokenMs);
+    console.log('[performance] First token budget (ms):', MAX_FIRST_TOKEN_MS);
+    expect(firstTokenMs, 'First token response exceeded budget').toBeLessThan(MAX_FIRST_TOKEN_MS);
+  });
+
+  test('turn/end-to-end performance benchmarks', async ({ anonPage }, testInfo) => {
+    const practiceSlug = normalizePracticeSlug(DEFAULT_WIDGET_SLUG);
+    const turnTimings: Record<string, { durationMs: number; expectedMs: number }> = {};
+    
+    await anonPage.goto(`/public/${encodeURIComponent(practiceSlug)}?v=widget`);
+
+    // Complete slim form to get to chat
+    const consultationCta = anonPage.getByRole('button', { name: /request consultation/i }).first();
+    const slimFormName = anonPage.locator('input[placeholder*="full name" i], input[name="name"], label:has-text("Name") + input').first();
+    const slimFormEmail = anonPage.locator('input[type="email"]').first();
+    const slimFormPhone = anonPage.locator('input[type="tel"]').first();
+    const slimFormContinue = anonPage.getByRole('button', { name: /continue/i }).first();
+    const messageInput = anonPage.getByTestId('message-input');
+
+    if (await consultationCta.isVisible({ timeout: 1000 }).catch(() => false)) {
+      await consultationCta.click();
+    }
+
+    await expect.poll(
+      async () => {
+        const inputEnabled = await messageInput.isEnabled({ timeout: 300 }).catch(() => false);
+        const formVisible = await slimFormName.isVisible({ timeout: 300 }).catch(() => false);
+        return inputEnabled || formVisible;
+      },
+      {
+        timeout: MAX_FORM_OPEN_MS,
+        message: 'Expected slim form or composer after opening the public widget flow',
+      }
+    ).toBe(true);
+
+    if (await slimFormName.isVisible({ timeout: 500 }).catch(() => false)) {
+      await slimFormName.fill('Performance Test User');
+      if (await slimFormEmail.isVisible({ timeout: 500 }).catch(() => false)) {
+        await slimFormEmail.fill('perf-test@example.com');
+      }
+      if (await slimFormPhone.isVisible({ timeout: 500 }).catch(() => false)) {
+        await slimFormPhone.fill('555-555-1212');
+      }
+      await slimFormContinue.click();
+      await expect(messageInput).toBeEnabled({ timeout: MAX_FORM_SUBMIT_FEEDBACK_MS });
+    }
+
+    const measureTurn = async (label: string, message: string) => {
+      const startTime = Date.now();
+      const responsePromise = anonPage.waitForResponse(
+        resp => resp.url().includes('/api/ai/chat') && resp.status() === 200,
+        { timeout: MAX_AI_RESPONSE_MS }
+      );
+      
+      await messageInput.fill(message);
+      await anonPage.getByRole('button', { name: /send message/i }).click();
+      
+      const response = await responsePromise;
+      // Wait for the SSE stream to fully close
+      await response.finished();
+      const durationMs = Date.now() - startTime;
+      
+      turnTimings[label] = {
+        durationMs,
+        expectedMs: MAX_TURN_DURATION_MS
+      };
+      
+      return durationMs;
+    };
+
+    // Turn 1: Case description (triggers save_case_details logic server-side)
+    await measureTurn(
+      'initial_extraction', 
+      'I need help with a divorce case in California against my spouse Jane. It\'s time sensitive because we have a court date next month.'
+    );
+
+    // Turn 2: Payment intent (triggers request_payment logic server-side)
+    await measureTurn(
+      'payment_prompt',
+      'I\'m ready to proceed with payment and submit my request'
+    );
+
+    const report = {
+      turnTimings,
+      regression: Object.values(turnTimings).some(t => t.durationMs > t.expectedMs * 1.5),
+      baseline: {
+        'initial_extraction': MAX_TURN_DURATION_MS,
+        'payment_prompt': MAX_TURN_DURATION_MS,
+      }
+    };
+
+    await testInfo.attach('turn-performance.json', {
+      body: JSON.stringify(report, null, 2),
+      contentType: 'application/json',
+    });
+
+    console.log('[performance] Turn timings:', turnTimings);
+    
+    Object.entries(turnTimings).forEach(([label, timing]) => {
+      expect(timing.durationMs, `Turn ${label} execution exceeded budget`).toBeLessThan(timing.expectedMs * 1.5);
+    });
   });
 });

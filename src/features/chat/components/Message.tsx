@@ -14,6 +14,8 @@ import { Icon } from '@/shared/ui/Icon';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
 import { chatTypography } from '@/features/chat/styles/chatTypography';
 import type { IntakeConversationState } from '@/shared/types/intake';
+import type { ChatMessageAction } from '@/shared/types/conversation';
+import { features } from '@/config/features';
 
 interface MessageProps {
 	content: string;
@@ -118,13 +120,10 @@ interface MessageProps {
 		paymentReceived?: boolean;
 	};
 	intakeConversationState?: IntakeConversationState | null;
-	showIntakeCta?: boolean;
-	onIntakeCtaResponse?: (response: 'ready' | 'not_yet') => void;
 	onSubmitNow?: () => void | Promise<void>;
-	showIntakeDecisionPrompt?: boolean;
 	onBuildBrief?: () => void;
-	quickReplies?: string[];
-	onQuickReply?: (text: string) => void;
+	actions?: ChatMessageAction[];
+	onActionReply?: (text: string) => void;
 	onboardingProfile?: {
 		completionScore?: number;
 		missingFields?: string[];
@@ -183,13 +182,10 @@ const Message: FunctionComponent<MessageProps> = memo(({
 	practiceId: _practiceId,
 	className = '',
 	intakeConversationState,
-	showIntakeCta,
-	onIntakeCtaResponse,
 	onSubmitNow,
-	showIntakeDecisionPrompt,
 	onBuildBrief,
-	quickReplies,
-	onQuickReply,
+	actions,
+	onActionReply,
 	onboardingProfile,
 	isLast
 }) => {
@@ -212,8 +208,8 @@ const Message: FunctionComponent<MessageProps> = memo(({
 	// Avatar size based on message size
 	const avatarSize = size === 'sm' ? 'sm' : 'lg';
 	const quickReactions = ['👍', '👀', '😂', '❤️'];
-	const showActions = Boolean(onReply || onToggleReaction);
-	const hasReactions = reactions.length > 0;
+	const showActions = Boolean(onReply || (onToggleReaction && features.enableMessageReactions));
+	const hasReactions = reactions.length > 0 && features.enableMessageReactions;
 	const hasReplyPreview = Boolean(replyPreview);
 	const wrapperClassName = [
 		'relative flex items-start gap-3 px-4 py-3 group message-list-item',
@@ -238,7 +234,7 @@ const Message: FunctionComponent<MessageProps> = memo(({
 
 			{showActions && (
 				<div className="message-action-popover">
-					{onToggleReaction && quickReactions.map((emoji) => (
+					{onToggleReaction && features.enableMessageReactions && quickReactions.map((emoji) => (
 						<button
 							key={emoji}
 							type="button"
@@ -329,23 +325,20 @@ const Message: FunctionComponent<MessageProps> = memo(({
 				{/* Actions (matter canvas, forms, etc.) */}
 			<MessageActions
 					matterCanvas={matterCanvas}
-					intakeStatus={intakeStatus}
-					documentChecklist={documentChecklist}
-					generatedPDF={generatedPDF}
+				intakeStatus={intakeStatus}
+				documentChecklist={documentChecklist}
+				generatedPDF={generatedPDF}
 					paymentRequest={paymentRequest}
 					onOpenPayment={onOpenPayment}
 					modeSelector={modeSelector}
 					assistantRetry={assistantRetry}
 					authCta={authCta}
 					onAuthPromptRequest={onAuthPromptRequest}
-					leadReview={leadReview}
+				leadReview={leadReview}
 				intakeConversationState={intakeConversationState}
-				quickReplies={quickReplies}
-				onQuickReply={onQuickReply}
-				showIntakeCta={showIntakeCta}
-				onIntakeCtaResponse={onIntakeCtaResponse}
+				actions={actions}
+				onActionReply={onActionReply}
 				onSubmitNow={onSubmitNow}
-				showIntakeDecisionPrompt={showIntakeDecisionPrompt}
 				onBuildBrief={onBuildBrief}
 				onboardingProfile={onboardingProfile}
 				isLast={isLast}

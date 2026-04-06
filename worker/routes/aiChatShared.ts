@@ -52,7 +52,9 @@ const consumeAiStream = async (
   response: Response,
   emitTokens = true,
   write: (payload: Record<string, unknown>) => void,
-  conversationId: string
+  conversationId: string,
+  requestId?: string,
+  sendSseDebug?: (event: string, data: Record<string, unknown>) => void
 ): Promise<{
   reply: string;
   toolCalls: Array<{name: string, arguments: string}>;
@@ -96,6 +98,7 @@ const consumeAiStream = async (
 
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
+  const { Logger } = await import('../utils/logger.js');
   let buffer = '';
   let streamStalled = false;
   let localReply = '';
@@ -129,7 +132,6 @@ const consumeAiStream = async (
       })
     ]).catch(async (error: unknown) => {
       if (timeoutTimer) clearTimeout(timeoutTimer);
-      const { Logger } = await import('../utils/logger.js');
       Logger.warn('AI stream read stalled or failed', {
         conversationId,
         reason: error instanceof Error ? error.message : String(error)
@@ -176,6 +178,17 @@ const consumeAiStream = async (
         continue;
       }
       diagnostics.parsedChunkCount += 1;
+      
+      // Log provider delta
+      if (requestId && sendSseDebug) {
+        sendSseDebug('debug_provider_delta', {
+          requestId,
+          conversationId,
+          chunk,
+        });
+      }
+      
+
 
       const choice = chunk.choices?.[0];
       const delta = choice?.delta;
@@ -212,6 +225,17 @@ const consumeAiStream = async (
         for (const tc of delta.tool_calls) {
           if (typeof tc.function?.arguments === 'string') {
             let targetCall: {name: string, arguments: string} | undefined;
+            
+            // Log tool call fragments
+            if (requestId && sendSseDebug) {
+              sendSseDebug('debug_tool_fragment', {
+                requestId,
+                conversationId,
+                toolName: tc.function?.name,
+                toolArgs: tc.function?.arguments,
+                index: tc.index,
+              });
+            }
             
             if (tc.function?.name) {
               diagnostics.namedToolFragmentCount += 1;
@@ -361,6 +385,27 @@ const consumeAiStream = async (
 
   // Convert Map back to array for return value
   const finalToolCalls = Array.from(localToolCallsByIndex.values()).concat(localToolCalls);
+  
+  // Log final provider output (metrics/stats only, no text)
+  if (requestId) {
+    Logger.info('ai.provider.final', {
+      requestId,
+      conversationId,
+      toolCallCount: finalToolCalls.length,
+      emittedToken: localEmittedToken,
+      finishReason: diagnostics.finishReasons[diagnostics.finishReasons.length - 1] || null,
+    });
+    
+    if (sendSseDebug) {
+      sendSseDebug('debug_provider_final', {
+        requestId,
+        conversationId,
+        text: localReply,
+        toolCalls: finalToolCalls,
+        emittedToken: localEmittedToken,
+      });
+    }
+  }
 
   const hasPotentialToolLeak = finalToolCalls.length > 0 || 
     localReply.includes('update_practice_fields');
@@ -413,7 +458,6 @@ const normalizeKeys = (obj: unknown): unknown => {
     accent_color: 'accentColor',
     completion_score: 'completionScore',
     missing_fields: 'missingFields',
-    quick_replies: 'quickReplies',
     trigger_edit_modal: 'triggerEditModal',
   };
 

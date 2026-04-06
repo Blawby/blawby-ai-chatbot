@@ -115,7 +115,7 @@ export const PaySuccessPage: FunctionComponent = () => {
       cancelled = true;
       if (timeoutId) clearTimeout(timeoutId);
     };
-  }, [intakeUuid, isAnonymous, isPending, navigate, returnTo, sessionId]);
+  }, [intakeUuid, isAnonymous, isPending, navigate, returnTo, sessionId, resolvedPracticeName]);
 
   return (
     <div className="min-h-screen bg-transparent px-6 py-12">

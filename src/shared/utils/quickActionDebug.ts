@@ -9,6 +9,14 @@ declare global {
 export const isQuickActionDebugEnabled = (): boolean => {
   if (!import.meta.env.DEV) return false;
   if (typeof window === 'undefined') return false;
+  try {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('debugQuickActions') === '1') return true;
+    if (window.__blawbyQuickActionDebug === true) return true;
+    if (typeof localStorage !== 'undefined' && localStorage.getItem('debugQuickActions') === '1') return true;
+  } catch {
+    // Ignore URL/localStorage access failures and fall through to the explicit flag.
+  }
   return window.__blawbyQuickActionDebug === true;
 };
 

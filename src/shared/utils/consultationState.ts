@@ -39,6 +39,15 @@ const hasNonEmptyString = (value: unknown): boolean => (
   typeof value === 'string' && value.trim().length > 0
 );
 
+export const hasCoreIntakeFields = (
+  state: IntakeConversationState | Partial<IntakeConversationState> | null | undefined
+): boolean => {
+  if (!state) return false;
+  return hasNonEmptyString(state.description)
+    && hasNonEmptyString(state.city)
+    && hasNonEmptyString(state.state);
+};
+
 const isEmptyContact = (value: SlimContactDraft | null | undefined): boolean => !value
   || (!trimString(value.name) && !trimString(value.email) && !trimString(value.phone));
 
@@ -128,11 +137,7 @@ export const hasConsultationContact = (value: SlimContactDraft | null | undefine
 export const isIntakeReadyForSubmission = (
   state: IntakeConversationState | Partial<IntakeConversationState> | null | undefined
 ): boolean => {
-  if (!state) return false;
-  const hasDescription = hasNonEmptyString(state.description);
-  const hasLocation = hasNonEmptyString(state.city) && hasNonEmptyString(state.state);
-  const hasOpposingParty = hasNonEmptyString(state.opposingParty);
-  return hasDescription && hasLocation && hasOpposingParty;
+  return hasCoreIntakeFields(state);
 };
 
 export const isIntakeSubmittable = (
@@ -440,8 +445,11 @@ export const deriveIntakeStatusFromConsultation = (
     if (consultation.status === 'completed') return 'completed';
     if (consultation.status === 'submitted') return 'pending_review';
     if (consultation.status === 'collecting_contact') return 'contact_form_slim';
-    if (consultation.case.turnCount <= 0) return 'contact_form_decision';
-    return 'ai_brief';
+    if (consultation.case.ctaResponse === 'ready') return 'ready_to_submit';
+    if (consultation.case.ctaShown === true) return 'contact_form_decision';
+    if (hasCoreIntakeFields(consultation.case)) return 'ai_brief';
+    if (hasConsultationContact(consultation.contact)) return 'collecting_case';
+    return 'contact_form_slim';
   })();
 
   return {

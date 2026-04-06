@@ -11,7 +11,6 @@ import { fetchPracticeDetailsWithCache } from '../utils/practiceDetailsCache.js'
 import { Logger } from '../utils/logger.js';
 import { resolveConsultationState } from '../../src/shared/utils/consultationState';
 
-// Import from split files
 import {
   DEFAULT_AI_MODEL,
   LEGAL_DISCLAIMER,
@@ -35,20 +34,18 @@ import {
 import type { DebuggableAiError } from './aiChatShared.js';
 
 import {
-  INTAKE_TOOL,
+  INTAKE_TOOLS,
   buildIntakeSystemPrompt,
-  buildIntakeConversationStablePrompt,
-  buildIntakeConversationStatePrompt,
+  deriveCaseSavedAcknowledgment,
   mergeIntakeState,
-  planNextIntakeStep,
-  isIntakeSubmittable,
-  type IntakeSubmissionGate,
   normalizeServicesForPrompt,
   extractServiceNames,
   formatServiceList,
   shouldRequireDisclaimer,
-  deriveDeterministicIntakePatchFromLatestMessage,
   buildCompactPracticeContextForPrompt,
+  executeIntakeTool,
+  type IntakeSubmissionGate,
+  type ToolResult,
 } from './aiChatIntake.js';
 
 import {
@@ -56,6 +53,8 @@ import {
   buildOnboardingSystemPrompt,
   buildOnboardingProfileMetadata,
 } from './aiChatOnboarding.js';
+import type { ChatMessageAction } from '../../src/shared/types/conversation';
+import { normalizeChatActions } from '../../src/shared/utils/chatActions';
 
 const normalizeText = (text: string): string =>
   text.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
@@ -92,46 +91,6 @@ const resolvePracticeRequiresPaymentBeforeSubmission = (details: Record<string, 
   return paymentLinkEnabled === true;
 };
 
-const LEAKED_INSTRUCTION_PATTERNS = [
-  /Do NOT ask for more case details/i,
-  /Do NOT include raw URLs or placeholders/i,
-  /Ask exactly ONE focused question/i,
-  /You have all the required details/i,
-  /You already have the required case details/i,
-  /KNOWN SO FAR/i,
-  /IMPORTANT: The next missing piece/i,
-];
-
-const buildCompactIntakeContextForExtraction = (
-  state: Record<string, unknown> | null
-): Record<string, unknown> | null => {
-  if (!state) return null;
-  const compact: Record<string, unknown> = {};
-  const copyString = (key: string, maxLen = 180) => {
-    const value = state[key];
-    if (typeof value !== 'string') return;
-    const trimmed = value.trim();
-    if (!trimmed) return;
-    compact[key] = trimmed.slice(0, maxLen);
-  };
-  const copyBoolean = (key: string) => {
-    if (typeof state[key] === 'boolean') compact[key] = state[key];
-  };
-
-  copyString('practiceArea', 80);
-  copyString('description', 220);
-  copyString('city', 80);
-  copyString('state', 2);
-
-  copyString('opposingParty', 120);
-  copyString('urgency', 30);
-  copyString('desiredOutcome', 180);
-  copyString('courtDate', 20);
-  copyBoolean('hasDocuments');
-
-  return Object.keys(compact).length > 0 ? compact : null;
-};
-
 const unwrapToolCallJsonArgs = (rawArgs: string): string => {
   let cleanArgs = rawArgs.trim();
 
@@ -149,7 +108,6 @@ const unwrapToolCallJsonArgs = (rawArgs: string): string => {
 
   return cleanArgs;
 };
-
 
 const persistMergedIntakeState = async (
   conversationService: ConversationService,
@@ -172,11 +130,10 @@ const persistMergedIntakeState = async (
           ? 'ready_to_submit'
           : 'collecting_case',
       },
-      { repair: true }
+      { repair: false }
     );
   } catch (metadataError) {
     if (attempts < 1) {
-      // One retry for concurrent modification or transient errors.
       await persistMergedIntakeState(conversationService, params, attempts + 1);
       return;
     }
@@ -218,297 +175,23 @@ const schedulePostStreamTasks = (
   });
 };
 
-const extractIntakeFieldsForTurn = async (params: {
-  aiClient: ReturnType<typeof createAiClient>;
-  model: string;
-  servicesForPrompt: Array<{ name: string; key: string }>;
-  storedIntakeState: Record<string, unknown> | null;
-  body: {
-    conversationId: string;
-    extractionMessages: Array<{ role: 'user' | 'assistant'; content: string }>;
-    fullMessages?: Array<{ role: 'user' | 'assistant'; content: string }>;
-  };
-  deterministicIntakePatch: Record<string, unknown> | null;
-  skipExtractionReason?: string | null;
-  debugEnabled: boolean;
-  lastUserMessage: { role: 'user' | 'assistant'; content: string } | undefined;
-  metrics?: {
-    extractionRan: boolean;
-    extractionElapsedMs: number | null;
-    skipReason: string | null;
-    deterministicPatchKeys: string[];
-  };
-}): Promise<Record<string, unknown> | null> => {
-  if (params.deterministicIntakePatch) {
-    if (params.metrics) {
-      params.metrics.skipReason = 'deterministic_patch';
-      params.metrics.deterministicPatchKeys = Object.keys(params.deterministicIntakePatch);
-    }
-    if (params.debugEnabled) {
-      Logger.info('AI chat timing: intake extraction skipped via deterministic patch', {
-        conversationId: params.body.conversationId,
-        patchKeys: Object.keys(params.deterministicIntakePatch),
-      });
-    }
-    return params.deterministicIntakePatch;
-  }
-  if (params.skipExtractionReason) {
-    if (params.metrics) {
-      params.metrics.skipReason = params.skipExtractionReason;
-      params.metrics.deterministicPatchKeys = [];
-    }
-    if (params.debugEnabled) {
-      Logger.info('AI chat timing: intake extraction skipped by classifier', {
-        conversationId: params.body.conversationId,
-        reason: params.skipExtractionReason,
-      });
-    }
-    return null;
-  }
-
-  const extractionStartedAt = Date.now();
-  if (params.metrics) {
-    params.metrics.extractionRan = true;
-    params.metrics.extractionElapsedMs = null;
-    params.metrics.skipReason = null;
-    params.metrics.deterministicPatchKeys = [];
-  }
-  let extractionOutcome: 'ok' | 'no_args' | 'parse_failed' | 'http_error' | 'exception' = 'ok';
-  const extractionSystemPrompt = [
-    buildIntakeSystemPrompt(params.servicesForPrompt),
-    (() => {
-      const compact = buildCompactIntakeContextForExtraction(params.storedIntakeState);
-      return compact ? `INTAKE_CONTEXT: ${JSON.stringify(compact)}` : null;
-    })(),
-  ].filter(Boolean).join('\n\n');
-
-  const attemptExtraction = async (
-    messagesWindow: Array<{ role: 'user' | 'assistant'; content: string }>
-  ): Promise<{ parsed: Record<string, unknown> | null; rawArgs?: string | null; finishReason?: string | null; contentPreview?: string; toolCallCount?: number } | null> => {
-    const extractionPayload: Record<string, unknown> = {
-      model: params.model,
-      temperature: 0.1,
-      stream: false,
-      tools: [INTAKE_TOOL],
-      tool_choice: { type: 'function', function: { name: 'update_intake_fields' } },
-      parallel_tool_calls: false,
-      messages: [
-        { role: 'system', content: extractionSystemPrompt },
-        ...messagesWindow.map((m) => ({ role: m.role, content: m.content })),
-      ],
-    };
-
-    const extractionController = new AbortController();
-    const extractionTimeoutId = setTimeout(() => extractionController.abort(), AI_TIMEOUT_MS);
-
-    try {
-      const extractionResponse = await params.aiClient.requestChatCompletions(extractionPayload, extractionController.signal);
-
-      if (!extractionResponse.ok) {
-        extractionOutcome = 'http_error';
-        Logger.warn('Intake extraction call failed', {
-          conversationId: params.body.conversationId,
-          status: extractionResponse.status,
-        });
-        return null;
-      }
-
-      const extractionData = await extractionResponse.json().catch(() => null) as {
-        choices?: Array<{
-          message?: {
-            tool_calls?: Array<{
-              function?: { name?: string; arguments?: string };
-            }>;
-            content?: string | null;
-          };
-          finish_reason?: string | null;
-        }>;
-      } | null;
-
-      const toolCallArgs = extractionData?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
-      const rawArgs = typeof toolCallArgs === 'string' && toolCallArgs.length > 0 ? toolCallArgs : null;
-
-      if (typeof rawArgs !== 'string' || rawArgs.length === 0) {
-        extractionOutcome = 'no_args';
-        return {
-          parsed: null,
-          finishReason: extractionData?.choices?.[0]?.finish_reason ?? null,
-          toolCallCount: Array.isArray(extractionData?.choices?.[0]?.message?.tool_calls)
-            ? extractionData.choices[0].message.tool_calls.length
-            : 0,
-          rawArgs: null,
-          contentPreview: params.debugEnabled && typeof extractionData?.choices?.[0]?.message?.content === 'string'
-            ? extractionData.choices[0].message.content.slice(0, 300)
-            : undefined,
-        };
-      }
-
-      try {
-        const cleanArgs = unwrapToolCallJsonArgs(rawArgs);
-        const parsed = normalizeKeys(JSON.parse(cleanArgs)) as Record<string, unknown>;
-        return { parsed, rawArgs };
-      } catch (parseError) {
-        extractionOutcome = 'parse_failed';
-        Logger.warn('Failed to parse extraction tool call arguments', {
-          conversationId: params.body.conversationId,
-          error: parseError instanceof Error ? parseError.message : String(parseError),
-          ...(params.debugEnabled ? { rawToolArgsLength: rawArgs.length } : {}),
-        });
-        return null;
-      }
-    } catch (error) {
-      extractionOutcome = 'exception';
-      Logger.warn('Intake extraction failed', {
-        conversationId: params.body.conversationId,
-        error: error instanceof Error ? error.message : String(error),
-      });
-      return null;
-    } finally {
-      clearTimeout(extractionTimeoutId);
-    }
-  };
-
-  try {
-    let result = await attemptExtraction(params.body.extractionMessages);
-
-    const isSemanticallyEmptyExtraction = !!result?.parsed && Object.keys(result.parsed).length === 0;
-    
-    if (isSemanticallyEmptyExtraction && params.body.fullMessages && params.body.fullMessages.length > 2) {
-      const INTAKE_FIELDS_ALLOWLIST = ['practiceArea', 'description', 'urgency', 'opposingParty', 'city', 'state', 'desiredOutcome', 'courtDate', 'hasDocuments'];
-      const populatedFieldCount = params.storedIntakeState
-        ? Object.entries(params.storedIntakeState).filter(([k, v]) => INTAKE_FIELDS_ALLOWLIST.includes(k) && v !== null && v !== undefined && v !== '').length
-        : 0;
-        
-      if (populatedFieldCount < 3) {
-        if (params.debugEnabled) {
-          Logger.info('AI chat timing: intake extraction widening window and retrying', {
-            conversationId: params.body.conversationId,
-            populatedFieldCount,
-          });
-        }
-        extractionOutcome = 'ok';
-        const widerWindow = buildExtractionMessagesWindow(params.body.fullMessages, 4);
-        result = await attemptExtraction(widerWindow);
-      }
-    }
-
-    if (result && !result.parsed && result.rawArgs === null) {
-      Logger.warn('Intake extraction missing tool call arguments', {
-        conversationId: params.body.conversationId,
-        finishReason: result.finishReason,
-        toolCallCount: result.toolCallCount,
-        ...(result.contentPreview ? { messageContentLength: result.contentPreview.length } : {}),
-      });
-      return null;
-    }
-
-    return result?.parsed ?? null;
-  } finally {
-    if (params.metrics) {
-      params.metrics.extractionElapsedMs = Date.now() - extractionStartedAt;
-    }
-    Logger.info('AI chat timing: intake extraction finished', {
-      conversationId: params.body.conversationId,
-      elapsedMs: Date.now() - extractionStartedAt,
-      outcome: extractionOutcome,
-    });
-  }
-};
-
-const buildExtractionMessagesWindow = (
-  messages: Array<{ role: 'user' | 'assistant'; content: string }>,
-  windowSize = 2
-): Array<{ role: 'user' | 'assistant'; content: string }> => {
-  if (messages.length === 0) return [];
-  const lastUserIndex = [...messages].reverse().findIndex((m) => m.role === 'user');
-  if (lastUserIndex === -1) return messages.slice(-windowSize);
-  const absoluteLastUserIndex = messages.length - 1 - lastUserIndex;
-
-  if (windowSize === 2) {
-    const latestUser = messages[absoluteLastUserIndex];
-    const priorAssistant = messages
-      .slice(0, absoluteLastUserIndex)
-      .reverse()
-      .find((m) => m.role === 'assistant');
-
-    return priorAssistant
-      ? [priorAssistant, latestUser]
-      : [latestUser];
-  }
-
-  const endIndex = absoluteLastUserIndex + 1;
-  const startIndex = Math.max(0, endIndex - windowSize);
-  return messages.slice(startIndex, endIndex);
-};
-
-const classifyExtractionNeed = (params: {
-  isIntakeMode: boolean;
-  latestUserMessage: string | undefined;
-  plannerStep: ReturnType<typeof planNextIntakeStep>;
-  deterministicIntakePatch: Record<string, unknown> | null;
-}): string | null => {
-  if (!params.isIntakeMode) return 'not_intake_mode';
-  if (params.deterministicIntakePatch) return null;
-  const latest = (params.latestUserMessage ?? '').trim();
-  if (!latest) return 'empty_latest_message';
-
-  if (HOURS_QUESTION_REGEX.test(latest)) return 'operational_hours_question';
-  if (SERVICE_QUESTION_REGEX.test(latest)) return 'operational_service_question';
-  if (CONSULTATION_CTA_REGEX.test(latest)) return 'consultation_cta_phrase';
-
-  if (latest.includes('?')) return 'user_question_turn';
-
-  const normalized = latest.toLowerCase().replace(/[^a-z0-9\s]+/g, ' ').trim();
-  if (/^(ok|okay|thanks|thank you|got it|sounds good|understood|cool|sure|fine)$/.test(normalized)) {
-    return 'ack_only_turn';
-  }
-  if (
-    params.plannerStep.nextField === null
-    && /^(yes|ready|submit|go ahead|sounds good|looks good|correct)$/.test(normalized)
-  ) {
-    return 'submit_confirmation_turn';
-  }
-
-  // Keep extractor for freeform and multi-fact replies by default.
-  return null;
-};
-
-const resolveExtractionServicesForTurn = (
-  servicesForPrompt: Array<{ name: string; key: string }>,
-  storedIntakeState: Record<string, unknown> | null
-): Array<{ name: string; key: string }> => {
-  if (!storedIntakeState) return servicesForPrompt;
-  const knownPracticeArea = typeof storedIntakeState.practiceArea === 'string'
-    ? storedIntakeState.practiceArea.trim()
-    : '';
-  if (!knownPracticeArea) return servicesForPrompt;
-  const matchingService = servicesForPrompt.find((service) => service.key === knownPracticeArea);
-  return matchingService ? [matchingService] : servicesForPrompt;
-};
-
 const deriveQuickActionState = (params: {
   isOnboardingMode: boolean;
   onboardingFields: Record<string, unknown> | null;
   details: Record<string, unknown> | null;
 }) => {
   let onboardingFields = params.onboardingFields;
-  let quickReplies: string[] | null = null;
-  let quickRepliesSource: 'none' | 'onboardingFields' | 'planner_urgency' | 'planner_hasDocuments' | 'planner_payment' | 'planner_submit' | 'self_annotation' = 'none';
+  let actions: ChatMessageAction[] | null = null;
   let onboardingProfile: Record<string, unknown> | null = null;
   let triggerEditModal: string | null = null;
 
-  const fieldsForQuickReplies = params.isOnboardingMode ? onboardingFields : null;
-  if (fieldsForQuickReplies && Array.isArray(fieldsForQuickReplies.quickReplies)) {
-    quickReplies = (fieldsForQuickReplies.quickReplies as unknown[])
-      .filter((v): v is string => typeof v === 'string')
-      .map((v) => v.trim())
-      .filter((v) => v.length > 0)
-      .slice(0, 3);
-    if (quickReplies.length === 0) quickReplies = null;
-    if (quickReplies) quickRepliesSource = 'onboardingFields';
+  const fieldsForActions = params.isOnboardingMode ? onboardingFields : null;
+  if (fieldsForActions && Array.isArray(fieldsForActions.actions)) {
+    actions = normalizeChatActions(fieldsForActions.actions).slice(0, 3);
+    if (actions.length === 0) actions = null;
   }
-  if (onboardingFields && 'quickReplies' in onboardingFields) {
-    const { quickReplies: _q, ...rest } = onboardingFields as Record<string, unknown>;
+  if (onboardingFields && 'actions' in onboardingFields) {
+    const { actions: _actions, ...rest } = onboardingFields as Record<string, unknown>;
     onboardingFields = rest;
   }
   if (onboardingFields && 'triggerEditModal' in onboardingFields) {
@@ -524,8 +207,7 @@ const deriveQuickActionState = (params: {
     onboardingFields,
     onboardingProfile,
     triggerEditModal,
-    quickReplies,
-    quickRepliesSource,
+    actions,
   };
 };
 
@@ -595,8 +277,20 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
     throw HttpErrors.badRequest(`message content exceeds ${MAX_MESSAGE_LENGTH} characters`);
   }
 
+  // For anonymous widget sessions the slug is on the body — slug-based cache lookup
+  // does not need practiceId, so we can fire it concurrently with getConversationById.
+  const practiceSlugFromBody = typeof body.practiceSlug === 'string' ? body.practiceSlug.trim() : '';
+  const anonymousPrefetchEnabled = authContext.isAnonymous === true && practiceSlugFromBody.length > 0;
+  const anonymousPracticeDetailsPrefetch = anonymousPrefetchEnabled
+    ? fetchPracticeDetailsWithCache(env, request, '', practiceSlugFromBody, {
+        bypassCache: body.mode === 'PRACTICE_ONBOARDING',
+        preferPracticeIdLookup: false,
+      })
+    : null;
+
   const conversationService = new ConversationService(env);
-  const conversation = await conversationService.getConversationById(body.conversationId, { repair: true });
+  // repair: false on per-turn load — repair belongs at bootstrap only
+  const conversation = await conversationService.getConversationById(body.conversationId, { repair: false });
   Logger.info('AI chat timing: conversation loaded', {
     conversationId: body.conversationId,
     elapsedMs: Date.now() - requestStartedAt,
@@ -613,25 +307,10 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
     throw HttpErrors.badRequest('Conversation is missing practice context');
   }
 
-  const auditService = new SessionAuditService(env);
-  await auditService.createEvent({
-    conversationId: body.conversationId,
-    practiceId,
-    eventType: 'ai_message_sent',
-    actorType: 'user',
-    actorId: authContext.user.id,
-    payload: { conversationId: body.conversationId }
-  });
-  Logger.info('AI chat timing: user audit event created', {
-    conversationId: body.conversationId,
-    elapsedMs: Date.now() - requestStartedAt,
-  });
-
   const conversationMetadata = isRecord(conversation.user_info) ? conversation.user_info : null;
   const storedMode = typeof conversationMetadata?.mode === 'string' ? conversationMetadata.mode : null;
   const effectiveMode = body.mode ?? storedMode;
 
-  const practiceSlugFromBody = typeof body.practiceSlug === 'string' ? body.practiceSlug.trim() : '';
   const practiceSlugFromConversation =
     conversation.practice && typeof conversation.practice.slug === 'string'
       ? conversation.practice.slug.trim()
@@ -642,23 +321,110 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       : '';
   const practiceSlug = practiceSlugFromBody || practiceSlugFromConversation || practiceSlugFromMetadata;
 
-  let details: Record<string, unknown> | null = null;
-  let isPublic = false;
-  try {
-    ({ details, isPublic } = await fetchPracticeDetailsWithCache(
+  const auditService = new SessionAuditService(env);
+
+  // Load practice details - audit write is best-effort and should not crash the flow
+  let practiceDetailsPromise: ReturnType<typeof fetchPracticeDetailsWithCache>;
+  
+  // For anonymous sessions, try to use the prefetch if available and practiceId matches
+  if (anonymousPracticeDetailsPrefetch && practiceId) {
+    practiceDetailsPromise = (async () => {
+      try {
+        // Wait for the prefetch to complete
+        const prefetchResult = await anonymousPracticeDetailsPrefetch;
+        
+        // Check if the prefetch result contains practice details that match our practiceId
+        // We need to extract the practice ID from the prefetch result to validate
+        const prefetchPayload = prefetchResult.details;
+        const prefetchPracticeId = prefetchPayload?.id || prefetchPayload?.practiceId;
+        
+        if (prefetchPracticeId === practiceId) {
+          // Prefetch matches our conversation's practice - use it!
+          Logger.info('Using anonymous prefetch result - practiceId matches', {
+            conversationId: body.conversationId,
+            practiceId,
+            prefetchPracticeId,
+            anonymousPrefetch: true
+          });
+          return prefetchResult;
+        } else {
+          // Prefetch doesn't match - fall back to proper lookup
+          Logger.info('Anonymous prefetch practiceId mismatch - falling back to practiceId lookup', {
+            conversationId: body.conversationId,
+            practiceId,
+            prefetchPracticeId,
+            anonymousPrefetch: true
+          });
+          return fetchPracticeDetailsWithCache(
+            env,
+            request,
+            practiceId,
+            practiceSlug || undefined,
+            {
+              bypassCache: effectiveMode === 'PRACTICE_ONBOARDING',
+              preferPracticeIdLookup: authContext.isAnonymous !== true,
+            }
+          );
+        }
+      } catch (error) {
+        // Prefetch failed - fall back to normal lookup
+        Logger.warn('Anonymous prefetch failed - falling back to practiceId lookup', {
+          conversationId: body.conversationId,
+          practiceId,
+          error: error instanceof Error ? error.message : String(error)
+        });
+        return fetchPracticeDetailsWithCache(
+          env,
+          request,
+          practiceId,
+          practiceSlug || undefined,
+          {
+            bypassCache: effectiveMode === 'PRACTICE_ONBOARDING',
+            preferPracticeIdLookup: authContext.isAnonymous !== true,
+          }
+        );
+      }
+    })();
+  } else {
+    // Normal practice details lookup for authenticated sessions or when no prefetch available
+    practiceDetailsPromise = fetchPracticeDetailsWithCache(
       env,
       request,
-      practiceId,
+      practiceId || '',
       practiceSlug || undefined,
       {
         bypassCache: effectiveMode === 'PRACTICE_ONBOARDING',
         preferPracticeIdLookup: authContext.isAnonymous !== true,
       }
-    ));
+    );
+  }
+
+  // Best-effort audit write - errors are caught and logged
+  auditService.createEvent({
+    conversationId: body.conversationId,
+    practiceId,
+    eventType: 'ai_message_sent',
+    actorType: 'user',
+    actorId: authContext.user.id,
+    payload: { conversationId: body.conversationId }
+  }).catch(error => {
+    Logger.error('Failed to create audit event for ai_message_sent', {
+      conversationId: body.conversationId,
+      practiceId,
+      error: error instanceof Error ? error.message : String(error)
+    });
+  });
+
+  // Run practice details fetch
+  let details: Record<string, unknown> | null = null;
+  let isPublic = false;
+  try {
+    ({ details, isPublic } = await practiceDetailsPromise);
     Logger.info('AI chat timing: practice details loaded', {
       conversationId: body.conversationId,
       practiceId,
       elapsedMs: Date.now() - requestStartedAt,
+      anonymousPrefetch: anonymousPrefetchEnabled,
     });
   } catch (error) {
     Logger.error('AI chat failed to load practice details', {
@@ -693,15 +459,6 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
   const intakeBriefActive = consultation
     ? consultation.status === 'collecting_case' || consultation.status === 'ready_to_submit'
     : conversationMetadata?.intakeAiBriefActive === true;
-  const intakeModeSignals = {
-    requestedModeIsConsultation: effectiveMode === 'REQUEST_CONSULTATION',
-    hasConsultationState: Boolean(consultation),
-    consultationStatus: consultation?.status ?? null,
-    hasSlimContactDraft,
-    intakeBriefActive,
-    intakeSubmitted: body.intakeSubmitted === true,
-    isPublic,
-  };
   const isIntakeMode = Boolean(
     (effectiveMode === 'REQUEST_CONSULTATION' || Boolean(consultation) || hasSlimContactDraft || intakeBriefActive) &&
     body.intakeSubmitted !== true &&
@@ -728,29 +485,6 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
     isGeneralQaMode,
   });
 
-  if (isIntakeMode && effectiveMode !== 'REQUEST_CONSULTATION') {
-    Logger.warn('AI chat entered intake mode without explicit consultation mode', {
-      conversationId: body.conversationId,
-      requestedMode: body.mode ?? null,
-      storedMode,
-      effectiveMode: effectiveMode ?? null,
-      intakeModeSignals,
-      metadataKeys: conversationMetadata ? Object.keys(conversationMetadata).sort() : [],
-      consultationSnapshot: consultation
-        ? {
-            mode: consultation.mode ?? null,
-            status: consultation.status ?? null,
-            hasCase: Boolean(consultation.case),
-            hasContact: Boolean(consultation.contact),
-            hasIntakeId:
-              consultation.submission != null
-              && typeof consultation.submission.intakeUuid === 'string'
-              && consultation.submission.intakeUuid.trim().length > 0,
-          }
-        : null,
-    });
-  }
-
   if (!details) {
     throw HttpErrors.badGateway(
       `Practice details lookup returned no payload for practice ${practiceId}${practiceSlug ? ` (${practiceSlug})` : ''}.`
@@ -768,8 +502,6 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
 
   // ------------------------------------------------------------------
   // Short-circuit paths — instant replies that don't need streaming.
-  // These return a JSON response identical to the old format so any
-  // legacy client code that hasn't been updated yet still works.
   // ------------------------------------------------------------------
 
   let shortCircuitReply: string | null = null;
@@ -840,8 +572,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
   }
 
   // ------------------------------------------------------------------
-  // Streaming path — calls Workers AI with stream:true, pipes tokens to the
-  // client via SSE, then persists the completed message via waitUntil.
+  // Streaming path
   // ------------------------------------------------------------------
 
   const aiPromptContext = buildCompactPracticeContextForPrompt(details);
@@ -852,6 +583,13 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
   const onboardingPromptProfile = isOnboardingMode
     ? buildOnboardingProfileMetadata(details, null)
     : null;
+  const intakeSubmissionGate: IntakeSubmissionGate = {
+    paymentRequiredBeforeSubmit:
+      (consultation?.submission?.paymentRequired === true) ||
+      resolvePracticeRequiresPaymentBeforeSubmission(details),
+    paymentCompleted: consultation?.submission?.paymentReceived === true,
+  };
+
   const requestPayload: Record<string, unknown> = {
     model,
     temperature: 0.2,
@@ -859,7 +597,23 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
     messages: [],
   };
 
-  if (!isIntakeMode) {
+  let systemPrompt: string;
+
+  if (isIntakeMode) {
+    // One unified system prompt — no KNOWN SO FAR injection, no dynamic split
+    systemPrompt = [
+      buildIntakeSystemPrompt(servicesForPrompt, aiPromptContext, storedIntakeState),
+      `PRACTICE_CONTEXT: ${JSON.stringify(aiPromptContext)}`,
+      body.additionalContext ? `SEARCH_CONTEXT: ${body.additionalContext}` : null,
+    ].filter(Boolean).join('\n\n');
+
+    requestPayload.messages = [
+      { role: 'system', content: systemPrompt },
+      ...body.messages.map((m) => ({ role: m.role, content: m.content })),
+    ];
+    requestPayload.tools = INTAKE_TOOLS;
+    requestPayload.parallel_tool_calls = false;
+  } else if (!isIntakeMode) {
     const nonIntakeSystemPrompt = isOnboardingMode
       ? buildOnboardingSystemPrompt(onboardingPromptProfile)
       : [
@@ -870,18 +624,21 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         'If you don\'t have practice details: say you don\'t have access and recommend consultation.',
       ].join('\n');
 
-    const stableSystemPrompt = [
+    systemPrompt = [
       nonIntakeSystemPrompt,
       `PRACTICE_CONTEXT: ${JSON.stringify(aiPromptContext)}`,
     ].join('\n\n');
 
     requestPayload.messages = [
-      { role: 'system', content: stableSystemPrompt },
+      { role: 'system', content: systemPrompt },
       ...(body.additionalContext
         ? [{ role: 'system' as const, content: `SEARCH_CONTEXT: ${body.additionalContext}` }]
         : []),
       ...body.messages.map((message) => ({ role: message.role, content: message.content })),
     ];
+  } else {
+    // This should not happen, but TypeScript needs it
+    systemPrompt = 'You are an assistant.';
   }
 
   if (isOnboardingMode) {
@@ -901,14 +658,19 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
     isOnboardingMode,
   });
 
-  // Kick off the async work and register it with ctx.waitUntil so Cloudflare
-  // does not terminate the worker before persistence completes.
   const streamAndPersist = async (env: Env) => {
+    const requestId = crypto.randomUUID();
     let accumulatedReply = '';
-    let intakeFields: Record<string, unknown> | null = null;
     let onboardingFields: Record<string, unknown> | null = null;
     let emittedAnyToken = false;
     const debugEnabled = isDebugEnabled(env.DEBUG);
+    
+    // Define debug function for SSE
+    const sendSseDebug = (event: string, data: Record<string, unknown>) => {
+      if (debugEnabled) {
+        write({ type: 'debug', event, ...data });
+      }
+    };
 
     const startedAt = Date.now();
     let responseClosed = false;
@@ -921,119 +683,18 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
               .map((tool) => (tool as { function?: { name?: string } }).function?.name ?? null)
               .filter((name): name is string => Boolean(name))
           : [];
-        if (debugEnabled) {
-          Logger.info('AI tool request summary', {
-            conversationId: body.conversationId,
-            model,
-            mode: effectiveMode ?? null,
-            isIntakeMode,
-            isOnboardingMode,
-            toolNames,
-            messageCount: body.messages.length,
-            hasStoredIntakeState: Boolean(storedIntakeState),
-            hasSlimContactDraft,
-            intakeBriefActive,
-          });
-        } else {
-          Logger.info('AI tool request summary', {
-            conversationId: body.conversationId,
-            mode: effectiveMode ?? null,
-            isIntakeMode,
-            isOnboardingMode,
-            toolNames,
-            messageCount: body.messages.length,
-          });
-        }
-      }
-
-      const deterministicIntakePatch = isIntakeMode
-        ? deriveDeterministicIntakePatchFromLatestMessage(lastUserMessage?.content, storedIntakeState, {
-            paymentRequiredBeforeSubmit:
-              (consultation?.submission?.paymentRequired === true)
-              || resolvePracticeRequiresPaymentBeforeSubmission(details),
-            paymentCompleted: consultation?.submission?.paymentReceived === true,
-          })
-        : null;
-      const intakeSubmissionGate: IntakeSubmissionGate = {
-        paymentRequiredBeforeSubmit:
-          (consultation?.submission?.paymentRequired === true)
-          || resolvePracticeRequiresPaymentBeforeSubmission(details),
-        paymentCompleted: consultation?.submission?.paymentReceived === true,
-      };
-      const extractionPlannerStep = planNextIntakeStep(storedIntakeState, intakeSubmissionGate);
-      const intakeTurnMetrics = isIntakeMode
-        ? {
-            extractionRan: false,
-            extractionElapsedMs: null as number | null,
-            skipReason: null as string | null,
-            deterministicPatchKeys: deterministicIntakePatch ? Object.keys(deterministicIntakePatch) : [],
-            plannerNextField: extractionPlannerStep.nextField,
-            conversationTTFTMs: null as number | null,
-            conversationTotalResponseMs: null as number | null,
-            totalTurnMs: null as number | null,
-          }
-        : null;
-      const skipExtractionReason = classifyExtractionNeed({
-        isIntakeMode,
-        latestUserMessage: lastUserMessage?.content,
-        plannerStep: extractionPlannerStep,
-        deterministicIntakePatch,
-      });
-      const extractionServicesForPrompt = resolveExtractionServicesForTurn(
-        servicesForPrompt,
-        storedIntakeState,
-      );
-      const extractionMessages = buildExtractionMessagesWindow(body.messages);
-
-      const extractionPromise: Promise<Record<string, unknown> | null> = isIntakeMode
-        ? extractIntakeFieldsForTurn({
-            aiClient,
-            model,
-            servicesForPrompt: extractionServicesForPrompt,
-            storedIntakeState,
-            body: {
-              conversationId: body.conversationId,
-              extractionMessages,
-              fullMessages: body.messages,
-            },
-            deterministicIntakePatch,
-            skipExtractionReason,
-            debugEnabled,
-            lastUserMessage,
-            metrics: intakeTurnMetrics ?? undefined,
-          })
-        : Promise.resolve(null);
-
-      let intakeFieldsFromExtraction: Record<string, unknown> | null = null;
-      let promptMergedIntakeState: Record<string, unknown> | null = storedIntakeState;
-      if (isIntakeMode) {
-        intakeFieldsFromExtraction = await extractionPromise;
-        promptMergedIntakeState = mergeIntakeState(storedIntakeState, intakeFieldsFromExtraction);
-        const intakeStablePrompt = [
-          buildIntakeConversationStablePrompt(servicesForPrompt),
-          `PRACTICE_CONTEXT: ${JSON.stringify(aiPromptContext)}`,
-        ].join('\n\n');
-        const intakeDynamicPrompt = [
-          buildIntakeConversationStatePrompt(servicesForPrompt, promptMergedIntakeState, body.messages.length, intakeSubmissionGate),
-          body.additionalContext ? `SEARCH_CONTEXT: ${body.additionalContext}` : null,
-        ].filter(Boolean).join('\n\n');
-
-        requestPayload.messages = [
-          { role: 'system', content: intakeStablePrompt },
-          ...(intakeDynamicPrompt
-            ? [{ role: 'system' as const, content: intakeDynamicPrompt }]
-            : []),
-          ...body.messages.map((m) => ({ role: m.role, content: m.content })),
-        ];
-        delete requestPayload.tools;
-        delete requestPayload.tool_choice;
-        delete requestPayload.parallel_tool_calls;
+        Logger.info('AI tool request summary', {
+          conversationId: body.conversationId,
+          mode: effectiveMode ?? null,
+          isIntakeMode,
+          isOnboardingMode,
+          toolNames,
+          messageCount: body.messages.length,
+        });
       }
 
       const conversationRequestStartedAt = Date.now();
       let conversationTTFTMs: number | null = null;
-      // Conversation timeout should start only when the conversation request starts,
-      // not during intake pre-processing/extraction work.
       const controller = new AbortController();
       timeoutId = setTimeout(() => {
         controller.abort();
@@ -1057,8 +718,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         totalElapsedMs: Date.now() - requestStartedAt,
         status: aiResponse.status,
       });
-      
-      // Clear timeout once headers are received
+
       if (timeoutId) {
         clearTimeout(timeoutId);
         timeoutId = null;
@@ -1080,19 +740,22 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       }
 
       const aigStep = aiResponse.headers.get('cf-aig-step');
-      
-      // In intake mode we buffer the full model reply, sanitize it, and only
-      // then emit user-visible content. This prevents prompt-instruction leaks
-      // from being exposed token-by-token in the SSE stream.
-      const shouldStreamTokensToUser = !isOnboardingMode && !isIntakeMode;
-      
-      const streamResult = await consumeAiStream(aiResponse, shouldStreamTokensToUser, streamWrite, body.conversationId);
+
+      // Stream tokens live to the user — intake mode now streams directly
+      const streamResult = await consumeAiStream(
+        aiResponse, 
+        true, 
+        streamWrite, 
+        body.conversationId,
+        requestId,
+        sendSseDebug
+      );
       const conversationTotalResponseMs = Date.now() - conversationRequestStartedAt;
       const latencyMs = Date.now() - startedAt;
 
       Logger.info('AI response complete', {
         conversationId: body.conversationId,
-        model: model,
+        model,
         aigStep,
         latencyMs,
         emittedToken: streamResult.emittedToken,
@@ -1100,24 +763,56 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         hasToolCalls: streamResult.toolCalls.length > 0,
         toolCallCount: streamResult.toolCalls.length,
         replyLength: streamResult.reply.length,
-        contentType: aiResponse.headers.get('content-type') ?? null,
-        diagnostics: debugEnabled
-          ? streamResult.diagnostics
-          : {
-              chunkCount: streamResult.diagnostics.chunkCount,
-              parsedChunkCount: streamResult.diagnostics.parsedChunkCount,
-              malformedChunkCount: streamResult.diagnostics.malformedChunkCount,
-              contentChunkCount: streamResult.diagnostics.contentChunkCount,
-              finishReasonCount: streamResult.diagnostics.finishReasons.length,
-            },
+        conversationTTFTMs,
+        conversationTotalResponseMs,
       });
 
       accumulatedReply = streamResult.reply;
       emittedAnyToken = streamResult.emittedToken;
 
-      // Parse accumulated tool calls if present
+      // ── Execute tool calls inline ─────────────────────────────────────────
+      // When the model emits tool_use blocks, execute each handler immediately
+      // after streaming completes. Persist the result. No second model call.
+      let lastToolResult: ToolResult | null = null;
+      let accumulatedIntakePatch: Record<string, unknown> = {};
+
       for (const toolCall of streamResult.toolCalls) {
-        if (toolCall.name === 'update_practice_fields' && toolCall.arguments.length > 0) {
+        // Log raw tool call details - removed PII
+        if (debugEnabled) {
+          Logger.info('ai.tool.raw', {
+            requestId,
+            conversationId: body.conversationId,
+            toolName: toolCall.name,
+            argLength: toolCall.arguments.length,
+          });
+        }
+        
+        if (debugEnabled) {
+          sendSseDebug('debug_tool_call', {
+            requestId,
+            toolName: toolCall.name,
+            argLength: toolCall.arguments.length,
+          });
+        }
+        
+        if (isIntakeMode && (
+          toolCall.name === 'save_case_details' ||
+          toolCall.name === 'request_payment' ||
+          toolCall.name === 'submit_intake'
+        )) {
+          const cleanArgs = unwrapToolCallJsonArgs(toolCall.arguments);
+          const result = executeIntakeTool(
+            toolCall.name,
+            cleanArgs,
+            mergeIntakeState(storedIntakeState, Object.keys(accumulatedIntakePatch).length > 0 ? accumulatedIntakePatch : null),
+            intakeSubmissionGate,
+          );
+          lastToolResult = result;
+
+          if (result.success && result.intakeFields) {
+            accumulatedIntakePatch = { ...accumulatedIntakePatch, ...result.intakeFields };
+          }
+        } else if (toolCall.name === 'update_practice_fields' && toolCall.arguments.length > 0) {
           try {
             const rawParams = JSON.parse(unwrapToolCallJsonArgs(toolCall.arguments));
             onboardingFields = normalizeKeys(rawParams) as Record<string, unknown>;
@@ -1130,7 +825,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         }
       }
 
-      if (!accumulatedReply.trim()) {
+      if (!accumulatedReply.trim() && !lastToolResult && !onboardingFields) {
         throw createAiDebugError(
           isIntakeMode
             ? 'AI returned no user-facing reply in intake mode.'
@@ -1142,25 +837,9 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
             mode: effectiveMode ?? null,
             isIntakeMode,
             isOnboardingMode,
-            hasIntakeFields: Boolean(intakeFields),
-            hasOnboardingFields: Boolean(onboardingFields),
             streamStalled: streamResult.streamStalled,
-            diagnostics: streamResult.diagnostics,
           }
         );
-      }
-
-      const looksLikeLeakedPrompt = LEAKED_INSTRUCTION_PATTERNS.some((pattern) => pattern.test(accumulatedReply));
-      if (looksLikeLeakedPrompt) {
-        Logger.warn('AI reply appears to contain leaked system prompt content', {
-          conversationId: body.conversationId,
-          replyPreview: accumulatedReply.slice(0, 200),
-        });
-        if (intakeSubmissionGate.paymentRequiredBeforeSubmit && !intakeSubmissionGate.paymentCompleted) {
-          accumulatedReply = 'Your case details look good. A consultation fee is required before we can proceed. Please tap Continue to payment below.';
-        } else {
-          accumulatedReply = 'Thank you for sharing those details. Are you ready to submit your case to the firm?';
-        }
       }
 
       if (!emittedAnyToken && accumulatedReply.trim()) {
@@ -1171,18 +850,15 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         }
       }
 
-      // ── Deterministic chip planner ─────────────────────────────────────────
-      // Chips are NEVER derived from model output. The planner exclusively
-      // inspects merged state and maps to closed-choice fields (urgency, hasDocuments)
-      // or emits nothing for open-text fields (description, location, etc.).
-      // The model-authored quickReplies field no longer exists in INTAKE_TOOL.
-      // ─────────────────────────────────────────────────────────────────────────
-
+      // ── Derive chat actions from tool results ─────────────────────────────
+      // Action buttons come from tool execution results, never from model output parsing.
+      let actions: ChatMessageAction[] | null = null;
       let onboardingProfile: Record<string, unknown> | null = null;
       let triggerEditModal: string | null = null;
-      let quickReplies: string[] | null = null;
-      let quickRepliesSource: 'none' | 'onboardingFields' | 'planner_urgency' | 'planner_hasDocuments' | 'planner_payment' | 'planner_submit' | 'self_annotation' = 'none';
-      let plannerStep: ReturnType<typeof planNextIntakeStep> | null = null;
+
+      if (isIntakeMode && lastToolResult?.actions && lastToolResult.actions.length > 0) {
+        actions = lastToolResult.actions;
+      }
 
       if (isOnboardingMode) {
         const quickActionState = deriveQuickActionState({
@@ -1190,207 +866,121 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
           onboardingFields,
           details,
         });
-
         onboardingFields = quickActionState.onboardingFields;
         onboardingProfile = quickActionState.onboardingProfile;
         triggerEditModal = quickActionState.triggerEditModal;
-        quickReplies = quickActionState.quickReplies;
-        quickRepliesSource = quickActionState.quickRepliesSource as typeof quickRepliesSource;
+        actions = quickActionState.actions;
       }
-      
-      // --- Deterministic Intake Quick Action Override ---
-      let intakeReady = false;
-      if (isIntakeMode) {
-        // ── Deterministic Intake Quick Action Planner ──────────────────────────
-        // Ensure extraction results are fully loaded and merged before planning
-        intakeFields = intakeFieldsFromExtraction ?? await extractionPromise;
-        const mergedForPlanner = mergeIntakeState(storedIntakeState, intakeFields);
-        plannerStep = planNextIntakeStep(mergedForPlanner, intakeSubmissionGate);
-        intakeReady = isIntakeSubmittable(mergedForPlanner, intakeSubmissionGate);
-        
-        if (intakeReady) {
-          quickReplies = ['__submit__'];
-          quickRepliesSource = 'planner_submit';
-          
-          // Strip hallucinated QUICK_REPLIES if model produced them
-          if (accumulatedReply.includes('QUICK_REPLIES:')) {
-            const qrParts = accumulatedReply.split(/QUICK_REPLIES:\s*/i);
-            if (qrParts.length > 1) {
-              accumulatedReply = (qrParts[0].trim() + '\n' + qrParts[1].split('\n').slice(1).join('\n')).trim();
-            }
-          }
-        } else {
-          // 1. Foundation: Deterministic Planner Chips
-          if (plannerStep.chips.length > 0) {
-            quickReplies = plannerStep.chips;
-            quickRepliesSource = plannerStep.chipSource === 'urgency'
-              ? 'planner_urgency'
-              : plannerStep.chipSource === 'hasDocuments'
-                ? 'planner_hasDocuments'
-                : plannerStep.chipSource === 'payment'
-                  ? 'planner_payment'
-                  : 'planner_hasDocuments';
-          }
-          
-          // 2. Override: Self-Annotated
-          // Format: QUICK_REPLIES: Option 1 | Option 2 | Option 3
-          if (accumulatedReply.includes('QUICK_REPLIES:')) {
-            const qrParts = accumulatedReply.split(/QUICK_REPLIES:\s*/i);
-            if (qrParts.length > 1) {
-              const rawOptions = qrParts[1].split('\n')[0].trim();
-              const options = rawOptions
-                .split('|')
-                .map((s) => s.trim())
-                .filter((s) => s.length > 0 && s.length < 30)
-                .filter((s) => !/^__\w+__$/.test(s)); // Sentinel filter
-              
-              if (options.length > 0 && !quickReplies) {
-                quickReplies = options.slice(0, 3);
-                quickRepliesSource = 'self_annotation';
-              }
-              // Strip the metadata line from the text users see for persistence/UI
-              accumulatedReply = (qrParts[0].trim() + '\n' + qrParts[1].split('\n').slice(1).join('\n')).trim();
-            }
-          }
-        }
 
-        Logger.info('Quick replies applied for intake', {
-          conversationId: body.conversationId,
-          source: quickRepliesSource,
-          quickRepliesCount: quickReplies?.length ?? 0,
-          replyLength: accumulatedReply.length,
-        });
-
-        // HEURISTIC: Strip common extraction hallucinations (e.g. user circumstances captured as names)
-        if (intakeFields?.opposingParty && typeof intakeFields.opposingParty === 'string') {
-          const originalValue = intakeFields.opposingParty;
-          const op = originalValue.toLowerCase();
-          const keywords = ['urgent', 'hospital', 'incident'];
-          const hitCount = keywords.filter(k => op.includes(k)).length;
-          
-          const looksLikeHallucination = 
-            hitCount >= 2 || 
-            (hitCount >= 1 && op.split(' ').length > 4);
-          
-          if (looksLikeHallucination) {
-            Logger.warn('Stripping suspected opposingParty hallucination', {
-              conversationId: body.conversationId,
-              originalValueLength: originalValue.length,
-              reason: hitCount >= 2 ? 'multiple_keywords' : 'keyword_and_sentence_structure',
-              hitCount
-            });
-            delete intakeFields.opposingParty;
-          }
-        }
-
-        intakeFields = {
-          ...(intakeFields ?? {}),
-          intakeReady,
-          quickReplies: quickReplies ?? null,
-        } as typeof intakeFields;
-      }
-      const mergedIntakeState = mergeIntakeState(storedIntakeState, intakeFields);
-      if (isIntakeMode && debugEnabled) {
-        Logger.info('Intake state before persistence', {
-          conversationId: body.conversationId,
-          intakeFieldsPresent: Boolean(intakeFields),
-          mergedStatePresent: Boolean(mergedIntakeState),
-          quickRepliesCount: quickReplies?.length ?? 0,
-        });
-      }
-      if (isIntakeMode && !intakeFields) {
-        Logger.warn('Intake extraction returned no fields — reply will proceed without structured data', {
-          conversationId: body.conversationId,
-        });
-      }
+      // Merge tool-collected fields into intake state
+      const patchToMerge = Object.keys(accumulatedIntakePatch).length > 0 ? accumulatedIntakePatch : null;
+      const mergedIntakeState = isIntakeMode
+        ? mergeIntakeState(storedIntakeState, patchToMerge)
+        : null;
 
       const shouldPromptConsultation =
         !hasSlimContactDraft &&
         (shouldRequireDisclaimer(body.messages) || CONSULTATION_CTA_REGEX.test(accumulatedReply));
-      const includeQuickRepliesInMetadata = Boolean(quickReplies);
+      const includeActionsInMetadata = Boolean(actions && actions.length > 0);
+      
+      // Detect tool-only behavior and normalization
+      const wasToolOnly = accumulatedReply.trim().length === 0 && streamResult.toolCalls.length > 0;
+      const normalizationReasons: string[] = [];
+      let syntheticReply = '';
 
-      if (debugEnabled) {
-        Logger.info('[QuickActionDebug] aiChat computed action payload', {
-          conversationId: body.conversationId,
-          nextField: plannerStep?.nextField ?? null,
-          isSubmitReady: plannerStep?.nextField === null,
-          quickRepliesSource,
-          chipSource: plannerStep?.chipSource ?? null,
-          quickRepliesCount: quickReplies?.length ?? 0,
-          includeQuickRepliesInMetadata,
-          isIntakeMode,
-          isOnboardingMode,
-        });
+      if (wasToolOnly) {
+        normalizationReasons.push('tool_only_completion');
+        if (isIntakeMode && lastToolResult?.success && patchToMerge) {
+          syntheticReply = deriveCaseSavedAcknowledgment(
+            lastToolResult,
+            intakeSubmissionGate,
+            mergedIntakeState,
+            servicesForPrompt,
+          );
+        }
       }
-
-      if (isIntakeMode && intakeTurnMetrics) {
-        intakeTurnMetrics.extractionRan = Boolean(intakeTurnMetrics.extractionRan);
-        intakeTurnMetrics.conversationTTFTMs = conversationTTFTMs;
-        intakeTurnMetrics.conversationTotalResponseMs = conversationTotalResponseMs;
-        intakeTurnMetrics.totalTurnMs = Date.now() - startedAt;
-        Logger.info('AI chat intake turn metrics', {
-          conversationId: body.conversationId,
-          extractionRan: intakeTurnMetrics.extractionRan,
-          skipReason: intakeTurnMetrics.skipReason,
-          deterministicPatchKeys: intakeTurnMetrics.deterministicPatchKeys,
-          plannerNextField: intakeTurnMetrics.plannerNextField,
-          extractionElapsedMs: intakeTurnMetrics.extractionElapsedMs,
-          conversationTTFTMs: intakeTurnMetrics.conversationTTFTMs,
-          conversationTotalResponseMs: intakeTurnMetrics.conversationTotalResponseMs,
-          totalTurnMs: intakeTurnMetrics.totalTurnMs,
-        });
-      }
-
-      // Emit the done event before persisting — client can act on intakeFields
-      // immediately without waiting for the DB write.
-      write({
-        done: true,
-        intakeFields: mergedIntakeState ?? null,
-        onboardingFields: onboardingFields ?? null,
-        onboardingProfile: onboardingProfile ?? null,
-        quickReplies: quickReplies ?? null,
-        triggerEditModal: triggerEditModal ?? null,
+      
+      sendSseDebug('debug_normalization', {
+        requestId,
+        reasons: normalizationReasons,
+        syntheticReply: syntheticReply || accumulatedReply,
+        wasToolOnly,
       });
-      close();
-      responseClosed = true;
 
-      const postStreamTasks: Promise<unknown>[] = [];
-
-      postStreamTasks.push((async () => {
+      // Store message BEFORE emitting done — client acts on fields immediately
+      const finalReply = syntheticReply || accumulatedReply;
+      let persistedMessageId: string | null = null;
+      let messagePersisted = false;
+      
+      if (finalReply.trim()) {
         const storedMessage = await conversationService.sendSystemMessage({
           conversationId: body.conversationId,
           practiceId: conversation.practice_id,
-          content: accumulatedReply,
+          content: finalReply,
           metadata: {
             source: 'ai',
-            model: model,
+            model,
             ...(body.sourceBubbleId ? { sourceBubbleId: body.sourceBubbleId } : {}),
             ...(aigStep ? { aigStep } : {}),
-            ...(intakeFields ? { intakeFields } : {}),
+            ...(patchToMerge ? { intakeFields: patchToMerge } : {}),
             ...(onboardingFields ? { onboardingFields } : {}),
             ...(onboardingProfile ? { onboardingProfile } : {}),
-            ...(includeQuickRepliesInMetadata ? { quickReplies } : {}),
+            ...(includeActionsInMetadata ? { actions } : {}),
             ...(triggerEditModal ? { triggerEditModal } : {}),
             ...(shouldPromptConsultation
               ? { modeSelector: { showAskQuestion: false, showRequestConsultation: true, source: 'ai' } }
-              : {})
+              : {}),
+            ...(wasToolOnly ? { wasToolOnly, normalizationReasons } : {}),
           },
           recipientUserId: authContext.user.id,
           skipPracticeValidation: shouldSkipPracticeValidation,
           request
         });
 
-        if (debugEnabled) {
-          Logger.info('[QuickActionDebug] aiChat stored message metadata', {
-            conversationId: body.conversationId,
-            messageId: storedMessage.id,
-            quickRepliesSource,
-            quickRepliesCount: quickReplies?.length ?? 0,
-          });
-        }
-      })());
+        // Log message persistence
+        Logger.info('ai.message.persisted', {
+          requestId,
+          conversationId: body.conversationId,
+          messageId: storedMessage.id,
+          role: 'assistant',
+          kind: wasToolOnly ? 'synthetic' : 'original',
+          wasToolOnly,
+        });
 
-      // Persist intake metadata off the stream-critical path.
+        if (debugEnabled) {
+          write({ debug: { persistedId: storedMessage.id } });
+        }
+        
+        persistedMessageId = storedMessage.id;
+        messagePersisted = true;
+      } else {
+        Logger.info('ai.message.skipped', {
+          requestId,
+          conversationId: body.conversationId,
+          reason: 'empty_reply',
+          wasToolOnly,
+        });
+      }
+
+      // Emit done — client acts on fields immediately after persistence is confirmed
+      write({
+        done: true,
+        reply: finalReply,
+        intakeFields: mergedIntakeState ?? null,
+        onboardingFields: onboardingFields ?? null,
+        onboardingProfile: onboardingProfile ?? null,
+        actions: actions ?? null,
+        wasToolOnly,
+        messagePersisted,
+        persistedMessageId,
+      });
+
+      close();
+      responseClosed = true;
+
+      const postStreamTasks: Promise<unknown>[] = [];
+
+      // Persist intake metadata off the stream-critical path
       if (isIntakeMode && mergedIntakeState) {
         postStreamTasks.push(
           persistMergedIntakeState(conversationService, {
@@ -1413,12 +1003,10 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       schedulePostStreamTasks(ctx, body.conversationId, postStreamTasks);
 
     } catch (error) {
-      // Clear timeout if still active
       if (timeoutId) {
         clearTimeout(timeoutId);
       }
-      
-      // Handle abort errors specifically
+
       if (error instanceof Error && error.name === 'AbortError') {
         Logger.warn('AI request timed out', {
           conversationId: body.conversationId,
@@ -1450,7 +1038,6 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
   if (ctx) {
     ctx.waitUntil(streamAndPersist(env));
   } else {
-    // Fallback for environments without ExecutionContext (tests, local dev without miniflare)
     streamAndPersist(env).catch((error) => {
       Logger.warn('streamAndPersist uncaught error', {
         error: error instanceof Error ? error.message : String(error)

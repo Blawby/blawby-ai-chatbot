@@ -23,7 +23,15 @@ export const invalidatePracticeDetailsCache = async (
 ): Promise<void> => {
   const trimmed = typeof practiceId === 'string' ? practiceId.trim() : '';
   if (!trimmed || !env.CHAT_SESSIONS) return;
-  await env.CHAT_SESSIONS.delete(`practice_details:${trimmed}`);
+  
+  // Delete both UUID and slug-based cache entries
+  const uuidKey = `practice_details:${trimmed}`;
+  const slugKey = `practice_details:slug:${trimmed}`;
+  
+  await Promise.all([
+    env.CHAT_SESSIONS.delete(uuidKey),
+    env.CHAT_SESSIONS.delete(slugKey)
+  ]);
 };
 
 export const fetchPracticeDetailsWithCache = async (
@@ -39,51 +47,79 @@ export const fetchPracticeDetailsWithCache = async (
   details: Record<string, unknown> | null;
   isPublic: boolean;
 }> => {
-  if (!practiceId) {
+  const trimmedSlug = practiceSlug?.trim() ?? '';
+
+  // Require at least one identifier. Empty practiceId is allowed when slug is present
+  // (anonymous prefetch path — practiceId not yet known).
+  if (!practiceId && !trimmedSlug) {
     return { details: null, isPublic: false };
   }
-  const cacheKey = `practice_details:${practiceId}`;
+
+  // Two cache namespaces:
+  //   UUID key  — used when practiceId is a real UUID (primary, most callers)
+  //   Slug key  — used when only practiceSlug is available (anonymous prefetch)
+  // Reads check UUID first, slug as fallback.
+  // Writes populate both keys whenever payload and both identifiers are available.
+  const uuidKey = practiceId ? `practice_details:${practiceId}` : null;
+  const slugKey = trimmedSlug ? `practice_details:slug:${trimmedSlug}` : null;
+
+  const writeToCache = async (payload: unknown, isPublicResponse: boolean): Promise<void> => {
+    if (options?.bypassCache || !env.CHAT_SESSIONS || !payload) return;
+    const serialized = JSON.stringify({ payload });
+    const ttl = { expirationTtl: CACHE_TTL_SECONDS };
+    const writes: Promise<void>[] = [];
+    
+    // Always write to UUID key for authenticated responses
+    if (uuidKey) writes.push(env.CHAT_SESSIONS.put(uuidKey, serialized, ttl));
+    
+    // Only write to slug key for public/canonical responses to prevent
+    // auth-gated payloads from being accessible via slug namespace
+    if (slugKey && isPublicResponse) {
+      writes.push(env.CHAT_SESSIONS.put(slugKey, serialized, ttl));
+    }
+    
+    await Promise.all(writes);
+  };
+
   if (!options?.bypassCache && env.CHAT_SESSIONS) {
-    const cached = await env.CHAT_SESSIONS.get(cacheKey, 'json') as { payload?: unknown } | null;
-    if (cached?.payload) {
-      const details = extractDetailsContainer(cached.payload);
-      if (details) {
-        const isPublic = Boolean(details?.is_public ?? details?.isPublic);
-        return { details, isPublic };
+    // Check UUID key first, then slug key as fallback.
+    const keysToTry = [uuidKey, slugKey].filter((k): k is string => k !== null);
+    for (const key of keysToTry) {
+      const cached = await env.CHAT_SESSIONS.get(key, 'json') as { payload?: unknown } | null;
+      if (cached?.payload) {
+        const details = extractDetailsContainer(cached.payload);
+        if (details) {
+          const isPublic = Boolean(details?.is_public ?? details?.isPublic);
+          return { details, isPublic };
+        }
+        // Stale/corrupt entry — evict and fall through to a fresh fetch.
+        await env.CHAT_SESSIONS.delete(key);
       }
-      // Cached shape is stale/corrupt for current parser; evict and fetch fresh.
-      await env.CHAT_SESSIONS.delete(cacheKey);
     }
   }
 
-  if (options?.preferPracticeIdLookup) {
+  if (options?.preferPracticeIdLookup && practiceId) {
     try {
       const response = await RemoteApiService.getPracticeDetailsById(env, practiceId, request);
       const payload = await response.json().catch(() => null);
       const details = extractDetailsContainer(payload);
       const isPublic = Boolean(details?.is_public ?? details?.isPublic);
-
-      if (!options?.bypassCache && env.CHAT_SESSIONS && payload) {
-        await env.CHAT_SESSIONS.put(cacheKey, JSON.stringify({ payload }), {
-          expirationTtl: CACHE_TTL_SECONDS
-        });
-      }
-
+      await writeToCache(payload, isPublic);
       return { details, isPublic };
     } catch (error) {
-      // fall through to slug lookup when ID lookup fails with auth/not-found errors
+      // Fall through to slug lookup on auth/not-found errors.
       if (!(error instanceof HttpError) || (error.status !== 404 && error.status !== 401 && error.status !== 403)) {
         throw error;
       }
     }
-    // fall through to slug lookup
   }
 
   const isUuid = (value: string): boolean =>
     /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 
-  let resolvedSlug = practiceSlug?.trim() || practiceId;
-  if (!practiceSlug && isUuid(practiceId)) {
+  // Resolve the slug to use for the public API call.
+  let resolvedSlug = trimmedSlug || practiceId;
+  if (!trimmedSlug && practiceId && isUuid(practiceId)) {
     try {
       const practice = await RemoteApiService.getPractice(env, practiceId, request);
       if (practice?.slug) {
@@ -98,7 +134,7 @@ export const fetchPracticeDetailsWithCache = async (
   try {
     response = await RemoteApiService.getPublicPracticeDetails(env, resolvedSlug, request);
   } catch (error) {
-    if (error instanceof HttpError && resolvedSlug !== practiceId) {
+    if (error instanceof HttpError && resolvedSlug !== practiceId && practiceId) {
       response = await RemoteApiService.getPublicPracticeDetails(env, practiceId, request);
     } else {
       throw error;
@@ -108,12 +144,7 @@ export const fetchPracticeDetailsWithCache = async (
   const payload = await response.json().catch(() => null);
   const details = extractDetailsContainer(payload);
   const isPublic = Boolean(details?.is_public ?? details?.isPublic);
-
-  if (!options?.bypassCache && env.CHAT_SESSIONS && payload) {
-    await env.CHAT_SESSIONS.put(cacheKey, JSON.stringify({ payload }), {
-      expirationTtl: CACHE_TTL_SECONDS
-    });
-  }
+  await writeToCache(payload, isPublic);
 
   return { details, isPublic };
 };
