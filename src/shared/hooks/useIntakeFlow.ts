@@ -460,7 +460,7 @@ export function useIntakeFlow({
     practiceSlug: string;
   }) => {
     const { paymentLinkUrl, intakeUuid, practiceSlug } = handoffParams;
-    if (!intakeUuid || !paymentLinkUrl || !conversationId || !practiceId) return;
+    if (!intakeUuid || !conversationId || !practiceId) return;
 
     let checkoutSessionUrl: string | null = null;
     let checkoutSessionId: string | null = null;

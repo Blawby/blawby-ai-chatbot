@@ -389,9 +389,23 @@ export const useChatComposer = ({
         }
         const doneActions = normalizeChatActions(parsed.actions);
         if (doneActions.length > 0) {
-          const currentBubble = messagesRef.current.find((message) => message.id === bubbleId);
-          if (!currentBubble?.content?.trim()) {
-            removeStreamingBubble(bubbleId);
+          let wasEmpty = false;
+          setMessages(prev => {
+            const currentBubble = prev.find((message) => message.id === bubbleId);
+            if (currentBubble?.content?.trim()) {
+              return prev.map(msg =>
+                msg.id === bubbleId ? {
+                  ...msg,
+                  isLoading: false,
+                  metadata: { ...(msg.metadata ?? {}), actions: doneActions }
+                } : msg
+              );
+            }
+            wasEmpty = true;
+            return prev.filter((msg) => msg.id !== bubbleId);
+          });
+
+          if (wasEmpty) {
             pendingStreamMessageIdRef.current = null;
             if (activeStreamingBubbleIdRef.current === bubbleId) {
               activeStreamingBubbleIdRef.current = null;
@@ -403,19 +417,6 @@ export const useChatComposer = ({
             return;
           }
 
-          setMessages(prev => prev.map(msg =>
-            msg.id === bubbleId
-              ? {
-                  ...msg,
-                  isLoading: false,
-                  metadata: {
-                    ...(msg.metadata ?? {}),
-                    __client_id: bubbleId,
-                    actions: doneActions,
-                  },
-                }
-              : msg
-          ));
           if (activeStreamingBubbleIdRef.current === bubbleId) {
             activeStreamingBubbleIdRef.current = null;
           }

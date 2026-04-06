@@ -1049,7 +1049,8 @@ test.describe('Public widget intake flow', () => {
       intakeFields?: Record<string, unknown> | null;
       actions?: Array<Record<string, unknown>> | null;
       persistedMessageId?: string | null;
-      replySource?: 'model' | 'synthetic' | 'empty';
+      messagePersisted?: boolean;
+      wasToolOnly?: boolean;
     };
 
     const parseDonePayloads = (text: string) => {
@@ -1299,20 +1300,21 @@ test.describe('Public widget intake flow', () => {
         `After location, AI should ask about opposing party, urgency, or move to payment/submit. Got: "${reply2.slice(0, 300)}"`
       ).toBe(true);
 
-      // ASSERTION 2b: Verify normalization layer prevents tool-only responses
+      // ASSERTION 2b: Verify normalization layer prevents tool-only responses from being unhandled
       // Verify the model produced a terminal action turn when actions are present.
       if (done2?.actions && done2.actions.length > 0) {
         expect(
-          done2?.replySource !== 'empty',
-          'Normalization layer should prevent empty replies when actions exist'
+          done2?.wasToolOnly === true ? !!reply2 : true,
+          'If wasToolOnly is true, we should have a synthetic reply rendered'
         ).toBe(true);
       }
 
       // Log observability data for model behavior analysis
-      if (done2?.replySource === 'synthetic') {
+      if (done2?.wasToolOnly) {
         console.log('Model produced tool-only response, synthetic reply applied:', {
           replyLength: reply2.length,
           actionCount: done2?.actions?.length || 0,
+          messagePersisted: done2?.messagePersisted,
         });
       }
 
@@ -1327,15 +1329,16 @@ test.describe('Public widget intake flow', () => {
         
         // Verify the third turn still produces a terminal action response when applicable.
         if (done3?.actions && done3.actions.length > 0) {
-          expect(done3?.replySource !== 'empty', 'Tool/action turns should not collapse to an empty reply').toBe(true);
+          expect(done3?.wasToolOnly === true ? !!reply3 : true, 'Tool/action turns should not collapse to an empty reply').toBe(true);
         }
         
         // Log observability data for turn 3
-        if (done3?.replySource) {
+        if (done3) {
           console.log('Turn 3 model behavior:', {
-            replySource: done3.replySource,
+            wasToolOnly: done3.wasToolOnly,
             replyLength: reply3.length,
             actionCount: done3?.actions?.length || 0,
+            messagePersisted: done3.messagePersisted,
           });
         }
         
@@ -1428,11 +1431,13 @@ test.describe('Public widget intake flow', () => {
       });
 
       // Final observability assertions
-      if (finalDone?.replySource) {
+      if (finalDone) {
         console.log('Final turn model behavior summary:', {
-          replySource: finalDone.replySource,
+          wasToolOnly: finalDone.wasToolOnly,
           actionCount: finalDone?.actions?.length || 0,
-          intakeReady: finalDone?.intakeFields?.intakeReady
+          intakeReady: finalDone?.intakeFields?.intakeReady,
+          messagePersisted: finalDone.messagePersisted,
+          persistedMessageId: finalDone.persistedMessageId
         });
       }
 

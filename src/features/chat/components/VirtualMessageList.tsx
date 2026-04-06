@@ -47,7 +47,7 @@ interface VirtualMessageListProps {
     };
     isPublicWorkspace?: boolean;
     onOpenSidebar?: () => void;
-    onOpenPayment?: (request: IntakePaymentRequest) => void;
+    onOpenPayment?: (request: IntakePaymentRequest) => void | boolean;
     practiceId?: string;
     onReply?: (target: ReplyTarget) => void;
     onToggleReaction?: (messageId: string, emoji: string) => void;

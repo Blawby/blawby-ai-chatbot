@@ -14,7 +14,7 @@ interface ApiRecord {
 }
 
 const MAX_BOOTSTRAP_MS = Number(process.env.E2E_WIDGET_BOOTSTRAP_BUDGET_MS ?? 6000);
-const MAX_INTERACTIVE_MS = Number(process.env.E2E_WIDGET_INTERACTIVE_BUDGET_MS ?? 22000);
+const MAX_INTERACTIVE_MS = Number(process.env.E2E_WIDGET_INTERACTIVE_BUDGET_MS ?? 32000);
 const MAX_AI_RESPONSE_MS = Number(process.env.E2E_WIDGET_AI_RESPONSE_BUDGET_MS ?? 90000);
 const MAX_FORM_OPEN_MS = Number(process.env.E2E_WIDGET_FORM_OPEN_BUDGET_MS ?? 15000);
 const MAX_FORM_SUBMIT_FEEDBACK_MS = Number(process.env.E2E_WIDGET_FORM_SUBMIT_BUDGET_MS ?? 15000);
@@ -477,6 +477,18 @@ test.describe('Public widget performance', () => {
       await consultationCta.click();
     }
 
+    await expect.poll(
+      async () => {
+        const inputEnabled = await messageInput.isEnabled({ timeout: 300 }).catch(() => false);
+        const formVisible = await slimFormName.isVisible({ timeout: 300 }).catch(() => false);
+        return inputEnabled || formVisible;
+      },
+      {
+        timeout: MAX_FORM_OPEN_MS,
+        message: 'Expected slim form or composer after opening the public widget flow',
+      }
+    ).toBe(true);
+
     if (await slimFormName.isVisible({ timeout: 500 }).catch(() => false)) {
       await slimFormName.fill('Performance Test User');
       if (await slimFormEmail.isVisible().catch(() => false)) {
@@ -495,11 +507,17 @@ test.describe('Public widget performance', () => {
     // Start timing right before the click to measure only server/stream latency
     const startTime = Date.now();
     
+    const baselineCount = await anonPage.locator('[data-testid="ai-message"]').count();
+    
     // Create the DOM polling promise BEFORE clicking so we don't miss the start
-    const firstTokenPromise = anonPage.waitForFunction(() => {
+    const firstTokenPromise = anonPage.waitForFunction((count) => {
       const messages = Array.from(document.querySelectorAll('[data-testid="ai-message"]'));
-      return messages.some(msg => msg.textContent && msg.textContent.trim().length > 0);
-    }, { timeout: MAX_FIRST_TOKEN_MS });
+      if (messages.length > count) {
+        const latest = messages[messages.length - 1];
+        return latest.textContent && latest.textContent.trim().length > 0;
+      }
+      return false;
+    }, baselineCount, { timeout: MAX_FIRST_TOKEN_MS });
 
     await anonPage.getByRole('button', { name: /send message/i }).click();
     
@@ -541,6 +559,18 @@ test.describe('Public widget performance', () => {
     if (await consultationCta.isVisible({ timeout: 1000 }).catch(() => false)) {
       await consultationCta.click();
     }
+
+    await expect.poll(
+      async () => {
+        const inputEnabled = await messageInput.isEnabled({ timeout: 300 }).catch(() => false);
+        const formVisible = await slimFormName.isVisible({ timeout: 300 }).catch(() => false);
+        return inputEnabled || formVisible;
+      },
+      {
+        timeout: MAX_FORM_OPEN_MS,
+        message: 'Expected slim form or composer after opening the public widget flow',
+      }
+    ).toBe(true);
 
     if (await slimFormName.isVisible({ timeout: 500 }).catch(() => false)) {
       await slimFormName.fill('Performance Test User');

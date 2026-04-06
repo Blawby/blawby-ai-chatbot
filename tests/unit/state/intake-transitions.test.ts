@@ -63,8 +63,7 @@ describe('Intake State Transitions', () => {
       const intake = createMinimalIntakeState({
         description: 'Divorce case in California',
         city: 'Los Angeles',
-        state: 'CA',
-        opposingParty: 'John Doe'
+        state: 'CA'
       });
 
       expect(isIntakeReadyForSubmission(intake)).toBe(true);
@@ -74,8 +73,7 @@ describe('Intake State Transitions', () => {
       const intake = createMinimalIntakeState({
         description: 'Divorce case',
         city: 'Los Angeles',
-        state: 'CA',
-        opposingParty: '' // Missing
+        state: '' // Missing
       });
 
       expect(isIntakeReadyForSubmission(intake)).toBe(false);
@@ -140,8 +138,7 @@ describe('Intake State Transitions', () => {
       const intake = createMinimalIntakeState({
         description: 'Complete case',
         city: 'City',
-        state: 'CA',
-        opposingParty: 'Party'
+        state: 'CA'
       });
 
       expect(isIntakeSubmittable(intake, { paymentRequired: false })).toBe(true);
@@ -151,8 +148,7 @@ describe('Intake State Transitions', () => {
       const intake = createMinimalIntakeState({
         description: 'Complete case',
         city: 'City',
-        state: 'CA',
-        opposingParty: 'Party'
+        state: 'CA'
       });
 
       expect(isIntakeSubmittable(intake, { paymentRequired: true, paymentReceived: true })).toBe(true);
@@ -162,8 +158,7 @@ describe('Intake State Transitions', () => {
       const intake = createMinimalIntakeState({
         description: 'Complete case',
         city: 'City',
-        state: 'CA',
-        opposingParty: 'Party'
+        state: 'CA'
       });
 
       expect(isIntakeSubmittable(intake, { paymentRequired: true, paymentReceived: false })).toBe(false);

@@ -179,4 +179,23 @@ describe('save_case_details tool', () => {
       { type: 'submit', label: 'Submit request', variant: 'primary' }
     ]);
   });
+
+  test('should support incremental updates with only optional fields if basic state exists', () => {
+    const existingState = {
+      description: 'Existing description',
+      city: 'Existing city',
+      state: 'CA'
+    };
+
+    const args = {
+      opposingParty: 'New Opponent' // No description, city, or state in this patch
+    };
+
+    const submissionGate = { paymentRequiredBeforeSubmit: false, paymentCompleted: false };
+    const result = handleSaveCaseDetails(args, existingState, submissionGate);
+    
+    expect(result.success).toBe(true);
+    expect(result.intakeFields?.opposingParty).toBe('New Opponent');
+    expect(result.intakeFields?.description).toBeUndefined(); // Should not re-send what we already have if not in args
+  });
 });

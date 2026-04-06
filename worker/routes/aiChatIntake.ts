@@ -142,21 +142,22 @@ export const handleSaveCaseDetails = (
 ): ToolResult => {
   const patch: Record<string, unknown> = {};
 
-  const description = typeof args.description === 'string' ? args.description.trim().slice(0, 300) : '';
-  const city = typeof args.city === 'string' ? args.city.trim() : '';
-  const rawState = typeof args.state === 'string' ? args.state.trim() : '';
+  const description = typeof args.description === 'string' ? args.description.trim().slice(0, 300) : (typeof storedIntakeState?.description === 'string' ? (storedIntakeState.description as string) : '');
+  const city = typeof args.city === 'string' ? args.city.trim() : (typeof storedIntakeState?.city === 'string' ? (storedIntakeState.city as string) : '');
+  const rawState = typeof args.state === 'string' ? args.state.trim() : (typeof storedIntakeState?.state === 'string' ? (storedIntakeState.state as string) : '');
   const state = normalizeStateCode(rawState);
 
   if (!description || !city || !state) {
     return {
       success: false,
-      message: 'Case details incomplete — description, city, and state are required.',
+      message: 'Case details incomplete — description, city, and state are required at minimum.',
     };
   }
 
-  patch.description = description;
-  patch.city = city;
-  patch.state = state;
+  // Only include fields in the patch if they were provided in this specific tool call (delta)
+  if (typeof args.description === 'string') patch.description = description;
+  if (typeof args.city === 'string') patch.city = city;
+  if (typeof args.state === 'string' && state) patch.state = state;
 
   if (typeof args.opposingParty === 'string' && args.opposingParty.trim()) {
     patch.opposingParty = args.opposingParty.trim();

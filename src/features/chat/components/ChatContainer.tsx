@@ -385,7 +385,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   }, []);
 
   const handleOpenPayment = useCallback((request: IntakePaymentRequest) => {
-    openPayment(request);
+    return openPayment(request);
   }, [openPayment]);
 
 

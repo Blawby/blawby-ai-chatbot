@@ -14,7 +14,7 @@ import { useToastContext } from '@/shared/contexts/ToastContext';
 
 interface IntakePaymentCardProps {
   paymentRequest: IntakePaymentRequest;
-  onOpenPayment?: (request: IntakePaymentRequest) => void | boolean;
+  onOpenPayment?: (request: IntakePaymentRequest) => boolean | Promise<boolean>;
 }
 
 const resolveDisplayAmount = (amount?: MinorAmount, currency?: string, locale?: string) => {
