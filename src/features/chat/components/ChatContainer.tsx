@@ -374,12 +374,9 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     if (request.paymentLinkUrl) {
       const opened = window.open(request.paymentLinkUrl, '_blank', 'noopener,noreferrer');
       if (opened === null) {
-        console.info('[Chat] Popup blocked, falling back to same-tab navigation');
         window.location.assign(request.paymentLinkUrl);
       }
-      return;
     }
-    console.warn('[Chat] Missing payment link URL, cannot open payment');
   }, []);
 
   const handleOpenPayment = useCallback((request: IntakePaymentRequest): void => {

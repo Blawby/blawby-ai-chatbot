@@ -12,12 +12,12 @@ export const formatRelativeTime = (dateValue: string | Date, now = new Date()) =
     const hr = Math.round(min / 60);
     const day = Math.round(hr / 24);
     
-    if (sec < 45) return 'in just now';
+    if (sec < 45) return 'in a moment';
     if (sec < 90) return 'in 1 min';
     if (min < 45) return `in ${min} min`;
     if (min < 90) return 'in 1 hr';
     if (hr < 24) return `in ${hr} hr`;
-    if (hr < 36) return 'in yesterday';
+    if (hr < 36) return 'tomorrow';
     if (day < 30) return `in ${day} days`;
     
     // For future dates beyond 30 days, use calendar format
