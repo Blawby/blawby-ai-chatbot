@@ -396,7 +396,7 @@ export const PracticeMattersPage = ({
     matterBillingType: selectedMatterDetailState?.billingType ?? null,
     attorneyHourlyRate: selectedMatterDetailState?.attorneyHourlyRate ?? null,
     adminHourlyRate: selectedMatterDetailState?.adminHourlyRate ?? null,
-    enabled: Boolean(activePracticeId && selectedMatterId)
+    enabled: Boolean(activePracticeId && selectedMatterId && detailSection === 'billing')
   });
 
   useEffect(() => {
