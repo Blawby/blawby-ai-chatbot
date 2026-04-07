@@ -142,7 +142,8 @@ export const usePaymentStatus = ({
         });
     }
     // 2. Clean up legacy sessionStorage keys (Fallback cleanup)
-    for (let i = 0; i < window.sessionStorage.length; i += 1) {
+    // Iterate backwards so removeItem doesn't shift indices of unvisited keys
+    for (let i = window.sessionStorage.length - 1; i >= 0; i -= 1) {
       const key = window.sessionStorage.key(i);
       if (!key) continue;
       if (key.startsWith('intakePaymentSuccess:') || key.startsWith('intakePaymentPending:')) {
@@ -168,22 +169,28 @@ export const usePaymentStatus = ({
       if (event.key !== PAYMENT_CONFIRMED_STORAGE_KEY) return;
       if (!event.newValue) return;
 
-      let payload: { intakeUuid?: string; sessionId?: string } | null = null;
+      let payload: { intakeUuid?: string; sessionId?: string; conversationId?: string | null } | null = null;
       try { payload = JSON.parse(event.newValue); } catch { return; }
+
+      // Ensure the confirmation belongs to this conversation
+      if (payload?.conversationId && conversationId && payload.conversationId !== conversationId) {
+        return;
+      }
 
       const intakeUuid = payload?.intakeUuid;
       if (!intakeUuid || !UUID_PATTERN.test(intakeUuid)) return;
 
       postPaymentConfirmation(intakeUuid, practiceName || 'the practice', undefined, payload?.sessionId ?? null)
+        .then(() => {
+          // Clean up only after successful confirmation so other tabs can retry on failure
+          try { localStorage.removeItem(PAYMENT_CONFIRMED_STORAGE_KEY); } catch { /* ignore */ }
+        })
         .catch(err => console.warn('[usePaymentStatus] Cross-tab payment confirmation failed', err));
-
-      // Clean up so subsequent tabs don't re-process the same event
-      try { localStorage.removeItem(PAYMENT_CONFIRMED_STORAGE_KEY); } catch { /* ignore */ }
     };
 
     window.addEventListener('storage', handleStorage);
     return () => window.removeEventListener('storage', handleStorage);
-  }, [postPaymentConfirmation, practiceName]);
+  }, [conversationId, postPaymentConfirmation, practiceName]);
 
   // ── backend payment reconciliation ────────────────────────────────────────
   // Runs whenever the latest intake submission changes — handles the case

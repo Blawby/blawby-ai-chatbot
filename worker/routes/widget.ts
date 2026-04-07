@@ -230,10 +230,11 @@ export async function handleWidgetBootstrap(request: Request, env: Env): Promise
       const conversationService = new ConversationService(env);
       
       // Only fetch existing recent conversations; no more creation in bootstrap.
-      // The backend now filters for IN ('active', 'submitted') natively if status is undefined.
+      // Filter for ('active', 'submitted') to avoid showing archived conversations in the widget.
       const userConversations = await conversationService.getConversations({
         practiceId,
         userId: sessionUserId,
+        status: ['active', 'submitted'],
         limit: 5
       });
       

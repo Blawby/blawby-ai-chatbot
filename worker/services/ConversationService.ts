@@ -10,6 +10,8 @@ import {
   resolveConsultationState,
 } from '../../src/shared/utils/consultationState';
 
+export type ConversationStatus = 'active' | 'archived' | 'closed' | 'submitted' | 'draft';
+
 export interface Conversation {
   id: string;
   practice_id: string;
@@ -25,7 +27,7 @@ export interface Conversation {
   matter_id: string | null;
   participants: string[]; // Array of user IDs
   user_info: Record<string, unknown> | null;
-  status: 'active' | 'archived' | 'closed' | 'submitted' | 'draft';
+  status: ConversationStatus;
   assigned_to?: string | null; // User ID of assigned practice member
   priority?: 'low' | 'normal' | 'high' | 'urgent';
   tags?: string[]; // Array of tag strings
@@ -71,7 +73,7 @@ export interface CreateConversationOptions {
   matterId?: string | null;
   participantUserIds: string[];
   metadata?: Record<string, unknown>;
-  status?: string;
+  status?: ConversationStatus;
   skipPracticeValidation?: boolean;
 }
 
@@ -669,7 +671,7 @@ export class ConversationService {
             AND cp.user_id = ?
         )
         ${anonymousCondition}
-        AND c.status IN ('active', 'submitted')
+        AND c.status IN ('active', 'submitted', 'draft')
       ORDER BY (c.status = 'active') DESC, c.updated_at DESC
       LIMIT 1
     `;
@@ -702,7 +704,7 @@ export class ConversationService {
     matterId?: string | null;
     userId?: string | null;
     bypassParticipantFilter?: boolean;
-    status?: 'active' | 'archived' | 'closed' | 'submitted' | 'draft';
+    status?: ConversationStatus | ConversationStatus[];
     mode?: string;
     assignedTo?: 'none';
     limit?: number;
@@ -752,10 +754,14 @@ export class ConversationService {
     }
 
     if (options.status) {
-      query += ' AND conversations.status = ?';
-      bindings.push(options.status);
-    } else {
-      query += " AND conversations.status IN ('active', 'submitted')";
+      if (Array.isArray(options.status)) {
+        const placeholders = (options.status as string[]).map(() => '?').join(', ');
+        query += ` AND conversations.status IN (${placeholders})`;
+        bindings.push(...(options.status as string[]));
+      } else {
+        query += ' AND conversations.status = ?';
+        bindings.push(options.status);
+      }
     }
 
     if (options.mode) {

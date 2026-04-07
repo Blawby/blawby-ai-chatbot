@@ -45,7 +45,7 @@ CREATE TABLE IF NOT EXISTS conversations (
   matter_id TEXT, -- Optional remote matter reference
   participants JSON, -- Array of user IDs: ["userId1", "userId2"]
   user_info JSON,
-  status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'active', 'submitted')),
+  status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'active', 'submitted', 'closed', 'archived')),
   assigned_to TEXT,
   priority TEXT DEFAULT 'normal' CHECK (priority IN ('low', 'normal', 'high', 'urgent')),
   tags TEXT, -- JSON array

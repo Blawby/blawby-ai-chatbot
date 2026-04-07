@@ -86,31 +86,7 @@ export const useMessageHandling = (options: UseMessageHandlingOptions) => {
   } = options;
 
   const composerRef = useRef<ReturnType<typeof useChatComposer> | null>(null);
-
-  // 1. Initial/Stub Metadata for Intake
   const conversationMetadataOnLoadRef = useRef<ConversationMetadata | null>(null);
-  const consultation = useMemo(
-    () => resolveConsultationState(conversationMetadataOnLoadRef.current),
-    []
-  );
-
-
-  // 2. Intake Flow logic
-  const intake = useIntakeFlow({
-    enabled,
-    conversationId,
-    practiceId,
-    practiceSlug,
-    onEnsureConversation,
-    conversationMetadata: null, // Initialized later
-    slimContactDraft: consultation?.contact ?? null,
-    conversationMetadataRef: { current: null } as React.MutableRefObject<ConversationMetadata | null>, // Initialized later
-    updateConversationMetadata: async () => {}, // Stub
-    applyServerMessages: () => {}, // Stub
-    sendMessage: (content, att, reply, opts) => composerRef.current?.sendMessage(content, att, reply, opts),
-    sendMessageOverWs: (content, att, meta, reply, convId) => composerRef.current?.sendMessageOverWs(content, att, meta, reply, convId),
-    onError,
-  });
 
   // 3. Core Transport & State
   const conversation = useConversation({
@@ -121,6 +97,28 @@ export const useMessageHandling = (options: UseMessageHandlingOptions) => {
     linkAnonymousConversationOnLoad,
     onConversationMetadataUpdated,
     skipInitialFetch,
+    onError,
+  });
+
+  const consultation = useMemo(
+    () => resolveConsultationState(conversation.conversationMetadata),
+    [conversation.conversationMetadata]
+  );
+
+  // 2. Intake Flow logic
+  const intake = useIntakeFlow({
+    enabled,
+    conversationId,
+    practiceId,
+    practiceSlug,
+    onEnsureConversation,
+    conversationMetadata: null, // Initialized later
+    slimContactDraft: consultation?.contact ?? null,
+    conversationMetadataRef: { current: null as ConversationMetadata | null }, // Initialized later
+    updateConversationMetadata: async () => {}, // Stub
+    applyServerMessages: () => {}, // Stub
+    sendMessage: (content, att, reply, opts) => composerRef.current?.sendMessage(content, att, reply, opts),
+    sendMessageOverWs: (content, att, meta, reply, convId) => composerRef.current?.sendMessageOverWs(content, att, meta, reply, convId),
     onError,
   });
 
@@ -277,9 +275,12 @@ export const useMessageHandling = (options: UseMessageHandlingOptions) => {
       const isDraft = conversation.conversationMetadataRef.current?.status === 'draft' || 
                       (!conversation.conversationMetadataRef.current && skipInitialFetch);
       if (isDraft) {
-        conversation.updateConversationMetadata({ status: 'active' }).catch(err => {
-          console.warn('[useMessageHandling] Failed to fire-and-forget status: active on send', err);
-        });
+        try {
+          await conversation.updateConversationMetadata({ status: 'active' });
+        } catch (err) {
+          console.error('[useMessageHandling] Failed to activate conversation on send', err);
+          throw err;
+        }
       }
       return composer.sendMessage(...args);
     } : suspendedState.sendMessage,
@@ -307,22 +308,6 @@ export const useMessageHandling = (options: UseMessageHandlingOptions) => {
     isConsultFlowActive: enabled ? isConsultFlowActive : suspendedState.isConsultFlowActive,
   }), [
     enabled,
-    conversation.messages,
-    conversation.conversationMetadata,
-    conversation.messagesReady,
-    conversation.hasMoreMessages,
-    conversation.isLoadingMoreMessages,
-    conversation.isSocketReady,
-    conversation.loadMoreMessages,
-    conversation.startConsultFlow,
-    conversation.clearMessages,
-    conversation.addMessage,
-    conversation.updateMessage,
-    conversation.ingestServerMessages,
-    conversation.updateConversationMetadata,
-    conversation.requestMessageReactions,
-    conversation.toggleMessageReaction,
-    composer.sendMessage,
     payments.paymentRetryNotice,
     verifiedPaidIntakeUuids,
     liveIntake.intakeStatus,
@@ -339,5 +324,8 @@ export const useMessageHandling = (options: UseMessageHandlingOptions) => {
     liveIntake.applyIntakeFields,
     isConsultFlowActive,
     suspendedState,
+    skipInitialFetch,
+    composer,
+    conversation
   ]);
 };

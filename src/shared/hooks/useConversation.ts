@@ -303,7 +303,7 @@ export const useConversation = ({
     // the PATCH independently of the SessionContext resolution state; blocking
     // here causes silent no-ops on freshly-created conversations where sessionReady
     // is false because hasAnonymousWidgetContext requires conversationId to be set.
-    const hasWidgetBypass = Boolean(externalUserId && targetConversationId);
+    const hasWidgetBypass = Boolean(externalUserId);
     if (!sessionReady && !hasWidgetBypass) return null;
     const activeConversationId = targetConversationId ?? conversationId;
     const practiceKey = practiceId;
@@ -335,7 +335,7 @@ export const useConversation = ({
     const queued = metadataUpdateQueueRef.current.then(runUpdate, runUpdate);
     metadataUpdateQueueRef.current = queued.catch(() => null);
     return queued;
-  }, [applyConversationMetadata, conversationId, practiceId, sessionReady]);
+  }, [applyConversationMetadata, conversationId, externalUserId, practiceId, sessionReady]);
 
   useEffect(() => {
     if (!enabled) return;

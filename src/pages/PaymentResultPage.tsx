@@ -1,5 +1,5 @@
 import { FunctionComponent } from 'preact';
-import { useEffect, useState } from 'preact/hooks';
+import { useEffect } from 'preact/hooks';
 import { CheckCircleIcon, ClockIcon, XCircleIcon } from '@heroicons/react/24/outline';
 import { PAYMENT_CONFIRMED_STORAGE_KEY } from '@/shared/utils/intakePayments';
 import { Button } from '@/shared/ui/Button';
@@ -66,18 +66,13 @@ const PaymentResultPage: FunctionComponent<{ practiceSlug?: string }> = ({ pract
   const isValidSession = SESSION_ID_PATTERN.test(sessionId);
   const isValidUuid = UUID_PATTERN.test(uuid);
 
-  const [outcome, setOutcome] = useState<PaymentOutcome>(
-    isValidSession ? 'success' : 'unknown'
-  );
+  const outcome: PaymentOutcome = (isValidSession && isValidUuid) ? 'success' : 'cancelled';
+
+  const canClose = typeof window !== 'undefined' && Boolean(window.opener);
 
   useEffect(() => {
-    if (!isValidSession || !isValidUuid) {
-      setOutcome('cancelled');
-      return;
-    }
-
-    setOutcome('success');
-
+    if (outcome !== 'success') return;
+    
     // Signal the originating widget tab via localStorage storage event.
     // The widget's usePaymentStatus hook listens for this key on other tabs.
     try {
@@ -92,7 +87,7 @@ const PaymentResultPage: FunctionComponent<{ practiceSlug?: string }> = ({ pract
     } catch {
       // localStorage may be unavailable in some environments
     }
-  }, [isValidSession, isValidUuid, uuid, sessionId, conversationId, practiceSlug]);
+  }, [outcome, uuid, sessionId, conversationId, practiceSlug]);
 
   const config = OUTCOMES[outcome];
   const { Icon } = config;
@@ -135,15 +130,21 @@ const PaymentResultPage: FunctionComponent<{ practiceSlug?: string }> = ({ pract
             </div>
 
             <div className="space-y-3 pt-4">
-              <Button
-                type="button"
-                variant="secondary"
-                size="md"
-                onClick={handleClose}
-                className="w-full justify-center"
-              >
-                Close this tab
-              </Button>
+              {canClose ? (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="md"
+                  onClick={handleClose}
+                  className="w-full justify-center"
+                >
+                  Close this tab
+                </Button>
+              ) : (
+                <p className="text-center text-xs text-text-muted italic bg-surface-subtle/30 py-3 px-4 rounded-lg border border-line-glass/10">
+                  You can safely close this tab.
+                </p>
+              )}
             </div>
           </div>
 

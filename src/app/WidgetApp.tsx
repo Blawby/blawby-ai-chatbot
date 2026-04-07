@@ -12,7 +12,7 @@ import WidgetConversationListView from '@/features/chat/views/WidgetConversation
 import { useConversations } from '@/shared/hooks/useConversations';
 import { useMessageHandling } from '@/shared/hooks/useMessageHandling';
 import { useConversationSystemMessages } from '@/shared/hooks/useConversationSystemMessages';
-import { fetchLatestConversationMessage } from '@/shared/lib/conversationApi';
+import { createConversation, fetchLatestConversationMessage } from '@/shared/lib/conversationApi';
 import { postToParentFrame, resolveAllowedParentOrigins } from '@/shared/utils/widgetEvents';
 import { setupGlobalKeyboardListeners } from '@/shared/utils/keyboard';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
@@ -58,6 +58,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
   const [view, setView] = useState<'home' | 'list' | 'chat'>(routeConversationId ? 'chat' : 'home');
   const [setupConversationId, setConversationId] = useState<string | null>(null);
   const [bootstrapIgnored, setBootstrapIgnored] = useState(false);
+  const creatingConversationRef = useRef<Promise<string> | null>(null);
   const [conversationMode, setConversationMode] = useState<ConversationMode | null>(null);
   const previousViewRef = useRef<'home' | 'list'>('home');
   const [isInspectorOpen, setIsInspectorOpen] = useState(false);
@@ -92,28 +93,34 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
   const createConversationIfNeeded = useCallback(async () => {
     if (effectiveConversationId) return effectiveConversationId;
     try {
-      const response = await fetch(`/api/conversations?practiceId=${encodeURIComponent(practiceId)}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          participantUserIds: [], // current user handled internally
-          status: 'draft'
-        })
-      });
-      if (!response.ok) throw new Error('Failed to create conversation');
-      const data = await response.json() as { data: { id: string } };
-      const newId = data.data.id;
-      locallyCreatedConversationIds.current.add(newId);
-      setBootstrapIgnored(true);
-      setConversationId(newId);
-      // Wait for the state reference to settle
-      await new Promise(resolve => setTimeout(resolve, 0));
-      return newId;
+      // Use ref-based lock to prevent concurrent creation calls during the same tick
+      // or while a fetch is already in flight.
+      if (creatingConversationRef.current) {
+        return creatingConversationRef.current;
+      }
+
+      const createPromise = (async () => {
+        try {
+          const newId = await createConversation(practiceId, { status: 'draft' });
+          locallyCreatedConversationIds.current.add(newId);
+          setBootstrapIgnored(true);
+          setConversationId(newId);
+          return newId;
+        } catch (error) {
+          console.error('Failed to create deferred conversation', error);
+          throw error;
+        } finally {
+          creatingConversationRef.current = null;
+        }
+      })();
+
+      creatingConversationRef.current = createPromise;
+      return createPromise;
     } catch (error) {
       console.error('Failed to create deferred conversation', error);
       throw error;
     }
-  }, [effectiveConversationId, setConversationId]);
+  }, [effectiveConversationId, practiceId, setConversationId]);
 
   const { details: practiceDetails } = usePracticeDetails(practiceId, practiceConfig.slug);
   

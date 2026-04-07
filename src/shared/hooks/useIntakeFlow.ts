@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect, useRef } from 'preact/hooks';
+import { useMemo, useCallback, useEffect, useRef } from 'preact/hooks';
 import { postSystemMessage } from '@/shared/lib/conversationApi';
 import {
   fetchIntakeCheckoutSession,
@@ -317,7 +317,6 @@ export function useIntakeFlow({
   }, [consultation, conversationMetadataRef, enabled, intakeConversationState, updateConversationMetadata]);
 
   const handleSlimFormContinue = useCallback(async (draft: ContactData) => {
-    console.log('[DEBUG-METADATA] handleSlimFormContinue STARTED', { enabled, draft, conversationId });
     if (!enabled) return;
     
     try {
@@ -350,12 +349,11 @@ export function useIntakeFlow({
       }
       patch.status = 'active';
       await updateConversationMetadata(patch, newId);
-      console.log('[DEBUG-METADATA] after update:', {
-        ref: conversationMetadataRef.current,
-        val: conversationMetadata,
-      });
 
-      if (!practiceContextId) return;
+      if (!practiceContextId) {
+        console.error('[Intake] Metadata updated but practice ID is missing; cannot post system messages');
+        throw new Error('Missing practice context after conversation initialization');
+      }
 
       // 2. Post System Messages
       const safeName = sanitizeName(nextDraft.name);
@@ -403,7 +401,8 @@ export function useIntakeFlow({
     normalizedPracticeSlug,
     conversationMetadataRef,
     updateConversationMetadata,
-    applyServerMessages
+    applyServerMessages,
+    onEnsureConversation
   ]);
 
   const handleBuildBrief = useCallback(async () => {
