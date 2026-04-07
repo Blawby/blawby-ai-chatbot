@@ -70,7 +70,6 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
     }
   }, [view]);
   const showErrorRef = useRef<((msg: string) => void) | null>(null);
-  const inFlightCreateRef = useRef<Promise<string> | null>(null);
   const locallyCreatedConversationIds = useRef(new Set<string>());
 
   const { showError: showToastError } = useToastContext();
@@ -116,26 +115,6 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
     }
   }, [effectiveConversationId, setConversationId]);
 
-  const applyConversationMode = useCallback(async (mode: ConversationMode, targetId: string, source: string, startIntake: boolean): Promise<boolean> => {
-    try {
-      const { updateConversationMetadata } = await import('@/shared/lib/conversationApi');
-      await updateConversationMetadata(targetId, practiceId, {
-        mode,
-        metadata: {
-          modeSource: source,
-          startIntake: startIntake ? 'true' : 'false'
-        }
-      });
-      setConversationMode(mode);
-      return true;
-    } catch (error) {
-      console.error('[WidgetApp] Failed to apply conversation mode:', error);
-      const message = error instanceof Error ? error.message : 'Failed to update conversation mode';
-      showErrorRef.current?.(message);
-      return false;
-    }
-  }, [practiceId, setConversationMode]);
-
   const { details: practiceDetails } = usePracticeDetails(practiceId, practiceConfig.slug);
   
   // Use reactive practice details from store to ensure re-renders on updates
@@ -156,7 +135,6 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
     return conversations.find(c => Boolean(c.last_message_at || c.last_message_content)) || null;
   }, [conversations]);
 
-  const hasRealConversations = Boolean(latestConversation);
   const [conversationPreviews, setConversationPreviews] = useState<Record<string, {
     content: string;
     role: string;
@@ -313,7 +291,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
   const canChat = activeConversationId != null || conversationMode != null;
   const _isComposerDisabled = false; // Add recording check if needed
 
-  const handleModeSelection = useCallback(async (mode: ConversationMode, source?: 'intro_gate' | 'composer_footer') => {
+  const handleModeSelection = useCallback(async (mode: ConversationMode) => {
     if (!practiceId) return;
     
     try {
@@ -537,14 +515,14 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
                <WorkspaceHomeView
                  practiceName={practiceConfig.name}
                  practiceLogo={practiceConfig.profileImage}
-                 onSendMessage={() => handleModeSelection('ASK_QUESTION', 'intro_gate')}
-                 onRequestConsultation={() => handleModeSelection('REQUEST_CONSULTATION', 'intro_gate')}
+                 onSendMessage={() => handleModeSelection('ASK_QUESTION')}
+                 onRequestConsultation={() => handleModeSelection('REQUEST_CONSULTATION')}
                    onOpenRecentMessage={() => {
                      if (recentMessage?.conversationId) {
                        setConversationId(recentMessage.conversationId);
                        setView('chat');
                      } else {
-                        handleModeSelection('ASK_QUESTION', 'intro_gate');
+                        handleModeSelection('ASK_QUESTION');
                      }
                    }}
                  recentMessage={recentMessage}
@@ -567,7 +545,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
                    setConversationId(id);
                    setView('chat');
                 }}
-                onSendMessage={() => handleModeSelection('ASK_QUESTION', 'intro_gate')}
+                onSendMessage={() => handleModeSelection('ASK_QUESTION')}
               />
             </div>
         ) : (

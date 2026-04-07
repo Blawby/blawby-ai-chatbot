@@ -3,6 +3,7 @@ import { useEffect, useState } from 'preact/hooks';
 import { CheckCircleIcon, ClockIcon, XCircleIcon } from '@heroicons/react/24/outline';
 import { PAYMENT_CONFIRMED_STORAGE_KEY } from '@/shared/utils/intakePayments';
 import { Button } from '@/shared/ui/Button';
+import { SetupShell } from '@/shared/ui/layout/SetupShell';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const SESSION_ID_PATTERN = /^cs_(test|live)_[A-Za-z0-9]+$/;
@@ -102,53 +103,38 @@ const PaymentResultPage: FunctionComponent<{ practiceSlug?: string }> = ({ pract
     }
   };
 
-  const returnHref = practiceSlug
-    ? `/public/${encodeURIComponent(practiceSlug)}`
-    : null;
 
   return (
-    <div class="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex flex-col items-center justify-center px-4 font-sans">
-      {/* Ambient glow */}
-      <div class="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
-        <div class="absolute -top-60 left-1/2 -translate-x-1/2 w-[700px] h-[700px] rounded-full bg-emerald-500/6 blur-3xl" />
-        <div class="absolute bottom-0 right-0 w-[400px] h-[400px] rounded-full bg-sky-500/4 blur-3xl" />
-      </div>
-
-      <div class="relative w-full max-w-md">
-        {/* Blawby wordmark */}
-        <p class="text-center text-xs font-semibold tracking-widest text-slate-600 uppercase mb-8">
-          Blawby
-        </p>
-
-        {/* Card */}
-        <div class="rounded-2xl border border-white/8 bg-white/[0.04] backdrop-blur-xl shadow-2xl shadow-black/60 p-8 sm:p-10">
-          <div class="space-y-6">
-            {/* Icon */}
-            <div class="flex justify-center">
-              <div class="rounded-full bg-white/5 border border-white/10 p-4 shadow-inner">
-                <Icon class={`w-10 h-10 ${config.iconColor}`} aria-hidden="true" />
+    <SetupShell accentBackdropVariant="settings">
+      <div className="min-h-screen bg-transparent flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+        <div className="sm:mx-auto sm:w-full sm:max-w-md">
+          <p className="text-center text-xs font-semibold tracking-widest text-slate-500 uppercase mb-8">
+            Blawby
+          </p>
+          
+          <div className="bg-surface-elevated rounded-2xl border border-default shadow-lg p-8 sm:p-10 space-y-6">
+            <div className="flex justify-center">
+              <div className="rounded-full bg-surface-subtle p-4 border border-default shadow-sm">
+                <Icon className={`w-10 h-10 ${config.iconColor}`} aria-hidden="true" />
               </div>
             </div>
 
-            {/* Status badge */}
-            <div class="flex justify-center">
-              <span class={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium tracking-wide ${config.badgeClass}`}>
+            <div className="flex justify-center">
+              <span className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium tracking-wide ${config.badgeClass}`}>
                 {config.badge}
               </span>
             </div>
 
-            {/* Copy */}
-            <div class="text-center space-y-3">
-              <h1 class="text-xl font-semibold text-white leading-snug">
+            <div className="text-center space-y-3">
+              <h1 className="text-xl font-semibold text-text-primary leading-snug">
                 {config.headline}
               </h1>
-              <p class="text-sm text-slate-400 leading-relaxed">
+              <p className="text-sm text-text-secondary leading-relaxed">
                 {config.body}
               </p>
             </div>
 
-            {/* Actions */}
-            <div class="space-y-3 pt-4">
+            <div className="space-y-3 pt-4">
               <Button
                 type="button"
                 variant="secondary"
@@ -160,14 +146,13 @@ const PaymentResultPage: FunctionComponent<{ practiceSlug?: string }> = ({ pract
               </Button>
             </div>
           </div>
-        </div>
 
-        {/* Footer */}
-        <p class="mt-6 text-center text-xs text-slate-700">
-          Secure payment processed by Stripe &middot; Powered by Blawby
-        </p>
+          <p className="mt-8 text-center text-xs text-text-muted">
+            Secure payment processed by Stripe &middot; Powered by Blawby
+          </p>
+        </div>
       </div>
-    </div>
+    </SetupShell>
   );
 };
 
