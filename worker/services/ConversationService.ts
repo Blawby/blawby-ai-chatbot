@@ -10,7 +10,7 @@ import {
   resolveConsultationState,
 } from '../../src/shared/utils/consultationState';
 
-export type ConversationStatus = 'active' | 'archived' | 'closed' | 'submitted' | 'draft';
+export type ConversationStatus = 'active' | 'archived' | 'closed';
 
 export interface Conversation {
   id: string;
@@ -27,7 +27,7 @@ export interface Conversation {
   matter_id: string | null;
   participants: string[]; // Array of user IDs
   user_info: Record<string, unknown> | null;
-  status: ConversationStatus;
+  status: 'active' | 'archived' | 'closed';
   assigned_to?: string | null; // User ID of assigned practice member
   priority?: 'low' | 'normal' | 'high' | 'urgent';
   tags?: string[]; // Array of tag strings
@@ -73,7 +73,6 @@ export interface CreateConversationOptions {
   matterId?: string | null;
   participantUserIds: string[];
   metadata?: Record<string, unknown>;
-  status?: ConversationStatus;
   skipPracticeValidation?: boolean;
 }
 
@@ -393,7 +392,7 @@ export class ConversationService {
     // Validate that we have at least one participant
     const conversationId = crypto.randomUUID();
     const now = new Date().toISOString();
-    
+
     // Always include the creator in participants.
     const participants = this.normalizeParticipantIds([options.userId, ...options.participantUserIds]);
     if (participants.length === 0) {
@@ -406,7 +405,7 @@ export class ConversationService {
       this.env.DB.prepare(`
         INSERT INTO conversations (
           id, practice_id, user_id, is_anonymous, matter_id, participants, user_info, status, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, 'active', ?, ?)
       `).bind(
         conversationId,
         options.practiceId,
@@ -415,7 +414,6 @@ export class ConversationService {
         options.matterId || null,
         participantsJson,
         userInfoJson,
-        options.status || 'draft',
         now,
         now
       )
@@ -431,8 +429,7 @@ export class ConversationService {
     }
 
     await this.env.DB.batch(statements);
-
-    return this.getConversation(conversationId, options.practiceId);
+    return await this.getConversation(conversationId, options.practiceId);
   }
 
   private mapRecordToConversation(record: Record<string, unknown> | null): Conversation {
@@ -671,15 +668,7 @@ export class ConversationService {
             AND cp.user_id = ?
         )
         ${anonymousCondition}
-        AND c.status IN ('active', 'submitted', 'draft')
-      ORDER BY 
-        CASE c.status
-          WHEN 'active' THEN 1
-          WHEN 'draft' THEN 2
-          WHEN 'submitted' THEN 3
-          ELSE 4
-        END ASC,
-        c.updated_at DESC
+      ORDER BY (c.status = 'active') DESC, c.updated_at DESC
       LIMIT 1
     `;
     const existing = await this.env.DB.prepare(query).bind(practiceId, userId).first<Record<string, unknown>>();
@@ -711,8 +700,7 @@ export class ConversationService {
     matterId?: string | null;
     userId?: string | null;
     bypassParticipantFilter?: boolean;
-    status?: ConversationStatus | ConversationStatus[];
-    mode?: string;
+    status?: 'active' | 'archived' | 'closed';
     assignedTo?: 'none';
     limit?: number;
   }): Promise<Conversation[]> {
@@ -766,19 +754,11 @@ export class ConversationService {
           const placeholders = options.status.map(() => '?').join(', ');
           query += ` AND conversations.status IN (${placeholders})`;
           bindings.push(...options.status);
-        } else {
-          // Empty array filter means "no matches"
-          query += ' AND 1=0';
         }
       } else {
         query += ' AND conversations.status = ?';
         bindings.push(options.status);
       }
-    }
-
-    if (options.mode) {
-      query += " AND json_extract(conversations.user_info, '$.mode') = ?";
-      bindings.push(options.mode);
     }
 
     if (options.assignedTo === 'none') {
@@ -793,12 +773,25 @@ export class ConversationService {
     return records.results.map(record => this.mapRecordToConversation(record));
   }
 
+  async getConversationsWithMessages(options: {
+    practiceId: string;
+    matterId?: string | null;
+    userId?: string | null;
+    bypassParticipantFilter?: boolean;
+    status?: 'active' | 'archived' | 'closed';
+    assignedTo?: 'none';
+    limit?: number;
+  }): Promise<Conversation[]> {
+    const conversations = await this.getConversations(options);
+    return conversations.filter((conversation) => Boolean(conversation.last_message_at || conversation.last_message_content));
+  }
+
   /**
    * List conversations for a user across all practices
    */
   async getConversationsForUser(options: {
     userId: string;
-    status?: 'active' | 'archived' | 'closed' | 'submitted' | 'draft';
+    status?: 'active' | 'archived' | 'closed';
     limit?: number;
     offset?: number;
   }): Promise<Conversation[]> {
@@ -829,8 +822,6 @@ export class ConversationService {
     if (options.status) {
       query += ' AND conversations.status = ?';
       bindings.push(options.status);
-    } else {
-      query += " AND conversations.status IN ('active', 'submitted')";
     }
 
     query += ' ORDER BY conversations.updated_at DESC LIMIT ? OFFSET ?';
@@ -848,7 +839,7 @@ export class ConversationService {
     conversationId: string,
     practiceId: string,
     updates: {
-      status?: 'active' | 'archived' | 'closed' | 'submitted';
+      status?: 'active' | 'archived' | 'closed';
       metadata?: Record<string, unknown>;
       tags?: string[];
       assignedTo?: string | null;

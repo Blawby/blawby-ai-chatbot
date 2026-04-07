@@ -26,8 +26,8 @@ export interface UseConversationSetupResult {
   conversationMode: ConversationMode | null;
   setConversationMode: (mode: ConversationMode | null) => void;
   isCreatingConversation: boolean;
-  createConversation: (options?: { forceNew?: boolean }) => Promise<string | null>;
-  ensureConversation: (options?: { forceNew?: boolean; waitForSessionReadyMs?: number }) => Promise<string | null>;
+  createConversation: () => Promise<string | null>;
+  ensureConversation: (options?: { waitForSessionReadyMs?: number }) => Promise<string | null>;
   handleModeSelection: (mode: ConversationMode, source: 'intro_gate' | 'composer_footer', startConsultFlow: (id: string) => void) => Promise<void>;
   handleStartNewConversation: (mode: ConversationMode, startConsultFlow: (id: string) => void) => Promise<string>;
   applyConversationMode: (
@@ -104,7 +104,7 @@ export function useConversationSetup({
     }
   }, [conversationCacheKey, activeConversationId]);
 
-  const createConversation = useCallback(async (_options?: { forceNew?: boolean }): Promise<string | null> => {
+  const createConversation = useCallback(async (): Promise<string | null> => {
     if (isPracticeWorkspace) return null;
     if (!practiceId || isCreatingRef.current) return null;
 
@@ -156,11 +156,11 @@ export function useConversationSetup({
     }
   }, [isPracticeWorkspace, practiceId, currentUserId, setConversationIdWithRef]);
 
-  const ensureConversation = useCallback(async (options?: { forceNew?: boolean; waitForSessionReadyMs?: number }): Promise<string | null> => {
+  const ensureConversation = useCallback(async (options?: { waitForSessionReadyMs?: number }): Promise<string | null> => {
     // Read from ref to get latest value and avoid stale closure
-    if (!options?.forceNew && activeConversationIdRef.current) return activeConversationIdRef.current;
+    if (activeConversationIdRef.current) return activeConversationIdRef.current;
 
-    let resolvedConversationId = await createConversation({ forceNew: options?.forceNew });
+    let resolvedConversationId = await createConversation();
     const waitForSessionReadyMs = Math.max(0, options?.waitForSessionReadyMs ?? 0);
 
     if (!resolvedConversationId && waitForSessionReadyMs > 0) {
@@ -180,7 +180,7 @@ export function useConversationSetup({
         
         // Try again if we're not creating and still within deadline
         if (!isCreatingRef.current && Date.now() < deadline) {
-          resolvedConversationId = await createConversation({ forceNew: options?.forceNew });
+          resolvedConversationId = await createConversation();
         }
       }
     }

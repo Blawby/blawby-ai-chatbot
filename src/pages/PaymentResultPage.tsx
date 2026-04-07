@@ -1,8 +1,10 @@
 import { FunctionComponent } from 'preact';
 import { useEffect } from 'preact/hooks';
+import { useLocation } from 'preact-iso';
 import { CheckCircleIcon, ClockIcon, XCircleIcon } from '@heroicons/react/24/outline';
 import { PAYMENT_CONFIRMED_STORAGE_KEY } from '@/shared/utils/intakePayments';
 import { Button } from '@/shared/ui/Button';
+import { Logo } from '@/shared/ui/Logo';
 import { SetupShell } from '@/shared/ui/layout/SetupShell';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -55,6 +57,7 @@ const OUTCOMES: Record<PaymentOutcome, OutcomeConfig> = {
 };
 
 const PaymentResultPage: FunctionComponent<{ practiceSlug?: string }> = ({ practiceSlug }) => {
+  const location = useLocation();
   const params = typeof window !== 'undefined'
     ? new URLSearchParams(window.location.search)
     : new URLSearchParams();
@@ -67,8 +70,6 @@ const PaymentResultPage: FunctionComponent<{ practiceSlug?: string }> = ({ pract
   const isValidUuid = UUID_PATTERN.test(uuid);
 
   const outcome: PaymentOutcome = (isValidSession && isValidUuid) ? 'success' : 'cancelled';
-
-  const canClose = typeof window !== 'undefined' && Boolean(window.opener);
 
   useEffect(() => {
     if (outcome !== 'success') return;
@@ -93,19 +94,23 @@ const PaymentResultPage: FunctionComponent<{ practiceSlug?: string }> = ({ pract
   const { Icon } = config;
 
   const handleClose = () => {
-    if (typeof window !== 'undefined') {
+    if (typeof window !== 'undefined' && window.opener) {
       window.close();
+    } else if (conversationId && practiceSlug) {
+      location.route(`/client/${encodeURIComponent(practiceSlug)}`);
+    } else {
+      window.history.back();
     }
   };
 
 
   return (
-    <SetupShell accentBackdropVariant="settings">
+    <SetupShell>
       <div className="min-h-screen bg-transparent flex flex-col justify-center py-12 sm:px-6 lg:px-8">
         <div className="sm:mx-auto sm:w-full sm:max-w-md">
-          <p className="text-center text-xs font-semibold tracking-widest text-slate-500 uppercase mb-8">
-            Blawby
-          </p>
+        <div className="flex justify-center mb-8">
+            <Logo />
+          </div>
           
           <div className="glass-card p-8 sm:p-10 space-y-6">
             <div className="flex justify-center">
@@ -130,8 +135,7 @@ const PaymentResultPage: FunctionComponent<{ practiceSlug?: string }> = ({ pract
             </div>
 
             <div className="space-y-3 pt-4">
-              {canClose ? (
-                <Button
+              <Button
                   type="button"
                   variant="secondary"
                   size="md"
@@ -140,11 +144,6 @@ const PaymentResultPage: FunctionComponent<{ practiceSlug?: string }> = ({ pract
                 >
                   Close this tab
                 </Button>
-              ) : (
-                <p className="text-center text-xs text-text-muted italic bg-surface-subtle/30 py-3 px-4 rounded-lg border border-line-glass/10">
-                  You can safely close this tab.
-                </p>
-              )}
             </div>
           </div>
 

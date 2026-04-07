@@ -9,6 +9,8 @@ type WorkspaceView =
   | 'setup'
   | 'list'
   | 'conversation'
+  | 'intakes'
+  | 'intakeDetail'
   | 'matters'
   | 'clients'
   | 'invoices'

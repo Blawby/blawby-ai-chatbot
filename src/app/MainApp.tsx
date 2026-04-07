@@ -36,6 +36,7 @@ const PracticeInvoiceDetailPage = lazy(() => import('@/features/invoices/pages/P
 const ClientInvoicesPage = lazy(() => import('@/features/invoices/pages/ClientInvoicesPage').then(m => ({ default: m.ClientInvoicesPage })));
 const ClientInvoiceDetailPage = lazy(() => import('@/features/invoices/pages/ClientInvoiceDetailPage').then(m => ({ default: m.ClientInvoiceDetailPage })));
 const PracticeReportsPage = lazy(() => import('@/features/reports/pages/PracticeReportsPage').then(m => ({ default: m.PracticeReportsPage })));
+const IntakesPage = lazy(() => import('@/features/intake/pages/IntakesPage').then(m => ({ default: m.IntakesPage })));
 import { useConversationSystemMessages } from '@/shared/hooks/useConversationSystemMessages';
 import { initializeAccentColor } from '@/shared/utils/accentColors';
 import { useMentionCandidates } from '@/shared/hooks/useMentionCandidates';
@@ -56,7 +57,7 @@ import { features } from '@/config/features';
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
-type WorkspaceView = 'home' | 'setup' | 'list' | 'conversation' | 'matters' | 'clients' | 'invoices' | 'invoiceCreate' | 'invoiceEdit' | 'invoiceDetail' | 'reports' | 'settings';
+type WorkspaceView = 'home' | 'setup' | 'list' | 'conversation' | 'intakes' | 'intakeDetail' | 'matters' | 'clients' | 'invoices' | 'invoiceCreate' | 'invoiceEdit' | 'invoiceDetail' | 'reports' | 'settings';
 
 /**
  * LayoutMode controls how ChatContainer renders its shell.
@@ -77,6 +78,7 @@ export function MainApp({
   chatContent,
   routeConversationId,
   routeInvoiceId,
+  routeIntakeId: _routeIntakeId,
   routeSettingsView,
   routeSettingsAppId,
   publicPracticeSlug,
@@ -92,6 +94,7 @@ export function MainApp({
   chatContent?: ComponentChildren;
   routeConversationId?: string;
   routeInvoiceId?: string;
+  routeIntakeId?: string;
   routeSettingsView?: SettingsView;
   routeSettingsAppId?: string;
   publicPracticeSlug?: string;
@@ -177,7 +180,6 @@ export function MainApp({
     practiceClientsPath,
     conversationResetKey,
     layoutMode,
-    canReviewLeads,
   } = useWorkspaceRouting({
     practiceId,
     practiceConfig,
@@ -204,6 +206,12 @@ export function MainApp({
     const slug = resolvedPracticeSlug;
     if (!slug) return null;
     return `/practice/${encodeURIComponent(slug)}/invoices`;
+  }, [isPracticeWorkspace, resolvedPracticeSlug]);
+  const practiceIntakesPath = useMemo(() => {
+    if (!isPracticeWorkspace) return null;
+    const slug = resolvedPracticeSlug;
+    if (!slug) return null;
+    return `/practice/${encodeURIComponent(slug)}/intakes`;
   }, [isPracticeWorkspace, resolvedPracticeSlug]);
 
   useEffect(() => {
@@ -526,17 +534,6 @@ export function MainApp({
   };
 
   // ── conversation header ────────────────────────────────────────────────────
-  const leadReviewActions = useMemo(() => {
-    if (!isPracticeWorkspace || !practiceId || !activeConversationId || !practiceMattersPath) return undefined;
-    return {
-      practiceId,
-      practiceName: resolvedPracticeName,
-      conversationId: activeConversationId,
-      canReviewLeads,
-      mattersBasePath: practiceMattersPath,
-      navigateTo: (path: string) => navigate(path),
-    };
-  }, [isPracticeWorkspace, practiceId, activeConversationId, practiceMattersPath, resolvedPracticeName, canReviewLeads, navigate]);
 
   const filteredMessagesForHeader = useMemo(() => {
     const base = messages.filter((message) => message.metadata?.systemMessageKey !== 'ask_question_help');
@@ -686,7 +683,6 @@ export function MainApp({
             onRequestReactions={requestMessageReactions}
             composerDisabled={isComposerDisabled}
             isPublicWorkspace={isPublicWorkspace}
-            leadReviewActions={leadReviewActions}
             messagesReady={messagesReady}
             headerContent={conversationHeaderContent}
             onOpenSidebar={() => {
@@ -988,6 +984,19 @@ export function MainApp({
           ? (reportTitle) => (
             <Suspense fallback={<WorkspaceSubviewFallback />}>
               <PracticeReportsPage title={reportTitle} />
+            </Suspense>
+          )
+          : undefined
+      }
+      intakesView={
+        isPracticeWorkspace
+          ? (activeFilter) => (
+            <Suspense fallback={<WorkspaceSubviewFallback />}>
+              <IntakesPage
+                practiceId={effectivePracticeId ?? practiceId}
+                activeTriageFilter={activeFilter}
+                basePath={practiceIntakesPath ?? '/practice/intakes'}
+              />
             </Suspense>
           )
           : undefined

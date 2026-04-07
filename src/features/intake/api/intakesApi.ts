@@ -2,7 +2,9 @@ import { clientIntakeStatus, clientIntakes } from '@/config/urls';
 
 export interface IntakeListParams {
   page: number;
-  status: 'all' | 'pending' | 'succeeded' | 'expired';
+  limit?: number;
+  status?: 'all' | 'pending' | 'succeeded' | 'expired';
+  triage_status?: 'all' | 'pending_review' | 'accepted' | 'declined';
 }
 
 export interface IntakeListItem {
@@ -85,38 +87,52 @@ export interface UpdateIntakeTriageStatusResponse {
   triage_reason?: string | null;
 }
 
-export async function listIntakes(practiceId: string, params: IntakeListParams) {
+export async function listIntakes(practiceId: string, params: IntakeListParams, options: { signal?: AbortSignal } = {}) {
   if (!practiceId) {
     throw new Error('practiceId is required');
   }
 
+  const query: Record<string, string | undefined> = {
+    page: String(params.page),
+  };
+
+  if (params.limit != null) {
+    query.limit = String(params.limit);
+  }
+
+  if (params.status && params.status !== 'all') {
+    query.status = params.status;
+  }
+
+  if (params.triage_status && params.triage_status !== 'all') {
+    query.triage_status = params.triage_status;
+  }
+
   const response = await fetch(
-    clientIntakes(practiceId, {
-      page: String(params.page),
-      status: params.status !== 'all' ? params.status : undefined
-    }),
-    { credentials: 'include' }
+    clientIntakes(practiceId, query),
+    { credentials: 'include', signal: options.signal }
   );
 
   if (!response.ok) {
     throw new Error('Failed to fetch intakes');
   }
+  const raw = await response.json() as unknown;
+  if (typeof raw !== 'object' || raw === null) {
+    throw new Error('Failed to fetch intakes');
+  }
+  const json = raw as Record<string, unknown>;
+  const data = (json.success !== undefined && json.data) ? json.data as Record<string, unknown> : json;
 
-  const json = await response.json() as {
-    success?: boolean;
-    data?: IntakeListResponse;
-  };
-
-  if (json.success === false || !json.data) {
+  if (json.success === false || (!Array.isArray(data.intakes) && typeof data.total !== 'number')) {
     throw new Error('Failed to fetch intakes');
   }
 
   return {
-    intakes: Array.isArray(json.data.intakes) ? json.data.intakes : [],
-    total: typeof json.data.total === 'number' ? json.data.total : 0,
-    page: typeof json.data.page === 'number' ? json.data.page : params.page,
-    total_pages: typeof json.data.total_pages === 'number' ? json.data.total_pages : 0,
-    limit: typeof json.data.limit === 'number' ? json.data.limit : undefined,
+    intakes: Array.isArray(data.intakes) ? data.intakes : [],
+    total: typeof data.total === 'number' ? data.total : 0,
+    page: typeof data.page === 'number' ? data.page : params.page,
+    total_pages: typeof data.total_pages === 'number' ? data.total_pages : 0,
+    limit: typeof data.limit === 'number' ? data.limit : undefined,
   };
 }
 
@@ -144,15 +160,13 @@ export async function getPracticeIntake(
   if (!response.ok) {
     throw new Error('Failed to fetch intake');
   }
-
-  const json = await response.json() as {
-    success?: boolean;
-    data?: {
-      intakes?: PracticeIntakeDetail[];
-    };
-  };
-
-  const intake = Array.isArray(json.data?.intakes) ? json.data.intakes[0] : null;
+  const raw = await response.json() as unknown;
+  if (typeof raw !== 'object' || raw === null) {
+    throw new Error('Failed to fetch intake');
+  }
+  const json = raw as Record<string, unknown>;
+  const data = (json.success !== undefined && json.data) ? json.data as Record<string, unknown> : json;
+  const intake = Array.isArray(data.intakes) ? (data.intakes as unknown[])[0] : (data.uuid ? data : null);
 
   if (json.success === false || !intake) {
     throw new Error('Failed to fetch intake');
@@ -183,18 +197,14 @@ export async function updateIntakeTriageStatus(
     }),
   });
 
-  const json = await response.json().catch(() => null) as {
-    success?: boolean;
-    data?: UpdateIntakeTriageStatusResponse;
-    error?: string;
-    message?: string;
-  } | null;
+  const json = await response.json().catch(() => null) as Record<string, unknown> | null;
+  const data = (json !== null && 'data' in json) ? json.data as Record<string, unknown> | null : json;
 
-  if (!response.ok || json?.success === false) {
-    throw new Error(json?.message ?? json?.error ?? `HTTP ${response.status}`);
+  if (!response.ok || (json && json.success === false)) {
+    throw new Error(String(json?.message ?? json?.error ?? `HTTP ${response.status}`));
   }
 
-  return json?.data ?? null;
+  return (data || null) as UpdateIntakeTriageStatusResponse | null;
 }
 
 export interface IntakeStatusResponse {

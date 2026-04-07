@@ -64,7 +64,6 @@ export interface UseChatComposerOptions {
   pendingStreamMessageIdRef: React.MutableRefObject<string | null>;
   orphanTimerRef: React.MutableRefObject<ReturnType<typeof setTimeout> | null>;
   conversationIdRef: React.MutableRefObject<string | undefined>;
-  pendingEnsureConversationPromiseRef: React.MutableRefObject<Promise<string> | null>;
   pendingEnsureConversationPromisesRef: React.MutableRefObject<Map<string, Promise<string>>>;
   connectChatRoom: (id: string) => void;
   updateConversationMetadata: (patch: ConversationMetadata, targetId?: string) => Promise<unknown>;
@@ -111,7 +110,6 @@ export const useChatComposer = ({
   pendingStreamMessageIdRef,
   orphanTimerRef,
   conversationIdRef,
-  pendingEnsureConversationPromiseRef: _pendingEnsureConversationPromiseRef,
   pendingEnsureConversationPromisesRef,
   connectChatRoom,
   updateConversationMetadata,

@@ -5,6 +5,7 @@ import {
   ClipboardDocumentListIcon,
   DocumentTextIcon,
   HomeIcon,
+  InboxStackIcon,
 } from '@heroicons/react/24/solid';
 import { SettingsNavIcon } from '@/shared/ui/nav/SettingsNavIcon';
 import { PEOPLE_DIRECTORY_LABEL } from '@/shared/domain/people';
@@ -16,7 +17,7 @@ export type NavCtx = {
   canAccessPractice: boolean;
 };
 
-export type WorkspaceSection = 'home' | 'conversations' | 'matters' | 'invoices' | 'reports' | 'settings';
+export type WorkspaceSection = 'home' | 'conversations' | 'intakes' | 'matters' | 'invoices' | 'reports' | 'settings';
 
 export type NavRailItem = {
   id: string;
@@ -113,6 +114,13 @@ const buildPracticeRail = (basePath: string): NavRailItem[] => [
     icon: ChatBubbleOvalLeftEllipsisIcon,
     href: `${basePath}/conversations`,
     matchHrefs: [`${basePath}/conversations`],
+  },
+  {
+    id: 'intakes',
+    label: 'Intakes',
+    icon: InboxStackIcon,
+    href: `${basePath}/intakes`,
+    matchHrefs: [`${basePath}/intakes`],
   },
   {
     id: 'matters',
@@ -326,10 +334,22 @@ const buildSettingsSecondary = (basePath: string, canAccessPractice: boolean): N
   return sections;
 };
 
+const buildIntakesSecondary = (basePath: string): NavSection[] => [{
+  label: 'Queue',
+  items: [
+    { id: 'all', label: 'All', href: `${basePath}/intakes` },
+    { id: 'pending_review', label: 'Pending', href: `${basePath}/intakes` },
+    { id: 'accepted', label: 'Accepted', href: `${basePath}/intakes` },
+    { id: 'declined', label: 'Declined', href: `${basePath}/intakes` },
+  ],
+}];
+
 const buildSecondary = (basePath: string, section: WorkspaceSection, workspace: 'practice' | 'client', canAccessPractice: boolean): NavSection[] | undefined => {
   switch (section) {
     case 'conversations':
       return buildConversationsSecondary(basePath, workspace);
+    case 'intakes':
+      return workspace === 'practice' ? buildIntakesSecondary(basePath) : undefined;
     case 'matters':
       return buildMattersSecondary(basePath, workspace);
     case 'invoices':

@@ -37,7 +37,7 @@ import { initializeAccentColor } from '@/shared/utils/accentColors';
 import { consumePostAuthConversationContext } from '@/shared/utils/anonymousIdentity';
 import { isWidgetRuntimeContext, setWidgetRuntimeContext } from '@/shared/utils/widgetAuth';
 import { useTheme } from '@/shared/hooks/useTheme';
-import { normalizePracticeDetailsResponse } from '@/shared/lib/apiClient';
+import { normalizePracticeDetailsResponse, setActivePractice } from '@/shared/lib/apiClient';
 import { setPracticeDetailsEntry } from '@/shared/stores/practiceDetailsStore';
 const DevDebugStylesRoute = () => {
   if (!import.meta.env.DEV) return <App404 />;
@@ -282,6 +282,8 @@ function AppShell() {
           <Route path="/practice/:practiceSlug/clients/*" component={PracticeAppRoute} workspaceView="clients" />
           <Route path="/practice/:practiceSlug/matters" component={PracticeAppRoute} workspaceView="matters" />
           <Route path="/practice/:practiceSlug/matters/*" component={PracticeAppRoute} workspaceView="matters" />
+          <Route path="/practice/:practiceSlug/intakes" component={PracticeAppRoute} workspaceView="intakes" />
+          <Route path="/practice/:practiceSlug/intakes/:intakeId" component={PracticeAppRoute} workspaceView="intakeDetail" />
           <Route path="/practice/:practiceSlug/reports" component={PracticeAppRoute} workspaceView="reports" />
           <Route path="/practice/:practiceSlug/reports/*" component={PracticeAppRoute} workspaceView="reports" />
           <Route path="/practice/:practiceSlug/invoices" component={PracticeAppRoute} workspaceView="invoices" />
@@ -390,7 +392,7 @@ function PracticeAppRoute({
   conversationId?: string;
   invoiceId?: string;
   appId?: string;
-  workspaceView?: 'home' | 'setup' | 'list' | 'conversation' | 'matters' | 'clients' | 'invoices' | 'invoiceCreate' | 'invoiceEdit' | 'invoiceDetail' | 'reports' | 'settings';
+  workspaceView?: 'home' | 'setup' | 'list' | 'conversation' | 'intakes' | 'intakeDetail' | 'matters' | 'clients' | 'invoices' | 'invoiceCreate' | 'invoiceEdit' | 'invoiceDetail' | 'reports' | 'settings';
   settingsView?: 'general' | 'notifications' | 'account' | 'practice' | 'practice-payouts' | 'practice-services' | 'practice-team' | 'practice-pricing' | 'apps' | 'app-detail' | 'security' | 'help';
   practiceSlug?: string;
 }) {
@@ -442,6 +444,22 @@ function PracticeAppRoute({
 
   const resolvedPracticeIdFromConfig = typeof practiceConfig.id === 'string' ? practiceConfig.id : '';
   const resolvedPracticeId = resolvedPracticeIdFromConfig || practiceLookupKey;
+
+  useEffect(() => {
+    if (isPending || practicesLoading || !session?.user || !resolvedPracticeId) return;
+
+    // session.session.activeOrganizationId is the one currently active on the backend
+    const sessionRecord = session?.session as unknown as Record<string, unknown> | undefined;
+    const backendActiveOrgId = sessionRecord?.activeOrganizationId || sessionRecord?.active_organization_id;
+
+    // If the backend session doesn't match the route-selected practice ID,
+    // synchronize it to ensure correct permission/role resolution.
+    if (resolvedPracticeId && backendActiveOrgId !== resolvedPracticeId) {
+      setActivePractice(resolvedPracticeId).catch((err) => {
+        console.warn('[PracticeAppRoute] Failed to switch active practice context:', err);
+      });
+    }
+  }, [resolvedPracticeId, session?.session, session?.user, isPending, practicesLoading]);
 
   useEffect(() => {
     if (isPending || practicesLoading) return;
@@ -863,8 +881,21 @@ function WidgetRoute({
     const resolveNumber = (value: unknown): number | undefined =>
       typeof value === 'number' ? value : undefined;
 
-    const practiceId = resolveString(pd.practiceId)
-      ?? resolveString(pd.id)
+    const practiceId = resolveString(pd.organizationId)
+      ?? resolveString(pd.organization_id)
+      ?? resolveString(dataRecord?.organizationId)
+      ?? resolveString(dataRecord?.organization_id)
+      ?? resolveString(detailsRecord?.organizationId)
+      ?? resolveString(detailsRecord?.organization_id)
+      ?? resolveString(detailsRecord?.practiceId)
+      ?? resolveString(detailsRecord?.id)
+      ?? resolveString(nestedDetailsRecord?.organizationId)
+      ?? resolveString(nestedDetailsRecord?.organization_id)
+      ?? resolveString(nestedDetailsRecord?.practiceId)
+      ?? resolveString(nestedDetailsRecord?.id)
+      ?? resolveString((pd as Record<string, unknown>).practiceId)
+      ?? resolveString((pd as Record<string, unknown>).id)
+      ?? resolveString(dataRecord?.practiceId)
       ?? resolveString(dataRecord?.id);
     const accentColor = resolveString(pd.accentColor)
       ?? resolveString(pd.accent_color)

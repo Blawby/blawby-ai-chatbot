@@ -140,9 +140,19 @@ export async function handleConversations(request: Request, env: Env): Promise<R
 
   // GET /api/conversations/:id/messages - Get messages for a conversation
   if (segments.length === 4 && segments[3] === 'messages' && request.method === 'GET') {
+        Logger.debug('[Conversations][messages][debug] handler entry', {
+          segments,
+          url: url.toString(),
+          userId,
+          prevAnonId,
+          isAnonymous: authContext.isAnonymous,
+          envBindingCount: Object.keys(env).length,
+          requestHeaderNames: Array.from((request.headers as unknown as Iterable<[string, string]>), ([k]) => k),
+        });
     const requestWithContext = await withPracticeContext(request, env, {
       requirePractice: true,
       authContext,
+      allowAuthenticatedUrlPracticeId: true,
     });
     const conversationId = segments[2];
     const conversationPracticeId = getPracticeId(requestWithContext);
@@ -192,6 +202,16 @@ export async function handleConversations(request: Request, env: Env): Promise<R
 
     let result;
     try {
+      Logger.debug('[Conversations][messages][debug] calling getMessages', {
+        conversationId,
+        conversationPracticeId,
+        limit,
+        cursor,
+        fromSeq,
+        traceId,
+        requestSource,
+        viewerId: userId
+      });
       result = await conversationService.getMessages(conversationId, conversationPracticeId, {
         limit,
         cursor,
@@ -201,6 +221,13 @@ export async function handleConversations(request: Request, env: Env): Promise<R
         viewerId: userId
       });
     } catch (error) {
+      Logger.error('[Conversations][messages][debug] error in getMessages', {
+        conversationId,
+        practiceId: conversationPracticeId,
+        isAnonymous: authContext.isAnonymous,
+        error: error instanceof Error ? error.message : String(error),
+        errorStack: error instanceof Error ? error.stack : undefined,
+      });
       Logger.warn('[Conversations] Failed to fetch messages', {
         conversationId,
         practiceId: conversationPracticeId,
@@ -218,7 +245,8 @@ export async function handleConversations(request: Request, env: Env): Promise<R
   if (segments.length === 6 && segments[3] === 'messages' && segments[5] === 'reactions') {
     const requestWithContext = await withPracticeContext(request, env, {
       requirePractice: true,
-      authContext
+      authContext,
+      allowAuthenticatedUrlPracticeId: true,
     });
     const conversationId = segments[2];
     const messageId = segments[4];
@@ -292,7 +320,8 @@ export async function handleConversations(request: Request, env: Env): Promise<R
   if (segments.length === 4 && segments[3] === 'system-messages' && request.method === 'POST') {
     const requestWithContext = await withPracticeContext(request, env, {
       requirePractice: true,
-      authContext
+      authContext,
+      allowAuthenticatedUrlPracticeId: true,
     });
     const conversationId = segments[2];
     const practiceId = getPracticeId(requestWithContext);
@@ -377,7 +406,6 @@ export async function handleConversations(request: Request, env: Env): Promise<R
       matterId: body.matterId || null,
       participantUserIds: participants,
       metadata: body.metadata,
-      status: body.status || 'draft',
       skipPracticeValidation: !practiceContext.isMember
     }, request);
 
@@ -449,7 +477,7 @@ export async function handleConversations(request: Request, env: Env): Promise<R
         const conversations = await conversationService.getConversations({
           practiceId,
           userId,
-          status: status || ['active', 'submitted'],
+          status: status || undefined,
           limit
         });
         return createJsonResponse({ conversations });
@@ -475,8 +503,7 @@ export async function handleConversations(request: Request, env: Env): Promise<R
         practiceId,
         userId,
         bypassParticipantFilter: true,
-        status: (status && status !== 'all') ? status : undefined,
-        mode: 'REQUEST_CONSULTATION',
+        status: (status && status !== 'all') ? status as ConversationStatus : undefined,
         assignedTo: assignedTo === 'none' ? 'none' : undefined,
         limit
       });
@@ -493,7 +520,7 @@ export async function handleConversations(request: Request, env: Env): Promise<R
       practiceId,
       matterId: matterId || null,
       userId, // Filter to conversations where user is a participant
-      status: status || ['active', 'submitted'],
+      status: status || undefined,
       assignedTo: assignedTo === 'none' ? 'none' : undefined,
       limit
     });
@@ -525,7 +552,8 @@ export async function handleConversations(request: Request, env: Env): Promise<R
   if (segments.length === 3 && request.method === 'GET') {
     const requestWithContext = await withPracticeContext(request, env, {
       requirePractice: true,
-      authContext
+      authContext,
+      allowAuthenticatedUrlPracticeId: true,
     });
     const conversationId = segments[2];
     const practiceId = getPracticeId(requestWithContext);

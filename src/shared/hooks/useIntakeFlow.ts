@@ -1,8 +1,5 @@
-import { useMemo, useCallback, useEffect, useRef } from 'preact/hooks';
+import { useCallback, useEffect, useMemo, useRef } from 'preact/hooks';
 import { postSystemMessage } from '@/shared/lib/conversationApi';
-import {
-  fetchIntakeCheckoutSession,
-} from '@/shared/utils/intakePayments';
 import type { ContactData } from '@/features/intake/components/ContactForm';
 import type { ConversationMetadata, ConversationMessage } from '@/shared/types/conversation';
 import type { FileAttachment } from '../../../worker/types';
@@ -15,7 +12,7 @@ import {
   type IntakeFieldChangeOptions,
 } from '@/shared/types/intake';
 import { withWidgetAuthHeaders } from '@/shared/utils/widgetAuth';
-import { resolveAllowedParentOrigins } from '@/shared/utils/widgetEvents';
+import { postToParentFrame, resolveAllowedParentOrigins } from '@/shared/utils/widgetEvents';
 import {
   applyConsultationPatchToMetadata,
   deriveIntakeStatusFromConsultation,
@@ -154,8 +151,7 @@ interface UseIntakeFlowOptions {
     conversationId?: string | null
   ) => Promise<unknown>;
   onError?: (error: unknown) => void;
-  /**
-   */
+  setSessionIntent?: (intent: unknown) => void;
 }
 
 export interface UseIntakeFlowResult {
@@ -318,51 +314,40 @@ export function useIntakeFlow({
 
   const handleSlimFormContinue = useCallback(async (draft: ContactData) => {
     if (!enabled) return;
-    
+
+    const practiceContextId = (practiceId ?? '').trim();
+    if (!practiceContextId) return;
+
+    const resolvedConversationId = conversationId ?? (onEnsureConversation ? await onEnsureConversation() : null);
+    if (!resolvedConversationId) return;
+
+    const nextDraft: SlimContactDraft = {
+      name: (draft.name ?? '').trim(),
+      email: (draft.email ?? '').trim(),
+      phone: (draft.phone ?? '').trim(),
+    };
+
+    const patch: ConversationMetadata = applyConsultationPatchToMetadata(
+      conversationMetadataRef.current,
+      {
+        contact: nextDraft,
+        status: 'collecting_case',
+        mode: 'REQUEST_CONSULTATION',
+      },
+      { mirrorLegacyFields: true }
+    );
+    if (normalizedPracticeSlug) {
+      patch.practiceSlug = normalizedPracticeSlug;
+    }
+    await updateConversationMetadata(patch, resolvedConversationId);
+
+    const safeName = sanitizeName(nextDraft.name);
+    const safeEmail = sanitizeName(nextDraft.email);
+    const safePhone = sanitizeName(nextDraft.phone);
+    const emailLine = nextDraft.email ? `Email: ${safeEmail}` : 'Email: Not provided';
+    const phoneLine = nextDraft.phone ? `Phone: ${safePhone}` : 'Phone: Not provided';
     try {
-      const newId = onEnsureConversation ? await onEnsureConversation() : conversationId;
-      if (!newId) {
-        console.error('[Intake] Could not ensure conversation for slim form continue');
-        return;
-      }
-
-      const nextDraft: SlimContactDraft = {
-        name: (draft.name ?? '').trim(),
-        email: (draft.email ?? '').trim(),
-        phone: (draft.phone ?? '').trim(),
-      };
-
-      const practiceContextId = (practiceId ?? '').trim();
-
-      // 1. Write Metadata Patch atomically with status: active
-      const patch: ConversationMetadata = applyConsultationPatchToMetadata(
-        conversationMetadataRef.current,
-        {
-          contact: nextDraft,
-          status: 'collecting_case',
-          mode: 'REQUEST_CONSULTATION',
-        },
-        { mirrorLegacyFields: true }
-      );
-      if (normalizedPracticeSlug) {
-        patch.practiceSlug = normalizedPracticeSlug;
-      }
-      patch.status = 'active';
-      await updateConversationMetadata(patch, newId);
-
-      if (!practiceContextId) {
-        console.error('[Intake] Metadata updated but practice ID is missing; cannot post system messages');
-        throw new Error('Missing practice context after conversation initialization');
-      }
-
-      // 2. Post System Messages
-      const safeName = sanitizeName(nextDraft.name);
-      const safeEmail = sanitizeName(nextDraft.email);
-      const safePhone = sanitizeName(nextDraft.phone);
-      const emailLine = nextDraft.email ? `Email: ${safeEmail}` : 'Email: Not provided';
-      const phoneLine = nextDraft.phone ? `Phone: ${safePhone}` : 'Phone: Not provided';
-
-      const ackMsg = await postSystemMessage(newId, practiceContextId, {
+      const ackMsg = await postSystemMessage(resolvedConversationId, practiceContextId, {
         clientId: 'system-intake-contact-ack',
         content: [
           'Contact info received',
@@ -381,28 +366,31 @@ export function useIntakeFlow({
         },
       });
       if (ackMsg) applyServerMessages([ackMsg]);
+    } catch (error) {
+      console.error('[Intake] Failed to persist contact ack message', { conversationId: resolvedConversationId, practiceContextId, error });
+    }
 
-      const firstName = nextDraft.name.split(' ')[0] || nextDraft.name;
-      const greeting = `Thanks, ${firstName}! I've got your contact info. Can you tell me a bit about your legal situation? Just describe what's going on in your own words and I'll help make sure we connect you with the right attorney.`;
-      
-      const openingMsg = await postSystemMessage(newId, practiceContextId, {
+    const firstName = nextDraft.name.split(' ')[0] || nextDraft.name;
+    const greeting = `Thanks, ${firstName}! I've got your contact info. Can you tell me a bit about your legal situation? Just describe what's going on in your own words and I'll help make sure we connect you with the right attorney.`;
+    try {
+      const openingMsg = await postSystemMessage(resolvedConversationId, practiceContextId, {
         clientId: 'system-intake-opening',
         content: greeting,
         metadata: { source: 'ai', intakeOpening: true },
       });
       if (openingMsg) applyServerMessages([openingMsg]);
     } catch (error) {
-      console.error('[Intake] Failed slim form continue', error);
+      console.error('[Intake] Failed to post opening message', error);
     }
   }, [
-    enabled,
-    conversationId,
-    practiceId,
-    normalizedPracticeSlug,
-    conversationMetadataRef,
-    updateConversationMetadata,
     applyServerMessages,
-    onEnsureConversation
+    conversationId,
+    conversationMetadataRef,
+    enabled,
+    onEnsureConversation,
+    practiceId,
+    updateConversationMetadata,
+    normalizedPracticeSlug,
   ]);
 
   const handleBuildBrief = useCallback(async () => {
@@ -475,53 +463,29 @@ export function useIntakeFlow({
     const { paymentLinkUrl, intakeUuid } = handoffParams;
     if (!intakeUuid || !conversationId || !practiceId) return;
 
-    let checkoutSessionUrl: string | null = null;
-    let checkoutSessionId: string | null = null;
-
-    try {
-      const checkoutSession = await fetchIntakeCheckoutSession(intakeUuid, { conversationId });
-      checkoutSessionUrl = checkoutSession.url;
-      checkoutSessionId = checkoutSession.sessionId;
-    } catch (fetchError) {
-      console.warn('[handlePaymentHandoff] Failed to fetch checkout session, falling back to payment link', fetchError);
-      checkoutSessionUrl = null;
-      checkoutSessionId = null;
-    }
-
-    const paymentUrl = checkoutSessionUrl ?? paymentLinkUrl;
+    const paymentUrl = paymentLinkUrl;
     if (!paymentUrl) {
       const errorMessage = 'Payment could not be initialized. Please try again or contact support.';
       onError?.(errorMessage);
       return;
     }
 
-    if (checkoutSessionId) {
-      try {
-        await updateConversationMetadata(
-          applyConsultationPatchToMetadata(
-            conversationMetadataRef.current,
-            {
-              submission: { checkoutSessionId, intakeUuid },
-            },
-            { mirrorLegacyFields: true }
-          )
-        );
-      } catch (metadataError) {
-        console.warn('[handlePaymentHandoff] Failed to persist checkout session id', metadataError);
-      }
-    }
-
     if (typeof window !== 'undefined') {
-      // Open Stripe in a new tab. Fire-and-forget: if the browser blocks the popup
-      // it will show its own native notification — no fallback navigation needed.
-      window.open(paymentUrl, '_blank', 'noopener,noreferrer');
+      const popup = window.open(paymentUrl, '_blank', 'noopener,noreferrer');
+      if (!popup) {
+        if (window !== window.top) {
+          // Widget is in an iframe — Stripe rejects iframe embedding, so ask
+          // the parent page to open the URL in a new tab instead.
+          postToParentFrame({ type: 'blawby:open-url', url: paymentUrl });
+        } else {
+          window.location.assign(paymentUrl);
+        }
+      }
     }
   }, [
     conversationId,
-    conversationMetadataRef,
     onError,
     practiceId,
-    updateConversationMetadata
   ]);
 
   /**

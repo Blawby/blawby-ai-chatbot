@@ -74,27 +74,6 @@ interface MessageProps {
 		label: string;
 	};
 	onAuthPromptRequest?: () => void;
-	leadReview?: {
-		canReview: boolean;
-		isSubmitting?: boolean;
-		intake?: {
-			name?: string;
-			email?: string;
-			phone?: string;
-			description?: string;
-			opposingParty?: string;
-			urgency?: string;
-			paymentStatus?: string;
-			triageStatus?: string;
-			triageReason?: string;
-			amount?: number;
-			currency?: string;
-			submittedAt?: string;
-		};
-		onAccept: () => void;
-		onReject: () => void;
-		onConvert?: () => void;
-	};
 	replyPreview?: ReplyTarget;
 	reactions?: MessageReaction[];
 	onReplyPreviewClick?: () => void;
@@ -167,7 +146,6 @@ const Message: FunctionComponent<MessageProps> = memo(({
 	assistantRetry,
 	authCta,
 	onAuthPromptRequest,
-	leadReview,
 	replyPreview,
 	reactions = [],
 	onReplyPreviewClick,
@@ -331,7 +309,6 @@ const Message: FunctionComponent<MessageProps> = memo(({
 					assistantRetry={assistantRetry}
 					authCta={authCta}
 					onAuthPromptRequest={onAuthPromptRequest}
-				leadReview={leadReview}
 				intakeConversationState={intakeConversationState}
 				actions={actions}
 				onActionReply={onActionReply}

@@ -87,7 +87,7 @@ export const useMessageHandling = (options: UseMessageHandlingOptions) => {
 
   const composerRef = useRef<ReturnType<typeof useChatComposer> | null>(null);
   const conversationMetadataOnLoadRef = useRef<ConversationMetadata | null>(null);
-  const conversationMetadataRef = useRef<ConversationMetadata | null>(null);
+  const _conversationMetadataRef = useRef<ConversationMetadata | null>(null); // reserved for future use
 
   // 3. Core Transport & State
   const conversation = useConversation({
@@ -106,30 +106,12 @@ export const useMessageHandling = (options: UseMessageHandlingOptions) => {
     [conversation.conversationMetadata]
   );
 
-  // 2. Intake Flow logic
-  const intake = useIntakeFlow({
-    enabled,
-    conversationId,
-    practiceId,
-    practiceSlug,
-    onEnsureConversation,
-    conversationMetadata: null, // Initialized later
-    slimContactDraft: consultation?.contact ?? null,
-    conversationMetadataRef, // Initialized later
-    updateConversationMetadata: async () => {}, // Stub
-    applyServerMessages: () => {}, // Stub
-    sendMessage: (content, att, reply, opts) => composerRef.current?.sendMessage(content, att, reply, opts),
-    sendMessageOverWs: (content, att, meta, reply, convId) => composerRef.current?.sendMessageOverWs(content, att, meta, reply, convId),
-    onError,
-  });
-
   // Keep ref updated for subsequent intakes if needed, though usually stable
   if (conversation.conversationMetadata && !conversationMetadataOnLoadRef.current) {
     conversationMetadataOnLoadRef.current = conversation.conversationMetadata;
   }
 
-
-  // Update intake with real values once conversation hook is ready
+  // Intake Flow logic
   const liveIntake = useIntakeFlow({
     enabled,
     conversationId,
@@ -172,13 +154,12 @@ export const useMessageHandling = (options: UseMessageHandlingOptions) => {
     pendingStreamMessageIdRef: conversation.pendingStreamMessageIdRef,
     orphanTimerRef: conversation.orphanTimerRef,
     conversationIdRef: conversation.conversationIdRef,
-    pendingEnsureConversationPromiseRef: conversation.pendingEnsureConversationPromiseRef,
     pendingEnsureConversationPromisesRef: conversation.pendingEnsureConversationPromisesRef,
     connectChatRoom: conversation.connectChatRoom,
     updateConversationMetadata: conversation.updateConversationMetadata,
     applyServerMessages: conversation.applyServerMessages,
     fetchConversationMetadata: conversation.fetchConversationMetadata,
-    applyIntakeFields: intake.applyIntakeFields,
+    applyIntakeFields: liveIntake.applyIntakeFields,
     onError,
   });
 

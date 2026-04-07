@@ -1,7 +1,7 @@
 import type { FunctionComponent } from 'preact';
 import WorkspaceHomeView from '@/features/chat/views/WorkspaceHomeView';
 import { RecentActivityTable } from '@/features/practice-dashboard/components/RecentActivityTable';
-import { RecentClientsGrid } from '@/features/practice-dashboard/components/RecentClientsGrid';
+import { RecentIntakesGrid } from '@/features/practice-dashboard/components/RecentIntakesGrid';
 import { DashboardHero } from '@/features/practice-dashboard/components/DashboardHero';
 import type { BillingWindow } from '@/features/practice-dashboard/hooks/usePracticeBillingData';
 
@@ -27,12 +27,12 @@ type WorkspaceHomeSectionProps = {
   practiceBillingLoading: boolean;
   practiceBillingError: string | null;
   recentActivity: Parameters<typeof RecentActivityTable>[0]['days'];
-  recentClients: Parameters<typeof RecentClientsGrid>[0]['clients'];
+  recentIntakes: Parameters<typeof RecentIntakesGrid>[0]['intakes'];
   onDashboardWindowChange: (value: BillingWindow) => void;
   onCreateInvoice: () => void;
   onOpenInvoice: (invoiceId: string) => void;
-  onViewAllClients: () => void;
-  onViewClient: (clientId: string) => void;
+  onViewAllIntakes: () => void;
+  onViewIntake: (intakeId: string) => void;
 };
 
 export const WorkspaceHomeSection: FunctionComponent<WorkspaceHomeSectionProps> = ({
@@ -49,12 +49,12 @@ export const WorkspaceHomeSection: FunctionComponent<WorkspaceHomeSectionProps> 
   practiceBillingLoading,
   practiceBillingError,
   recentActivity,
-  recentClients,
+  recentIntakes,
   onDashboardWindowChange,
   onCreateInvoice,
   onOpenInvoice,
-  onViewAllClients,
-  onViewClient,
+  onViewAllIntakes,
+  onViewIntake,
 }) => {
   if (workspace === 'practice') {
     return (
@@ -79,12 +79,12 @@ export const WorkspaceHomeSection: FunctionComponent<WorkspaceHomeSectionProps> 
           error={null}
           onOpenInvoice={(entry) => onOpenInvoice(entry.invoiceId)}
         />
-        <RecentClientsGrid
-          clients={recentClients}
+        <RecentIntakesGrid
+          intakes={recentIntakes}
           loading={practiceBillingLoading}
           error={null}
-          onViewAll={onViewAllClients}
-          onViewClient={onViewClient}
+          onViewAll={onViewAllIntakes}
+          onViewIntake={onViewIntake}
         />
       </div>
     );

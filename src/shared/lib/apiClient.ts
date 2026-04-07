@@ -1532,53 +1532,58 @@ function extractPublicPracticeDisplayDetails(
 }
 
 function extractPublicPracticeId(payload: unknown): string | null {
-  if (!isRecord(payload)) {
-    return null;
-  }
-
-  const extractFromRecord = (value: Record<string, unknown>): string | null => {
-    const direct = toNullableString(
-      value.practiceId ??
-      value.practice_id ??
-      value.organizationId ??
-      value.organization_id ??
-      value.id
-    );
-    return direct ?? null;
-  };
+  if (!isRecord(payload)) return null;
 
   const candidates: Record<string, unknown>[] = [];
-  const pushCandidate = (value: unknown) => {
-    if (isRecord(value)) {
-      candidates.push(value);
-    }
-  };
-
-  pushCandidate(payload);
-  pushCandidate(payload.organization);
-  pushCandidate(payload.practice);
-
   if ('details' in payload && isRecord(payload.details)) {
-    pushCandidate(payload.details);
-    pushCandidate(payload.details.data);
-    pushCandidate(payload.details.organization);
-    pushCandidate(payload.details.practice);
+    if ('data' in payload.details && isRecord(payload.details.data)) {
+      candidates.push(payload.details.data);
+    }
+    candidates.push(payload.details);
   }
-
   if ('data' in payload && isRecord(payload.data)) {
-    pushCandidate(payload.data);
-    pushCandidate(payload.data.details);
-    pushCandidate(payload.data.organization);
-    pushCandidate(payload.data.practice);
+    if ('details' in payload.data && isRecord(payload.data.details)) {
+      candidates.push(payload.data.details);
+    }
+    candidates.push(payload.data);
   }
+  if ('organization' in payload && isRecord(payload.organization)) {
+    candidates.push(payload.organization);
+  }
+  candidates.push(payload);
 
   for (const candidate of candidates) {
-    const id = extractFromRecord(candidate);
-    if (id) {
-      return id;
+    const id = toNullableString(
+      candidate.organizationId ?? candidate.organization_id ??
+      candidate.practiceId ?? candidate.practice_id ??
+      candidate.id
+    );
+    if (id) return id;
+    if ('organization' in candidate && isRecord(candidate.organization)) {
+      const nested = toNullableString(
+        (candidate.organization as Record<string, unknown>).id ??
+        (candidate.organization as Record<string, unknown>).organizationId ??
+        (candidate.organization as Record<string, unknown>).organization_id
+      );
+      if (nested) return nested;
+    }
+    if ('practice' in candidate && isRecord(candidate.practice)) {
+      const practice = candidate.practice as Record<string, unknown>;
+      const practiceId = toNullableString(
+        practice.practiceId ?? practice.practice_id ?? practice.organizationId ??
+        practice.organization_id ?? practice.id
+      );
+      if (practiceId) return practiceId;
+      if ('organization' in practice && isRecord(practice.organization)) {
+        const nested = toNullableString(
+          (practice.organization as Record<string, unknown>).id ??
+          (practice.organization as Record<string, unknown>).organizationId ??
+          (practice.organization as Record<string, unknown>).organization_id
+        );
+        if (nested) return nested;
+      }
     }
   }
-
   return null;
 }
 
