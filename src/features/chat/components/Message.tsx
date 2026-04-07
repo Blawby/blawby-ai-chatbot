@@ -106,7 +106,6 @@ interface MessageProps {
 		practiceId: string;
 	};
 	onOpenSidebar?: () => void;
-	onOpenPayment?: (request: IntakePaymentRequest) => void;
 	isStreaming?: boolean;
 	isLoading?: boolean;
 	toolMessage?: string;
@@ -164,7 +163,6 @@ const Message: FunctionComponent<MessageProps> = memo(({
 	paymentRequest,
 	practiceConfig: _practiceConfig,
 	onOpenSidebar: _onOpenSidebar,
-	onOpenPayment,
 	modeSelector,
 	assistantRetry,
 	authCta,
@@ -329,7 +327,6 @@ const Message: FunctionComponent<MessageProps> = memo(({
 				documentChecklist={documentChecklist}
 				generatedPDF={generatedPDF}
 					paymentRequest={paymentRequest}
-					onOpenPayment={onOpenPayment}
 					modeSelector={modeSelector}
 					assistantRetry={assistantRetry}
 					authCta={authCta}

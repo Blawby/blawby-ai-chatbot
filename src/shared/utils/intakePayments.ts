@@ -4,6 +4,10 @@ import {
   getPracticeClientPostPayStatusEndpoint,
 } from '@/config/api';
 import { assertMinorUnits, type MinorAmount } from '@/shared/utils/money';
+import { withWidgetAuthHeaders } from '@/shared/utils/widgetAuth';
+
+/** localStorage key used to signal cross-tab payment success from PaymentResultPage. */
+export const PAYMENT_CONFIRMED_STORAGE_KEY = 'blawby:payment_confirmed';
 
 export type IntakePaymentRequest = {
   intakeUuid?: string;
@@ -164,7 +168,7 @@ export const buildIntakePaymentUrl = (
 
 export const fetchIntakePaymentStatus = async (
   intakeUuid?: string,
-  options?: { timeoutMs?: number }
+  options?: { timeoutMs?: number; conversationId?: string }
 ): Promise<string | null> => {
   const trimmed = getQueryValue(intakeUuid);
   if (!trimmed) return null;
@@ -176,7 +180,12 @@ export const fetchIntakePaymentStatus = async (
       getPracticeClientIntakeStatusEndpoint(trimmed),
       {
         method: 'GET',
-        signal: controller.signal
+        signal: controller.signal,
+        credentials: 'include',
+        headers: withWidgetAuthHeaders({
+          'Content-Type': 'application/json',
+          ...(options?.conversationId ? { 'x-conversation-id': options.conversationId } : {})
+        })
       }
     );
     clearTimeout(timeoutId);
@@ -199,7 +208,7 @@ export const fetchIntakePaymentStatus = async (
 
 export const fetchIntakeCheckoutSession = async (
   intakeUuid?: string,
-  options?: { timeoutMs?: number }
+  options?: { timeoutMs?: number; conversationId?: string }
 ): Promise<{ url: string | null; sessionId: string | null }> => {
   const trimmed = getQueryValue(intakeUuid);
   if (!trimmed) {
@@ -213,9 +222,10 @@ export const fetchIntakeCheckoutSession = async (
       method: 'POST',
       signal: controller.signal,
       credentials: 'include',
-      headers: {
+      headers: withWidgetAuthHeaders({
         'Content-Type': 'application/json',
-      },
+        ...(options?.conversationId ? { 'x-conversation-id': options.conversationId } : {})
+      }),
     });
     clearTimeout(timeoutId);
 
@@ -244,7 +254,7 @@ export const fetchIntakeCheckoutSession = async (
 
 export const fetchPostPayIntakeStatus = async (
   sessionId?: string,
-  options?: { timeoutMs?: number }
+  options?: { timeoutMs?: number; conversationId?: string }
 ): Promise<string | null> => {
   const trimmed = getQueryValue(sessionId);
   if (!trimmed) return null;
@@ -256,6 +266,10 @@ export const fetchPostPayIntakeStatus = async (
       method: 'GET',
       signal: controller.signal,
       credentials: 'include',
+      headers: withWidgetAuthHeaders({
+        'Content-Type': 'application/json',
+        ...(options?.conversationId ? { 'x-conversation-id': options.conversationId } : {})
+      })
     });
     clearTimeout(timeoutId);
 

@@ -137,6 +137,7 @@ test.describe('Public widget intake flow', () => {
   test('public intake reaches submit CTA and submit button advances flow', async ({
     anonPage,
   }, testInfo) => {
+    anonPage.on('console', msg => console.log(msg.text()));
     const practiceSlug = normalizePracticeSlug(DEFAULT_PRACTICE_SLUG);
     const consoleErrors: string[] = [];
     const pageErrors: string[] = [];

@@ -39,7 +39,7 @@ export interface UseChatComposerOptions {
   practiceId?: string;
   practiceSlug?: string;
   conversationId?: string;
-  ensureConversation?: () => Promise<string | null>;
+  onEnsureConversation?: () => Promise<string | null>;
   userId?: string | null;
   linkAnonymousConversationOnLoad?: boolean;
   mode?: ConversationMode | null;
@@ -93,7 +93,7 @@ export const useChatComposer = ({
   practiceId,
   practiceSlug,
   conversationId,
-  ensureConversation,
+  onEnsureConversation,
   userId: externalUserId,
   linkAnonymousConversationOnLoad = false,
   mode,
@@ -164,7 +164,7 @@ export const useChatComposer = ({
     const existingConversationId = conversationIdRef.current?.trim();
     if (existingConversationId) return existingConversationId;
 
-    if (!ensureConversation) return '';
+    if (!onEnsureConversation) return '';
 
     // Create context key based on practiceId and current user
     const contextKey = `${practiceIdRef.current || ''}:${currentUserId || ''}`;
@@ -176,7 +176,7 @@ export const useChatComposer = ({
     }
 
     // Create and cache the promise for this context
-    const promise = ensureConversation().then(id => {
+    const promise = onEnsureConversation().then(id => {
       // Verify context still matches before assigning to conversationIdRef
       const currentContextKey = `${practiceIdRef.current || ''}:${currentUserId || ''}`;
       if (currentContextKey === contextKey) {
@@ -196,7 +196,7 @@ export const useChatComposer = ({
 
     pendingEnsureConversationPromisesRef.current.set(contextKey, promise);
     return promise;
-  }, [conversationIdRef, currentUserId, enabled, ensureConversation, pendingEnsureConversationPromisesRef]);
+  }, [conversationIdRef, currentUserId, enabled, onEnsureConversation, pendingEnsureConversationPromisesRef]);
 
   // ── streaming bubble helpers ──────────────────────────────────────────────
 

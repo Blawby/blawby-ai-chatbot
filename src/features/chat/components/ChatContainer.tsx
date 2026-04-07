@@ -6,7 +6,6 @@ import MessageComposer from './MessageComposer';
 import { ChatMessageUI } from '../../../../worker/types';
 import { FileAttachment } from '../../../../worker/types';
 import { ContactData } from '@/features/intake/components/ContactForm';
-import { type IntakePaymentRequest } from '@/shared/utils/intakePayments';
 import { createKeyPressHandler } from '@/shared/utils/keyboard';
 import type { UploadingFile } from '@/shared/types/upload';
 import type { ConversationMode } from '@/shared/types/conversation';
@@ -30,7 +29,7 @@ export interface ChatContainerProps {
   ) => void;
   onAddMessage?: (message: ChatMessageUI) => void;
   conversationMode?: ConversationMode | null;
-  onSelectMode?: (mode: ConversationMode, source: 'intro_gate' | 'composer_footer') => void;
+  onSelectMode?: (mode: ConversationMode, source?: string) => void;
   onToggleReaction?: (messageId: string, emoji: string) => void;
   onRequestReactions?: (messageId: string) => void;
   composerDisabled?: boolean;
@@ -174,7 +173,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   const [replyTarget, setReplyTarget] = useState<ReplyTarget | null>(null);
   const composerDockRef = useRef<HTMLDivElement>(null);
   const [composerInsetPx, setComposerInsetPx] = useState(104);
-  const isChatInputLocked = Boolean(composerDisabled) || isSessionReady === false || isSocketReady === false;
+  const isChatInputLocked = Boolean(composerDisabled) || isSessionReady === false || isSocketReady === false || intakeStatus?.step === 'contact_form_slim';
   const baseMessages = isPublicWorkspace
     ? messages.filter((message) => message.metadata?.systemMessageKey !== 'ask_question_help')
     : messages;
@@ -369,33 +368,17 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     baseKeyHandler(e);
   };
 
-  const openPayment = useCallback((request: IntakePaymentRequest): void => {
-    if (typeof window === 'undefined') return;
-    if (request.paymentLinkUrl) {
-      const opened = window.open(request.paymentLinkUrl, '_blank', 'noopener,noreferrer');
-      if (opened === null) {
-        window.location.assign(request.paymentLinkUrl);
-      }
-    }
-  }, []);
-
-  const handleOpenPayment = useCallback((request: IntakePaymentRequest): void => {
-    openPayment(request);
-  }, [openPayment]);
-
-
-
-  const handleModeSelection = (mode: ConversationMode, source: 'intro_gate' | 'composer_footer') => {
+  const handleModeSelection = (mode: ConversationMode) => {
     if (!onSelectMode) return;
-    onSelectMode(mode, source);
+    onSelectMode(mode);
   };
 
   const handleAskQuestion = () => {
-    handleModeSelection('ASK_QUESTION', 'intro_gate');
+    handleModeSelection('ASK_QUESTION');
   };
 
   const handleRequestConsultation = () => {
-    handleModeSelection('REQUEST_CONSULTATION', 'intro_gate');
+    handleModeSelection('REQUEST_CONSULTATION');
   };
 
   /**
@@ -474,7 +457,6 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
                   practiceConfig={practiceConfig}
                   isPublicWorkspace={isPublicWorkspace}
                   onOpenSidebar={onOpenSidebar}
-                  onOpenPayment={handleOpenPayment}
                   practiceId={practiceId}
                   onReply={handleReply}
                   onToggleReaction={onToggleReaction && features.enableMessageReactions ? onToggleReaction : undefined}
@@ -544,7 +526,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
                   isSessionReady={isSessionReady}
                   isSocketReady={isSocketReady}
                   intakeStatus={intakeStatus}
-                  disabled={composerDisabled}
+                  disabled={composerDisabled || intakeStatus?.step === 'contact_form_slim'}
                   replyTo={replyTarget}
                   onCancelReply={handleCancelReply}
                   mentionCandidates={mentionCandidates}

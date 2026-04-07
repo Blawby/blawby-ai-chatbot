@@ -15,6 +15,7 @@ import type { ChatMessageAction } from '@/shared/types/conversation';
 import { SettingsNotice } from '@/features/settings/components/SettingsNotice';
 import { quickActionDebugLog, isQuickActionDebugEnabled } from '@/shared/utils/quickActionDebug';
 import { getChatActionKey } from '@/shared/utils/chatActions';
+import { useNavigation } from '@/shared/utils/navigation';
 
 interface MessageActionsProps {
 	matterCanvas?: {
@@ -33,7 +34,6 @@ interface MessageActionsProps {
 		paymentReceived?: boolean;
 	};
 	paymentRequest?: IntakePaymentRequest;
-	onOpenPayment?: (request: IntakePaymentRequest) => void;
 	documentChecklist?: {
 		matterType: string;
 		documents: Array<{
@@ -122,7 +122,6 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 	documentChecklist,
 	generatedPDF,
 	paymentRequest,
-	onOpenPayment,
 	modeSelector,
 	assistantRetry,
 	authCta,
@@ -139,6 +138,7 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 }) => {
 	const { showSuccess, showInfo } = useToastContext();
 	const { t } = useTranslation('common');
+	const { navigate } = useNavigation();
 	const quickActionRenderSnapshotRef = useRef('');
 
 	const isIntakeCompleted = intakeStatus?.step === 'completed';
@@ -151,7 +151,7 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 			case 'submit':
 				return Boolean(onSubmitNow);
 			case 'continue_payment':
-				return Boolean(onOpenPayment && paymentRequest);
+				return Boolean(paymentRequest?.paymentLinkUrl);
 			case 'open_url':
 				return true;
 			case 'build_brief':
@@ -308,19 +308,25 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 				<div className="mt-3 flex gap-2 overflow-x-auto pb-1">
 					{renderableActions.map((action, idx) => (
 						action.type === 'continue_payment' ? (
-							(onOpenPayment && paymentRequest) ? (
-								<Button
-									key={getChatActionKey(action, idx)}
-									variant={action.variant === 'primary' ? 'primary' : 'secondary'}
-									size="sm"
-									className="shrink-0"
-									onClick={() => {
-										onOpenPayment?.(paymentRequest);
-									}}
-								>
-									{action.label}
-								</Button>
-							) : null
+							(() => {
+								const url = paymentRequest?.paymentLinkUrl;
+								if (!url) return null;
+								try {
+									const parsed = new URL(url);
+									if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null;
+									return (
+										<a
+											key={getChatActionKey(action, idx)}
+											href={url}
+											target="_blank"
+											rel="noopener noreferrer"
+											className={`btn ${action.variant === 'primary' ? 'btn-primary' : 'btn-secondary'} btn-sm shrink-0 no-underline inline-flex items-center justify-center px-4 rounded-xl font-semibold transition-all hover:opacity-90 active:scale-[0.98] h-8 text-xs`}
+										>
+											{action.label}
+										</a>
+									);
+								} catch { return null; }
+							})()
 						) : action.type === 'submit' ? (
 							onSubmitNow ? (
 								<Button
@@ -337,30 +343,46 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 							) : null
 						) : action.type === 'open_url' ? (
 							(() => {
+								const isSameOrigin = (urlStr: string) => {
+									try {
+										const url = new URL(urlStr, window.location.origin);
+										return url.origin === window.location.origin;
+									} catch { return false; }
+								};
+								
+								const sameOrigin = isSameOrigin(action.url);
+								
 								return (
-									<Button
+									<a
 										key={getChatActionKey(action, idx)}
-										variant={action.variant === 'primary' ? 'primary' : 'secondary'}
-										size="sm"
-										className="shrink-0"
-										onClick={() => {
+										href={action.url}
+										target={sameOrigin ? undefined : "_blank"}
+										rel={sameOrigin ? undefined : "noopener noreferrer"}
+										className={`btn ${action.variant === 'primary' ? 'btn-primary' : 'btn-secondary'} btn-sm shrink-0 no-underline inline-flex items-center justify-center px-4 rounded-xl font-semibold transition-all hover:opacity-90 active:scale-[0.98] h-8 text-xs`}
+										onClick={(e) => {
 											try {
-												const parsed = new URL(action.url);
-												if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
-													window.open(action.url, '_blank', 'noopener,noreferrer');
-												} else {
+												const parsed = new URL(action.url, window.location.origin);
+												if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+													e.preventDefault();
 													console.warn('[MessageActions] Blocked unsafe URL protocol:', parsed.protocol);
-												showInfo('Link Cannot Open', `This link uses an unsafe protocol: ${parsed.protocol}`);
+													showInfo('Link Cannot Open', `This link uses an unsafe protocol: ${parsed.protocol}`);
+													return;
+												}
+												
+												if (parsed.origin === window.location.origin) {
+													e.preventDefault();
+													navigate(`${parsed.pathname}${parsed.search}${parsed.hash}`);
+												}
+											} catch {
+												e.preventDefault();
+												console.warn('[MessageActions] Invalid URL format:', action.url);
+												showInfo('Invalid Link', `Cannot open link with invalid URL format: ${action.url}`);
 											}
-										} catch {
-											console.warn('[MessageActions] Invalid URL format:', action.url);
-											showInfo('Invalid Link', `Cannot open link with invalid URL format: ${action.url}`);
-										}
-									}}
+										}}
 									>
-									{action.label}
-								</Button>
-							);
+										{action.label}
+									</a>
+								);
 							})()
 						) : action.type === 'build_brief' ? (
 							onBuildBrief ? (
@@ -411,7 +433,7 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 			)}
 			
 			{shouldShowPaymentCard && paymentRequest && (
-				<IntakePaymentCard paymentRequest={paymentRequest} onOpenPayment={onOpenPayment} />
+				<IntakePaymentCard paymentRequest={paymentRequest} />
 			)}
 			
 			{/* Display document checklist */}

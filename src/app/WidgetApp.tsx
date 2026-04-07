@@ -12,7 +12,7 @@ import WidgetConversationListView from '@/features/chat/views/WidgetConversation
 import { useConversations } from '@/shared/hooks/useConversations';
 import { useMessageHandling } from '@/shared/hooks/useMessageHandling';
 import { useConversationSystemMessages } from '@/shared/hooks/useConversationSystemMessages';
-import { fetchLatestConversationMessage } from '@/shared/lib/conversationApi';
+import { createConversation, fetchLatestConversationMessage } from '@/shared/lib/conversationApi';
 import { postToParentFrame, resolveAllowedParentOrigins } from '@/shared/utils/widgetEvents';
 import { setupGlobalKeyboardListeners } from '@/shared/utils/keyboard';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
@@ -57,12 +57,21 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
 }) => {
   const [view, setView] = useState<'home' | 'list' | 'chat'>(routeConversationId ? 'chat' : 'home');
   const [setupConversationId, setConversationId] = useState<string | null>(null);
+  const [bootstrapIgnored, setBootstrapIgnored] = useState(false);
+  const creatingConversationRef = useRef<Promise<string> | null>(null);
   const [conversationMode, setConversationMode] = useState<ConversationMode | null>(null);
+  const previousViewRef = useRef<'home' | 'list'>('home');
   const [isInspectorOpen, setIsInspectorOpen] = useState(false);
   const [isPaymentAuthPromptOpen, setIsPaymentAuthPromptOpen] = useState(false);
   const widgetVisibleRef = useRef(false);
+
+  useEffect(() => {
+    if (view === 'home' || view === 'list') {
+      previousViewRef.current = view;
+    }
+  }, [view]);
   const showErrorRef = useRef<((msg: string) => void) | null>(null);
-  const inFlightCreateRef = useRef<Promise<string> | null>(null);
+  const locallyCreatedConversationIds = useRef(new Set<string>());
 
   const { showError: showToastError } = useToastContext();
 
@@ -79,54 +88,39 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
 
   const isEmbedded = typeof window !== 'undefined' && window.parent !== window;
 
-  const effectiveConversationId = routeConversationId ?? setupConversationId ?? bootstrapConversationId ?? null;
+  const effectiveConversationId = routeConversationId ?? setupConversationId ?? (bootstrapIgnored ? null : bootstrapConversationId) ?? null;
 
-  const createConversation = useCallback(async (options?: { forceNew?: boolean }): Promise<string> => {
-    if (inFlightCreateRef.current) return inFlightCreateRef.current;
-
-    const createPromise = (async () => {
-      try {
-        const { createConversation: apiCreateConversation } = await import('@/shared/lib/conversationApi');
-        const conversationId = await apiCreateConversation(practiceId, {
-          userId: currentUserId ?? undefined,
-          forceNew: options?.forceNew
-        });
-        setConversationId(conversationId);
-        return conversationId;
-      } finally {
-        inFlightCreateRef.current = null;
-      }
-    })();
-
-    inFlightCreateRef.current = createPromise;
-    return createPromise;
-  }, [practiceId, currentUserId, setConversationId]);
-
-  const ensureConversation = useCallback(async (options?: { forceNew?: boolean }): Promise<string | null> => {
-    const existingConversationId = effectiveConversationId;
-    if (!options?.forceNew && existingConversationId) return existingConversationId;
-    return createConversation(options);
-  }, [createConversation, effectiveConversationId]);
-
-  const applyConversationMode = useCallback(async (mode: ConversationMode, targetId: string, source: string, startIntake: boolean): Promise<boolean> => {
+  const createConversationIfNeeded = useCallback(async () => {
+    if (effectiveConversationId) return effectiveConversationId;
     try {
-      const { updateConversationMetadata } = await import('@/shared/lib/conversationApi');
-      await updateConversationMetadata(targetId, practiceId, {
-        mode,
-        metadata: {
-          modeSource: source,
-          startIntake: startIntake ? 'true' : 'false'
+      // Use ref-based lock to prevent concurrent creation calls during the same tick
+      // or while a fetch is already in flight.
+      if (creatingConversationRef.current) {
+        return creatingConversationRef.current;
+      }
+
+      const createPromise = (async () => {
+        try {
+          const newId = await createConversation(practiceId, { status: 'draft' });
+          locallyCreatedConversationIds.current.add(newId);
+          setBootstrapIgnored(true);
+          setConversationId(newId);
+          return newId;
+        } catch (error) {
+          console.error('Failed to create deferred conversation', error);
+          throw error;
+        } finally {
+          creatingConversationRef.current = null;
         }
-      });
-      setConversationMode(mode);
-      return true;
+      })();
+
+      creatingConversationRef.current = createPromise;
+      return createPromise;
     } catch (error) {
-      console.error('[WidgetApp] Failed to apply conversation mode:', error);
-      const message = error instanceof Error ? error.message : 'Failed to update conversation mode';
-      showErrorRef.current?.(message);
-      return false;
+      console.error('Failed to create deferred conversation', error);
+      throw error;
     }
-  }, [practiceId, setConversationMode]);
+  }, [effectiveConversationId, practiceId, setConversationId]);
 
   const { details: practiceDetails } = usePracticeDetails(practiceId, practiceConfig.slug);
   
@@ -148,7 +142,6 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
     return conversations.find(c => Boolean(c.last_message_at || c.last_message_content)) || null;
   }, [conversations]);
 
-  const hasRealConversations = Boolean(latestConversation);
   const [conversationPreviews, setConversationPreviews] = useState<Record<string, {
     content: string;
     role: string;
@@ -250,12 +243,13 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
     practiceId,
     practiceSlug: practiceConfig.slug ?? undefined,
     conversationId: effectiveConversationId ?? undefined,
-    ensureConversation: () => ensureConversation(),
+    onEnsureConversation: createConversationIfNeeded,
     userId: currentUserId,
     linkAnonymousConversationOnLoad: true,
     mode: conversationMode,
     onConversationMetadataUpdated: handleConversationMetadataUpdated,
     onError: handleMessageError,
+    skipInitialFetch: locallyCreatedConversationIds.current.has(effectiveConversationId ?? ''),
   });
 
   const {
@@ -301,28 +295,29 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
     ingestServerMessages,
   });
 
-  const canChat = activeConversationId != null;
+  const canChat = activeConversationId != null || conversationMode != null;
   const _isComposerDisabled = false; // Add recording check if needed
 
-  const handleModeSelection = useCallback(async (mode: ConversationMode, source?: 'intro_gate' | 'composer_footer') => {
+  const handleModeSelection = useCallback(async (mode: ConversationMode) => {
     if (!practiceId) return;
     
     try {
-      const targetId = source === 'intro_gate' || mode === 'REQUEST_CONSULTATION'
-        ? await ensureConversation({ forceNew: true })
-        : await ensureConversation();
-      
-      if (!targetId) return;
-      const success = await applyConversationMode(mode, targetId, source ?? 'intro_gate', mode === 'REQUEST_CONSULTATION');
-      if (success) {
-        setView('chat');
+      // Each mode selection starts a fresh conversation so a new "Ask a Question"
+      // or "Request Consultation" doesn't inherit a previous intake's conversation.
+      // The previous conversation remains accessible via the Messages (list) view.
+      if (setupConversationId) {
+        setConversationId(null);
+        locallyCreatedConversationIds.current.delete(setupConversationId);
       }
+      setBootstrapIgnored(true);
+      setConversationMode(mode);
+      setView('chat');
     } catch (error) {
       console.error('[WidgetApp] Failed to handle mode selection:', error);
       const message = error instanceof Error ? error.message : 'Failed to start conversation';
       showErrorRef.current?.(message);
     }
-  }, [practiceId, applyConversationMode, ensureConversation]);
+  }, [practiceId, setupConversationId]);
 
   const attachmentsDisabledMessage = t('chat.attachments.disabled');
 
@@ -426,7 +421,11 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
       label: t('nav.home') ?? 'Home',
       icon: HomeIcon,
       href: '#home',
-      onClick: () => setView('home'),
+      onClick: () => {
+        // Clear stale mode so the home screen always shows a fresh intake gate.
+        setConversationMode(null);
+        setView('home');
+      },
     },
     {
       id: 'list',
@@ -436,7 +435,8 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
       onClick: () => setView('list')
     }
   ], [t]);
-  const widgetBackTarget = hasRealConversations ? 'list' : 'home';
+  
+  const widgetBackTarget = previousViewRef.current;
   const showConversationBack = shouldShowWorkspaceDetailBack('widget', Boolean(widgetBackTarget));
 
   const filteredMessagesForHeader = useMemo(() => {
@@ -522,14 +522,14 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
                <WorkspaceHomeView
                  practiceName={practiceConfig.name}
                  practiceLogo={practiceConfig.profileImage}
-                 onSendMessage={() => handleModeSelection('ASK_QUESTION', 'intro_gate')}
-                 onRequestConsultation={() => handleModeSelection('REQUEST_CONSULTATION', 'intro_gate')}
+                 onSendMessage={() => handleModeSelection('ASK_QUESTION')}
+                 onRequestConsultation={() => handleModeSelection('REQUEST_CONSULTATION')}
                    onOpenRecentMessage={() => {
                      if (recentMessage?.conversationId) {
                        setConversationId(recentMessage.conversationId);
                        setView('chat');
                      } else {
-                        handleModeSelection('ASK_QUESTION', 'intro_gate');
+                        handleModeSelection('ASK_QUESTION');
                      }
                    }}
                  recentMessage={recentMessage}
@@ -552,7 +552,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
                    setConversationId(id);
                    setView('chat');
                 }}
-                onSendMessage={() => handleModeSelection('ASK_QUESTION', 'intro_gate')}
+                onSendMessage={() => handleModeSelection('ASK_QUESTION')}
               />
             </div>
         ) : (

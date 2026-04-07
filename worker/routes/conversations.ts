@@ -2,7 +2,7 @@ import type { Request as WorkerRequest } from '@cloudflare/workers-types';
 import { parseJsonBody } from '../utils.js';
 import { HttpErrors } from '../errorHandler.js';
 import { HttpError, type Env } from '../types.js';
-import { ConversationService } from '../services/ConversationService.js';
+import { ConversationService, type ConversationStatus } from '../services/ConversationService.js';
 import { RemoteApiService } from '../services/RemoteApiService.js';
 import { optionalAuth, requirePracticeMember, requirePracticeMemberRole, checkPracticeMembership } from '../middleware/auth.js';
 import type { AuthContext } from '../middleware/auth.js';
@@ -359,6 +359,7 @@ export async function handleConversations(request: Request, env: Env): Promise<R
       matterId?: string;
       participantUserIds: string[];
       metadata?: Record<string, unknown>;
+      status?: ConversationStatus;
     };
 
     const participantUserIds = Array.isArray(body.participantUserIds) ? body.participantUserIds : [];
@@ -376,6 +377,7 @@ export async function handleConversations(request: Request, env: Env): Promise<R
       matterId: body.matterId || null,
       participantUserIds: participants,
       metadata: body.metadata,
+      status: body.status || 'draft',
       skipPracticeValidation: !practiceContext.isMember
     }, request);
 
@@ -389,7 +391,7 @@ export async function handleConversations(request: Request, env: Env): Promise<R
         throw HttpErrors.unauthorized('Sign in is required to list conversations');
       }
 
-      const status = url.searchParams.get('status') as 'active' | 'archived' | 'closed' | null;
+      const status = url.searchParams.get('status') as ConversationStatus | null;
       const limit = parseInt(url.searchParams.get('limit') || '50', 10);
       const offset = parseInt(url.searchParams.get('offset') || '0', 10);
 
@@ -439,7 +441,7 @@ export async function handleConversations(request: Request, env: Env): Promise<R
     if (isAnonymous) {
       const listRequested = ['1', 'true'].includes(url.searchParams.get('list') || '');
       if (listRequested) {
-        const status = url.searchParams.get('status') as 'active' | 'archived' | 'closed' | null;
+        const status = url.searchParams.get('status') as ConversationStatus | null;
         const limit = parseInt(url.searchParams.get('limit') || '50', 10);
         if (Number.isNaN(limit) || limit < 1) {
           throw HttpErrors.badRequest('limit must be a positive integer');
@@ -447,7 +449,7 @@ export async function handleConversations(request: Request, env: Env): Promise<R
         const conversations = await conversationService.getConversations({
           practiceId,
           userId,
-          status: status || undefined,
+          status: status || ['active', 'submitted'],
           limit
         });
         return createJsonResponse({ conversations });
@@ -466,14 +468,15 @@ export async function handleConversations(request: Request, env: Env): Promise<R
     if (practiceContext.isMember && isStaffMemberRole(practiceContext.memberRole)) {
       await requirePracticeMember(request, env, practiceId, 'paralegal');
 
-      const status = url.searchParams.get('status') as 'active' | 'archived' | 'closed' | null;
+      const status = url.searchParams.get('status') as ConversationStatus | 'all' | null;
       const assignedTo = url.searchParams.get('assignedTo');
       const limit = parseInt(url.searchParams.get('limit') || '50', 10);
       const conversations = await conversationService.getConversations({
         practiceId,
         userId,
         bypassParticipantFilter: true,
-        status: status || undefined,
+        status: (status && status !== 'all') ? status : undefined,
+        mode: 'REQUEST_CONSULTATION',
         assignedTo: assignedTo === 'none' ? 'none' : undefined,
         limit
       });
@@ -482,7 +485,7 @@ export async function handleConversations(request: Request, env: Env): Promise<R
     
     // Signed-in client: Return list of their conversations with this practice
     const matterId = url.searchParams.get('matterId');
-    const status = url.searchParams.get('status') as 'active' | 'archived' | 'closed' | null;
+    const status = url.searchParams.get('status') as ConversationStatus | null;
     const assignedTo = url.searchParams.get('assignedTo');
     const limit = parseInt(url.searchParams.get('limit') || '50', 10);
     
@@ -490,7 +493,7 @@ export async function handleConversations(request: Request, env: Env): Promise<R
       practiceId,
       matterId: matterId || null,
       userId, // Filter to conversations where user is a participant
-      status: status || undefined,
+      status: status || ['active', 'submitted'],
       assignedTo: assignedTo === 'none' ? 'none' : undefined,
       limit
     });

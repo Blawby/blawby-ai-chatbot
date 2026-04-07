@@ -15,7 +15,7 @@ const toMessageReaction = (reaction: MessageReactionSummary): MessageReaction =>
 
 export const createConversation = async (
   practiceId: string,
-  options?: { userId?: string; forceNew?: boolean }
+  options?: { userId?: string; forceNew?: boolean; status?: string }
 ): Promise<string> => {
   const params = buildPracticeParams(practiceId);
   const response = await fetch(`${getConversationsEndpoint()}?${params.toString()}`, {
@@ -26,7 +26,8 @@ export const createConversation = async (
       participantUserIds: options?.userId ? [options.userId] : [],
       metadata: { source: 'widget' },
       practiceId,
-      forceNew: options?.forceNew
+      forceNew: options?.forceNew,
+      status: options?.status
     })
   });
 
@@ -46,13 +47,19 @@ export const updateConversationMetadata = async (
   practiceId: string,
   metadata: ConversationMetadata
 ): Promise<Conversation | null> => {
+  const { status, ...restMetadata } = metadata as Record<string, unknown>;
+  const payload: Record<string, unknown> = { metadata: restMetadata };
+  if (status !== undefined) {
+    payload.status = status;
+  }
+
   const response = await fetch(
     `/api/conversations/${encodeURIComponent(conversationId)}?practiceId=${encodeURIComponent(practiceId)}`,
     {
       method: 'PATCH',
       headers: withWidgetAuthHeaders({ 'Content-Type': 'application/json' }),
       credentials: 'include',
-      body: JSON.stringify({ metadata })
+      body: JSON.stringify(payload)
     }
   );
 
