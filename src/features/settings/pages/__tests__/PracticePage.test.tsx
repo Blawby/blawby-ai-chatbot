@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 // Mock authClient BEFORE importing anything that uses it
 const mockUseSession = vi.fn(() => ({
-  data: { user: { id: 'user-1', email: 'test@example.com' } },
+  data: { user: { id: 'user-1', email: 'test@test-blawby.com' } },
   isPending: false,
 }));
 
@@ -49,7 +49,7 @@ const mockGetMembers = vi.fn((practiceId: string) => {
       {
         userId: 'user-1',
         role: 'owner' as const,
-        email: 'test@example.com',
+        email: 'test@test-blawby.com',
         name: 'Test User',
         createdAt: Date.now(),
       },
@@ -180,7 +180,7 @@ describe('PracticePage', () => {
           {
             userId: 'user-1',
             role: 'owner' as const,
-            email: 'test@example.com',
+            email: 'test@test-blawby.com',
             name: 'Test User',
             createdAt: Date.now(),
           },
@@ -347,12 +347,12 @@ describe('PracticePage', () => {
     const mockInvitations = [
       {
         id: 'inv-1',
-        email: 'user@example.com',
+        email: 'user@test-blawby.com',
         role: 'member' as const,
         status: 'pending' as const,
         practiceId: 'practice-1',
         practiceName: 'Test Practice',
-        invitedBy: 'admin@example.com',
+        invitedBy: 'admin@test-blawby.com',
         expiresAt: '2024-02-01T00:00:00Z',
         createdAt: '2024-01-01T00:00:00Z',
       },
@@ -373,7 +373,7 @@ describe('PracticePage', () => {
 
     render(<PracticePage />);
     
-    expect(screen.getByText('user@example.com')).toBeInTheDocument();
+    expect(screen.getByText('user@test-blawby.com')).toBeInTheDocument();
     expect(screen.getByText('Test Practice')).toBeInTheDocument();
     expect(screen.getByText('Client')).toBeInTheDocument();
   });
@@ -493,7 +493,7 @@ describe('PracticePage', () => {
     const emailInput = screen.getByLabelText('Email Address');
     const roleSelect = screen.getByLabelText('Role');
     
-    fireEvent.input(emailInput, { target: { value: 'newuser@example.com' } });
+    fireEvent.input(emailInput, { target: { value: 'newuser@test-blawby.com' } });
     fireEvent.change(roleSelect, { target: { value: 'admin' } });
     
     // Submit form
@@ -501,7 +501,7 @@ describe('PracticePage', () => {
     fireEvent.click(submitButton);
     
     await waitFor(() => {
-      expect(mockSendInvitation).toHaveBeenCalledWith('practice-1', 'newuser@example.com', 'admin');
+      expect(mockSendInvitation).toHaveBeenCalledWith('practice-1', 'newuser@test-blawby.com', 'admin');
     });
   });
 
@@ -512,12 +512,12 @@ describe('PracticePage', () => {
     const mockInvitations = [
       {
         id: 'inv-1',
-        email: 'user@example.com',
+        email: 'user@test-blawby.com',
         role: 'member' as const,
         status: 'pending' as const,
         practiceId: 'practice-1',
         practiceName: 'Test Practice',
-        invitedBy: 'admin@example.com',
+        invitedBy: 'admin@test-blawby.com',
         expiresAt: '2024-02-01T00:00:00Z',
         createdAt: '2024-01-01T00:00:00Z',
       },
@@ -548,12 +548,12 @@ describe('PracticePage', () => {
     const mockInvitations = [
       {
         id: 'inv-1',
-        email: 'user@example.com',
+        email: 'user@test-blawby.com',
         role: 'member' as const,
         status: 'pending' as const,
         practiceId: 'practice-1',
         practiceName: 'Test Practice',
-        invitedBy: 'admin@example.com',
+        invitedBy: 'admin@test-blawby.com',
         expiresAt: '2024-02-01T00:00:00Z',
         createdAt: '2024-01-01T00:00:00Z',
       },
@@ -621,7 +621,7 @@ describe('PracticePage', () => {
       consultationFee: null,
       paymentUrl: null,
       businessPhone: null,
-      businessEmail: 'old@example.com',
+      businessEmail: 'old@test-blawby.com',
       calendlyUrl: null,
     };
     usePracticeMgmtMock.getMembers = mockGetMembers;
@@ -635,7 +635,7 @@ describe('PracticePage', () => {
     fireEvent.click(editButton);
 
     const emailInput = screen.getByLabelText('Business email');
-    fireEvent.input(emailInput, { target: { value: 'updated@example.com' } });
+    fireEvent.input(emailInput, { target: { value: 'updated@test-blawby.com' } });
 
     const saveButton = screen.getByText('Save Changes');
     fireEvent.click(saveButton);
@@ -643,7 +643,7 @@ describe('PracticePage', () => {
     await waitFor(() => {
       expect(mockUpdateDetails).toHaveBeenCalled();
       expect(mockUpdateDetails).toHaveBeenCalledWith({
-        businessEmail: 'updated@example.com'
+        businessEmail: 'updated@test-blawby.com'
       });
     });
   });

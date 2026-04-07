@@ -16,7 +16,7 @@ describe('auth middleware membership resolution', () => {
       data: {
         user: {
           id: 'user-1',
-          email: 'owner@example.com',
+          email: 'owner@test-blawby.com',
           name: 'Owner User',
           emailVerified: true,
         },
@@ -40,7 +40,7 @@ describe('auth middleware membership resolution', () => {
       data: {
         user: {
           id: 'user-1',
-          email: 'owner@example.com',
+          email: 'owner@test-blawby.com',
           name: 'Owner User',
           emailVerified: true,
         },
@@ -65,7 +65,7 @@ describe('auth middleware membership resolution', () => {
           data: {
             user: {
               id: 'user-1',
-              email: 'owner@example.com',
+              email: 'owner@test-blawby.com',
               name: 'Owner User',
               emailVerified: true,
             },
@@ -114,7 +114,7 @@ describe('auth middleware membership resolution', () => {
           data: {
             user: {
               id: 'user-nested',
-              email: 'owner@example.com',
+              email: 'owner@test-blawby.com',
               name: 'Owner User',
               emailVerified: true,
             },

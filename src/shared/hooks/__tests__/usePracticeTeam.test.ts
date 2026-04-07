@@ -33,7 +33,7 @@ describe('usePracticeTeam', () => {
       members: [
         {
           userId: 'staff-1',
-          email: 'staff@example.com',
+          email: 'staff@test-blawby.com',
           name: 'Staff Member',
           image: null,
           role: 'admin',
@@ -77,7 +77,7 @@ describe('usePracticeTeam', () => {
         members: [
           {
             userId: 'staff-1',
-            email: 'staff@example.com',
+            email: 'staff@test-blawby.com',
             name: 'Staff Member',
             image: null,
             role: 'admin',
@@ -95,7 +95,7 @@ describe('usePracticeTeam', () => {
         members: [
           {
             userId: 'staff-2',
-            email: 'next@example.com',
+            email: 'next@test-blawby.com',
             name: 'Next User Team',
             image: null,
             role: 'member',
@@ -126,7 +126,7 @@ describe('usePracticeTeam', () => {
 
     expect(second.result.current.members[0]).toMatchObject({
       userId: 'staff-2',
-      email: 'next@example.com',
+      email: 'next@test-blawby.com',
       canAssignToMatter: false,
     });
     expect(second.result.current.summary).toEqual({

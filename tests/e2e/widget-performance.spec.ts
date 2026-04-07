@@ -180,7 +180,7 @@ test.describe('Public widget performance', () => {
     const formOpenMs = Date.now() - formOpenStartedAt;
 
     const uniqueId = randomUUID().slice(0, 8);
-    const email = `widget-e2e+${uniqueId}@example.com`;
+    const email = `widget-e2e+${uniqueId}@test-blawby.com`;
     let formSubmitFeedbackMs: number | null = null;
 
     if (await slimFormName.isVisible({ timeout: 500 }).catch(() => false)) {
@@ -492,7 +492,7 @@ test.describe('Public widget performance', () => {
     if (await slimFormName.isVisible({ timeout: 500 }).catch(() => false)) {
       await slimFormName.fill('Performance Test User');
       if (await slimFormEmail.isVisible().catch(() => false)) {
-        await slimFormEmail.fill('perf-test@example.com');
+        await slimFormEmail.fill('perf-test@test-blawby.com');
       }
       if (await slimFormPhone.isVisible().catch(() => false)) {
         await slimFormPhone.fill('555-555-1212');
@@ -575,7 +575,7 @@ test.describe('Public widget performance', () => {
     if (await slimFormName.isVisible({ timeout: 500 }).catch(() => false)) {
       await slimFormName.fill('Performance Test User');
       if (await slimFormEmail.isVisible({ timeout: 500 }).catch(() => false)) {
-        await slimFormEmail.fill('perf-test@example.com');
+        await slimFormEmail.fill('perf-test@test-blawby.com');
       }
       if (await slimFormPhone.isVisible({ timeout: 500 }).catch(() => false)) {
         await slimFormPhone.fill('555-555-1212');

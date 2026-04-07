@@ -279,7 +279,7 @@ test.describe('Public widget intake flow', () => {
     const slimFormPhone = anonPage.locator('input[type="tel"]:visible').first();
     const slimFormContinue = anonPage.locator('button:visible').filter({ hasText: /^continue$/i }).first();
     const uniqueId = randomUUID().slice(0, 8);
-    const authEmail = `lead-e2e+${uniqueId}@example.com`;
+    const authEmail = `lead-e2e+${uniqueId}@test-blawby.com`;
     const authName = `Lead E2E ${uniqueId}`;
     const captureLeadFlowState = async () => {
       return anonPage.evaluate(() => {
@@ -936,7 +936,7 @@ test.describe('Public widget intake flow', () => {
   test('tool-only SSE turns clear an empty streaming bubble on done', async ({ anonPage }) => {
     const practiceSlug = normalizePracticeSlug(DEFAULT_PRACTICE_SLUG);
     const uniqueId = randomUUID().slice(0, 8);
-    const authEmail = `lead-e2e-empty+${uniqueId}@example.com`;
+    const authEmail = `lead-e2e-empty+${uniqueId}@test-blawby.com`;
     const authName = `Lead E2E Empty ${uniqueId}`;
 
     await anonPage.goto(buildWidgetUrl(practiceSlug), { waitUntil: 'domcontentloaded' });
@@ -1037,7 +1037,7 @@ test.describe('Public widget intake flow', () => {
     const practiceSlug = normalizePracticeSlug(DEFAULT_PRACTICE_SLUG);
     const uniqueId = randomUUID().slice(0, 8);
     const authName = `Planner E2E ${uniqueId}`;
-    const authEmail = `planner-e2e+${uniqueId}@example.com`;
+    const authEmail = `planner-e2e+${uniqueId}@test-blawby.com`;
     const plannerNetworkLogPath = resolve(
       process.cwd(),
       '.tmp',
