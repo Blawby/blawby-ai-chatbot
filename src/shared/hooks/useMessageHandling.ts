@@ -1,11 +1,21 @@
 import { useState, useMemo, useRef } from 'preact/hooks';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import type { ConversationMetadata, ConversationMode } from '@/shared/types/conversation';
-import { useIntakeFlow } from '@/shared/hooks/useIntakeFlow';
+import { useIntakeFlow, type UseIntakeFlowResult } from '@/shared/hooks/useIntakeFlow';
 import { useConversation } from '@/shared/hooks/useConversation';
 import { useChatComposer } from '@/shared/hooks/useChatComposer';
 import { usePaymentStatus } from '@/shared/hooks/usePaymentStatus';
 import { resolveConsultationState } from '@/shared/utils/consultationState';
+import type { 
+  IntakeConversationState, 
+  SlimContactDraft, 
+  IntakeFieldsPayload, 
+  DerivedIntakeStatus, 
+  IntakeFieldChangeOptions 
+} from '@/shared/types/intake';
+import type { ChatMessageUI, FileAttachment } from '../../../worker/types';
+import type { ConversationMessage } from '@/shared/types/conversation';
+import type { ContactData } from '@/features/intake/components/ContactForm';
 
 export interface UseMessageHandlingOptions {
   enabled?: boolean;
@@ -19,6 +29,40 @@ export interface UseMessageHandlingOptions {
   onConversationMetadataUpdated?: (metadata: ConversationMetadata | null) => void;
   onError?: (error: unknown, context?: Record<string, unknown>) => void;
   skipInitialFetch?: boolean;
+}
+
+export interface UseMessageHandlingResult {
+  messages: ChatMessageUI[];
+  conversationMetadata: ConversationMetadata | null;
+  messagesReady: boolean;
+  hasMoreMessages: boolean;
+  isLoadingMoreMessages: boolean;
+  isSocketReady: boolean;
+  loadMoreMessages: () => Promise<void>;
+  startConsultFlow: (id: string) => void;
+  clearMessages: () => void;
+  addMessage: (msg: ChatMessageUI) => void;
+  updateMessage: (id: string, patch: Partial<ChatMessageUI>) => void;
+  ingestServerMessages: (msgs: ConversationMessage[]) => void;
+  updateConversationMetadata: (patch: Partial<ConversationMetadata>) => Promise<ConversationMetadata | null>;
+  requestMessageReactions: (messageId: string) => Promise<void>;
+  toggleMessageReaction: (messageId: string, emoji: string) => Promise<void>;
+  sendMessage: (content: string, attachments?: FileAttachment[], replyToId?: string | null, options?: { additionalContext?: string }) => Promise<void>;
+  paymentRetryNotice: { message: string; paymentUrl: string } | null;
+  verifiedPaidIntakeUuids: Set<string>;
+  intakeStatus: DerivedIntakeStatus | null;
+  intakeConversationState: IntakeConversationState | null;
+  slimContactDraft: SlimContactDraft | null;
+  handleSlimFormContinue: (draft: ContactData) => Promise<void>;
+  handleBuildBrief: () => Promise<void>;
+  handleIntakeCtaResponse: (response: 'ready' | 'not_yet') => Promise<void>;
+  resetIntakeCta: () => Promise<void>;
+  handleConfirmSubmit: () => Promise<void>;
+  handleFinalizeSubmit: (options?: { generatePaymentLinkOnly?: boolean }) => Promise<{ paymentLinkUrl: string | null; intakeUuid: string | null }>;
+  handleSubmitNow: () => Promise<void>;
+  handleContactFormSubmit: (data: ContactData) => Promise<void>;
+  applyIntakeFields: (payload: IntakeFieldsPayload, options?: IntakeFieldChangeOptions) => Promise<void>;
+  isConsultFlowActive: boolean;
 }
 
 export const useMessageHandlingWithContext = (options: Omit<UseMessageHandlingOptions, 'practiceId'>) => {
@@ -60,7 +104,7 @@ export const useMessageHandling = (options: UseMessageHandlingOptions) => {
     onEnsureConversation,
     conversationMetadata: null, // Initialized later
     slimContactDraft: consultation?.contact ?? null,
-    conversationMetadataRef: { current: null } as any, // Initialized later
+    conversationMetadataRef: { current: null } as React.MutableRefObject<ConversationMetadata | null>, // Initialized later
     updateConversationMetadata: async () => {}, // Stub
     applyServerMessages: () => {}, // Stub
     sendMessage: (content, att, reply, opts) => composerRef.current?.sendMessage(content, att, reply, opts),
@@ -245,18 +289,18 @@ export const useMessageHandling = (options: UseMessageHandlingOptions) => {
     verifiedPaidIntakeUuids: enabled ? verifiedPaidIntakeUuids : suspendedState.verifiedPaidIntakeUuids,
 
     // Intake Logic (from useIntakeFlow)
-    intakeStatus: enabled ? liveIntake.intakeStatus : (suspendedState as any).intakeStatus,
-    intakeConversationState: enabled ? liveIntake.intakeConversationState : (suspendedState as any).intakeConversationState,
-    slimContactDraft: enabled ? liveIntake.slimContactDraft : (suspendedState as any).slimContactDraft,
-    handleSlimFormContinue: enabled ? liveIntake.handleSlimFormContinue : (suspendedState as any).handleSlimFormContinue,
-    handleBuildBrief: enabled ? liveIntake.handleBuildBrief : (suspendedState as any).handleBuildBrief,
-    handleIntakeCtaResponse: enabled ? liveIntake.handleIntakeCtaResponse : (suspendedState as any).handleIntakeCtaResponse,
-    resetIntakeCta: enabled ? liveIntake.resetIntakeCta : (suspendedState as any).resetIntakeCta,
-    handleConfirmSubmit: enabled ? liveIntake.handleConfirmSubmit : (suspendedState as any).handleConfirmSubmit,
-    handleFinalizeSubmit: enabled ? liveIntake.handleFinalizeSubmit : (suspendedState as any).handleFinalizeSubmit,
-    handleSubmitNow: enabled ? liveIntake.handleSubmitNow : (suspendedState as any).handleSubmitNow,
-    handleContactFormSubmit: enabled ? liveIntake.handleContactFormSubmit : (suspendedState as any).handleContactFormSubmit,
-    applyIntakeFields: enabled ? liveIntake.applyIntakeFields : (suspendedState as any).applyIntakeFields,
+    intakeStatus: enabled ? liveIntake.intakeStatus : (suspendedState as unknown as UseIntakeFlowResult).intakeStatus,
+    intakeConversationState: enabled ? liveIntake.intakeConversationState : (suspendedState as unknown as UseIntakeFlowResult).intakeConversationState,
+    slimContactDraft: enabled ? liveIntake.slimContactDraft : (suspendedState as unknown as UseIntakeFlowResult).slimContactDraft,
+    handleSlimFormContinue: enabled ? liveIntake.handleSlimFormContinue : (suspendedState as unknown as UseIntakeFlowResult).handleSlimFormContinue,
+    handleBuildBrief: enabled ? liveIntake.handleBuildBrief : (suspendedState as unknown as UseIntakeFlowResult).handleBuildBrief,
+    handleIntakeCtaResponse: enabled ? liveIntake.handleIntakeCtaResponse : (suspendedState as unknown as UseIntakeFlowResult).handleIntakeCtaResponse,
+    resetIntakeCta: enabled ? liveIntake.resetIntakeCta : (suspendedState as unknown as UseIntakeFlowResult).resetIntakeCta,
+    handleConfirmSubmit: enabled ? liveIntake.handleConfirmSubmit : (suspendedState as unknown as UseIntakeFlowResult).handleConfirmSubmit,
+    handleFinalizeSubmit: enabled ? liveIntake.handleFinalizeSubmit : (suspendedState as unknown as UseIntakeFlowResult).handleFinalizeSubmit,
+    handleSubmitNow: enabled ? liveIntake.handleSubmitNow : (suspendedState as unknown as UseIntakeFlowResult).handleSubmitNow,
+    handleContactFormSubmit: enabled ? liveIntake.handleContactFormSubmit : (suspendedState as unknown as UseIntakeFlowResult).handleContactFormSubmit,
+    applyIntakeFields: enabled ? liveIntake.applyIntakeFields : (suspendedState as unknown as UseIntakeFlowResult).applyIntakeFields,
 
 
     // App state

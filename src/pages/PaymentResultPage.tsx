@@ -112,15 +112,15 @@ const PaymentResultPage: FunctionComponent<{ practiceSlug?: string }> = ({ pract
             Blawby
           </p>
           
-          <div className="bg-surface-elevated rounded-2xl border border-default shadow-lg p-8 sm:p-10 space-y-6">
+          <div className="glass-card p-8 sm:p-10 space-y-6">
             <div className="flex justify-center">
-              <div className="rounded-full bg-surface-subtle p-4 border border-default shadow-sm">
+              <div className="rounded-full bg-surface-subtle/50 p-4 border border-line-glass/30 shadow-sm">
                 <Icon className={`w-10 h-10 ${config.iconColor}`} aria-hidden="true" />
               </div>
             </div>
 
             <div className="flex justify-center">
-              <span className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium tracking-wide ${config.badgeClass}`}>
+              <span className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium tracking-wide shadow-sm ${config.badgeClass}`}>
                 {config.badge}
               </span>
             </div>
@@ -129,7 +129,7 @@ const PaymentResultPage: FunctionComponent<{ practiceSlug?: string }> = ({ pract
               <h1 className="text-xl font-semibold text-text-primary leading-snug">
                 {config.headline}
               </h1>
-              <p className="text-sm text-text-secondary leading-relaxed">
+              <p className="text-sm text-text-secondary leading-relaxed max-w-sm mx-auto">
                 {config.body}
               </p>
             </div>

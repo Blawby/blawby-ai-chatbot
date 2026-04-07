@@ -158,7 +158,7 @@ interface UseIntakeFlowOptions {
    */
 }
 
-interface UseIntakeFlowResult {
+export interface UseIntakeFlowResult {
   /** Derived intake status for UI orchestration */
   intakeStatus: DerivedIntakeStatus;
   /** Live intake state from metadata */
