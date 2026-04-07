@@ -884,7 +884,11 @@ function WidgetRoute({
     const practiceId = resolveString(pd.organizationId)
       ?? resolveString(pd.organization_id)
       ?? resolveString(dataRecord?.organizationId)
-      ?? resolveString(dataRecord?.organization_id);
+      ?? resolveString(dataRecord?.organization_id)
+      ?? resolveString((pd as Record<string, unknown>).practiceId)
+      ?? resolveString((pd as Record<string, unknown>).id)
+      ?? resolveString(dataRecord?.practiceId)
+      ?? resolveString(dataRecord?.id);
     const accentColor = resolveString(pd.accentColor)
       ?? resolveString(pd.accent_color)
       ?? resolveString(dataRecord?.accentColor)

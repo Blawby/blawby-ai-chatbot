@@ -56,7 +56,9 @@ const OUTCOMES: Record<PaymentOutcome, OutcomeConfig> = {
 };
 
 const PaymentResultPage: FunctionComponent<{ practiceSlug?: string }> = ({ practiceSlug }) => {
-  const params = new URLSearchParams(window.location.search);
+  const params = typeof window !== 'undefined'
+    ? new URLSearchParams(window.location.search)
+    : new URLSearchParams();
 
   const sessionId = params.get('session_id') ?? '';
   const uuid = params.get('uuid') ?? '';

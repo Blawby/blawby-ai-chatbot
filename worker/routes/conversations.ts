@@ -143,11 +143,11 @@ export async function handleConversations(request: Request, env: Env): Promise<R
         Logger.debug('[Conversations][messages][debug] handler entry', {
           segments,
           url: url.toString(),
-          authContext,
           userId,
           prevAnonId,
-          envBindings: Object.keys(env),
-          requestHeaders: Object.fromEntries(request.headers as unknown as Iterable<[string, string]>),
+          isAnonymous: authContext.isAnonymous,
+          envBindingCount: Object.keys(env).length,
+          requestHeaderNames: Array.from((request.headers as unknown as Iterable<[string, string]>), ([k]) => k),
         });
     const requestWithContext = await withPracticeContext(request, env, {
       requirePractice: true,
@@ -227,7 +227,6 @@ export async function handleConversations(request: Request, env: Env): Promise<R
         isAnonymous: authContext.isAnonymous,
         error: error instanceof Error ? error.message : String(error),
         errorStack: error instanceof Error ? error.stack : undefined,
-        errorObj: error
       });
       Logger.warn('[Conversations] Failed to fetch messages', {
         conversationId,

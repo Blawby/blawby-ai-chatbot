@@ -111,7 +111,7 @@ export const RecentIntakesGrid = ({
                     <div className={`rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset ${statusTone[intake.triage_status] || statusTone.pending_review}`}>
                       {intake.triage_status === 'pending_review' ? 'Pending' :
                        intake.triage_status === 'accepted' ? 'Accepted' :
-                       intake.triage_status === 'declined' ? 'Declined' : intake.triage_status}
+                       intake.triage_status === 'declined' ? 'Declined' : 'Unknown'}
                     </div>
                   </dd>
                 </div>

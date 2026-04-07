@@ -18,9 +18,9 @@ export interface UseIntakesDataResult {
 }
 
 // Maps secondary nav filter IDs to API-compatible status values
-const FILTER_STATUS_MAP: Record<string, IntakeListParams['status']> = {
+const FILTER_STATUS_MAP: Record<IntakesFilter, IntakeListParams['status']> = {
   all: 'all',
-  pending_review: 'pending',
+  pending: 'pending',
   accepted: 'succeeded',
   declined: 'expired',
 };
@@ -82,7 +82,7 @@ export function useIntakesData(
       return 'all';
     })();
 
-    listIntakes(practiceId, { page, status: apiStatus })
+    listIntakes(practiceId, { page, status: apiStatus }, { signal: controller.signal })
       .then((result) => {
         if (!isMountedRef.current || controller.signal.aborted) return;
         setItems(result.intakes);

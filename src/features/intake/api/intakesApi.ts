@@ -2,6 +2,7 @@ import { clientIntakeStatus, clientIntakes } from '@/config/urls';
 
 export interface IntakeListParams {
   page: number;
+  limit?: number;
   status?: 'all' | 'pending' | 'succeeded' | 'expired';
   triage_status?: 'all' | 'pending_review' | 'accepted' | 'declined';
 }
@@ -86,7 +87,7 @@ export interface UpdateIntakeTriageStatusResponse {
   triage_reason?: string | null;
 }
 
-export async function listIntakes(practiceId: string, params: IntakeListParams) {
+export async function listIntakes(practiceId: string, params: IntakeListParams, options: { signal?: AbortSignal } = {}) {
   if (!practiceId) {
     throw new Error('practiceId is required');
   }
@@ -94,6 +95,10 @@ export async function listIntakes(practiceId: string, params: IntakeListParams) 
   const query: Record<string, string | undefined> = {
     page: String(params.page),
   };
+
+  if (params.limit != null) {
+    query.limit = String(params.limit);
+  }
 
   if (params.status && params.status !== 'all') {
     query.status = params.status;
@@ -105,13 +110,17 @@ export async function listIntakes(practiceId: string, params: IntakeListParams) 
 
   const response = await fetch(
     clientIntakes(practiceId, query),
-    { credentials: 'include' }
+    { credentials: 'include', signal: options.signal }
   );
 
   if (!response.ok) {
     throw new Error('Failed to fetch intakes');
   }
-  const json = await response.json() as Record<string, unknown>;
+  const raw = await response.json() as unknown;
+  if (typeof raw !== 'object' || raw === null) {
+    throw new Error('Failed to fetch intakes');
+  }
+  const json = raw as Record<string, unknown>;
   const data = (json.success !== undefined && json.data) ? json.data as Record<string, unknown> : json;
 
   if (json.success === false || (!Array.isArray(data.intakes) && typeof data.total !== 'number')) {
@@ -151,7 +160,11 @@ export async function getPracticeIntake(
   if (!response.ok) {
     throw new Error('Failed to fetch intake');
   }
-  const json = await response.json() as Record<string, unknown>;
+  const raw = await response.json() as unknown;
+  if (typeof raw !== 'object' || raw === null) {
+    throw new Error('Failed to fetch intake');
+  }
+  const json = raw as Record<string, unknown>;
   const data = (json.success !== undefined && json.data) ? json.data as Record<string, unknown> : json;
   const intake = Array.isArray(data.intakes) ? (data.intakes as unknown[])[0] : (data.uuid ? data : null);
 

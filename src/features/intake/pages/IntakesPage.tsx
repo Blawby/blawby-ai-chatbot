@@ -9,7 +9,7 @@ import { cn } from '@/shared/utils/cn';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
 import { EntityList } from '@/shared/ui/list/EntityList';
 import { usePaginatedList } from '@/shared/hooks/usePaginatedList';
-import { listIntakes, type IntakeListItem, type IntakeListParams } from '../api/intakesApi';
+import { listIntakes, type IntakeListItem } from '../api/intakesApi';
 import IntakeDetailPage from './IntakeDetailPage';
 
 const PAGE_SIZE = 20;
@@ -101,13 +101,21 @@ export const IntakesPage: FunctionComponent<IntakesPageProps> = ({
     hasMore,
     loadMoreRef,
   } = usePaginatedList<PaginatedIntake>({
-    fetchPage: async (page) => {
+    fetchPage: async (page, signal) => {
       if (!practiceId) return { items: [], hasMore: false };
-      
+
+      const validTriageFilters = ['all', 'pending_review', 'accepted', 'declined'] as const;
+      type ValidTriageFilter = typeof validTriageFilters[number];
+      const triageFilter: ValidTriageFilter | undefined =
+        validTriageFilters.includes(activeTriageFilter as ValidTriageFilter)
+          ? (activeTriageFilter as ValidTriageFilter)
+          : undefined;
+
       const result = await listIntakes(practiceId, {
         page,
-        triage_status: activeTriageFilter as IntakeListParams['triage_status'],
-      });
+        limit: PAGE_SIZE,
+        triage_status: triageFilter,
+      }, { signal });
       return {
         items: result.intakes.map(item => ({ ...item, id: item.uuid })),
         hasMore: result.intakes.length === PAGE_SIZE,

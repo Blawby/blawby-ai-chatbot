@@ -1533,7 +1533,40 @@ function extractPublicPracticeDisplayDetails(
 
 function extractPublicPracticeId(payload: unknown): string | null {
   if (!isRecord(payload)) return null;
-  return toNullableString(payload.organizationId ?? payload.organization_id) ?? null;
+
+  const candidates: Record<string, unknown>[] = [];
+  if ('details' in payload && isRecord(payload.details)) {
+    if ('data' in payload.details && isRecord(payload.details.data)) {
+      candidates.push(payload.details.data);
+    }
+    candidates.push(payload.details);
+  }
+  if ('data' in payload && isRecord(payload.data)) {
+    if ('details' in payload.data && isRecord(payload.data.details)) {
+      candidates.push(payload.data.details);
+    }
+    candidates.push(payload.data);
+  }
+  if ('organization' in payload && isRecord(payload.organization)) {
+    candidates.push(payload.organization);
+  }
+  candidates.push(payload);
+
+  for (const candidate of candidates) {
+    const id = toNullableString(
+      candidate.organizationId ?? candidate.organization_id ?? candidate.id
+    );
+    if (id) return id;
+    if ('organization' in candidate && isRecord(candidate.organization)) {
+      const nested = toNullableString(
+        (candidate.organization as Record<string, unknown>).id ??
+        (candidate.organization as Record<string, unknown>).organizationId ??
+        (candidate.organization as Record<string, unknown>).organization_id
+      );
+      if (nested) return nested;
+    }
+  }
+  return null;
 }
 
 function normalizePracticeDetailsPayload(payload: PracticeDetailsUpdate): Record<string, unknown> {

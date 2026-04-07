@@ -43,7 +43,7 @@ const StatCell: FunctionComponent<StatCellProps> = ({ label, value, icon: IconCo
       )}
       <div className="min-w-0">
         <p className="text-xs font-medium uppercase tracking-wide text-input-placeholder mb-0.5">{label}</p>
-        <p className="text-sm text-input-text">{value}</p>
+        <p className="text-sm text-input-text break-words">{value}</p>
       </div>
     </div>
   );
@@ -160,7 +160,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
       // On accept: add practitioner as participant and post system message
       if (action === 'accepted' && session?.user?.id && responseConversationId && targetPracticeId) {
         try {
-          await fetch(
+          const participantRes = await fetch(
             `/api/conversations/${encodeURIComponent(responseConversationId)}/participants?practiceId=${encodeURIComponent(targetPracticeId)}`,
             {
               method: 'POST',
@@ -169,6 +169,15 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
               body: JSON.stringify({ participantUserIds: [session.user.id] }),
             }
           );
+          if (!participantRes.ok) {
+            console.warn('[IntakeDetailPage] Failed to add participant', {
+              status: participantRes.status,
+              statusText: participantRes.statusText,
+              conversationId: responseConversationId,
+              practiceId: targetPracticeId,
+              userId: session.user.id,
+            });
+          }
         } catch (participantErr) {
           console.warn('[IntakeDetailPage] Failed to add participant', participantErr);
         }
@@ -363,7 +372,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
                   {caseStrength ? <StatCell label="AI case strength" value={caseStrength} icon={ScaleIcon} /> : null}
                   {feeAmount ? <StatCell label="Consultation fee" value={feeAmount} icon={CreditCardIcon} /> : null}
                   {income ? <StatCell label="Household income" value={income} icon={CreditCardIcon} /> : null}
-                  {householdSize ? <StatCell label="Household size" value={String(householdSize)} icon={UserIcon} /> : null}
+                  {householdSize != null ? <StatCell label="Household size" value={String(householdSize)} icon={UserIcon} /> : null}
                   <StatCell label="Documents provided" value={hasDocs} icon={CheckCircleIcon} />
                 </div>
               </div>
