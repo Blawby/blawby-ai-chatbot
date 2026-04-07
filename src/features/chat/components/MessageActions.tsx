@@ -33,7 +33,6 @@ interface MessageActionsProps {
 		paymentReceived?: boolean;
 	};
 	paymentRequest?: IntakePaymentRequest;
-	onOpenPayment?: (request: IntakePaymentRequest) => void;
 	documentChecklist?: {
 		matterType: string;
 		documents: Array<{
@@ -122,7 +121,6 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 	documentChecklist,
 	generatedPDF,
 	paymentRequest,
-	onOpenPayment,
 	modeSelector,
 	assistantRetry,
 	authCta,
@@ -151,7 +149,7 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 			case 'submit':
 				return Boolean(onSubmitNow);
 			case 'continue_payment':
-				return Boolean(onOpenPayment && paymentRequest);
+				return Boolean(paymentRequest);
 			case 'open_url':
 				return true;
 			case 'build_brief':
@@ -308,18 +306,16 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 				<div className="mt-3 flex gap-2 overflow-x-auto pb-1">
 					{renderableActions.map((action, idx) => (
 						action.type === 'continue_payment' ? (
-							(onOpenPayment && paymentRequest) ? (
-								<Button
+							paymentRequest?.paymentLinkUrl ? (
+								<a
 									key={getChatActionKey(action, idx)}
-									variant={action.variant === 'primary' ? 'primary' : 'secondary'}
-									size="sm"
-									className="shrink-0"
-									onClick={() => {
-										onOpenPayment?.(paymentRequest);
-									}}
+									href={paymentRequest.paymentLinkUrl}
+									target="_blank"
+									rel="noopener noreferrer"
+									className={`btn ${action.variant === 'primary' ? 'btn-primary' : 'btn-secondary'} btn-sm shrink-0 no-underline inline-flex items-center justify-center px-4 rounded-xl font-semibold transition-all hover:opacity-90 active:scale-[0.98] h-8 text-xs`}
 								>
 									{action.label}
-								</Button>
+								</a>
 							) : null
 						) : action.type === 'submit' ? (
 							onSubmitNow ? (
@@ -338,29 +334,30 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 						) : action.type === 'open_url' ? (
 							(() => {
 								return (
-									<Button
+									<a
 										key={getChatActionKey(action, idx)}
-										variant={action.variant === 'primary' ? 'primary' : 'secondary'}
-										size="sm"
-										className="shrink-0"
-										onClick={() => {
+										href={action.url}
+										target="_blank"
+										rel="noopener noreferrer"
+										className={`btn ${action.variant === 'primary' ? 'btn-primary' : 'btn-secondary'} btn-sm shrink-0 no-underline inline-flex items-center justify-center px-4 rounded-xl font-semibold transition-all hover:opacity-90 active:scale-[0.98] h-8 text-xs`}
+										onClick={(e) => {
 											try {
 												const parsed = new URL(action.url);
-												if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
-													window.open(action.url, '_blank', 'noopener,noreferrer');
-												} else {
+												if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+													e.preventDefault();
 													console.warn('[MessageActions] Blocked unsafe URL protocol:', parsed.protocol);
-												showInfo('Link Cannot Open', `This link uses an unsafe protocol: ${parsed.protocol}`);
+													showInfo('Link Cannot Open', `This link uses an unsafe protocol: ${parsed.protocol}`);
+												}
+											} catch {
+												e.preventDefault();
+												console.warn('[MessageActions] Invalid URL format:', action.url);
+												showInfo('Invalid Link', `Cannot open link with invalid URL format: ${action.url}`);
 											}
-										} catch {
-											console.warn('[MessageActions] Invalid URL format:', action.url);
-											showInfo('Invalid Link', `Cannot open link with invalid URL format: ${action.url}`);
-										}
-									}}
+										}}
 									>
-									{action.label}
-								</Button>
-							);
+										{action.label}
+									</a>
+								);
 							})()
 						) : action.type === 'build_brief' ? (
 							onBuildBrief ? (
@@ -411,7 +408,7 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 			)}
 			
 			{shouldShowPaymentCard && paymentRequest && (
-				<IntakePaymentCard paymentRequest={paymentRequest} onOpenPayment={onOpenPayment} />
+				<IntakePaymentCard paymentRequest={paymentRequest} />
 			)}
 			
 			{/* Display document checklist */}

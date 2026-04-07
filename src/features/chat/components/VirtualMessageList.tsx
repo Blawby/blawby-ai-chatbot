@@ -97,7 +97,6 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
     practiceConfig,
     isPublicWorkspace = false,
     onOpenSidebar,
-    onOpenPayment,
     practiceId,
     onReply,
     onToggleReaction,
@@ -1021,7 +1020,6 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                             paymentRequest={message.paymentRequest}
                             practiceConfig={practiceConfig}
                             onOpenSidebar={onOpenSidebar}
-                            onOpenPayment={onOpenPayment}
                             isLoading={message.isLoading}
                             // REMOVED: aiState - AI functionality removed
                             toolMessage={message.toolMessage}

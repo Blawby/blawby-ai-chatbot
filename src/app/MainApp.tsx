@@ -306,16 +306,13 @@ export function MainApp({
   // ── conversation mode selection ────────────────────────────────────────────
   const isSelectingRef = useRef(false);
 
-  const handleModeSelection = useCallback(async (
-    nextMode: ConversationMode,
-    source: 'intro_gate' | 'composer_footer'
-  ) => {
+  const handleModeSelection = useCallback(async (nextMode: ConversationMode) => {
     if (isSelectingRef.current) return;
     try {
       isSelectingRef.current = true;
       const currentConversationId = activeConversationId ?? (isCreatingConversation ? null : await ensureConversation({ waitForSessionReadyMs: 3000 }));
       if (!currentConversationId || !practiceId) return;
-      await applyConversationMode(nextMode, currentConversationId, source, startConsultFlow);
+      await applyConversationMode(nextMode, currentConversationId, 'home_cta', startConsultFlow);
     } catch (error) {
       setConversationMode(null);
       showErrorRef.current?.(error instanceof Error ? error.message : 'Unable to start conversation');
@@ -327,7 +324,7 @@ export function MainApp({
 
   const handleSlimFormDismiss = useCallback(async () => {
     if (conversationMode !== 'REQUEST_CONSULTATION') return;
-    await handleModeSelection('ASK_QUESTION', 'composer_footer');
+    await handleModeSelection('ASK_QUESTION');
   }, [conversationMode, handleModeSelection]);
 
   const handleStartNewConversation = useCallback(async (
