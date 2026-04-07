@@ -563,6 +563,13 @@
           attribution: getAttributionPayload() || undefined,
         });
         break;
+      case 'blawby:open-url':
+        // Widget asks parent to open a payment URL in a new tab so the top-level
+        // context handles it (Stripe rejects being loaded inside an iframe).
+        if (typeof data.url === 'string' && /^https:\/\//.test(data.url)) {
+          w.open(data.url, '_blank', 'noopener,noreferrer');
+        }
+        break;
     }
   });
 

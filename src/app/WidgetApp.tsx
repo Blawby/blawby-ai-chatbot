@@ -133,7 +133,8 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
     practiceId,
     list: true,
     enabled: Boolean(practiceId),
-    allowAnonymous: true
+    allowAnonymous: true,
+    status: 'active',
   });
 
   const latestConversation = useMemo(() => {

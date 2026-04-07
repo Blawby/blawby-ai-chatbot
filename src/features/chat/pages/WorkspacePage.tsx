@@ -9,6 +9,7 @@ import { useNavigation } from '@/shared/utils/navigation';
 import { signOut } from '@/shared/utils/auth';
 import { SessionNotReadyError } from '@/shared/types/errors';
 import WorkspaceHomeView from '@/features/chat/views/WorkspaceHomeView';
+import { useIntakesData } from '@/features/intake/hooks/useIntakesData';
 import { WorkspaceHomeSection } from '@/features/chat/components/WorkspaceHomeSection';
 import { WorkspaceSetupSection } from '@/features/chat/components/WorkspaceSetupSection';
 import { usePracticeBillingData, type BillingWindow } from '@/features/practice-dashboard/hooks/usePracticeBillingData';
@@ -98,7 +99,7 @@ import type { MatterStatus } from '@/shared/types/matterStatus';
 import type { IntakeConversationState, DerivedIntakeStatus, IntakeFieldChangeOptions } from '@/shared/types/intake';
 import { features } from '@/config/features';
 
-type WorkspaceView = 'home' | 'setup' | 'list' | 'conversation' | 'matters' | 'clients' | 'invoices' | 'invoiceCreate' | 'invoiceEdit' | 'invoiceDetail' | 'reports' | 'settings';
+type WorkspaceView = 'home' | 'setup' | 'list' | 'conversation' | 'intakes' | 'intakeDetail' | 'matters' | 'clients' | 'invoices' | 'invoiceCreate' | 'invoiceEdit' | 'invoiceDetail' | 'reports' | 'settings';
 type PreviewTab = 'home' | 'messages' | 'intake';
 type WorkspacePrefetchData = {
   mattersData?: {
@@ -145,6 +146,7 @@ interface WorkspacePageProps {
   invoicesView?: ComponentChildren | ((statusFilter: string[], onDetailInspector?: (() => void), detailInspectorOpen?: boolean, detailHeaderLeadingAction?: ComponentChildren) => ComponentChildren);
   invoicesListContent?: ComponentChildren | ((statusFilter: string[]) => ComponentChildren);
   reportsView?: ComponentChildren | ((title: string) => ComponentChildren);
+  intakesView?: ComponentChildren | ((activeFilter: string | null) => ComponentChildren);
   primaryCreateAction?: WorkspacePrimaryCreateAction | null;
   mockConversations?: Conversation[] | null;
   mockConversationPreviews?: Record<string, {
@@ -207,6 +209,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   clientsListContent,
   invoicesView,
   invoicesListContent,
+  intakesView,
   reportsView,
   primaryCreateAction = null,
   mockConversations = null,
@@ -944,7 +947,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   const {
     summaryStats,
     recentActivity,
-    recentClients,
     loading: practiceBillingLoading,
     error: practiceBillingError,
   } = usePracticeBillingData({
@@ -955,6 +957,14 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     matters: mattersData.isLoaded ? mattersData.items : undefined,
   });
 
+  const {
+    items: allIntakes,
+  } = useIntakesData(isPracticeWorkspace ? (currentPractice?.id ?? practiceId ?? null) : null, {
+    enabled: isPracticeWorkspace && view === 'home',
+  });
+  const recentIntakes = useMemo(() => {
+    return allIntakes.slice(0, 3);
+  }, [allIntakes]);
 
   useEffect(() => {
     if (!currentPractice?.id) return;
@@ -1461,12 +1471,12 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       practiceBillingLoading={practiceBillingLoading}
       practiceBillingError={practiceBillingError}
       recentActivity={recentActivity}
-      recentClients={recentClients}
+      recentIntakes={recentIntakes}
       onDashboardWindowChange={setDashboardWindow}
       onCreateInvoice={handleDashboardCreateInvoice}
       onOpenInvoice={(invoiceId) => navigate(`${normalizedBase}/invoices/${encodeURIComponent(invoiceId)}`)}
-      onViewAllClients={() => navigate(`${normalizedBase}/people`)}
-      onViewClient={(clientId) => navigate(`${normalizedBase}/people/${encodeURIComponent(clientId)}`)}
+      onViewAllIntakes={() => navigate(`${normalizedBase}/intakes`)}
+      onViewIntake={(intakeId) => navigate(`${normalizedBase}/intakes/${encodeURIComponent(intakeId)}`)}
     />
   );
   const showBottomNav = shouldShowWorkspaceBottomNav({
@@ -1625,6 +1635,9 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       </div>
     </div>
   );
+  const intakesContent = (typeof intakesView === 'function'
+    ? intakesView(activeSecondaryFilter)
+    : intakesView) ?? null;
   const clientsContent = (typeof clientsView === 'function'
     ? clientsView(
       clientsStatusFilter,
@@ -1718,6 +1731,10 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     switch (view) {
       case 'list':
         return 'Messages';
+      case 'intakes':
+        return 'Intakes';
+      case 'intakeDetail':
+        return null;
       case 'matters':
         return selectedMatterIdFromPath || isMatterNonListRoute ? null : 'Matters';
       case 'clients':
@@ -1796,6 +1813,9 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
         return homeContent;
       case 'list':
         return listContent;
+      case 'intakes':
+      case 'intakeDetail':
+        return intakesContent;
       case 'matters':
         return mattersContent;
       case 'clients':
@@ -1817,6 +1837,9 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   const sectionLayout: WorkspaceMainPaneLayout = (() => {
     if (view === 'list' || view === 'conversation') {
       return { kind: 'conversation-shell' };
+    }
+    if (view === 'intakes' || view === 'intakeDetail') {
+      return { kind: 'full-page', overflow: 'hidden' };
     }
     if (view === 'matters') {
       return {

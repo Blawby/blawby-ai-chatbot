@@ -5,6 +5,8 @@ type WorkspaceView =
   | 'setup'
   | 'list'
   | 'conversation'
+  | 'intakes'
+  | 'intakeDetail'
   | 'matters'
   | 'clients'
   | 'invoices'
@@ -43,7 +45,8 @@ export const getWorkspaceSection = (view: WorkspaceView): WorkspaceSection => {
   if (view === 'list' || view === 'conversation') return 'conversations';
   if (view === 'invoiceCreate' || view === 'invoiceEdit' || view === 'invoiceDetail') return 'invoices';
   if (view === 'setup' || view === 'clients') return 'home';
-  return view;
+  if (view === 'intakeDetail') return 'intakes';
+  return view as WorkspaceSection;
 };
 
 export const getWorkspaceRouteState = ({
@@ -224,6 +227,7 @@ export const shouldShowWorkspaceMobileMenuButton = ({
 }) => {
   if (!isMobileLayout || !hasSecondaryNav) return false;
   if (workspaceSection === 'conversations') return view === 'list';
+  if (workspaceSection === 'intakes') return view === 'intakes';
   if (workspaceSection === 'matters') return !selectedMatterIdFromPath && !isMatterNonListRoute;
   if (workspaceSection === 'home') {
     return isPracticeWorkspace && (view === 'home' || (view === 'clients' && !selectedClientIdFromPath));

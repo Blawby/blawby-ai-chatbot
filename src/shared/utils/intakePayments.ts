@@ -34,6 +34,12 @@ type IntakeStatusResponse = {
   };
 };
 
+type PostPayStatusResponse = {
+  paid?: boolean;
+  intake_uuid?: string;
+  organization_id?: string;
+};
+
 type IntakeCheckoutSessionResponse = {
   success?: boolean;
   data?: {
@@ -277,12 +283,12 @@ export const fetchPostPayIntakeStatus = async (
       return null;
     }
 
-    const payload = await response.json() as IntakeStatusResponse;
-    if (!payload?.success || payload.data?.paid !== true || !payload.data?.intake_uuid) {
+    const payload = await response.json() as PostPayStatusResponse;
+    if (payload?.paid !== true || !payload.intake_uuid) {
       return null;
     }
 
-    return payload.data.intake_uuid;
+    return payload.intake_uuid;
   } catch (error) {
     clearTimeout(timeoutId);
     if (error instanceof Error && error.name === 'AbortError') {

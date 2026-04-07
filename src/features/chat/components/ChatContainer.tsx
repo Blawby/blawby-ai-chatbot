@@ -87,14 +87,7 @@ export interface ChatContainerProps {
   isLoadingMoreMessages?: boolean;
   onLoadMoreMessages?: () => void | Promise<void>;
   messagesReady?: boolean;
-  leadReviewActions?: {
-    practiceId: string;
-    practiceName: string;
-    conversationId: string;
-    canReviewLeads: boolean;
-    mattersBasePath: string;
-    navigateTo: (path: string) => void;
-  };
+
 
   // Input control prop
   clearInput?: number;
@@ -159,7 +152,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   isLoadingMoreMessages,
   onLoadMoreMessages,
   messagesReady = true,
-  leadReviewActions,
+
   showAuthPrompt = false,
   authPromptCallbackUrl,
   onAuthPromptRequest,
@@ -472,7 +465,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
                     onAskQuestion: handleAskQuestion,
                     onRequestConsultation: handleRequestConsultation
                   } : undefined}
-                  leadReviewActions={leadReviewActions}
+
                   hasMoreMessages={hasMoreMessages}
                   isLoadingMoreMessages={isLoadingMoreMessages}
                   onLoadMoreMessages={onLoadMoreMessages}

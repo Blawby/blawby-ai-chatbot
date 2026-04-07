@@ -174,18 +174,12 @@ export async function handleWidgetBootstrap(request: Request, env: Env): Promise
   }
 
   // 3. Wait for practice details
-  const practiceDetails = await getPracticeDetails as {
-    data?: { id?: string };
-    id?: string;
-    practiceId?: string;
-  };
-  const practiceId = 'practiceId' in practiceDetails && typeof practiceDetails.practiceId === 'string'
-      ? practiceDetails.practiceId 
-      : 'data' in practiceDetails && typeof practiceDetails.data === 'object' && practiceDetails.data && 'id' in practiceDetails.data && typeof practiceDetails.data.id === 'string'
-        ? practiceDetails.data.id
-        : 'id' in practiceDetails && typeof practiceDetails.id === 'string'
-          ? practiceDetails.id
-          : null;
+  const practiceDetails = await getPracticeDetails as Record<string, unknown>;
+  const pd = practiceDetails as Record<string, unknown>;
+  const practiceId =
+    (typeof pd.organizationId === 'string' && pd.organizationId.trim()) ||
+    (typeof pd.organization_id === 'string' && pd.organization_id.trim()) ||
+    null;
   if (!practiceId) {
     throw HttpErrors.badGateway('Unable to resolve practice id from practice details');
   }
