@@ -3,8 +3,6 @@ import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 import {
   CheckCircleIcon,
   UserIcon,
-  PhoneIcon,
-  EnvelopeIcon,
   ScaleIcon,
   ClockIcon,
   ExclamationTriangleIcon,
@@ -32,19 +30,20 @@ import { ChatBubbleLeftRightIcon } from '@heroicons/react/24/outline';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-type FieldRowProps = { label: string; value?: string | null; icon?: typeof UserIcon };
-const FieldRow: FunctionComponent<FieldRowProps> = ({ label, value, icon: IconComp }) => {
+// Stat cell for use inside CSS grids — no border treatment
+type StatCellProps = { label: string; value?: string | null; icon?: typeof UserIcon };
+const StatCell: FunctionComponent<StatCellProps> = ({ label, value, icon: IconComp }) => {
   if (!value) return null;
   return (
-    <div className="flex items-start gap-3 py-3 border-b border-line-glass/20 last:border-0">
-      {IconComp ? (
-        <div className="mt-0.5 flex-shrink-0 w-5 h-5 text-input-placeholder">
-          <Icon icon={IconComp} className="w-5 h-5" />
+    <div className="flex items-start gap-2.5">
+      {IconComp && (
+        <div className="mt-0.5 flex-shrink-0 text-input-placeholder">
+          <Icon icon={IconComp} className="w-4 h-4" />
         </div>
-      ) : <div className="w-5" />}
-      <div className="min-w-0 flex-1">
+      )}
+      <div className="min-w-0">
         <p className="text-xs font-medium uppercase tracking-wide text-input-placeholder mb-0.5">{label}</p>
-        <p className="text-sm text-input-text whitespace-pre-wrap break-words">{value}</p>
+        <p className="text-sm text-input-text">{value}</p>
       </div>
     </div>
   );
@@ -245,6 +244,8 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
 
   // ── Render ────────────────────────────────────────────────────────────────
 
+  const [descriptionExpanded, setDescriptionExpanded] = useState(false);
+
   if (isLoading) {
     return (
       <div className="flex h-full flex-col min-h-0">
@@ -290,8 +291,6 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
   const isAccepted = effectiveTriageStatus === 'accepted';
   const isDeclined = effectiveTriageStatus === 'declined';
 
-  const [descriptionExpanded, setDescriptionExpanded] = useState(false);
-
   return (
     <div className="flex h-full flex-col min-h-0">
       <DetailHeader
@@ -311,16 +310,16 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
 
           {/* ── Left column: document ───────────────────────────── */}
           <div className="lg:col-span-2 space-y-6">
-            <section className="glass-card p-10 min-h-[600px]">
+            <section className="glass-card p-6 sm:p-10 min-h-[600px]">
               {/* Top area */}
-              <header className="mb-10">
+              <header className="mb-6 sm:mb-10">
                 <h2 className="text-xs font-semibold uppercase tracking-widest text-input-placeholder mb-2">
                   Intake details
                 </h2>
-                <h1 className="text-3xl font-bold text-input-text mb-4">
+                <h1 className="text-2xl sm:text-3xl font-bold text-input-text mb-4">
                   {name}
                 </h1>
-                <div className="flex items-center gap-3 mb-8">
+                <div className="flex items-center flex-wrap gap-3 mb-6 sm:mb-8">
                   {practiceArea ? (
                     <div className="bg-accent/10 border border-accent/20 text-[rgb(var(--accent-foreground))] px-2 py-0.5 rounded-md text-xs font-semibold">
                       {practiceArea}
@@ -333,18 +332,21 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
 
                 {/* Intake Description prominent */}
                 {description && (
-                  <div className="mt-10">
+                  <div className="mt-6 sm:mt-10">
                     <div className="relative">
                       <p className={`text-base text-input-text leading-relaxed ${descriptionExpanded ? '' : 'line-clamp-6'}`}>
                         {description}
                       </p>
                       {description.length > 350 && (
-                        <button 
+                        <Button
+                          variant="link"
+                          size="sm"
+                          type="button"
                           onClick={() => setDescriptionExpanded(!descriptionExpanded)}
-                          className="text-accent hover:text-accent-secondary text-sm font-semibold mt-3"
+                          className="mt-3 px-0"
                         >
-                          {descriptionExpanded ? 'Show less' : 'Read more...'}
-                        </button>
+                          {descriptionExpanded ? 'Show less' : 'Read more'}
+                        </Button>
                       )}
                     </div>
                   </div>
@@ -352,36 +354,36 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
               </header>
 
               {/* Facts grid (replacing Matter Summary section) */}
-              <div className="pt-10 border-t border-line-glass/10">
+              <div className="pt-6 sm:pt-10 border-t border-line-glass/10">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {intake.court_date ? <FieldRow label="Court date" value={formatLongDate(intake.court_date) ?? intake.court_date} icon={ClockIcon} /> : null}
+                  {intake.court_date ? <StatCell label="Court date" value={formatLongDate(intake.court_date) ?? intake.court_date} icon={ClockIcon} /> : null}
                   {intake.urgency ? (
-                    <FieldRow label="Urgency" value={urgencyLabel(intake.urgency)} icon={ExclamationTriangleIcon} />
+                    <StatCell label="Urgency" value={urgencyLabel(intake.urgency)} icon={ExclamationTriangleIcon} />
                   ) : null}
-                  {caseStrength ? <FieldRow label="AI case strength" value={caseStrength} icon={ScaleIcon} /> : null}
-                  {feeAmount ? <FieldRow label="Consultation fee" value={feeAmount} icon={UserIcon} /> : null}
-                  {income ? <FieldRow label="Household income" value={income} icon={UserIcon} /> : null}
-                  {householdSize ? <FieldRow label="Household size" value={String(householdSize)} icon={UserIcon} /> : null}
-                  <FieldRow label="Documents provided" value={hasDocs} icon={CheckCircleIcon} />
+                  {caseStrength ? <StatCell label="AI case strength" value={caseStrength} icon={ScaleIcon} /> : null}
+                  {feeAmount ? <StatCell label="Consultation fee" value={feeAmount} icon={CreditCardIcon} /> : null}
+                  {income ? <StatCell label="Household income" value={income} icon={CreditCardIcon} /> : null}
+                  {householdSize ? <StatCell label="Household size" value={String(householdSize)} icon={UserIcon} /> : null}
+                  <StatCell label="Documents provided" value={hasDocs} icon={CheckCircleIcon} />
                 </div>
               </div>
             </section>
 
             {/* Facts Card 2 (Inlined as requested: no glass-card border/bg) */}
             {(opposingParty || intake.desired_outcome) && (
-              <section className="glass-card p-10">
+              <section className="glass-card p-6 sm:p-10">
                 <h3 className="text-xs font-semibold uppercase tracking-widest text-input-placeholder mb-6">Conflicts & Goals</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-6">
-                  {opposingParty ? <FieldRow label="Opposing party" value={opposingParty} icon={ScaleIcon} /> : null}
-                  {intake.desired_outcome ? <FieldRow label="Desired outcome" value={intake.desired_outcome} icon={CheckCircleIcon} /> : null}
+                  {opposingParty ? <StatCell label="Opposing party" value={opposingParty} icon={ScaleIcon} /> : null}
+                  {intake.desired_outcome ? <StatCell label="Desired outcome" value={intake.desired_outcome} icon={CheckCircleIcon} /> : null}
                 </div>
               </section>
             )}
 
             {/* Conversation History Card */}
             {intake.conversation_id && (
-              <section className="glass-card flex flex-col h-[700px] overflow-hidden">
-                <header className="p-10 pb-6 border-b border-line-glass/10 flex items-center justify-between">
+              <section className="glass-card flex flex-col h-[500px] sm:h-[700px] overflow-hidden">
+                <header className="p-4 sm:p-6 lg:p-10 pb-4 sm:pb-6 border-b border-line-glass/10 flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <Icon icon={ChatBubbleLeftRightIcon} className="w-5 h-5 text-input-placeholder" />
                     <h3 className="text-sm font-semibold text-input-text uppercase tracking-widest">
@@ -391,12 +393,12 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
                 </header>
                 <div className="flex-1 min-h-0 bg-surface-overlay/20">
                   {!conversationReady && messages.length === 0 ? (
-                    <div className="h-full flex flex-col items-center justify-center p-10 text-center">
+                    <div className="h-full flex flex-col items-center justify-center p-6 text-center">
                       <LoadingBlock />
                       <p className="text-xs text-input-placeholder mt-4">Loading conversation history...</p>
                     </div>
                   ) : messages.length === 0 ? (
-                    <div className="h-full flex flex-col items-center justify-center p-10 text-center">
+                    <div className="h-full flex flex-col items-center justify-center p-6 text-center">
                       <p className="text-sm text-input-placeholder">No conversation history found for this intake.</p>
                     </div>
                   ) : (
