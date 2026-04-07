@@ -449,7 +449,8 @@ function PracticeAppRoute({
     if (isPending || practicesLoading || !session?.user || !resolvedPracticeId) return;
 
     // session.session.activeOrganizationId is the one currently active on the backend
-    const backendActiveOrgId = (session?.session as any)?.activeOrganizationId || (session?.session as any)?.active_organization_id;
+    const sessionRecord = session?.session as unknown as Record<string, unknown> | undefined;
+    const backendActiveOrgId = sessionRecord?.activeOrganizationId || sessionRecord?.active_organization_id;
 
     // If the backend session doesn't match the route-selected practice ID,
     // synchronize it to ensure correct permission/role resolution.
@@ -458,7 +459,7 @@ function PracticeAppRoute({
         console.warn('[PracticeAppRoute] Failed to switch active practice context:', err);
       });
     }
-  }, [resolvedPracticeId, session?.session, isPending, practicesLoading]);
+  }, [resolvedPracticeId, session?.session, session?.user, isPending, practicesLoading]);
 
   useEffect(() => {
     if (isPending || practicesLoading) return;

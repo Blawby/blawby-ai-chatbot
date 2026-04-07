@@ -228,7 +228,7 @@ export async function handleWidgetBootstrap(request: Request, env: Env): Promise
       const userConversations = await conversationService.getConversations({
         practiceId,
         userId: sessionUserId,
-        status: ['active', 'submitted'],
+        status: 'active',
         limit: 5
       });
       

@@ -1,5 +1,5 @@
 import { FunctionComponent } from 'preact';
-import { useCallback, useMemo, useState } from 'preact/hooks';
+import { useCallback, useState } from 'preact/hooks';
 import { useLocation } from 'preact-iso';
 import { InboxStackIcon } from '@heroicons/react/24/outline';
 import { Panel } from '@/shared/ui/layout/Panel';
@@ -9,7 +9,7 @@ import { cn } from '@/shared/utils/cn';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
 import { EntityList } from '@/shared/ui/list/EntityList';
 import { usePaginatedList } from '@/shared/hooks/usePaginatedList';
-import { listIntakes, type IntakeListItem } from '../api/intakesApi';
+import { listIntakes, type IntakeListItem, type IntakeListParams } from '../api/intakesApi';
 import IntakeDetailPage from './IntakeDetailPage';
 
 const PAGE_SIZE = 20;
@@ -101,12 +101,12 @@ export const IntakesPage: FunctionComponent<IntakesPageProps> = ({
     hasMore,
     loadMoreRef,
   } = usePaginatedList<PaginatedIntake>({
-    fetchPage: async (page, signal) => {
+    fetchPage: async (page) => {
       if (!practiceId) return { items: [], hasMore: false };
       
       const result = await listIntakes(practiceId, {
         page,
-        triage_status: activeTriageFilter as any,
+        triage_status: activeTriageFilter as IntakeListParams['triage_status'],
       });
       return {
         items: result.intakes.map(item => ({ ...item, id: item.uuid })),

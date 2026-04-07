@@ -37,7 +37,6 @@ const ClientInvoicesPage = lazy(() => import('@/features/invoices/pages/ClientIn
 const ClientInvoiceDetailPage = lazy(() => import('@/features/invoices/pages/ClientInvoiceDetailPage').then(m => ({ default: m.ClientInvoiceDetailPage })));
 const PracticeReportsPage = lazy(() => import('@/features/reports/pages/PracticeReportsPage').then(m => ({ default: m.PracticeReportsPage })));
 const IntakesPage = lazy(() => import('@/features/intake/pages/IntakesPage').then(m => ({ default: m.IntakesPage })));
-const IntakeDetailPage = lazy(() => import('@/features/intake/pages/IntakeDetailPage').then(m => ({ default: m.IntakeDetailPage })));
 import { useConversationSystemMessages } from '@/shared/hooks/useConversationSystemMessages';
 import { initializeAccentColor } from '@/shared/utils/accentColors';
 import { useMentionCandidates } from '@/shared/hooks/useMentionCandidates';
@@ -79,7 +78,7 @@ export function MainApp({
   chatContent,
   routeConversationId,
   routeInvoiceId,
-  routeIntakeId,
+  routeIntakeId: _routeIntakeId,
   routeSettingsView,
   routeSettingsAppId,
   publicPracticeSlug,
@@ -181,7 +180,6 @@ export function MainApp({
     practiceClientsPath,
     conversationResetKey,
     layoutMode,
-    canReviewLeads,
   } = useWorkspaceRouting({
     practiceId,
     practiceConfig,

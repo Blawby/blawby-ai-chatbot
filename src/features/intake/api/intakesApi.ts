@@ -111,8 +111,8 @@ export async function listIntakes(practiceId: string, params: IntakeListParams) 
   if (!response.ok) {
     throw new Error('Failed to fetch intakes');
   }
-  const json = await response.json() as any;
-  const data = (json.success !== undefined && json.data) ? json.data : json;
+  const json = await response.json() as Record<string, unknown>;
+  const data = (json.success !== undefined && json.data) ? json.data as Record<string, unknown> : json;
 
   if (json.success === false || (!Array.isArray(data.intakes) && typeof data.total !== 'number')) {
     throw new Error('Failed to fetch intakes');
@@ -151,9 +151,9 @@ export async function getPracticeIntake(
   if (!response.ok) {
     throw new Error('Failed to fetch intake');
   }
-  const json = await response.json() as any;
-  const data = (json.success !== undefined && json.data) ? json.data : json;
-  const intake = Array.isArray(data.intakes) ? data.intakes[0] : (data.uuid ? data : null);
+  const json = await response.json() as Record<string, unknown>;
+  const data = (json.success !== undefined && json.data) ? json.data as Record<string, unknown> : json;
+  const intake = Array.isArray(data.intakes) ? (data.intakes as unknown[])[0] : (data.uuid ? data : null);
 
   if (json.success === false || !intake) {
     throw new Error('Failed to fetch intake');
@@ -184,11 +184,11 @@ export async function updateIntakeTriageStatus(
     }),
   });
 
-  const json = await response.json().catch(() => null) as any;
-  const data = (json?.success !== undefined && json?.data) ? json.data : json;
+  const json = await response.json().catch(() => null) as Record<string, unknown> | null;
+  const data = (json?.success !== undefined && json?.data) ? json.data as Record<string, unknown> : json;
 
   if (!response.ok || (json && json.success === false)) {
-    throw new Error(json?.message ?? json?.error ?? `HTTP ${response.status}`);
+    throw new Error(String(json?.message ?? json?.error ?? `HTTP ${response.status}`));
   }
 
   return (data || null) as UpdateIntakeTriageStatusResponse | null;

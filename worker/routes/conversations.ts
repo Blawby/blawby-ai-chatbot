@@ -147,7 +147,7 @@ export async function handleConversations(request: Request, env: Env): Promise<R
           userId,
           prevAnonId,
           envBindings: Object.keys(env),
-          requestHeaders: Object.fromEntries(request.headers.entries()),
+          requestHeaders: Object.fromEntries(request.headers as unknown as Iterable<[string, string]>),
         });
     const requestWithContext = await withPracticeContext(request, env, {
       requirePractice: true,
@@ -407,7 +407,6 @@ export async function handleConversations(request: Request, env: Env): Promise<R
       matterId: body.matterId || null,
       participantUserIds: participants,
       metadata: body.metadata,
-      status: body.status || 'draft',
       skipPracticeValidation: !practiceContext.isMember
     }, request);
 
@@ -479,7 +478,7 @@ export async function handleConversations(request: Request, env: Env): Promise<R
         const conversations = await conversationService.getConversations({
           practiceId,
           userId,
-          status: status || ['active', 'submitted'],
+          status: status || undefined,
           limit
         });
         return createJsonResponse({ conversations });
@@ -505,8 +504,7 @@ export async function handleConversations(request: Request, env: Env): Promise<R
         practiceId,
         userId,
         bypassParticipantFilter: true,
-        status: (status && status !== 'all') ? status as ConversationStatus : ['active', 'archived', 'closed', 'draft'],
-        mode: 'REQUEST_CONSULTATION',
+        status: (status && status !== 'all') ? status as ConversationStatus : undefined,
         assignedTo: assignedTo === 'none' ? 'none' : undefined,
         limit
       });
@@ -523,7 +521,7 @@ export async function handleConversations(request: Request, env: Env): Promise<R
       practiceId,
       matterId: matterId || null,
       userId, // Filter to conversations where user is a participant
-      status: status || ['active', 'submitted'],
+      status: status || undefined,
       assignedTo: assignedTo === 'none' ? 'none' : undefined,
       limit
     });

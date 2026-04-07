@@ -87,7 +87,7 @@ export const useMessageHandling = (options: UseMessageHandlingOptions) => {
 
   const composerRef = useRef<ReturnType<typeof useChatComposer> | null>(null);
   const conversationMetadataOnLoadRef = useRef<ConversationMetadata | null>(null);
-  const conversationMetadataRef = useRef<ConversationMetadata | null>(null);
+  const _conversationMetadataRef = useRef<ConversationMetadata | null>(null); // reserved for future use
 
   // 3. Core Transport & State
   const conversation = useConversation({

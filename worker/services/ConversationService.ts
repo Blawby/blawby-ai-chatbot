@@ -10,6 +10,8 @@ import {
   resolveConsultationState,
 } from '../../src/shared/utils/consultationState';
 
+export type ConversationStatus = 'active' | 'archived' | 'closed';
+
 export interface Conversation {
   id: string;
   practice_id: string;

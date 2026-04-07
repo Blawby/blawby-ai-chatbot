@@ -11,13 +11,11 @@ import type { ChatMessageAction } from '@/shared/types/conversation';
 import type { IntakePaymentRequest } from '@/shared/utils/intakePayments';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { useToastContext } from '@/shared/contexts/ToastContext';
-import { postSystemMessage } from '@/shared/lib/conversationApi';
 import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
 import type { ReplyTarget } from '@/features/chat/types';
 import type { IntakeConversationState } from '@/shared/types/intake';
 import { isIntakeSubmittable } from '@/shared/utils/consultationState';
 import { MessageRowSkeleton } from '@/shared/ui/layout/skeleton-presets/MessageRowSkeleton';
-import { getPracticeIntake, updateIntakeTriageStatus, type PracticeIntakeDetail } from '@/features/intake/api/intakesApi';
 import { quickActionDebugLog, isQuickActionDebugEnabled } from '@/shared/utils/quickActionDebug';
 import { createBuildBriefAction, createSubmitAction, hasTerminalChatAction, hasBuildBriefAction, normalizeChatActions } from '@/shared/utils/chatActions';
 import { features } from '@/config/features';
@@ -117,7 +115,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
     }, []);
 
     const { session, activeMemberRole } = useSessionContext();
-    const { showError, showSuccess } = useToastContext();
+    const { showError } = useToastContext();
     const dedupedMessages = useMemo(() => {
         const seenPaymentConfirm = new Set<string>();
         return messages.filter((message) => {
@@ -136,7 +134,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
         });
     }, [messages]);
     const listRef = useRef<HTMLDivElement>(null);
-    const submittingRef = useRef<Record<string, boolean>>({});
+    const _submittingRef = useRef<Record<string, boolean>>({});
     const [startIndex, setStartIndex] = useState(Math.max(0, dedupedMessages.length - BATCH_SIZE));
     const [endIndex, setEndIndex] = useState(dedupedMessages.length);
     const [showScrollToBottom, setShowScrollToBottom] = useState(false);
@@ -144,7 +142,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
     const isUserScrollingRef = useRef(false);
     const hasUserScrolledUpRef = useRef(false);
     const isLoadingRef = useRef(false);
-    const loggedNoServerPaginationRef = useRef(false);
+    const _loggedNoServerPaginationRef = useRef(false);
     const _prevHasMoreRef = useRef<boolean | undefined>(hasMoreMessages);
     const sessionUserName = session?.user?.name || session?.user?.email || '';
     const resolvedConversationName = conversationTitle?.trim() || '';

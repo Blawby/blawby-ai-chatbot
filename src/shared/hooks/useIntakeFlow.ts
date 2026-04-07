@@ -151,7 +151,7 @@ interface UseIntakeFlowOptions {
     conversationId?: string | null
   ) => Promise<unknown>;
   onError?: (error: unknown) => void;
-  setSessionIntent?: (intent: any) => void;
+  setSessionIntent?: (intent: unknown) => void;
 }
 
 export interface UseIntakeFlowResult {
