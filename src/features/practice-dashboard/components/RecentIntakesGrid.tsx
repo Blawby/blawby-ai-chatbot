@@ -31,13 +31,22 @@ export const RecentIntakesGrid = ({
     <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
       <div className="flex items-center justify-between">
         <h2 className="text-base font-semibold text-input-text">Recent Intakes</h2>
-        <button
-          type="button"
-          onClick={() => onViewAll?.()}
-          className="text-sm font-semibold text-accent-400 hover:text-accent-300"
-        >
-          View all
-        </button>
+        {onViewAll ? (
+          <button
+            type="button"
+            onClick={onViewAll}
+            className="text-sm font-semibold text-accent-400 hover:text-accent-300"
+          >
+            View all
+          </button>
+        ) : (
+          <span
+            aria-disabled="true"
+            className="text-sm font-semibold text-accent-400 opacity-50 cursor-default"
+          >
+            View all
+          </span>
+        )}
       </div>
       {loading ? (
         <p className="mt-6 text-sm text-input-placeholder">Loading intakes...</p>

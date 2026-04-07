@@ -1554,7 +1554,9 @@ function extractPublicPracticeId(payload: unknown): string | null {
 
   for (const candidate of candidates) {
     const id = toNullableString(
-      candidate.organizationId ?? candidate.organization_id ?? candidate.id
+      candidate.organizationId ?? candidate.organization_id ??
+      candidate.practiceId ?? candidate.practice_id ??
+      candidate.id
     );
     if (id) return id;
     if ('organization' in candidate && isRecord(candidate.organization)) {
@@ -1564,6 +1566,22 @@ function extractPublicPracticeId(payload: unknown): string | null {
         (candidate.organization as Record<string, unknown>).organization_id
       );
       if (nested) return nested;
+    }
+    if ('practice' in candidate && isRecord(candidate.practice)) {
+      const practice = candidate.practice as Record<string, unknown>;
+      const practiceId = toNullableString(
+        practice.practiceId ?? practice.practice_id ?? practice.organizationId ??
+        practice.organization_id ?? practice.id
+      );
+      if (practiceId) return practiceId;
+      if ('organization' in practice && isRecord(practice.organization)) {
+        const nested = toNullableString(
+          (practice.organization as Record<string, unknown>).id ??
+          (practice.organization as Record<string, unknown>).organizationId ??
+          (practice.organization as Record<string, unknown>).organization_id
+        );
+        if (nested) return nested;
+      }
     }
   }
   return null;

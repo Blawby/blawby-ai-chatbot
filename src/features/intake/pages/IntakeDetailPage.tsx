@@ -218,7 +218,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
 
       if (isMountedRef.current) {
         setLocalTriageStatus(action);
-        setIntake((prev) => prev ? { ...prev, triage_status: action } : prev);
+        setIntake((prev) => prev ? { ...prev, triage_status: action, conversation_id: responseConversationId ?? prev.conversation_id } : prev);
         showSuccess(
           action === 'accepted' ? 'Consultation accepted' : 'Consultation declined',
           action === 'accepted'

@@ -17,12 +17,12 @@ export interface UseIntakesDataResult {
   refetch: () => void;
 }
 
-// Maps secondary nav filter IDs to API-compatible status values
-const FILTER_STATUS_MAP: Record<IntakesFilter, IntakeListParams['status']> = {
-  all: 'all',
-  pending: 'pending',
-  accepted: 'succeeded',
-  declined: 'expired',
+// Maps secondary nav filter IDs to API-compatible triage_status values
+const FILTER_STATUS_MAP: Record<IntakesFilter, IntakeListParams['triage_status']> = {
+  all: undefined,
+  pending: 'pending_review',
+  accepted: 'accepted',
+  declined: 'declined',
 };
 
 export function resolveIntakesFilter(filterId: string | null): IntakesFilter {
@@ -33,8 +33,8 @@ export function resolveIntakesFilter(filterId: string | null): IntakesFilter {
   return 'all';
 }
 
-export function intakesFilterToApiStatus(filter: IntakesFilter): IntakeListParams['status'] {
-  return FILTER_STATUS_MAP[filter] ?? 'all';
+export function intakesFilterToApiStatus(filter: IntakesFilter): IntakeListParams['triage_status'] {
+  return FILTER_STATUS_MAP[filter];
 }
 
 export function useIntakesData(
@@ -66,6 +66,9 @@ export function useIntakesData(
     if (!enabled || !practiceId) {
       setItems([]);
       setIsLoaded(false);
+      setIsLoading(false);
+      setTotal(0);
+      setTotalPages(0);
       setError(null);
       return;
     }
@@ -74,15 +77,15 @@ export function useIntakesData(
     setIsLoading(true);
     setError(null);
 
-    // Map "queue" filter names to the API-level status params
-    const apiStatus: IntakeListParams['status'] = (() => {
-      if (filter === 'pending') return 'pending';
-      if (filter === 'accepted') return 'succeeded';
-      if (filter === 'declined') return 'expired';
-      return 'all';
+    // Map "queue" filter names to the API-level triage_status params
+    const triageStatus: IntakeListParams['triage_status'] = (() => {
+      if (filter === 'pending') return 'pending_review';
+      if (filter === 'accepted') return 'accepted';
+      if (filter === 'declined') return 'declined';
+      return undefined;
     })();
 
-    listIntakes(practiceId, { page, status: apiStatus }, { signal: controller.signal })
+    listIntakes(practiceId, { page, triage_status: triageStatus }, { signal: controller.signal })
       .then((result) => {
         if (!isMountedRef.current || controller.signal.aborted) return;
         setItems(result.intakes);

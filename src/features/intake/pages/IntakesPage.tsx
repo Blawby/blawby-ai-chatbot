@@ -104,7 +104,7 @@ export const IntakesPage: FunctionComponent<IntakesPageProps> = ({
     fetchPage: async (page, signal) => {
       if (!practiceId) return { items: [], hasMore: false };
 
-      const validTriageFilters = ['all', 'pending_review', 'accepted', 'declined'] as const;
+      const validTriageFilters = ['pending_review', 'accepted', 'declined'] as const;
       type ValidTriageFilter = typeof validTriageFilters[number];
       const triageFilter: ValidTriageFilter | undefined =
         validTriageFilters.includes(activeTriageFilter as ValidTriageFilter)
@@ -156,7 +156,8 @@ export const IntakesPage: FunctionComponent<IntakesPageProps> = ({
 
   const displayLoading = isLoading || prefetchedLoading;
   const displayError = error || prefetchedError;
-  const displayItems = intakes.length > 0 ? intakes : prefetchedItems.map(item => ({ ...item, id: item.uuid }));
+  const localLoaded = !isLoading && !isLoadingMore;
+  const displayItems = localLoaded ? intakes : prefetchedItems.map(item => ({ ...item, id: item.uuid }));
 
   if (renderMode === 'listOnly' && !displayLoading && !displayError && displayItems.length === 0) {
     return null;

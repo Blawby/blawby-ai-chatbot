@@ -454,7 +454,7 @@ function PracticeAppRoute({
 
     // If the backend session doesn't match the route-selected practice ID,
     // synchronize it to ensure correct permission/role resolution.
-    if (resolvedPracticeId && backendActiveOrgId && backendActiveOrgId !== resolvedPracticeId) {
+    if (resolvedPracticeId && backendActiveOrgId !== resolvedPracticeId) {
       setActivePractice(resolvedPracticeId).catch((err) => {
         console.warn('[PracticeAppRoute] Failed to switch active practice context:', err);
       });
@@ -885,6 +885,14 @@ function WidgetRoute({
       ?? resolveString(pd.organization_id)
       ?? resolveString(dataRecord?.organizationId)
       ?? resolveString(dataRecord?.organization_id)
+      ?? resolveString(detailsRecord?.organizationId)
+      ?? resolveString(detailsRecord?.organization_id)
+      ?? resolveString(detailsRecord?.practiceId)
+      ?? resolveString(detailsRecord?.id)
+      ?? resolveString(nestedDetailsRecord?.organizationId)
+      ?? resolveString(nestedDetailsRecord?.organization_id)
+      ?? resolveString(nestedDetailsRecord?.practiceId)
+      ?? resolveString(nestedDetailsRecord?.id)
       ?? resolveString((pd as Record<string, unknown>).practiceId)
       ?? resolveString((pd as Record<string, unknown>).id)
       ?? resolveString(dataRecord?.practiceId)

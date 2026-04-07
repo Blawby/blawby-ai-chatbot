@@ -198,7 +198,7 @@ export async function updateIntakeTriageStatus(
   });
 
   const json = await response.json().catch(() => null) as Record<string, unknown> | null;
-  const data = (json?.success !== undefined && json?.data) ? json.data as Record<string, unknown> : json;
+  const data = (json !== null && 'data' in json) ? json.data as Record<string, unknown> | null : json;
 
   if (!response.ok || (json && json.success === false)) {
     throw new Error(String(json?.message ?? json?.error ?? `HTTP ${response.status}`));
