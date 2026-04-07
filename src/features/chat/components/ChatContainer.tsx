@@ -29,7 +29,7 @@ export interface ChatContainerProps {
   ) => void;
   onAddMessage?: (message: ChatMessageUI) => void;
   conversationMode?: ConversationMode | null;
-  onSelectMode?: (mode: ConversationMode, source?: string) => void;
+  onSelectMode?: (mode: ConversationMode, source?: 'intro_gate' | 'composer_footer' | 'home_cta' | 'chat_intro' | 'slim_form_dismiss' | 'chat_selector') => void;
   onToggleReaction?: (messageId: string, emoji: string) => void;
   onRequestReactions?: (messageId: string) => void;
   composerDisabled?: boolean;

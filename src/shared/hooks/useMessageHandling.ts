@@ -276,6 +276,7 @@ export const useMessageHandling = (options: UseMessageHandlingOptions) => {
       // Ensure we have a conversation record and its ID before proceeding
       if (typeof onEnsureConversation === 'function') {
         await onEnsureConversation();
+        // Record ID is ensured; continue to activation check
       }
       
       const isDraft = conversation.conversationMetadataRef.current?.status === 'draft' || 
@@ -314,6 +315,10 @@ export const useMessageHandling = (options: UseMessageHandlingOptions) => {
     isConsultFlowActive: enabled ? isConsultFlowActive : suspendedState.isConsultFlowActive,
   }), [
     enabled,
+    conversation,
+    composer,
+    onEnsureConversation,
+    skipInitialFetch,
     payments.paymentRetryNotice,
     verifiedPaidIntakeUuids,
     liveIntake.intakeStatus,
@@ -329,9 +334,6 @@ export const useMessageHandling = (options: UseMessageHandlingOptions) => {
     liveIntake.handleContactFormSubmit,
     liveIntake.applyIntakeFields,
     isConsultFlowActive,
-    suspendedState,
-    skipInitialFetch,
-    composer,
-    conversation
+    suspendedState
   ]);
 };
