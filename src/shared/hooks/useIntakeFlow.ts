@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from 'preact/hooks';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'preact/hooks';
 import { postSystemMessage } from '@/shared/lib/conversationApi';
 import {
   fetchIntakeCheckoutSession,
@@ -129,6 +129,7 @@ interface UseIntakeFlowOptions {
   conversationId: string | undefined;
   practiceId: string | undefined;
   practiceSlug?: string | null;
+  onEnsureConversation?: () => Promise<string | null>;
   conversationMetadata: ConversationMetadata | null;
   slimContactDraft: SlimContactDraft | null;
   conversationMetadataRef: React.MutableRefObject<ConversationMetadata | null>;
@@ -194,6 +195,7 @@ export function useIntakeFlow({
   conversationId,
   practiceId,
   practiceSlug,
+  onEnsureConversation,
   conversationMetadata,
   slimContactDraft,
   conversationMetadataRef,
@@ -315,37 +317,54 @@ export function useIntakeFlow({
   }, [consultation, conversationMetadataRef, enabled, intakeConversationState, updateConversationMetadata]);
 
   const handleSlimFormContinue = useCallback(async (draft: ContactData) => {
+    console.log('[DEBUG-METADATA] handleSlimFormContinue STARTED', { enabled, draft, conversationId });
     if (!enabled) return;
-    const nextDraft: SlimContactDraft = {
-      name: (draft.name ?? '').trim(),
-      email: (draft.email ?? '').trim(),
-      phone: (draft.phone ?? '').trim(),
-    };
-
-    const patch: ConversationMetadata = applyConsultationPatchToMetadata(
-      conversationMetadataRef.current,
-      {
-        contact: nextDraft,
-        status: 'collecting_case',
-        mode: 'REQUEST_CONSULTATION',
-      },
-      { mirrorLegacyFields: true }
-    );
-    if (normalizedPracticeSlug) {
-      patch.practiceSlug = normalizedPracticeSlug;
-    }
-    await updateConversationMetadata(patch);
-
-    const practiceContextId = (practiceId ?? '').trim();
-    if (!conversationId || !practiceContextId) return;
-
-    const safeName = sanitizeName(nextDraft.name);
-    const safeEmail = sanitizeName(nextDraft.email);
-    const safePhone = sanitizeName(nextDraft.phone);
-    const emailLine = nextDraft.email ? `Email: ${safeEmail}` : 'Email: Not provided';
-    const phoneLine = nextDraft.phone ? `Phone: ${safePhone}` : 'Phone: Not provided';
+    
     try {
-      const ackMsg = await postSystemMessage(conversationId, practiceContextId, {
+      const newId = onEnsureConversation ? await onEnsureConversation() : conversationId;
+      if (!newId) {
+        console.error('[Intake] Could not ensure conversation for slim form continue');
+        return;
+      }
+
+      const nextDraft: SlimContactDraft = {
+        name: (draft.name ?? '').trim(),
+        email: (draft.email ?? '').trim(),
+        phone: (draft.phone ?? '').trim(),
+      };
+
+      const practiceContextId = (practiceId ?? '').trim();
+
+      // 1. Write Metadata Patch atomically with status: active
+      const patch: ConversationMetadata = applyConsultationPatchToMetadata(
+        conversationMetadataRef.current,
+        {
+          contact: nextDraft,
+          status: 'collecting_case',
+          mode: 'REQUEST_CONSULTATION',
+        },
+        { mirrorLegacyFields: true }
+      );
+      if (normalizedPracticeSlug) {
+        patch.practiceSlug = normalizedPracticeSlug;
+      }
+      patch.status = 'active';
+      await updateConversationMetadata(patch, newId);
+      console.log('[DEBUG-METADATA] after update:', {
+        ref: conversationMetadataRef.current,
+        val: conversationMetadata,
+      });
+
+      if (!practiceContextId) return;
+
+      // 2. Post System Messages
+      const safeName = sanitizeName(nextDraft.name);
+      const safeEmail = sanitizeName(nextDraft.email);
+      const safePhone = sanitizeName(nextDraft.phone);
+      const emailLine = nextDraft.email ? `Email: ${safeEmail}` : 'Email: Not provided';
+      const phoneLine = nextDraft.phone ? `Phone: ${safePhone}` : 'Phone: Not provided';
+
+      const ackMsg = await postSystemMessage(newId, practiceContextId, {
         clientId: 'system-intake-contact-ack',
         content: [
           'Contact info received',
@@ -364,30 +383,27 @@ export function useIntakeFlow({
         },
       });
       if (ackMsg) applyServerMessages([ackMsg]);
-    } catch (error) {
-      console.error('[Intake] Failed to persist contact ack message', { conversationId, practiceContextId, error });
-    }
 
-    const firstName = nextDraft.name.split(' ')[0] || nextDraft.name;
-    const greeting = `Thanks, ${firstName}! I've got your contact info. Can you tell me a bit about your legal situation? Just describe what's going on in your own words and I'll help make sure we connect you with the right attorney.`;
-    try {
-      const openingMsg = await postSystemMessage(conversationId, practiceContextId, {
+      const firstName = nextDraft.name.split(' ')[0] || nextDraft.name;
+      const greeting = `Thanks, ${firstName}! I've got your contact info. Can you tell me a bit about your legal situation? Just describe what's going on in your own words and I'll help make sure we connect you with the right attorney.`;
+      
+      const openingMsg = await postSystemMessage(newId, practiceContextId, {
         clientId: 'system-intake-opening',
         content: greeting,
         metadata: { source: 'ai', intakeOpening: true },
       });
       if (openingMsg) applyServerMessages([openingMsg]);
     } catch (error) {
-      console.error('[Intake] Failed to post opening message', error);
+      console.error('[Intake] Failed slim form continue', error);
     }
   }, [
-    applyServerMessages,
-    conversationId,
-    conversationMetadataRef,
     enabled,
+    conversationId,
     practiceId,
-    updateConversationMetadata,
     normalizedPracticeSlug,
+    conversationMetadataRef,
+    updateConversationMetadata,
+    applyServerMessages
   ]);
 
   const handleBuildBrief = useCallback(async () => {
@@ -464,7 +480,7 @@ export function useIntakeFlow({
     let checkoutSessionId: string | null = null;
 
     try {
-      const checkoutSession = await fetchIntakeCheckoutSession(intakeUuid);
+      const checkoutSession = await fetchIntakeCheckoutSession(intakeUuid, { conversationId });
       checkoutSessionUrl = checkoutSession.url;
       checkoutSessionId = checkoutSession.sessionId;
     } catch (fetchError) {
@@ -497,11 +513,9 @@ export function useIntakeFlow({
     }
 
     if (typeof window !== 'undefined') {
-      const popup = window.open(paymentUrl, '_blank', 'noopener,noreferrer');
-      if (!popup) {
-        window.location.assign(paymentUrl);
-        return;
-      }
+      // Open Stripe in a new tab. Fire-and-forget: if the browser blocks the popup
+      // it will show its own native notification — no fallback navigation needed.
+      window.open(paymentUrl, '_blank', 'noopener,noreferrer');
     }
   }, [
     conversationId,

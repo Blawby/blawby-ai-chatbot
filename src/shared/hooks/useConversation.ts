@@ -140,6 +140,7 @@ export interface UseConversationOptions {
   userId?: string | null;
   linkAnonymousConversationOnLoad?: boolean;
   onConversationMetadataUpdated?: (metadata: ConversationMetadata | null) => void;
+  skipInitialFetch?: boolean;
   onError?: (error: unknown, context?: Record<string, unknown>) => void;
 }
 
@@ -152,6 +153,7 @@ export const useConversation = ({
   userId: externalUserId,
   linkAnonymousConversationOnLoad = false,
   onConversationMetadataUpdated,
+  skipInitialFetch = false,
   onError,
 }: UseConversationOptions) => {
   const { session, isPending: sessionIsPending, isAnonymous } = useSessionContext();
@@ -296,7 +298,13 @@ export const useConversation = ({
     patch: ConversationMetadata,
     targetConversationId?: string
   ) => {
-    if (!sessionReady) return null;
+    // Allow the update when an explicit conversation ID is provided alongside a
+    // widget-bootstrap userId. The widget auth token (bw_token) handles auth for
+    // the PATCH independently of the SessionContext resolution state; blocking
+    // here causes silent no-ops on freshly-created conversations where sessionReady
+    // is false because hasAnonymousWidgetContext requires conversationId to be set.
+    const hasWidgetBypass = Boolean(externalUserId && targetConversationId);
+    if (!sessionReady && !hasWidgetBypass) return null;
     const activeConversationId = targetConversationId ?? conversationId;
     const practiceKey = practiceId;
     if (!activeConversationId || !practiceKey) return null;
@@ -1185,7 +1193,9 @@ export const useConversation = ({
   // Conversation change — full reset
   useEffect(() => {
     if (!enabled) return;
-    if (lastConversationIdRef.current && conversationId && lastConversationIdRef.current !== conversationId) {
+    // Clear whenever we had a conversation and the ID changes to anything different,
+    // including undefined (e.g. when setupConversationId is cleared on home nav).
+    if (lastConversationIdRef.current && lastConversationIdRef.current !== conversationId) {
       clearMessages(); applyConversationMetadata(null);
     }
     lastConversationIdRef.current = conversationId;
@@ -1216,11 +1226,18 @@ export const useConversation = ({
     const controller = new AbortController();
     setHasMoreMessages(false);
     setNextCursor(null);
-    fetchMessages({ signal: controller.signal });
-    fetchConversationMetadata(controller.signal).catch(err => { console.warn('[useConversation] Failed to fetch metadata', err); });
+    if (!skipInitialFetch) {
+      fetchMessages({ signal: controller.signal });
+      fetchConversationMetadata(controller.signal).catch(err => { console.warn('[useConversation] Failed to fetch metadata', err); });
+    } else {
+      // Locally-created conversation: nothing to fetch from the server yet.
+      // Mark ready immediately so the ChatContainer renders system messages
+      // that are pushed in via applyServerMessages (e.g. from handleSlimFormContinue).
+      setMessagesReady(true);
+    }
     connectChatRoom(conversationId);
     return () => { controller.abort(); closeChatSocket(); };
-  }, [closeChatSocket, connectChatRoom, conversationId, enabled, fetchConversationMetadata, fetchMessages, isConversationLinkReady, practiceId, resetRealtimeState, sessionReady]);
+  }, [closeChatSocket, connectChatRoom, conversationId, enabled, fetchConversationMetadata, fetchMessages, isConversationLinkReady, practiceId, resetRealtimeState, sessionReady, skipInitialFetch]);
 
   // Disposal
   useEffect(() => {

@@ -268,7 +268,7 @@ export function MainApp({
     practiceId: effectivePracticeId,
     practiceSlug: resolvedPracticeSlug ?? undefined,
     conversationId: liveConversationId ?? undefined,
-    ensureConversation: () => ensureConversation({ waitForSessionReadyMs: 3000 }),
+    onEnsureConversation: () => ensureConversation({ waitForSessionReadyMs: 3000 }),
     linkAnonymousConversationOnLoad: isPublicWorkspace,
     mode: conversationMode,
     onConversationMetadataUpdated: handleConversationMetadataUpdated,

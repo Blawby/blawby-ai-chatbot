@@ -6,6 +6,7 @@ import AuthPage from '@/pages/AuthPage';
 import AcceptInvitationPage from '@/pages/AcceptInvitationPage';
 import OnboardingPage from '@/pages/OnboardingPage';
 import PricingPage from '@/pages/PricingPage';
+import PaymentResultPage from '@/pages/PaymentResultPage';
 import DebugStylesPage from '@/pages/DebugStylesPage';
 import DebugDialogsPage from '@/pages/DebugDialogsPage';
 import DebugChatPage from '@/pages/DebugChatPage';
@@ -300,6 +301,7 @@ function AppShell() {
           <Route path="/practice/:practiceSlug/settings/apps/:appId" component={PracticeAppRoute} workspaceView="settings" settingsView="app-detail" />
           <Route path="/practice/:practiceSlug/settings/security" component={PracticeAppRoute} workspaceView="settings" settingsView="security" />
           <Route path="/practice/:practiceSlug/settings/help" component={PracticeAppRoute} workspaceView="settings" settingsView="help" />
+          <Route path="/p/:practiceSlug" component={({ practiceSlug }: { practiceSlug?: string }) => <PaymentResultPage practiceSlug={practiceSlug} />} />
           <Route path="/" component={RootRoute} />
           <Route default component={App404} />
         </Router>

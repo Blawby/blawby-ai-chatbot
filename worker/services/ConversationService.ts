@@ -25,7 +25,7 @@ export interface Conversation {
   matter_id: string | null;
   participants: string[]; // Array of user IDs
   user_info: Record<string, unknown> | null;
-  status: 'active' | 'archived' | 'closed';
+  status: 'active' | 'archived' | 'closed' | 'submitted' | 'draft';
   assigned_to?: string | null; // User ID of assigned practice member
   priority?: 'low' | 'normal' | 'high' | 'urgent';
   tags?: string[]; // Array of tag strings
@@ -71,6 +71,7 @@ export interface CreateConversationOptions {
   matterId?: string | null;
   participantUserIds: string[];
   metadata?: Record<string, unknown>;
+  status?: string;
   skipPracticeValidation?: boolean;
 }
 
@@ -403,7 +404,7 @@ export class ConversationService {
       this.env.DB.prepare(`
         INSERT INTO conversations (
           id, practice_id, user_id, is_anonymous, matter_id, participants, user_info, status, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, 'active', ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).bind(
         conversationId,
         options.practiceId,
@@ -412,6 +413,7 @@ export class ConversationService {
         options.matterId || null,
         participantsJson,
         userInfoJson,
+        options.status || 'draft',
         now,
         now
       )
@@ -667,6 +669,7 @@ export class ConversationService {
             AND cp.user_id = ?
         )
         ${anonymousCondition}
+        AND c.status IN ('active', 'submitted')
       ORDER BY (c.status = 'active') DESC, c.updated_at DESC
       LIMIT 1
     `;
@@ -699,7 +702,8 @@ export class ConversationService {
     matterId?: string | null;
     userId?: string | null;
     bypassParticipantFilter?: boolean;
-    status?: 'active' | 'archived' | 'closed';
+    status?: 'active' | 'archived' | 'closed' | 'submitted' | 'draft';
+    mode?: string;
     assignedTo?: 'none';
     limit?: number;
   }): Promise<Conversation[]> {
@@ -750,6 +754,13 @@ export class ConversationService {
     if (options.status) {
       query += ' AND conversations.status = ?';
       bindings.push(options.status);
+    } else {
+      query += " AND conversations.status IN ('active', 'submitted')";
+    }
+
+    if (options.mode) {
+      query += " AND json_extract(conversations.user_info, '$.mode') = ?";
+      bindings.push(options.mode);
     }
 
     if (options.assignedTo === 'none') {
@@ -769,7 +780,7 @@ export class ConversationService {
    */
   async getConversationsForUser(options: {
     userId: string;
-    status?: 'active' | 'archived' | 'closed';
+    status?: 'active' | 'archived' | 'closed' | 'submitted' | 'draft';
     limit?: number;
     offset?: number;
   }): Promise<Conversation[]> {
@@ -800,6 +811,8 @@ export class ConversationService {
     if (options.status) {
       query += ' AND conversations.status = ?';
       bindings.push(options.status);
+    } else {
+      query += " AND conversations.status IN ('active', 'submitted')";
     }
 
     query += ' ORDER BY conversations.updated_at DESC LIMIT ? OFFSET ?';
@@ -817,7 +830,7 @@ export class ConversationService {
     conversationId: string,
     practiceId: string,
     updates: {
-      status?: 'active' | 'archived' | 'closed';
+      status?: 'active' | 'archived' | 'closed' | 'submitted';
       metadata?: Record<string, unknown>;
       tags?: string[];
       assignedTo?: string | null;

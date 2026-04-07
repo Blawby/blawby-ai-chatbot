@@ -359,6 +359,7 @@ export async function handleConversations(request: Request, env: Env): Promise<R
       matterId?: string;
       participantUserIds: string[];
       metadata?: Record<string, unknown>;
+      status?: string;
     };
 
     const participantUserIds = Array.isArray(body.participantUserIds) ? body.participantUserIds : [];
@@ -376,6 +377,7 @@ export async function handleConversations(request: Request, env: Env): Promise<R
       matterId: body.matterId || null,
       participantUserIds: participants,
       metadata: body.metadata,
+      status: body.status || 'draft',
       skipPracticeValidation: !practiceContext.isMember
     }, request);
 
@@ -389,7 +391,7 @@ export async function handleConversations(request: Request, env: Env): Promise<R
         throw HttpErrors.unauthorized('Sign in is required to list conversations');
       }
 
-      const status = url.searchParams.get('status') as 'active' | 'archived' | 'closed' | null;
+      const status = url.searchParams.get('status') as 'active' | 'archived' | 'closed' | 'submitted' | null;
       const limit = parseInt(url.searchParams.get('limit') || '50', 10);
       const offset = parseInt(url.searchParams.get('offset') || '0', 10);
 
@@ -466,14 +468,15 @@ export async function handleConversations(request: Request, env: Env): Promise<R
     if (practiceContext.isMember && isStaffMemberRole(practiceContext.memberRole)) {
       await requirePracticeMember(request, env, practiceId, 'paralegal');
 
-      const status = url.searchParams.get('status') as 'active' | 'archived' | 'closed' | null;
+      const status = url.searchParams.get('status') as 'active' | 'archived' | 'closed' | 'submitted' | null;
       const assignedTo = url.searchParams.get('assignedTo');
       const limit = parseInt(url.searchParams.get('limit') || '50', 10);
       const conversations = await conversationService.getConversations({
         practiceId,
         userId,
         bypassParticipantFilter: true,
-        status: status || undefined,
+        status: status || 'submitted',
+        mode: 'REQUEST_CONSULTATION',
         assignedTo: assignedTo === 'none' ? 'none' : undefined,
         limit
       });
@@ -482,7 +485,7 @@ export async function handleConversations(request: Request, env: Env): Promise<R
     
     // Signed-in client: Return list of their conversations with this practice
     const matterId = url.searchParams.get('matterId');
-    const status = url.searchParams.get('status') as 'active' | 'archived' | 'closed' | null;
+    const status = url.searchParams.get('status') as 'active' | 'archived' | 'closed' | 'submitted' | null;
     const assignedTo = url.searchParams.get('assignedTo');
     const limit = parseInt(url.searchParams.get('limit') || '50', 10);
     

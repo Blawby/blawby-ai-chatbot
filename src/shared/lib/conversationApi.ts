@@ -46,13 +46,19 @@ export const updateConversationMetadata = async (
   practiceId: string,
   metadata: ConversationMetadata
 ): Promise<Conversation | null> => {
+  const { status, ...restMetadata } = metadata as Record<string, unknown>;
+  const payload: Record<string, unknown> = { metadata: restMetadata };
+  if (status) {
+    payload.status = status;
+  }
+
   const response = await fetch(
     `/api/conversations/${encodeURIComponent(conversationId)}?practiceId=${encodeURIComponent(practiceId)}`,
     {
       method: 'PATCH',
       headers: withWidgetAuthHeaders({ 'Content-Type': 'application/json' }),
       credentials: 'include',
-      body: JSON.stringify({ metadata })
+      body: JSON.stringify(payload)
     }
   );
 

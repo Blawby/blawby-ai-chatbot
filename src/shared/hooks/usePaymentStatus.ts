@@ -21,6 +21,7 @@ import { useState, useEffect, useRef, useCallback } from 'preact/hooks';
 import type { ConversationMessage } from '@/shared/types/conversation';
 import {
   fetchPostPayIntakeStatus,
+  PAYMENT_CONFIRMED_STORAGE_KEY,
 } from '@/shared/utils/intakePayments';
 import { postSystemMessage } from '@/shared/lib/conversationApi';
 
@@ -48,14 +49,6 @@ export interface UsePaymentStatusOptions {
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
-const parseStoredFlag = (
-  raw: string | null
-): { practiceName?: string; practiceId?: string; conversationId?: string; sessionId?: string } | null => {
-  if (!raw) return null;
-  try { return JSON.parse(raw) as { practiceName?: string; practiceId?: string; conversationId?: string; sessionId?: string }; }
-  catch (err) { console.warn('[usePaymentStatus] Failed to parse payment flag', err); return null; }
-};
 
 // ─── hook ─────────────────────────────────────────────────────────────────────
 
@@ -128,7 +121,6 @@ export const usePaymentStatus = ({
     if (typeof window === 'undefined') return;
 
     const controller = new AbortController();
-    let cancelled = false;
 
     // 1. Process URL parameters (Fast path for direct Stripe returns)
     const url = new URL(window.location.href);
@@ -149,41 +141,49 @@ export const usePaymentStatus = ({
           // Keep params intact on error to allow user to retry or for debugging
         });
     }
-
-    // 2. Collect keys written by legacy sessionStorage (Fallback)
-    const paymentSuccessKeys: string[] = [];
-    const paymentPendingKeys: string[] = [];
-
+    // 2. Clean up legacy sessionStorage keys (Fallback cleanup)
     for (let i = 0; i < window.sessionStorage.length; i += 1) {
       const key = window.sessionStorage.key(i);
       if (!key) continue;
-      if (key.startsWith('intakePaymentSuccess:')) paymentSuccessKeys.push(key);
-      if (key.startsWith('intakePaymentPending:')) paymentPendingKeys.push(key);
+      if (key.startsWith('intakePaymentSuccess:') || key.startsWith('intakePaymentPending:')) {
+        window.sessionStorage.removeItem(key);
+      }
     }
 
-    // Clean up stale "pending" keys
-    paymentPendingKeys.forEach(key => window.sessionStorage.removeItem(key));
-
-    // Process confirmed payments from storage
-    paymentSuccessKeys.forEach(key => {
-      const uuid = key.split(':')[1];
-      if (!uuid || !UUID_PATTERN.test(uuid)) return;
-
-      let pName = 'the practice';
-      const raw = window.sessionStorage.getItem(key);
-      const parsed = parseStoredFlag(raw);
-      if (parsed?.practiceName?.trim()) pName = parsed.practiceName.trim();
-
-      postPaymentConfirmation(uuid, pName, controller.signal)
-        .then(() => { if (!cancelled) window.sessionStorage.removeItem(key); })
-        .catch(err => { console.warn('[usePaymentStatus] SessionStorage confirmation failed', err); });
-    });
-
     return () => {
-      cancelled = true;
       controller.abort();
     };
   }, [conversationId, practiceId, postPaymentConfirmation, practiceName]);
+
+  // ── Cross-tab payment signal (PaymentResultPage → widget tab) ─────────────
+  // PaymentResultPage writes PAYMENT_CONFIRMED_STORAGE_KEY to localStorage after
+  // Stripe redirects. localStorage storage events fire on every other same-origin
+  // tab, so the widget tab picks this up even though it never navigated to /p/.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key !== PAYMENT_CONFIRMED_STORAGE_KEY) return;
+      if (!event.newValue) return;
+
+      let payload: { intakeUuid?: string; sessionId?: string } | null = null;
+      try { payload = JSON.parse(event.newValue); } catch { return; }
+
+      const intakeUuid = payload?.intakeUuid;
+      if (!intakeUuid || !UUID_PATTERN.test(intakeUuid)) return;
+
+      postPaymentConfirmation(intakeUuid, practiceName || 'the practice', undefined, payload?.sessionId ?? null)
+        .catch(err => console.warn('[usePaymentStatus] Cross-tab payment confirmation failed', err));
+
+      // Clean up so subsequent tabs don't re-process the same event
+      try { localStorage.removeItem(PAYMENT_CONFIRMED_STORAGE_KEY); } catch { /* ignore */ }
+    };
+
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, [postPaymentConfirmation, practiceName]);
 
   // ── backend payment reconciliation ────────────────────────────────────────
   // Runs whenever the latest intake submission changes — handles the case
@@ -199,7 +199,7 @@ export const usePaymentStatus = ({
 
     (async () => {
       try {
-        const intakeUuid = await fetchPostPayIntakeStatus(checkoutSessionId, { timeoutMs: 8_000 });
+        const intakeUuid = await fetchPostPayIntakeStatus(checkoutSessionId, { timeoutMs: 8_000, conversationId });
         if (!intakeUuid || cancelled) return;
         await postPaymentConfirmation(intakeUuid, practiceName || 'the practice', controller.signal);
       } catch (error) {

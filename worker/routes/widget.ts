@@ -228,29 +228,25 @@ export async function handleWidgetBootstrap(request: Request, env: Env): Promise
   if (practiceId && sessionUserId) {
     try {
       const conversationService = new ConversationService(env);
-      const conversation = await conversationService.getOrCreateCurrentConversation(
-        sessionUserId,
-        practiceId,
-        request,
-        isAnonymous,
-        { skipPracticeValidation: true }
-      );
-      conversationId = conversation.id;
-
-      // Also fetch a few recent conversations to populate the conversations list
+      
+      // Only fetch existing recent conversations; no more creation in bootstrap.
+      // The backend now filters for IN ('active', 'submitted') natively if status is undefined.
       const userConversations = await conversationService.getConversations({
         practiceId,
         userId: sessionUserId,
-        limit: 5,
-        status: 'active'
+        limit: 5
       });
+      
+      const mostRecent = userConversations[0] || null;
+      conversationId = mostRecent?.id ?? null;
+      
       recentConversations = userConversations.map(c => ({
         id: c.id,
         created_at: c.created_at,
         last_message_at: c.last_message_at ?? null
       }));
     } catch (err) {
-      console.error('[Bootstrap] Failed to get or create conversation', { sessionUserId, practiceId, error: err });
+      console.error('[Bootstrap] Failed to get conversations', { sessionUserId, practiceId, error: err });
     }
   }
 

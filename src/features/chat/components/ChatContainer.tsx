@@ -174,7 +174,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   const [replyTarget, setReplyTarget] = useState<ReplyTarget | null>(null);
   const composerDockRef = useRef<HTMLDivElement>(null);
   const [composerInsetPx, setComposerInsetPx] = useState(104);
-  const isChatInputLocked = Boolean(composerDisabled) || isSessionReady === false || isSocketReady === false;
+  const isChatInputLocked = Boolean(composerDisabled) || isSessionReady === false || isSocketReady === false || intakeStatus?.step === 'contact_form_slim';
   const baseMessages = isPublicWorkspace
     ? messages.filter((message) => message.metadata?.systemMessageKey !== 'ask_question_help')
     : messages;
@@ -372,10 +372,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   const openPayment = useCallback((request: IntakePaymentRequest): void => {
     if (typeof window === 'undefined') return;
     if (request.paymentLinkUrl) {
-      const opened = window.open(request.paymentLinkUrl, '_blank', 'noopener,noreferrer');
-      if (opened === null) {
-        window.location.assign(request.paymentLinkUrl);
-      }
+      window.open(request.paymentLinkUrl, '_blank', 'noopener,noreferrer');
     }
   }, []);
 
@@ -544,7 +541,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
                   isSessionReady={isSessionReady}
                   isSocketReady={isSocketReady}
                   intakeStatus={intakeStatus}
-                  disabled={composerDisabled}
+                  disabled={composerDisabled || intakeStatus?.step === 'contact_form_slim'}
                   replyTo={replyTarget}
                   onCancelReply={handleCancelReply}
                   mentionCandidates={mentionCandidates}
