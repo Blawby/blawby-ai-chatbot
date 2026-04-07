@@ -106,6 +106,9 @@ export const usePaymentStatus = ({
         setPaymentRetryNotice(null);
         return true;
       }
+      
+      // If we failed to get a response but didn't throw, evict from snapshots so we can retry
+      processedPaymentUuidsRef.current.delete(uuid);
       return false;
     } catch (error) {
       processedPaymentUuidsRef.current.delete(uuid);

@@ -672,7 +672,14 @@ export class ConversationService {
         )
         ${anonymousCondition}
         AND c.status IN ('active', 'submitted', 'draft')
-      ORDER BY (c.status = 'active') DESC, c.updated_at DESC
+      ORDER BY 
+        CASE c.status
+          WHEN 'active' THEN 1
+          WHEN 'draft' THEN 2
+          WHEN 'submitted' THEN 3
+          ELSE 4
+        END ASC,
+        c.updated_at DESC
       LIMIT 1
     `;
     const existing = await this.env.DB.prepare(query).bind(practiceId, userId).first<Record<string, unknown>>();
@@ -759,6 +766,9 @@ export class ConversationService {
           const placeholders = options.status.map(() => '?').join(', ');
           query += ` AND conversations.status IN (${placeholders})`;
           bindings.push(...options.status);
+        } else {
+          // Empty array filter means "no matches"
+          query += ' AND 1=0';
         }
       } else {
         query += ' AND conversations.status = ?';

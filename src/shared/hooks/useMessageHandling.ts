@@ -274,7 +274,9 @@ export const useMessageHandling = (options: UseMessageHandlingOptions) => {
     // Actions & Sending (from useChatComposer)
     sendMessage: enabled ? async (...args: Parameters<typeof composer.sendMessage>) => {
       // Ensure we have a conversation record and its ID before proceeding
-      await onEnsureConversation();
+      if (typeof onEnsureConversation === 'function') {
+        await onEnsureConversation();
+      }
       
       const isDraft = conversation.conversationMetadataRef.current?.status === 'draft' || 
                       (!conversation.conversationMetadataRef.current && skipInitialFetch);
