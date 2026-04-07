@@ -156,7 +156,7 @@ export const IntakesPage: FunctionComponent<IntakesPageProps> = ({
 
   const displayLoading = isLoading || prefetchedLoading;
   const displayError = error || prefetchedError;
-  const localLoaded = !isLoading && !isLoadingMore;
+  const localLoaded = !isLoading;
   const displayItems = localLoaded ? intakes : prefetchedItems.map(item => ({ ...item, id: item.uuid }));
 
   if (renderMode === 'listOnly' && !displayLoading && !displayError && displayItems.length === 0) {
