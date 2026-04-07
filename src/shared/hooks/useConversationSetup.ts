@@ -33,7 +33,7 @@ export interface UseConversationSetupResult {
   applyConversationMode: (
     mode: ConversationMode,
     conversationId: string,
-    source: 'intro_gate' | 'composer_footer' | 'home_cta',
+    source: 'intro_gate' | 'composer_footer' | 'home_cta' | 'chat_intro' | 'slim_form_dismiss' | 'chat_selector',
     startConsultFlow: (id: string) => void
   ) => Promise<void>;
 }
@@ -234,7 +234,7 @@ export function useConversationSetup({
   const applyConversationMode = useCallback(async (
     nextMode: ConversationMode,
     convId: string,
-    source: 'intro_gate' | 'composer_footer' | 'home_cta',
+    source: 'intro_gate' | 'composer_footer' | 'home_cta' | 'chat_intro' | 'slim_form_dismiss' | 'chat_selector',
     startConsultFlow: (id: string) => void
   ) => {
     if (!practiceId) return;
@@ -269,7 +269,7 @@ export function useConversationSetup({
 
   const handleModeSelection = useCallback(async (
     nextMode: ConversationMode,
-    source: 'intro_gate' | 'composer_footer',
+    source: 'intro_gate' | 'composer_footer' | 'home_cta' | 'chat_intro' | 'slim_form_dismiss' | 'chat_selector',
     startConsultFlow: (id: string) => void
   ) => {
     if (isSelectingRef.current) return;

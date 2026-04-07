@@ -755,9 +755,11 @@ export class ConversationService {
 
     if (options.status) {
       if (Array.isArray(options.status)) {
-        const placeholders = (options.status as string[]).map(() => '?').join(', ');
-        query += ` AND conversations.status IN (${placeholders})`;
-        bindings.push(...(options.status as string[]));
+        if (options.status.length > 0) {
+          const placeholders = options.status.map(() => '?').join(', ');
+          query += ` AND conversations.status IN (${placeholders})`;
+          bindings.push(...options.status);
+        }
       } else {
         query += ' AND conversations.status = ?';
         bindings.push(options.status);

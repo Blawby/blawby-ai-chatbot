@@ -29,7 +29,7 @@ export interface ChatContainerProps {
   ) => void;
   onAddMessage?: (message: ChatMessageUI) => void;
   conversationMode?: ConversationMode | null;
-  onSelectMode?: (mode: ConversationMode) => void;
+  onSelectMode?: (mode: ConversationMode, source?: string) => void;
   onToggleReaction?: (messageId: string, emoji: string) => void;
   onRequestReactions?: (messageId: string) => void;
   composerDisabled?: boolean;

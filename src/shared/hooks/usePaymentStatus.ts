@@ -75,18 +75,18 @@ export const usePaymentStatus = ({
     practiceName: string,
     signal?: AbortSignal,
     sessionId?: string | null,
-  ) => {
-    if (!enabled) return;
-    if (!conversationId || !practiceId) return;
+  ): Promise<boolean> => {
+    if (!enabled) return false;
+    if (!conversationId || !practiceId) return false;
 
     const messageId = `system-payment-confirm-${uuid}`;
-    if (processedPaymentUuidsRef.current.has(uuid)) return;
+    if (processedPaymentUuidsRef.current.has(uuid)) return true;
 
     // Check if a confirmation already exists in the current message list
     // (handled by the caller via latestIntakeSubmission / verifiedPaidIntakeUuids)
 
     try {
-      if (signal?.aborted) return;
+      if (signal?.aborted) return false;
       processedPaymentUuidsRef.current.add(uuid);
 
       const persistedMessage = await postSystemMessage(conversationId, practiceId, {
@@ -99,17 +99,17 @@ export const usePaymentStatus = ({
         },
       });
 
-      // After successful persistence, always update client state regardless of abort status
       if (persistedMessage) {
         // Mark as confirmed in parent state ONLY after persistence success
         onPaymentConfirmed(uuid);
         applyServerMessages([persistedMessage]);
         setPaymentRetryNotice(null);
-      } else {
-        throw new Error('Payment confirmation message could not be saved.');
+        return true;
       }
+      return false;
     } catch (error) {
       processedPaymentUuidsRef.current.delete(uuid);
+      if (signal?.aborted) return false;
       console.warn('[usePaymentStatus] Failed to persist payment confirmation message', error);
       onError?.(error);
       throw error;
@@ -181,9 +181,11 @@ export const usePaymentStatus = ({
       if (!intakeUuid || !UUID_PATTERN.test(intakeUuid)) return;
 
       postPaymentConfirmation(intakeUuid, practiceName || 'the practice', undefined, payload?.sessionId ?? null)
-        .then(() => {
+        .then((success) => {
           // Clean up only after successful confirmation so other tabs can retry on failure
-          try { localStorage.removeItem(PAYMENT_CONFIRMED_STORAGE_KEY); } catch { /* ignore */ }
+          if (success) {
+            try { localStorage.removeItem(PAYMENT_CONFIRMED_STORAGE_KEY); } catch { /* ignore */ }
+          }
         })
         .catch(err => console.warn('[usePaymentStatus] Cross-tab payment confirmation failed', err));
     };

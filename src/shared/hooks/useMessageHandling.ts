@@ -87,6 +87,7 @@ export const useMessageHandling = (options: UseMessageHandlingOptions) => {
 
   const composerRef = useRef<ReturnType<typeof useChatComposer> | null>(null);
   const conversationMetadataOnLoadRef = useRef<ConversationMetadata | null>(null);
+  const conversationMetadataRef = useRef<ConversationMetadata | null>(null);
 
   // 3. Core Transport & State
   const conversation = useConversation({
@@ -114,7 +115,7 @@ export const useMessageHandling = (options: UseMessageHandlingOptions) => {
     onEnsureConversation,
     conversationMetadata: null, // Initialized later
     slimContactDraft: consultation?.contact ?? null,
-    conversationMetadataRef: { current: null as ConversationMetadata | null }, // Initialized later
+    conversationMetadataRef, // Initialized later
     updateConversationMetadata: async () => {}, // Stub
     applyServerMessages: () => {}, // Stub
     sendMessage: (content, att, reply, opts) => composerRef.current?.sendMessage(content, att, reply, opts),
@@ -272,6 +273,9 @@ export const useMessageHandling = (options: UseMessageHandlingOptions) => {
 
     // Actions & Sending (from useChatComposer)
     sendMessage: enabled ? async (...args: Parameters<typeof composer.sendMessage>) => {
+      // Ensure we have a conversation record and its ID before proceeding
+      await onEnsureConversation();
+      
       const isDraft = conversation.conversationMetadataRef.current?.status === 'draft' || 
                       (!conversation.conversationMetadataRef.current && skipInitialFetch);
       if (isDraft) {

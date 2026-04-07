@@ -306,13 +306,13 @@ export function MainApp({
   // ── conversation mode selection ────────────────────────────────────────────
   const isSelectingRef = useRef(false);
 
-  const handleModeSelection = useCallback(async (nextMode: ConversationMode) => {
+  const handleModeSelection = useCallback(async (nextMode: ConversationMode, source?: string) => {
     if (isSelectingRef.current) return;
     try {
       isSelectingRef.current = true;
       const currentConversationId = activeConversationId ?? (isCreatingConversation ? null : await ensureConversation({ waitForSessionReadyMs: 3000 }));
       if (!currentConversationId || !practiceId) return;
-      await applyConversationMode(nextMode, currentConversationId, 'home_cta', startConsultFlow);
+      await applyConversationMode(nextMode, currentConversationId, source as any || 'home_cta', startConsultFlow);
     } catch (error) {
       setConversationMode(null);
       showErrorRef.current?.(error instanceof Error ? error.message : 'Unable to start conversation');
@@ -322,9 +322,17 @@ export function MainApp({
     }
   }, [activeConversationId, applyConversationMode, ensureConversation, isCreatingConversation, practiceId, startConsultFlow]);
 
+  const handleAskQuestion = () => {
+    handleModeSelection('ASK_QUESTION', 'chat_intro');
+  };
+
+  const handleRequestConsultation = () => {
+    handleModeSelection('REQUEST_CONSULTATION', 'chat_intro');
+  };
+
   const handleSlimFormDismiss = useCallback(async () => {
     if (conversationMode !== 'REQUEST_CONSULTATION') return;
-    await handleModeSelection('ASK_QUESTION');
+    await handleModeSelection('ASK_QUESTION', 'slim_form_dismiss');
   }, [conversationMode, handleModeSelection]);
 
   const handleStartNewConversation = useCallback(async (
@@ -677,7 +685,7 @@ export function MainApp({
             onSendMessage={handleSendMessage}
             onAddMessage={addMessage}
             conversationMode={conversationMode}
-            onSelectMode={handleModeSelection}
+            onSelectMode={(mode, source) => { void handleModeSelection(mode, source); }}
             onToggleReaction={features.enableMessageReactions ? toggleMessageReaction : undefined}
             onRequestReactions={requestMessageReactions}
             composerDisabled={isComposerDisabled}

@@ -15,6 +15,7 @@ import type { ChatMessageAction } from '@/shared/types/conversation';
 import { SettingsNotice } from '@/features/settings/components/SettingsNotice';
 import { quickActionDebugLog, isQuickActionDebugEnabled } from '@/shared/utils/quickActionDebug';
 import { getChatActionKey } from '@/shared/utils/chatActions';
+import { useNavigation } from '@/shared/utils/navigation';
 
 interface MessageActionsProps {
 	matterCanvas?: {
@@ -137,6 +138,7 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 }) => {
 	const { showSuccess, showInfo } = useToastContext();
 	const { t } = useTranslation('common');
+	const { navigate } = useNavigation();
 	const quickActionRenderSnapshotRef = useRef('');
 
 	const isIntakeCompleted = intakeStatus?.step === 'completed';
@@ -149,7 +151,7 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 			case 'submit':
 				return Boolean(onSubmitNow);
 			case 'continue_payment':
-				return Boolean(paymentRequest);
+				return Boolean(paymentRequest?.paymentLinkUrl);
 			case 'open_url':
 				return true;
 			case 'build_brief':
@@ -306,17 +308,25 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 				<div className="mt-3 flex gap-2 overflow-x-auto pb-1">
 					{renderableActions.map((action, idx) => (
 						action.type === 'continue_payment' ? (
-							paymentRequest?.paymentLinkUrl ? (
-								<a
-									key={getChatActionKey(action, idx)}
-									href={paymentRequest.paymentLinkUrl}
-									target="_blank"
-									rel="noopener noreferrer"
-									className={`btn ${action.variant === 'primary' ? 'btn-primary' : 'btn-secondary'} btn-sm shrink-0 no-underline inline-flex items-center justify-center px-4 rounded-xl font-semibold transition-all hover:opacity-90 active:scale-[0.98] h-8 text-xs`}
-								>
-									{action.label}
-								</a>
-							) : null
+							(() => {
+								const url = paymentRequest?.paymentLinkUrl;
+								if (!url) return null;
+								try {
+									const parsed = new URL(url);
+									if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null;
+									return (
+										<a
+											key={getChatActionKey(action, idx)}
+											href={url}
+											target="_blank"
+											rel="noopener noreferrer"
+											className={`btn ${action.variant === 'primary' ? 'btn-primary' : 'btn-secondary'} btn-sm shrink-0 no-underline inline-flex items-center justify-center px-4 rounded-xl font-semibold transition-all hover:opacity-90 active:scale-[0.98] h-8 text-xs`}
+										>
+											{action.label}
+										</a>
+									);
+								} catch { return null; }
+							})()
 						) : action.type === 'submit' ? (
 							onSubmitNow ? (
 								<Button
@@ -333,20 +343,35 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 							) : null
 						) : action.type === 'open_url' ? (
 							(() => {
+								const isSameOrigin = (urlStr: string) => {
+									try {
+										const url = new URL(urlStr, window.location.origin);
+										return url.origin === window.location.origin;
+									} catch { return false; }
+								};
+								
+								const sameOrigin = isSameOrigin(action.url);
+								
 								return (
 									<a
 										key={getChatActionKey(action, idx)}
 										href={action.url}
-										target="_blank"
-										rel="noopener noreferrer"
+										target={sameOrigin ? undefined : "_blank"}
+										rel={sameOrigin ? undefined : "noopener noreferrer"}
 										className={`btn ${action.variant === 'primary' ? 'btn-primary' : 'btn-secondary'} btn-sm shrink-0 no-underline inline-flex items-center justify-center px-4 rounded-xl font-semibold transition-all hover:opacity-90 active:scale-[0.98] h-8 text-xs`}
 										onClick={(e) => {
 											try {
-												const parsed = new URL(action.url);
+												const parsed = new URL(action.url, window.location.origin);
 												if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
 													e.preventDefault();
 													console.warn('[MessageActions] Blocked unsafe URL protocol:', parsed.protocol);
 													showInfo('Link Cannot Open', `This link uses an unsafe protocol: ${parsed.protocol}`);
+													return;
+												}
+												
+												if (parsed.origin === window.location.origin) {
+													e.preventDefault();
+													navigate(`${parsed.pathname}${parsed.search}${parsed.hash}`);
 												}
 											} catch {
 												e.preventDefault();

@@ -28,19 +28,26 @@ export const IntakePaymentCard: FunctionComponent<IntakePaymentCardProps> = ({ p
 
   return (
     <div className="mt-4">
-      <a
-        href={paymentRequest.paymentLinkUrl || '#'}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="btn btn-primary w-full text-center no-underline inline-flex items-center justify-center h-10 px-4 rounded-xl font-semibold transition-all hover:opacity-90 active:scale-[0.98]"
-        onClick={(e) => {
-          if (!paymentRequest.paymentLinkUrl) {
-            e.preventDefault();
-          }
-        }}
-      >
-        {buttonLabel}
-      </a>
+      {paymentRequest.paymentLinkUrl ? (
+        <a
+          href={paymentRequest.paymentLinkUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="btn btn-primary w-full text-center no-underline inline-flex items-center justify-center h-10 px-4 rounded-xl font-semibold transition-all hover:opacity-90 active:scale-[0.98]"
+        >
+          {buttonLabel}
+        </a>
+      ) : (
+        <button
+          type="button"
+          disabled
+          aria-disabled="true"
+          className="btn btn-primary w-full text-center no-underline inline-flex items-center justify-center h-10 px-4 rounded-xl font-semibold opacity-50 cursor-not-allowed"
+          title="Payment link is currently unavailable"
+        >
+          {buttonLabel}
+        </button>
+      )}
     </div>
   );
 };
