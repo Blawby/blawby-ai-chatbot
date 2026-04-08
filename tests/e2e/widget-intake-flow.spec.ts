@@ -1594,12 +1594,8 @@ test.describe('Public widget intake flow', () => {
 
     // enrichmentMode should be persisted via PATCH
     const applyResponse = await applyIntakeFieldsPromise;
-    if (applyResponse) {
-      expect(
-        applyResponse.status(),
-        'applyIntakeFields PATCH should succeed'
-      ).toBeLessThan(500);
-    }
+    expect(applyResponse, 'Expected PATCH for enrichmentMode to be observed').not.toBeNull();
+    expect(applyResponse?.status(), 'applyIntakeFields PATCH should return 200 OK').toBe(200);
 
     // ── AI should respond with a question focused on opposing party ──────────
     await expect.poll(

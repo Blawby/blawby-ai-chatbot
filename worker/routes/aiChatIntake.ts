@@ -70,6 +70,10 @@ export const SAVE_CASE_DETAILS_TOOL = {
           type: 'boolean',
           description: 'Whether the user has mentioned having relevant documents',
         },
+        householdSize: {
+          type: 'integer',
+          description: 'Total number of residents in the household',
+        },
       },
       required: ['description', 'city', 'state'],
     },
@@ -176,6 +180,9 @@ export const handleSaveCaseDetails = (
   }
   if (typeof args.hasDocuments === 'boolean') {
     patch.hasDocuments = args.hasDocuments;
+  }
+  if (typeof args.householdSize === 'number') {
+    patch.householdSize = Math.max(0, Math.floor(args.householdSize));
   }
 
   const merged = mergeIntakeState(storedIntakeState, patch);
