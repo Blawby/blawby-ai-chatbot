@@ -351,7 +351,9 @@ Conversation rules:
 - Infer urgency from the facts when you reasonably can. Do not ask about urgency unless it is genuinely unclear and important for routing.
 - Infer desiredOutcome from the facts when you reasonably can. Do not ask unless genuinely unclear.
 - Documents are optional context. Do not block submission on whether the user has documents.
-- Once description, city, and state are captured, prioritize getting the person to submit instead of asking optional enrichment questions.
+- ${isEnrichmentMode
+    ? 'The user has chosen to strengthen their case. Focus on collecting enrichment fields before submission.'
+    : 'Once description, city, and state are captured, prioritize getting the person to submit instead of asking optional enrichment questions.'}
 
 - If a consultation fee is required: Acknowledge that you have their details warmly${userNamingInstruction}. Mention the fee softly as the next step to move forward with a review. Max 2 sentences.
 - If no fee is required: Acknowledge that you have their details warmly${userNamingInstruction} and ask if they are ready to send it over for review.
@@ -391,6 +393,8 @@ function buildIntakeContextSummary(
   if (typeof state.urgency === 'string' && state.urgency.trim()) lines.push(`Urgency: ${state.urgency.trim()}`);
   if (typeof state.desiredOutcome === 'string' && state.desiredOutcome.trim()) lines.push(`Desired outcome: ${state.desiredOutcome.trim().slice(0, 150)}`);
   if (typeof state.hasDocuments === 'boolean') lines.push(`Has documents: ${state.hasDocuments}`);
+  if (typeof state.householdSize === 'number') lines.push(`Household size: ${state.householdSize}`);
+  if (typeof state.courtDate === 'string' && state.courtDate.trim()) lines.push(`Court date: ${state.courtDate.trim()}`);
 
   return lines.length > 0 ? lines.map((l) => `- ${l}`).join('\n') : '';
 };

@@ -1,5 +1,4 @@
 import type { IntakeConversationState } from '@/shared/types/intake';
-import { isIntakeReadyForSubmission } from '@/shared/utils/consultationState';
 
 export type StrengthTier = 'none' | 'weak' | 'basic' | 'good' | 'strong';
 
@@ -8,46 +7,25 @@ export const resolveStrengthTier = (state: IntakeConversationState | null): Stre
 
   const trimmed = state.description?.trim() ?? '';
   const hasDescription = Boolean(trimmed);
-  const descriptionWords = trimmed ? trimmed.split(/\s+/).filter(Boolean).length : 0;
-  const hasPracticeArea = Boolean(state.practiceArea);
-  const hasLocation = Boolean(state.city?.trim() || state.state?.trim());
-  const hasOpposingParty = Boolean(state.opposingParty?.trim());
-  const hasDesiredOutcome = Boolean(state.desiredOutcome?.trim());
-  const hasUrgency = Boolean(state.urgency);
+  const descriptionWords = trimmed.split(/\s+/).filter(Boolean).length;
 
-  // Count how many unique pieces of information we have
-  const signals = [
-    hasDescription,
-    hasPracticeArea,
-    hasLocation,
-    hasOpposingParty,
-    hasDesiredOutcome,
-    hasUrgency,
-    Boolean(state?.hasDocuments !== null && state?.hasDocuments !== undefined),
-    Boolean(state?.householdSize),
-    Boolean(state?.courtDate),
-  ].filter(Boolean).length;
+  let score = 0;
+  if (hasDescription) score += 20;
+  if (descriptionWords >= 15) score += 10;
+  if (state.city?.trim() && state.state?.trim()) score += 15;
+  if (state.practiceArea) score += 10;
+  if (state.urgency) score += 10;
+  if (state.opposingParty?.trim()) score += 10;
+  if (state.desiredOutcome?.trim()) score += 10;
+  if (state.hasDocuments !== null && state.hasDocuments !== undefined) score += 5;
+  if (state.householdSize) score += 5;
+  if (state.courtDate?.trim()) score += 5;
 
-  // 1. None: Literally nothing shared yet
-  if (signals === 0) return 'none';
-
-  // 2. Strong: Deterministically ready to submit or very complete.
-  if (isIntakeReadyForSubmission(state) || (hasPracticeArea && descriptionWords >= 15 && signals >= 5)) {
-    return 'strong';
-  }
-
-  // 3. Good: Solid detail (at least 4 signals including description)
-  if (signals >= 4 && hasDescription) {
-    return 'good';
-  }
-
-  // 4. Basic: Getting there (at least 2-3 signals)
-  if (signals >= 2) {
-    return 'basic';
-  }
-
-  // 5. Weak: Just starting out (1 signal)
-  return 'weak';
+  if (score === 0) return 'none';
+  if (score < 30) return 'weak';
+  if (score < 55) return 'basic';
+  if (score < 80) return 'good';
+  return 'strong';
 };
 
 export const resolveStrengthLabel = (tier: StrengthTier): string => {
@@ -70,7 +48,7 @@ export const resolveStrengthLabel = (tier: StrengthTier): string => {
 export const resolveStrengthStyle = (tier: StrengthTier): { percent: number; ringClass: string; bgClass: string } => {
   switch (tier) {
     case 'weak':
-      return { percent: 25, ringClass: 'text-red-500', bgClass: 'bg-red-500' };
+      return { percent: 20, ringClass: 'text-red-500', bgClass: 'bg-red-500' };
     case 'basic':
       return { percent: 50, ringClass: 'text-orange-500', bgClass: 'bg-orange-500' };
     case 'good':
