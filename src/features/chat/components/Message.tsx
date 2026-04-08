@@ -318,6 +318,7 @@ const Message: FunctionComponent<MessageProps> = memo(({
 				onBuildBrief={onBuildBrief}
 				onStrengthenCase={onStrengthenCase}
 				onboardingProfile={onboardingProfile}
+				isStreaming={isStreaming}
 				isLast={isLast}
 			/>
 				

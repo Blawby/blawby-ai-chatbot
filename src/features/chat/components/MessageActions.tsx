@@ -93,6 +93,7 @@ interface MessageActionsProps {
 			onChange: (files: FileList | File[]) => void;
 		};
 	};
+	isStreaming?: boolean;
 	isLast?: boolean;
 	className?: string;
 }
@@ -114,6 +115,7 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 	onBuildBrief,
 	onStrengthenCase,
 	onboardingProfile,
+	isStreaming = false,
 	isLast,
 	className = ''
 }) => {
@@ -147,6 +149,7 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 		if (!isQuickActionDebugEnabled()) return;
 		const snapshot = JSON.stringify({
 			isLast: Boolean(isLast),
+			isStreaming,
 			actions: actions ?? null,
 			renderableActionsCount: renderableActions.length,
 			shouldShowPaymentCard,
@@ -156,6 +159,7 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 		quickActionRenderSnapshotRef.current = snapshot;
 		quickActionDebugLog('MessageActions render gating', {
 			isLast: Boolean(isLast),
+			isStreaming,
 			actions: actions ?? null,
 			renderableActionsCount: renderableActions.length,
 			shouldShowPaymentCard,
@@ -164,6 +168,7 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 	}, [
 		actions,
 		isLast,
+		isStreaming,
 		paymentRequest,
 		renderableActions.length,
 		shouldShowPaymentCard
@@ -204,7 +209,7 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 					)}
 				</div>
 			)}
-			{isLast && renderableActions.length > 0 && (
+			{isLast && !isStreaming && renderableActions.length > 0 && (
 				<div className="mt-3 flex gap-2 overflow-x-auto pb-1">
 					{renderableActions.map((action, idx) => (
 						action.type === 'continue_payment' ? (
@@ -324,7 +329,7 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 					))}
 				</div>
 			)}
-			{isLast && onboardingProfile && (
+			{isLast && !isStreaming && onboardingProfile && (
 				<div className="mt-3 space-y-3">
 					{onboardingProfile.saveError && (
 						<SettingsNotice variant="danger">

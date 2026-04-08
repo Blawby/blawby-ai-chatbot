@@ -18,6 +18,7 @@ import { isIntakeSubmittable } from '@/shared/utils/consultationState';
 import { MessageRowSkeleton } from '@/shared/ui/layout/skeleton-presets/MessageRowSkeleton';
 import { quickActionDebugLog, isQuickActionDebugEnabled } from '@/shared/utils/quickActionDebug';
 import { createBuildBriefAction, createSubmitAction, hasTerminalChatAction, hasBuildBriefAction, normalizeChatActions } from '@/shared/utils/chatActions';
+import { STREAMING_BUBBLE_PREFIX } from '@/shared/hooks/useConversation';
 import { features } from '@/config/features';
 
 export interface OnboardingActions {
@@ -673,6 +674,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                     } : null;
                     const canReply = Boolean(onReply && message.id);
                     const isLast = (_index + derivedStart) === (dedupedMessages.length - 1);
+                    const isStreamingMessage = Boolean(message.id?.startsWith(STREAMING_BUBBLE_PREFIX));
 
                     const modeSelector = resolveModeSelector(message);
 
@@ -682,7 +684,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                         _intakeStatus?.step === 'submitted' ||
                         _intakeStatus?.step === 'pending_review' ||
                         _intakeStatus?.step === 'completed';
-                    const baseActions = isLast
+                    const baseActions = (isLast && !isStreamingMessage)
                         ? normalizeChatActions(message.metadata?.actions).filter((action) => {
                             if (!intakeIsTerminal) return true;
                             return action.type === 'submit'
@@ -767,6 +769,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                             paymentRequest={message.paymentRequest}
                             practiceConfig={practiceConfig}
                             onOpenSidebar={onOpenSidebar}
+                            isStreaming={isStreamingMessage}
                             isLoading={message.isLoading}
                             // REMOVED: aiState - AI functionality removed
                             toolMessage={message.toolMessage}
@@ -785,7 +788,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                                 onBuildBrief={onBuildBrief}
                                 onStrengthenCase={onStrengthenCase}
                                 onboardingProfile={onboardingProfile}
-                                isLast={isLast}
+                                isLast={isLast && !isStreamingMessage}
                             />
                         );
                     })}
