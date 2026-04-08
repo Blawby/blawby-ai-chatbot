@@ -35,12 +35,12 @@ export interface IntakeConversationState {
   desiredOutcome: string | null;
   courtDate: string | null;
   hasDocuments: boolean | null;
-  householdSize?: number | null;
+  householdSize: number | null;
   turnCount: number;
   ctaShown: boolean;
   ctaResponse: 'ready' | 'not_yet' | null;
   notYetCount: number;
-  enrichmentMode?: boolean | null;
+  enrichmentMode: boolean | null;
 }
 
 export interface ConsultationSubmissionState {
@@ -70,6 +70,8 @@ export const initialIntakeState: IntakeConversationState = {
   desiredOutcome: null,
   courtDate: null,
   hasDocuments: null,
+  householdSize: null,
+  enrichmentMode: null,
   turnCount: 0,
   ctaShown: false,
   ctaResponse: null,
@@ -96,7 +98,7 @@ export type IntakeFieldsPayload = {
   desiredOutcome?: string;
   courtDate?: string;
   hasDocuments?: boolean;
-  householdSize?: number;
+  householdSize?: number | null;
   ctaShown?: boolean;
   intakeReady?: boolean;
   enrichmentMode?: boolean | null;

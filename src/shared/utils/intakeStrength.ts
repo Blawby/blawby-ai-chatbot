@@ -18,7 +18,7 @@ export const resolveStrengthTier = (state: IntakeConversationState | null): Stre
   if (state.opposingParty?.trim()) score += 10;
   if (state.desiredOutcome?.trim()) score += 10;
   if (state.hasDocuments !== null && state.hasDocuments !== undefined) score += 5;
-  if (state.householdSize) score += 5;
+  if (state.householdSize != null) score += 5;
   if (state.courtDate?.trim()) score += 5;
 
   if (score === 0) return 'none';

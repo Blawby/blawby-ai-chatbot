@@ -181,8 +181,8 @@ export const handleSaveCaseDetails = (
   if (typeof args.hasDocuments === 'boolean') {
     patch.hasDocuments = args.hasDocuments;
   }
-  if (typeof args.householdSize === 'number') {
-    patch.householdSize = Math.max(0, Math.floor(args.householdSize));
+  if (Number.isFinite(args.householdSize)) {
+    patch.householdSize = Math.max(0, Math.floor(args.householdSize as number));
   }
 
   const merged = mergeIntakeState(storedIntakeState, patch);
