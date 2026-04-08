@@ -1487,4 +1487,148 @@ test.describe('Public widget intake flow', () => {
       });
     }
   });
+
+  test('strengthen case path sets enrichmentMode and keeps submit available', async ({
+    anonPage,
+  }, testInfo) => {
+    const practiceSlug = normalizePracticeSlug(DEFAULT_PRACTICE_SLUG);
+    const uniqueId = randomUUID().slice(0, 8);
+    const authName = `Strengthen E2E ${uniqueId}`;
+    const authEmail = `strengthen-e2e+${uniqueId}@test-blawby.com`;
+
+    await anonPage.goto(buildWidgetUrl(practiceSlug), { waitUntil: 'domcontentloaded' });
+    const { messageInput } = await prepareWidgetComposer(anonPage, authName, authEmail);
+
+    const aiLocator = anonPage.locator('[data-testid="ai-message"], [data-testid="system-message"]');
+    const streamingLocator = anonPage.locator('[id^="message-streaming-"]');
+    const terminalActionButton = anonPage.locator('button:visible').filter({ hasText: /(pay|continue|submit request)/i }).first();
+
+    const getLatestAiText = async () => {
+      const count = await aiLocator.count();
+      if (count === 0) return '';
+      return (await aiLocator.nth(count - 1).innerText().catch(() => '')).trim();
+    };
+
+    const sendAndAwait = async (text: string) => {
+      const signatureBefore = JSON.stringify(
+        await aiLocator.evaluateAll((els) => els.map((el) => (el.textContent ?? '').trim()))
+      );
+      const responsePromise = anonPage.waitForResponse(
+        (r) => r.request().method() === 'POST' && r.url().includes('/api/ai/chat') && r.status() === 200,
+        { timeout: LEAD_TURN_TIMEOUT_MS }
+      );
+      await messageInput.fill(text);
+      await anonPage.getByRole('button', { name: /send message/i }).click();
+      await responsePromise;
+      await expect.poll(
+        async () => {
+          const [sig, streamCount] = await Promise.all([
+            aiLocator.evaluateAll((els) => JSON.stringify(els.map((el) => (el.textContent ?? '').trim()))),
+            streamingLocator.count(),
+          ]);
+          return sig !== signatureBefore && streamCount === 0;
+        },
+        { timeout: LEAD_TURN_TIMEOUT_MS, message: `UI did not settle after sending: "${text}"` }
+      ).toBe(true);
+      return getLatestAiText();
+    };
+
+    // ── Get to a submittable state (description + city + state) ─────────────
+    // Turn 1: describe situation
+    await expect.poll(getLatestAiText, { timeout: LEAD_TURN_TIMEOUT_MS,
+      message: 'Expected initial situation prompt.' })
+      .toMatch(/legal situation|what'?s going on|describe|tell me/i);
+
+    await sendAndAwait('My landlord is refusing to return my security deposit after I moved out.');
+
+    // Turn 2: location
+    await sendAndAwait('Durham, NC');
+
+    // Wait for submit button to potentially appear (payment or submit path)
+    const MAX_EXTRA_TURNS = 5;
+    for (let i = 0; i < MAX_EXTRA_TURNS; i++) {
+      const isTerminalVisible = await terminalActionButton.isVisible().catch(() => false);
+      if (isTerminalVisible) break;
+
+      const latestText = await getLatestAiText();
+      if (/ready to submit|are you ready|schedule your consultation|fee/i.test(latestText)) break;
+
+      // Answer whatever the AI asks
+      if (/other party|opposing|landlord|who/i.test(latestText)) {
+        await sendAndAwait('Johnson Properties LLC');
+      } else if (/urgent|time.sensitive/i.test(latestText)) {
+        await sendAndAwait('Time-sensitive');
+      } else if (/documents|paperwork/i.test(latestText)) {
+        await sendAndAwait('Yes I have documents');
+      } else if (/outcome|hoping/i.test(latestText)) {
+        await sendAndAwait('Get my full deposit back');
+      } else {
+        await sendAndAwait('No additional details');
+      }
+    }
+
+    // ── At least "Submit request" or "Pay" must be visible now ───────────────
+    await expect(terminalActionButton, 'Expected submit/pay button after completing core intake fields.')
+      .toBeVisible({ timeout: 15000 });
+
+    // ── "Strengthen my case first" should also be visible ───────────────────
+    const strengthenButton = anonPage.getByRole('button', { name: /strengthen my case/i });
+    await expect(strengthenButton, 'Expected "Strengthen my case first" button alongside Submit.')
+      .toBeVisible({ timeout: 5000 });
+
+    await testInfo.attach('strengthen-before-click-buttons.json', {
+      body: JSON.stringify(
+        await anonPage.locator('button:visible').allInnerTexts().catch(() => []),
+        null, 2
+      ),
+      contentType: 'application/json',
+    });
+
+    // ── Click "Strengthen my case first" ────────────────────────────────────
+    const applyIntakeFieldsPromise = anonPage.waitForResponse(
+      (r) => r.request().method() === 'PATCH' && r.url().includes('/api/conversations/'),
+      { timeout: 10000 }
+    ).catch(() => null);
+
+    await strengthenButton.click();
+
+    // enrichmentMode should be persisted via PATCH
+    const applyResponse = await applyIntakeFieldsPromise;
+    if (applyResponse) {
+      expect(
+        applyResponse.status(),
+        'applyIntakeFields PATCH should succeed'
+      ).toBeLessThan(500);
+    }
+
+    // ── AI should respond with a question focused on opposing party ──────────
+    await expect.poll(
+      getLatestAiText,
+      {
+        timeout: LEAD_TURN_TIMEOUT_MS,
+        message: 'After strengthen_case, AI should ask about opposing party first.',
+      }
+    ).toMatch(/other party|opposing|who|landlord|employer|spouse|entity|involved/i);
+
+    // ── Submit/Pay button must still be visible alongside AI question ────────
+    await expect(
+      terminalActionButton,
+      'Submit/Pay button must remain available during enrichment mode.'
+    ).toBeVisible({ timeout: 5000 });
+
+    // ── Strength ring button (case strength indicator) should be visible ─────
+    const strengthRingButton = anonPage.getByRole('button', { name: /case strength/i });
+    await expect(
+      strengthRingButton,
+      'Case strength ring should be visible in consult conversation header.'
+    ).toBeVisible({ timeout: 5000 });
+
+    await testInfo.attach('strengthen-after-click-buttons.json', {
+      body: JSON.stringify(
+        await anonPage.locator('button:visible').allInnerTexts().catch(() => []),
+        null, 2
+      ),
+      contentType: 'application/json',
+    });
+  });
 });

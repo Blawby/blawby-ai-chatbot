@@ -22,7 +22,10 @@ export const resolveStrengthTier = (state: IntakeConversationState | null): Stre
     hasLocation,
     hasOpposingParty,
     hasDesiredOutcome,
-    hasUrgency
+    hasUrgency,
+    Boolean(state?.hasDocuments !== null && state?.hasDocuments !== undefined),
+    Boolean(state?.householdSize),
+    Boolean(state?.courtDate),
   ].filter(Boolean).length;
 
   // 1. None: Literally nothing shared yet

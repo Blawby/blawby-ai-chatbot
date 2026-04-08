@@ -35,10 +35,12 @@ export interface IntakeConversationState {
   desiredOutcome: string | null;
   courtDate: string | null;
   hasDocuments: boolean | null;
+  householdSize?: number | null;
   turnCount: number;
   ctaShown: boolean;
   ctaResponse: 'ready' | 'not_yet' | null;
   notYetCount: number;
+  enrichmentMode?: boolean | null;
 }
 
 export interface ConsultationSubmissionState {
@@ -94,8 +96,10 @@ export type IntakeFieldsPayload = {
   desiredOutcome?: string;
   courtDate?: string;
   hasDocuments?: boolean;
+  householdSize?: number;
   ctaShown?: boolean;
   intakeReady?: boolean;
+  enrichmentMode?: boolean | null;
 };
 
 export type IntakeFieldChangeOptions = {

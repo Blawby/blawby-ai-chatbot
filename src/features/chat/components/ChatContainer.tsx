@@ -75,6 +75,7 @@ export interface ChatContainerProps {
   onSlimFormContinue?: (data: ContactData) => void | Promise<void>;
   onSlimFormDismiss?: () => void | Promise<void>;
   onBuildBrief?: () => void;
+  onStrengthenCase?: () => void;
   onSubmitNow?: () => void | Promise<void>;
   slimContactDraft?: {
     name: string;
@@ -142,6 +143,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   onSlimFormContinue,
   onSlimFormDismiss,
   onBuildBrief,
+  onStrengthenCase,
   onSubmitNow,
   slimContactDraft,
   clearInput,
@@ -461,6 +463,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
                   onQuickReply={handleQuickReply}
                   onSubmitNow={handleSubmitNowAction}
                   onBuildBrief={onBuildBrief}
+                  onStrengthenCase={onStrengthenCase}
                   modeSelectorActions={onSelectMode ? {
                     onAskQuestion: handleAskQuestion,
                     onRequestConsultation: handleRequestConsultation

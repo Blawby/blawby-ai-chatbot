@@ -73,6 +73,7 @@ interface MessageActionsProps {
 	onActionReply?: (text: string) => void;
 	onSubmitNow?: () => void | Promise<void>;
 	onBuildBrief?: () => void;
+	onStrengthenCase?: () => void;
 	onboardingProfile?: {
 		completionScore?: number;
 		missingFields?: string[];
@@ -111,6 +112,7 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 	onActionReply,
 	onSubmitNow,
 	onBuildBrief,
+	onStrengthenCase,
 	onboardingProfile,
 	isLast,
 	className = ''
@@ -135,6 +137,8 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 				return true;
 			case 'build_brief':
 				return Boolean(onBuildBrief);
+			case 'strengthen_case':
+				return Boolean(onStrengthenCase);
 		}
 	});
 
@@ -288,6 +292,18 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 									size="sm"
 									className="shrink-0"
 									onClick={() => onBuildBrief()}
+								>
+									{action.label}
+								</Button>
+							) : null
+						) : action.type === 'strengthen_case' ? (
+							onStrengthenCase ? (
+								<Button
+									key={getChatActionKey(action, idx)}
+									variant={action.variant === 'primary' ? 'primary' : 'secondary'}
+									size="sm"
+									className="shrink-0"
+									onClick={() => onStrengthenCase()}
 								>
 									{action.label}
 								</Button>

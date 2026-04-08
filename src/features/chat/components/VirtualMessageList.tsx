@@ -62,6 +62,7 @@ interface VirtualMessageListProps {
     hasSlimContactDraft?: boolean;
     onSubmitNow?: () => void | Promise<void>;
     onBuildBrief?: () => void;
+    onStrengthenCase?: () => void;
     onQuickReply?: (text: string) => void;
     modeSelectorActions?: {
         onAskQuestion: () => void;
@@ -97,6 +98,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
     hasSlimContactDraft = false,
     onSubmitNow,
     onBuildBrief,
+    onStrengthenCase,
     onQuickReply,
     modeSelectorActions,
 
@@ -781,6 +783,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                                 onActionReply={onQuickReply}
                                 onSubmitNow={onSubmitNow}
                                 onBuildBrief={onBuildBrief}
+                                onStrengthenCase={onStrengthenCase}
                                 onboardingProfile={onboardingProfile}
                                 isLast={isLast}
                             />

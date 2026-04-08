@@ -75,6 +75,7 @@ interface BackendIntakeCreatePayload {
   has_documents?: boolean;
   // income is intentionally omitted — free-text string incompatible with backend number type
   household_size?: number;
+  practice_area?: string;
   city?: string;
   state?: string;
 }
@@ -259,6 +260,7 @@ const buildIntakePayload = (
   // income is intentionally omitted — the backend expects a number but extraction returns free-text;
   // if sliding-scale eligibility is needed, handle it in a separate dedicated flow.
   if (typeof intake?.householdSize === 'number') payload.household_size = intake.householdSize;
+  if (intake?.practiceArea) payload.practice_area = intake.practiceArea;
 
   return payload;
 };

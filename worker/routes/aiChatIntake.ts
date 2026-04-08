@@ -277,7 +277,10 @@ const deriveNextActions = (
 
   // All required fields collected — either payment or submit
   if (isIntakeSubmittable(mergedState, submissionGate)) {
-    return [createSubmitAction(submissionGate.paymentRequiredBeforeSubmit && !submissionGate.paymentCompleted ? payLabel : 'Submit request')];
+    return [
+      createSubmitAction(submissionGate.paymentRequiredBeforeSubmit && !submissionGate.paymentCompleted ? payLabel : 'Submit request'),
+      { type: 'strengthen_case', label: 'Strengthen my case first' } as ChatMessageAction,
+    ];
   }
 
   // Payment required (case info complete, payment pending)
@@ -286,7 +289,10 @@ const deriveNextActions = (
     !submissionGate.paymentCompleted &&
     isIntakeReadyForSubmission(mergedState)
   ) {
-    return [createSubmitAction(payLabel)];
+    return [
+      createSubmitAction(payLabel),
+      { type: 'strengthen_case', label: 'Strengthen my case first' } as ChatMessageAction,
+    ];
   }
 
   return [];
@@ -315,6 +321,8 @@ export const buildIntakeSystemPrompt = (
   const userSalutationSnippet = firstName ? `The user's first name is ${firstName}. ` : '';
   const userNamingInstruction = firstName ? ' (use their name)' : '';
 
+  const isEnrichmentMode = storedIntakeState?.enrichmentMode === true;
+
   return `${userSalutationSnippet}You are a warm, helpful legal intake assistant for ${practiceName}. Your job is to collect case information conversationally and call tools to save it.
 
 This firm handles the following practice areas:
@@ -334,14 +342,26 @@ Conversation rules:
 - Never output raw JSON, tool names, or structured data in your reply text
 - You MUST always write a conversational response. Never call a tool without also writing text.
 - Infer urgency from the facts when you reasonably can. Do not ask about urgency unless it is genuinely unclear and important for routing.
+- Infer desiredOutcome from the facts when you reasonably can. Do not ask unless genuinely unclear.
 - Documents are optional context. Do not block submission on whether the user has documents.
 - Once description, city, and state are captured, prioritize getting the person to submit instead of asking optional enrichment questions.
 
 - If a consultation fee is required: Acknowledge that you have their details warmly${userNamingInstruction}. Mention the fee softly as the next step to move forward with a review. Max 2 sentences.
 - If no fee is required: Acknowledge that you have their details warmly${userNamingInstruction} and ask if they are ready to send it over for review.
+${isEnrichmentMode ? `
+The user has chosen to strengthen their case before submitting.
+Ask about these fields in order, one at a time, only if not already collected:
+1. opposingParty — ask if a specific person or entity is involved (skip if already known)
+2. hasDocuments — do they have any relevant documents
+3. householdSize — only if relevant (skip for business matters)
 
+For desiredOutcome: infer it from what has already been said and save it via save_case_details without asking. Only ask if it is genuinely impossible to infer.
+After each answer, call save_case_details with the new field.
+The submit action remains available at any time — never tell the user they must answer more questions.
+` : ''}
 ${intakeContext ? `Current intake state:\n${intakeContext}` : 'No case details collected yet. Start by asking about the situation.'}`;
 };
+
 
 function buildIntakeContextSummary(
   state: Record<string, unknown> | null,
