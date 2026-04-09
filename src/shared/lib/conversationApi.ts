@@ -47,6 +47,8 @@ export const updateConversationMetadata = async (
   practiceId: string,
   metadata: ConversationMetadata
 ): Promise<Conversation | null> => {
+  // The API PATCH endpoint accepts `status` as a top-level field (not inside
+  // `metadata`), so we hoist it out of the metadata object before sending.
   const { status, ...restMetadata } = metadata as Record<string, unknown>;
   const payload: Record<string, unknown> = { metadata: restMetadata };
   if (status !== undefined) {
@@ -224,7 +226,7 @@ export const fetchLatestConversationMessage = async (
     'Content-Type': 'application/json'
   };
   const params = buildPracticeParams(practiceId);
-  params.set('limit', '1');
+  params.set('limit', '5');
   params.set('source', 'preview');
   const response = await fetch(
     `/api/conversations/${encodeURIComponent(conversationId)}/messages?${params.toString()}`,
@@ -248,7 +250,8 @@ export const fetchLatestConversationMessage = async (
     return null;
   }
 
-  return data.data?.messages?.[0] ?? null;
+  const messages = data.data?.messages ?? [];
+  return messages.find((message) => message.role !== 'system') ?? messages[0] ?? null;
 };
 
 export const postConversationMessage = async (
@@ -283,7 +286,7 @@ export const postConversationMessage = async (
 export const fetchConversationMessages = async (
   conversationId: string,
   practiceId: string,
-  options: { limit?: number; cursor?: string } = {}
+  options: { limit?: number; cursor?: string; signal?: AbortSignal } = {}
 ): Promise<ConversationMessage[]> => {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json'
@@ -301,7 +304,8 @@ export const fetchConversationMessages = async (
     {
       method: 'GET',
       headers,
-      credentials: 'include'
+      credentials: 'include',
+      signal: options.signal
     }
   );
 

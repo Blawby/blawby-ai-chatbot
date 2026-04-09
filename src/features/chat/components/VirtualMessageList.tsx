@@ -37,6 +37,7 @@ export interface OnboardingActions {
 interface VirtualMessageListProps {
     messages: ChatMessageUI[];
     conversationTitle?: string | null;
+    viewerContext?: 'practice' | 'client' | 'public';
     practiceConfig?: {
         name: string;
         profileImage: string | null;
@@ -86,6 +87,7 @@ const DEBUG_PAGINATION = typeof process !== 'undefined' && process.env.NODE_ENV 
 const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
     messages,
     conversationTitle,
+    viewerContext,
     practiceConfig,
     isPublicWorkspace = false,
     onOpenSidebar,
@@ -117,7 +119,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
         }
     }, []);
 
-    const { session, activeMemberRole } = useSessionContext();
+    const { session } = useSessionContext();
     const { showError } = useToastContext();
     const dedupedMessages = useMemo(() => {
         const seenPaymentConfirm = new Set<string>();
@@ -187,7 +189,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
         src: '/blawby-favicon-iframe.png',
         name: 'Blawby'
     };
-    const isPracticeViewer = Boolean(activeMemberRole && activeMemberRole !== 'client');
+    const resolvedViewerContext = viewerContext ?? (isPublicWorkspace ? 'public' : 'client');
 
     const resolveAvatar = (message: ChatMessageUI) => {
         const mockAvatar = message.metadata?.avatar as { src?: string | null; name: string } | undefined;
@@ -211,7 +213,18 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
         if (message.isUser) {
             return currentUserProfile;
         }
-        return isPracticeViewer ? clientProfile : practiceProfile;
+
+        const senderType = typeof message.metadata?.senderType === 'string'
+            ? message.metadata.senderType
+            : null;
+        if (senderType === 'client') {
+            return clientProfile;
+        }
+        if (senderType === 'team_member') {
+            return practiceProfile;
+        }
+
+        return resolvedViewerContext === 'practice' ? clientProfile : practiceProfile;
     };
 
     const resolveModeSelector = (message: ChatMessageUI) => {

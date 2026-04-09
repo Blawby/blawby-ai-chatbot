@@ -99,7 +99,9 @@ function triageLabel(status?: string) {
 type IntakeDetailPageProps = {
   practiceId: string | null;
   intakeId: string;
-  basePath?: string;
+  conversationsBasePath?: string | null;
+  practiceName: string;
+  practiceLogo: string | null;
   onBack: () => void;
   onTriageComplete?: () => void;
 };
@@ -107,7 +109,9 @@ type IntakeDetailPageProps = {
 export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
   practiceId,
   intakeId,
-  basePath = '/practice/intakes',
+  conversationsBasePath: conversationsBasePathProp,
+  practiceName,
+  practiceLogo,
   onBack,
   onTriageComplete,
 }) => {
@@ -168,10 +172,6 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
     setTriageReason('');
   }, [isSubmitting]);
 
-  const conversationsBasePath = basePath.endsWith('/intakes')
-    ? `${basePath.slice(0, -'/intakes'.length)}/conversations`
-    : `${basePath}/conversations`;
-
   useEffect(() => {
     const conversationId = intake?.conversation_id;
     const targetPracticeId = intake?.organization_id;
@@ -184,7 +184,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
     const controller = new AbortController();
     setPreviewLoading(true);
 
-    fetchConversationMessages(conversationId, targetPracticeId, { limit: 100 })
+    fetchConversationMessages(conversationId, targetPracticeId, { limit: 100, signal: controller.signal })
       .then((messages) => {
         if (!isMountedRef.current || controller.signal.aborted) return;
         const mappedMessages = messages.map((message) => ({
@@ -222,6 +222,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
         ? reason.trim()
         : undefined;
       let inviteErrorMessage: string | null = null;
+      let participantFailed = false;
       const result = await updateIntakeTriageStatus(intakeId, {
         status: action,
         reason: trimmedReason,
@@ -250,6 +251,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
             }
           );
           if (!participantRes.ok) {
+            participantFailed = true;
             console.warn('[IntakeDetailPage] Failed to add participant', {
               status: participantRes.status,
               statusText: participantRes.statusText,
@@ -259,6 +261,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
             });
           }
         } catch (participantErr) {
+          participantFailed = true;
           console.warn('[IntakeDetailPage] Failed to add participant', participantErr);
         }
 
@@ -334,14 +337,17 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
           showSuccess(
             action === 'accepted' ? 'Consultation accepted' : 'Consultation declined',
             action === 'accepted'
-              ? (trimmedReason
-                ? 'The client has been notified, the conversation is now active, and your note was added.'
-                : 'The client has been notified and the conversation is now active.')
+              ? (participantFailed
+                ? 'The client has been notified and the conversation is now active, but you may need to join the conversation manually.'
+                : (trimmedReason
+                  ? 'The client has been notified, the conversation is now active, and your note was added.'
+                  : 'The client has been notified and the conversation is now active.'))
               : 'The client has been notified.'
           );
         }
         if (action === 'accepted' && responseConversationId) {
-          navigate(`${conversationsBasePath}/${encodeURIComponent(responseConversationId)}`);
+          onTriageComplete?.();
+          navigate(`${conversationsBasePathProp}/${encodeURIComponent(responseConversationId)}`);
           return;
         }
         onTriageComplete?.();
@@ -353,7 +359,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
     } finally {
       if (isMountedRef.current) setIsSubmitting(false);
     }
-  }, [conversationsBasePath, intake, intakeId, isSubmitting, navigate, onTriageComplete, session?.user, showError, showSuccess]);
+  }, [conversationsBasePathProp, intake, intakeId, isSubmitting, navigate, onTriageComplete, session?.user, showError, showSuccess]);
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -518,6 +524,13 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
                     ) : (
                       <VirtualMessageList
                         messages={previewMessages}
+                        conversationTitle={intake.metadata?.name ?? null}
+                        viewerContext="practice"
+                        practiceConfig={{
+                          name: practiceName,
+                          profileImage: practiceLogo,
+                          practiceId: intake.organization_id,
+                        }}
                         practiceId={intake.organization_id}
                       />
                     )}
@@ -528,7 +541,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
                   <Button
                     variant="secondary"
                     className="w-full"
-                    onClick={() => intake.conversation_id && navigate(`${conversationsBasePath}/${encodeURIComponent(intake.conversation_id)}`)}
+                    onClick={() => intake.conversation_id && navigate(`${conversationsBasePathProp}/${encodeURIComponent(intake.conversation_id)}`)}
                     disabled={!intake.conversation_id}
                   >
                     Join conversation
