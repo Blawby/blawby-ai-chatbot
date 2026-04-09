@@ -15,18 +15,27 @@ import { UserCard } from '@/shared/ui/profile';
 import { DetailHeader } from '@/shared/ui/layout/DetailHeader';
 import { Page } from '@/shared/ui/layout/Page';
 import { LoadingBlock } from '@/shared/ui/layout/LoadingBlock';
+import { Dialog, DialogBody, DialogFooter } from '@/shared/ui/dialog';
+import { Textarea } from '@/shared/ui/input';
+import { useNavigation } from '@/shared/utils/navigation';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import {
   getPracticeIntake,
+  triggerIntakeInvite,
   updateIntakeTriageStatus,
   type PracticeIntakeDetail,
 } from '@/features/intake/api/intakesApi';
-import { postSystemMessage } from '@/shared/lib/conversationApi';
+import {
+  fetchConversationMessages,
+  postConversationMessage,
+  postSystemMessage,
+  updateConversationMetadata,
+} from '@/shared/lib/conversationApi';
 import { formatLongDate } from '@/shared/utils/dateFormatter';
-import { useConversation } from '@/shared/hooks/useConversation';
 import VirtualMessageList from '@/features/chat/components/VirtualMessageList';
 import { ChatBubbleLeftRightIcon } from '@heroicons/react/24/outline';
+import type { ChatMessageUI } from '../../../../worker/types';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -98,9 +107,11 @@ type IntakeDetailPageProps = {
 export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
   practiceId,
   intakeId,
+  basePath = '/practice/intakes',
   onBack,
   onTriageComplete,
 }) => {
+  const { navigate } = useNavigation();
   const { showSuccess, showError } = useToastContext();
   const { session } = useSessionContext();
 
@@ -109,6 +120,10 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [localTriageStatus, setLocalTriageStatus] = useState<string | null>(null);
+  const [triageDialogAction, setTriageDialogAction] = useState<'accepted' | 'declined' | null>(null);
+  const [triageReason, setTriageReason] = useState('');
+  const [previewMessages, setPreviewMessages] = useState<ChatMessageUI[]>([]);
+  const [previewLoading, setPreviewLoading] = useState(false);
   const isMountedRef = useRef(true);
 
   useEffect(() => {
@@ -141,24 +156,89 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
     return () => controller.abort();
   }, [practiceId, intakeId]);
 
-  const runTriage = useCallback(async (action: 'accepted' | 'declined') => {
+  const closeTriageDialog = useCallback(() => {
+    if (isSubmitting) return;
+    setTriageDialogAction(null);
+    setTriageReason('');
+  }, [isSubmitting]);
+
+  const openTriageDialog = useCallback((action: 'accepted' | 'declined') => {
+    if (isSubmitting) return;
+    setTriageDialogAction(action);
+    setTriageReason('');
+  }, [isSubmitting]);
+
+  const conversationsBasePath = basePath.endsWith('/intakes')
+    ? `${basePath.slice(0, -'/intakes'.length)}/conversations`
+    : `${basePath}/conversations`;
+
+  useEffect(() => {
+    const conversationId = intake?.conversation_id;
+    const targetPracticeId = intake?.organization_id;
+    if (!conversationId || !targetPracticeId) {
+      setPreviewMessages([]);
+      setPreviewLoading(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    setPreviewLoading(true);
+
+    fetchConversationMessages(conversationId, targetPracticeId, { limit: 100 })
+      .then((messages) => {
+        if (!isMountedRef.current || controller.signal.aborted) return;
+        const mappedMessages = messages.map((message) => ({
+          id: message.id,
+          role: message.role,
+          content: message.content,
+          timestamp: new Date(message.created_at).getTime(),
+          reply_to_message_id: message.reply_to_message_id ?? null,
+          metadata: message.metadata ?? undefined,
+          isUser: message.user_id === session?.user?.id,
+          seq: message.seq,
+        } satisfies ChatMessageUI));
+        setPreviewMessages(mappedMessages);
+      })
+      .catch((err) => {
+        if (!isMountedRef.current || controller.signal.aborted) return;
+        console.warn('[IntakeDetailPage] Failed to load conversation preview', err);
+        setPreviewMessages([]);
+      })
+      .finally(() => {
+        if (isMountedRef.current && !controller.signal.aborted) {
+          setPreviewLoading(false);
+        }
+      });
+
+    return () => controller.abort();
+  }, [intake?.conversation_id, intake?.organization_id, session?.user?.id]);
+
+  const runTriage = useCallback(async (action: 'accepted' | 'declined', reason?: string) => {
     if (isSubmitting || !intake) return;
 
     setIsSubmitting(true);
     try {
+      const trimmedReason = typeof reason === 'string' && reason.trim().length > 0
+        ? reason.trim()
+        : undefined;
+      let inviteErrorMessage: string | null = null;
       const result = await updateIntakeTriageStatus(intakeId, {
         status: action,
-        reason: action === 'declined' ? 'Declined by practice.' : undefined,
+        reason: trimmedReason,
       });
 
       const responseConversationId =
         result?.conversation_id ?? result?.conversationId ?? intake.conversation_id;
-
-      // Ensure we use the intake's organization context if available, falling back to current
-      const targetPracticeId = intake.organization_id || practiceId;
+      const targetPracticeId = intake.organization_id;
 
       // On accept: add practitioner as participant and post system message
       if (action === 'accepted' && session?.user?.id && responseConversationId && targetPracticeId) {
+        try {
+          await updateConversationMetadata(responseConversationId, targetPracticeId, { status: 'active' });
+        } catch (conversationErr) {
+          console.warn('[IntakeDetailPage] Failed to mark conversation active', conversationErr);
+        }
+
         try {
           const participantRes = await fetch(
             `/api/conversations/${encodeURIComponent(responseConversationId)}/participants?practiceId=${encodeURIComponent(targetPracticeId)}`,
@@ -186,7 +266,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
           const userName = session.user.name?.trim() || session.user.email?.trim() || 'Someone';
           await postSystemMessage(responseConversationId, targetPracticeId, {
             clientId: 'system-lead-accepted',
-            content: `— ${userName} has joined the conversation —`,
+            content: `${userName} has joined the conversation`,
             metadata: {
               systemMessageKey: 'lead_accepted',
               intakeUuid: intakeId,
@@ -196,6 +276,33 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
           });
         } catch (msgErr) {
           console.warn('[IntakeDetailPage] Failed to post join message', msgErr);
+        }
+
+        if (trimmedReason) {
+          try {
+            await postConversationMessage(responseConversationId, targetPracticeId, {
+              content: trimmedReason,
+              metadata: {
+                intakeUuid: intakeId,
+                triageStatus: 'accepted',
+                triage_status: 'accepted',
+                triageReason: trimmedReason,
+                triage_reason: trimmedReason,
+                source: 'intake-triage',
+              },
+            });
+          } catch (msgErr) {
+            console.warn('[IntakeDetailPage] Failed to post intake triage note', msgErr);
+          }
+        }
+      }
+
+      if (action === 'accepted') {
+        try {
+          await triggerIntakeInvite(intakeId);
+        } catch (inviteErr) {
+          inviteErrorMessage = inviteErr instanceof Error ? inviteErr.message : 'Failed to send client invite';
+          console.warn('[IntakeDetailPage] Failed to trigger intake invite', inviteErr);
         }
       }
 
@@ -219,12 +326,24 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
       if (isMountedRef.current) {
         setLocalTriageStatus(action);
         setIntake((prev) => prev ? { ...prev, triage_status: action, conversation_id: responseConversationId ?? prev.conversation_id } : prev);
-        showSuccess(
-          action === 'accepted' ? 'Consultation accepted' : 'Consultation declined',
-          action === 'accepted'
-            ? 'The client has been notified and the conversation is now active.'
-            : 'The client has been notified.'
-        );
+        setTriageDialogAction(null);
+        setTriageReason('');
+        if (action === 'accepted' && inviteErrorMessage) {
+          showError('Consultation accepted, but invite failed', inviteErrorMessage);
+        } else {
+          showSuccess(
+            action === 'accepted' ? 'Consultation accepted' : 'Consultation declined',
+            action === 'accepted'
+              ? (trimmedReason
+                ? 'The client has been notified, the conversation is now active, and your note was added.'
+                : 'The client has been notified and the conversation is now active.')
+              : 'The client has been notified.'
+          );
+        }
+        if (action === 'accepted' && responseConversationId) {
+          navigate(`${conversationsBasePath}/${encodeURIComponent(responseConversationId)}`);
+          return;
+        }
         onTriageComplete?.();
       }
     } catch (err) {
@@ -234,22 +353,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
     } finally {
       if (isMountedRef.current) setIsSubmitting(false);
     }
-  }, [intake, intakeId, isSubmitting, onTriageComplete, practiceId, session?.user, showError, showSuccess]);
-
-  // Load the conversation history for embedding
-  const {
-    messages,
-    messagesReady: conversationReady,
-    hasMoreMessages,
-    isLoadingMoreMessages,
-    loadMoreMessages,
-    requestMessageReactions,
-    toggleMessageReaction,
-  } = useConversation({
-    practiceId: intake?.organization_id ?? '',
-    conversationId: intake?.conversation_id ?? '',
-    enabled: !!intake?.conversation_id && !!intake?.organization_id,
-  });
+  }, [conversationsBasePath, intake, intakeId, isSubmitting, navigate, onTriageComplete, session?.user, showError, showSuccess]);
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -391,39 +495,46 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
 
             {/* Conversation History Card */}
             {intake.conversation_id && (
-              <section className="glass-card flex flex-col h-[500px] sm:h-[700px] overflow-hidden">
-                <header className="p-4 sm:p-6 lg:p-10 pb-4 sm:pb-6 border-b border-line-glass/10 flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <Icon icon={ChatBubbleLeftRightIcon} className="w-5 h-5 text-input-placeholder" />
-                    <h3 className="text-sm font-semibold text-input-text uppercase tracking-widest">
-                      Intake Conversation
-                    </h3>
+              <div className="space-y-4">
+                <section className="glass-card flex flex-col h-[500px] sm:h-[700px] overflow-hidden">
+                  <header className="p-4 sm:p-6 lg:p-10 pb-4 sm:pb-6 border-b border-line-glass/10 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <Icon icon={ChatBubbleLeftRightIcon} className="w-5 h-5 text-input-placeholder" />
+                      <h3 className="text-sm font-semibold text-input-text uppercase tracking-widest">
+                        Intake Conversation
+                      </h3>
+                    </div>
+                  </header>
+                  <div className="flex-1 min-h-0 overflow-hidden bg-surface-overlay/20 touch-pan-y">
+                    {previewLoading && previewMessages.length === 0 ? (
+                      <div className="h-full flex flex-col items-center justify-center p-6 text-center">
+                        <LoadingBlock />
+                        <p className="text-xs text-input-placeholder mt-4">Loading conversation history...</p>
+                      </div>
+                    ) : previewMessages.length === 0 ? (
+                      <div className="h-full flex flex-col items-center justify-center p-6 text-center">
+                        <p className="text-sm text-input-placeholder">No conversation history found for this intake.</p>
+                      </div>
+                    ) : (
+                      <VirtualMessageList
+                        messages={previewMessages}
+                        practiceId={intake.organization_id}
+                      />
+                    )}
                   </div>
-                </header>
-                <div className="flex-1 min-h-0 bg-surface-overlay/20">
-                  {!conversationReady && messages.length === 0 ? (
-                    <div className="h-full flex flex-col items-center justify-center p-6 text-center">
-                      <LoadingBlock />
-                      <p className="text-xs text-input-placeholder mt-4">Loading conversation history...</p>
-                    </div>
-                  ) : messages.length === 0 ? (
-                    <div className="h-full flex flex-col items-center justify-center p-6 text-center">
-                      <p className="text-sm text-input-placeholder">No conversation history found for this intake.</p>
-                    </div>
-                  ) : (
-                    <VirtualMessageList
-                      messages={messages}
-                      hasMoreMessages={hasMoreMessages}
-                      isLoadingMoreMessages={isLoadingMoreMessages}
-                      onLoadMoreMessages={loadMoreMessages}
-                      onToggleReaction={toggleMessageReaction}
-                      onRequestReactions={requestMessageReactions}
-                      practiceId={intake?.organization_id ?? practiceId ?? ''}
-                      compactLayout
-                    />
-                  )}
+                </section>
+
+                <div>
+                  <Button
+                    variant="secondary"
+                    className="w-full"
+                    onClick={() => intake.conversation_id && navigate(`${conversationsBasePath}/${encodeURIComponent(intake.conversation_id)}`)}
+                    disabled={!intake.conversation_id}
+                  >
+                    Join conversation
+                  </Button>
                 </div>
-              </section>
+              </div>
             )}
           </div>
 
@@ -439,7 +550,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
                     variant="primary"
                     className="w-full"
                     disabled={isSubmitting}
-                    onClick={() => void runTriage('accepted')}
+                    onClick={() => openTriageDialog('accepted')}
                   >
                     {isSubmitting ? 'Accepting…' : 'Accept Consultation'}
                   </Button>
@@ -448,7 +559,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
                     variant="danger"
                     className="w-full"
                     disabled={isSubmitting}
-                    onClick={() => void runTriage('declined')}
+                    onClick={() => openTriageDialog('declined')}
                   >
                     {isSubmitting ? 'Declining…' : 'Decline'}
                   </Button>
@@ -536,6 +647,59 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
           </div>
         </div>
       </div>
+
+      <Dialog
+        isOpen={triageDialogAction !== null}
+        onClose={closeTriageDialog}
+        title={triageDialogAction === 'accepted' ? 'Accept consultation' : 'Decline consultation'}
+        description={
+          triageDialogAction === 'accepted'
+            ? 'You can include an optional note. If you do, it will be posted into the conversation after you join.'
+            : 'You can include an optional reason to send with this triage decision.'
+        }
+        disableBackdropClick={isSubmitting}
+      >
+        <DialogBody className="space-y-4">
+          <div className="rounded-xl border border-line-glass/10 bg-white/[0.03] p-4">
+            <p className="text-sm text-input-placeholder">
+              {triageDialogAction === 'accepted'
+                ? 'Accepting will notify the client and move this conversation into your active inbox.'
+                : 'Declining will notify the client and mark this intake as declined.'}
+            </p>
+          </div>
+
+          <Textarea
+            label={triageDialogAction === 'accepted' ? 'Optional note to client' : 'Optional decline reason'}
+            value={triageReason}
+            onChange={setTriageReason}
+            rows={4}
+            maxLength={1000}
+            showCharCount
+            placeholder={
+              triageDialogAction === 'accepted'
+                ? 'Thanks for reaching out. I just joined this conversation and will review your intake shortly.'
+                : 'We are unable to take this consultation at this time.'
+            }
+          />
+        </DialogBody>
+        <DialogFooter>
+          <Button variant="secondary" onClick={closeTriageDialog} disabled={isSubmitting}>
+            Cancel
+          </Button>
+          <Button
+            variant={triageDialogAction === 'declined' ? 'danger' : 'primary'}
+            disabled={isSubmitting || !triageDialogAction}
+            onClick={() => {
+              if (!triageDialogAction) return;
+              void runTriage(triageDialogAction, triageReason);
+            }}
+          >
+            {isSubmitting
+              ? (triageDialogAction === 'accepted' ? 'Accepting…' : 'Declining…')
+              : (triageDialogAction === 'accepted' ? 'Confirm acceptance' : 'Confirm decline')}
+          </Button>
+        </DialogFooter>
+      </Dialog>
     </div>
   );
 };

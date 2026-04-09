@@ -8,6 +8,7 @@ import { MessageAvatar } from './MessageAvatar';
 import { MessageContent } from './MessageContent';
 import { MessageAttachments } from './MessageAttachments';
 import { MessageActions } from './MessageActions';
+import ConversationEventRow from './ConversationEventRow';
 import type { ReplyTarget } from '@/features/chat/types';
 import { ArrowUturnLeftIcon } from '@heroicons/react/24/outline';
 import { Icon } from '@/shared/ui/Icon';
@@ -123,6 +124,7 @@ interface MessageProps {
 		};
 	};
 	isLast?: boolean;
+	isSystemEvent?: boolean;
 	// Styling
 	className?: string;
 }
@@ -165,8 +167,18 @@ const Message: FunctionComponent<MessageProps> = memo(({
 	actions,
 	onActionReply,
 	onboardingProfile,
-	isLast
+	isLast,
+	isSystemEvent = false,
 }) => {
+	if (isSystemEvent) {
+		return (
+			<ConversationEventRow
+				content={content}
+				className={className}
+			/>
+		);
+	}
+
 	const hasContent = Boolean(content);
 	const shouldShowIndicator = isLoading && !hasContent;
 	

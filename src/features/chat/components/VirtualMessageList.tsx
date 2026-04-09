@@ -738,6 +738,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                     const renderKey = stableClientId
                         ? `client-${stableClientId}`
                         : (message.id ? `message-${message.id}` : fallbackIndexKey);
+                    const isSystemEvent = message.role === 'system' && message.metadata?.source !== 'ai';
 
                     return (
                             <Message
@@ -789,6 +790,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                                 onStrengthenCase={onStrengthenCase}
                                 onboardingProfile={onboardingProfile}
                                 isLast={isLast && !isStreamingMessage}
+                                isSystemEvent={isSystemEvent}
                             />
                         );
                     })}

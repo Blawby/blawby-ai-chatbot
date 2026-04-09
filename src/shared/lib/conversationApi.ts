@@ -251,6 +251,77 @@ export const fetchLatestConversationMessage = async (
   return data.data?.messages?.[0] ?? null;
 };
 
+export const postConversationMessage = async (
+  conversationId: string,
+  practiceId: string,
+  payload: {
+    content: string;
+    metadata?: Record<string, unknown>;
+    replyToMessageId?: string | null;
+  }
+): Promise<ConversationMessage | null> => {
+  const params = buildPracticeParams(practiceId);
+  const response = await fetch(
+    `/api/conversations/${encodeURIComponent(conversationId)}/messages?${params.toString()}`,
+    {
+      method: 'POST',
+      headers: withWidgetAuthHeaders({ 'Content-Type': 'application/json' }),
+      credentials: 'include',
+      body: JSON.stringify(payload)
+    }
+  );
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({})) as { error?: string };
+    throw new Error(errorData.error || `HTTP ${response.status}`);
+  }
+
+  const data = await response.json() as { success: boolean; data?: { message?: ConversationMessage } };
+  return data.data?.message ?? null;
+};
+
+export const fetchConversationMessages = async (
+  conversationId: string,
+  practiceId: string,
+  options: { limit?: number; cursor?: string } = {}
+): Promise<ConversationMessage[]> => {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json'
+  };
+  const params = buildPracticeParams(practiceId);
+  if (options.limit != null) {
+    params.set('limit', String(options.limit));
+  }
+  if (options.cursor) {
+    params.set('cursor', options.cursor);
+  }
+
+  const response = await fetch(
+    `/api/conversations/${encodeURIComponent(conversationId)}/messages?${params.toString()}`,
+    {
+      method: 'GET',
+      headers,
+      credentials: 'include'
+    }
+  );
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({})) as { error?: string };
+    throw new Error(errorData.error || `HTTP ${response.status}`);
+  }
+
+  const data = await response.json().catch(() => null) as {
+    success?: boolean;
+    data?: { messages?: ConversationMessage[] };
+  } | null;
+
+  if (!data?.success) {
+    throw new Error('Failed to fetch messages');
+  }
+
+  return data.data?.messages ?? [];
+};
+
 export const fetchMessageReactions = async (
   conversationId: string,
   messageId: string,

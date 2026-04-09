@@ -241,6 +241,55 @@ export async function handleConversations(request: Request, env: Env): Promise<R
     return createJsonResponse(result, responseHeaders);
   }
 
+  // POST /api/conversations/:id/messages - Send a chat message
+  if (segments.length === 4 && segments[3] === 'messages' && request.method === 'POST') {
+    const requestWithContext = await withPracticeContext(request, env, {
+      requirePractice: true,
+      authContext,
+      allowAuthenticatedUrlPracticeId: true,
+    });
+    const conversationId = segments[2];
+    const conversationPracticeId = getPracticeId(requestWithContext);
+
+    if (authContext.isAnonymous) {
+      await conversationService.validateParticipantAccess(conversationId, conversationPracticeId, userId, { previousAnonUserId: prevAnonId });
+    } else {
+      const membership = await checkPracticeMembership(request, env, conversationPracticeId, { authContext });
+      if (isStaffMemberRole(membership.memberRole)) {
+        await requirePracticeMember(request, env, conversationPracticeId, 'paralegal');
+      } else {
+        await conversationService.validateParticipantAccess(conversationId, conversationPracticeId, userId, { previousAnonUserId: prevAnonId });
+      }
+    }
+
+    const body = await parseJsonBody(request) as {
+      content?: string;
+      metadata?: Record<string, unknown>;
+      replyToMessageId?: string | null;
+    };
+
+    const content = typeof body.content === 'string' ? body.content.trim() : '';
+    if (!content) {
+      throw HttpErrors.badRequest('content is required');
+    }
+
+    const metadata = (body.metadata && typeof body.metadata === 'object' && !Array.isArray(body.metadata))
+      ? body.metadata as Record<string, unknown>
+      : undefined;
+
+    const storedMessage = await conversationService.sendMessage({
+      conversationId,
+      practiceId: conversationPracticeId,
+      senderUserId: userId,
+      content,
+      metadata,
+      replyToMessageId: typeof body.replyToMessageId === 'string' ? body.replyToMessageId : null,
+      request
+    });
+
+    return createJsonResponse({ message: storedMessage });
+  }
+
   // GET/POST/DELETE /api/conversations/:id/messages/:messageId/reactions
   if (segments.length === 6 && segments[3] === 'messages' && segments[5] === 'reactions') {
     const requestWithContext = await withPracticeContext(request, env, {
