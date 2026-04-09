@@ -6,6 +6,8 @@ import type { SessionContextValue } from '@/shared/contexts/SessionContext';
 import { withWidgetAuthHeaders } from '@/shared/utils/widgetAuth';
 import { clearConsultationMetadata } from '@/shared/utils/consultationState';
 
+const SESSION_READY_TIMEOUT_MS = 8_000;
+
 export interface UseConversationSetupOptions {
   practiceId?: string;
   workspace: string;
@@ -27,7 +29,7 @@ export interface UseConversationSetupResult {
   setConversationMode: (mode: ConversationMode | null) => void;
   isCreatingConversation: boolean;
   createConversation: () => Promise<string | null>;
-  ensureConversation: (options?: { waitForSessionReadyMs?: number }) => Promise<string | null>;
+  ensureConversation: () => Promise<string | null>;
   handleModeSelection: (mode: ConversationMode, source: 'intro_gate' | 'composer_footer', startConsultFlow: (id: string) => void) => Promise<void>;
   handleStartNewConversation: (mode: ConversationMode, startConsultFlow: (id: string) => void) => Promise<string>;
   applyConversationMode: (
@@ -76,6 +78,11 @@ export function useConversationSetup({
   // Update ref synchronously during render to prevent staleness
   activeConversationIdRef.current = activeConversationId;
 
+  // Session is ready once isPending has settled (anonymous or authenticated)
+  const sessionReady = !sessionIsPending;
+  const sessionReadyRef = useRef(sessionReady);
+  sessionReadyRef.current = sessionReady;
+
   // Wrapped setter that updates both state and ref
   const setConversationIdWithRef = useCallback((id: string | null) => {
     setConversationId(id);
@@ -103,6 +110,20 @@ export function useConversationSetup({
       // Ignore write errors (private browsing etc.)
     }
   }, [conversationCacheKey, activeConversationId]);
+
+  // Gate: resolves when the session has settled (isPending → false).
+  // Public workspaces skip the gate since they work with anonymous sessions.
+  const waitForSessionReady = useCallback(async (): Promise<void> => {
+    if (isPublicWorkspace) return;
+    if (sessionReadyRef.current) return;
+    const start = Date.now();
+    while (!sessionReadyRef.current) {
+      if (Date.now() - start > SESSION_READY_TIMEOUT_MS) {
+        throw new Error('Session is not ready. Please try again in a moment.');
+      }
+      await new Promise<void>((resolve) => setTimeout(resolve, 200));
+    }
+  }, [isPublicWorkspace]);
 
   const createConversation = useCallback(async (): Promise<string | null> => {
     if (isPracticeWorkspace) return null;
@@ -156,37 +177,17 @@ export function useConversationSetup({
     }
   }, [isPracticeWorkspace, practiceId, currentUserId, setConversationIdWithRef]);
 
-  const ensureConversation = useCallback(async (options?: { waitForSessionReadyMs?: number }): Promise<string | null> => {
+  const ensureConversation = useCallback(async (): Promise<string | null> => {
     // Read from ref to get latest value and avoid stale closure
     if (activeConversationIdRef.current) return activeConversationIdRef.current;
 
-    let resolvedConversationId = await createConversation();
-    const waitForSessionReadyMs = Math.max(0, options?.waitForSessionReadyMs ?? 0);
+    // Wait for the session to settle before attempting to create a conversation,
+    // so we don't inadvertently create an anonymous conversation for an
+    // authenticated user whose session is still loading.
+    await waitForSessionReady();
 
-    if (!resolvedConversationId && waitForSessionReadyMs > 0) {
-      const deadline = Date.now() + waitForSessionReadyMs;
-      while (!resolvedConversationId && Date.now() < deadline) {
-        await new Promise<void>((resolve) => setTimeout(resolve, 300));
-        
-        // Check if conversation became available by reading from ref
-        if (activeConversationIdRef.current) {
-          return activeConversationIdRef.current;
-        }
-        
-        // Wait until isCreatingRef.current is false before retrying
-        while (isCreatingRef.current && Date.now() < deadline) {
-          await new Promise<void>((resolve) => setTimeout(resolve, 100));
-        }
-        
-        // Try again if we're not creating and still within deadline
-        if (!isCreatingRef.current && Date.now() < deadline) {
-          resolvedConversationId = await createConversation();
-        }
-      }
-    }
-
-    return resolvedConversationId;
-  }, [createConversation]);
+    return createConversation();
+  }, [createConversation, waitForSessionReady]);
 
   const restoreConversationFromCache = useCallback(async (): Promise<string | null> => {
     if (!conversationCacheKey || !practiceId || !currentUserId) return null;
@@ -315,7 +316,7 @@ export function useConversationSetup({
     isSelectingRef.current = true;
     try {
       if (!practiceId) throw new Error('Practice context is required');
-      const newId = await ensureConversation({ waitForSessionReadyMs: 3000 });
+      const newId = await ensureConversation();
       if (!newId) throw new Error('Unable to create conversation');
       await applyConversationMode(nextMode, newId, 'home_cta', startConsultFlow);
       return newId;
