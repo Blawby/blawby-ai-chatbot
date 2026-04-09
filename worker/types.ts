@@ -154,6 +154,9 @@ export interface Env {
   CLOUDFLARE_API_TOKEN?: string;
   CLOUDFLARE_PUBLIC_URL?: string;
   CF_AIG_TOKEN?: string;
+  CF_AIG_GATEWAY_NAME?: string;
+  AI_PROVIDER?: string;
+  AI_MODEL?: string;
   DOMAIN?: string;
   BETTER_AUTH_URL?: string;
   WIDGET_AUTH_TOKEN_SECRET?: string;

@@ -170,11 +170,10 @@ export class ChatRoom {
       throw error;
     }
 
-    const isMember = await this.isConversationMember(conversationId, auth.user.id);
-    let isPracticeMember = false;
-    if (!isMember) {
-      isPracticeMember = await this.isPracticeMember(request, conversationId);
-      if (!isPracticeMember) {
+    const isPracticeMember = await this.isPracticeMember(request, conversationId);
+    if (!isPracticeMember) {
+      const isMember = await this.isConversationMember(conversationId, auth.user.id);
+      if (!isMember) {
         return new Response('Forbidden', { status: 403 });
       }
     }
@@ -327,22 +326,6 @@ export class ChatRoom {
     attachment: ConnectionAttachment,
     frame: ClientFrame
   ): Promise<void> {
-    try {
-      const rawConversationId = this.readString(frame.data.conversation_id);
-      const rawClientId = this.readString(frame.data.client_id);
-      const rawContent = typeof frame.data.content === 'string' ? frame.data.content : '';
-      console.warn('[ChatRoom] message.send received', {
-        conversationId: rawConversationId ?? null,
-        clientId: rawClientId ?? null,
-        contentLength: rawContent.length,
-        hasAttachments: Array.isArray(frame.data.attachments) ? frame.data.attachments.length : 0,
-        hasMetadata: frame.data.metadata !== undefined && frame.data.metadata !== null,
-        requestId: frame.request_id ?? null
-      });
-    } catch {
-      console.warn('[ChatRoom] message.send received (log failure)');
-    }
-
     const conversationId = this.readString(frame.data.conversation_id);
     if (!conversationId || conversationId !== attachment.conversationId) {
       this.rejectInvalidPayload(ws, frame.request_id, 'conversation_id mismatch');
@@ -762,11 +745,11 @@ export class ChatRoom {
     const metadataJson = sanitizedMetadata ? JSON.stringify(sanitizedMetadata) : null;
 
     const shouldUpdateContent = role !== 'system' && content.trim().length > 0;
-    const persistBatch = async (includeLastMessageContent: boolean) => {
-      const convSql = shouldUpdateContent && includeLastMessageContent
+    const persistBatch = async () => {
+      const convSql = shouldUpdateContent
         ? 'UPDATE conversations SET latest_seq = ?, updated_at = ?, last_message_at = ?, last_message_content = ? WHERE id = ?'
         : 'UPDATE conversations SET latest_seq = ?, updated_at = ?, last_message_at = ? WHERE id = ?';
-      const convBindings = shouldUpdateContent && includeLastMessageContent
+      const convBindings = shouldUpdateContent
         ? [pending.allocated_seq, serverTs, serverTs, content, conversationId]
         : [pending.allocated_seq, serverTs, serverTs, conversationId];
 
@@ -806,21 +789,8 @@ export class ChatRoom {
       ]);
     };
 
-    const isMissingLastMessageContentColumn = (error: unknown): boolean => {
-      const message = error instanceof Error ? error.message : String(error);
-      return /no such column:\s*last_message_content/i.test(message);
-    };
-
     try {
-      try {
-        await persistBatch(true);
-      } catch (error) {
-        if (shouldUpdateContent && isMissingLastMessageContentColumn(error)) {
-          await persistBatch(false);
-        } else {
-          throw error;
-        }
-      }
+      await persistBatch();
     } catch (error) {
       if (this.isUniqueConstraintError(error)) {
         const existing = await this.fetchExistingMessage(conversationId, clientId);
@@ -937,18 +907,8 @@ export class ChatRoom {
     return Boolean(record);
   }
 
-  private async fetchConversationPracticeId(conversationId: string): Promise<string | null> {
-    const record = await this.env.DB.prepare(`
-      SELECT practice_id
-      FROM conversations
-      WHERE id = ?
-    `).bind(conversationId).first<{ practice_id: string } | null>();
-
-    return record?.practice_id ?? null;
-  }
-
   private async isPracticeMember(request: Request, conversationId: string): Promise<boolean> {
-    const practiceId = await this.fetchConversationPracticeId(conversationId);
+    const practiceId = await this.getPracticeId(conversationId);
     if (!practiceId) {
       return false;
     }
@@ -967,7 +927,7 @@ export class ChatRoom {
   }
 
   private async revalidatePracticeMembership(attachment: ConnectionAttachment): Promise<boolean> {
-    const practiceId = await this.fetchConversationPracticeId(attachment.conversationId);
+    const practiceId = await this.getPracticeId(attachment.conversationId);
     if (!practiceId) {
       return false;
     }
@@ -1617,7 +1577,7 @@ export class ChatRoom {
       return null;
     }
 
-    let model = DEFAULT_AI_MODEL;
+    const model = this.env.AI_MODEL || DEFAULT_AI_MODEL;
 
     const response = await aiClient.requestChatCompletions({
       model,

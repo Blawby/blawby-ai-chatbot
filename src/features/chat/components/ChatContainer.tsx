@@ -28,7 +28,6 @@ export interface ChatContainerProps {
     replyToMessageId?: string | null,
     options?: { mentionedUserIds?: string[] }
   ) => void;
-  onAddMessage?: (message: ChatMessageUI) => void;
   conversationMode?: ConversationMode | null;
   onSelectMode?: (mode: ConversationMode, source?: 'intro_gate' | 'composer_footer' | 'home_cta' | 'chat_intro' | 'slim_form_dismiss' | 'chat_selector') => void;
   onToggleReaction?: (messageId: string, emoji: string) => void;
@@ -48,8 +47,6 @@ export interface ChatContainerProps {
   layoutMode?: LayoutMode;
   onOpenSidebar?: () => void;
   practiceId?: string;
-  conversationId?: string | null;
-
   // File handling props
   previewFiles: FileAttachment[];
   uploadingFiles: UploadingFile[];
@@ -113,7 +110,6 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   conversationTitle,
   viewerContext,
   onSendMessage,
-  onAddMessage: _onAddMessage,
   conversationMode,
   isPublicWorkspace = false,
   practiceConfig,
@@ -123,7 +119,6 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   layoutMode,
   onOpenSidebar,
   practiceId,
-  conversationId: _conversationId,
   onToggleReaction,
   onRequestReactions,
   previewFiles,
@@ -170,7 +165,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   const [replyTarget, setReplyTarget] = useState<ReplyTarget | null>(null);
   const composerDockRef = useRef<HTMLDivElement>(null);
   const [composerInsetPx, setComposerInsetPx] = useState(104);
-  const isChatInputLocked = Boolean(composerDisabled) || isSessionReady === false || isSocketReady === false || intakeStatus?.step === 'contact_form_slim';
+  const isChatInputLocked = Boolean(composerDisabled) || isSessionReady === false || isSocketReady === false || (isPublicWorkspace && intakeStatus?.step === 'contact_form_slim');
   const baseMessages = isPublicWorkspace
     ? messages.filter((message) => message.metadata?.systemMessageKey !== 'ask_question_help')
     : messages;
@@ -179,16 +174,10 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     ? baseMessages.filter((message) => message.metadata?.systemMessageKey !== 'intro')
     : baseMessages;
   
-  const hasContactInfoSubmitted = Boolean(
-    intakeStatus?.intakeUuid || 
-    intakeStatus?.step === 'completed' || 
-    intakeStatus?.step === 'pending_review'
-  );
-
-  const shouldShowSlimForm = isPublicWorkspace && 
-    intakeStatus?.step === 'contact_form_slim' && 
-    conversationMode === 'REQUEST_CONSULTATION' && 
-    !hasContactInfoSubmitted &&
+  const shouldShowSlimForm = isPublicWorkspace &&
+    intakeStatus?.step === 'contact_form_slim' &&
+    conversationMode === 'REQUEST_CONSULTATION' &&
+    !intakeStatus?.intakeUuid &&
     typeof onSlimFormContinue === 'function';
   const [isDismissingSlimDrawer, setIsDismissingSlimDrawer] = useState(false);
 
@@ -268,7 +257,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     const attachments = [...previewFiles];
     const replyToMessageId = replyTarget?.messageId ?? null;
 
-    const canHandleCta = isIntakeSubmittable(intakeConversationState, {
+    const canHandleCta = isPublicWorkspace && isIntakeSubmittable(intakeConversationState, {
       paymentRequired: intakeStatus?.paymentRequired ?? null,
       paymentReceived: intakeStatus?.paymentReceived ?? null,
     }) && intakeConversationState?.ctaResponse !== 'ready';
@@ -524,12 +513,13 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
                   isReadyToUpload={isReadyToUpload}
                   isSessionReady={isSessionReady}
                   isSocketReady={isSocketReady}
-                  intakeStatus={intakeStatus}
-                  disabled={composerDisabled || intakeStatus?.step === 'contact_form_slim'}
+                  intakeStatus={isPublicWorkspace ? intakeStatus : undefined}
+                  disabled={composerDisabled || (isPublicWorkspace && intakeStatus?.step === 'contact_form_slim')}
                   replyTo={replyTarget}
                   onCancelReply={handleCancelReply}
                   mentionCandidates={mentionCandidates}
                   hideAttachmentControls={!features.enableFileAttachments}
+                  isPublicWorkspace={isPublicWorkspace}
                 />
               )}
             </div>
