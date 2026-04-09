@@ -345,7 +345,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
               : 'The client has been notified.'
           );
         }
-        if (action === 'accepted' && responseConversationId) {
+        if (action === 'accepted' && responseConversationId && conversationsBasePathProp) {
           onTriageComplete?.();
           navigate(`${conversationsBasePathProp}/${encodeURIComponent(responseConversationId)}`);
           return;
@@ -541,8 +541,8 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
                   <Button
                     variant="secondary"
                     className="w-full"
-                    onClick={() => intake.conversation_id && navigate(`${conversationsBasePathProp}/${encodeURIComponent(intake.conversation_id)}`)}
-                    disabled={!intake.conversation_id}
+                    onClick={() => intake.conversation_id && conversationsBasePathProp && navigate(`${conversationsBasePathProp}/${encodeURIComponent(intake.conversation_id)}`)}
+                    disabled={!intake.conversation_id || !conversationsBasePathProp}
                   >
                     Join conversation
                   </Button>
