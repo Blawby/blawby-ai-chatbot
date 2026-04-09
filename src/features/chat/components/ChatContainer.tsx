@@ -21,6 +21,7 @@ import { features } from '@/config/features';
 export interface ChatContainerProps {
   messages: ChatMessageUI[];
   conversationTitle?: string | null;
+  viewerContext?: 'practice' | 'client' | 'public';
   onSendMessage: (
     message: string,
     attachments: FileAttachment[],
@@ -110,6 +111,7 @@ export interface ChatContainerProps {
 const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   messages,
   conversationTitle,
+  viewerContext,
   onSendMessage,
   onAddMessage: _onAddMessage,
   conversationMode,
@@ -449,6 +451,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
                 <VirtualMessageList
                   messages={messagesReady ? filteredMessages : []}
                   conversationTitle={conversationTitle}
+                  viewerContext={viewerContext}
                   practiceConfig={practiceConfig}
                   isPublicWorkspace={isPublicWorkspace}
                   onOpenSidebar={onOpenSidebar}

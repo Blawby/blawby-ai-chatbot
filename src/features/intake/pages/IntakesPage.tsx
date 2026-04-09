@@ -22,6 +22,9 @@ interface PaginatedIntake extends IntakeListItem {
 type IntakesPageProps = {
   practiceId: string | null;
   basePath?: string;
+  conversationsBasePath?: string | null;
+  practiceName: string;
+  practiceLogo: string | null;
   renderMode?: 'full' | 'listOnly' | 'detailOnly';
   activeTriageFilter?: string | null;
   prefetchedItems?: IntakeListItem[];
@@ -76,6 +79,9 @@ const IntakeListItemRow = ({
 export const IntakesPage: FunctionComponent<IntakesPageProps> = ({
   practiceId,
   basePath = '/practice/intakes',
+  conversationsBasePath,
+  practiceName,
+  practiceLogo,
   renderMode = 'full',
   activeTriageFilter = 'all',
   prefetchedItems = [],
@@ -145,7 +151,9 @@ export const IntakesPage: FunctionComponent<IntakesPageProps> = ({
       <IntakeDetailPage
         practiceId={practiceId}
         intakeId={selectedIntakeId}
-        basePath={basePath}
+        conversationsBasePath={conversationsBasePath}
+        practiceName={practiceName}
+        practiceLogo={practiceLogo}
         onBack={handleBack}
         onTriageComplete={handleTriageComplete}
       />

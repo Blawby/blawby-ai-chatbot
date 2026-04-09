@@ -684,6 +684,7 @@ export function MainApp({
               conversationMetadata ?? null,
               conversationMetadata?.title ?? ''
             )}
+            viewerContext={isPracticeWorkspace ? 'practice' : isClientWorkspace ? 'client' : 'public'}
             onSendMessage={handleSendMessage}
             onAddMessage={addMessage}
             conversationMode={conversationMode}
@@ -1006,6 +1007,9 @@ export function MainApp({
                 practiceId={effectivePracticeId ?? practiceId}
                 activeTriageFilter={activeFilter}
                 basePath={practiceIntakesPath ?? '/practice/intakes'}
+                conversationsBasePath={conversationsBasePath}
+                practiceName={resolvedPracticeName}
+                practiceLogo={resolvedPracticeLogo}
               />
             </Suspense>
           )
