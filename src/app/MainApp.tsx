@@ -276,7 +276,7 @@ export function MainApp({
     practiceId: effectivePracticeId,
     practiceSlug: resolvedPracticeSlug ?? undefined,
     conversationId: liveConversationId ?? undefined,
-    onEnsureConversation: () => ensureConversation({ waitForSessionReadyMs: 3000 }),
+    onEnsureConversation: () => ensureConversation(),
     linkAnonymousConversationOnLoad: isPublicWorkspace,
     mode: conversationMode,
     onConversationMetadataUpdated: handleConversationMetadataUpdated,
@@ -330,7 +330,7 @@ export function MainApp({
     if (isSelectingRef.current) return;
     try {
       isSelectingRef.current = true;
-      const currentConversationId = activeConversationId ?? (isCreatingConversation ? null : await ensureConversation({ waitForSessionReadyMs: 3000 }));
+      const currentConversationId = activeConversationId ?? (isCreatingConversation ? null : await ensureConversation());
       if (!currentConversationId || !practiceId) return;
       await applyConversationMode(nextMode, currentConversationId, source, startConsultFlow);
     } catch (error) {
@@ -371,14 +371,13 @@ export function MainApp({
       }
 
       // ── Create new conversation ─────────────────────────────────────────────
-      // Poll briefly so we don't fail while auth/session state is still settling.
-      const newConversationId = await ensureConversation({ waitForSessionReadyMs: 3000 });
+      // ensureConversation waits for the session to settle before creating.
+      const newConversationId = await ensureConversation();
 
       if (!newConversationId) {
-        // Session still not ready — surface a friendly toast and bail without
-        // throwing so the caller can handle gracefully.
+        // Practice workspace or other condition where creation is not applicable.
         if (!options?.silentSessionNotReady) {
-          showErrorRef.current?.('Still setting up your session. Please try again in a moment.');
+          showErrorRef.current?.('Unable to start a conversation. Please try again in a moment.');
         }
         return Promise.reject(new SessionNotReadyError());
       }

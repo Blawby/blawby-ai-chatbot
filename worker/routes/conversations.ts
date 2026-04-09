@@ -577,11 +577,10 @@ export async function handleConversations(request: Request, env: Env): Promise<R
     return createJsonResponse({ conversations }); // Array wrapped in object
   }
 
-  // GET /api/conversations/(active|current) - Get or create current conversation
-  if (segments.length === 3 && (segments[2] === 'active' || segments[2] === 'current') && request.method === 'GET') {
+  // GET /api/conversations/active - Get or create current conversation
+  if (segments.length === 3 && segments[2] === 'active' && request.method === 'GET') {
     const practiceContext = await resolvePracticeContext({ request, env, authContext });
     const practiceId = practiceContext.practiceId;
-    const isLegacyPath = segments[2] === 'current';
     const isAnonymous = authContext.isAnonymous === true;
     const conversation = await conversationService.getOrCreateCurrentConversation(
       userId,
@@ -590,11 +589,7 @@ export async function handleConversations(request: Request, env: Env): Promise<R
       isAnonymous,
       { skipPracticeValidation: !practiceContext.isMember }
     );
-    const response = createJsonResponse({ conversation });
-    if (isLegacyPath) {
-      response.headers.set('Warning', '299 - "Deprecated path /api/conversations/current; use /api/conversations/active"');
-    }
-    return response;
+    return createJsonResponse({ conversation });
   }
 
   // GET /api/conversations/:id - Get single conversation
