@@ -11,6 +11,8 @@ import {
 import { formatFileSize } from '@/shared/utils/mediaAggregation';
 import { Fullscreen } from '@/shared/ui/dialog';
 
+const MAX_FILENAME_DISPLAY_LENGTH = 20;
+
 interface MatterFilesPanelProps {
   matterId: string;
 }
@@ -194,8 +196,8 @@ export function MatterFilesPanel({ matterId }: MatterFilesPanelProps) {
                           className="text-xs sm:text-sm font-medium text-input-text whitespace-nowrap overflow-hidden text-ellipsis"
                           title={upload.file_name}
                         >
-                          {upload.file_name.length > 20
-                            ? `${upload.file_name.substring(0, 20)}…`
+                          {upload.file_name.length > MAX_FILENAME_DISPLAY_LENGTH
+                            ? `${upload.file_name.substring(0, MAX_FILENAME_DISPLAY_LENGTH)}…`
                             : upload.file_name}
                         </div>
                         <div className="flex items-center justify-between gap-2">
@@ -209,6 +211,13 @@ export function MatterFilesPanel({ matterId }: MatterFilesPanelProps) {
                               onClick={(e: MouseEvent) => {
                                 e.stopPropagation();
                                 triggerDownload(publicUrl, upload.file_name);
+                              }}
+                              onKeyDown={(e: KeyboardEvent) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                  e.stopPropagation();
+                                  e.preventDefault();
+                                  triggerDownload(publicUrl, upload.file_name);
+                                }
                               }}
                               title="Download file"
                               className="p-1.5 surface-hover rounded-lg text-input-placeholder hover:text-input-text"
