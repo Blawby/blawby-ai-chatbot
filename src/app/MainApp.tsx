@@ -284,7 +284,7 @@ export function MainApp({
   });
 
   const {
-    messages, conversationMetadata, sendMessage, addMessage, clearMessages,
+    messages, conversationMetadata, sendMessage, addMessage: _addMessage, clearMessages,
     requestMessageReactions, toggleMessageReaction,
     intakeStatus, intakeConversationState, handleIntakeCtaResponse,
     slimContactDraft, handleSlimFormContinue, handleBuildBrief, handleSubmitNow, handleFinalizeSubmit: _handleFinalizeSubmit,
@@ -686,7 +686,6 @@ export function MainApp({
             )}
             viewerContext={isPracticeWorkspace ? 'practice' : isClientWorkspace ? 'client' : 'public'}
             onSendMessage={handleSendMessage}
-            onAddMessage={addMessage}
             conversationMode={conversationMode}
             onSelectMode={(mode, source) => { void handleModeSelection(mode, source); }}
             onToggleReaction={features.enableMessageReactions ? toggleMessageReaction : undefined}
@@ -710,7 +709,6 @@ export function MainApp({
               slug: resolvedPracticeSlug,
             }}
             practiceId={practiceId}
-            conversationId={activeConversationId ?? null}
             previewFiles={previewFiles}
             uploadingFiles={uploadingFiles}
             removePreviewFile={removePreviewFile}

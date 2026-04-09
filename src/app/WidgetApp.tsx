@@ -604,7 +604,6 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
               }}
               onOpenSidebar={() => setIsInspectorOpen(true)}
               practiceId={practiceId}
-              conversationId={activeConversationId ?? null}
               previewFiles={previewFiles}
               uploadingFiles={uploadingFiles}
               removePreviewFile={removePreviewFile}

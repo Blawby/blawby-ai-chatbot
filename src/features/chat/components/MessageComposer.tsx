@@ -9,9 +9,8 @@ import { ArrowUpIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import { features } from '@/config/features';
 import { FileAttachment } from '../../../../worker/types';
 import type { UploadingFile } from '@/shared/types/upload';
-import { Trans } from '@/shared/i18n/hooks';
+import { Trans, useTranslation } from '@/shared/i18n/hooks';
 import type { ReplyTarget } from '@/features/chat/types';
-import { useTranslation } from 'react-i18next';
 
 interface MessageComposerProps {
   inputValue: string;
@@ -41,9 +40,8 @@ interface MessageComposerProps {
   disabled?: boolean;
   replyTo?: ReplyTarget | null;
   onCancelReply?: () => void;
-  footerActions?: preact.ComponentChildren;
   hideAttachmentControls?: boolean;
-  hideMediaControls?: boolean;
+  isPublicWorkspace?: boolean;
   mentionCandidates?: Array<{
     userId: string;
     name: string;
@@ -77,9 +75,8 @@ const MessageComposer = ({
   disabled,
   replyTo,
   onCancelReply,
-  footerActions,
   hideAttachmentControls = false,
-  hideMediaControls = false,
+  isPublicWorkspace = false,
   mentionCandidates = [],
 }: MessageComposerProps) => {
   const { t } = useTranslation('common');
@@ -96,11 +93,24 @@ const MessageComposer = ({
   const highlighterRef = useRef<HTMLDivElement>(null);
   const getMentionLabel = useCallback((candidate: { name: string }) => candidate.name.trim(), []);
 
+  const getSanitizedMentionIds = useCallback(() =>
+    selectedMentionUserIds.filter(id => {
+      const candidate = mentionCandidates.find(c => c.userId === id);
+      if (!candidate) return false;
+      const label = getMentionLabel(candidate);
+      if (!label) return false;
+      const escapedLabel = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regex = new RegExp(`(^|\\s)@${escapedLabel}(?:\\s|$)`);
+      return regex.test(inputValue);
+    }),
+  [getMentionLabel, inputValue, mentionCandidates, selectedMentionUserIds]);
+
   const intakeStep = intakeStatus?.step;
-  const isIntakeLocked =
+  const isIntakeLocked = isPublicWorkspace && (
     intakeStep === 'pending_review' ||
     intakeStep === 'accepted' ||
-    intakeStep === 'rejected';
+    intakeStep === 'rejected'
+  );
   const isComposerDisabled = Boolean(disabled) || isSessionReady === false || isSocketReady === false || isIntakeLocked;
   const attachmentCount = uploadingFiles.length + previewFiles.length;
   const shouldWrapAttachments = attachmentCount > 4;
@@ -207,18 +217,7 @@ const MessageComposer = ({
     if (!inputValue.trim() && previewFiles.length === 0) return;
     if (isComposerDisabled) return;
 
-    // Validate and sanitize selectedMentionUserIds before sending
-    const sanitizedMentionIds = selectedMentionUserIds.filter(id => {
-      const candidate = mentionCandidates.find(c => c.userId === id);
-      if (!candidate) return false;
-      const label = getMentionLabel(candidate);
-      if (!label) return false;
-      // Use a more robust check that handles multi-word names and word boundaries
-      const escapedLabel = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const regex = new RegExp(`(^|\\s)@${escapedLabel}(?:\\s|$)`);
-      return regex.test(inputValue);
-    });
-
+    const sanitizedMentionIds = getSanitizedMentionIds();
     onSubmit(sanitizedMentionIds.length > 0 ? sanitizedMentionIds : undefined);
     const el = textareaRef.current;
     if (el) {
@@ -439,18 +438,7 @@ const MessageComposer = ({
                       }
                     }
                     
-                    // Validate and sanitize selectedMentionUserIds before forwarding
-                    const sanitizedMentionIds = selectedMentionUserIds.filter(id => {
-                      const candidate = mentionCandidates.find(c => c.userId === id);
-                      if (!candidate) return false;
-                      const label = getMentionLabel(candidate);
-                      if (!label) return false;
-                      const escapedLabel = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                      const regex = new RegExp(`(^|\\s)@${escapedLabel}(?:\\s|$)`);
-                      return regex.test(inputValue);
-                    });
-                    
-                    onKeyDown(event, sanitizedMentionIds);
+                    onKeyDown(event, getSanitizedMentionIds());
                   }}
                   aria-label="Message input"
                   aria-controls={mentionMenuOpen ? "mention-listbox" : undefined}
@@ -507,7 +495,7 @@ const MessageComposer = ({
             </div>
 
             <div className="col-start-3 flex items-center gap-2 flex-shrink-0 self-end">
-              {!hideMediaControls && features.enableAudioRecording && (
+              {features.enableAudioRecording && (
                 <MediaControls onMediaCapture={handleMediaCapture} onRecordingStateChange={setIsRecording} />
               )}
             </div>
@@ -516,7 +504,6 @@ const MessageComposer = ({
         </div>
 
       </form>
-      {footerActions}
     </div>
   );
 };

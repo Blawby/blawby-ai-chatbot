@@ -1,6 +1,5 @@
 import { FunctionComponent } from 'preact';
 import { useEffect } from 'preact/hooks';
-import { useLocation } from 'preact-iso';
 import { CheckCircleIcon, ClockIcon, XCircleIcon } from '@heroicons/react/24/outline';
 import { PAYMENT_CONFIRMED_STORAGE_KEY } from '@/shared/utils/intakePayments';
 import { Button } from '@/shared/ui/Button';
@@ -57,7 +56,6 @@ const OUTCOMES: Record<PaymentOutcome, OutcomeConfig> = {
 };
 
 const PaymentResultPage: FunctionComponent<{ practiceSlug?: string }> = ({ practiceSlug }) => {
-  const location = useLocation();
   const params = typeof window !== 'undefined'
     ? new URLSearchParams(window.location.search)
     : new URLSearchParams();
@@ -94,13 +92,7 @@ const PaymentResultPage: FunctionComponent<{ practiceSlug?: string }> = ({ pract
   const { Icon } = config;
 
   const handleClose = () => {
-    if (typeof window !== 'undefined' && window.opener) {
-      window.close();
-    } else if (conversationId && practiceSlug) {
-      location.route(`/client/${encodeURIComponent(practiceSlug)}`);
-    } else {
-      window.history.back();
-    }
+    window.close();
   };
 
 
