@@ -777,6 +777,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       // When the model emits tool_use blocks, execute each handler immediately
       // after streaming completes. Persist the result. No second model call.
       let lastToolResult: ToolResult | null = null;
+      let lastQuestionResult: ToolResult | null = null;
       let accumulatedIntakePatch: Record<string, unknown> = {};
 
       for (const toolCall of streamResult.toolCalls) {
@@ -811,7 +812,11 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
             mergeIntakeState(storedIntakeState, Object.keys(accumulatedIntakePatch).length > 0 ? accumulatedIntakePatch : null),
             intakeSubmissionGate,
           );
-          lastToolResult = result;
+          if (result.question) {
+            lastQuestionResult = result;
+          } else {
+            lastToolResult = result;
+          }
 
           if (result.success && result.intakeFields) {
             accumulatedIntakePatch = { ...accumulatedIntakePatch, ...result.intakeFields };
@@ -829,7 +834,9 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         }
       }
 
-      if (!accumulatedReply.trim() && !lastToolResult && !onboardingFields) {
+      const finalToolResult = lastQuestionResult ?? lastToolResult;
+
+      if (!accumulatedReply.trim() && !finalToolResult && !onboardingFields) {
         throw createAiDebugError(
           isIntakeMode
             ? 'AI returned no user-facing reply in intake mode.'
@@ -861,11 +868,14 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       let onboardingProfile: Record<string, unknown> | null = null;
       let triggerEditModal: string | null = null;
 
-      if (isIntakeMode && lastToolResult?.actions && lastToolResult.actions.length > 0) {
-        actions = lastToolResult.actions;
+      if (isIntakeMode && finalToolResult?.actions && finalToolResult.actions.length > 0) {
+        actions = finalToolResult.actions;
       }
-      if (isIntakeMode && lastToolResult?.question) {
-        intakeQuestion = lastToolResult.question;
+      if (isIntakeMode && lastQuestionResult?.question) {
+        intakeQuestion = lastQuestionResult.question;
+        if (lastQuestionResult.actions && lastQuestionResult.actions.length > 0) {
+          actions = lastQuestionResult.actions;
+        }
       }
 
       if (isOnboardingMode) {
@@ -898,18 +908,20 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
 
       if (wasToolOnly) {
         normalizationReasons.push('tool_only_completion');
-        if (isIntakeMode && lastToolResult?.success && patchToMerge) {
+        if (isIntakeMode && lastQuestionResult?.success && typeof lastQuestionResult.message === 'string' && lastQuestionResult.message.trim()) {
+          syntheticReply = lastQuestionResult.message.trim();
+        } else if (isIntakeMode && finalToolResult?.success && patchToMerge) {
           const consultationFee = readFiniteNumberField(details, ['consultationFee', 'consultation_fee']);
           syntheticReply = deriveCaseSavedAcknowledgment(
-            lastToolResult,
+            finalToolResult,
             intakeSubmissionGate,
             mergedIntakeState,
             servicesForPrompt,
             consultationFee,
             userName,
           );
-        } else if (isIntakeMode && lastToolResult?.success && typeof lastToolResult.message === 'string' && lastToolResult.message.trim()) {
-          syntheticReply = lastToolResult.message.trim();
+        } else if (isIntakeMode && finalToolResult?.success && typeof finalToolResult.message === 'string' && finalToolResult.message.trim()) {
+          syntheticReply = finalToolResult.message.trim();
         }
       }
       

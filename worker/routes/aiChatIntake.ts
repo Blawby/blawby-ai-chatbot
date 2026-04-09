@@ -120,7 +120,7 @@ export const ASK_USER_QUESTION_TOOL = {
   type: 'function',
   function: {
     name: 'ask_user_question',
-    description: 'Ask a structured question with answer options. Use this when the answer shape is known (yes/no, choices, state list).',
+    description: 'Ask a structured question with answer options. Use this when the answer shape is known (yes/no, fixed choices, state selection).',
     parameters: {
       type: 'object',
       properties: {
@@ -170,6 +170,8 @@ export interface ToolResult {
   triggerPayment?: boolean;
   triggerSubmit?: boolean;
 }
+
+type EnrichmentField = 'opposingParty' | 'hasDocuments' | 'householdSize';
 
 // ---------------------------------------------------------------------------
 // Tool handlers — persist to DB, return structured results
@@ -223,6 +225,7 @@ export const handleSaveCaseDetails = (
 
   const merged = mergeIntakeState(storedIntakeState, patch);
   const isEnrichmentMode = merged?.enrichmentMode === true;
+  const nextEnrichmentField = isEnrichmentMode ? resolveNextEnrichmentField(merged) : null;
   const isSubmittable = isIntakeSubmittable(merged, submissionGate);
 
   // Derive suggested replies for the next open field
@@ -234,7 +237,7 @@ export const handleSaveCaseDetails = (
 
   return {
     success: true,
-    message: isEnrichmentMode && isSubmittable
+    message: isEnrichmentMode && nextEnrichmentField === null
       ? 'Enrichment complete. All optional fields collected. Summarize what you have and invite the user to submit.'
       : isSubmittable
         ? 'Case details saved. All required fields collected.'
@@ -362,7 +365,19 @@ const deriveNextActions = (
   const isEnrichmentMode = mergedState.enrichmentMode === true;
 
   if (isEnrichmentMode) {
-    return [createSubmitAction(submissionGate.paymentRequiredBeforeSubmit && !submissionGate.paymentCompleted ? payLabel : 'Submit request')];
+    const submitAction = createSubmitAction(
+      submissionGate.paymentRequiredBeforeSubmit && !submissionGate.paymentCompleted
+        ? payLabel
+        : 'Submit request'
+    );
+    const nextField = resolveNextEnrichmentField(mergedState);
+    if (nextField) {
+      return [
+        ...deriveEnrichmentActions(nextField),
+        submitAction,
+      ];
+    }
+    return [submitAction];
   }
 
   // All required fields collected — either payment or submit
@@ -386,6 +401,50 @@ const deriveNextActions = (
   }
 
   return [];
+};
+
+const deriveEnrichmentActions = (nextField: EnrichmentField): ChatMessageAction[] => {
+  if (nextField === 'hasDocuments') {
+    return [
+      { type: 'reply', label: 'Yes, I have documents', value: 'Yes, I have relevant documents.' },
+      { type: 'reply', label: 'No documents', value: 'No, I do not have documents yet.' },
+    ];
+  }
+
+  if (nextField === 'householdSize') {
+    return [
+      { type: 'reply', label: '1', value: '1 person.' },
+      { type: 'reply', label: '2', value: '2 people.' },
+      { type: 'reply', label: '3', value: '3 people.' },
+      { type: 'reply', label: '4+', value: '4 or more people.' },
+    ];
+  }
+
+  return [];
+};
+
+const resolveNextEnrichmentField = (state: Record<string, unknown> | null): EnrichmentField | null => {
+  if (!state) return 'opposingParty';
+
+  const opposingParty = typeof state.opposingParty === 'string' ? state.opposingParty.trim() : '';
+  if (!opposingParty) return 'opposingParty';
+
+  if (typeof state.hasDocuments !== 'boolean') return 'hasDocuments';
+
+  if (isBusinessMatter(state)) return null;
+
+  const householdSize = state.householdSize;
+  if (!(typeof householdSize === 'number' && Number.isFinite(householdSize) && householdSize > 0)) {
+    return 'householdSize';
+  }
+
+  return null;
+};
+
+const isBusinessMatter = (state: Record<string, unknown>): boolean => {
+  const practiceArea = typeof state.practiceArea === 'string' ? state.practiceArea.trim().toLowerCase() : '';
+  if (!practiceArea) return false;
+  return /business|corporate|commercial|enterprise|company|llc|inc|startup/.test(practiceArea);
 };
 
 // ---------------------------------------------------------------------------
@@ -422,7 +481,7 @@ Tool usage rules:
 - Call save_case_details when you have description, city, and state at minimum. You can call it again as more fields are collected.
 - Call request_payment when all required case details are gathered AND the practice requires payment.
 - Call submit_intake only when the user explicitly says they are ready to submit.
-- Use ask_user_question whenever the answer shape is known (yes/no, fixed choices, or state selection).
+- Use ask_user_question for known-answer-shape questions (yes/no, fixed choices, state selection).
 - Never call a tool mid-sentence. Finish your message, then call the tool, or call first then continue.
 
 Conversation rules:
@@ -443,10 +502,15 @@ Conversation rules:
 - If no fee is required: Acknowledge that you have their details warmly${userNamingInstruction} and ask if they are ready to send it over for review.
 ${isEnrichmentMode ? `
 The user has chosen to strengthen their case. You are in enrichment mode.
-Ask EXACTLY ONE question at a time and wait for the answer.
-Use ask_user_question for any question with a known answer shape.
-When asking location, if service_states/service_jurisdictions are available in practice context, ask for state first using ask_user_question options, then ask city as free text.
-For desiredOutcome and urgency: infer when possible and save via save_case_details without asking unless genuinely unclear.
+Ask about EXACTLY ONE field per message — the next uncollected field in this priority order:
+1. opposingParty — ask if a specific person or entity is involved (skip if already known)
+2. hasDocuments — do they have any relevant documents
+3. householdSize — only if relevant (skip for business matters)
+
+After the user answers, call save_case_details with that field, then ask the next one.
+Do NOT list multiple questions. Do NOT summarize what you still need. Ask one thing, then wait.
+For known-answer-shape questions in enrichment (especially hasDocuments and householdSize), prefer ask_user_question with answer options.
+For desiredOutcome: infer it from what has already been said and save it via save_case_details without asking. Only ask if it is genuinely impossible to infer.
 The submit action remains available at any time — never tell the user they must answer more questions.
 ` : ''}
 ${intakeContext ? `Current intake state:\n${intakeContext}` : 'No case details collected yet. Start by asking about the situation.'}`;
@@ -537,8 +601,31 @@ const deriveCaseSavedAcknowledgment = (
 
   const needsPayment = submissionGate.paymentRequiredBeforeSubmit && !submissionGate.paymentCompleted;
   const isReady = isIntakeReadyForSubmission(mergedState);
+  const isEnrichmentMode = mergedState.enrichmentMode === true;
+  const nextEnrichmentField = isEnrichmentMode ? resolveNextEnrichmentField(mergedState) : null;
 
   const userPart = userName ? `, ${getFirstName(userName)}` : '';
+
+  if (isEnrichmentMode && nextEnrichmentField) {
+    if (nextEnrichmentField === 'opposingParty') {
+      return `Thanks${userPart}. Is there a specific person or entity involved on the other side?`;
+    }
+    if (nextEnrichmentField === 'hasDocuments') {
+      return `Thanks${userPart}. Do you have any documents related to this matter?`;
+    }
+    if (nextEnrichmentField === 'householdSize') {
+      return `Thanks${userPart}. How many people are in your household?`;
+    }
+  }
+
+  if (isEnrichmentMode && nextEnrichmentField === null && isReady) {
+    if (needsPayment) {
+      const formattedFee = typeof consultationFee === 'number' && consultationFee > 0 ? formatCurrency(consultationFee / 100) : null;
+      const feePart = formattedFee ? `a ${formattedFee}` : 'a';
+      return `Thanks${userPart}. We now have the key details to strengthen your case. To move forward with a formal review and schedule your consultation, there is ${feePart} fee.`;
+    }
+    return `Thanks${userPart}. We now have the key details to strengthen your case. Ready to submit your request for review?`;
+  }
 
   if (isReady) {
     if (needsPayment) {
@@ -689,7 +776,6 @@ const buildCompactPracticeContextForPrompt = (
   copyIfPresent('businessEmail', ['businessEmail', 'business_email', 'email']);
   copyIfPresent('website', ['website']);
   copyIfPresent('consultationFee', ['consultationFee', 'consultation_fee']);
-  copyIfPresent('serviceStates', ['serviceStates', 'service_states', 'serviceJurisdictions', 'service_jurisdictions']);
 
   if (Array.isArray(normalized.services)) {
     compact.services = normalizeServicesForPrompt(normalized);
