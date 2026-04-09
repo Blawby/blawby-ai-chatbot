@@ -182,6 +182,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
     }
 
     const controller = new AbortController();
+    setPreviewMessages([]);
     setPreviewLoading(true);
 
     fetchConversationMessages(conversationId, targetPracticeId, { limit: 100, signal: controller.signal })
