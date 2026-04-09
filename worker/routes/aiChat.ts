@@ -801,7 +801,8 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         if (isIntakeMode && (
           toolCall.name === 'save_case_details' ||
           toolCall.name === 'request_payment' ||
-          toolCall.name === 'submit_intake'
+          toolCall.name === 'submit_intake' ||
+          toolCall.name === 'ask_user_question'
         )) {
           const cleanArgs = unwrapToolCallJsonArgs(toolCall.arguments);
           const result = executeIntakeTool(
@@ -856,11 +857,15 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       // ── Derive chat actions from tool results ─────────────────────────────
       // Action buttons come from tool execution results, never from model output parsing.
       let actions: ChatMessageAction[] | null = null;
+      let intakeQuestion: { text: string; options: Array<{ label: string; value: string }> } | null = null;
       let onboardingProfile: Record<string, unknown> | null = null;
       let triggerEditModal: string | null = null;
 
       if (isIntakeMode && lastToolResult?.actions && lastToolResult.actions.length > 0) {
         actions = lastToolResult.actions;
+      }
+      if (isIntakeMode && lastToolResult?.question) {
+        intakeQuestion = lastToolResult.question;
       }
 
       if (isOnboardingMode) {
@@ -903,6 +908,8 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
             consultationFee,
             userName,
           );
+        } else if (isIntakeMode && lastToolResult?.success && typeof lastToolResult.message === 'string' && lastToolResult.message.trim()) {
+          syntheticReply = lastToolResult.message.trim();
         }
       }
       
@@ -932,6 +939,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
             ...(onboardingFields ? { onboardingFields } : {}),
             ...(onboardingProfile ? { onboardingProfile } : {}),
             ...(includeActionsInMetadata ? { actions } : {}),
+            ...(intakeQuestion ? { question: intakeQuestion } : {}),
             ...(triggerEditModal ? { triggerEditModal } : {}),
             ...(shouldPromptConsultation
               ? { modeSelector: { showAskQuestion: false, showRequestConsultation: true, source: 'ai' } }
@@ -976,6 +984,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         onboardingFields: onboardingFields ?? null,
         onboardingProfile: onboardingProfile ?? null,
         actions: actions ?? null,
+        question: intakeQuestion ?? null,
         wasToolOnly,
         messagePersisted,
         persistedMessageId,

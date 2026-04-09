@@ -1040,6 +1040,10 @@ test.describe('Public widget intake flow', () => {
     type DonePayload = {
       intakeFields?: Record<string, unknown> | null;
       actions?: Array<Record<string, unknown>> | null;
+      question?: {
+        text?: string;
+        options?: Array<{ label?: string; value?: string }>;
+      } | null;
       persistedMessageId?: string | null;
       messagePersisted?: boolean;
       wasToolOnly?: boolean;
@@ -1202,6 +1206,30 @@ test.describe('Public widget intake flow', () => {
 
       const getButtons = async () =>
         anonPage.locator('button:visible').allInnerTexts().catch(() => [] as string[]);
+
+      const answerFromStructuredQuestion = (payload: DonePayload | null | undefined): string | null => {
+        const questionText = payload?.question?.text ?? '';
+        const options = Array.isArray(payload?.question?.options) ? payload.question.options : [];
+        if (options.length === 0) return null;
+
+        // Prefer North Carolina for deterministic location turns when available.
+        if (/state|jurisdiction|licensed/i.test(questionText)) {
+          const ncOption = options.find((opt) => /(^|\W)nc(\W|$)|north carolina/i.test(`${opt.label ?? ''} ${opt.value ?? ''}`));
+          if (ncOption) return (typeof ncOption.value === 'string' && ncOption.value.trim()) ? ncOption.value.trim() : (ncOption.label ?? null);
+        }
+
+        // Prefer affirmative option when available.
+        const yesOption = options.find((opt) => /^yes\b/i.test((opt.label ?? '').trim()));
+        if (yesOption) {
+          return (typeof yesOption.value === 'string' && yesOption.value.trim()) ? yesOption.value.trim() : (yesOption.label ?? null);
+        }
+
+        const first = options[0];
+        if (!first) return null;
+        if (typeof first.value === 'string' && first.value.trim()) return first.value.trim();
+        if (typeof first.label === 'string' && first.label.trim()) return first.label.trim();
+        return null;
+      };
 
       await expect.poll(
         async () => {
@@ -1394,6 +1422,15 @@ test.describe('Public widget intake flow', () => {
         const submitVisible = await submitButton.isVisible().catch(() => false);
         const paymentVisible = await paymentButton.isVisible().catch(() => false);
         if (submitVisible || paymentVisible) { submitReached = true; break; }
+
+        const structuredAnswer = answerFromStructuredQuestion(latestDonePayload);
+        if (structuredAnswer) {
+          const nextTurn = await sendAndAwait(structuredAnswer);
+          if (nextTurn.donePayload) {
+            latestDonePayload = nextTurn.donePayload;
+          }
+          continue;
+        }
 
         const count = await aiLocator.count();
         if (count === 0) { await anonPage.waitForTimeout(1000); continue; }
