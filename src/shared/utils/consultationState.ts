@@ -79,6 +79,8 @@ const mergeIntakeState = (
     desiredOutcome: normalized.desiredOutcome ?? fallback.desiredOutcome,
     courtDate: normalized.courtDate ?? fallback.courtDate,
     hasDocuments: normalized.hasDocuments ?? fallback.hasDocuments,
+    householdSize: normalized.householdSize ?? fallback.householdSize,
+    enrichmentMode: normalized.enrichmentMode ?? fallback.enrichmentMode,
     turnCount: normalized.turnCount > 0 ? normalized.turnCount : fallback.turnCount,
     ctaShown: normalized.ctaShown || fallback.ctaShown || false,
     ctaResponse: normalized.ctaResponse ?? fallback.ctaResponse,
@@ -169,6 +171,8 @@ export const normalizeIntakeConversationState = (value: unknown): IntakeConversa
     desiredOutcome: trimString(record.desiredOutcome) || null,
     courtDate: trimString(record.courtDate) || null,
     hasDocuments: typeof record.hasDocuments === 'boolean' ? record.hasDocuments : null,
+    householdSize: normalizeNumberOrNull(record.householdSize),
+    enrichmentMode: typeof record.enrichmentMode === 'boolean' ? record.enrichmentMode : null,
     turnCount: normalizeNumberOrNull(record.turnCount) ?? 0,
     ctaShown: typeof record.ctaShown === 'boolean' ? record.ctaShown : false,
     ctaResponse:

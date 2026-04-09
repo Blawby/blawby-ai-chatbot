@@ -42,6 +42,7 @@ const INTAKE_FIELD_LABELS: Partial<Record<keyof IntakeFieldsPayload, string>> = 
   desiredOutcome: 'Desired outcome',
   courtDate: 'Court date',
   hasDocuments: 'Supporting documents',
+  householdSize: 'Household size',
 };
 
 const PERSISTED_INTAKE_FIELD_KEYS = [
@@ -54,7 +55,9 @@ const PERSISTED_INTAKE_FIELD_KEYS = [
   'desiredOutcome',
   'courtDate',
   'hasDocuments',
+  'householdSize',
   'ctaShown',
+  'enrichmentMode',
 ] as const satisfies ReadonlyArray<keyof IntakeConversationState & keyof IntakeFieldsPayload>;
 
 type PersistedIntakeFieldKey = (typeof PERSISTED_INTAKE_FIELD_KEYS)[number];

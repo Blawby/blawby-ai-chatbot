@@ -47,6 +47,11 @@ export type ChatMessageAction =
       type: 'build_brief';
       label: string;
       variant?: ChatMessageActionVariant;
+    }
+  | {
+      type: 'strengthen_case';
+      label: string;
+      variant?: ChatMessageActionVariant;
     };
 
 export interface FirstMessageIntent {

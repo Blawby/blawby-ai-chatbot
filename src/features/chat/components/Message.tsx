@@ -100,6 +100,7 @@ interface MessageProps {
 	intakeConversationState?: IntakeConversationState | null;
 	onSubmitNow?: () => void | Promise<void>;
 	onBuildBrief?: () => void;
+	onStrengthenCase?: () => void;
 	actions?: ChatMessageAction[];
 	onActionReply?: (text: string) => void;
 	onboardingProfile?: {
@@ -160,6 +161,7 @@ const Message: FunctionComponent<MessageProps> = memo(({
 	intakeConversationState,
 	onSubmitNow,
 	onBuildBrief,
+	onStrengthenCase,
 	actions,
 	onActionReply,
 	onboardingProfile,
@@ -314,7 +316,9 @@ const Message: FunctionComponent<MessageProps> = memo(({
 				onActionReply={onActionReply}
 				onSubmitNow={onSubmitNow}
 				onBuildBrief={onBuildBrief}
+				onStrengthenCase={onStrengthenCase}
 				onboardingProfile={onboardingProfile}
+				isStreaming={isStreaming}
 				isLast={isLast}
 			/>
 				

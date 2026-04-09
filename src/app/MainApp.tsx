@@ -311,6 +311,15 @@ export function MainApp({
     if (isPaymentAuthPromptOpen) setIsPaymentAuthPromptOpen(false);
   }, [isPaymentAuthPromptOpen]);
 
+  const handleStrengthenCase = useCallback(async () => {
+    try {
+      await applyIntakeFields({ enrichmentMode: true });
+      await sendMessage('I want to provide more details to strengthen my case.', []);
+    } catch (err) {
+      console.error('Failed to start strengthen case flow', err);
+    }
+  }, [applyIntakeFields, sendMessage]);
+
   // ── conversation mode selection ────────────────────────────────────────────
   const isSelectingRef = useRef(false);
 
@@ -722,6 +731,7 @@ export function MainApp({
             onSlimFormContinue={handleSlimFormContinue}
             onSlimFormDismiss={handleSlimFormDismiss}
             onBuildBrief={handleBuildBrief}
+            onStrengthenCase={handleStrengthenCase}
             onSubmitNow={handleSubmitNow}
 
             isAnonymousUser={isAnonymous}

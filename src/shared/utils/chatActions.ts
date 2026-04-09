@@ -83,6 +83,8 @@ export const normalizeChatActions = (value: unknown): ChatMessageAction[] => {
         return label ? [{ type: 'continue_payment', label, variant }] : [];
       case 'build_brief':
         return label ? [{ type: 'build_brief', label, variant }] : [];
+      case 'strengthen_case':
+        return label ? [{ type: 'strengthen_case', label, variant }] : [];
       case 'open_url': {
         const url = typeof record.url === 'string' ? record.url.trim() : '';
         if (!label || !url) return [];
@@ -112,6 +114,8 @@ export const getChatActionKey = (action: ChatMessageAction, index: number): stri
       return `open-url-${index}-${encodeURIComponent(action.url)}`;
     case 'build_brief':
       return `build-brief-${index}`;
+    case 'strengthen_case':
+      return `strengthen-case-${index}`;
   }
 };
 

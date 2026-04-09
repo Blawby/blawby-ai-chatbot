@@ -1176,6 +1176,35 @@ export const InspectorPanel = ({
                               </InspectorEditableRow>
                             </InspectorGroup>
 
+                            <InspectorGroup label="Has Documents">
+                              <InfoRow
+                                label=""
+                                value={
+                                  intakeConversationState.hasDocuments === true
+                                    ? 'Yes'
+                                    : intakeConversationState.hasDocuments === false
+                                      ? 'No'
+                                      : 'Not set'
+                                }
+                                muted={
+                                  intakeConversationState.hasDocuments === null
+                                  || intakeConversationState.hasDocuments === undefined
+                                }
+                              />
+                            </InspectorGroup>
+
+                            {typeof intakeConversationState.householdSize === 'number' ? (
+                              <InspectorGroup label="Household Size">
+                                <InfoRow label="" value={String(intakeConversationState.householdSize)} />
+                              </InspectorGroup>
+                            ) : null}
+
+                            {intakeConversationState.courtDate ? (
+                              <InspectorGroup label="Court Date">
+                                <InfoRow label="" value={intakeConversationState.courtDate} />
+                              </InspectorGroup>
+                            ) : null}
+
                             <InspectorGroup 
                               label="Case Summary" 
                               onToggle={canEditIntake ? () => setActiveConversationEditor(prev => prev === 'intakeDescription' ? null : 'intakeDescription') : undefined}

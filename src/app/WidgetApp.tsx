@@ -289,6 +289,15 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
     setIsPaymentAuthPromptOpen(false);
   }, []);
 
+  const handleStrengthenCase = useCallback(async () => {
+    try {
+      await applyIntakeFields({ enrichmentMode: true });
+      await sendMessage('I want to provide more details to strengthen my case.', []);
+    } catch (err) {
+      console.error('Failed to start strengthen case flow', err);
+    }
+  }, [applyIntakeFields, sendMessage]);
+
   // System Messages
   useConversationSystemMessages({
     conversationId: activeConversationId ?? undefined,
@@ -618,6 +627,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
                 setConversationMode(null);
               }}
               onBuildBrief={handleBuildBrief}
+              onStrengthenCase={handleStrengthenCase}
               onSubmitNow={handleSubmitNow}
 
               isAnonymousUser={isAnonymous}

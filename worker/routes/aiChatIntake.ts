@@ -70,6 +70,10 @@ export const SAVE_CASE_DETAILS_TOOL = {
           type: 'boolean',
           description: 'Whether the user has mentioned having relevant documents',
         },
+        householdSize: {
+          type: 'integer',
+          description: 'Total number of residents in the household',
+        },
       },
       required: ['description', 'city', 'state'],
     },
@@ -112,10 +116,42 @@ export const SUBMIT_INTAKE_TOOL = {
   },
 } as const;
 
+export const ASK_USER_QUESTION_TOOL = {
+  type: 'function',
+  function: {
+    name: 'ask_user_question',
+    description: 'Ask a structured question with answer options. Use this when the answer shape is known (yes/no, fixed choices, state selection).',
+    parameters: {
+      type: 'object',
+      properties: {
+        question: {
+          type: 'string',
+          description: 'The exact question to ask the user.',
+        },
+        options: {
+          type: 'array',
+          description: 'Selectable answer options shown as quick replies.',
+          items: {
+            type: 'object',
+            properties: {
+              label: { type: 'string', description: 'User-facing option label.' },
+              value: { type: 'string', description: 'Reply text sent when this option is selected.' },
+            },
+            required: ['label'],
+          },
+          minItems: 1,
+        },
+      },
+      required: ['question', 'options'],
+    },
+  },
+} as const;
+
 export const INTAKE_TOOLS = [
   SAVE_CASE_DETAILS_TOOL,
   REQUEST_PAYMENT_TOOL,
   SUBMIT_INTAKE_TOOL,
+  ASK_USER_QUESTION_TOOL,
 ] as const;
 
 // ---------------------------------------------------------------------------
@@ -126,10 +162,16 @@ export interface ToolResult {
   success: boolean;
   message?: string;
   actions?: ChatMessageAction[];
+  question?: {
+    text: string;
+    options: Array<{ label: string; value: string }>;
+  };
   intakeFields?: Record<string, unknown>;
   triggerPayment?: boolean;
   triggerSubmit?: boolean;
 }
+
+type EnrichmentField = 'opposingParty' | 'hasDocuments' | 'householdSize';
 
 // ---------------------------------------------------------------------------
 // Tool handlers — persist to DB, return structured results
@@ -177,8 +219,13 @@ export const handleSaveCaseDetails = (
   if (typeof args.hasDocuments === 'boolean') {
     patch.hasDocuments = args.hasDocuments;
   }
+  if (Number.isFinite(args.householdSize)) {
+    patch.householdSize = Math.max(0, Math.floor(args.householdSize as number));
+  }
 
   const merged = mergeIntakeState(storedIntakeState, patch);
+  const isEnrichmentMode = merged?.enrichmentMode === true;
+  const nextEnrichmentField = isEnrichmentMode ? resolveNextEnrichmentField(merged) : null;
   const isSubmittable = isIntakeSubmittable(merged, submissionGate);
 
   // Derive suggested replies for the next open field
@@ -190,9 +237,11 @@ export const handleSaveCaseDetails = (
 
   return {
     success: true,
-    message: isSubmittable
-      ? 'Case details saved. All required fields collected.'
-      : 'Case details saved. Continue collecting remaining fields.',
+    message: isEnrichmentMode && nextEnrichmentField === null
+      ? 'Enrichment complete. All optional fields collected. Summarize what you have and invite the user to submit.'
+      : isSubmittable
+        ? 'Case details saved. All required fields collected.'
+        : 'Case details saved. Continue collecting remaining fields.',
     intakeFields: patch,
     actions: actions.length > 0 ? actions : undefined,
   };
@@ -228,6 +277,43 @@ export const handleSubmitIntake = (
   };
 };
 
+export const handleAskUserQuestion = (
+  args: Record<string, unknown>,
+): ToolResult => {
+  const question = typeof args.question === 'string' ? args.question.trim() : '';
+  const rawOptions = Array.isArray(args.options) ? args.options : [];
+  const options = rawOptions
+    .map((option) => {
+      if (!option || typeof option !== 'object') return null;
+      const record = option as Record<string, unknown>;
+      const label = typeof record.label === 'string' ? record.label.trim() : '';
+      if (!label) return null;
+      const value = typeof record.value === 'string' && record.value.trim()
+        ? record.value.trim()
+        : label;
+      return { label, value };
+    })
+    .filter((option): option is { label: string; value: string } => Boolean(option));
+
+  if (!question || options.length === 0) {
+    return {
+      success: false,
+      message: 'ask_user_question requires a question and at least one valid option.',
+    };
+  }
+
+  return {
+    success: true,
+    message: question,
+    question: { text: question, options },
+    actions: options.map((option) => ({
+      type: 'reply',
+      label: option.label,
+      value: option.value,
+    })),
+  };
+};
+
 // ---------------------------------------------------------------------------
 // Execute a tool call by name
 // ---------------------------------------------------------------------------
@@ -256,6 +342,8 @@ export const executeIntakeTool = (
       return handleRequestPayment(args);
     case 'submit_intake':
       return handleSubmitIntake(args);
+    case 'ask_user_question':
+      return handleAskUserQuestion(args);
     default:
       return { success: false, message: `Unknown tool: ${toolName}` };
   }
@@ -274,10 +362,30 @@ const deriveNextActions = (
 
   const formattedFee = typeof consultationFee === 'number' && consultationFee > 0 ? formatCurrency(consultationFee / 100) : null;
   const payLabel = formattedFee ? `Pay ${formattedFee}` : 'Pay and submit';
+  const isEnrichmentMode = mergedState.enrichmentMode === true;
+
+  if (isEnrichmentMode) {
+    const submitAction = createSubmitAction(
+      submissionGate.paymentRequiredBeforeSubmit && !submissionGate.paymentCompleted
+        ? payLabel
+        : 'Submit request'
+    );
+    const nextField = resolveNextEnrichmentField(mergedState);
+    if (nextField) {
+      return [
+        ...deriveEnrichmentActions(nextField),
+        submitAction,
+      ];
+    }
+    return [submitAction];
+  }
 
   // All required fields collected — either payment or submit
   if (isIntakeSubmittable(mergedState, submissionGate)) {
-    return [createSubmitAction(submissionGate.paymentRequiredBeforeSubmit && !submissionGate.paymentCompleted ? payLabel : 'Submit request')];
+    return [
+      createSubmitAction(submissionGate.paymentRequiredBeforeSubmit && !submissionGate.paymentCompleted ? payLabel : 'Submit request'),
+      { type: 'strengthen_case', label: 'Strengthen my case first' } as ChatMessageAction,
+    ];
   }
 
   // Payment required (case info complete, payment pending)
@@ -286,10 +394,57 @@ const deriveNextActions = (
     !submissionGate.paymentCompleted &&
     isIntakeReadyForSubmission(mergedState)
   ) {
-    return [createSubmitAction(payLabel)];
+    return [
+      createSubmitAction(payLabel),
+      { type: 'strengthen_case', label: 'Strengthen my case first' } as ChatMessageAction,
+    ];
   }
 
   return [];
+};
+
+const deriveEnrichmentActions = (nextField: EnrichmentField): ChatMessageAction[] => {
+  if (nextField === 'hasDocuments') {
+    return [
+      { type: 'reply', label: 'Yes, I have documents', value: 'Yes, I have relevant documents.' },
+      { type: 'reply', label: 'No documents', value: 'No, I do not have documents yet.' },
+    ];
+  }
+
+  if (nextField === 'householdSize') {
+    return [
+      { type: 'reply', label: '1', value: '1 person.' },
+      { type: 'reply', label: '2', value: '2 people.' },
+      { type: 'reply', label: '3', value: '3 people.' },
+      { type: 'reply', label: '4+', value: '4 or more people.' },
+    ];
+  }
+
+  return [];
+};
+
+const resolveNextEnrichmentField = (state: Record<string, unknown> | null): EnrichmentField | null => {
+  if (!state) return 'opposingParty';
+
+  const opposingParty = typeof state.opposingParty === 'string' ? state.opposingParty.trim() : '';
+  if (!opposingParty) return 'opposingParty';
+
+  if (typeof state.hasDocuments !== 'boolean') return 'hasDocuments';
+
+  if (isBusinessMatter(state)) return null;
+
+  const householdSize = state.householdSize;
+  if (!(typeof householdSize === 'number' && Number.isFinite(householdSize) && householdSize > 0)) {
+    return 'householdSize';
+  }
+
+  return null;
+};
+
+const isBusinessMatter = (state: Record<string, unknown>): boolean => {
+  const practiceArea = typeof state.practiceArea === 'string' ? state.practiceArea.trim().toLowerCase() : '';
+  if (!practiceArea) return false;
+  return /business|corporate|commercial|enterprise|company|llc|inc|startup/.test(practiceArea);
 };
 
 // ---------------------------------------------------------------------------
@@ -315,6 +470,8 @@ export const buildIntakeSystemPrompt = (
   const userSalutationSnippet = firstName ? `The user's first name is ${firstName}. ` : '';
   const userNamingInstruction = firstName ? ' (use their name)' : '';
 
+  const isEnrichmentMode = storedIntakeState?.enrichmentMode === true;
+
   return `${userSalutationSnippet}You are a warm, helpful legal intake assistant for ${practiceName}. Your job is to collect case information conversationally and call tools to save it.
 
 This firm handles the following practice areas:
@@ -324,6 +481,7 @@ Tool usage rules:
 - Call save_case_details when you have description, city, and state at minimum. You can call it again as more fields are collected.
 - Call request_payment when all required case details are gathered AND the practice requires payment.
 - Call submit_intake only when the user explicitly says they are ready to submit.
+- Use ask_user_question for known-answer-shape questions (yes/no, fixed choices, state selection).
 - Never call a tool mid-sentence. Finish your message, then call the tool, or call first then continue.
 
 Conversation rules:
@@ -334,14 +492,30 @@ Conversation rules:
 - Never output raw JSON, tool names, or structured data in your reply text
 - You MUST always write a conversational response. Never call a tool without also writing text.
 - Infer urgency from the facts when you reasonably can. Do not ask about urgency unless it is genuinely unclear and important for routing.
+- Infer desiredOutcome from the facts when you reasonably can. Do not ask unless genuinely unclear.
 - Documents are optional context. Do not block submission on whether the user has documents.
-- Once description, city, and state are captured, prioritize getting the person to submit instead of asking optional enrichment questions.
+- ${isEnrichmentMode
+    ? 'The user has chosen to strengthen their case. Focus on collecting enrichment fields before submission.'
+    : 'Once description, city, and state are captured, prioritize getting the person to submit instead of asking optional enrichment questions.'}
 
 - If a consultation fee is required: Acknowledge that you have their details warmly${userNamingInstruction}. Mention the fee softly as the next step to move forward with a review. Max 2 sentences.
 - If no fee is required: Acknowledge that you have their details warmly${userNamingInstruction} and ask if they are ready to send it over for review.
+${isEnrichmentMode ? `
+The user has chosen to strengthen their case. You are in enrichment mode.
+Ask about EXACTLY ONE field per message — the next uncollected field in this priority order:
+1. opposingParty — ask if a specific person or entity is involved (skip if already known)
+2. hasDocuments — do they have any relevant documents
+3. householdSize — only if relevant (skip for business matters)
 
+After the user answers, call save_case_details with that field, then ask the next one.
+Do NOT list multiple questions. Do NOT summarize what you still need. Ask one thing, then wait.
+For known-answer-shape questions in enrichment (especially hasDocuments and householdSize), prefer ask_user_question with answer options.
+For desiredOutcome: infer it from what has already been said and save it via save_case_details without asking. Only ask if it is genuinely impossible to infer.
+The submit action remains available at any time — never tell the user they must answer more questions.
+` : ''}
 ${intakeContext ? `Current intake state:\n${intakeContext}` : 'No case details collected yet. Start by asking about the situation.'}`;
 };
+
 
 function buildIntakeContextSummary(
   state: Record<string, unknown> | null,
@@ -364,6 +538,8 @@ function buildIntakeContextSummary(
   if (typeof state.urgency === 'string' && state.urgency.trim()) lines.push(`Urgency: ${state.urgency.trim()}`);
   if (typeof state.desiredOutcome === 'string' && state.desiredOutcome.trim()) lines.push(`Desired outcome: ${state.desiredOutcome.trim().slice(0, 150)}`);
   if (typeof state.hasDocuments === 'boolean') lines.push(`Has documents: ${state.hasDocuments}`);
+  if (typeof state.householdSize === 'number') lines.push(`Household size: ${state.householdSize}`);
+  if (typeof state.courtDate === 'string' && state.courtDate.trim()) lines.push(`Court date: ${state.courtDate.trim()}`);
 
   return lines.length > 0 ? lines.map((l) => `- ${l}`).join('\n') : '';
 };
@@ -425,8 +601,31 @@ const deriveCaseSavedAcknowledgment = (
 
   const needsPayment = submissionGate.paymentRequiredBeforeSubmit && !submissionGate.paymentCompleted;
   const isReady = isIntakeReadyForSubmission(mergedState);
+  const isEnrichmentMode = mergedState.enrichmentMode === true;
+  const nextEnrichmentField = isEnrichmentMode ? resolveNextEnrichmentField(mergedState) : null;
 
   const userPart = userName ? `, ${getFirstName(userName)}` : '';
+
+  if (isEnrichmentMode && nextEnrichmentField) {
+    if (nextEnrichmentField === 'opposingParty') {
+      return `Thanks${userPart}. Is there a specific person or entity involved on the other side?`;
+    }
+    if (nextEnrichmentField === 'hasDocuments') {
+      return `Thanks${userPart}. Do you have any documents related to this matter?`;
+    }
+    if (nextEnrichmentField === 'householdSize') {
+      return `Thanks${userPart}. How many people are in your household?`;
+    }
+  }
+
+  if (isEnrichmentMode && nextEnrichmentField === null && isReady) {
+    if (needsPayment) {
+      const formattedFee = typeof consultationFee === 'number' && consultationFee > 0 ? formatCurrency(consultationFee / 100) : null;
+      const feePart = formattedFee ? `a ${formattedFee}` : 'a';
+      return `Thanks${userPart}. We now have the key details to strengthen your case. To move forward with a formal review and schedule your consultation, there is ${feePart} fee.`;
+    }
+    return `Thanks${userPart}. We now have the key details to strengthen your case. Ready to submit your request for review?`;
+  }
 
   if (isReady) {
     if (needsPayment) {
