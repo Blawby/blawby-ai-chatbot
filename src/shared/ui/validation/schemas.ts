@@ -2,6 +2,17 @@ import { z } from 'zod';
 
 // Common validation schemas
 const FileClass = typeof File !== 'undefined' ? File : undefined;
+const PHONE_INPUT_PATTERN = /^\+?[\d\s\-()]+$/;
+const MIN_PHONE_DIGITS = 7;
+const MAX_PHONE_DIGITS = 15;
+
+export const isValidPhoneNumber = (value: string): boolean => {
+  if (typeof value !== 'string') return false;
+  const trimmed = value.trim();
+  if (!trimmed || !PHONE_INPUT_PATTERN.test(trimmed)) return false;
+  const digitCount = trimmed.replace(/\D/g, '').length;
+  return digitCount >= MIN_PHONE_DIGITS && digitCount <= MAX_PHONE_DIGITS;
+};
 
 export const commonSchemas = {
   // Text validation
@@ -20,8 +31,7 @@ export const commonSchemas = {
   
   // Phone validation
   phone: z.string()
-    .regex(/^\+?[\d\s\-()]+$/, 'Please enter a valid phone number')
-    .min(10, 'Phone number must be at least 10 digits'),
+    .refine(isValidPhoneNumber, 'Please enter a valid phone number'),
   
   // URL validation
   url: z.string().url('Please enter a valid URL'),
