@@ -9,9 +9,10 @@
  *   5. Intent classification (first message in ASK_QUESTION mode)
  *   6. Intake state init guard (REQUEST_CONSULTATION mode)
  *
- * Deliberately has NO knowledge of intake business logic — that belongs in
- * useIntakeFlow.  It receives applyIntakeFields as a callback so the SSE
- * stream can forward structured intake data without a direct dependency.
+ * Deliberately has NO knowledge of intake or setup business logic — that
+ * belongs in the dedicated flow hooks. It receives applyIntakeFields and
+ * applySetupFields as callbacks so the SSE stream can forward structured data
+ * without a direct dependency.
  *
  * Dependencies injected via options so this hook is independently testable.
  */
@@ -19,12 +20,19 @@
 import { useCallback, useRef, useEffect } from 'preact/hooks';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import type { ChatMessageUI, FileAttachment } from '../../../worker/types';
-import type { ConversationMessage, ConversationMetadata, ConversationMode, FirstMessageIntent } from '@/shared/types/conversation';
+import type {
+  ConversationMessage,
+  ConversationMetadata,
+  ConversationMode,
+  FirstMessageIntent,
+  SetupFieldsPayload,
+} from '@/shared/types/conversation';
 import { type IntakeFieldsPayload } from '@/shared/types/intake';
 import { STREAMING_BUBBLE_PREFIX } from './useConversation';
 import { withWidgetAuthHeaders } from '@/shared/utils/widgetAuth';
 import { applyConsultationPatchToMetadata, resolveConsultationState } from '@/shared/utils/consultationState';
 import { normalizeChatActions } from '@/shared/utils/chatActions';
+import { normalizeSetupFieldsPayload } from '@/shared/utils/setupState';
 
 // ─── constants ────────────────────────────────────────────────────────────────
 
@@ -72,6 +80,7 @@ export interface UseChatComposerOptions {
 
   // Injected from useIntakeFlow
   applyIntakeFields: (fields: IntakeFieldsPayload) => Promise<void>;
+  applySetupFields: (fields: Partial<SetupFieldsPayload>) => Promise<void>;
 
   onError?: (error: unknown, context?: Record<string, unknown>) => void;
 }
@@ -115,6 +124,7 @@ export const useChatComposer = ({
   updateConversationMetadata,
   fetchConversationMetadata,
   applyIntakeFields,
+  applySetupFields,
   onError,
 }: UseChatComposerOptions) => {
   const { session, isPending: sessionIsPending } = useSessionContext();
@@ -372,6 +382,12 @@ export const useChatComposer = ({
           });
         }
         if (parsed.onboardingFields && typeof parsed.onboardingFields === 'object') {
+          const setupPatch = normalizeSetupFieldsPayload(parsed.onboardingFields as Record<string, unknown>);
+          if (mode === 'PRACTICE_ONBOARDING' && Object.keys(setupPatch).length > 0) {
+            applySetupFields(setupPatch).catch(err => {
+              console.warn('[useChatComposer] Failed to apply setup fields from stream', err);
+            });
+          }
           setMessages(prev => prev.map(msg =>
             msg.id === bubbleId
               ? { ...msg, metadata: { ...(msg.metadata ?? {}), onboardingFields: parsed.onboardingFields } }
@@ -579,7 +595,7 @@ export const useChatComposer = ({
         }, orphanExpiryMs);
       }
     }
-  }, [appendStreamingToken, applyIntakeFields, messagesRef, onError, orphanTimerRef, pendingStreamMessageIdRef, removeStreamingBubble, setMessages]);
+  }, [appendStreamingToken, applyIntakeFields, applySetupFields, messagesRef, mode, onError, orphanTimerRef, pendingStreamMessageIdRef, removeStreamingBubble, setMessages]);
 
   // ── main send ─────────────────────────────────────────────────────────────
 
@@ -821,6 +837,10 @@ export const useChatComposer = ({
           };
           if (aiData.intakeFields) await applyIntakeFields(aiData.intakeFields);
           if (aiData.onboardingFields) {
+            const setupPatch = normalizeSetupFieldsPayload(aiData.onboardingFields);
+            if (mode === 'PRACTICE_ONBOARDING' && Object.keys(setupPatch).length > 0) {
+              await applySetupFields(setupPatch);
+            }
             setMessages(prev => prev.map(msg =>
               msg.id === bubbleId
                 ? { ...msg, metadata: { ...(msg.metadata ?? {}), onboardingFields: aiData.onboardingFields ?? null } }
@@ -873,6 +893,7 @@ export const useChatComposer = ({
   }, [
     addStreamingBubble,
     applyIntakeFields,
+    applySetupFields,
     conversationId,
     conversationMetadataRef,
     conversationIdRef,

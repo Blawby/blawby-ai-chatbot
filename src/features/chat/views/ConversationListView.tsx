@@ -50,7 +50,9 @@ const ConversationListView: FunctionComponent<ConversationListViewProps> = ({
         ? t('workspace.conversationList.error', { defaultValue: 'Failed to load conversations.' })
         : null;
   const fallbackName = typeof practiceName === 'string' ? practiceName.trim() : '';
-  const sorted = [...conversations].sort((a, b) => {
+  const sorted = conversations
+    .filter((conversation) => conversation.user_info?.mode !== 'PRACTICE_ONBOARDING')
+    .sort((a, b) => {
     const aTime = new Date(a.updated_at).getTime();
     const bTime = new Date(b.updated_at).getTime();
     return bTime - aTime;
@@ -76,7 +78,6 @@ const ConversationListView: FunctionComponent<ConversationListViewProps> = ({
               const previewText = preview?.content
                 ? preview.content
                 : t('workspace.conversationList.previewPlaceholder');
-              const isOnboardingConversation = conversation.user_info?.mode === 'PRACTICE_ONBOARDING';
               const unreadCount = Math.max(0, Number(conversation.unread_count ?? 0));
               const isUnread = unreadCount > 0;
               const isActive = activeConversationId === conversation.id;
@@ -111,11 +112,6 @@ const ConversationListView: FunctionComponent<ConversationListViewProps> = ({
                           {conversation.lead?.is_lead && (
                             <span className="flex-shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700 dark:bg-amber-500/20 dark:text-amber-200">
                               {t('conversation.badge.lead', { defaultValue: 'Lead' })}
-                            </span>
-                          )}
-                          {isOnboardingConversation && (
-                            <span className="flex-shrink-0 rounded-full border border-line-glass/40 bg-surface-panel/50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-input-text">
-                              {t('conversation.badge.setup', { defaultValue: 'Setup' })}
                             </span>
                           )}
                         </div>
