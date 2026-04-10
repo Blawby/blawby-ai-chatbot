@@ -70,6 +70,33 @@ export interface ConversationParticipant {
   image?: string | null;
 }
 
+export interface SetupAddressPayload {
+  address?: string;
+  apartment?: string;
+  city?: string;
+  state?: string;
+  postalCode?: string;
+  country?: string;
+}
+
+export interface SetupServicePayload {
+  name: string;
+  key?: string;
+  description?: string;
+}
+
+export interface SetupFieldsPayload {
+  name?: string;
+  slug?: string;
+  description?: string;
+  accentColor?: string;
+  website?: string;
+  businessEmail?: string;
+  businessPhone?: string;
+  address?: SetupAddressPayload;
+  services?: SetupServicePayload[];
+}
+
 /**
  * Conversation metadata stored in user_info JSON field
  */
@@ -88,6 +115,7 @@ export interface ConversationMetadata {
   intakeSubmitted?: boolean;
   intakeCompleted?: boolean;
   intakeDecision?: string | null;
+  setupFields?: SetupFieldsPayload | null;
   practiceName?: string;
   practiceSlug?: string;
   anonParticipantId?: string;

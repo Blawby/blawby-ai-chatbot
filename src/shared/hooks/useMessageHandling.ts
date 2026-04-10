@@ -1,7 +1,8 @@
 import { useState, useMemo, useRef } from 'preact/hooks';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
-import type { ConversationMetadata, ConversationMode } from '@/shared/types/conversation';
+import type { ConversationMetadata, ConversationMode, SetupFieldsPayload } from '@/shared/types/conversation';
 import { useIntakeFlow, type UseIntakeFlowResult } from '@/shared/hooks/useIntakeFlow';
+import { useSetupFlow, type UseSetupFlowResult } from '@/shared/hooks/useSetupFlow';
 import { useConversation } from '@/shared/hooks/useConversation';
 import { useChatComposer } from '@/shared/hooks/useChatComposer';
 import { usePaymentStatus } from '@/shared/hooks/usePaymentStatus';
@@ -62,6 +63,8 @@ export interface UseMessageHandlingResult {
   handleSubmitNow: () => Promise<void>;
   handleContactFormSubmit: (data: ContactData) => Promise<void>;
   applyIntakeFields: (payload: IntakeFieldsPayload, options?: IntakeFieldChangeOptions) => Promise<void>;
+  setupFields: SetupFieldsPayload;
+  applySetupFields: (payload: Partial<SetupFieldsPayload>, options?: { sendSystemAck?: boolean }) => Promise<void>;
   isConsultFlowActive: boolean;
 }
 
@@ -128,6 +131,15 @@ export const useMessageHandling = (options: UseMessageHandlingOptions) => {
     onError,
   });
 
+  const liveSetup = useSetupFlow({
+    enabled,
+    conversationId,
+    practiceId,
+    conversationMetadata: conversation.conversationMetadata,
+    conversationMetadataRef: conversation.conversationMetadataRef,
+    updateConversationMetadata: conversation.updateConversationMetadata,
+  });
+
 
   // 3. User Actions & AI (Streaming, Intent, etc)
   const composer = useChatComposer({
@@ -160,6 +172,7 @@ export const useMessageHandling = (options: UseMessageHandlingOptions) => {
     applyServerMessages: conversation.applyServerMessages,
     fetchConversationMetadata: conversation.fetchConversationMetadata,
     applyIntakeFields: liveIntake.applyIntakeFields,
+    applySetupFields: liveSetup.applySetupFields,
     onError,
   });
 
@@ -230,6 +243,8 @@ export const useMessageHandling = (options: UseMessageHandlingOptions) => {
     handleSubmitNow: async () => {},
     handleContactFormSubmit: async () => {},
     applyIntakeFields: async () => {},
+    setupFields: {},
+    applySetupFields: async () => {},
     isConsultFlowActive: false,
   }), []);
 
@@ -290,6 +305,8 @@ export const useMessageHandling = (options: UseMessageHandlingOptions) => {
     handleSubmitNow: enabled ? liveIntake.handleSubmitNow : (suspendedState as unknown as UseIntakeFlowResult).handleSubmitNow,
     handleContactFormSubmit: enabled ? liveIntake.handleContactFormSubmit : (suspendedState as unknown as UseIntakeFlowResult).handleContactFormSubmit,
     applyIntakeFields: enabled ? liveIntake.applyIntakeFields : (suspendedState as unknown as UseIntakeFlowResult).applyIntakeFields,
+    setupFields: enabled ? liveSetup.setupFields : (suspendedState as unknown as UseSetupFlowResult).setupFields,
+    applySetupFields: enabled ? liveSetup.applySetupFields : (suspendedState as unknown as UseSetupFlowResult).applySetupFields,
 
 
     // App state
@@ -314,6 +331,8 @@ export const useMessageHandling = (options: UseMessageHandlingOptions) => {
     liveIntake.handleSubmitNow,
     liveIntake.handleContactFormSubmit,
     liveIntake.applyIntakeFields,
+    liveSetup.setupFields,
+    liveSetup.applySetupFields,
     isConsultFlowActive,
     suspendedState
   ]);

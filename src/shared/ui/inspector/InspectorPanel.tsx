@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
-import type { Conversation } from '@/shared/types/conversation';
+import type { Conversation, ConversationMode, SetupFieldsPayload } from '@/shared/types/conversation';
 import { getUserDetail, updateConversationMatter, updateUserDetail, getPracticeDetails, type UserDetailRecord, type PracticeDetails } from '@/shared/lib/apiClient';
 import { getMatter, type BackendMatter } from '@/features/matters/services/mattersApi';
 import { MATTER_STATUS_LABELS, MATTER_WORKFLOW_STATUSES, isMatterStatus, type MatterStatus } from '@/shared/types/matterStatus';
@@ -27,6 +27,9 @@ import { PERSON_RELATIONSHIP_STATUS_LABELS } from '@/shared/domain/people';
 import type { Address } from '@/shared/types/address';
 import type { IntakeConversationState, DerivedIntakeStatus } from '@/shared/types/intake';
 import { resolveStrengthTier, resolveStrengthLabel, resolveStrengthStyle, resolveStrengthDescription } from '@/shared/utils/intakeStrength';
+import type { PracticeSetupStatus } from '@/features/practice-setup/utils/status';
+import type { BusinessOnboardingStatus } from '@/shared/hooks/usePracticeManagement';
+import { SetupInspectorContent } from './SetupInspectorContent';
 
 type InspectorConfig =
   | { type: 'conversation' }
@@ -90,6 +93,15 @@ type InspectorPanelProps = {
   onIntakeFieldsChange?: (patch: Partial<IntakeConversationState>, options?: import('@/shared/types/intake').IntakeFieldChangeOptions) => Promise<void> | void;
   practiceDetails?: PracticeDetails | null;
   intakeSlimContactDraft?: import('@/shared/types/intake').SlimContactDraft | null;
+  conversationMode?: ConversationMode;
+  setupFields?: SetupFieldsPayload;
+  onSetupFieldsChange?: (patch: Partial<SetupFieldsPayload>, options?: { sendSystemAck?: boolean }) => Promise<void> | void;
+  setupStatus?: PracticeSetupStatus;
+  onStartStripeOnboarding?: () => void;
+  isStripeSubmitting?: boolean;
+  practiceSlug?: string | null;
+  businessOnboardingStatus?: BusinessOnboardingStatus | null;
+  showCloseButton?: boolean;
 };
 
 const isValidMatterStatus = (value: unknown): value is MatterStatus =>
@@ -144,6 +156,15 @@ export const InspectorPanel = ({
   onIntakeFieldsChange,
   practiceDetails: propPracticeDetails,
   intakeSlimContactDraft,
+  conversationMode,
+  setupFields,
+  onSetupFieldsChange,
+  setupStatus,
+  onStartStripeOnboarding,
+  isStripeSubmitting = false,
+  practiceSlug,
+  businessOnboardingStatus,
+  showCloseButton = true,
 }: InspectorPanelProps) => {
   const resolveString = (value: unknown): string | null =>
     typeof value === 'string' && value.trim().length > 0 ? value.trim() : null;
@@ -184,6 +205,7 @@ export const InspectorPanel = ({
 
   const conversationUserId = conversation?.user_id ?? null;
   const conversationMatterId = conversation?.matter_id ?? null;
+  const resolvedConversationMode = conversationMode ?? conversation?.user_info?.mode;
 
   const makeCacheKey = (pId: string, eId: string) => `${pId}:${eId}`;
   const priorityOptions = useMemo<ComboboxOption[]>(
@@ -879,13 +901,15 @@ export const InspectorPanel = ({
                 ? 'Invoice Info'
                 : 'Person Info'}
         </h2>
-        <Button
-          variant="icon"
-          size="icon-sm"
-          onClick={onClose}
-          aria-label="Close inspector"
-          icon={XMarkIcon} iconClassName="h-4 w-4"
-        />
+        {showCloseButton ? (
+          <Button
+            variant="icon"
+            size="icon-sm"
+            onClick={onClose}
+            aria-label="Close inspector"
+            icon={XMarkIcon} iconClassName="h-4 w-4"
+          />
+        ) : null}
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto">
@@ -908,7 +932,19 @@ export const InspectorPanel = ({
 
         {entityType === 'conversation' && !isLoading ? (
           <div className="pb-4">
-            {isClientView ? (
+            {resolvedConversationMode === 'PRACTICE_ONBOARDING' ? (
+              <SetupInspectorContent
+                practiceName={practiceName}
+                practiceSlug={practiceSlug}
+                practiceDetails={practiceDetail}
+                businessOnboardingStatus={businessOnboardingStatus}
+                setupFields={setupFields}
+                onSetupFieldsChange={onSetupFieldsChange}
+                setupStatus={setupStatus}
+                onStartStripeOnboarding={onStartStripeOnboarding}
+                isStripeSubmitting={isStripeSubmitting}
+              />
+            ) : isClientView ? (
               <>
                 <InspectorHeaderHero
                   name={practiceName ?? 'Practice'}
@@ -1266,7 +1302,7 @@ export const InspectorPanel = ({
               </>
             )}
 
-            {!isClientView && (
+            {!isClientView && resolvedConversationMode !== 'PRACTICE_ONBOARDING' && (
               <div className="">
                 <InspectorGroup label="People">
                   <InfoRow

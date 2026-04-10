@@ -49,8 +49,7 @@ import {
   type BasicsFormValues,
   type ContactFormValues,
   type OnboardingProgressSnapshot,
-  type OnboardingSaveActionsSnapshot,
-} from '@/features/practice-setup/components/PracticeSetup';
+} from '@/features/practice-setup/types';
 import { resolvePracticeSetupStatus } from '@/features/practice-setup/utils/status';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
@@ -229,24 +228,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   const [isInspectorOpen, setIsInspectorOpen] = useState(false);
   const [draftBasics, setDraftBasics] = useState<BasicsFormValues | null>(null);
   const [onboardingProgress, setOnboardingProgress] = useState<OnboardingProgressSnapshot | null>(null);
-  const [onboardingSaveActions, setOnboardingSaveActions] = useState<OnboardingSaveActionsSnapshot>({
-    canSave: false,
-    isSaving: false,
-    saveError: null,
-  });
-  const handleOnboardingSaveActionsChange = useCallback((next: OnboardingSaveActionsSnapshot) => {
-    setOnboardingSaveActions((prev) => {
-      if (
-        prev.canSave === next.canSave &&
-        prev.isSaving === next.isSaving &&
-        prev.saveError === next.saveError &&
-        prev.onSaveAll === next.onSaveAll
-      ) {
-        return prev;
-      }
-      return next;
-    });
-  }, []);
   const handleSettingsActionItemClick = useCallback((item: SecondaryNavItem) => {
     if (item.id === 'sign-out') {
       void signOut({ navigate });
@@ -938,6 +919,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     updateDetails: updateSetupDetails,
     fetchDetails: fetchSetupDetails,
   } = usePracticeDetails(currentPractice?.id ?? null, null, false);
+  const { setupFields, applySetupFields } = onboardingMessageHandling;
   const setupStatus = resolvePracticeSetupStatus(currentPractice, setupDetails ?? null);
   const [logoUploadProgress, setLogoUploadProgress] = useState<number | null>(null);
   const [logoUploading, setLogoUploading] = useState(false);
@@ -1054,6 +1036,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
         website: normalize(values.website),
         businessEmail: normalize(values.businessEmail),
         businessPhone: normalize(values.businessPhone),
+        description: values.description !== undefined ? normalize(values.description) : undefined,
         address: normalize(address.address ?? ''),
         apartment: normalize(address.apartment ?? ''),
         city: normalize(address.city ?? ''),
@@ -1136,18 +1119,19 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     [conversationMemberOptions]
   );
   const [stripeStatus, setStripeStatus] = useState<StripeConnectStatus | null>(null);
-  const [isStripeLoading, setIsStripeLoading] = useState(false);
+  const [_isStripeLoading, setIsStripeLoading] = useState(false);
   const [isStripeSubmitting, setIsStripeSubmitting] = useState(false);
 
-  // Only fetch Stripe/onboarding status when the user is in the settings section.
+  // Only fetch Stripe/onboarding status when the user is in settings or setup.
   // Fetching it on every workspace mount hammers the rate-limited API endpoint.
   const isSettingsSection = workspaceSection === 'settings';
+  const shouldFetchStripeStatus = isSettingsSection || view === 'setup';
 
   const showErrorRef = useRef(showError);
   useEffect(() => { showErrorRef.current = showError; });
 
   const refreshStripeStatus = useCallback(async (options?: { signal?: AbortSignal }) => {
-    if (!organizationId || !isSettingsSection) {
+    if (!organizationId || !shouldFetchStripeStatus) {
       setStripeStatus(null);
       return;
     }
@@ -1167,17 +1151,17 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     } finally {
       setIsStripeLoading(false);
     }
-  // organizationId and isSettingsSection are both stable primitives
-  }, [organizationId, isSettingsSection]);
+  // organizationId and shouldFetchStripeStatus are both stable primitives
+  }, [organizationId, shouldFetchStripeStatus]);
 
-  // Only fetch when organizationId changes AND we're on the settings section
+  // Only fetch when organizationId changes and the current view needs Stripe status.
   useEffect(() => {
-    if (!organizationId || !isSettingsSection) return;
+    if (!organizationId || !shouldFetchStripeStatus) return;
     const controller = new AbortController();
     void refreshStripeStatus({ signal: controller.signal });
     return () => controller.abort();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [organizationId, isSettingsSection]);
+  }, [organizationId, shouldFetchStripeStatus]);
 
   const handleStartStripeOnboarding = useCallback(async () => {
     if (!organizationId) {
@@ -1249,23 +1233,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     }
     return 0;
   })();
-  const persistedServiceNames = (() => {
-    const sources = [progressFields.services, setupDetails?.services, currentPractice?.services];
-    for (const source of sources) {
-      if (!Array.isArray(source)) continue;
-      const names = source
-        .map((service) => {
-          const row = (service ?? {}) as Record<string, unknown>;
-          const name = typeof row.name === 'string'
-            ? row.name
-            : (typeof row.title === 'string' ? row.title : '');
-          return name.trim();
-        })
-        .filter((name): name is string => name.length > 0);
-      if (names.length > 0) return names;
-    }
-    return [] as string[];
-  })();
   const strongName = (progressFields.name ?? draftBasics?.name ?? currentPractice?.name ?? '').trim();
   const strongDescription = (progressFields.description ?? setupDetails?.description ?? currentPractice?.description ?? '').trim();
   const strongServicesCount = Math.max(
@@ -1281,66 +1248,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     paymentQuestionAnswered
   );
   const showSidebarPreview = (previewStrongReady || (onboardingProgress?.completionScore ?? 0) >= 80) && setupSidebarView === 'preview';
-  const websiteValue = (progressFields.website ?? setupDetails?.website ?? currentPractice?.website ?? '').trim();
-  const phoneValue = (progressFields.contactPhone ?? setupDetails?.businessPhone ?? currentPractice?.businessPhone ?? '').trim();
-  const emailValue = (progressFields.businessEmail ?? setupDetails?.businessEmail ?? currentPractice?.businessEmail ?? '').trim();
-  const accentColorValue = (progressFields.accentColor ?? setupDetails?.accentColor ?? currentPractice?.accentColor ?? '').trim();
-  const addressCandidate = (progressFields.address ?? setupDetails?.address ?? currentPractice?.address ?? null) as Record<string, unknown> | null;
-  const addressLine1 = typeof addressCandidate?.address === 'string'
-    ? addressCandidate.address.trim()
-    : typeof addressCandidate?.line1 === 'string'
-      ? addressCandidate.line1.trim()
-      : '';
-  const addressCity = typeof addressCandidate?.city === 'string' ? addressCandidate.city.trim() : '';
-  const addressState = typeof addressCandidate?.state === 'string' ? addressCandidate.state.trim() : '';
-  const addressPostal = typeof addressCandidate?.postalCode === 'string'
-    ? addressCandidate.postalCode.trim()
-    : typeof addressCandidate?.postal_code === 'string'
-      ? addressCandidate.postal_code.trim()
-      : '';
-  const addressParts = [addressLine1, [addressCity, addressState].filter(Boolean).join(', '), addressPostal].filter(Boolean);
-  const addressValue = addressParts.join(' ').trim();
-  const paymentStatusValue = stripeHasAccount || payoutDetailsSubmitted
-    ? 'Enabled'
-    : paymentPreference === 'yes'
-      ? 'Yes (setup started)'
-      : paymentPreference === 'no'
-        ? 'Not now'
-        : 'Not answered';
-  const fieldRows = [
-    { key: 'name', label: 'Practice name', done: Boolean(strongName), value: strongName || 'Not provided' },
-    { key: 'description', label: 'Description', done: Boolean(strongDescription), value: strongDescription || 'Not provided' },
-    {
-      key: 'services',
-      label: 'Services',
-      done: strongServicesCount > 0,
-      value: strongServicesCount > 0 ? `${strongServicesCount} added` : 'Not provided',
-      listValues: persistedServiceNames.length > 0 ? persistedServiceNames : undefined,
-    },
-    { key: 'website', label: 'Website', done: Boolean(websiteValue), value: websiteValue || 'Not provided' },
-    { key: 'contactPhone', label: 'Phone', done: Boolean(phoneValue), value: phoneValue || 'Not provided' },
-    { key: 'businessEmail', label: 'Email', done: Boolean(emailValue), value: emailValue || 'Not provided' },
-    { key: 'address', label: 'Address', done: Boolean(addressLine1 && addressCity && addressState), value: addressValue || 'Not provided' },
-    { key: 'accentColor', label: 'Accent color', done: Boolean(accentColorValue), value: accentColorValue || 'Not provided' },
-    { key: 'logo', label: 'Logo', done: strongLogoReady, value: strongLogoReady ? 'Uploaded' : 'Not uploaded' },
-    { key: 'payouts', label: 'Payments', done: paymentQuestionAnswered, value: paymentStatusValue },
-  ] as const;
-  const setupInfoPanelProps = {
-    fieldRows,
-    canSaveAll: onboardingSaveActions.canSave,
-    isSavingAll: onboardingSaveActions.isSaving,
-    saveAllError: onboardingSaveActions.saveError,
-    onSaveAll: onboardingSaveActions.onSaveAll,
-    paymentPreference,
-    stripeHasAccount,
-    payoutDetailsSubmitted,
-    isStripeSubmitting,
-    isStripeLoading,
-    stripeStatus,
-    onSetPaymentPreference: setPaymentPreference,
-    onStartStripeOnboarding: handleStartStripeOnboarding,
-  } as const;
-
   useEffect(() => {
     if (stripeHasAccount || payoutDetailsSubmitted) {
       setPaymentPreference((prev) => prev ?? 'yes');
@@ -1428,11 +1335,15 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       previewSrcs={previewUrls}
       previewReloadKey={previewReloadKey}
       onPreviewSubmit={handleIntakePreviewSubmit}
-      setupInfoPanelProps={setupInfoPanelProps}
       setupStatus={setupStatus}
       payoutsCompleteOverride={stripeHasAccount || payoutDetailsSubmitted}
       practice={currentPractice}
       details={setupDetails ?? null}
+      setupConversationId={onboardingConversationId}
+      setupFields={setupFields}
+      applySetupFields={applySetupFields}
+      onStartStripeOnboarding={handleStartStripeOnboarding}
+      isStripeSubmitting={isStripeSubmitting}
       onSaveBasics={handleSaveBasics}
       onSaveContact={handleSaveContact}
       onSaveServices={handleSaveOnboardingServices}
@@ -1441,7 +1352,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       onLogoChange={handleLogoChange}
       onBasicsDraftChange={setDraftBasics}
       onProgressChange={setOnboardingProgress}
-      onSaveActionsChange={handleOnboardingSaveActionsChange}
       chatAdapter={onboardingConversationId ? {
         messages: onboardingMessageHandling.messages,
         sendMessage: onboardingMessageHandling.sendMessage,

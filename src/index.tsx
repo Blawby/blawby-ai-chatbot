@@ -1,5 +1,5 @@
 import { hydrate, prerender as ssr, Router, Route, useLocation, LocationProvider } from 'preact-iso';
-import { useCallback, useEffect, useMemo, useRef } from 'preact/hooks';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { Suspense } from 'preact/compat';
 import { I18nextProvider } from 'react-i18next';
 import AuthPage from '@/pages/AuthPage';
@@ -31,6 +31,8 @@ import { AppGuard } from '@/app/AppGuard';
 import { App404 } from '@/features/practice/components/404';
 import { normalizePracticeRole } from '@/shared/utils/practiceRoles';
 import { LoadingScreen } from '@/shared/ui/layout/LoadingScreen';
+import { resolvePracticeSetupStatus } from '@/features/practice-setup/utils/status';
+import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
 import './index.css';
 import { i18n, initI18n } from '@/shared/i18n';
 import { initializeAccentColor } from '@/shared/utils/accentColors';
@@ -400,7 +402,7 @@ function PracticeAppRoute({
   settingsView?: 'general' | 'notifications' | 'account' | 'practice' | 'practice-payouts' | 'practice-services' | 'practice-team' | 'practice-pricing' | 'apps' | 'app-detail' | 'security' | 'help';
   practiceSlug?: string;
 }) {
-  const { session, isPending } = useSessionContext();
+  const { session, isPending, activeMemberRole } = useSessionContext();
   const {
     hasPracticeAccess: canAccessPractice,
     practicesLoading,
@@ -448,13 +450,30 @@ function PracticeAppRoute({
 
   const resolvedPracticeIdFromConfig = typeof practiceConfig.id === 'string' ? practiceConfig.id : '';
   const resolvedPracticeId = resolvedPracticeIdFromConfig || practiceLookupKey;
+  const targetPractice = slugPractice ?? currentPractice;
+  const normalizedMemberRole = normalizePracticeRole(activeMemberRole);
+  const shouldEnforceSetupGate = normalizedMemberRole === 'owner' || normalizedMemberRole === 'admin';
+  const { details: practiceDetails, fetchDetails: fetchPracticeDetails } = usePracticeDetails(
+    resolvedPracticeId || null,
+    normalizedPracticeSlug || null,
+    false
+  );
+  const [setupGateReady, setSetupGateReady] = useState(false);
+  const sessionRecord = session?.session as Record<string, unknown> | undefined;
+  const backendActiveOrgId =
+    (typeof sessionRecord?.activeOrganizationId === 'string'
+      ? sessionRecord.activeOrganizationId
+      : typeof sessionRecord?.active_organization_id === 'string'
+        ? sessionRecord.active_organization_id
+        : null);
+  const isRouteOrgSynced = !resolvedPracticeId || !backendActiveOrgId || backendActiveOrgId === resolvedPracticeId;
+  const setupStatus = useMemo(
+    () => resolvePracticeSetupStatus(targetPractice, practiceDetails ?? null),
+    [targetPractice, practiceDetails]
+  );
 
   useEffect(() => {
     if (isPending || practicesLoading || !session?.user || !resolvedPracticeId) return;
-
-    // session.session.activeOrganizationId is the one currently active on the backend
-    const sessionRecord = session?.session as unknown as Record<string, unknown> | undefined;
-    const backendActiveOrgId = sessionRecord?.activeOrganizationId || sessionRecord?.active_organization_id;
 
     // If the backend session doesn't match the route-selected practice ID,
     // synchronize it to ensure correct permission/role resolution.
@@ -463,7 +482,56 @@ function PracticeAppRoute({
         console.warn('[PracticeAppRoute] Failed to switch active practice context:', err);
       });
     }
-  }, [resolvedPracticeId, session?.session, session?.user, isPending, practicesLoading]);
+  }, [resolvedPracticeId, session?.user, isPending, practicesLoading, backendActiveOrgId]);
+
+  useEffect(() => {
+    if (!shouldEnforceSetupGate || !resolvedPracticeId || !canAccessPractice) {
+      setSetupGateReady(true);
+      return;
+    }
+
+    if (!isRouteOrgSynced) {
+      setSetupGateReady(false);
+      return;
+    }
+
+    let cancelled = false;
+    setSetupGateReady(false);
+    void fetchPracticeDetails()
+      .catch((error) => {
+        console.warn('[PracticeAppRoute] Failed to load practice details for setup gate:', error);
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setSetupGateReady(true);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [canAccessPractice, fetchPracticeDetails, isRouteOrgSynced, resolvedPracticeId, shouldEnforceSetupGate]);
+
+  useEffect(() => {
+    if (isPending || practicesLoading) return;
+    if (!session?.user || !canAccessPractice || !targetPractice?.slug) return;
+    if (!shouldEnforceSetupGate || !isRouteOrgSynced || !setupGateReady) return;
+    if (!setupStatus.needsSetup || workspaceView === 'setup') return;
+
+    navigate(`/practice/${encodeURIComponent(targetPractice.slug)}/setup`, true);
+  }, [
+    canAccessPractice,
+    isPending,
+    isRouteOrgSynced,
+    navigate,
+    practicesLoading,
+    session?.user,
+    setupGateReady,
+    setupStatus.needsSetup,
+    shouldEnforceSetupGate,
+    targetPractice?.slug,
+    workspaceView,
+  ]);
 
   useEffect(() => {
     if (isPending || practicesLoading) return;
@@ -532,6 +600,14 @@ function PracticeAppRoute({
   }
 
   if (!canAccessPractice) {
+    return <LoadingScreen />;
+  }
+
+  if (shouldEnforceSetupGate && !isRouteOrgSynced) {
+    return <LoadingScreen />;
+  }
+
+  if (shouldEnforceSetupGate && !setupGateReady) {
     return <LoadingScreen />;
   }
 
