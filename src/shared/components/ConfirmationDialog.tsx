@@ -223,7 +223,7 @@ export default function ConfirmationDialog({
                 <LoadingSpinner
                   size="sm"
                   className="mr-2"
-                  ariaLabel={t('common.processing', { defaultValue: 'Processing...' })}
+                  ariaLabel={t('common.processing')}
                 />
                 {confirmText}
               </span>

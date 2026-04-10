@@ -496,7 +496,7 @@ export const TagInput = forwardRef<HTMLInputElement, TagInputProps>(({
               <div className="flex items-center justify-center px-3 py-2">
                 <LoadingSpinner
                   size="sm"
-                  ariaLabel={t('loadingSuggestions', { defaultValue: 'Loading suggestions...' })}
+                  ariaLabel={t('loadingSuggestions')}
                 />
               </div>
             )}

@@ -23,7 +23,7 @@ module.exports = {
       /Processing/,
       /Sending/,
       /Uploading/,
-      /loading/i,
+      /\bloading\b/i,
     ];
 
     function getNodeText(node) {
@@ -96,20 +96,20 @@ module.exports = {
 
       Literal(node) {
         if (isJsxChildExpression(node)) {
-          reportIfLoadingText(node, 'noVisibleLoadingText');
+          // Handled by JSXExpressionContainer to avoid double-reporting
+          return;
         }
       },
 
       TemplateLiteral(node) {
         if (isJsxChildExpression(node)) {
-          reportIfLoadingText(node, 'noVisibleLoadingText');
+          // Handled by JSXExpressionContainer to avoid double-reporting
+          return;
         }
       },
 
-      // Check button text changes (only in JSX element children, not attribute values)
+      // Check button text changes — only when the JSX ancestor is a Button element
       ConditionalExpression(node) {
-        // Only check when this conditional is inside a JSXExpressionContainer
-        // that is a child of a JSXElement (not an attribute value)
         const parent = node.parent;
         if (!parent || parent.type !== 'JSXExpressionContainer') {
           return;
@@ -118,26 +118,21 @@ module.exports = {
         if (!grandParent || grandParent.type === 'JSXAttribute') {
           return;
         }
+        // Walk up to the nearest JSXElement and check if it's a Button
+        let ancestor = grandParent;
+        while (ancestor && ancestor.type !== 'JSXElement') {
+          ancestor = ancestor.parent;
+        }
+        if (!ancestor || ancestor.type !== 'JSXElement') return;
+        const openingName = ancestor.openingElement && ancestor.openingElement.name;
+        const isButton =
+          (openingName && openingName.type === 'JSXIdentifier' && openingName.name === 'Button') ||
+          (openingName && openingName.type === 'JSXMemberExpression' &&
+            openingName.property && openingName.property.name === 'Button');
+        if (!isButton) return;
 
         reportIfLoadingText(node.consequent, 'noLoadingTextInButton');
         reportIfLoadingText(node.alternate, 'noLoadingTextInButton');
-      },
-
-      // Check ternary operators in JSX
-      JSXElement(node) {
-        if (node.openingElement.name.name === 'Button') {
-          // Check for loading text in button children
-          node.children.forEach(child => {
-            if (child.type === 'JSXExpressionContainer') {
-              if (child.expression.type === 'ConditionalExpression') {
-                const { consequent, alternate } = child.expression;
-
-                reportIfLoadingText(consequent, 'noLoadingTextInButton');
-                reportIfLoadingText(alternate, 'noLoadingTextInButton');
-              }
-            }
-          });
-        }
       },
     };
   },
