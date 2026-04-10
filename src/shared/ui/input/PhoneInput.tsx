@@ -32,6 +32,29 @@ const normalizeSupportedCountryCode = (value?: string): string => {
 
 const splitCombinedPhoneValue = (value: string): ParsedPhoneValue => {
   const trimmedStart = value.trimStart();
+  const leadingDigitTokenMatch = trimmedStart.match(/^(\+\d{1,3})(.*)$/);
+
+  if (leadingDigitTokenMatch) {
+    const rawPrefix = leadingDigitTokenMatch[1];
+    const remainder = leadingDigitTokenMatch[2].trimStart();
+    const exactCountryMatch = countryCodeMatchOrder.find((country) => country.code === rawPrefix);
+    const candidateMatches = countryCodeMatchOrder.filter((country) => country.code.startsWith(rawPrefix));
+
+    if (exactCountryMatch || candidateMatches.length === 1) {
+      return {
+        kind: 'supported',
+        prefix: exactCountryMatch?.code ?? candidateMatches[0].code,
+        localValue: remainder,
+      };
+    }
+
+    return {
+      kind: 'unsupported',
+      prefix: rawPrefix,
+      localValue: remainder,
+    };
+  }
+
   const matchedCountry = countryCodeMatchOrder.find((country) => trimmedStart.startsWith(country.code));
   if (!matchedCountry) {
     const unsupportedPrefixMatch = trimmedStart.match(unsupportedInternationalPrefixPattern);
@@ -245,13 +268,13 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(({
 
   // Add keyboard event listener
   useEffect(() => {
-    const dropdownElement = dropdownRef.current;
-    if (!isDropdownOpen || !dropdownElement) return;
+    const listElement = listRef.current;
+    if (!isDropdownOpen || !listElement) return;
 
-    dropdownElement.addEventListener('keydown', handleKeyDown);
+    listElement.addEventListener('keydown', handleKeyDown);
 
     return () => {
-      dropdownElement.removeEventListener('keydown', handleKeyDown);
+      listElement.removeEventListener('keydown', handleKeyDown);
     };
   }, [isDropdownOpen, handleKeyDown]);
   
