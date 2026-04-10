@@ -7,6 +7,7 @@
 
 import { FunctionComponent } from 'preact';
 import { Button } from '@/shared/ui/Button';
+import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
 import { CompletionRing } from '@/shared/ui/CompletionRing';
 import type { PracticeSetupStatus } from '../../practice-setup/utils/status';
 
@@ -171,7 +172,14 @@ const OnboardingActions: FunctionComponent<OnboardingActionsProps> = ({
               }}
               disabled={isSaving || logoUploading}
             >
-              {logoUploading ? `Uploading... ${logoUploadProgress ? `${logoUploadProgress}%` : ''}` : 'Choose Logo'}
+              {logoUploading ? (
+                <span className="inline-flex items-center">
+                  <LoadingSpinner size="sm" className="mr-2" />
+                  {logoUploadProgress != null ? `${logoUploadProgress}%` : 'Choose Logo'}
+                </span>
+              ) : (
+                'Choose Logo'
+              )}
             </Button>
           </div>
         </div>

@@ -252,7 +252,7 @@ export const DataTable = ({
       {toolbar ? <div>{toolbar}</div> : null}
       {loading ? (
         <div className="glass-panel min-h-[16rem]">
-          <LoadingBlock label={loadingLabel} showLabel className="p-6" />
+          <LoadingBlock label={loadingLabel} className="p-6" />
         </div>
       ) : errorState ? (
         <div>{errorState}</div>

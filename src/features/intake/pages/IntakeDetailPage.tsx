@@ -15,6 +15,7 @@ import { UserCard } from '@/shared/ui/profile';
 import { DetailHeader } from '@/shared/ui/layout/DetailHeader';
 import { Page } from '@/shared/ui/layout/Page';
 import { LoadingBlock } from '@/shared/ui/layout/LoadingBlock';
+import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
 import { Dialog, DialogBody, DialogFooter } from '@/shared/ui/dialog';
 import { Textarea } from '@/shared/ui/input';
 import { useNavigation } from '@/shared/utils/navigation';
@@ -515,8 +516,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
                   <div className="flex-1 min-h-0 overflow-hidden bg-surface-overlay/20 touch-pan-y">
                     {previewLoading && previewMessages.length === 0 ? (
                       <div className="h-full flex flex-col items-center justify-center p-6 text-center">
-                        <LoadingBlock />
-                        <p className="text-xs text-input-placeholder mt-4">Loading conversation history...</p>
+                        <LoadingBlock label="Loading conversation history..." />
                       </div>
                     ) : previewMessages.length === 0 ? (
                       <div className="h-full flex flex-col items-center justify-center p-6 text-center">
@@ -566,7 +566,12 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
                     disabled={isSubmitting}
                     onClick={() => openTriageDialog('accepted')}
                   >
-                    {isSubmitting ? 'Accepting…' : 'Accept Consultation'}
+                    {isSubmitting ? (
+                      <span className="inline-flex items-center">
+                        <LoadingSpinner size="sm" className="mr-2" ariaLabel="Accepting consultation" />
+                        Accept Consultation
+                      </span>
+                    ) : 'Accept Consultation'}
                   </Button>
                   <Button
                     id="intake-decline-btn"
@@ -575,7 +580,12 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
                     disabled={isSubmitting}
                     onClick={() => openTriageDialog('declined')}
                   >
-                    {isSubmitting ? 'Declining…' : 'Decline'}
+                    {isSubmitting ? (
+                      <span className="inline-flex items-center">
+                        <LoadingSpinner size="sm" className="mr-2" ariaLabel="Declining consultation" />
+                        Decline
+                      </span>
+                    ) : 'Decline'}
                   </Button>
                   <p className="text-xs text-input-placeholder text-center leading-relaxed">
                     Accepting will move this conversation into your inbox and notify the client.

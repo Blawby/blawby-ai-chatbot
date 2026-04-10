@@ -2,6 +2,7 @@ import { memo, useEffect, useMemo, useState } from 'preact/compat';
 import type { FunctionComponent } from 'preact';
 import remarkGfm from 'remark-gfm';
 import { markdownComponents } from '@/shared/ui/markdown/markdownComponents';
+import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
 
 type UrlTransform = (url: string, key: string, node: unknown) => string;
 
@@ -126,7 +127,9 @@ const ChatMarkdown: FunctionComponent<ChatMarkdownProps> = memo(({
           {processedText}
         </ReactMarkdown>
       ) : (
-        <div className="text-gray-500 text-sm">Loading markdown...</div>
+        <div className="flex items-center justify-center py-2">
+          <LoadingSpinner size="sm" ariaLabel="Loading markdown" />
+        </div>
       )}
       {streamingCursor}
     </div>

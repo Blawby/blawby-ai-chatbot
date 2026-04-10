@@ -1,5 +1,6 @@
 import { Button } from '@/shared/ui/Button';
 import { cn } from '@/shared/utils/cn';
+import { SkeletonLoader } from '@/shared/ui/layout/SkeletonLoader';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import type { BillingWindow, DashboardStat } from '@/features/practice-dashboard/hooks/usePracticeBillingData';
 
@@ -49,8 +50,15 @@ export const DashboardHero = ({
       </div>
     </div>
     {loading && stats.length === 0 ? (
-      <div className="mx-auto max-w-7xl px-4 py-8 text-sm text-input-placeholder sm:px-6 lg:px-8">
-        Loading practice metrics...
+      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {[1, 2, 3, 4].map(i => (
+            <div key={i} className="space-y-2">
+              <SkeletonLoader variant="text" width="w-16" />
+              <SkeletonLoader variant="title" width="w-24" />
+            </div>
+          ))}
+        </div>
       </div>
     ) : (
       <dl className="mx-auto grid max-w-7xl grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 lg:px-2 xl:px-0">

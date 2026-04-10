@@ -12,6 +12,7 @@ import {
   DropdownMenuTrigger
 } from '@/shared/ui/dropdown';
 import { Avatar } from '@/shared/ui/profile';
+import { LoadingBlock } from '@/shared/ui/layout/LoadingBlock';
 import type { MatterDetail, MatterNote } from '@/features/matters/data/matterTypes';
 import { NoteForm, type NoteFormValues } from './NoteForm';
 
@@ -183,9 +184,7 @@ export const MatterNotesPanel = ({
           {error}
         </div>
       ) : loading && sortedNotes.length === 0 ? (
-        <div className="px-6 py-6 text-sm text-gray-500 dark:text-gray-400">
-          Loading notes...
-        </div>
+        <LoadingBlock className="px-6 py-6" label="Loading notes..." />
       ) : sortedNotes.length === 0 ? (
         <div className="px-6 py-6 text-sm text-gray-500 dark:text-gray-400">
           No notes yet. Capture internal updates, decisions, or next steps tied to this matter.

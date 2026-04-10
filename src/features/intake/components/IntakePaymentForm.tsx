@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/compat
 import { PaymentElement, useElements, useStripe } from '@stripe/react-stripe-js';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import { Button } from '@/shared/ui/Button';
+import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
 import { getConversationWsEndpoint } from '@/config/api';
 import { isPaidIntakeStatus } from '@/shared/utils/intakePayments';
 import { toMajorUnits, type MinorAmount } from '@/shared/utils/money';
@@ -316,8 +317,8 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
       {(!stripe || !elements) && (
-        <div className="rounded-xl border border-line-glass/30 bg-surface-panel/60 px-4 py-3 text-sm text-input-placeholder backdrop-blur-md">
-          Loading secure payment form…
+        <div className="flex justify-center rounded-xl border border-line-glass/30 bg-surface-panel/60 px-4 py-3 backdrop-blur-md">
+          <LoadingSpinner size="sm" ariaLabel="Loading secure payment form" />
         </div>
       )}
       <div className={variant === 'card' ? "glass-panel p-5" : "rounded-xl border border-line-glass/30 bg-surface-panel/60 p-4"}>
@@ -364,7 +365,14 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
           disabled={isSubmitting || paymentSubmitted || !stripe || !elements}
           className="w-full"
         >
-          {isSubmitting ? 'Processing payment…' : (formattedAmount ? `Pay ${formattedAmount}` : 'Pay now')}
+          {isSubmitting ? (
+            <span className="inline-flex items-center">
+              <LoadingSpinner size="sm" className="mr-2" />
+              {formattedAmount ? `Pay ${formattedAmount}` : 'Pay now'}
+            </span>
+          ) : (
+            formattedAmount ? `Pay ${formattedAmount}` : 'Pay now'
+          )}
         </Button>
       )}
     </form>

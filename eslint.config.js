@@ -5,6 +5,10 @@ import typescriptParser from '@typescript-eslint/parser';
 import react from 'eslint-plugin-react';
 import reactHooks from 'eslint-plugin-react-hooks';
 import jsxA11y from 'eslint-plugin-jsx-a11y';
+import { createRequire } from 'module';
+
+const require = createRequire(import.meta.url);
+const loadingConsistency = require('./config/eslint-rules/loading-consistency.cjs');
 
 export default [
   // Base JavaScript configuration
@@ -76,7 +80,12 @@ export default [
       '@typescript-eslint': typescript,
       react: fixupPluginRules(react),
       'react-hooks': fixupPluginRules(reactHooks),
-      'jsx-a11y': fixupPluginRules(jsxA11y)
+      'jsx-a11y': fixupPluginRules(jsxA11y),
+      custom: {
+        rules: {
+          'loading-consistency': loadingConsistency,
+        },
+      },
     },
     rules: {
       // TypeScript rules
@@ -121,6 +130,9 @@ export default [
       'no-var': 'error',
       'object-shorthand': 'error',
       'prefer-template': 'error',
+
+      // Custom loading consistency rule
+      'custom/loading-consistency': 'error',
 
       // Project guardrails
       'no-restricted-syntax': [

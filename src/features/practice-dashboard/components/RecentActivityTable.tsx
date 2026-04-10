@@ -2,6 +2,7 @@ import { Fragment } from 'preact';
 import { ArrowDownCircleIcon, ArrowPathIcon, ArrowUpCircleIcon } from '@heroicons/react/20/solid';
 import { Icon } from '@/shared/ui/Icon';
 import { cn } from '@/shared/utils/cn';
+import { SkeletonLoader } from '@/shared/ui/layout/SkeletonLoader';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import { formatDate } from '@/shared/utils/dateTime';
 import type { ActivityDay, ActivityEntry } from '@/features/practice-dashboard/hooks/usePracticeBillingData';
@@ -47,8 +48,18 @@ export const RecentActivityTable = ({ days, loading = false, error = null, onOpe
     </div>
     {loading ? (
       <div className="mt-6 border-t border-line-glass/30">
-        <div className="mx-auto max-w-7xl px-4 py-5 text-sm text-input-placeholder sm:px-6 lg:px-8">
-          Loading activity...
+        <div className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8">
+          <div className="space-y-3">
+            {[1, 2, 3, 4, 5].map(i => (
+              <div key={i} className="flex items-center space-x-4">
+                <SkeletonLoader variant="avatar" />
+                <div className="flex-1 space-y-2">
+                  <SkeletonLoader variant="text" width="w-32" />
+                  <SkeletonLoader variant="text" width="w-48" />
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     ) : error ? (

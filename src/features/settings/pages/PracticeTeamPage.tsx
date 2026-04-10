@@ -18,6 +18,7 @@ import { getPracticeRoleLabel, PRACTICE_ROLE_OPTIONS, normalizePracticeRole } fr
 import { FormGrid, SectionDivider } from '@/shared/ui/layout';
 import { FormActions } from '@/shared/ui/form';
 import { ContentPageLayout } from '@/shared/ui/layout';
+import { LoadingBlock } from '@/shared/ui/layout/LoadingBlock';
 import { SettingsNotice } from '@/features/settings/components/SettingsNotice';
 import { SettingsHelperText } from '@/features/settings/components/SettingsHelperText';
 import { buildSettingsPath, resolveSettingsBasePath } from '@/shared/utils/workspace';
@@ -282,7 +283,7 @@ export const PracticeTeamPage = ({ className }: PracticeTeamPageProps) => {
         )}
 
       {members.length === 0 && (loading || teamLoading) ? (
-        <SettingsHelperText>Loading members...</SettingsHelperText>
+        <LoadingBlock label="Loading members..." />
       ) : members.length > 0 ? (
           <div className="space-y-3">
             {members.map((member) => (

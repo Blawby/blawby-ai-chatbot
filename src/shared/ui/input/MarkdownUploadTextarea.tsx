@@ -10,6 +10,7 @@ import {
   NumberedListIcon
 } from '@heroicons/react/24/outline';
 import { Icon } from '@/shared/ui/Icon';
+import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
 import { cn } from '@/shared/utils/cn';
 import { useUniqueId } from '@/shared/hooks/useUniqueId';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/shared/ui/dropdown';
@@ -483,8 +484,8 @@ export const MarkdownUploadTextarea = ({
                     {value}
                   </ReactMarkdown>
                 ) : (
-                  <div className="mt-2 rounded border border-gray-200 bg-gray-50 p-2 text-sm text-gray-400 dark:border-gray-700 dark:bg-gray-900/40 dark:text-gray-500">
-                    Loading preview…
+                  <div className="mt-2 flex justify-center rounded border border-gray-200 bg-gray-50 p-2 dark:border-gray-700 dark:bg-gray-900/40">
+                    <LoadingSpinner size="sm" ariaLabel="Loading preview" />
                   </div>
                 )}
               </div>
@@ -551,9 +552,11 @@ export const MarkdownUploadTextarea = ({
       {uploadError && (
         <p className="text-sm text-red-300">{uploadError}</p>
       )}
-      {isUploading && (
-        <p className="text-xs text-input-placeholder">Uploading files…</p>
-      )}
+      {isUploading ? (
+        <div className="flex justify-center">
+          <LoadingSpinner size="sm" ariaLabel="Uploading files" />
+        </div>
+      ) : null}
     </div>
   );
 };

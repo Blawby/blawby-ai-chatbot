@@ -1039,7 +1039,7 @@ export const PracticeClientsPage = ({
         <Panel className="list-panel-card-gradient min-h-0 flex-1 overflow-hidden">
           {clientsLoading ? (
             <div className="h-full flex-1 items-center justify-center flex">
-              <LoadingBlock showLabel={true} label={t('clients.loading', { defaultValue: 'Loading people...' })} />
+              <LoadingBlock label={t('clients.loading', { defaultValue: 'Loading people...' })} />
             </div>
           ) : clientsError ? (
             <div className="h-full flex-1 items-center justify-center flex">
@@ -1063,7 +1063,7 @@ export const PracticeClientsPage = ({
         <div className="h-full min-h-0 overflow-hidden">
           {clientsLoading ? (
             <div className="h-full flex items-center justify-center">
-              <LoadingBlock showLabel={true} label={t('clients.loading', { defaultValue: 'Loading people...' })} />
+              <LoadingBlock label={t('clients.loading', { defaultValue: 'Loading people...' })} />
             </div>
           ) : clientsError ? (
             <div className="h-full flex items-center justify-center">
@@ -1114,7 +1114,7 @@ export const PracticeClientsPage = ({
             <div className="min-h-0 flex-1 overflow-hidden px-4 pb-4 sm:px-6 sm:pb-6">
               {clientsLoading ? (
                 <div className="h-full flex items-center justify-center">
-                  <LoadingBlock showLabel={true} label={t('clients.loading', { defaultValue: 'Loading people...' })} />
+                  <LoadingBlock label={t('clients.loading', { defaultValue: 'Loading people...' })} />
                 </div>
               ) : clientsError ? (
                 <div className="h-full flex items-center justify-center">
@@ -1142,7 +1142,7 @@ export const PracticeClientsPage = ({
         >
           {clientsLoading ? (
             <div className="h-full flex-1 items-center justify-center flex">
-              <LoadingBlock showLabel={true} label={t('clients.loading', { defaultValue: 'Loading people...' })} />
+              <LoadingBlock label={t('clients.loading', { defaultValue: 'Loading people...' })} />
             </div>
           ) : clientsError ? (
             <div className="h-full flex-1 items-center justify-center flex">

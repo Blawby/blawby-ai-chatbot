@@ -12,6 +12,7 @@ import {
   DropdownMenuTrigger
 } from '@/shared/ui/dropdown';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
+import { LoadingBlock } from '@/shared/ui/layout/LoadingBlock';
 import type { MatterDetail, MatterExpense } from '@/features/matters/data/matterTypes';
 import { ExpenseForm, type ExpenseFormValues } from './ExpenseForm';
 
@@ -189,9 +190,7 @@ export const MatterExpensesPanel = ({
           {error}
         </div>
       ) : loading && sortedExpenses.length === 0 ? (
-        <div className="px-6 py-6 text-sm text-gray-500 dark:text-gray-400">
-          Loading expenses...
-        </div>
+        <LoadingBlock className="px-6 py-6" label="Loading expenses..." />
       ) : sortedExpenses.length === 0 ? (
         <div className="px-6 py-6 text-sm text-gray-500 dark:text-gray-400">
           No expenses yet. Add receipts, filing fees, or other costs tied to this matter.

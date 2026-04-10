@@ -28,7 +28,7 @@ export const LoadingScreen = ({
     >
       <div className="flex flex-col items-center gap-2">
         {showSpinner ? <LoadingSpinner size={size} ariaLabel={resolvedLabel} announce={false} /> : null}
-        {!showLabel ? <span className="sr-only">{resolvedLabel}</span> : null}
+        {!showSpinner && !showLabel ? <span className="sr-only">{resolvedLabel}</span> : null}
         {showLabel ? <span className="text-sm text-input-placeholder">{resolvedLabel}</span> : null}
       </div>
     </div>

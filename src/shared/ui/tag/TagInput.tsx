@@ -8,6 +8,7 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from 'preact/hooks';
 import { forwardRef } from 'preact/compat';
 import { cn } from '@/shared/utils/cn';
+import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
 import { useTranslation } from '@/shared/i18n/hooks';
 import { useUniqueId } from '@/shared/hooks/useUniqueId';
 import { Tag } from './atoms/Tag';
@@ -492,8 +493,11 @@ export const TagInput = forwardRef<HTMLInputElement, TagInputProps>(({
             )}
           >
             {isLoadingSuggestions && (
-              <div className="px-3 py-2 text-sm text-input-placeholder">
-                {t('loadingSuggestions', { defaultValue: 'Loading suggestions...' })}
+              <div className="flex items-center justify-center px-3 py-2">
+                <LoadingSpinner
+                  size="sm"
+                  ariaLabel={t('loadingSuggestions')}
+                />
               </div>
             )}
             {!isLoadingSuggestions && filteredSuggestions.length === 0 && inputValue.trim() && (

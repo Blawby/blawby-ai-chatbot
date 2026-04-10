@@ -10,6 +10,7 @@ import {
 } from '@/shared/lib/uploadsApi';
 import { formatFileSize } from '@/shared/utils/mediaAggregation';
 import { Fullscreen } from '@/shared/ui/dialog';
+import { LoadingBlock } from '@/shared/ui/layout/LoadingBlock';
 
 const MAX_FILENAME_DISPLAY_LENGTH = 20;
 
@@ -124,9 +125,7 @@ export function MatterFilesPanel({ matterId }: MatterFilesPanelProps) {
 
   if (loading) {
     return (
-      <div className="flex h-full items-center justify-center p-8 text-sm text-input-placeholder">
-        Loading files…
-      </div>
+      <LoadingBlock className="p-8" label="Loading files…" />
     );
   }
 

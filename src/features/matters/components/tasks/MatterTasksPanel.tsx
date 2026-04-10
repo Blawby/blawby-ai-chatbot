@@ -11,6 +11,7 @@ import {
 } from '@/shared/ui/dropdown';
 import { Combobox } from '@/shared/ui/input/Combobox';
 import { Input } from '@/shared/ui/input/Input';
+import { LoadingBlock } from '@/shared/ui/layout/LoadingBlock';
 import type { MatterOption, MatterTask } from '@/features/matters/data/matterTypes';
 import { formatDateOnlyUtc } from '@/shared/utils/dateOnly';
 import { toTaskStageOptions } from '@/features/matters/utils/matterUtils';
@@ -186,7 +187,7 @@ export const MatterTasksPanel = ({
       {requestError ? <div className="px-6 py-4 text-sm text-red-600 dark:text-red-400">{requestError}</div> : null}
 
       {loading ? (
-        <div className="px-6 py-6 text-sm text-gray-500 dark:text-gray-400">Loading tasks...</div>
+        <LoadingBlock className="px-6 py-6" label="Loading tasks..." />
       ) : tasks.length === 0 ? (
         <div className="px-6 py-6 text-sm text-gray-500 dark:text-gray-400">No tasks yet.</div>
       ) : (

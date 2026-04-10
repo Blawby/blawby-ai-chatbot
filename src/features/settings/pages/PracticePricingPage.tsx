@@ -6,6 +6,7 @@ import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import { asMajor, fromMinorUnits, type MajorAmount } from '@/shared/utils/money';
 import { Button } from '@/shared/ui/Button';
 import { ContentPageLayout } from '@/shared/ui/layout';
+import { LoadingBlock } from '@/shared/ui/layout/LoadingBlock';
 import { SettingsHelperText } from '@/features/settings/components/SettingsHelperText';
 import { SectionDivider } from '@/shared/ui/layout';
 import { CurrencyInput, Input, Switch } from '@/shared/ui/input';
@@ -202,7 +203,7 @@ export const PracticePricingPage = ({ className }: PracticePricingPageProps) => 
   if (loading && !currentPractice) {
     return (
       <div className="h-full flex items-center justify-center">
-        <p className="text-sm text-input-placeholder">Loading pricing settings...</p>
+        <LoadingBlock label="Loading pricing settings..." />
       </div>
     );
   }
