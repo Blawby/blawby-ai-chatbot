@@ -327,6 +327,20 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(({
         return;
       }
 
+      const droppedUnsupportedPrefix =
+        parsedPhoneValue?.kind === 'unsupported' &&
+        parsedRawValue.kind === 'none' &&
+        !rawValue.trimStart().startsWith('+');
+
+      if (droppedUnsupportedPrefix) {
+        manualSelectionRef.current = null;
+        if (manualCountryCode !== null) {
+          setManualCountryCode(null);
+        }
+        onChange?.(rawValue);
+        return;
+      }
+
       const effectiveManualCountryCode =
         parsedRawValue.kind === 'supported' ? parsedRawValue.prefix : manualCountryCode;
       if (parsedRawValue.kind === 'supported' && parsedRawValue.prefix !== selectedCountryCode) {
@@ -397,6 +411,7 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(({
               ref={buttonRef}
               type="button"
               onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+              onKeyDown={handleKeyDown}
               disabled={disabled}
               aria-expanded={isDropdownOpen}
               aria-haspopup="menu"
