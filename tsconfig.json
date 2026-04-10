@@ -10,6 +10,7 @@
 		"noEmit": true,
 		"allowJs": true,
 		"checkJs": true,
+		"ignoreDeprecations": "5.0",
 		"resolveJsonModule": true,
 		"downlevelIteration": true,
 		"baseUrl": ".",

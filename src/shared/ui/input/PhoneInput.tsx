@@ -1,6 +1,5 @@
 import { forwardRef, useCallback, useState, useEffect, useRef } from 'preact/compat';
 import { PhoneIcon, ChevronDownIcon } from '@heroicons/react/24/outline';
-import { Icon } from '@/shared/ui/Icon';
 import { cn } from '@/shared/utils/cn';
 import { useUniqueId } from '@/shared/hooks/useUniqueId';
 
@@ -416,10 +415,10 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(({
                 sizeClasses[size],
                 disabled && 'opacity-50 cursor-not-allowed'
               )}
-            >
+              >
               <span className="text-base mr-1">{currentCountry.emoji}</span>
               <span className="text-sm">{currentCountry.code}</span>
-              <Icon icon={ChevronDownIcon} className="w-3 h-3 ml-1"  />
+              <ChevronDownIcon className="w-3 h-3 ml-1 shrink-0" aria-hidden="true" />
             </button>
             
             {isDropdownOpen && (
@@ -457,7 +456,7 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(({
         <div className="relative flex-1">
           {!showCountryCode ? (
             <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-              <Icon icon={PhoneIcon} className="w-4 h-4 text-input-placeholder"  />
+              <PhoneIcon className="w-4 h-4 text-input-placeholder shrink-0" aria-hidden="true" />
             </div>
           ) : null}
           
