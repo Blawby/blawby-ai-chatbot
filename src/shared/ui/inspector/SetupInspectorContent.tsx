@@ -104,10 +104,6 @@ export function SetupInspectorContent({
                 if (byName?.key && !assignedKeys.has(byName.key)) {
                   existingKey = byName.key;
                   existingDescription = byName.description;
-                } else {
-                  const unused = existingServices.find((s) => s.key && !assignedKeys.has(s.key));
-                  existingKey = unused?.key;
-                  existingDescription = unused?.description;
                 }
                 if (existingKey) assignedKeys.add(existingKey);
                 return { name, ...(existingKey ? { key: existingKey } : {}), ...(existingDescription ? { description: existingDescription } : {}) };
