@@ -612,10 +612,19 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
   const fetchPractices = useCallback(async () => {
     let currentFetchPromise: Promise<SharedPracticeSnapshot> | null = null;
     try {
-      // A previous fetch was rejected with 403 — the user has no org. Do not retry.
+      // A previous fetch was rejected with 403 — the user had no org at that time.
+      // If the user has since gained an org (e.g. subscribed after onboarding), clear
+      // the flag so the new fetch can proceed. Otherwise bail out to avoid hammering.
       if (practicesFetchForbidden) {
-        setLoading(false);
-        return;
+        const sessionRecord = session?.session as Record<string, unknown> | undefined;
+        const hasOrg =
+          typeof sessionRecord?.activeOrganizationId === 'string' &&
+          sessionRecord.activeOrganizationId.length > 0;
+        if (!hasOrg) {
+          setLoading(false);
+          return;
+        }
+        practicesFetchForbidden = false;
       }
       // Check if requestedPracticeSlug has changed - if so, we need to re-select even if already fetched
       const slugChanged = lastSelectedSlugRef.current !== requestedPracticeSlug;
@@ -885,6 +894,9 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
       const snapshot = await sharedPracticePromise;
       sharedPracticeSnapshot = snapshot;
       sharedPracticeUserId = userId;
+      // Successful fetch — clear any stale forbidden flag so future fetches
+      // (e.g. after subscription upgrade) are not blocked.
+      practicesFetchForbidden = false;
 
       setPractices(snapshot.practices);
       setCurrentPractice(snapshot.currentPractice);

@@ -67,8 +67,24 @@ function groupByCategory(uploads: BackendUploadRecord[]): FileGroup[] {
 function triggerDownload(url: string, name: string) {
   const link = document.createElement('a');
   link.href = url;
-  link.download = name;
+  // The `download` attribute is ignored by browsers for cross-origin URLs
+  // (e.g. public_url pointing to S3/CDN). For cross-origin targets, open in a
+  // new tab and let the server's Content-Disposition header drive the behaviour.
+  // For reliable forced-download from S3/CDN, the backend should serve a signed
+  // redirect through /api/uploads/{id}/download with Content-Disposition: attachment.
+  try {
+    if (new URL(url).origin !== window.location.origin) {
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+    } else {
+      link.download = name;
+    }
+  } catch {
+    link.download = name;
+  }
+  document.body.appendChild(link);
   link.click();
+  document.body.removeChild(link);
 }
 
 export function MatterFilesPanel({ matterId }: MatterFilesPanelProps) {
@@ -129,9 +145,9 @@ export function MatterFilesPanel({ matterId }: MatterFilesPanelProps) {
     return (
       <div className="flex flex-col items-center justify-center gap-2 py-10 text-center">
         <Icon icon={DocumentIcon} className="w-8 h-8 text-input-placeholder/50" />
-        <p className="text-sm font-medium text-input-text">No files yet</p>
+        <p className="text-sm font-medium text-input-text">No verified files</p>
         <p className="text-xs text-input-placeholder">
-          Files uploaded to this matter will appear here.
+          Only verified uploads are displayed — pending or rejected files are hidden.
         </p>
       </div>
     );
