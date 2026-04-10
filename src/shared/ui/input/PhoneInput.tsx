@@ -37,14 +37,13 @@ const splitCombinedPhoneValue = (value: string): ParsedPhoneValue => {
   if (leadingDigitTokenMatch) {
     const rawPrefix = leadingDigitTokenMatch[1];
     const remainder = leadingDigitTokenMatch[2].trimStart();
-    const exactCountryMatch = countryCodeMatchOrder.find((country) => country.code === rawPrefix);
-    const candidateMatches = countryCodeMatchOrder.filter((country) => country.code.startsWith(rawPrefix));
+    const matchedCountry = countryCodeMatchOrder.find((country) => country.code === rawPrefix);
 
-    if (exactCountryMatch || candidateMatches.length === 1) {
+    if (matchedCountry) {
       return {
         kind: 'supported',
-        prefix: exactCountryMatch?.code ?? candidateMatches[0].code,
-        localValue: remainder,
+        prefix: matchedCountry.code,
+        localValue: trimmedStart.slice(matchedCountry.code.length).trimStart(),
       };
     }
 
