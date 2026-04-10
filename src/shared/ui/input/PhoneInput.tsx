@@ -138,48 +138,23 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(({
   const dropdownRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const manualSelectionRef = useRef<{ value: string; countryCode: string } | null>(null);
 
   const normalizedCountryCode = normalizeSupportedCountryCode(countryCode);
   const parsedPhoneValue = showCountryCode ? splitCombinedPhoneValue(value) : null;
   const [manualCountryCode, setManualCountryCode] = useState<string | null>(null);
-  const previousValueRef = useRef(value);
-  const previousCountryCodeRef = useRef(normalizedCountryCode);
+  const activeManualCountryCode =
+    showCountryCode &&
+    parsedPhoneValue?.kind === 'none' &&
+    manualSelectionRef.current?.value === value &&
+    manualSelectionRef.current?.countryCode === normalizedCountryCode
+      ? manualCountryCode
+      : null;
   const selectedCountryCode = parsedPhoneValue?.kind === 'supported'
     ? parsedPhoneValue.prefix
-    : manualCountryCode ?? normalizedCountryCode;
+    : activeManualCountryCode ?? normalizedCountryCode;
 
   const currentCountry = countries.find(c => c.code === selectedCountryCode) || countries[0];
-
-  useEffect(() => {
-    const valueChanged = previousValueRef.current !== value;
-    const countryCodeChanged = previousCountryCodeRef.current !== normalizedCountryCode;
-
-    previousValueRef.current = value;
-    previousCountryCodeRef.current = normalizedCountryCode;
-
-    if (!showCountryCode) {
-      if (manualCountryCode !== null) {
-        setManualCountryCode(null);
-      }
-      return;
-    }
-
-    if (manualCountryCode === null) return;
-
-    if (valueChanged && !value.trim()) {
-      setManualCountryCode(null);
-      return;
-    }
-
-    if (valueChanged && parsedPhoneValue?.kind !== 'none') {
-      setManualCountryCode(null);
-      return;
-    }
-
-    if (countryCodeChanged) {
-      setManualCountryCode(null);
-    }
-  }, [manualCountryCode, normalizedCountryCode, parsedPhoneValue?.kind, showCountryCode, value]);
   
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -200,16 +175,21 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(({
   }, [isDropdownOpen]);
 
   const handleCountrySelect = useCallback((country: typeof countries[0]) => {
-    setManualCountryCode(country.code);
-    onCountryChange?.(country.code);
     if (showCountryCode) {
       const nextValue = buildCombinedPhoneValue(country.code, parsedPhoneValue?.localValue ?? '');
-      onChange?.(nextValue || country.code);
+      const emittedValue = nextValue || country.code;
+      manualSelectionRef.current = {
+        value: emittedValue,
+        countryCode: normalizedCountryCode,
+      };
+      setManualCountryCode(country.code);
+      onCountryChange?.(country.code);
+      onChange?.(emittedValue);
     }
     setIsDropdownOpen(false);
     setFocusedIndex(-1);
     buttonRef.current?.focus();
-  }, [onChange, onCountryChange, parsedPhoneValue?.localValue, showCountryCode]);
+  }, [normalizedCountryCode, onChange, onCountryChange, parsedPhoneValue?.localValue, showCountryCode]);
 
   // Keyboard navigation handler
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
@@ -339,6 +319,10 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(({
         rawValue.trimStart().startsWith('+') && parsedRawValue.kind !== 'supported';
 
       if (isRawInternationalEntry) {
+        manualSelectionRef.current = null;
+        if (manualCountryCode !== null) {
+          setManualCountryCode(null);
+        }
         onChange?.(rawValue);
         return;
       }
@@ -362,6 +346,13 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(({
           ? nextPhonePrefix
           : buildCombinedPhoneValue(nextPhonePrefix, parsedRawValue.localValue);
 
+      manualSelectionRef.current =
+        parsedRawValue.kind === 'supported'
+          ? {
+              value: nextCombinedValue,
+              countryCode: normalizedCountryCode,
+            }
+          : null;
       onChange?.(nextCombinedValue);
       return;
     }
