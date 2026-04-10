@@ -80,11 +80,7 @@ export function usePreSendEnrichment({
         const extractData = await extractRes.json() as { fields?: Record<string, unknown> };
         const normalizedFields = normalizeSetupFieldsPayload(extractData.fields ?? null);
         if (Object.keys(normalizedFields).length > 0) {
-          try {
-            await onFieldsExtracted?.(normalizedFields);
-          } catch (fieldsErr) {
-            console.error('[usePreSendEnrichment] onFieldsExtracted threw:', fieldsErr);
-          }
+          await onFieldsExtracted?.(normalizedFields);
         }
       }
 

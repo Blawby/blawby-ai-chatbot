@@ -48,7 +48,7 @@ type WorkspaceSetupSectionProps = {
   isStripeSubmitting: boolean;
   onSaveBasics: (values: BasicsFormValues, options?: { suppressSuccessToast?: boolean }) => Promise<void>;
   onSaveContact: (values: ContactFormValues, options?: { suppressSuccessToast?: boolean }) => Promise<void>;
-  onSaveServices: (services: Array<{ name: string; key?: string }>) => Promise<void>;
+  onSaveServices: (services: Array<{ name: string; key?: string; service_key?: string }>) => Promise<void>;
   logoUploading: boolean;
   logoUploadProgress: number | null;
   onLogoChange: (files: FileList | File[]) => void;
@@ -58,23 +58,34 @@ type WorkspaceSetupSectionProps = {
   fallbackContent: ComponentChildren;
 };
 
-const EMPTY_SERVICES: Array<{ name: string; key?: string }> = [];
+const EMPTY_SERVICES: Array<{ name: string; key?: string; service_key?: string }> = [];
 const EMPTY_SETUP_FIELDS: SetupFieldsPayload = {};
 
-const normalizeServiceRecords = (records: unknown): Array<{ name: string; key?: string }> => {
+const normalizeServiceRecords = (records: unknown): Array<{ name: string; key?: string; service_key?: string }> => {
   if (!Array.isArray(records)) return EMPTY_SERVICES;
   return records.map((service) => {
     const row = (service ?? {}) as Record<string, unknown>;
     const name = typeof row.name === 'string' ? row.name : (typeof row.title === 'string' ? row.title : '');
-    const key = typeof row.key === 'string' ? row.key : (typeof row.id === 'string' ? row.id : undefined);
-    return { name, key };
+    const service_key = typeof row.service_key === 'string' ? row.service_key : undefined;
+    const key = typeof row.key === 'string'
+      ? row.key
+      : (typeof row.id === 'string' ? row.id : service_key);
+    return { name, ...(key ? { key } : {}), ...(service_key ? { service_key } : {}) };
   });
 };
 
 const sameServices = (
-  left: Array<{ name: string; key?: string }> | undefined,
-  right: Array<{ name: string; key?: string }> | undefined
-) => JSON.stringify((left ?? EMPTY_SERVICES).map((service) => ({ name: service.name, key: service.key }))) === JSON.stringify((right ?? EMPTY_SERVICES).map((service) => ({ name: service.name, key: service.key })));
+  left: Array<{ name: string; key?: string; service_key?: string }> | undefined,
+  right: Array<{ name: string; key?: string; service_key?: string }> | undefined
+) => JSON.stringify((left ?? EMPTY_SERVICES).map((service) => ({
+  name: service.name,
+  key: service.key ?? service.service_key,
+  service_key: service.service_key ?? service.key,
+}))) === JSON.stringify((right ?? EMPTY_SERVICES).map((service) => ({
+  name: service.name,
+  key: service.key ?? service.service_key,
+  service_key: service.service_key ?? service.key,
+})));
 
 export const WorkspaceSetupSection: FunctionComponent<WorkspaceSetupSectionProps> = ({
   workspace,
