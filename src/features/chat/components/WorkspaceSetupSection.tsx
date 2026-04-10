@@ -197,6 +197,8 @@ export const WorkspaceSetupSection: FunctionComponent<WorkspaceSetupSectionProps
       if (JSON.stringify(nextAddress) !== JSON.stringify(currentAddress)) return true;
     }
     if (Array.isArray(extracted.services) && !sameServices(extracted.services, currentServices)) return true;
+    const currentDescription = (details?.description ?? practice?.description ?? '').trim();
+    if (typeof extracted.description === 'string' && extracted.description.trim() !== currentDescription) return true;
     return false;
   }, [details, extracted, practice]);
 
@@ -204,9 +206,16 @@ export const WorkspaceSetupSection: FunctionComponent<WorkspaceSetupSectionProps
     if (!practice) return;
     setIsSaving(true);
     setSaveError(null);
+    const priorAccent = normalizeAccentColor(details?.accentColor ?? practice?.accentColor) ?? '#D4AF37';
+    const priorBasics = {
+      name: practice.name ?? '',
+      slug: practice.slug ?? '',
+      accentColor: priorAccent,
+    };
+    let failingStep: string | null = null;
     try {
-      const currentAccent = normalizeAccentColor(details?.accentColor ?? practice?.accentColor) ?? '#D4AF37';
-      const accentColor = normalizeAccentColor(extracted.accentColor ?? currentAccent) ?? currentAccent;
+      const accentColor = normalizeAccentColor(extracted.accentColor ?? priorAccent) ?? priorAccent;
+      failingStep = 'basics';
       await onSaveBasics({ name: extracted.name ?? practice.name ?? '', slug: extracted.slug ?? practice.slug ?? '', accentColor }, { suppressSuccessToast: true });
       const mergedAddress = {
         address: details?.address ?? practice?.address ?? '',
@@ -217,17 +226,25 @@ export const WorkspaceSetupSection: FunctionComponent<WorkspaceSetupSectionProps
         country: details?.country ?? practice?.country ?? '',
         ...(extracted.address ?? {}),
       };
+      failingStep = 'contact';
       await onSaveContact({
         website: extracted.website ?? details?.website ?? practice?.website ?? '',
         businessEmail: extracted.businessEmail ?? details?.businessEmail ?? practice?.businessEmail ?? '',
         businessPhone: extracted.businessPhone ?? details?.businessPhone ?? practice?.businessPhone ?? '',
         address: mergedAddress,
+        description: extracted.description ?? details?.description ?? practice?.description ?? undefined,
       }, { suppressSuccessToast: true });
       if (Array.isArray(extracted.services)) {
+        failingStep = 'services';
         await onSaveServices(extracted.services as SetupServicePayload[]);
       }
     } catch (error) {
-      setSaveError(error instanceof Error ? error.message : 'Failed to save');
+      if (failingStep !== 'basics') {
+        // Basics already succeeded — rollback to prior values
+        try { await onSaveBasics(priorBasics, { suppressSuccessToast: true }); } catch { /* best-effort rollback */ }
+      }
+      const baseMsg = error instanceof Error ? error.message : 'Failed to save';
+      setSaveError(failingStep ? `Failed to save ${failingStep}: ${baseMsg}` : baseMsg);
     } finally {
       setIsSaving(false);
     }
@@ -338,8 +355,13 @@ export const WorkspaceSetupSection: FunctionComponent<WorkspaceSetupSectionProps
                       void (async () => {
                         const trimmed = message.trim();
                         if (!trimmed) return;
-                        const { additionalContext } = await enrichMessage(trimmed);
-                        await chatAdapter.sendMessage(message, attachments, replyToMessageId, additionalContext ? { additionalContext } : undefined);
+                        try {
+                          const { additionalContext } = await enrichMessage(trimmed);
+                          await chatAdapter.sendMessage(message, attachments, replyToMessageId, additionalContext ? { additionalContext } : undefined);
+                        } catch (err) {
+                          console.error('[WorkspaceSetupSection] Failed to send message:', err);
+                          setSaveError(err instanceof Error ? err.message : 'Failed to send message');
+                        }
                       })();
                     }
                   }}
@@ -417,7 +439,7 @@ export const WorkspaceSetupSection: FunctionComponent<WorkspaceSetupSectionProps
                 practiceSlug={practice?.slug ?? undefined}
                 practiceDetails={details}
                 setupFields={setupFields}
-                onSetupFieldsChange={applySetupFields}
+                onSetupFieldsChange={(waitingForRealChat || !setupConversationId) ? undefined : applySetupFields}
                 setupStatus={setupStatus}
                 onStartStripeOnboarding={() => { void onStartStripeOnboarding(); }}
                 isStripeSubmitting={isStripeSubmitting}

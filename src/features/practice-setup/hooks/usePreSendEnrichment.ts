@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'preact/hooks';
 import type { ConversationMode, SetupFieldsPayload } from '@/shared/types/conversation';
 import { normalizeSetupFieldsPayload } from '@/shared/utils/setupState';
+import { getWorkerApiUrl } from '@/config/urls';
 
 const URL_RE = /https?:\/\/[^\s]+|(?:www\.)[^\s]+\.[a-z]{2,}/i;
 
@@ -48,9 +49,9 @@ export function usePreSendEnrichment({
       : trimmed;
     setStatusText(`Looking up ${query}…`);
 
+    let additionalContext: string | undefined;
     try {
-      let additionalContext: string | undefined;
-      const searchRes = await fetch(`/api/tools/search?q=${encodeURIComponent(query)}`, {
+      const searchRes = await fetch(`${getWorkerApiUrl()}/api/tools/search?q=${encodeURIComponent(query)}`, {
         credentials: 'include',
       });
       if (searchRes.ok) {
@@ -64,7 +65,7 @@ export function usePreSendEnrichment({
         const raw = urlMatch[0];
         const normalizedUrl = raw.startsWith('http') ? raw : `https://${raw}`;
         setStatusText(`Scanning ${normalizedUrl.replace(/^https?:\/\//, '')} for practice details…`);
-        const extractRes = await fetch('/api/ai/extract-website', {
+        const extractRes = await fetch(`${getWorkerApiUrl()}/api/ai/extract-website`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
@@ -78,7 +79,11 @@ export function usePreSendEnrichment({
         const extractData = await extractRes.json() as { fields?: Record<string, unknown> };
         const normalizedFields = normalizeSetupFieldsPayload(extractData.fields ?? null);
         if (Object.keys(normalizedFields).length > 0) {
-          await onFieldsExtracted?.(normalizedFields);
+          try {
+            await onFieldsExtracted?.(normalizedFields);
+          } catch (fieldsErr) {
+            console.error('[usePreSendEnrichment] onFieldsExtracted threw:', fieldsErr);
+          }
         }
       }
 
@@ -88,7 +93,7 @@ export function usePreSendEnrichment({
       if (!(error instanceof Error && error.name === 'AbortError')) {
         setStatusText('I could not enrich that message right now. You can continue by answering a few quick questions.');
       }
-      return {};
+      return { additionalContext };
     } finally {
       setIsEnriching(false);
     }

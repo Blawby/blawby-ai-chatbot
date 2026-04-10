@@ -1036,6 +1036,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
         website: normalize(values.website),
         businessEmail: normalize(values.businessEmail),
         businessPhone: normalize(values.businessPhone),
+        description: values.description !== undefined ? normalize(values.description) : undefined,
         address: normalize(address.address ?? ''),
         apartment: normalize(address.apartment ?? ''),
         city: normalize(address.city ?? ''),

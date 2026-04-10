@@ -5,7 +5,7 @@ import type {
   SetupServicePayload,
 } from '@/shared/types/conversation';
 
-const EMPTY_SETUP_FIELDS: SetupFieldsPayload = {};
+const EMPTY_SETUP_FIELDS: SetupFieldsPayload = Object.freeze({}) as SetupFieldsPayload;
 
 const normalizeString = (value: unknown): string | undefined => {
   if (typeof value !== 'string') return undefined;

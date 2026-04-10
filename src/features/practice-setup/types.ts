@@ -14,6 +14,7 @@ export interface ContactFormValues {
   businessEmail: string;
   businessPhone: string;
   address?: Address;
+  description?: string;
 }
 
 export interface OnboardingProgressSnapshot {

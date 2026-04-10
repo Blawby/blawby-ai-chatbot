@@ -2,7 +2,7 @@ import { useRef, useState } from 'preact/hooks';
 import type { PracticeSetupStatus } from '@/features/practice-setup/utils/status';
 import type { PracticeDetails } from '@/shared/lib/apiClient';
 import type { BusinessOnboardingStatus } from '@/shared/hooks/usePracticeManagement';
-import type { SetupFieldsPayload, SetupServicePayload } from '@/shared/types/conversation';
+import type { SetupFieldsPayload, SetupServicePayload, SetupAddressPayload } from '@/shared/types/conversation';
 import { Input, Textarea } from '@/shared/ui/input';
 import { InfoRow, InspectorEditableRow, InspectorGroup } from './InspectorPrimitives';
 import { StripeCheckpointCard } from '@/features/practice-setup/components/StripeCheckpointCard';
@@ -71,11 +71,32 @@ export function SetupInspectorContent({
     try {
       setSaveError(null);
       if (key === 'services') {
+        const existingServices = normalizeServices(setupFields.services);
+        const assignedKeys = new Set<string>();
         await onSetupFieldsChange({
-          services: value ? value.split('\n').map((name) => name.trim()).filter(Boolean).map((name) => ({ name })) : [],
+          services: value
+            ? value.split('\n').map((n) => n.trim()).filter(Boolean).map((name) => {
+                const byName = existingServices.find((s) => s.name === name);
+                let existingKey: string | undefined;
+                if (byName?.key && !assignedKeys.has(byName.key)) {
+                  existingKey = byName.key;
+                } else {
+                  const unused = existingServices.find((s) => s.key && !assignedKeys.has(s.key));
+                  existingKey = unused?.key;
+                }
+                if (existingKey) assignedKeys.add(existingKey);
+                return { name, ...(existingKey ? { key: existingKey } : {}) };
+              })
+            : [],
         });
       } else if (key === 'address') {
-        await onSetupFieldsChange({ address: { ...(setupFields.address ?? {}), address: value } });
+        const lines = value.split('\n').map((l) => l.trim());
+        const patch: SetupAddressPayload = { ...(setupFields.address ?? {}) };
+        patch.address = lines[0] ?? '';
+        patch.city = lines[1] ?? '';
+        patch.state = lines[2] ?? '';
+        patch.postalCode = lines[3] ?? '';
+        await onSetupFieldsChange({ address: patch });
       } else {
         await onSetupFieldsChange({ [key]: value } as Partial<SetupFieldsPayload>);
       }
@@ -104,7 +125,7 @@ export function SetupInspectorContent({
           <InspectorEditableRow label="Phone" summary={values.businessPhone || 'Not set'} summaryMuted={!values.businessPhone} isOpen={activeEditor === 'businessPhone'} onToggle={() => openEditor('businessPhone', values.businessPhone)}>
             <Input value={draftValue ?? values.businessPhone} onChange={setDraftValue} placeholder="Business phone" type="tel" className="w-full" onBlur={() => { if (skipBlurRef.current) { skipBlurRef.current = false; return; } if (draftValue !== null) void commitDraft('businessPhone', draftValue, false); }} onKeyDown={(e) => { if (e.key === 'Enter') { skipBlurRef.current = true; void commitDraft('businessPhone', draftValue ?? values.businessPhone, true); } if (e.key === 'Escape') { skipBlurRef.current = true; setActiveEditor(null); } }} />
           </InspectorEditableRow>
-          <InspectorEditableRow label="Address" summary={values.address || 'Not set'} summaryMuted={!values.address} isOpen={activeEditor === 'address'} onToggle={() => openEditor('address', values.address)}>
+          <InspectorEditableRow label="Address" summary={values.address || 'Not set'} summaryMuted={!values.address} isOpen={activeEditor === 'address'} onToggle={() => openEditor('address', [setupFields.address?.address ?? practiceDetails?.address ?? '', setupFields.address?.city ?? '', setupFields.address?.state ?? '', setupFields.address?.postalCode ?? ''].join('\n'))}>
             <Textarea value={draftValue ?? values.address} onChange={setDraftValue} placeholder="Street address" className="w-full" rows={3} onBlur={() => { if (skipBlurRef.current) { skipBlurRef.current = false; return; } if (draftValue !== null) void commitDraft('address', draftValue, false); }} onKeyDown={(e) => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { skipBlurRef.current = true; void commitDraft('address', draftValue ?? values.address, true); } if (e.key === 'Escape') { skipBlurRef.current = true; setActiveEditor(null); } }} />
           </InspectorEditableRow>
         </InspectorGroup>

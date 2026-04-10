@@ -1302,7 +1302,7 @@ export const InspectorPanel = ({
               </>
             )}
 
-            {!isClientView && (
+            {!isClientView && resolvedConversationMode !== 'PRACTICE_ONBOARDING' && (
               <div className="">
                 <InspectorGroup label="People">
                   <InfoRow
