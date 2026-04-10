@@ -40,6 +40,10 @@ let sharedPracticeUserId: string | null = null;
 let sharedPracticeIncludesDetails = false;
 let practicesLoaded = false;
 let practicesInFlight: Promise<void> | null = null;
+// Treat 403 as a terminal state: a user with no org is not allowed to list
+// practices by design. Setting this flag prevents infinite retry loops when
+// the caller is re-rendered (e.g. during onboarding). Cleared on cache reset.
+let practicesFetchForbidden = false;
 
 const resetSharedPracticeCache = () => {
   sharedPracticeSnapshot = null;
@@ -48,6 +52,7 @@ const resetSharedPracticeCache = () => {
   sharedPracticeIncludesDetails = false;
   practicesLoaded = false;
   practicesInFlight = null;
+  practicesFetchForbidden = false;
 };
 
 // Types
@@ -607,6 +612,11 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
   const fetchPractices = useCallback(async () => {
     let currentFetchPromise: Promise<SharedPracticeSnapshot> | null = null;
     try {
+      // A previous fetch was rejected with 403 — the user has no org. Do not retry.
+      if (practicesFetchForbidden) {
+        setLoading(false);
+        return;
+      }
       // Check if requestedPracticeSlug has changed - if so, we need to re-select even if already fetched
       const slugChanged = lastSelectedSlugRef.current !== requestedPracticeSlug;
       const applySnapshot = (snapshot: SharedPracticeSnapshot) => {
@@ -881,6 +891,15 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
       practicesFetchedRef.current = true;
     } catch (err) {
       if (err instanceof Error && err.name === 'CanceledError') {
+        return;
+      }
+      // A 403 means the user has no org (pre-subscription or mid-onboarding).
+      // Mark as terminal so we don't hammer the endpoint on every re-render.
+      if (axios.isAxiosError(err) && err.response?.status === 403) {
+        practicesFetchForbidden = true;
+        setPractices([]);
+        setCurrentPractice(null);
+        setLoading(false);
         return;
       }
       console.error('Error in fetchPractices:', err);
