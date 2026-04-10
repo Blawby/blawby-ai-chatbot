@@ -20,6 +20,7 @@ import {
   CurrencyDollarIcon,
   FolderIcon,
   HomeIcon,
+  PaperClipIcon,
   PencilSquareIcon,
   PlusIcon
 } from '@heroicons/react/24/outline';
@@ -39,6 +40,7 @@ import { MatterExpensesPanel } from '@/features/matters/components/expenses/Matt
 import { MatterMilestonesPanel } from '@/features/matters/components/milestones/MatterMilestonesPanel';
 import { MatterTasksPanel } from '@/features/matters/components/tasks/MatterTasksPanel';
 import { MatterMessagesPanel } from '@/features/matters/components/messages/MatterMessagesPanel';
+import { MatterFilesPanel } from '@/features/matters/components/files/MatterFilesPanel';
 import { InvoicesSection } from '@/features/matters/components/billing/InvoicesSection';
 import { UnbilledSummaryCard } from '@/features/matters/components/billing/UnbilledSummaryCard';
 import { MatterSummaryCards } from '@/features/matters/components/MatterSummaryCards';
@@ -110,12 +112,13 @@ import {
 // Types
 // ---------------------------------------------------------------------------
 
-type DetailSectionId = 'overview' | 'tasks' | 'billing' | 'messages';
+type DetailSectionId = 'overview' | 'tasks' | 'billing' | 'messages' | 'files';
 const DETAIL_TABS: Array<{ id: DetailSectionId; label: string; icon: typeof CheckCircleIcon }> = [
   { id: 'overview', label: 'Overview', icon: HomeIcon },
   { id: 'tasks', label: 'Tasks', icon: CheckCircleIcon },
   { id: 'billing', label: 'Billing', icon: CurrencyDollarIcon },
-  { id: 'messages', label: 'Messages', icon: ChatBubbleLeftRightIcon }
+  { id: 'messages', label: 'Messages', icon: ChatBubbleLeftRightIcon },
+  { id: 'files', label: 'Files', icon: PaperClipIcon }
 ];
 
 const resolveQueryValue = (value?: string | string[] | null) => {
@@ -291,7 +294,7 @@ export const PracticeMattersPage = ({
     ? decodeURIComponent(firstSegment)
     : null;
   const detailSection: DetailSectionId = selectedMatterIdFromPath
-    ? (secondSegment === 'tasks' || secondSegment === 'billing' || secondSegment === 'messages'
+    ? (secondSegment === 'tasks' || secondSegment === 'billing' || secondSegment === 'messages' || secondSegment === 'files'
       ? secondSegment
       : 'overview')
     : 'overview';
@@ -2194,6 +2197,11 @@ export const PracticeMattersPage = ({
                 matter={selectedMatterDetail}
                 practiceId={activePracticeId}
                 conversationBasePath={conversationBasePath}
+              />
+            ) : detailSection === 'files' && selectedMatterId ? (
+              <MatterFilesPanel
+                key={`files-${selectedMatterId}`}
+                matterId={selectedMatterId}
               />
             ) : null}
           </section>

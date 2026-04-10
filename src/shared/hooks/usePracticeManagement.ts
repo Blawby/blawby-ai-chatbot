@@ -40,6 +40,10 @@ let sharedPracticeUserId: string | null = null;
 let sharedPracticeIncludesDetails = false;
 let practicesLoaded = false;
 let practicesInFlight: Promise<void> | null = null;
+// Treat 403 as a terminal state: a user with no org is not allowed to list
+// practices by design. Setting this flag prevents infinite retry loops when
+// the caller is re-rendered (e.g. during onboarding). Cleared on cache reset.
+let practicesFetchForbidden = false;
 
 const resetSharedPracticeCache = () => {
   sharedPracticeSnapshot = null;
@@ -48,6 +52,7 @@ const resetSharedPracticeCache = () => {
   sharedPracticeIncludesDetails = false;
   practicesLoaded = false;
   practicesInFlight = null;
+  practicesFetchForbidden = false;
 };
 
 // Types
@@ -607,6 +612,20 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
   const fetchPractices = useCallback(async () => {
     let currentFetchPromise: Promise<SharedPracticeSnapshot> | null = null;
     try {
+      // A previous fetch was rejected with 403 — the user had no org at that time.
+      // If the user has since gained an org (e.g. subscribed after onboarding), clear
+      // the flag so the new fetch can proceed. Otherwise bail out to avoid hammering.
+      if (practicesFetchForbidden) {
+        const sessionRecord = session?.session as Record<string, unknown> | undefined;
+        const hasOrg =
+          typeof sessionRecord?.activeOrganizationId === 'string' &&
+          sessionRecord.activeOrganizationId.length > 0;
+        if (!hasOrg) {
+          setLoading(false);
+          return;
+        }
+        practicesFetchForbidden = false;
+      }
       // Check if requestedPracticeSlug has changed - if so, we need to re-select even if already fetched
       const slugChanged = lastSelectedSlugRef.current !== requestedPracticeSlug;
       const applySnapshot = (snapshot: SharedPracticeSnapshot) => {
@@ -875,12 +894,24 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
       const snapshot = await sharedPracticePromise;
       sharedPracticeSnapshot = snapshot;
       sharedPracticeUserId = userId;
+      // Successful fetch — clear any stale forbidden flag so future fetches
+      // (e.g. after subscription upgrade) are not blocked.
+      practicesFetchForbidden = false;
 
       setPractices(snapshot.practices);
       setCurrentPractice(snapshot.currentPractice);
       practicesFetchedRef.current = true;
     } catch (err) {
       if (err instanceof Error && err.name === 'CanceledError') {
+        return;
+      }
+      // A 403 means the user has no org (pre-subscription or mid-onboarding).
+      // Mark as terminal so we don't hammer the endpoint on every re-render.
+      if (axios.isAxiosError(err) && err.response?.status === 403) {
+        practicesFetchForbidden = true;
+        setPractices([]);
+        setCurrentPractice(null);
+        setLoading(false);
         return;
       }
       console.error('Error in fetchPractices:', err);

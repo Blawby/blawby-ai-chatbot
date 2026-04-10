@@ -173,6 +173,52 @@ const confirmUpload = async (uploadId: string, signal?: AbortSignal): Promise<Co
   return await response.json() as ConfirmUploadResponse;
 };
 
+export interface BackendUploadRecord {
+  id: string;
+  upload_context: string;
+  sub_context?: string | null;
+  entity_id?: string | null;
+  matter_id?: string | null;
+  file_name: string;
+  mime_type: string;
+  file_size: number;
+  storage_key: string;
+  public_url: string | null;
+  status: 'pending' | 'verified' | 'rejected';
+  created_at: string;
+  updated_at?: string | null;
+}
+
+interface ListUploadsParams {
+  matterId: string;
+  subContext?: UploadSubContext;
+  signal?: AbortSignal;
+}
+
+export const listMatterUploads = async ({
+  matterId,
+  subContext,
+  signal,
+}: ListUploadsParams): Promise<BackendUploadRecord[]> => {
+  const url = new URL(buildWorkerUrl('/api/uploads'));
+  url.searchParams.set('matter_id', matterId);
+  if (subContext) url.searchParams.set('sub_context', subContext);
+
+  const response = await fetch(url.toString(), {
+    method: 'GET',
+    headers: withWidgetAuthHeaders(),
+    credentials: 'include',
+    signal,
+  });
+
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response, 'Failed to list uploads.'));
+  }
+
+  const data = await response.json() as { data?: BackendUploadRecord[] } | BackendUploadRecord[];
+  return Array.isArray(data) ? data : (data.data ?? []);
+};
+
 export const uploadFileViaBackend = async ({
   file,
   uploadContext,

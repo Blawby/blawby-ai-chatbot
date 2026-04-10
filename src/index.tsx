@@ -129,7 +129,11 @@ function AppShell() {
   const shouldFetchWorkspacePractices =
     !location.path.startsWith('/public/') &&
     !location.path.startsWith('/auth') &&
-    !location.path.startsWith('/pricing');
+    !location.path.startsWith('/pricing') &&
+    // Pre-subscription users on the onboarding flow have no org yet — fetching
+    // practices would produce a guaranteed 403. AppShell redirects back here
+    // until onboardingComplete is true, so this guard is safe.
+    !location.path.startsWith('/onboarding');
   const { defaultWorkspace, currentPractice, practices } = useWorkspaceResolver({
     autoFetchPractices: shouldFetchWorkspacePractices
   });
