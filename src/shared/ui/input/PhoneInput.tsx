@@ -377,13 +377,16 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(({
         normalizedCountryCode
       );
 
+      const isPrefixOnlyState =
+        !parsedRawValue.localValue.trim() &&
+        (parsedRawValue.kind === 'supported' || parsedPhoneValue?.kind === 'supported');
       const nextCombinedValue =
-        parsedRawValue.kind === 'supported' && !parsedRawValue.localValue.trim()
+        isPrefixOnlyState
           ? nextPhonePrefix
           : buildCombinedPhoneValue(nextPhonePrefix, parsedRawValue.localValue);
 
       manualSelectionRef.current =
-        parsedRawValue.kind === 'supported'
+        parsedRawValue.kind === 'supported' || isPrefixOnlyState
           ? {
               value: nextCombinedValue,
               countryCode: normalizedCountryCode,
