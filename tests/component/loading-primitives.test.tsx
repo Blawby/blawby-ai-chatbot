@@ -91,13 +91,13 @@ describe('Loading primitives', () => {
     expect(circle.className).toContain('border-t-transparent');
   });
 
-  it('can disable live-region announcements when wrapped by another status container', () => {
-    const { container } = render(<LoadingSpinner announce={false} ariaLabel="Loading records" />);
+  it('always renders a live region with a screen-reader label', () => {
+    const { container } = render(<LoadingSpinner ariaLabel="Loading records" />);
     const spinner = container.firstElementChild as HTMLDivElement;
 
-    expect(spinner).not.toHaveAttribute('role');
-    expect(spinner).not.toHaveAttribute('aria-live');
-    expect(container.querySelector('.sr-only')).toBeNull();
+    expect(spinner).toHaveAttribute('role', 'status');
+    expect(spinner).toHaveAttribute('aria-live', 'polite');
+    expect(container.querySelector('.sr-only')).not.toBeNull();
   });
 
   it('hides LoadingScreen and LoadingBlock labels by default and shows them when requested', () => {

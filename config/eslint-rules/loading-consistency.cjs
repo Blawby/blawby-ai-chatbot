@@ -26,22 +26,61 @@ module.exports = {
       /loading/i,
     ];
 
-    function checkNode(node, messageId) {
-      if (node.type === 'Literal' || node.type === 'TemplateElement') {
-        const text = node.value;
-        if (typeof text === 'string' && loadingTextPatterns.some(pattern => pattern.test(text))) {
-          context.report({
-            node,
-            messageId,
-          });
-        }
+    function getNodeText(node) {
+      if (!node) {
+        return null;
       }
+
+      if (node.type === 'JSXText') {
+        return node.value;
+      }
+
+      if (node.type === 'Literal' && typeof node.value === 'string') {
+        return node.value;
+      }
+
+      if (node.type === 'TemplateElement') {
+        return node.value?.cooked ?? node.value?.raw ?? null;
+      }
+
+      if (node.type === 'TemplateLiteral') {
+        return node.quasis
+          .map((quasi) => quasi.value?.cooked ?? quasi.value?.raw ?? '')
+          .join('');
+      }
+
+      return null;
+    }
+
+    function hasLoadingText(text) {
+      return typeof text === 'string' && loadingTextPatterns.some(pattern => pattern.test(text));
+    }
+
+    function reportIfLoadingText(node, messageId) {
+      const text = getNodeText(node);
+      if (!hasLoadingText(text)) {
+        return;
+      }
+
+      context.report({
+        node,
+        messageId,
+      });
+    }
+
+    function isJsxChildExpression(node) {
+      return Boolean(
+        node.parent &&
+        node.parent.type === 'JSXExpressionContainer' &&
+        node.parent.parent &&
+        node.parent.parent.type !== 'JSXAttribute'
+      );
     }
 
     return {
       // Check JSX text content
       JSXText(node) {
-        checkNode(node, 'noVisibleLoadingText');
+        reportIfLoadingText(node, 'noVisibleLoadingText');
       },
 
       // Check string literals in JSX expressions (direct children only, not attribute values)
@@ -51,7 +90,19 @@ module.exports = {
           return;
         }
         if (node.expression.type === 'Literal' || node.expression.type === 'TemplateLiteral') {
-          checkNode(node.expression, 'noVisibleLoadingText');
+          reportIfLoadingText(node.expression, 'noVisibleLoadingText');
+        }
+      },
+
+      Literal(node) {
+        if (isJsxChildExpression(node)) {
+          reportIfLoadingText(node, 'noVisibleLoadingText');
+        }
+      },
+
+      TemplateLiteral(node) {
+        if (isJsxChildExpression(node)) {
+          reportIfLoadingText(node, 'noVisibleLoadingText');
         }
       },
 
@@ -68,24 +119,8 @@ module.exports = {
           return;
         }
 
-        if (node.consequent.type === 'Literal' && node.alternate.type === 'Literal') {
-          const consequentText = node.consequent.value;
-          const alternateText = node.alternate.value;
-
-          if (typeof consequentText === 'string' && loadingTextPatterns.some(pattern => pattern.test(consequentText))) {
-            context.report({
-              node: node.consequent,
-              messageId: 'noLoadingTextInButton',
-            });
-          }
-
-          if (typeof alternateText === 'string' && loadingTextPatterns.some(pattern => pattern.test(alternateText))) {
-            context.report({
-              node: node.alternate,
-              messageId: 'noLoadingTextInButton',
-            });
-          }
-        }
+        reportIfLoadingText(node.consequent, 'noLoadingTextInButton');
+        reportIfLoadingText(node.alternate, 'noLoadingTextInButton');
       },
 
       // Check ternary operators in JSX
@@ -97,19 +132,8 @@ module.exports = {
               if (child.expression.type === 'ConditionalExpression') {
                 const { consequent, alternate } = child.expression;
 
-                if (consequent.type === 'Literal' && loadingTextPatterns.some(pattern => pattern.test(consequent.value))) {
-                  context.report({
-                    node: consequent,
-                    messageId: 'noLoadingTextInButton',
-                  });
-                }
-
-                if (alternate.type === 'Literal' && loadingTextPatterns.some(pattern => pattern.test(alternate.value))) {
-                  context.report({
-                    node: alternate,
-                    messageId: 'noLoadingTextInButton',
-                  });
-                }
+                reportIfLoadingText(consequent, 'noLoadingTextInButton');
+                reportIfLoadingText(alternate, 'noLoadingTextInButton');
               }
             }
           });

@@ -3,6 +3,7 @@ import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 import { Icon } from '@/shared/ui/Icon';
 import { Dialog, DialogBody, DialogFooter } from '@/shared/ui/dialog';
 import { FormActions } from '@/shared/ui/form';
+import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
 import { handleError } from '@/shared/utils/errorHandler';
 import { useTranslation } from 'react-i18next';
 
@@ -217,7 +218,16 @@ export default function ConfirmationDialog({
             size="sm"
             onCancel={onClose}
             cancelText={cancelText}
-            submitText={isLoading ? t('common.processing', { defaultValue: 'Processing...' }) : confirmText}
+            submitText={isLoading ? (
+              <span className="inline-flex items-center">
+                <LoadingSpinner
+                  size="sm"
+                  className="mr-2"
+                  ariaLabel={t('common.processing', { defaultValue: 'Processing...' })}
+                />
+                {confirmText}
+              </span>
+            ) : confirmText}
             submitType="submit"
             submitVariant="danger"
             submitDisabled={

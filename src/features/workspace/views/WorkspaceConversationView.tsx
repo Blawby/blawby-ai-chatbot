@@ -10,6 +10,7 @@ import { useMemo } from 'preact/hooks';
 import { Page } from '@/shared/ui/layout/Page';
 import { PageHeader } from '@/shared/ui/layout/PageHeader';
 import { Button } from '@/shared/ui/Button';
+import { LoadingBlock } from '@/shared/ui/layout/LoadingBlock';
 import { ArrowLeftIcon } from '@heroicons/react/24/outline';
 import { Icon } from '@/shared/ui/Icon';
 import type { ChatMessageUI } from '../../../../worker/types';
@@ -70,7 +71,7 @@ const WorkspaceConversationView: FunctionComponent<WorkspaceConversationViewProp
         />
         
         <div className="glass-card p-6 text-center">
-          <div className="text-red-600 mb-4">Error loading conversation</div>
+          <div className="mb-4 text-red-600">Conversation error</div>
           <p className="text-sm text-input-placeholder mb-4">{error}</p>
           <Button onClick={handleBack} variant="secondary">
             Back to Conversations
@@ -99,12 +100,14 @@ const WorkspaceConversationView: FunctionComponent<WorkspaceConversationViewProp
           {chatView || (
             <div className="glass-card p-6 h-full flex items-center justify-center">
               <div className="text-center">
-                <div className="text-input-placeholder mb-4">
-                  {isLoading ? 'Loading conversation...' : 
-                   !messagesReady ? 'Preparing messages...' :
-                   !isSocketReady ? 'Connecting...' :
-                   'Chat interface would be rendered here'}
-                </div>
+                {isLoading || !messagesReady || !isSocketReady ? (
+                  <LoadingBlock
+                    className="mb-4 min-h-[4rem]"
+                    label={isLoading ? 'Loading conversation...' : !messagesReady ? 'Preparing messages...' : 'Connecting...'}
+                  />
+                ) : (
+                  <div className="mb-4 text-input-placeholder">Chat interface would be rendered here</div>
+                )}
                 {messages.length === 0 && messagesReady && (
                   <p className="text-sm">No messages yet. Start the conversation!</p>
                 )}

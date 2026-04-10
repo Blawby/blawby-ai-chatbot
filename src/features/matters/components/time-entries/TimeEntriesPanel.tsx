@@ -2,6 +2,7 @@ import { useMemo, useState } from 'preact/hooks';
 import { ChevronLeftIcon, ChevronRightIcon, PlusIcon } from '@heroicons/react/24/outline';
 import { Dialog, DialogBody, DialogFooter } from '@/shared/ui/dialog';
 import { Button } from '@/shared/ui/Button';
+import { LoadingBlock } from '@/shared/ui/layout/LoadingBlock';
 import type { TimeEntry } from '@/features/matters/data/matterTypes';
 import { TimeEntryForm, type TimeEntryFormValues } from './TimeEntryForm';
 import { formatDateOnlyStringUtc } from '@/shared/utils/dateOnly';
@@ -183,7 +184,7 @@ export const TimeEntriesPanel = ({
             {error ? (
               <div className="px-6 py-6 text-sm text-red-600 dark:text-red-400">{error}</div>
             ) : loading && entries.length === 0 ? (
-              <div className="px-6 py-6 text-sm text-gray-500 dark:text-gray-400">Loading time entries...</div>
+              <LoadingBlock className="px-6 py-6" label="Loading time entries..." />
             ) : null}
             {showEntries && dailyEntries.map((day) => (
               <button

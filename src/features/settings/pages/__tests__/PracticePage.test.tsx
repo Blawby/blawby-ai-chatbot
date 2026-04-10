@@ -287,8 +287,9 @@ describe('PracticePage', () => {
     mockSessionContext.activePracticeId = null as string | null;
 
     render(<PracticePage />);
-    
-    expect(screen.getByText('Loading practice...')).toBeInTheDocument();
+
+    expect(screen.queryByText('Loading practice...')).not.toBeInTheDocument();
+    expect(screen.getAllByRole('status').length).toBeGreaterThan(0);
   });
 
   it('should show error state when there is an error', async () => {

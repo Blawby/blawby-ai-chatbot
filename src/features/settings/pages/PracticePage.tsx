@@ -561,7 +561,7 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
   const shouldShowLoading = loading || sessionPending;
 
   if (shouldShowLoading) {
-    return <LoadingBlock className={className} label="Loading practice..." showLabel={true} />;
+    return <LoadingBlock className={className} label="Loading practice..." />;
   }
 
   if (error) {

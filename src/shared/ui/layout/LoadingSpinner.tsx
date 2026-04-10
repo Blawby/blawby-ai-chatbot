@@ -5,36 +5,29 @@ export interface LoadingSpinnerProps {
   className?: string;
   size?: 'sm' | 'md' | 'lg';
   ariaLabel?: string;
-  announce?: boolean;
 }
 
 export const LoadingSpinner = ({
   className = '',
   size = 'md',
   ariaLabel,
-  announce = true
 }: LoadingSpinnerProps) => {
   const { t } = useTranslation('common');
 
   const sizeClasses = {
     sm: 'h-3 w-3 border-2',
     md: 'h-4 w-4 border-2',
-    lg: 'h-6 w-6 border-2'
+    lg: 'h-6 w-4 border-2'
   };
   const resolvedAriaLabel = ariaLabel ?? t('app.loading');
-  const liveRegionProps = announce
-    ? {
-        role: 'status' as const,
-        'aria-live': 'polite' as const
-      }
-    : {};
 
   return (
     <div
       className={cn('inline-flex items-center justify-center', className)}
-      {...liveRegionProps}
+      role="status"
+      aria-live="polite"
     >
-      {announce ? <span className="sr-only">{resolvedAriaLabel}</span> : null}
+      <span className="sr-only">{resolvedAriaLabel}</span>
       <div
         aria-hidden="true"
         className={cn(

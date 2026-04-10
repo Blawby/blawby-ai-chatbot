@@ -84,7 +84,7 @@ const DocumentChecklist: FunctionComponent<DocumentChecklistProps> = ({
       case 'uploaded':
         return 'Uploaded';
       case 'pending':
-        return 'Processing...';
+        return 'Pending';
       case 'missing':
         return required ? 'Required' : 'Optional';
     }
@@ -203,11 +203,8 @@ const DocumentChecklist: FunctionComponent<DocumentChecklistProps> = ({
 
                 {/* Pending Status */}
                 {doc.status === 'pending' && (
-                  <div className="flex items-center gap-2 mt-2">
+                  <div className="mt-2 flex items-center gap-2">
                     <LoadingSpinner size="md" ariaLabel="Processing document" />
-                    <span className="text-sm text-yellow-600 dark:text-yellow-400">
-                      Processing document...
-                    </span>
                   </div>
                 )}
               </div>
