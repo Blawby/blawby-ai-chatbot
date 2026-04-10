@@ -204,7 +204,7 @@ const DocumentChecklist: FunctionComponent<DocumentChecklistProps> = ({
                 {/* Pending Status */}
                 {doc.status === 'pending' && (
                   <div className="mt-2 flex items-center gap-2">
-                    <LoadingSpinner size="md" ariaLabel="Processing document" />
+                    <LoadingSpinner size="md" ariaLabel="Pending document" />
                   </div>
                 )}
               </div>

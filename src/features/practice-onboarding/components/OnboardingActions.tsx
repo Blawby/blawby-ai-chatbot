@@ -175,7 +175,7 @@ const OnboardingActions: FunctionComponent<OnboardingActionsProps> = ({
               {logoUploading ? (
                 <span className="inline-flex items-center">
                   <LoadingSpinner size="sm" className="mr-2" />
-                  {logoUploadProgress ? `${logoUploadProgress}%` : 'Choose Logo'}
+                  {logoUploadProgress != null ? `${logoUploadProgress}%` : 'Choose Logo'}
                 </span>
               ) : (
                 'Choose Logo'
