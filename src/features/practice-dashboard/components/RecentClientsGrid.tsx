@@ -2,6 +2,7 @@ import { EllipsisHorizontalIcon } from '@heroicons/react/24/outline';
 import { Icon } from '@/shared/ui/Icon';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/shared/ui/dropdown';
 import { Avatar } from '@/shared/ui/profile';
+import { SkeletonLoader } from '@/shared/ui/layout/SkeletonLoader';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import { formatDate } from '@/shared/utils/dateTime';
 import type { RecentClient } from '@/features/practice-dashboard/hooks/usePracticeBillingData';
@@ -43,7 +44,15 @@ export const RecentClientsGrid = ({
         </button>
       </div>
       {loading ? (
-        <p className="mt-6 text-sm text-input-placeholder">Loading people...</p>
+        <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {[1, 2, 3, 4, 5, 6].map(i => (
+            <div key={i} className="space-y-3">
+              <SkeletonLoader variant="avatar" className="mx-auto" />
+              <SkeletonLoader variant="text" width="w-20" className="mx-auto" />
+              <SkeletonLoader variant="text" width="w-16" className="mx-auto" />
+            </div>
+          ))}
+        </div>
       ) : error ? (
         <div className="mt-6 rounded-lg border border-line-glass/40 bg-surface-glass px-3 py-2 text-sm text-input-text">
           {error}

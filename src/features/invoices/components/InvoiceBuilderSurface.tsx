@@ -12,6 +12,7 @@ import type { InvoiceDetail } from '@/features/invoices/types';
 import type { PendingInvoiceDraftContext } from '@/features/invoices/utils/invoiceDraftContext';
 import { INVOICE_CREATE_SEND_EVENT } from '@/features/invoices/utils/invoicePageConfig';
 import { Panel } from '@/shared/ui/layout/Panel';
+import { LoadingBlock } from '@/shared/ui/layout/LoadingBlock';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 
 const PAGE_SIZE = 50;
@@ -215,7 +216,7 @@ export const InvoiceBuilderSurface = forwardRef<InvoiceFormHandle, InvoiceBuilde
       ) : null}
       {loading || (!clientsData.isLoaded && clientsData.isLoading) || clientsData.error ? (
         <Panel className="p-6">
-          <div className="text-sm text-input-placeholder">Loading invoice builder...</div>
+          <LoadingBlock />
         </Panel>
       ) : mode === 'edit' && !resolvedInvoice ? null : (
         <InvoiceForm

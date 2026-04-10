@@ -1,5 +1,6 @@
 import { Dialog, DialogBody, DialogFooter } from '@/shared/ui/dialog';
 import { Button } from '@/shared/ui/Button';
+import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import type { InvoiceLineItem } from '@/features/matters/types/billing.types';
 import type { MajorAmount } from '@/shared/utils/money';
@@ -60,7 +61,7 @@ export const SendInvoiceDialog = ({
       {/* Loading overlay */}
       {loading && (
         <div className="absolute inset-0 z-20 flex items-center justify-center rounded-3xl bg-white/60 backdrop-blur-sm">
-          <span className="text-sm font-medium text-gray-700">Processing…</span>
+          <LoadingSpinner size="lg" />
         </div>
       )}
 
@@ -109,7 +110,14 @@ export const SendInvoiceDialog = ({
           }}
           disabled={loading}
         >
-          {loading ? 'Sending…' : 'Send invoice'}
+          {loading ? (
+            <span className="inline-flex items-center">
+              <LoadingSpinner size="sm" className="mr-2" />
+              Send invoice
+            </span>
+          ) : (
+            'Send invoice'
+          )}
         </Button>
       </DialogFooter>
     </Dialog>

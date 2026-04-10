@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/compat
 import { PaymentElement, useElements, useStripe } from '@stripe/react-stripe-js';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import { Button } from '@/shared/ui/Button';
+import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
 import { getConversationWsEndpoint } from '@/config/api';
 import { isPaidIntakeStatus } from '@/shared/utils/intakePayments';
 import { toMajorUnits, type MinorAmount } from '@/shared/utils/money';
@@ -364,7 +365,14 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
           disabled={isSubmitting || paymentSubmitted || !stripe || !elements}
           className="w-full"
         >
-          {isSubmitting ? 'Processing payment…' : (formattedAmount ? `Pay ${formattedAmount}` : 'Pay now')}
+          {isSubmitting ? (
+            <span className="inline-flex items-center">
+              <LoadingSpinner size="sm" className="mr-2" />
+              {formattedAmount ? `Pay ${formattedAmount}` : 'Pay now'}
+            </span>
+          ) : (
+            formattedAmount ? `Pay ${formattedAmount}` : 'Pay now'
+          )}
         </Button>
       )}
     </form>

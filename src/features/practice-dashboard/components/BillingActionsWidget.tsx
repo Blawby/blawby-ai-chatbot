@@ -1,6 +1,7 @@
 import { Fragment } from 'preact';
 import { Button } from '@/shared/ui/Button';
 import { Panel } from '@/shared/ui/layout/Panel';
+import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import type { BillingAction } from '@/features/practice-dashboard/hooks/usePracticeBillingData';
 
@@ -38,7 +39,9 @@ export const BillingActionsWidget = ({
       </header>
       <div className="flex-1 overflow-y-auto px-5 py-4">
         {loading ? (
-          <p className="text-sm text-input-placeholder">Loading billing insights…</p>
+          <div className="flex items-center justify-center py-8">
+            <LoadingSpinner size="md" />
+          </div>
         ) : error ? (
           <div className="rounded-lg border border-line-glass/40 bg-surface-glass px-3 py-2 text-sm text-input-text">
             {error}
