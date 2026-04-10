@@ -386,7 +386,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     ? 'flex flex-col flex-1 min-h-0 w-full overflow-hidden relative'
     : isWidgetMode
       ? 'flex flex-col flex-1 min-h-0 w-full h-full overflow-hidden relative bg-transparent'
-      : `flex flex-col flex-1 min-h-0 w-full overflow-hidden relative ${isPublicWorkspace ? 'bg-transparent px-2 sm:px-4 py-4' : 'bg-transparent'}`;
+      : `flex flex-col flex-1 min-h-0 w-full overflow-hidden relative ${isPublicWorkspace ? 'bg-transparent py-4' : 'bg-transparent'}`;
 
   // frameClassName: widget fills 100%; non-widget public caps at 420px; desktop is unconstrained.
   const frameClassName = isDesktopMode

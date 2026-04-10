@@ -627,7 +627,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
     return (
         <div className="relative min-h-0 flex flex-1 flex-col">
         <div
-            className={`message-list min-h-0 ${compactLayout ? 'flex-none' : 'flex-1'} overflow-y-auto p-4 ${isPublicWorkspace ? 'pt-0' : 'pt-2'} lg:pt-4 ${compactLayout ? 'pb-4' : 'pb-20'} scroll-smooth w-full scrollbar-thin scrollbar-track-transparent scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600`}
+            className={`message-list min-h-0 ${compactLayout ? 'flex-none' : 'flex-1'} overflow-y-auto py-4 ${isPublicWorkspace ? 'pt-0' : 'pt-2'} lg:pt-4 ${compactLayout ? 'pb-4' : 'pb-20'} scroll-smooth w-full scrollbar-thin scrollbar-track-transparent scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600`}
             ref={listRef}
             style={!compactLayout ? { paddingBottom: `${Math.max(80, bottomInsetPx ?? 80)}px` } : undefined}
         >
