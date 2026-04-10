@@ -23,7 +23,6 @@ import { useToastContext } from '@/shared/contexts/ToastContext';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import {
   getPracticeIntake,
-  triggerIntakeInvite,
   updateIntakeTriageStatus,
   type PracticeIntakeDetail,
 } from '@/features/intake/api/intakesApi';
@@ -223,7 +222,6 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
       const trimmedReason = typeof reason === 'string' && reason.trim().length > 0
         ? reason.trim()
         : undefined;
-      let inviteErrorMessage: string | null = null;
       let participantFailed = false;
       const result = await updateIntakeTriageStatus(intakeId, {
         status: action,
@@ -302,15 +300,6 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
         }
       }
 
-      if (action === 'accepted') {
-        try {
-          await triggerIntakeInvite(intakeId);
-        } catch (inviteErr) {
-          inviteErrorMessage = inviteErr instanceof Error ? inviteErr.message : 'Failed to send client invite';
-          console.warn('[IntakeDetailPage] Failed to trigger intake invite', inviteErr);
-        }
-      }
-
       if (action === 'declined' && responseConversationId && targetPracticeId) {
         try {
           await postSystemMessage(responseConversationId, targetPracticeId, {
@@ -333,20 +322,16 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
         setIntake((prev) => prev ? { ...prev, triage_status: action, conversation_id: responseConversationId ?? prev.conversation_id } : prev);
         setTriageDialogAction(null);
         setTriageReason('');
-        if (action === 'accepted' && inviteErrorMessage) {
-          showError('Consultation accepted, but invite failed', inviteErrorMessage);
-        } else {
-          showSuccess(
-            action === 'accepted' ? 'Consultation accepted' : 'Consultation declined',
-            action === 'accepted'
-              ? (participantFailed
-                ? 'The client has been notified and the conversation is now active, but you may need to join the conversation manually.'
-                : (trimmedReason
-                  ? 'The client has been notified, the conversation is now active, and your note was added.'
-                  : 'The client has been notified and the conversation is now active.'))
-              : 'The client has been notified.'
-          );
-        }
+        showSuccess(
+          action === 'accepted' ? 'Consultation accepted' : 'Consultation declined',
+          action === 'accepted'
+            ? (participantFailed
+              ? 'The conversation is now active, but you may need to join it manually.'
+              : (trimmedReason
+                ? 'The conversation is now active and your note was added.'
+                : 'The conversation is now active.'))
+            : 'Your response has been recorded.'
+        );
         if (action === 'accepted' && responseConversationId && conversationsBasePathProp) {
           onTriageComplete?.();
           navigate(`${conversationsBasePathProp}/${encodeURIComponent(responseConversationId)}`);
