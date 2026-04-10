@@ -559,11 +559,11 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
   }, [savedLicensedStates]);
 
   const handleSaveLicensedStates = async () => {
-    const normalized = licensedStatesDraft
-      .map((s) => s.trim().toUpperCase())
-      .filter((s) => US_STATE_CODES.includes(s));
-    const supportedStates = normalized.length > 0
-      ? [{ country: 'US', states: normalized }]
+    // TagInput's normalizeTag already uppercases tags; filter here to guard
+    // against any state that slipped through without a valid US code.
+    const validStates = licensedStatesDraft.filter((s) => US_STATE_CODES.includes(s));
+    const supportedStates = validStates.length > 0
+      ? [{ country: 'US', states: validStates }]
       : [];
     const { detailsPayload } = buildPracticeProfilePayloads({ supportedStates });
     setIsSettingsSaving(true);

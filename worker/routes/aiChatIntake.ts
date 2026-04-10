@@ -470,7 +470,7 @@ export const buildIntakeSystemPrompt = (
   const userSalutationSnippet = firstName ? `The user's first name is ${firstName}. ` : '';
   const userNamingInstruction = firstName ? ' (use their name)' : '';
 
-  const licensedJurisdictions = typeof practiceContext?.licensedJurisdictions === 'string'
+  const licensedJurisdictions = typeof practiceContext?.licensedJurisdictions === 'string' && practiceContext.licensedJurisdictions.trim()
     ? practiceContext.licensedJurisdictions.trim()
     : '';
   const licensedStatesSnippet = licensedJurisdictions
@@ -797,7 +797,9 @@ const buildCompactPracticeContextForPrompt = (
       const entryRecord = entry as Record<string, unknown>;
       const country = typeof entryRecord.country === 'string' ? entryRecord.country.trim() : '';
       const states = Array.isArray(entryRecord.states)
-        ? (entryRecord.states as unknown[]).filter((s): s is string => typeof s === 'string').map((s) => s.trim()).filter(Boolean)
+        ? (entryRecord.states as unknown[])
+            .filter((s): s is string => typeof s === 'string' && s.trim().length > 0)
+            .map((s) => s.trim())
         : [];
       if (states.length > 0) {
         footprintParts.push(`${states.join(', ')} (${country})`);
