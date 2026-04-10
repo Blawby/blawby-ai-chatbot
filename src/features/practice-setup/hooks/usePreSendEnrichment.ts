@@ -39,13 +39,14 @@ export function usePreSendEnrichment({
     if (!trimmed) return {};
 
     const urlMatch = trimmed.match(URL_RE);
+    const cleanedUrl = urlMatch ? urlMatch[0].replace(/[.,;:!?]+$/, '') : null;
     const needsRichData = completionScore < 40;
     const looksLikeBusinessName = trimmed.length > 5 && (trimmed.includes(' ') || trimmed.includes('.'));
-    if (!urlMatch && !(needsRichData && looksLikeBusinessName)) return {};
+    if (!cleanedUrl && !(needsRichData && looksLikeBusinessName)) return {};
 
     setIsEnriching(true);
-    const query = urlMatch
-      ? `site:${urlMatch[0].replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0]}`
+    const query = cleanedUrl
+      ? `site:${cleanedUrl.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0]}`
       : trimmed;
     setStatusText(`Looking up ${query}…`);
 
@@ -61,8 +62,8 @@ export function usePreSendEnrichment({
         }
       }
 
-      if (urlMatch && practiceId) {
-        const raw = urlMatch[0];
+      if (cleanedUrl && practiceId) {
+        const raw = cleanedUrl;
         const normalizedUrl = raw.startsWith('http') ? raw : `https://${raw}`;
         setStatusText(`Scanning ${normalizedUrl.replace(/^https?:\/\//, '')} for practice details…`);
         const extractRes = await fetch(`${getWorkerApiUrl()}/api/ai/extract-website`, {

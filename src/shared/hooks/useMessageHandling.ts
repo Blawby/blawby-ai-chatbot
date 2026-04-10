@@ -64,7 +64,7 @@ export interface UseMessageHandlingResult {
   handleContactFormSubmit: (data: ContactData) => Promise<void>;
   applyIntakeFields: (payload: IntakeFieldsPayload, options?: IntakeFieldChangeOptions) => Promise<void>;
   setupFields: SetupFieldsPayload;
-  applySetupFields: (payload: Partial<SetupFieldsPayload>) => Promise<void>;
+  applySetupFields: (payload: Partial<SetupFieldsPayload>, options?: { sendSystemAck?: boolean }) => Promise<void>;
   isConsultFlowActive: boolean;
 }
 
@@ -133,6 +133,8 @@ export const useMessageHandling = (options: UseMessageHandlingOptions) => {
 
   const liveSetup = useSetupFlow({
     enabled,
+    conversationId,
+    practiceId,
     conversationMetadata: conversation.conversationMetadata,
     conversationMetadataRef: conversation.conversationMetadataRef,
     updateConversationMetadata: conversation.updateConversationMetadata,

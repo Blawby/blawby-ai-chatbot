@@ -1,12 +1,16 @@
 import { useCallback, useMemo } from 'preact/hooks';
+import { postSystemMessage } from '@/shared/lib/conversationApi';
 import type { ConversationMetadata, SetupFieldsPayload } from '@/shared/types/conversation';
 import {
+  EMPTY_SETUP_FIELDS,
   applySetupPatchToMetadata,
   resolveSetupFieldsState,
 } from '@/shared/utils/setupState';
 
 interface UseSetupFlowOptions {
   enabled?: boolean;
+  conversationId: string | undefined;
+  practiceId: string | undefined;
   conversationMetadata: ConversationMetadata | null;
   conversationMetadataRef: React.MutableRefObject<ConversationMetadata | null>;
   updateConversationMetadata: (
@@ -17,8 +21,19 @@ interface UseSetupFlowOptions {
 
 export interface UseSetupFlowResult {
   setupFields: SetupFieldsPayload;
-  applySetupFields: (payload: Partial<SetupFieldsPayload>) => Promise<void>;
+  applySetupFields: (payload: Partial<SetupFieldsPayload>, options?: { sendSystemAck?: boolean }) => Promise<void>;
 }
+
+const SETUP_FIELD_LABELS: Partial<Record<keyof SetupFieldsPayload, string>> = {
+  name: 'Practice name',
+  slug: 'Practice URL',
+  businessEmail: 'Business email',
+  businessPhone: 'Business phone',
+  address: 'Address',
+  services: 'Services',
+  description: 'Description',
+  website: 'Website',
+};
 
 const PERSISTED_SETUP_FIELD_KEYS = [
   'name',
@@ -36,19 +51,23 @@ type PersistedSetupFieldKey = (typeof PERSISTED_SETUP_FIELD_KEYS)[number];
 
 export function useSetupFlow({
   enabled = true,
+  conversationId,
+  practiceId,
   conversationMetadata,
   conversationMetadataRef,
   updateConversationMetadata,
 }: UseSetupFlowOptions): UseSetupFlowResult {
   const setupFields = useMemo(
-    () => resolveSetupFieldsState(conversationMetadata),
-    [conversationMetadata]
+    () => enabled ? resolveSetupFieldsState(conversationMetadata) : EMPTY_SETUP_FIELDS,
+    [conversationMetadata, enabled]
   );
 
-  const applySetupFields = useCallback(async (payload: Partial<SetupFieldsPayload>) => {
+  const applySetupFields = useCallback(async (payload: Partial<SetupFieldsPayload>, options?: { sendSystemAck?: boolean }) => {
     if (!enabled) return;
 
     const delta: Partial<SetupFieldsPayload> = {};
+    const changedFields: string[] = [];
+    const current = resolveSetupFieldsState(conversationMetadataRef.current);
 
     PERSISTED_SETUP_FIELD_KEYS.forEach((key: PersistedSetupFieldKey) => {
       switch (key) {
@@ -56,6 +75,8 @@ export function useSetupFlow({
           const value = payload.address;
           if (value !== undefined) {
             delta.address = value;
+            const label = SETUP_FIELD_LABELS.address;
+            if (label) changedFields.push(label);
           }
           break;
         }
@@ -63,13 +84,17 @@ export function useSetupFlow({
           const value = payload.services;
           if (value !== undefined) {
             delta.services = value;
+            const label = SETUP_FIELD_LABELS.services;
+            if (label) changedFields.push(label);
           }
           break;
         }
         default: {
           const value = payload[key];
-          if (value !== undefined) {
+          if (value !== undefined && current[key] !== value) {
             delta[key] = value;
+            const label = SETUP_FIELD_LABELS[key];
+            if (label) changedFields.push(label);
           }
         }
       }
@@ -80,7 +105,14 @@ export function useSetupFlow({
     await updateConversationMetadata(
       applySetupPatchToMetadata(conversationMetadataRef.current, delta)
     );
-  }, [conversationMetadataRef, enabled, updateConversationMetadata]);
+    if (options?.sendSystemAck && changedFields.length > 0 && conversationId && practiceId) {
+      await postSystemMessage(conversationId, practiceId, {
+        clientId: `system-setup-update-${Date.now()}`,
+        content: `Updated ${changedFields.join(', ')}`,
+        metadata: { setupUpdate: true, fields: changedFields },
+      });
+    }
+  }, [conversationId, conversationMetadataRef, enabled, practiceId, updateConversationMetadata]);
 
   return {
     setupFields,

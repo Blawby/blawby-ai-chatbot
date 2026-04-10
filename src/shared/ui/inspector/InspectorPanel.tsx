@@ -95,7 +95,7 @@ type InspectorPanelProps = {
   intakeSlimContactDraft?: import('@/shared/types/intake').SlimContactDraft | null;
   conversationMode?: ConversationMode;
   setupFields?: SetupFieldsPayload;
-  onSetupFieldsChange?: (patch: Partial<SetupFieldsPayload>) => Promise<void> | void;
+  onSetupFieldsChange?: (patch: Partial<SetupFieldsPayload>, options?: { sendSystemAck?: boolean }) => Promise<void> | void;
   setupStatus?: PracticeSetupStatus;
   onStartStripeOnboarding?: () => void;
   isStripeSubmitting?: boolean;

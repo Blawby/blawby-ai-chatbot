@@ -43,7 +43,7 @@ type WorkspaceSetupSectionProps = {
   details: PracticeDetails | null;
   setupConversationId?: string | null;
   setupFields: SetupFieldsPayload;
-  applySetupFields: (payload: Partial<SetupFieldsPayload>) => Promise<void>;
+  applySetupFields: (payload: Partial<SetupFieldsPayload>, options?: { sendSystemAck?: boolean }) => Promise<void>;
   onStartStripeOnboarding: () => void | Promise<void>;
   isStripeSubmitting: boolean;
   onSaveBasics: (values: BasicsFormValues, options?: { suppressSuccessToast?: boolean }) => Promise<void>;
@@ -212,6 +212,20 @@ export const WorkspaceSetupSection: FunctionComponent<WorkspaceSetupSectionProps
       slug: practice.slug ?? '',
       accentColor: priorAccent,
     };
+    const priorContact = {
+      website: details?.website ?? practice?.website ?? '',
+      businessEmail: details?.businessEmail ?? practice?.businessEmail ?? '',
+      businessPhone: details?.businessPhone ?? practice?.businessPhone ?? '',
+      address: {
+        address: details?.address ?? practice?.address ?? '',
+        apartment: details?.apartment ?? practice?.apartment ?? '',
+        city: details?.city ?? practice?.city ?? '',
+        state: details?.state ?? practice?.state ?? '',
+        postalCode: details?.postalCode ?? practice?.postalCode ?? '',
+        country: details?.country ?? practice?.country ?? '',
+      },
+      description: details?.description ?? practice?.description ?? undefined,
+    };
     let failingStep: string | null = null;
     try {
       const accentColor = normalizeAccentColor(extracted.accentColor ?? priorAccent) ?? priorAccent;
@@ -239,8 +253,13 @@ export const WorkspaceSetupSection: FunctionComponent<WorkspaceSetupSectionProps
         await onSaveServices(extracted.services as SetupServicePayload[]);
       }
     } catch (error) {
+      // Rollback in reverse commit order
+      if (failingStep === 'services') {
+        // Contact already succeeded — rollback contact
+        try { await onSaveContact(priorContact, { suppressSuccessToast: true }); } catch { /* best-effort rollback */ }
+      }
       if (failingStep !== 'basics') {
-        // Basics already succeeded — rollback to prior values
+        // Basics already succeeded — rollback basics
         try { await onSaveBasics(priorBasics, { suppressSuccessToast: true }); } catch { /* best-effort rollback */ }
       }
       const baseMsg = error instanceof Error ? error.message : 'Failed to save';

@@ -3,7 +3,8 @@ import type { PracticeSetupStatus } from '@/features/practice-setup/utils/status
 import type { PracticeDetails } from '@/shared/lib/apiClient';
 import type { BusinessOnboardingStatus } from '@/shared/hooks/usePracticeManagement';
 import type { SetupFieldsPayload, SetupServicePayload, SetupAddressPayload } from '@/shared/types/conversation';
-import { Input, Textarea } from '@/shared/ui/input';
+import { Combobox, Input, Textarea } from '@/shared/ui/input';
+import { STATE_OPTIONS } from '@/shared/ui/address/AddressFields';
 import { InfoRow, InspectorEditableRow, InspectorGroup } from './InspectorPrimitives';
 import { StripeCheckpointCard } from '@/features/practice-setup/components/StripeCheckpointCard';
 
@@ -15,7 +16,7 @@ interface SetupInspectorContentProps {
   practiceDetails?: PracticeDetails | null;
   businessOnboardingStatus?: BusinessOnboardingStatus | null;
   setupFields?: SetupFieldsPayload;
-  onSetupFieldsChange?: (patch: Partial<SetupFieldsPayload>) => void | Promise<void>;
+  onSetupFieldsChange?: (patch: Partial<SetupFieldsPayload>, options?: { sendSystemAck?: boolean }) => void | Promise<void>;
   setupStatus?: PracticeSetupStatus;
   onStartStripeOnboarding?: () => void;
   isStripeSubmitting?: boolean;
@@ -27,7 +28,11 @@ const normalizeServices = (services: unknown): SetupServicePayload[] =>
         if (!service || typeof service !== 'object' || Array.isArray(service)) return [];
         const row = service as Record<string, unknown>;
         const name = typeof row.name === 'string' ? row.name.trim() : '';
-        const key = typeof row.key === 'string' ? row.key.trim() : '';
+        const key = (
+          (typeof row.key === 'string' ? row.key.trim() : '') ||
+          (typeof row.service_key === 'string' ? row.service_key.trim() : '') ||
+          (typeof row.id === 'string' ? row.id.trim() : '')
+        );
         return name ? [{ name, ...(key ? { key } : {}) }] : [];
       })
     : [];
@@ -45,6 +50,7 @@ export function SetupInspectorContent({
 }: SetupInspectorContentProps) {
   const [activeEditor, setActiveEditor] = useState<EditorKey>(null);
   const [draftValue, setDraftValue] = useState<string | null>(null);
+  const [addressDraft, setAddressDraft] = useState<SetupAddressPayload>({});
   const [saveError, setSaveError] = useState<string | null>(null);
   const skipBlurRef = useRef(false);
   const services = Array.isArray(setupFields.services) && setupFields.services.length > 0
@@ -62,6 +68,16 @@ export function SetupInspectorContent({
   const openEditor = (key: Exclude<EditorKey, null>, initialValue: string) => {
     setSaveError(null);
     setDraftValue(initialValue);
+    if (key === 'address') {
+      setAddressDraft({
+        address: setupFields.address?.address ?? practiceDetails?.address ?? '',
+        city: setupFields.address?.city ?? '',
+        state: setupFields.address?.state ?? '',
+        postalCode: setupFields.address?.postalCode ?? '',
+        ...(setupFields.address?.apartment ? { apartment: setupFields.address.apartment } : {}),
+        ...(setupFields.address?.country ? { country: setupFields.address.country } : {}),
+      });
+    }
     setActiveEditor((prev) => (prev === key ? null : key));
   };
 
@@ -71,7 +87,7 @@ export function SetupInspectorContent({
     try {
       setSaveError(null);
       if (key === 'services') {
-        const existingServices = normalizeServices(setupFields.services);
+        const existingServices = normalizeServices(setupFields.services ?? practiceDetails?.services);
         const assignedKeys = new Set<string>();
         await onSetupFieldsChange({
           services: value
@@ -88,17 +104,20 @@ export function SetupInspectorContent({
                 return { name, ...(existingKey ? { key: existingKey } : {}) };
               })
             : [],
-        });
+        }, { sendSystemAck: true });
       } else if (key === 'address') {
-        const lines = value.split('\n').map((l) => l.trim());
-        const patch: SetupAddressPayload = { ...(setupFields.address ?? {}) };
-        patch.address = lines[0] ?? '';
-        patch.city = lines[1] ?? '';
-        patch.state = lines[2] ?? '';
-        patch.postalCode = lines[3] ?? '';
-        await onSetupFieldsChange({ address: patch });
+        await onSetupFieldsChange({
+          address: {
+            address: addressDraft.address?.trim() ?? '',
+            city: addressDraft.city?.trim() ?? '',
+            state: addressDraft.state?.trim() ?? '',
+            postalCode: addressDraft.postalCode?.trim() ?? '',
+            ...(setupFields.address?.apartment ? { apartment: setupFields.address.apartment } : {}),
+            ...(setupFields.address?.country ? { country: setupFields.address.country } : {}),
+          }
+        }, { sendSystemAck: true });
       } else {
-        await onSetupFieldsChange({ [key]: value } as Partial<SetupFieldsPayload>);
+        await onSetupFieldsChange({ [key]: value } as Partial<SetupFieldsPayload>, { sendSystemAck: true });
       }
       if (shouldClose) setActiveEditor(null);
     } catch (error) {
@@ -125,8 +144,22 @@ export function SetupInspectorContent({
           <InspectorEditableRow label="Phone" summary={values.businessPhone || 'Not set'} summaryMuted={!values.businessPhone} isOpen={activeEditor === 'businessPhone'} onToggle={() => openEditor('businessPhone', values.businessPhone)}>
             <Input value={draftValue ?? values.businessPhone} onChange={setDraftValue} placeholder="Business phone" type="tel" className="w-full" onBlur={() => { if (skipBlurRef.current) { skipBlurRef.current = false; return; } if (draftValue !== null) void commitDraft('businessPhone', draftValue, false); }} onKeyDown={(e) => { if (e.key === 'Enter') { skipBlurRef.current = true; void commitDraft('businessPhone', draftValue ?? values.businessPhone, true); } if (e.key === 'Escape') { skipBlurRef.current = true; setActiveEditor(null); } }} />
           </InspectorEditableRow>
-          <InspectorEditableRow label="Address" summary={values.address || 'Not set'} summaryMuted={!values.address} isOpen={activeEditor === 'address'} onToggle={() => openEditor('address', [setupFields.address?.address ?? practiceDetails?.address ?? '', setupFields.address?.city ?? '', setupFields.address?.state ?? '', setupFields.address?.postalCode ?? ''].join('\n'))}>
-            <Textarea value={draftValue ?? values.address} onChange={setDraftValue} placeholder="Street address" className="w-full" rows={3} onBlur={() => { if (skipBlurRef.current) { skipBlurRef.current = false; return; } if (draftValue !== null) void commitDraft('address', draftValue, false); }} onKeyDown={(e) => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { skipBlurRef.current = true; void commitDraft('address', draftValue ?? values.address, true); } if (e.key === 'Escape') { skipBlurRef.current = true; setActiveEditor(null); } }} />
+          <InspectorEditableRow label="Address" summary={values.address || 'Not set'} summaryMuted={!values.address} isOpen={activeEditor === 'address'} onToggle={() => openEditor('address', values.address)}>
+            <div className="space-y-3">
+              <Input value={addressDraft.address ?? ''} onChange={(next) => setAddressDraft((prev) => ({ ...prev, address: next }))} placeholder="Street address" className="w-full" />
+              <Input value={addressDraft.city ?? ''} onChange={(next) => setAddressDraft((prev) => ({ ...prev, city: next }))} placeholder="City" className="w-full" />
+              <Combobox value={addressDraft.state ?? ''} onChange={(next) => setAddressDraft((prev) => ({ ...prev, state: next }))} options={STATE_OPTIONS} placeholder="Select state" searchable />
+              <Input value={addressDraft.postalCode ?? ''} onChange={(next) => setAddressDraft((prev) => ({ ...prev, postalCode: next }))} placeholder="Postal code" className="w-full" />
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  className="rounded-md bg-white/[0.08] px-3 py-1.5 text-xs font-semibold text-input-text transition hover:bg-white/[0.12]"
+                  onClick={() => { void commitDraft('address', '', true); }}
+                >
+                  Save address
+                </button>
+              </div>
+            </div>
           </InspectorEditableRow>
         </InspectorGroup>
         <InspectorGroup label={`Services ${setupStatus?.servicesComplete ? '· Complete' : '· Missing'}`}>
