@@ -44,6 +44,7 @@ import {
 } from '@/features/settings/hooks/usePracticePageEffects';
 import { normalizeAccentColor } from '@/shared/utils/accentColors';
 import { buildSettingsPath, resolveSettingsBasePath } from '@/shared/utils/workspace';
+import { TagInput } from '@/shared/ui/tag';
 
 interface OnboardingDetails {
   contactPhone?: string;
@@ -120,6 +121,20 @@ const isValidHttpUrl = (value: string): boolean => {
   } catch {
     return false;
   }
+};
+
+const US_STATE_CODES = [
+  'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA',
+  'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD',
+  'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ',
+  'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC',
+  'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY', 'DC',
+];
+
+const extractUsStates = (details: PracticeDetails | null): string[] => {
+  if (!details?.supportedStates) return [];
+  const usEntry = details.supportedStates.find((e) => e.country === 'US');
+  return usEntry?.states ?? [];
 };
 
 const formatAddressSummary = (data: OnboardingDetails) => {
@@ -300,6 +315,8 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
     address: undefined,
   });
   const [accentColorDraft, setAccentColorDraft] = useState('#D4AF37');
+  const [licensedStatesDraft, setLicensedStatesDraft] = useState<string[]>([]);
+  const [isLicensedStatesEditing, setIsLicensedStatesEditing] = useState(false);
   const modalContentClassName = 'glass-panel';
 
   // SSR-safe origin for return URLs
@@ -531,6 +548,44 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
     );
   };
 
+  const savedLicensedStates = useMemo(
+    () => extractUsStates(practiceDetails),
+    [practiceDetails]
+  );
+
+  const openLicensedStatesEdit = useCallback(() => {
+    setLicensedStatesDraft(savedLicensedStates);
+    setIsLicensedStatesEditing(true);
+  }, [savedLicensedStates]);
+
+  const handleSaveLicensedStates = async () => {
+    const normalized = licensedStatesDraft
+      .map((s) => s.trim().toUpperCase())
+      .filter((s) => US_STATE_CODES.includes(s));
+    const supportedStates = normalized.length > 0
+      ? [{ country: 'US', states: normalized }]
+      : [];
+    const { detailsPayload } = buildPracticeProfilePayloads({ supportedStates });
+    setIsSettingsSaving(true);
+    try {
+      await updateDetails(detailsPayload);
+      setIsLicensedStatesEditing(false);
+      showSuccess('Licensed states updated.');
+    } catch (err) {
+      showError(err instanceof Error ? err.message : 'Failed to update licensed states');
+    } finally {
+      setIsSettingsSaving(false);
+    }
+  };
+
+  const validateStateTag = useCallback((tag: string): boolean | string => {
+    const upper = tag.trim().toUpperCase();
+    if (!US_STATE_CODES.includes(upper)) {
+      return `"${tag}" is not a valid US state code`;
+    }
+    return true;
+  }, []);
+
   const handleDeletePractice = async () => {
     if (!practice) return;
     
@@ -738,6 +793,74 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
                   />
                 </div>
               </SettingRow>
+
+              <SectionDivider />
+
+              {/* Licensed States Section */}
+              {isLicensedStatesEditing ? (
+                <div className="py-3 space-y-3">
+                  <div>
+                    <h3 className="text-sm font-semibold text-input-text">Licensed States</h3>
+                    <SettingsHelperText className="mt-1">
+                      Enter US state codes (e.g. NC, SC, VA) where this practice is licensed. Used to help the AI assistant reason about jurisdiction.
+                    </SettingsHelperText>
+                  </div>
+                  <TagInput
+                    value={licensedStatesDraft}
+                    onChange={setLicensedStatesDraft}
+                    suggestions={US_STATE_CODES}
+                    placeholder="Add state code (e.g. NC)"
+                    normalizeTag={(tag) => tag.trim().toUpperCase()}
+                    onValidate={validateStateTag}
+                    maxTagLength={2}
+                    disabled={isSettingsSaving}
+                    aria-label="Licensed states"
+                  />
+                  <div className="flex items-center gap-2 justify-end">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => setIsLicensedStatesEditing(false)}
+                      disabled={isSettingsSaving}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={handleSaveLicensedStates}
+                      disabled={isSettingsSaving}
+                    >
+                      {isSettingsSaving ? 'Saving…' : 'Save'}
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <SettingRow
+                  label="Licensed States"
+                  labelNode={(
+                    <div>
+                      <h3 className="text-sm font-semibold text-input-text">Licensed States</h3>
+                      {savedLicensedStates.length > 0 ? (
+                        <SettingsHelperText className="mt-1">
+                          {savedLicensedStates.join(', ')}
+                        </SettingsHelperText>
+                      ) : (
+                        <SettingsHelperText className="mt-1">
+                          No licensed states configured
+                        </SettingsHelperText>
+                      )}
+                    </div>
+                  )}
+                >
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={openLicensedStatesEdit}
+                  >
+                    Edit
+                  </Button>
+                </SettingRow>
+              )}
 
               <SectionDivider />
 

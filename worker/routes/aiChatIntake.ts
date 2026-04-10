@@ -470,9 +470,16 @@ export const buildIntakeSystemPrompt = (
   const userSalutationSnippet = firstName ? `The user's first name is ${firstName}. ` : '';
   const userNamingInstruction = firstName ? ' (use their name)' : '';
 
+  const licensedJurisdictions = typeof practiceContext?.licensedJurisdictions === 'string'
+    ? practiceContext.licensedJurisdictions.trim()
+    : '';
+  const licensedStatesSnippet = licensedJurisdictions
+    ? `\nThis firm is licensed in: ${licensedJurisdictions}.`
+    : '';
+
   const isEnrichmentMode = storedIntakeState?.enrichmentMode === true;
 
-  return `${userSalutationSnippet}You are a warm, helpful legal intake assistant for ${practiceName}. Your job is to collect case information conversationally and call tools to save it.
+  return `${userSalutationSnippet}You are a warm, helpful legal intake assistant for ${practiceName}. Your job is to collect case information conversationally and call tools to save it.${licensedStatesSnippet}
 
 This firm handles the following practice areas:
 ${serviceList}
@@ -497,6 +504,7 @@ Conversation rules:
 - ${isEnrichmentMode
     ? 'The user has chosen to strengthen their case. Focus on collecting enrichment fields before submission.'
     : 'Once description, city, and state are captured, prioritize getting the person to submit instead of asking optional enrichment questions.'}
+${licensedJurisdictions ? `- Licensed jurisdiction guidance: If the user's matter involves a location outside the firm's licensed states (${licensedJurisdictions}), acknowledge the multi-state context warmly without making definitive eligibility judgments. Ask clarifying follow-ups to understand where the legal issue is rooted. Frame the response as a fit question for the attorney to review, not a hard rejection.` : ''}
 
 - If a consultation fee is required: Acknowledge that you have their details warmly${userNamingInstruction}. Mention the fee softly as the next step to move forward with a review. Max 2 sentences.
 - If no fee is required: Acknowledge that you have their details warmly${userNamingInstruction} and ask if they are ready to send it over for review.
@@ -779,6 +787,27 @@ const buildCompactPracticeContextForPrompt = (
 
   if (Array.isArray(normalized.services)) {
     compact.services = normalizeServicesForPrompt(normalized);
+  }
+
+  const rawSupportedStates = normalized.supported_states ?? normalized.supportedStates;
+  if (Array.isArray(rawSupportedStates) && rawSupportedStates.length > 0) {
+    const footprintParts: string[] = [];
+    for (const entry of rawSupportedStates) {
+      if (!entry || typeof entry !== 'object') continue;
+      const entryRecord = entry as Record<string, unknown>;
+      const country = typeof entryRecord.country === 'string' ? entryRecord.country.trim() : '';
+      const states = Array.isArray(entryRecord.states)
+        ? (entryRecord.states as unknown[]).filter((s): s is string => typeof s === 'string').map((s) => s.trim()).filter(Boolean)
+        : [];
+      if (states.length > 0) {
+        footprintParts.push(`${states.join(', ')} (${country})`);
+      } else if (country) {
+        footprintParts.push(country);
+      }
+    }
+    if (footprintParts.length > 0) {
+      compact.licensedJurisdictions = footprintParts.join('; ');
+    }
   }
 
   return compact;
