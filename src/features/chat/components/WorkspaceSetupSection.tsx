@@ -146,7 +146,9 @@ export const WorkspaceSetupSection: FunctionComponent<WorkspaceSetupSectionProps
     const businessEmail = (extracted.businessEmail ?? details?.businessEmail ?? practice?.businessEmail ?? '').trim();
     const detailServices = normalizeServiceRecords(details?.services);
     const practiceServices = normalizeServiceRecords(practice?.services);
-    const services = Array.isArray(extracted.services) ? extracted.services : (detailServices.length > 0 ? detailServices : practiceServices);
+    const services = Array.isArray(extracted.services)
+      ? extracted.services
+      : (details?.services != null ? detailServices : practiceServices);
     const hasServices = setupStatus.servicesComplete || services.some((service) => service.name.trim().length > 0);
     const addressSource = extracted.address;
     const hasAddress = Boolean(
@@ -186,7 +188,7 @@ export const WorkspaceSetupSection: FunctionComponent<WorkspaceSetupSectionProps
       postalCode: (details?.postalCode ?? practice?.postalCode ?? '').trim(),
       country: (details?.country ?? practice?.country ?? '').trim(),
     };
-    const currentServices = normalizeServiceRecords(details?.services?.length ? details.services : practice?.services);
+    const currentServices = normalizeServiceRecords(details?.services != null ? details.services : practice?.services);
     if (typeof extracted.name === 'string' && extracted.name.trim() !== currentName) return true;
     if (typeof extracted.slug === 'string' && extracted.slug.trim() !== currentSlug) return true;
     if (typeof extracted.accentColor === 'string') {
@@ -267,11 +269,11 @@ export const WorkspaceSetupSection: FunctionComponent<WorkspaceSetupSectionProps
       // Rollback in reverse commit order
       if (failingStep === 'services') {
         // Contact already succeeded — rollback contact
-        try { await onSaveContact(priorContact, { suppressSuccessToast: true }); } catch { /* best-effort rollback */ }
+        await onSaveContact(priorContact, { suppressSuccessToast: true });
       }
       if (failingStep !== 'basics') {
         // Basics already succeeded — rollback basics
-        try { await onSaveBasics(priorBasics, { suppressSuccessToast: true }); } catch { /* best-effort rollback */ }
+        await onSaveBasics(priorBasics, { suppressSuccessToast: true });
       }
       const baseMsg = error instanceof Error ? error.message : 'Failed to save';
       setSaveError(failingStep ? `Failed to save ${failingStep}: ${baseMsg}` : baseMsg);

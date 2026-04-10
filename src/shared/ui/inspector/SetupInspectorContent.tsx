@@ -33,7 +33,8 @@ const normalizeServices = (services: unknown): SetupServicePayload[] =>
           (typeof row.service_key === 'string' ? row.service_key.trim() : '') ||
           (typeof row.id === 'string' ? row.id.trim() : '')
         );
-        return name ? [{ name, ...(key ? { key } : {}) }] : [];
+        const description = typeof row.description === 'string' ? row.description.trim() : '';
+        return name ? [{ name, ...(key ? { key } : {}), ...(description ? { description } : {}) }] : [];
       })
     : [];
 
@@ -99,14 +100,17 @@ export function SetupInspectorContent({
             ? value.split('\n').map((n) => n.trim()).filter(Boolean).map((name) => {
                 const byName = existingServices.find((s) => s.name === name);
                 let existingKey: string | undefined;
+                let existingDescription: string | undefined;
                 if (byName?.key && !assignedKeys.has(byName.key)) {
                   existingKey = byName.key;
+                  existingDescription = byName.description;
                 } else {
                   const unused = existingServices.find((s) => s.key && !assignedKeys.has(s.key));
                   existingKey = unused?.key;
+                  existingDescription = unused?.description;
                 }
                 if (existingKey) assignedKeys.add(existingKey);
-                return { name, ...(existingKey ? { key: existingKey } : {}) };
+                return { name, ...(existingKey ? { key: existingKey } : {}), ...(existingDescription ? { description: existingDescription } : {}) };
               })
             : [],
         }, { sendSystemAck: true });
@@ -126,7 +130,7 @@ export function SetupInspectorContent({
       }
       if (shouldClose) setActiveEditor(null);
     } catch (error) {
-      setSaveError(error instanceof Error ? error.message : 'Failed to update setup field');
+      setSaveError(error instanceof Error ? error.message : String(error));
     }
   };
 
