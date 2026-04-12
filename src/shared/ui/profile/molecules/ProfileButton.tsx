@@ -34,7 +34,7 @@ export const ProfileButton = ({
     <div className={`flex items-center gap-2 min-w-0 w-full max-w-full ${className}`}>
       <button
         onClick={onClick}
-        className="flex items-center gap-2 flex-1 min-w-0 text-left hover:bg-black/5 dark:hover:bg-white/[0.08] rounded-xl p-3 transition-colors overflow-hidden"
+        className="flex items-center gap-2 flex-1 min-w-0 text-left hover:bg-surface-utility/60 dark:hover:bg-white/10 rounded-xl p-3 transition-colors overflow-hidden"
         aria-label={`User profile for ${name}`}
       >
         <Avatar src={image} name={name} size="md" />

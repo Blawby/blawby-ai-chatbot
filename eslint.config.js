@@ -136,14 +136,20 @@ export default [
 
       // Project guardrails
       'no-restricted-syntax': [
-        'error',
+        'warn',
         {
           selector: 'a[href^="/"]',
           message: 'Use Link or navigate()/location.route() for in-app routes instead of internal <a href="/..."> anchors'
         },
         {
-          selector: 'ClassExpression[class*="blue"]',
-          message: 'Avoid using blue utility classes directly - use accent color system instead'
+          selector: 'JSXAttribute[name.name="className"] > Literal[value=/blue-|indigo-|purple-|slate-|gray-|zinc-|neutral-|stone-/]',
+          // Changed to warn to avoid blocking existing work while transitioning to the new system
+          message: 'Avoid hardcoded Tailwind color classes. Use system tokens (surface-*, input-*, or accent-*) to ensure light/dark mode parity and accessibility.'
+        },
+        {
+          selector: 'JSXAttribute[name.name="className"] > Literal[value=/text-white|text-black|bg-white|bg-black/]',
+          // Changed to warn to avoid blocking existing work while transitioning to the new system
+          message: 'Preference system tokens (text-input-text, bg-surface-base, etc.) over hardcoded white/black to ensure proper theme inversion.'
         },
         {
           selector: 'ImportDeclaration[source.value=/LoadingIndicator/]',

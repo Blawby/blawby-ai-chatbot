@@ -68,7 +68,7 @@ export function EntityList<T extends { id: string }>({
               type="button"
               className={cn(
                 'w-full text-left transition-colors duration-150',
-                isSelected ? 'bg-white/10' : 'hover:bg-white/[0.03]',
+                isSelected ? 'bg-surface-utility/60' : 'hover:bg-surface-utility/40',
                 onSelect && 'cursor-pointer'
               )}
               onClick={onSelect ? () => onSelect(item) : undefined}

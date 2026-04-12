@@ -5,7 +5,7 @@ import { useLocation } from 'preact-iso';
 import { DetailHeader } from '@/shared/ui/layout/DetailHeader';
 import { Panel } from '@/shared/ui/layout/Panel';
 import { WorkspacePlaceholderState } from '@/shared/ui/layout/WorkspacePlaceholderState';
-import { LoadingBlock } from '@/shared/ui/layout/LoadingBlock';
+import { LoadingBlock, PanelSectionHeader, PanelEmptyState, InteractiveListItem } from '@/shared/ui/layout';
 import { Button } from '@/shared/ui/Button';
 import { Dialog } from '@/shared/ui/dialog';
 import { Avatar } from '@/shared/ui/profile';
@@ -865,7 +865,7 @@ export const PracticeClientsPage = ({
         <ul>
           {letters.map((letter) => (
             <li key={letter} data-letter={letter}>
-              <div className="sticky top-0 z-10 bg-transparent px-4 py-1.5 text-xs font-semibold text-input-placeholder">
+              <div className="sticky top-0 z-10 bg-surface-collection/80 backdrop-blur-sm px-4 py-1.5 text-xs font-semibold text-input-placeholder border-y border-line-glass/10">
                 {letter}
               </div>
               {groupedClients[letter].map((client) => {
@@ -873,42 +873,36 @@ export const PracticeClientsPage = ({
                 const nameParts = splitName(client.name);
                 const normalizedTeamRole = normalizePracticeRole(client.teamRole);
                 return (
-                  <div key={client.id}>
-                    <button
-                      type="button"
-                      onClick={() => handleSelectClient(client)}
-                      aria-current={isSelected ? 'true' : undefined}
-                      className={cn(
-                        'w-full justify-start px-4 py-3.5 h-auto rounded-none text-left transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40',
-                        isSelected ? 'bg-white/5' : 'hover:bg-white/[0.03]'
-                      )}
-                    >
-                      <div className="flex items-center gap-4 w-full">
-                        <Avatar
-                          name={client.name}
-                          size="md"
-                          className="text-input-text"
-                        />
-                        <div className="min-w-0 flex-1 text-left">
-                          <p className="text-sm text-input-text truncate">
-                            {nameParts.first ? (
-                              <>
-                                <span>{nameParts.first} </span>
-                                <span className="font-semibold">{nameParts.last}</span>
-                              </>
-                            ) : (
-                              <span className="font-semibold">{nameParts.last}</span>
-                            )}
-                          </p>
-                          <p className="mt-0.5 text-xs text-input-placeholder truncate">
-                            {client.kind === 'team'
-                              ? `Team member${normalizedTeamRole ? ` • ${getPracticeRoleLabel(normalizedTeamRole)}` : ''}`
-                              : (client.status ? STATUS_LABELS[client.status] : 'Client')}
-                          </p>
-                        </div>
-                      </div>
-                    </button>
-                  </div>
+                  <InteractiveListItem
+                    key={client.id}
+                    onClick={() => handleSelectClient(client)}
+                    isSelected={isSelected}
+                    padding="px-4 py-3.5"
+                    className="flex-nowrap gap-4 rounded-none h-auto"
+                  >
+                    <Avatar
+                      name={client.name}
+                      size="md"
+                      className="text-input-text"
+                    />
+                    <div className="min-w-0 flex-1 text-left">
+                      <p className="text-sm text-input-text truncate">
+                        {nameParts.first ? (
+                          <>
+                            <span>{nameParts.first} </span>
+                            <span className="font-semibold">{nameParts.last}</span>
+                          </>
+                        ) : (
+                          <span className="font-semibold">{nameParts.last}</span>
+                        )}
+                      </p>
+                      <p className="mt-0.5 text-xs text-input-placeholder truncate">
+                        {client.kind === 'team'
+                          ? `Team member${normalizedTeamRole ? ` • ${getPracticeRoleLabel(normalizedTeamRole)}` : ''}`
+                          : (client.status ? STATUS_LABELS[client.status] : 'Client')}
+                      </p>
+                    </div>
+                  </InteractiveListItem>
                 );
               })}
             </li>
@@ -940,7 +934,7 @@ export const PracticeClientsPage = ({
                 "before:absolute before:-inset-3.5 before:content-['']",
                 activeLetter === letter
                   ? 'text-[rgb(var(--accent-foreground))] font-bold bg-accent-500'
-                  : 'text-input-placeholder hover:text-input-text hover:bg-white/10'
+                  : 'text-input-placeholder hover:text-input-text hover:bg-surface-utility/40'
               )}
             >
               {letter}

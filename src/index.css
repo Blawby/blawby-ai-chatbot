@@ -48,7 +48,7 @@
     --glass-bg-mid: rgba(252, 253, 255, 0.98);
     --glass-bg-bottom: rgba(250, 252, 255, 0.94);
     --glass-inset-rim: inset 0 1px 0 rgba(255, 255, 255, 0.95), inset 0 -1px 0 rgba(0, 0, 0, 0.01);
-    --glass-shadow: 0 24px 64px rgba(15, 23, 42, 0.14), 0 2px 4px rgba(15, 23, 42, 0.04);
+    --glass-shadow: 0 32px 80px rgba(15, 23, 42, 0.16), 0 2px 4px rgba(15, 23, 42, 0.04);
 
     /* Panel Variables — Light Mode */
     --panel-bg-top: rgba(244, 246, 250, 0.96);
@@ -116,6 +116,7 @@
 
   body {
     @apply min-h-screen m-0;
+
     background-color: rgb(var(--surface-app-frame));
     background-image:
       radial-gradient(ellipse 80% 50% at 50% -20%, rgb(var(--accent-500, 212 175 55) / 8%), transparent 50%),
@@ -204,9 +205,9 @@
   /* Cards — most prominent surface, heaviest rim */
   .glass-card {
     @apply rounded-3xl border-none;
+
     position: relative;
     overflow: visible;
-    
     background:
       linear-gradient(
         to bottom,
@@ -217,7 +218,6 @@
     backdrop-filter: blur(15px) saturate(104%);
     -webkit-backdrop-filter: blur(15px) saturate(104%);
     box-shadow: var(--glass-shadow), var(--glass-inset-rim);
-    @apply border-none;
   }
 
   .glass-card::before {
@@ -254,9 +254,9 @@
   /* Panels — secondary surface, medium rim */
   .glass-panel {
     @apply rounded-2xl border-none;
+
     position: relative;
     overflow: visible;
-    
     background:
       linear-gradient(
         to bottom,
@@ -319,8 +319,8 @@
 
   /* Inputs — tertiary surface, subtle rim */
   .glass-input {
-    @apply text-input-text placeholder:text-input-placeholder/80;
-    
+    @apply text-input-text placeholder:text-input-placeholder/80 border-none;
+
     background:
       linear-gradient(
         to bottom,
@@ -329,7 +329,6 @@
       );
     backdrop-filter: blur(12px) saturate(102%);
     -webkit-backdrop-filter: blur(12px) saturate(102%);
-    @apply border-none;
     box-shadow: var(--input-shadow), var(--glass-rim-subtle);
   }
 
@@ -497,7 +496,7 @@
   }
 
   .btn-secondary:focus {
-    @apply ring-black/5 dark:ring-white/20;
+    @apply ring-black/20 dark:ring-white/40;
   }
 
   /* Ghost — no bg until hover */
@@ -514,7 +513,7 @@
 
   .btn-ghost:focus,
   .btn-icon:focus {
-    @apply ring-black/5 dark:ring-white/20;
+    @apply ring-black/20 dark:ring-white/40;
   }
 
   /* Icon — same as ghost, used for icon-only controls */
@@ -1059,6 +1058,7 @@
 
   .message-action-popover {
     @apply absolute right-3 top-0 z-10 hidden -translate-y-1/2 items-center gap-1 rounded-md border border-black/5 dark:border-white/10 bg-white/95 dark:bg-black/40 px-1 py-0.5 opacity-0 backdrop-blur-sm transition-opacity duration-150 group-hover:flex group-hover:opacity-100 group-focus-within:flex group-focus-within:opacity-100;
+
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
   }
 
@@ -1077,7 +1077,7 @@
   }
 
   .message-reaction-chip:hover:not(:disabled) {
-    @apply bg-black/5 dark:bg-white/10;
+    @apply bg-black/10 dark:bg-white/10;
   }
 
   .message-reaction-chip-active {

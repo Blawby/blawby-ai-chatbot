@@ -164,7 +164,7 @@ function DropdownOption({
       className={cn(
         'group relative flex w-full items-center justify-between px-3 py-2 text-left text-sm transition-colors',
         isSelected || isFocused
-          ? 'bg-accent-500/15 text-accent-500'
+          ? 'bg-accent-500/15 text-[rgb(var(--accent-foreground))]'
           : 'text-input-text hover:bg-black/5 dark:hover:bg-white/[0.08]'
       )}
     >
@@ -630,7 +630,7 @@ export function Combobox({
                 className={cn(
                   'flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm transition-colors',
                   clampedFocus === 0
-                    ? 'bg-accent-500/15 text-accent-500'
+                    ? 'bg-accent-500/15 text-[rgb(var(--accent-foreground))]'
                     : 'text-input-text hover:bg-black/5 dark:hover:bg-white/[0.08]'
                 )}
               >

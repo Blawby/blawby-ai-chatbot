@@ -67,7 +67,7 @@ export const InspectorGroup = ({
               disabled={disabled}
               aria-expanded={isOpen}
               aria-label="Toggle group options"
-              className={`flex h-7 w-7 items-center justify-center rounded-md text-input-placeholder transition hover:bg-black/5 dark:hover:bg-white/[0.08] hover:text-input-text disabled:cursor-not-allowed disabled:opacity-50 ${isOpen ? 'bg-black/5 dark:bg-white/[0.08] text-input-text' : ''}`}
+              className={`flex h-7 w-7 items-center justify-center rounded-md text-input-placeholder transition hover:bg-surface-app-frame/60 dark:hover:bg-white/[0.1] hover:text-input-text disabled:cursor-not-allowed disabled:opacity-50 ${isOpen ? 'bg-surface-app-frame/60 dark:bg-white/[0.1] text-input-text' : ''}`}
             >
               <Cog6ToothIcon className="h-4 w-4" />
             </button>
@@ -82,13 +82,13 @@ export const InspectorGroup = ({
 };
 
 type InspectorEditableRowProps = {
-  label: string;
-  summary?: ComponentChild;
-  summaryMuted?: boolean;
-  isOpen?: boolean;
-  onToggle?: () => void;
-  disabled?: boolean;
-  children?: ComponentChildren;
+label: string;
+summary?: ComponentChild;
+summaryMuted?: boolean;
+isOpen?: boolean;
+onToggle?: () => void;
+disabled?: boolean;
+children?: ComponentChildren;
 };
 
 export const InspectorEditableRow = ({
@@ -130,7 +130,7 @@ export const InspectorEditableRow = ({
             onClick={onToggle}
             disabled={disabled}
             aria-expanded={isOpen}
-            className={`flex-shrink-0 ${label ? '-mt-1' : 'mt-0.5'} inline-flex h-7 w-7 items-center justify-center rounded-md text-input-placeholder transition hover:bg-black/5 dark:hover:bg-white/[0.08] hover:text-input-text disabled:cursor-not-allowed disabled:opacity-50 ${isOpen ? 'bg-black/5 dark:bg-white/[0.08] text-input-text' : ''}`}
+            className={`flex-shrink-0 ${label ? '-mt-1' : 'mt-0.5'} inline-flex h-7 w-7 items-center justify-center rounded-md text-input-placeholder transition hover:bg-surface-app-frame/60 dark:hover:bg-white/[0.1] hover:text-input-text disabled:cursor-not-allowed disabled:opacity-50 ${isOpen ? 'bg-surface-app-frame/60 dark:bg-white/[0.1] text-input-text' : ''}`}
             aria-label={`${isOpen ? 'Close' : 'Open'} ${label} controls`}
           >
             <Cog6ToothIcon className="h-4 w-4" />
@@ -164,7 +164,7 @@ export const InspectorHeaderPerson = ({
         name={name} 
         size="xl" 
         className="h-14 w-14"
-        bgClassName="bg-black/5 dark:bg-white/[0.08]"
+        bgClassName="bg-surface-app-frame/60 dark:bg-white/[0.08]"
       />
       <p className="mt-3 text-[15px] font-semibold text-input-text">{name}</p>
       {secondaryLine ? (
@@ -217,7 +217,7 @@ export const InspectorHeaderHero = ({
 
   return (
     <section className="relative overflow-hidden bg-gradient-to-b from-accent-500/15 via-accent-500/5 to-transparent dark:from-indigo-500/10 dark:via-purple-500/5 dark:to-transparent">
-      <div className="absolute inset-0 bg-gradient-to-t from-surface-utility/40 via-transparent to-white/15 dark:from-surface-base/10 dark:via-transparent dark:to-white/5" />
+      <div className="absolute inset-0 bg-gradient-to-t from-surface-utility/40 via-transparent to-surface-workspace/15 dark:from-surface-base/10 dark:via-transparent dark:to-white/5" />
       <div className="relative flex flex-col items-center px-5 pb-8 pt-10 text-center">
         {/* Avatar */}
         <div className="relative">
@@ -226,9 +226,9 @@ export const InspectorHeaderHero = ({
             name={name} 
             size="xl" 
             className="h-24 w-24"
-            bgClassName="bg-white/[0.05] shadow-2xl ring-1 ring-white/10 ring-inset"
+            bgClassName="bg-surface-workspace/10 shadow-2xl ring-1 ring-white/10 ring-inset"
           />
-          <div className="absolute inset-0 rounded-full border border-white/5 pointer-events-none" />
+          <div className="absolute inset-0 rounded-full border border-surface-workspace/10 pointer-events-none" />
         </div>
 
         {/* Name & Description */}

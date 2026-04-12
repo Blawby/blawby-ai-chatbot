@@ -1,22 +1,24 @@
-import type { FunctionComponent } from 'preact';
+import { StatusBadge } from '@/shared/ui/badges/StatusBadge';
 import type { InvoiceStatus } from '@/features/invoices/types';
 
-const statusClasses: Record<string, string> = {
-  draft: 'bg-white/[0.06] text-input-text border border-white/10',
-  pending: 'bg-white/[0.06] text-input-text border border-white/10',
-  sent: 'status-warning',
-  open: 'status-warning',
-  overdue: 'status-error',
-  paid: 'status-success',
-  void: 'bg-white/[0.05] text-input-placeholder border border-white/10',
-  cancelled: 'bg-white/[0.05] text-input-placeholder border border-white/10',
+const statusMap: Record<string, any> = {
+  draft: 'inactive',
+  pending: 'inactive',
+  sent: 'warning',
+  open: 'warning',
+  overdue: 'error',
+  paid: 'success',
+  void: 'inactive',
+  cancelled: 'inactive',
 };
 
-export const InvoiceStatusBadge: FunctionComponent<{ status: InvoiceStatus }> = ({ status }) => {
+export const InvoiceStatusBadge = ({ status }: { status: InvoiceStatus }) => {
   const normalized = status.toLowerCase();
+  const variant = statusMap[normalized] ?? 'info';
+  
   return (
-    <span className={`rounded-md px-2 py-1 text-xs font-medium ${statusClasses[normalized] ?? statusClasses.pending}`}>
+    <StatusBadge status={variant}>
       {normalized.replace(/_/g, ' ')}
-    </span>
+    </StatusBadge>
   );
 };

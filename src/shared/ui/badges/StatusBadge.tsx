@@ -3,13 +3,17 @@ import { cn } from '@/shared/utils/cn';
 
 type Status = 'active' | 'pending' | 'inactive' | 'suspended' | 'cancelled' | 'completed';
 
-const STATUS_CLASSES: Record<Status, string> = {
+const STATUS_CLASSES: Record<Status | 'warning' | 'error' | 'info' | 'success', string> = {
   active: 'status-success',
   pending: 'status-warning',
   inactive: 'glass-input text-input-placeholder',
   suspended: 'status-error',
   cancelled: 'status-error',
-  completed: 'status-info'
+  completed: 'status-info',
+  success: 'status-success',
+  warning: 'status-warning',
+  error: 'status-error',
+  info: 'status-info'
 };
 
 interface StatusBadgeProps {

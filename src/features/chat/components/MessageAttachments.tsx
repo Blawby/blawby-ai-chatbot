@@ -99,7 +99,7 @@ export const MessageAttachments: FunctionComponent<MessageAttachmentsProps> = ({
 						<div className="text-sm font-medium text-input-text whitespace-nowrap overflow-hidden text-ellipsis" title={file.name}>
 							{file.name.length > 25 ? `${file.name.substring(0, 25)}...` : file.name}
 						</div>
-						<div className="text-xs text-gray-500 dark:text-gray-400">{formatDocumentIconSize(file.size)}</div>
+						<div className="text-xs text-input-placeholder">{formatDocumentIconSize(file.size)}</div>
 					</div>
 				</div>
 			))}

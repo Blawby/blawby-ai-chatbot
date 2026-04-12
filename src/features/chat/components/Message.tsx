@@ -257,7 +257,7 @@ const Message: FunctionComponent<MessageProps> = memo(({
 				{hasReplyPreview && replyPreview && (
 					<button
 						type="button"
-						className={`relative flex min-w-0 items-center gap-2 pl-7 text-left text-xs text-input-placeholder ${onReplyPreviewClick ? 'cursor-pointer transition hover:text-input-text' : 'cursor-default pointer-events-none'}`}
+						className={`relative flex min-w-0 items-center gap-2 pl-7 text-left text-xs text-input-placeholder ${onReplyPreviewClick ? 'cursor-pointer transition hover:text-accent-foreground' : 'cursor-default pointer-events-none'}`}
 						onClick={onReplyPreviewClick}
 						disabled={!onReplyPreviewClick}
 						aria-label="Jump to replied message"
@@ -271,7 +271,7 @@ const Message: FunctionComponent<MessageProps> = memo(({
 								className="flex-shrink-0 mt-0.5 relative z-10"
 							/>
 						)}
-						<span className="font-semibold text-input-text">{replyPreview.authorName}</span>
+						<span className="font-semibold text-accent-foreground">{replyPreview.authorName}</span>
 						<span className="truncate text-input-placeholder">
 							{replyPreview.isMissing ? 'Original message unavailable' : replyPreview.content}
 						</span>

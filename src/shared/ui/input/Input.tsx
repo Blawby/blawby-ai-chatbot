@@ -124,11 +124,11 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({
     if (!icon) return null;
 
     if (isIconComponent(icon)) {
-      return <Icon icon={icon} className={cn('w-4 h-4 text-gray-400 dark:text-gray-500', iconClassName)} />;
+      return <Icon icon={icon} className={cn('w-4 h-4 text-input-placeholder', iconClassName)} />;
     }
 
     return (
-      <div className="w-4 h-4 text-gray-400 dark:text-gray-500">
+      <div className="w-4 h-4 text-input-placeholder">
         {icon}
       </div>
     );
@@ -182,7 +182,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({
       )}
       
       {displayDescription && !displayError && (
-        <p id={descriptionId} className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+        <p id={descriptionId} className="mt-1 text-xs text-input-placeholder">
           {displayDescription}
         </p>
       )}

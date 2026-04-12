@@ -12,7 +12,7 @@ import {
   DropdownMenuTrigger
 } from '@/shared/ui/dropdown';
 import { Avatar } from '@/shared/ui/profile';
-import { LoadingBlock } from '@/shared/ui/layout/LoadingBlock';
+import { LoadingBlock, PanelSectionHeader, PanelEmptyState, InteractiveListItem } from '@/shared/ui/layout';
 import type { MatterDetail, MatterNote } from '@/features/matters/data/matterTypes';
 import { NoteForm, type NoteFormValues } from './NoteForm';
 
@@ -167,17 +167,16 @@ export const MatterNotesPanel = ({
 
   return (
     <section className="glass-panel">
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line-glass/30 px-6 py-4">
-        <div>
-          <h3 className="text-sm font-semibold text-input-text">Notes</h3>
-          <p className="text-xs text-gray-500 dark:text-gray-400">
-            {sortedNotes.length} notes recorded
-          </p>
-        </div>
-        <Button size="sm" icon={PlusIcon} iconClassName="h-4 w-4" onClick={openNewNote} disabled={!canCreate}>
-          Add note
-        </Button>
-      </header>
+      <PanelSectionHeader
+        title="Notes"
+        subtitle={sortedNotes.length}
+        subtitleSuffix="notes recorded"
+        actions={(
+          <Button size="sm" icon={PlusIcon} iconClassName="h-4 w-4" onClick={openNewNote} disabled={!canCreate}>
+            Add note
+          </Button>
+        )}
+      />
 
       {error ? (
         <div className="px-6 py-6 text-sm text-red-600 dark:text-red-400">
@@ -186,22 +185,17 @@ export const MatterNotesPanel = ({
       ) : loading && sortedNotes.length === 0 ? (
         <LoadingBlock className="px-6 py-6" label="Loading notes..." />
       ) : sortedNotes.length === 0 ? (
-        <div className="px-6 py-6 text-sm text-gray-500 dark:text-gray-400">
-          No notes yet. Capture internal updates, decisions, or next steps tied to this matter.
-        </div>
+        <PanelEmptyState message="No notes yet. Capture internal updates, decisions, or next steps tied to this matter." />
       ) : (
         <ul className="divide-y divide-line-default">
           {sortedNotes.map((note) => (
-            <li
+            <InteractiveListItem
               key={note.id}
-              className="flex flex-col gap-4 px-6 py-4 sm:flex-row sm:items-start sm:justify-between hover:bg-white/[0.04] transition-colors"
+              onClick={() => openEditNote(note)}
+              disabled={!canEdit}
+              className="flex-col sm:flex-row"
             >
-              <button
-                type="button"
-                className="flex min-w-0 gap-3 text-left flex-1"
-                onClick={() => openEditNote(note)}
-                disabled={!canEdit}
-              >
+              <div className="flex min-w-0 gap-3 text-left flex-1">
                 <Avatar name={note.author.name} src={note.author.avatarUrl} size="sm" />
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
@@ -213,18 +207,18 @@ export const MatterNotesPanel = ({
                         {note.author.role}
                       </span>
                     )}
-                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                    <span className="text-xs text-input-placeholder">
                       {formatNoteDate(note.updatedAt ?? note.createdAt)}
                     </span>
                     {note.updatedAt && (
-                      <span className="text-xs text-gray-400">(edited)</span>
+                      <span className="text-xs text-input-placeholder">(edited)</span>
                     )}
                   </div>
-                  <p className="mt-2 whitespace-pre-wrap text-sm text-gray-600 dark:text-gray-300">
+                  <p className="mt-2 whitespace-pre-wrap text-sm text-input-text opacity-80 decoration-input-placeholder">
                     {note.content}
                   </p>
                 </div>
-              </button>
+              </div>
               {canEdit || canDelete ? (
                 <div className="flex items-center gap-2">
                 <DropdownMenu>
@@ -259,7 +253,7 @@ export const MatterNotesPanel = ({
                 </DropdownMenu>
               </div>
               ) : null}
-            </li>
+            </InteractiveListItem>
           ))}
         </ul>
       )}
@@ -286,7 +280,7 @@ export const MatterNotesPanel = ({
               <p className="mt-3 text-sm text-red-600 dark:text-red-400">{submitError}</p>
             )}
             {isSubmitting && (
-              <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">Saving note...</p>
+              <p className="mt-3 text-sm text-input-placeholder">Saving note...</p>
             )}
           </DialogBody>
         </Dialog>
@@ -300,7 +294,7 @@ export const MatterNotesPanel = ({
           contentClassName="max-w-xl"
         >
           <DialogBody className="space-y-4">
-            <p className="text-sm text-gray-600 dark:text-gray-300">
+            <p className="text-sm text-input-text opacity-80">
               Are you sure you want to delete this note? This action cannot be undone.
             </p>
             {deleteError && (
