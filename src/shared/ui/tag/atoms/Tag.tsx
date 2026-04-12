@@ -31,9 +31,9 @@ export const Tag = ({
   const variantClasses = {
     default: 'glass-input text-input-text',
     primary: 'bg-accent-100 text-accent-800 dark:bg-accent-900/30 dark:text-accent-300',
-    success: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
+    success: 'bg-green-100 text-[rgb(var(--success-foreground))] dark:bg-green-900 dark:text-green-200',
     warning: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
-    error: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+    error: 'bg-red-100 text-[rgb(var(--error-foreground))] dark:bg-red-900 dark:text-red-200'
   };
 
   // Match Input size padding patterns

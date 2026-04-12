@@ -181,7 +181,7 @@ export const AddressFields = forwardRef<HTMLDivElement, AddressFieldsProps>(
     const isRequired = (field: keyof Address) => !!required[field];
 
     const fieldCn = (field: keyof Address) =>
-      cn(hasError(field) && 'border-red-500 dark:border-red-400', inputClassName);
+      cn(hasError(field) && 'border-[rgb(var(--error-foreground))] dark:border-[rgb(var(--error-foreground))]', inputClassName);
 
     const isUS = safe.country === 'US';
 
@@ -347,10 +347,10 @@ export const AddressFields = forwardRef<HTMLDivElement, AddressFieldsProps>(
                   options={STATE_OPTIONS}
                   disabled={disabled}
                   searchable
-                  className={cn(fieldCn('state'), hasError('state') && 'border-red-500')}
+                  className={cn(fieldCn('state'), hasError('state') && 'border-[rgb(var(--error-foreground))]')}
                 />
                 {hasError('state') && (
-                  <p className="mt-1 text-xs text-red-500 dark:text-red-400">
+                  <p className="mt-1 text-xs text-[rgb(var(--error-foreground))] dark:text-[rgb(var(--error-foreground))]">
                     {getError('state')}
                   </p>
                 )}
@@ -401,7 +401,7 @@ export const AddressFields = forwardRef<HTMLDivElement, AddressFieldsProps>(
                 className={fieldCn('country')}
               />
               {hasError('country') && (
-                <p className="mt-1 text-xs text-red-500 dark:text-red-400">
+                <p className="mt-1 text-xs text-[rgb(var(--error-foreground))] dark:text-[rgb(var(--error-foreground))]">
                   {getError('country')}
                 </p>
               )}
@@ -411,7 +411,7 @@ export const AddressFields = forwardRef<HTMLDivElement, AddressFieldsProps>(
 
         {/* ── Error summary ─────────────────────────────────────────── */}
         {Object.values(errors).some(Boolean) && (
-          <p className="text-sm text-red-500 dark:text-red-400">
+          <p className="text-sm text-[rgb(var(--error-foreground))] dark:text-[rgb(var(--error-foreground))]">
             Please correct the errors above.
           </p>
         )}

@@ -23,27 +23,27 @@ interface OutcomeConfig {
 const OUTCOMES: Record<PaymentOutcome, OutcomeConfig> = {
   success: {
     Icon: CheckCircleIcon,
-    iconColor: 'text-emerald-400',
+    iconColor: 'text-[rgb(var(--success-foreground))]',
     headline: "You're all set — payment received.",
     body: "Your case details are being reviewed. A member of our team will be in touch at the contact information you provided. You can safely close this tab.",
     badge: 'Payment confirmed',
-    badgeClass: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/25',
+    badgeClass: 'bg-emerald-500/15 text-[rgb(var(--success-foreground))] border-emerald-500/25',
   },
   pending: {
     Icon: ClockIcon,
-    iconColor: 'text-amber-400',
+    iconColor: 'text-[rgb(var(--warning-foreground))]',
     headline: 'Processing your payment…',
     body: 'This usually takes just a moment. Please keep this tab open. If you have any questions, reach out to your legal team directly.',
     badge: 'Processing',
-    badgeClass: 'bg-amber-500/15 text-amber-300 border-amber-500/25',
+    badgeClass: 'bg-amber-500/15 text-[rgb(var(--warning-foreground))] border-amber-500/25',
   },
   cancelled: {
     Icon: XCircleIcon,
-    iconColor: 'text-red-400',
+    iconColor: 'text-[rgb(var(--error-foreground))]',
     headline: 'Payment was not completed.',
     body: 'No charge was made. You can close this tab and try again from your conversation at any time.',
     badge: 'Not completed',
-    badgeClass: 'bg-red-500/15 text-red-300 border-red-500/25',
+    badgeClass: 'bg-red-500/15 text-[rgb(var(--error-foreground))] border-[rgb(var(--error-foreground))]/25',
   },
   unknown: {
     Icon: ClockIcon,

@@ -678,7 +678,7 @@ const MatterFormInner = ({
         </div>
 
         {submitError ? (
-          <p className="text-sm text-red-400">{submitError}</p>
+          <p className="text-sm text-[rgb(var(--error-foreground))]">{submitError}</p>
         ) : null}
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="flex items-center gap-2 text-xs text-input-placeholder">

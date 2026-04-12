@@ -67,7 +67,7 @@ const PricingView: FunctionComponent<PricingViewProps> = ({ className, onUpgrade
     return (
       <div className="flex items-center justify-center p-6 text-center">
         <div className="space-y-4">
-          <p className="text-lg font-semibold text-red-500">{t('common:errors.tryAgainLater')}</p>
+          <p className="text-lg font-semibold text-[rgb(var(--error-foreground))]">{t('common:errors.tryAgainLater')}</p>
           <p className="text-sm text-input-placeholder">{t('pricing:errorGeneric')}</p>
         </div>
       </div>

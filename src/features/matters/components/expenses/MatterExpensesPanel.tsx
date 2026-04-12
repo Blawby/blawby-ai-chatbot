@@ -19,8 +19,8 @@ import { ExpenseForm, type ExpenseFormValues } from './ExpenseForm';
 const formatExpenseDate = (dateString: string) => format(parseISO(dateString), 'MMM d, yyyy');
 
 const statusStyles: Record<'billable' | 'nonbillable', string> = {
-  billable: 'text-emerald-700 bg-emerald-50 ring-emerald-600/20 dark:text-emerald-200 dark:bg-emerald-500/10',
-  nonbillable: 'text-rose-700 bg-rose-50 ring-rose-600/20 dark:text-rose-200 dark:bg-rose-500/10'
+  billable: 'text-[rgb(var(--success-foreground))] bg-emerald-50 ring-emerald-600/20 dark:text-emerald-200 dark:bg-emerald-500/10',
+  nonbillable: 'text-[rgb(var(--error-foreground))] bg-rose-50 ring-rose-600/20 dark:text-rose-200 dark:bg-rose-500/10'
 };
 
 interface MatterExpensesPanelProps {
@@ -184,7 +184,7 @@ export const MatterExpensesPanel = ({
       />
 
       {error ? (
-        <div className="px-6 py-6 text-sm text-red-600 dark:text-red-400">
+        <div className="px-6 py-6 text-sm text-[rgb(var(--error-foreground))] dark:text-[rgb(var(--error-foreground))]">
           {error}
         </div>
       ) : loading && sortedExpenses.length === 0 ? (
@@ -247,7 +247,7 @@ export const MatterExpensesPanel = ({
                           </span>
                         </DropdownMenuItem>
                         <DropdownMenuItem onSelect={() => confirmDelete(expense)}>
-                          <span className="flex items-center gap-2 text-red-600 dark:text-red-400">
+                          <span className="flex items-center gap-2 text-[rgb(var(--error-foreground))] dark:text-[rgb(var(--error-foreground))]">
                             <Icon icon={TrashIcon} className="h-4 w-4"  />
                             Delete
                           </span>
@@ -279,7 +279,7 @@ export const MatterExpensesPanel = ({
               onDelete={canEdit && editingExpense ? () => confirmDelete(editingExpense) : undefined}
             />
             {submitError && (
-              <p className="mt-3 text-sm text-red-600 dark:text-red-400">{submitError}</p>
+              <p className="mt-3 text-sm text-[rgb(var(--error-foreground))] dark:text-[rgb(var(--error-foreground))]">{submitError}</p>
             )}
             {isSubmitting && (
               <p className="mt-3 text-sm text-input-placeholder">Saving expense...</p>
@@ -296,11 +296,11 @@ export const MatterExpensesPanel = ({
           contentClassName="max-w-xl"
         >
           <DialogBody className="space-y-4">
-            <p className="text-sm text-gray-600 dark:text-gray-300">
+            <p className="text-sm text-input-placeholder dark:text-input-placeholder">
               Are you sure you want to delete this expense? This action cannot be undone.
             </p>
             {deleteError && (
-              <p className="text-sm text-red-600 dark:text-red-400">{deleteError}</p>
+              <p className="text-sm text-[rgb(var(--error-foreground))] dark:text-[rgb(var(--error-foreground))]">{deleteError}</p>
             )}
           </DialogBody>
           <DialogFooter>

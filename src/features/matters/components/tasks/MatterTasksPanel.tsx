@@ -42,10 +42,10 @@ const PRIORITY_OPTIONS: Array<{ value: MatterTask['priority']; label: string }> 
 ];
 
 const STATUS_STYLES: Record<MatterTask['status'], string> = {
-  pending: 'text-amber-800 bg-amber-50 ring-amber-600/20',
+  pending: 'text-[rgb(var(--warning-foreground))] bg-amber-50 ring-amber-600/20',
   in_progress: 'text-blue-800 bg-blue-50 ring-blue-600/20',
-  completed: 'text-emerald-700 bg-emerald-50 ring-emerald-600/20',
-  blocked: 'text-rose-800 bg-rose-50 ring-rose-600/20'
+  completed: 'text-[rgb(var(--success-foreground))] bg-emerald-50 ring-emerald-600/20',
+  blocked: 'text-[rgb(var(--error-foreground))] bg-rose-50 ring-rose-600/20'
 };
 
 interface MatterTasksPanelProps {
@@ -177,8 +177,8 @@ export const MatterTasksPanel = ({
         ) : null}
       />
 
-      {error ? <div className="px-6 py-4 text-sm text-red-600 dark:text-red-400">{error}</div> : null}
-      {requestError ? <div className="px-6 py-4 text-sm text-red-600 dark:text-red-400">{requestError}</div> : null}
+      {error ? <div className="px-6 py-4 text-sm text-[rgb(var(--error-foreground))] dark:text-[rgb(var(--error-foreground))]">{error}</div> : null}
+      {requestError ? <div className="px-6 py-4 text-sm text-[rgb(var(--error-foreground))] dark:text-[rgb(var(--error-foreground))]">{requestError}</div> : null}
 
       {loading ? (
         <LoadingBlock className="px-6 py-6" label="Loading tasks..." />
@@ -292,7 +292,7 @@ export const MatterTasksPanel = ({
                             ) : null}
                             {canDeleteTask ? (
                               <DropdownMenuItem onSelect={() => setDeleteTarget(task)}>
-                                <span className="flex items-center gap-2 text-red-600 dark:text-red-400">
+                                <span className="flex items-center gap-2 text-[rgb(var(--error-foreground))] dark:text-[rgb(var(--error-foreground))]">
                                   <Icon icon={TrashIcon} className="h-4 w-4"  />
                                   Delete
                                 </span>
@@ -347,7 +347,7 @@ export const MatterTasksPanel = ({
             <p className="text-sm text-input-text opacity-80">
               Are you sure you want to delete this task? This action cannot be undone.
             </p>
-            {requestError ? <p className="text-sm text-red-600 dark:text-red-400">{requestError}</p> : null}
+            {requestError ? <p className="text-sm text-[rgb(var(--error-foreground))] dark:text-[rgb(var(--error-foreground))]">{requestError}</p> : null}
           </DialogBody>
           <DialogFooter>
             <Button variant="secondary" onClick={() => setDeleteTarget(null)} disabled={isSaving}>

@@ -72,7 +72,7 @@ export const RadioGroup = ({
 
   const variantClasses = {
     default: 'border-input-border focus:ring-accent-500 focus:border-accent-500',
-    error: 'border-red-300 focus:ring-red-500 focus:border-red-500',
+    error: 'border-[rgb(var(--error-foreground))] focus:ring-red-500 focus:border-[rgb(var(--error-foreground))]',
     success: 'border-green-300 focus:ring-green-500 focus:border-green-500'
   };
 
@@ -86,7 +86,7 @@ export const RadioGroup = ({
       {displayLabel && (
         <label className="block text-sm font-medium text-input-text">
           {displayLabel}
-          {required && <span className="text-red-500 ml-1">*</span>}
+          {required && <span className="text-[rgb(var(--error-foreground))] ml-1">*</span>}
         </label>
       )}
       
@@ -130,7 +130,7 @@ export const RadioGroup = ({
               </label>
               
               {option.description && (
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                <p className="text-xs text-input-placeholder dark:text-input-placeholder mt-1">
                   {option.description}
                 </p>
               )}
@@ -140,13 +140,13 @@ export const RadioGroup = ({
       </div>
       
       {displayDescription && !displayError && (
-        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+        <p className="text-xs text-input-placeholder dark:text-input-placeholder mt-1">
           {displayDescription}
         </p>
       )}
       
       {displayError && (
-        <p id={errorId} className="text-xs text-red-600 dark:text-red-400 mt-1" role="alert" aria-live="assertive">
+        <p id={errorId} className="text-xs text-[rgb(var(--error-foreground))] dark:text-[rgb(var(--error-foreground))] mt-1" role="alert" aria-live="assertive">
           {displayError}
         </p>
       )}

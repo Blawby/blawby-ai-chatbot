@@ -192,14 +192,14 @@ const FileMenu: FunctionComponent<FileMenuProps> = ({
       {errorMessage && (
         <div
           role="alert" aria-live="polite"
-          className="absolute bottom-full left-0 mb-2 min-w-[250px] p-3 glass-card border-red-500/30 bg-red-500/10"
+          className="absolute bottom-full left-0 mb-2 min-w-[250px] p-3 glass-card border-[rgb(var(--error-foreground))]/30 bg-red-500/10"
           style={{ zIndex: THEME.zIndex.fileMenu + 1 }}
         >
           <div className="flex items-start gap-2">
             <div className="flex-1 text-sm text-red-200">{errorMessage}</div>
             <button
               onClick={() => setErrorMessage(null)}
-              className="p-1 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-200 transition-colors"
+              className="p-1 text-[rgb(var(--error-foreground))] hover:text-[rgb(var(--error-foreground))] dark:text-[rgb(var(--error-foreground))] dark:hover:text-red-200 transition-colors"
               aria-label="Dismiss error message"
             >
               <Icon icon={XMarkIcon} className="w-4 h-4"  />

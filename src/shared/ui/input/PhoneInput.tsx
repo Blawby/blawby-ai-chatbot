@@ -202,7 +202,7 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(({
 
   const variantClasses = {
     default: 'border-input-border focus:ring-accent-500 focus:border-accent-500',
-    error: 'border-red-300 focus:ring-red-500 focus:border-red-500',
+    error: 'border-[rgb(var(--error-foreground))] focus:ring-red-500 focus:border-[rgb(var(--error-foreground))]',
     success: 'border-green-300 focus:ring-green-500 focus:border-green-500'
   };
 
@@ -245,7 +245,7 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(({
       {displayLabel && (
         <label htmlFor={inputId} className="block text-sm font-medium text-input-text mb-1">
           {displayLabel}
-          {required && <span className="text-red-500 ml-1">*</span>}
+          {required && <span className="text-[rgb(var(--error-foreground))] ml-1">*</span>}
         </label>
       )}
       
@@ -330,7 +330,7 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(({
       </div>
       
       {displayError && (
-        <p id={errorId} className="text-xs text-red-600 dark:text-red-400 mt-1" role="alert" aria-live="assertive">
+        <p id={errorId} className="text-xs text-[rgb(var(--error-foreground))] dark:text-[rgb(var(--error-foreground))] mt-1" role="alert" aria-live="assertive">
           {displayError}
         </p>
       )}

@@ -100,13 +100,13 @@ const ActivityTimeline: FunctionComponent<ActivityTimelineProps> = ({
               {error && (
                 <div className="flex items-center justify-between p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
                   <div className="flex items-center">
-                    <div className="text-red-600 dark:text-red-400 text-sm">{error}</div>
+                    <div className="text-[rgb(var(--error-foreground))] dark:text-[rgb(var(--error-foreground))] text-sm">{error}</div>
                   </div>
                   <Button
                     variant="link"
                     size="xs"
                     onClick={refresh}
-                    className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300"
+                    className="text-[rgb(var(--error-foreground))] dark:text-[rgb(var(--error-foreground))] hover:text-[rgb(var(--error-foreground))] dark:hover:text-[rgb(var(--error-foreground))]"
                   >
                     Retry
                   </Button>

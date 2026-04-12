@@ -469,12 +469,12 @@ export const MarkdownUploadTextarea = ({
             {value.trim().length > 0 ? (
               <div className="chat-markdown">
                 {markdownError ? (
-                  <div className="mt-2 rounded border border-red-300 bg-red-50 p-3 text-sm text-red-700 dark:border-red-600 dark:bg-red-900/20 dark:text-red-300">
+                  <div className="mt-2 rounded border border-[rgb(var(--error-foreground))] bg-red-50 p-3 text-sm text-[rgb(var(--error-foreground))] dark:border-red-600 dark:bg-red-900/20 dark:text-[rgb(var(--error-foreground))]">
                     <div className="mb-2">Failed to load markdown preview: {markdownError}</div>
                     <button
                       type="button"
                       onClick={retryMarkdown}
-                      className="rounded bg-red-600 px-2 py-1 text-xs font-medium text-white hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-600"
+                      className="rounded bg-red-600 px-2 py-1 text-xs font-medium text-input-text hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-600"
                     >
                       Retry
                     </button>
@@ -542,15 +542,15 @@ export const MarkdownUploadTextarea = ({
               <Icon icon={DocumentTextIcon} className="h-4 w-4" aria-hidden="true"  />
               <span className="truncate">{item.name}</span>
               {item.status === 'uploading' && <span>{item.progress}%</span>}
-              {item.status === 'uploaded' && <span className="text-emerald-300">uploaded</span>}
-              {item.status === 'failed' && <span className="text-red-300">{item.error ?? 'failed'}</span>}
+              {item.status === 'uploaded' && <span className="text-[rgb(var(--success-foreground))]">uploaded</span>}
+              {item.status === 'failed' && <span className="text-[rgb(var(--error-foreground))]">{item.error ?? 'failed'}</span>}
             </div>
           ))}
         </div>
       )}
 
       {uploadError && (
-        <p className="text-sm text-red-300">{uploadError}</p>
+        <p className="text-sm text-[rgb(var(--error-foreground))]">{uploadError}</p>
       )}
       {isUploading ? (
         <div className="flex justify-center">

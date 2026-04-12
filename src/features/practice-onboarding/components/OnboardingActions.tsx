@@ -104,8 +104,8 @@ const OnboardingActions: FunctionComponent<OnboardingActionsProps> = ({
         )}
 
         {saveError && (
-          <div className="rounded-xl bg-red-50/10 border border-red-200/30 p-3">
-            <p className="text-sm text-red-800">
+          <div className="rounded-xl status-error p-3">
+            <p className="text-sm text-[rgb(var(--error-foreground))]">
               <strong>Error:</strong> {saveError}
             </p>
           </div>

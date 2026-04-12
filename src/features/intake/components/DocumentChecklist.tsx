@@ -69,13 +69,13 @@ const DocumentChecklist: FunctionComponent<DocumentChecklistProps> = ({
   const getStatusIcon = (status: DocumentItem['status'], required: boolean) => {
     switch (status) {
       case 'uploaded':
-        return <Icon icon={CheckCircleIcon} className="w-5 h-5 text-green-500"  />;
+        return <Icon icon={CheckCircleIcon} className="w-5 h-5 text-[rgb(var(--success-foreground))]"  />;
       case 'pending':
         return <Icon icon={ExclamationTriangleIcon} className="w-5 h-5 text-yellow-500"  />;
       case 'missing':
         return required ?
-          <Icon icon={ExclamationTriangleIcon} className="w-5 h-5 text-red-500"  /> :
-          <Icon icon={DocumentIcon} className="w-5 h-5 text-gray-400"  />;
+          <Icon icon={ExclamationTriangleIcon} className="w-5 h-5 text-[rgb(var(--error-foreground))]"  /> :
+          <Icon icon={DocumentIcon} className="w-5 h-5 text-input-placeholder"  />;
     }
   };
 
@@ -140,15 +140,15 @@ const DocumentChecklist: FunctionComponent<DocumentChecklistProps> = ({
                     {doc.name}
                   </h4>
                   {doc.required && (
-                    <span className="text-xs bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 px-2 py-1 rounded">
+                    <span className="text-xs bg-red-100 dark:bg-red-900/30 text-[rgb(var(--error-foreground))] dark:text-[rgb(var(--error-foreground))] px-2 py-1 rounded">
                       Required
                     </span>
                   )}
                   <span className={`text-xs px-2 py-1 rounded-md font-medium ${
                     doc.status === 'uploaded' 
-                      ? 'bg-emerald-500/10 text-emerald-400'
+                      ? 'bg-emerald-500/10 text-[rgb(var(--success-foreground))]'
                       : doc.status === 'pending'
-                      ? 'bg-amber-500/10 text-amber-400'
+                      ? 'bg-amber-500/10 text-[rgb(var(--warning-foreground))]'
                       : 'bg-white/5 text-input-placeholder'
                   }`}>
                     {getStatusText(doc.status, doc.required)}
@@ -187,7 +187,7 @@ const DocumentChecklist: FunctionComponent<DocumentChecklistProps> = ({
                 {/* Uploaded DocumentIcon Display */}
                 {doc.status === 'uploaded' && doc.file && (
                   <div className="flex items-center gap-2 mt-2">
-                    <Icon icon={DocumentIcon} className="w-4 h-4 text-emerald-400"  />
+                    <Icon icon={DocumentIcon} className="w-4 h-4 text-[rgb(var(--success-foreground))]"  />
                     <span className="text-sm text-input-text">
                       {doc.file.name}
                     </span>
@@ -218,7 +218,7 @@ const DocumentChecklist: FunctionComponent<DocumentChecklistProps> = ({
         <Button
           variant="ghost"
           onClick={onSkip}
-          className="text-gray-600 dark:text-gray-400"
+          className="text-input-placeholder dark:text-input-placeholder"
         >
           Skip for now
         </Button>

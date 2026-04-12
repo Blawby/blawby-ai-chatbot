@@ -85,7 +85,7 @@ export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(({
 
   const variantClasses = {
     default: 'border-input-border focus:ring-accent-500 focus:border-accent-500',
-    error: 'border-red-500 dark:border-red-400 focus:ring-red-500 dark:focus:ring-red-400 focus:border-red-500 dark:focus:border-red-400',
+    error: 'border-[rgb(var(--error-foreground))] dark:border-[rgb(var(--error-foreground))] focus:ring-red-500 dark:focus:ring-red-400 focus:border-[rgb(var(--error-foreground))] dark:focus:border-[rgb(var(--error-foreground))]',
     success: 'border-green-500 dark:border-green-400 focus:ring-green-500 dark:focus:ring-green-400 focus:border-green-500 dark:focus:border-green-400'
   };
 
@@ -149,7 +149,7 @@ export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(({
       {displayLabel && (
         <label htmlFor={inputId} className="block text-sm font-medium text-input-text mb-1">
           {displayLabel}
-          {required && <span className="text-red-500 ml-1">*</span>}
+          {required && <span className="text-[rgb(var(--error-foreground))] ml-1">*</span>}
         </label>
       )}
       
@@ -178,7 +178,7 @@ export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(({
           disabled={disabled}
           aria-label={showPassword ? "Hide password" : "Show password"}
           aria-pressed={showPassword}
-          className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 focus:ring-2 focus:ring-accent-500 focus:ring-offset-1 focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-1"
+          className="absolute inset-y-0 right-0 flex items-center pr-3 text-input-placeholder dark:text-input-placeholder hover:text-input-placeholder dark:hover:text-input-placeholder focus:ring-2 focus:ring-accent-500 focus:ring-offset-1 focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-1"
         >
           {showPassword ? (
             <Icon icon={EyeSlashIcon} className="w-4 h-4"  />
@@ -198,13 +198,13 @@ export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(({
       )}
       
       {displayError && (
-        <p id={errorId} className="text-xs text-red-600 dark:text-red-400 mt-1" role="alert" aria-live="assertive">
+        <p id={errorId} className="text-xs text-[rgb(var(--error-foreground))] dark:text-[rgb(var(--error-foreground))] mt-1" role="alert" aria-live="assertive">
           {displayError}
         </p>
       )}
       
       {displayDescription && !displayError && (
-        <p id={descriptionId} className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+        <p id={descriptionId} className="text-xs text-input-placeholder dark:text-input-placeholder mt-1">
           {displayDescription}
         </p>
       )}

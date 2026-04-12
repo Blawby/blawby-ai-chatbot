@@ -70,7 +70,7 @@ export const MatterMessagesPanel = ({ matter, practiceId, conversationBasePath }
     <section className="glass-panel overflow-hidden">
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line-glass/30 px-6 py-4">
         <div>
-          <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Linked conversations</p>
+          <p className="text-xs font-medium text-input-placeholder dark:text-input-placeholder">Linked conversations</p>
           <h3 className="text-base font-semibold text-input-text">{matter.title}</h3>
         </div>
         <Button
@@ -86,10 +86,10 @@ export const MatterMessagesPanel = ({ matter, practiceId, conversationBasePath }
           <LoadingBlock label="Loading conversations…" />
         )}
         {!loading && error && (
-          <div className="text-sm text-red-600 dark:text-red-400">{error}</div>
+          <div className="text-sm text-[rgb(var(--error-foreground))] dark:text-[rgb(var(--error-foreground))]">{error}</div>
         )}
         {!loading && !error && sortedConversations.length === 0 && (
-          <div className="text-sm text-gray-500 dark:text-gray-400">
+          <div className="text-sm text-input-placeholder dark:text-input-placeholder">
             No conversations are linked to this matter yet.
           </div>
         )}
@@ -101,14 +101,14 @@ export const MatterMessagesPanel = ({ matter, practiceId, conversationBasePath }
                   <p className="text-sm font-medium text-input-text">
                     Conversation {conversation.id.slice(0, 8)}
                   </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                  <p className="text-xs text-input-placeholder dark:text-input-placeholder">
                     {conversation.last_message_at
                       ? `Last message ${formatRelativeTime(conversation.last_message_at)}`
                       : 'No messages yet'}
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                  <span className="text-xs uppercase tracking-wide text-input-placeholder dark:text-input-placeholder">
                     {conversation.status ?? 'active'}
                   </span>
                   <Button

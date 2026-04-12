@@ -380,7 +380,7 @@ export const MatterDetailsPanel = ({
         <div className="group px-5 py-4">
           <SectionHeader title="Case" {...sectionProps('identifiers')} />
           {saveError && editing === 'identifiers' && (
-            <div className="mt-3 mb-3 p-2.5 rounded-lg bg-red-500/10 border border-red-500/20 text-xs text-red-400">
+            <div className="mt-3 mb-3 p-2.5 rounded-lg status-error text-xs text-[rgb(var(--error-foreground))]">
               {saveError}
             </div>
           )}
@@ -431,7 +431,7 @@ export const MatterDetailsPanel = ({
         <div className="group px-5 py-4">
           <SectionHeader title="Parties" {...sectionProps('parties')} />
           {saveError && editing === 'parties' && (
-            <div className="mt-3 mb-3 p-2.5 rounded-lg bg-red-500/10 border border-red-500/20 text-xs text-red-400">
+            <div className="mt-3 mb-3 p-2.5 rounded-lg status-error text-xs text-[rgb(var(--error-foreground))]">
               {saveError}
             </div>
           )}
@@ -478,7 +478,7 @@ export const MatterDetailsPanel = ({
         <div className="group px-5 py-4">
           <SectionHeader title="Jurisdiction" {...sectionProps('jurisdiction')} />
           {saveError && editing === 'jurisdiction' && (
-            <div className="mt-3 mb-3 p-2.5 rounded-lg bg-red-500/10 border border-red-500/20 text-xs text-red-400">
+            <div className="mt-3 mb-3 p-2.5 rounded-lg status-error text-xs text-[rgb(var(--error-foreground))]">
               {saveError}
             </div>
           )}
@@ -518,7 +518,7 @@ export const MatterDetailsPanel = ({
         <div className="group px-5 py-4">
           <SectionHeader title="Attorneys" {...sectionProps('attorneys')} />
           {saveError && editing === 'attorneys' && (
-            <div className="mt-3 mb-3 p-2.5 rounded-lg bg-red-500/10 border border-red-500/20 text-xs text-red-400">
+            <div className="mt-3 mb-3 p-2.5 rounded-lg status-error text-xs text-[rgb(var(--error-foreground))]">
               {saveError}
             </div>
           )}
@@ -572,7 +572,7 @@ export const MatterDetailsPanel = ({
         <div className="group px-5 py-4">
           <SectionHeader title="Financial" {...sectionProps('financial')} />
           {saveError && editing === 'financial' && (
-            <div className="mt-3 mb-3 p-2.5 rounded-lg bg-red-500/10 border border-red-500/20 text-xs text-red-400">
+            <div className="mt-3 mb-3 p-2.5 rounded-lg status-error text-xs text-[rgb(var(--error-foreground))]">
               {saveError}
             </div>
           )}

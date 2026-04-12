@@ -928,7 +928,7 @@ export const InspectorPanel = ({
             <InspectorSectionSkeleton wideRows={[true, false, true, false]} />
           </div>
         ) : null}
-        {error ? <p className="px-4 py-3 text-sm text-red-400">{error}</p> : null}
+        {error ? <p className="px-4 py-3 text-sm text-[rgb(var(--error-foreground))]">{error}</p> : null}
 
         {entityType === 'conversation' && !isLoading ? (
           <div className="pb-4">

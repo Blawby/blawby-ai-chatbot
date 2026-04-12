@@ -45,7 +45,7 @@ export const StatusOverlay = ({
       
       {status === 'completed' && (
         <svg 
-          className={cn('text-green-500', sizeClasses[size])} 
+          className={cn('text-[rgb(var(--success-foreground))]', sizeClasses[size])} 
           fill="currentColor" 
           viewBox="0 0 20 20"
           role="img"

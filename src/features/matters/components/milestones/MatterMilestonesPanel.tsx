@@ -183,7 +183,7 @@ export const MatterMilestonesPanel = ({
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line-glass/30 px-6 py-4">
         <div>
           <h3 className="text-sm font-semibold text-input-text">Milestones</h3>
-          <p className="text-xs text-gray-500 dark:text-gray-400">
+          <p className="text-xs text-input-placeholder dark:text-input-placeholder">
             {resolvedMilestones.length} milestones tracked
           </p>
         </div>
@@ -193,13 +193,13 @@ export const MatterMilestonesPanel = ({
       </header>
 
       {error ? (
-        <div className="px-6 py-6 text-sm text-red-600 dark:text-red-400">
+        <div className="px-6 py-6 text-sm text-[rgb(var(--error-foreground))] dark:text-[rgb(var(--error-foreground))]">
           {error}
         </div>
       ) : loading && resolvedMilestones.length === 0 ? (
         <LoadingBlock className="px-6 py-6" label="Loading milestones..." />
       ) : resolvedMilestones.length === 0 ? (
-        <div className="px-6 py-6 text-sm text-gray-500 dark:text-gray-400">
+        <div className="px-6 py-6 text-sm text-input-placeholder dark:text-input-placeholder">
           No milestones yet. Add milestones to track key deliverables for this matter.
         </div>
       ) : (
@@ -211,7 +211,7 @@ export const MatterMilestonesPanel = ({
                   <p className="text-sm font-semibold text-input-text">
                     {milestone.description}
                   </p>
-                  <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                  <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-input-placeholder dark:text-input-placeholder">
                     {milestone.dueDate ? (
                       <span>
                         Due <time dateTime={milestone.dueDate}>{formatDateOnlyUtc(milestone.dueDate)}</time>
@@ -317,7 +317,7 @@ export const MatterMilestonesPanel = ({
               />
             </div>
             {submitError && (
-              <p className="text-sm text-red-600 dark:text-red-400">{submitError}</p>
+              <p className="text-sm text-[rgb(var(--error-foreground))] dark:text-[rgb(var(--error-foreground))]">{submitError}</p>
             )}
             <div className="flex items-center justify-end gap-3">
               <Button type="button" variant="secondary" onClick={closeForm}>
@@ -340,11 +340,11 @@ export const MatterMilestonesPanel = ({
           contentClassName="max-w-xl"
         >
           <DialogBody className="space-y-4">
-            <p className="text-sm text-gray-600 dark:text-gray-300">
+            <p className="text-sm text-input-placeholder dark:text-input-placeholder">
               Are you sure you want to delete this milestone? This action cannot be undone.
             </p>
             {deleteError && (
-              <p className="text-sm text-red-600 dark:text-red-400">{deleteError}</p>
+              <p className="text-sm text-[rgb(var(--error-foreground))] dark:text-[rgb(var(--error-foreground))]">{deleteError}</p>
             )}
           </DialogBody>
           <DialogFooter>

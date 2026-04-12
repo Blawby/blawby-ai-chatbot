@@ -43,7 +43,7 @@ export function EntityList<T extends { id: string }>({
 
   if (errorMessage) {
     return (
-      <div className={cn('p-4 text-sm text-red-400', className)}>
+      <div className={cn('p-4 text-sm text-[rgb(var(--error-foreground))]', className)}>
         {errorMessage}
       </div>
     );

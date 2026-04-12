@@ -58,7 +58,7 @@ export const NoteForm = ({
         maxLength={5000}
         placeholder="Capture key updates, decisions, or follow-ups for this matter."
       />
-      {error ? <p className="text-xs text-red-400">{error}</p> : null}
+      {error ? <p className="text-xs text-[rgb(var(--error-foreground))]">{error}</p> : null}
       <div className="flex flex-wrap items-center justify-end gap-3">
         {onDelete && (
         <Button type="button" variant="danger" size="sm" onClick={onDelete} className="mr-auto" disabled={isSubmitting}>

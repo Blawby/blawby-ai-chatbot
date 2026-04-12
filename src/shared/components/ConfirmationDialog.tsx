@@ -119,7 +119,7 @@ export default function ConfirmationDialog({
           {/* Warning Content */}
           <div className="flex items-start gap-3">
             <div className="flex-shrink-0">
-              <Icon icon={ExclamationTriangleIcon} className="w-6 h-6 text-red-500"  />
+              <Icon icon={ExclamationTriangleIcon} className="w-6 h-6 text-[rgb(var(--error-foreground))]"  />
             </div>
             <div className="flex-1">
               {/* Warning Items List */}
@@ -153,13 +153,13 @@ export default function ConfirmationDialog({
                   onFocus={(e) => e.stopPropagation()}
                   onMouseDown={(e) => e.stopPropagation()}
                   placeholder={`Type "${confirmationValue}" to confirm`}
-                  className={`w-full px-3 py-2 border rounded-lg text-sm bg-input-bg text-input-text placeholder:text-input-placeholder border-input-border focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 ${
-                    error ? 'border-red-500 focus:ring-red-500 focus:border-red-500' : ''
+                  className={`w-full px-3 py-2 border rounded-lg text-sm bg-input-bg text-input-text placeholder:text-input-placeholder border-input-border focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-[rgb(var(--error-foreground))] ${
+                    error ? 'border-[rgb(var(--error-foreground))] focus:ring-red-500 focus:border-[rgb(var(--error-foreground))]' : ''
                   }`}
                   disabled={isLoading}
                 />
                 {error && (
-                  <p className="text-sm text-red-600 dark:text-red-400">
+                  <p className="text-sm text-[rgb(var(--error-foreground))] dark:text-[rgb(var(--error-foreground))]">
                     {error}
                   </p>
                 )}
@@ -193,14 +193,14 @@ export default function ConfirmationDialog({
                       onFocus={(e) => e.stopPropagation()}
                       onMouseDown={(e) => e.stopPropagation()}
                       placeholder={passwordPlaceholder}
-                      className={`w-full px-3 py-2 border rounded-lg text-sm bg-input-bg text-input-text placeholder:text-input-placeholder border-input-border focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 ${
-                        passwordError ? 'border-red-500 focus:ring-red-500 focus:border-red-500' : ''
+                      className={`w-full px-3 py-2 border rounded-lg text-sm bg-input-bg text-input-text placeholder:text-input-placeholder border-input-border focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-[rgb(var(--error-foreground))] ${
+                        passwordError ? 'border-[rgb(var(--error-foreground))] focus:ring-red-500 focus:border-[rgb(var(--error-foreground))]' : ''
                       }`}
                       disabled={isLoading}
                       autoComplete="current-password"
                     />
                     {passwordError && (
-                      <p className="text-sm text-red-600 dark:text-red-400">
+                      <p className="text-sm text-[rgb(var(--error-foreground))] dark:text-[rgb(var(--error-foreground))]">
                         {passwordError}
                       </p>
                     )}

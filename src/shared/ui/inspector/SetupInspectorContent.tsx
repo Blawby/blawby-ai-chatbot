@@ -132,7 +132,7 @@ export function SetupInspectorContent({
 
   return (
     <div className="pb-4">
-      {saveError ? <p className="px-4 py-3 text-sm text-red-400">{saveError}</p> : null}
+      {saveError ? <p className="px-4 py-3 text-sm text-[rgb(var(--error-foreground))]">{saveError}</p> : null}
       <div className="mt-4">
         <InspectorGroup label={`Basics ${setupStatus?.basicsComplete ? '· Complete' : '· Missing'}`}>
           <InspectorEditableRow label="Name" summary={values.name || 'Not set'} summaryMuted={!values.name} isOpen={activeEditor === 'name'} onToggle={isReadOnly ? undefined : () => openEditor('name', values.name)} disabled={isReadOnly}>

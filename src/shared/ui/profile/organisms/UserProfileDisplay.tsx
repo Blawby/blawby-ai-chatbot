@@ -164,7 +164,7 @@ export const UserProfileDisplay = ({
           />
           {!isCollapsed && (
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-red-600 dark:text-red-400">
+              <p className="text-sm font-medium text-[rgb(var(--error-foreground))] dark:text-[rgb(var(--error-foreground))]">
                 Failed to load session
               </p>
               <p className="text-xs text-input-placeholder">

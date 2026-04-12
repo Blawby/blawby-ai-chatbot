@@ -48,16 +48,16 @@ export const resolveStrengthLabel = (tier: StrengthTier): string => {
 export const resolveStrengthStyle = (tier: StrengthTier): { percent: number; ringClass: string; bgClass: string } => {
   switch (tier) {
     case 'weak':
-      return { percent: 20, ringClass: 'text-red-500', bgClass: 'bg-red-500' };
+      return { percent: 20, ringClass: 'text-[rgb(var(--error-foreground))]', bgClass: 'bg-red-500' };
     case 'basic':
       return { percent: 50, ringClass: 'text-orange-500', bgClass: 'bg-orange-500' };
     case 'good':
-      return { percent: 75, ringClass: 'text-emerald-500', bgClass: 'bg-emerald-500' };
+      return { percent: 75, ringClass: 'text-[rgb(var(--success-foreground))]', bgClass: 'bg-emerald-500' };
     case 'strong':
-      return { percent: 100, ringClass: 'text-emerald-400', bgClass: 'bg-emerald-400' };
+      return { percent: 100, ringClass: 'text-[rgb(var(--success-foreground))]', bgClass: 'bg-emerald-400' };
     case 'none':
     default:
-      return { percent: 0, ringClass: 'text-white/20', bgClass: 'bg-white/20' };
+      return { percent: 0, ringClass: 'text-input-text/20', bgClass: 'bg-white/20' };
   }
 };
 

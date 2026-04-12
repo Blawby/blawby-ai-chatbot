@@ -8,17 +8,20 @@ import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import { formatDate } from '@/shared/utils/dateTime';
 import type { IntakeListItem } from '@/features/intake/api/intakesApi';
 
-const getStatusVariant = (status: string): StatusVariant => {
+const getStatusVariant = (status?: string | null): StatusVariant => {
+  if (!status) return 'pending';
   const normalized = status.toLowerCase();
   if (normalized === 'accepted') return 'success';
   if (normalized === 'declined') return 'error';
   return 'pending';
 };
 
-const getStatusLabel = (status: string): string => {
-  if (status === 'pending_review') return 'Pending';
-  if (status === 'accepted') return 'Accepted';
-  if (status === 'declined') return 'Declined';
+const getStatusLabel = (status?: string | null): string => {
+  if (!status) return 'Unknown';
+  const normalized = status.toLowerCase();
+  if (normalized === 'pending_review') return 'Pending';
+  if (normalized === 'accepted') return 'Accepted';
+  if (normalized === 'declined') return 'Declined';
   return 'Unknown';
 };
 

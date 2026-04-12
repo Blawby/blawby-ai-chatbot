@@ -183,7 +183,7 @@ export const ActivityTimeline = ({
               ) : (
                 <div className="relative z-10 flex h-8 w-8 items-center justify-center rounded-full bg-surface-overlay text-input-text ring-1 ring-line-glass/30 shadow-sm">
                   {item.type === 'paid' ? (
-                    <Icon icon={CheckCircleIcon} aria-hidden="true" className="h-5 w-5 text-emerald-500"  />
+                    <Icon icon={CheckCircleIcon} aria-hidden="true" className="h-5 w-5 text-[rgb(var(--success-foreground))]"  />
                   ) : TYPE_ICONS[item.type] ? (
                     (() => {
                       const Icon = TYPE_ICONS[item.type];
@@ -201,7 +201,7 @@ export const ActivityTimeline = ({
             {item.type === 'commented' ? (
               <>
                 <div className="flex-auto min-w-0">
-                  <div className="text-sm leading-5 text-gray-500 dark:text-gray-400">
+                  <div className="text-sm leading-5 text-input-placeholder dark:text-input-placeholder">
                     <div className="font-semibold text-input-text">{item.person.name}</div>
                     <time dateTime={item.dateTime ?? item.date}>Commented {item.date}</time>
                   </div>
@@ -248,7 +248,7 @@ export const ActivityTimeline = ({
                         </p>
                       )}
                       {(onEditComment || onDeleteComment) && (
-                        <div className="mt-2 flex gap-3 text-xs text-gray-500 dark:text-gray-400">
+                        <div className="mt-2 flex gap-3 text-xs text-input-placeholder dark:text-input-placeholder">
                           {onEditComment && (
                             <button
                               type="button"
@@ -268,7 +268,7 @@ export const ActivityTimeline = ({
                               onClick={() => handleDelete(item.id)}
                               disabled={commentActionsDisabled || actionInFlightId === item.id}
                               className={cn(
-                                'text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300',
+                                'text-[rgb(var(--error-foreground))] hover:text-[rgb(var(--error-foreground))] dark:text-[rgb(var(--error-foreground))] dark:hover:text-[rgb(var(--error-foreground))]',
                                 (commentActionsDisabled || actionInFlightId === item.id) && 'opacity-50 cursor-not-allowed'
                               )}
                             >
@@ -289,10 +289,10 @@ export const ActivityTimeline = ({
                   <span className="font-semibold">{item.person.name}</span>{' '}
                   {item.actionMeta?.type === 'status_change' ? (
                     <>
-                      <span className="text-gray-500 dark:text-gray-400">updated the status</span>{' '}
-                      <span className="text-gray-500 dark:text-gray-400">from</span>{' '}
+                      <span className="text-input-placeholder dark:text-input-placeholder">updated the status</span>{' '}
+                      <span className="text-input-placeholder dark:text-input-placeholder">from</span>{' '}
                       <span className="font-semibold text-input-text">{item.actionMeta.from}</span>{' '}
-                      <span className="text-gray-500 dark:text-gray-400">to</span>{' '}
+                      <span className="text-input-placeholder dark:text-input-placeholder">to</span>{' '}
                       <span className="font-semibold text-input-text">{item.actionMeta.to}</span>
                     </>
                   ) : (
@@ -317,7 +317,7 @@ export const ActivityTimeline = ({
                       const [, verb, rest] = match;
                       return (
                         <>
-                          <span className="text-gray-500 dark:text-gray-400">{verb}</span>{' '}
+                          <span className="text-input-placeholder dark:text-input-placeholder">{verb}</span>{' '}
                           {actionMeta?.type === 'task_event' && onTaskClick ? (
                             <button
                               type="button"
@@ -336,7 +336,7 @@ export const ActivityTimeline = ({
                     </p>
                     <time
                       dateTime={item.dateTime ?? item.date}
-                      className="shrink-0 py-0.5 text-xs leading-5 text-gray-500 dark:text-gray-400 sm:text-right"
+                      className="shrink-0 py-0.5 text-xs leading-5 text-input-placeholder dark:text-input-placeholder sm:text-right"
                     >
                       {item.date}
                     </time>

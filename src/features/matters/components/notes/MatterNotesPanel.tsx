@@ -179,7 +179,7 @@ export const MatterNotesPanel = ({
       />
 
       {error ? (
-        <div className="px-6 py-6 text-sm text-red-600 dark:text-red-400">
+        <div className="px-6 py-6 text-sm text-[rgb(var(--error-foreground))] dark:text-[rgb(var(--error-foreground))]">
           {error}
         </div>
       ) : loading && sortedNotes.length === 0 ? (
@@ -242,7 +242,7 @@ export const MatterNotesPanel = ({
                       ) : null}
                       {canDelete ? (
                         <DropdownMenuItem onSelect={() => confirmDelete(note)}>
-                          <span className="flex items-center gap-2 text-red-600 dark:text-red-400">
+                          <span className="flex items-center gap-2 text-[rgb(var(--error-foreground))] dark:text-[rgb(var(--error-foreground))]">
                             <Icon icon={TrashIcon} className="h-4 w-4"  />
                             Delete
                           </span>
@@ -277,7 +277,7 @@ export const MatterNotesPanel = ({
               isSubmitting={isSubmitting}
             />
             {submitError && (
-              <p className="mt-3 text-sm text-red-600 dark:text-red-400">{submitError}</p>
+              <p className="mt-3 text-sm text-[rgb(var(--error-foreground))] dark:text-[rgb(var(--error-foreground))]">{submitError}</p>
             )}
             {isSubmitting && (
               <p className="mt-3 text-sm text-input-placeholder">Saving note...</p>
@@ -298,7 +298,7 @@ export const MatterNotesPanel = ({
               Are you sure you want to delete this note? This action cannot be undone.
             </p>
             {deleteError && (
-              <p className="text-sm text-red-600 dark:text-red-400">{deleteError}</p>
+              <p className="text-sm text-[rgb(var(--error-foreground))] dark:text-[rgb(var(--error-foreground))]">{deleteError}</p>
             )}
           </DialogBody>
           <DialogFooter>

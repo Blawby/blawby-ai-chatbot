@@ -159,7 +159,7 @@ const Card = ({ tone = 'default', children }: { tone?: 'default' | 'error'; chil
       className={cn(
         "mx-auto max-w-xl rounded-2xl border p-6 text-sm",
         tone === 'error'
-          ? "border-red-500/30 bg-red-500/5 text-red-100 backdrop-blur-xl"
+          ? "border-[rgb(var(--error-foreground))]/30 bg-red-500/5 text-red-100 backdrop-blur-xl"
           : "glass-card text-input-text"
       )}
     >
@@ -432,7 +432,7 @@ export const AcceptInvitationPage = () => {
           <Logo size="lg" />
         </div>
         <h1 className="text-xl font-semibold text-input-text">Unable to load invitation</h1>
-        <p className="mt-2 text-sm text-red-400">{preAuthError}</p>
+        <p className="mt-2 text-sm text-[rgb(var(--error-foreground))]">{preAuthError}</p>
         <div className="mt-4 flex flex-wrap gap-3">
           <Button variant="ghost" onClick={() => navigate('/auth', true)}>
             Back to sign in
@@ -499,7 +499,7 @@ export const AcceptInvitationPage = () => {
           )}
         </div>
         {hasEmailMismatch && (
-          <div className="mt-4 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200 backdrop-blur-xl">
+          <div className="mt-4 rounded-xl border border-amber-500/30 status-warning px-4 py-3 text-sm backdrop-blur-xl">
             You’re signed in with a different email. Switch accounts to continue with the invited email.
           </div>
         )}
@@ -535,7 +535,7 @@ export const AcceptInvitationPage = () => {
           <Logo size="lg" />
         </div>
         <h1 className="text-xl font-semibold text-input-text">Unable to load invitation</h1>
-        <p className="mt-2 text-sm text-red-400">{inviteState.message}</p>
+        <p className="mt-2 text-sm text-[rgb(var(--error-foreground))]">{inviteState.message}</p>
         <div className="mt-4 flex flex-wrap gap-3">
           <Button variant="secondary" onClick={fetchInvitation}>
             Try again
@@ -599,7 +599,7 @@ export const AcceptInvitationPage = () => {
         )}
       </div>
       {hasEmailMismatch && (
-        <div className="mt-4 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200 backdrop-blur-xl">
+        <div className="mt-4 rounded-xl border border-amber-500/30 status-warning px-4 py-3 text-sm backdrop-blur-xl">
           You’re signed in with {sessionEmail}. Switch accounts to accept with {effectiveInvitedEmail}.
         </div>
       )}
@@ -618,7 +618,7 @@ export const AcceptInvitationPage = () => {
         )}
       </div>
       {invitation.status !== 'pending' && (
-        <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+        <p className="mt-2 text-xs text-input-placeholder dark:text-input-placeholder">
           This invitation is no longer pending.
         </p>
       )}

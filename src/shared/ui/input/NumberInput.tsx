@@ -84,7 +84,7 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(({
 
   const variantClasses = {
     default: 'border-input-border focus:ring-accent-500 focus:border-accent-500',
-    error: 'border-red-500 dark:border-red-400 focus:ring-red-500 dark:focus:ring-red-400 focus:border-red-500 dark:focus:border-red-400',
+    error: 'border-[rgb(var(--error-foreground))] dark:border-[rgb(var(--error-foreground))] focus:ring-red-500 dark:focus:ring-red-400 focus:border-[rgb(var(--error-foreground))] dark:focus:border-[rgb(var(--error-foreground))]',
     success: 'border-green-500 dark:border-green-400 focus:ring-green-500 dark:focus:ring-green-400 focus:border-green-500 dark:focus:border-green-400'
   };
 
@@ -155,7 +155,7 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(({
       {displayLabel && (
         <label htmlFor={inputId} className="block text-sm font-medium text-input-text mb-1">
           {displayLabel}
-          {required && <span className="text-red-500 ml-1">*</span>}
+          {required && <span className="text-[rgb(var(--error-foreground))] ml-1">*</span>}
         </label>
       )}
       
@@ -213,13 +213,13 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(({
       </div>
       
       {displayError && (
-        <p id={errorId} className="text-xs text-red-600 dark:text-red-400 mt-1" role="alert" aria-live="assertive">
+        <p id={errorId} className="text-xs text-[rgb(var(--error-foreground))] dark:text-[rgb(var(--error-foreground))] mt-1" role="alert" aria-live="assertive">
           {displayError}
         </p>
       )}
       
       {displayDescription && !displayError && (
-        <p id={descriptionId} className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+        <p id={descriptionId} className="text-xs text-input-placeholder dark:text-input-placeholder mt-1">
           {displayDescription}
         </p>
       )}

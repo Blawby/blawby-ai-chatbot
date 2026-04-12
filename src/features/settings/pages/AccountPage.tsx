@@ -1028,7 +1028,7 @@ export const AccountPage = ({
               labelNode={
                 <div className="flex items-center gap-3">
                   <div className="w-4 h-4 bg-black rounded flex items-center justify-center">
-                    <span className="text-white text-xs font-bold">in</span>
+                    <span className="text-input-text text-xs font-bold">in</span>
                   </div>
                   <FormLabel>LinkedIn</FormLabel>
                 </div>

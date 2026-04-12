@@ -108,7 +108,7 @@ export const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(({
 
   const variantClasses = {
     default: 'border-input-border focus:ring-accent-500 focus:border-accent-500',
-    error: 'border-red-500 dark:border-red-400 focus:ring-red-500 focus:border-red-500',
+    error: 'border-[rgb(var(--error-foreground))] dark:border-[rgb(var(--error-foreground))] focus:ring-red-500 focus:border-[rgb(var(--error-foreground))]',
     success: 'border-green-500 dark:border-green-400 focus:ring-green-500 focus:border-green-500'
   };
 
@@ -128,7 +128,7 @@ export const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(({
       {displayLabel && (
         <label htmlFor={inputId} className="block text-sm font-medium text-input-text mb-1">
           {displayLabel}
-          {required && <span className="text-red-500 ml-1">*</span>}
+          {required && <span className="text-[rgb(var(--error-foreground))] ml-1">*</span>}
         </label>
       )}
       
@@ -158,13 +158,13 @@ export const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(({
       />
       
       {_displayError && (
-        <p id={errorId} className="text-xs text-red-600 dark:text-red-400 mt-1" role="alert" aria-live="assertive">
+        <p id={errorId} className="text-xs text-[rgb(var(--error-foreground))] dark:text-[rgb(var(--error-foreground))] mt-1" role="alert" aria-live="assertive">
           {_displayError}
         </p>
       )}
       
       {displayDescription && !_displayError && (
-        <p id={descriptionId} className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+        <p id={descriptionId} className="text-xs text-input-placeholder dark:text-input-placeholder mt-1">
           {displayDescription}
         </p>
       )}

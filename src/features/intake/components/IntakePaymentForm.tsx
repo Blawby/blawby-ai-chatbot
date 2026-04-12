@@ -326,13 +326,13 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
       </div>
 
       {errorMessage && (
-        <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-700 backdrop-blur-xl dark:text-red-200">
+        <div className="rounded-xl border border-[rgb(var(--error-foreground))]/30 bg-red-500/10 px-4 py-3 text-sm text-[rgb(var(--error-foreground))] backdrop-blur-xl dark:text-red-200">
           {errorMessage}
         </div>
       )}
 
       {callbackWarning && (
-        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 backdrop-blur-xl dark:text-amber-200">
+        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-[rgb(var(--warning-foreground))] backdrop-blur-xl dark:text-amber-200">
           {callbackWarning}
         </div>
       )}
@@ -341,7 +341,7 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
         <div className="glass-card p-6 text-center border-emerald-500/30">
           <div className="flex justify-center mb-4">
             <div className="rounded-full bg-emerald-500/20 p-3 shadow-lg shadow-emerald-500/20">
-              <svg className="h-8 w-8 text-emerald-600 dark:text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="h-8 w-8 text-[rgb(var(--success-foreground))] dark:text-[rgb(var(--success-foreground))]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
             </div>
@@ -352,7 +352,7 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
           <p className="text-input-placeholder">
             Thank you! Your payment was successful and your case details are being processed. A member of our team will contact you at the information you provided.
           </p>
-          <div className="mt-4 border-t border-line-glass/30 pt-4 text-xs text-emerald-700 dark:text-emerald-300">
+          <div className="mt-4 border-t border-line-glass/30 pt-4 text-xs text-[rgb(var(--success-foreground))] dark:text-[rgb(var(--success-foreground))]">
             Payment processed successfully. You will receive confirmation if an email is on file.
           </div>
         </div>

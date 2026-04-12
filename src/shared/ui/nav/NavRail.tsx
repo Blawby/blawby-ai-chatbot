@@ -98,7 +98,7 @@ export const NavRail: FunctionComponent<NavRailProps> = ({
               baseButtonClass,
               layoutClass,
               isDanger
-                ? 'text-red-400 hover:bg-red-500/10'
+                ? 'text-[rgb(var(--error-foreground))] hover:bg-red-500/10'
                 : isActive
                   ? 'nav-item-active'
                   : 'nav-item-inactive',

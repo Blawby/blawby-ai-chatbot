@@ -78,9 +78,9 @@ function urgencyLabel(u?: string | null) {
 }
 
 const TRIAGE_CHIP: Record<string, string> = {
-  pending_review: 'bg-amber-500/10 text-amber-700 ring-amber-500/20 dark:text-amber-300',
-  accepted:  'bg-emerald-500/10 text-emerald-700 ring-emerald-500/20 dark:text-emerald-300',
-  declined:  'bg-rose-500/10 text-rose-700 ring-rose-500/20 dark:text-rose-300',
+  pending_review: 'bg-amber-500/10 text-[rgb(var(--warning-foreground))] ring-amber-500/20 dark:text-[rgb(var(--warning-foreground))]',
+  accepted:  'bg-emerald-500/10 text-[rgb(var(--success-foreground))] ring-emerald-500/20 dark:text-[rgb(var(--success-foreground))]',
+  declined:  'bg-rose-500/10 text-[rgb(var(--error-foreground))] ring-rose-500/20 dark:text-[rgb(var(--error-foreground))]',
 };
 const NEUTRAL_CHIP = 'bg-surface-overlay/60 text-input-placeholder ring-line-glass/30';
 
@@ -368,7 +368,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
       <div className="flex h-full flex-col min-h-0">
         <DetailHeader title="Consultation Request" showBack onBack={onBack} />
         <Page>
-          <div className="glass-card p-6 text-sm text-rose-400">
+          <div className="glass-card p-6 text-sm text-[rgb(var(--error-foreground))]">
             {loadError ?? 'Intake not found.'}
           </div>
         </Page>
@@ -579,8 +579,8 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
               )}
 
               {isAccepted && (
-                <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/20 p-5 text-center">
-                  <p className="text-base font-bold text-emerald-700 dark:text-emerald-300">
+                <div className="rounded-xl status-success p-5 text-center">
+                  <p className="text-base font-bold text-[rgb(var(--success-foreground))] dark:text-[rgb(var(--success-foreground))]">
                     Consultation Accepted
                   </p>
                   <p className="text-xs text-input-placeholder mt-2">
@@ -590,8 +590,8 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
               )}
 
               {isDeclined && (
-                <div className="rounded-xl bg-rose-500/10 border border-rose-500/20 p-5 text-center">
-                  <p className="text-base font-bold text-rose-700 dark:text-rose-300">
+                <div className="rounded-xl status-error p-5 text-center">
+                  <p className="text-base font-bold text-[rgb(var(--error-foreground))] dark:text-[rgb(var(--error-foreground))]">
                     Consultation Declined
                   </p>
                   <p className="text-xs text-input-placeholder mt-2">
@@ -609,7 +609,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
                   <h3 className="text-xs font-semibold uppercase tracking-widest text-input-placeholder mb-3">About</h3>
                   <div className="space-y-4">
                     {/* Payment verification text only with solid icon */}
-                    <div className="flex items-center gap-2 text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                    <div className="flex items-center gap-2 text-xs font-bold text-[rgb(var(--success-foreground))] dark:text-[rgb(var(--success-foreground))]">
                       <Icon icon={CheckCircleIconSolid} className="h-4 w-4" />
                       Payment method verified
                     </div>

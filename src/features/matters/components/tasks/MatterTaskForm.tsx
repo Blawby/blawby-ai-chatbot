@@ -195,10 +195,10 @@ export const MatterTaskForm = ({
           direction="up"
           aria-labelledby="matter-task-stage-label"
         />
-        {errors.stage ? <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors.stage}</p> : null}
+        {errors.stage ? <p className="mt-1 text-xs text-[rgb(var(--error-foreground))] dark:text-[rgb(var(--error-foreground))]">{errors.stage}</p> : null}
       </div>
 
-      {error ? <p className="text-sm text-red-600 dark:text-red-400">{error}</p> : null}
+      {error ? <p className="text-sm text-[rgb(var(--error-foreground))] dark:text-[rgb(var(--error-foreground))]">{error}</p> : null}
 
       <div className="flex flex-wrap items-center justify-end gap-3 pt-2">
         {initialTask && onDelete ? (

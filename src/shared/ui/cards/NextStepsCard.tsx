@@ -27,7 +27,7 @@ interface NextStepsCardProps {
 const getStatusStyles = (status?: NextStepsStatus) => {
   if (status === 'completed') {
     return {
-      wrapper: 'bg-green-500 border-green-500 text-white',
+      wrapper: 'bg-green-500 border-green-500 text-input-text',
       icon: 'check'
     };
   }
@@ -38,7 +38,7 @@ const getStatusStyles = (status?: NextStepsStatus) => {
     };
   }
   return {
-    wrapper: 'border-amber-500 text-amber-500',
+    wrapper: 'border-amber-500 text-[rgb(var(--warning-foreground))]',
     icon: 'circle'
   };
 };

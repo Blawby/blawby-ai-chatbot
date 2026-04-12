@@ -96,7 +96,7 @@ export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(({
 
   const variantClasses = {
     default: 'border-input-border focus:ring-accent-500 focus:border-accent-500',
-    error: 'border-red-300 focus:ring-red-500 focus:border-red-500',
+    error: 'border-[rgb(var(--error-foreground))] focus:ring-red-500 focus:border-[rgb(var(--error-foreground))]',
     success: 'border-green-300 focus:ring-green-500 focus:border-green-500'
   };
 
@@ -131,7 +131,7 @@ export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(({
         {displayLabel && (
           <label htmlFor={checkboxId} className="text-sm font-medium text-input-text">
             {displayLabel}
-            {required && <span className="text-red-500 ml-1">*</span>}
+            {required && <span className="text-[rgb(var(--error-foreground))] ml-1">*</span>}
           </label>
         )}
         
@@ -142,7 +142,7 @@ export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(({
         )}
         
         {error && (
-          <p id={errorId} className="text-xs text-red-600 mt-1" role="alert" aria-live="assertive">
+          <p id={errorId} className="text-xs text-[rgb(var(--error-foreground))] mt-1" role="alert" aria-live="assertive">
             {error}
           </p>
         )}

@@ -88,7 +88,7 @@ export const SecondaryPanel: FunctionComponent<SecondaryPanelProps> = ({
             className={cn(
               'flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50',
               isDanger
-                ? 'text-red-400 hover:bg-red-500/10'
+                ? 'text-[rgb(var(--error-foreground))] hover:bg-red-500/10'
                 : isActive
                   ? 'nav-item-active'
                   : 'nav-item-inactive'
