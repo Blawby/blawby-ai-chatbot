@@ -47,8 +47,6 @@ export const getWorkspaceSection = (view: WorkspaceView): WorkspaceSection => {
   if (view === 'invoiceCreate' || view === 'invoiceEdit' || view === 'invoiceDetail') return 'invoices';
   if (view === 'setup' || view === 'clients') return 'home';
   if (view === 'intakeDetail') return 'intakes';
-  // 'engagements' maps to the 'intakes' section — shares nav until it gets its own rail item.
-  if (view === 'engagements') return 'engagements';
   return view as WorkspaceSection;
 };
 

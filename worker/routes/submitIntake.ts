@@ -220,11 +220,11 @@ async function buildTranscriptSummary(
     // Hard cap to stay under backend field limits
     return full.length > TRANSCRIPT_MAX_CHARS ? full.slice(-TRANSCRIPT_MAX_CHARS) : full;
   } catch (error) {
-    Logger.warn('[submitIntake] Failed to build transcript_summary — proceeding without it', {
+    Logger.error('[submitIntake] Failed to build transcript_summary', {
       conversationId,
       error: error instanceof Error ? error.message : String(error),
     });
-    return null;
+    throw error;
   }
 }
 

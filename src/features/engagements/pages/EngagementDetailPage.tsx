@@ -312,6 +312,7 @@ export const EngagementDetailPage: FunctionComponent<EngagementDetailPageProps> 
   const [dialogNote, setDialogNote] = useState('');
   const [previewMessages, setPreviewMessages] = useState<ChatMessageUI[]>([]);
   const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
   const [localStatus, setLocalStatus] = useState<string | null>(null);
   const isMountedRef = useRef(true);
 
@@ -357,6 +358,7 @@ export const EngagementDetailPage: FunctionComponent<EngagementDetailPageProps> 
     const controller = new AbortController();
     setPreviewMessages([]);
     setPreviewLoading(true);
+    setPreviewError(null);
 
     fetchConversationMessages(conversationId, targetPracticeId, { limit: 100, signal: controller.signal })
       .then((messages) => {
@@ -365,7 +367,7 @@ export const EngagementDetailPage: FunctionComponent<EngagementDetailPageProps> 
           id: m.id,
           role: m.role,
           content: m.content,
-          timestamp: new Date(m.created_at).getTime(),
+          timestamp: new Date(m.created_at ?? m.server_ts).getTime(),
           reply_to_message_id: m.reply_to_message_id ?? null,
           metadata: m.metadata ?? undefined,
           isUser: m.user_id === session?.user?.id,
@@ -375,7 +377,7 @@ export const EngagementDetailPage: FunctionComponent<EngagementDetailPageProps> 
       .catch((err) => {
         if (!isMountedRef.current || controller.signal.aborted) return;
         console.warn('[EngagementDetailPage] Failed to load conversation preview', err);
-        setPreviewMessages([]);
+        setPreviewError(err instanceof Error ? err.message : 'Could not load conversation preview');
       })
       .finally(() => {
         if (isMountedRef.current && !controller.signal.aborted) setPreviewLoading(false);
@@ -564,6 +566,13 @@ export const EngagementDetailPage: FunctionComponent<EngagementDetailPageProps> 
                     {previewLoading && previewMessages.length === 0 ? (
                       <div className="h-full flex items-center justify-center p-6">
                         <LoadingBlock label="Loading conversation..." />
+                      </div>
+                    ) : previewError ? (
+                      <div className="h-full flex items-center justify-center p-6 text-center">
+                        <div className="space-y-4">
+                          <Icon icon={ExclamationTriangleIcon} className="w-8 h-8 text-rose-400 mx-auto" />
+                          <p className="text-sm text-input-placeholder">{previewError}</p>
+                        </div>
                       </div>
                     ) : previewMessages.length === 0 ? (
                       <div className="h-full flex items-center justify-center p-6">

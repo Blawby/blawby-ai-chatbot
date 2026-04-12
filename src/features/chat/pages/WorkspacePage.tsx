@@ -1660,6 +1660,8 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       case 'invoiceEdit':
       case 'invoiceDetail':
         return null;
+      case 'engagements':
+        return 'Engagements';
       case 'settings':
         return 'Settings';
       case 'home':
