@@ -58,7 +58,7 @@ export const InteractiveListItem = ({
       role={isClickable ? 'button' : undefined}
       tabIndex={isClickable && !disabled ? 0 : -1}
       aria-disabled={disabled}
-      aria-selected={isSelected}
+      aria-pressed={isClickable ? isSelected : undefined}
     >
       {children}
     </div>

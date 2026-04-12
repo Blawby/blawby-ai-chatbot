@@ -84,6 +84,24 @@ export default [
       custom: {
         rules: {
           'loading-consistency': loadingConsistency,
+          'no-hardcoded-colors': {
+            create(context) {
+              const COLORS_REGEX = /text-white|text-black|bg-white|bg-black|gray-|zinc-|neutral-|stone-|blue-|indigo-|purple-|slate-/;
+              const MESSAGE = 'Prefer system tokens (surface-*, input-*, or accent-*) over hardcoded colors to ensure proper theme inversion.';
+              return {
+                'JSXAttribute[name.name="className"] Literal': (node) => {
+                  if (typeof node.value === 'string' && COLORS_REGEX.test(node.value)) {
+                    context.report({ node, message: MESSAGE });
+                  }
+                },
+                'JSXAttribute[name.name="className"] TemplateElement': (node) => {
+                  if (node.value.raw && COLORS_REGEX.test(node.value.raw)) {
+                    context.report({ node, message: MESSAGE });
+                  }
+                }
+              };
+            }
+          }
         },
       },
     },
@@ -133,23 +151,14 @@ export default [
 
       // Custom loading consistency rule
       'custom/loading-consistency': 'error',
+      'custom/no-hardcoded-colors': 'warn',
 
       // Project guardrails
       'no-restricted-syntax': [
-        'warn',
+        'error',
         {
           selector: 'a[href^="/"]',
           message: 'Use Link or navigate()/location.route() for in-app routes instead of internal <a href="/..."> anchors'
-        },
-        {
-          selector: 'JSXAttribute[name.name="className"] > Literal[value=/blue-|indigo-|purple-|slate-|gray-|zinc-|neutral-|stone-/]',
-          // Changed to warn to avoid blocking existing work while transitioning to the new system
-          message: 'Avoid hardcoded Tailwind color classes. Use system tokens (surface-*, input-*, or accent-*) to ensure light/dark mode parity and accessibility.'
-        },
-        {
-          selector: 'JSXAttribute[name.name="className"] > Literal[value=/text-white|text-black|bg-white|bg-black/]',
-          // Changed to warn to avoid blocking existing work while transitioning to the new system
-          message: 'Prefer system tokens (text-input-text, bg-surface-base, etc.) over hardcoded white/black to ensure proper theme inversion.'
         },
         {
           selector: 'ImportDeclaration[source.value=/LoadingIndicator/]',
@@ -160,7 +169,7 @@ export default [
           message: 'Use shared loading components from shared/ui/layout instead of redeclaring'
         },
         {
-          selector: 'JSXAttribute[name="className"][value.*="animate-spin"]',
+          selector: 'JSXAttribute[name.name="className"] > Literal[value=/animate-spin/]',
           message: 'Use LoadingSpinner component instead of inline animate-spin classes'
         }
       ],
