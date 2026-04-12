@@ -30,7 +30,6 @@ import VirtualMessageList from '@/features/chat/components/VirtualMessageList';
 import type { ChatMessageUI } from '../../../../worker/types';
 import {
   getEngagement,
-  patchEngagementProposal,
   sendEngagementToClient,
   withdrawEngagement,
 } from '../api/engagementsApi';

@@ -6,10 +6,8 @@
  * disabled composer state with a clear, reassuring surface that:
  *  - Confirms the intake was received
  *  - Sets expectations about next steps (practice will follow up)
- *  - Offers a way to start a new conversation if they have follow-up questions
  *
- * Intentionally stateless — all data comes from props so it can be used both
- * inside VirtualMessageList and as a standalone sticky banner.
+ * Intentionally stateless — all data comes from props.
  */
 
 import { CheckCircleIcon, ClockIcon } from '@heroicons/react/24/outline';
@@ -19,7 +17,7 @@ import { cn } from '@/shared/utils/cn';
 export interface PendingReviewCardProps {
   /** Name of the practice — shown in the confirmation copy. */
   practiceName?: string | null;
-  /** ISO timestamp of submission — shown as relative time if present. */
+  /** ISO timestamp of submission — shown as absolute date. */
   submittedAt?: string | null;
   /** Whether a payment is still outstanding (changes the copy slightly). */
   paymentRequired?: boolean;

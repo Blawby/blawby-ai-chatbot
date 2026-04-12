@@ -224,6 +224,7 @@ export const ClientEngagementReviewPage: FunctionComponent<ClientEngagementRevie
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isAccepting, setIsAccepting] = useState(false);
   const [accepted, setAccepted] = useState(false);
+  const isMountedRef = useRef(true);
   const navigationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
