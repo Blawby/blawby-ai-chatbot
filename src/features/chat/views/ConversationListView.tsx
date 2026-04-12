@@ -65,7 +65,7 @@ const ConversationListView: FunctionComponent<ConversationListViewProps> = ({
         {isLoading ? (
           <div className="py-6 text-sm text-input-text/80">{t('workspace.conversationList.loading')}</div>
         ) : errorMessage ? (
-          <div className="py-6 text-sm text-red-500 dark:text-red-300">
+          <div className="py-6 text-sm text-[rgb(var(--error-foreground))]">
             {errorMessage}
           </div>
         ) : sorted.length === 0 ? (
@@ -109,7 +109,7 @@ const ConversationListView: FunctionComponent<ConversationListViewProps> = ({
                         </span>
                         <div className="mt-1 flex items-center gap-1.5">
                           {conversation.lead?.is_lead && (
-                            <span className="flex-shrink-0 rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-200">
+                            <span className="flex-shrink-0 rounded-full status-warning px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide">
                               {t('conversation.badge.lead', { defaultValue: 'Lead' })}
                             </span>
                           )}

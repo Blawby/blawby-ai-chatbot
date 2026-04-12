@@ -273,7 +273,7 @@ export const InvoicesTable: FunctionComponent<InvoicesTableProps> = ({
         toolbar={toolbar}
         emptyState={emptyMessage ?? 'No invoices found'}
         errorState={error ? (
-          <div className="glass-panel rounded-xl p-4 text-sm text-red-300">
+          <div className="glass-panel rounded-xl p-4 text-sm text-[rgb(var(--error-foreground))]">
             Failed to load invoices: {error}
           </div>
         ) : undefined}

@@ -551,7 +551,7 @@ export const SecurityPage = ({
             <DialogBody className="space-y-4">
               <div className="flex items-start gap-3">
                 <div className="flex-shrink-0">
-                  <Icon icon={ExclamationTriangleIcon} className="w-6 h-6 text-orange-500"  />
+                  <Icon icon={ExclamationTriangleIcon} className="w-6 h-6 text-[rgb(var(--warning-foreground))]"  />
                 </div>
                 <div className="flex-1">
                   <h3 className="text-lg font-semibold text-input-text mb-2">

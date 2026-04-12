@@ -702,22 +702,22 @@
 
   /* Semantic status surfaces */
   .status-info {
-    @apply border border-accent-500/20 bg-accent-500/10 text-[rgb(var(--accent-foreground))] backdrop-blur-xl;
+    @apply border-accent-500/20 bg-accent-500/10 text-[rgb(var(--accent-foreground))] backdrop-blur-xl;
     box-shadow: var(--glass-rim-medium);
   }
 
   .status-success {
-    @apply border border-green-500/20 bg-green-500/10 text-[rgb(var(--success-foreground))] backdrop-blur-xl;
+    @apply border-[rgb(var(--success-foreground))]/20 bg-[rgb(var(--success-foreground))]/10 text-[rgb(var(--success-foreground))] backdrop-blur-xl;
     box-shadow: var(--glass-rim-medium);
   }
 
   .status-warning {
-    @apply border border-orange-500/20 bg-orange-500/10 text-[rgb(var(--warning-foreground))] backdrop-blur-xl;
+    @apply border-[rgb(var(--warning-foreground))]/20 bg-[rgb(var(--warning-foreground))]/10 text-[rgb(var(--warning-foreground))] backdrop-blur-xl;
     box-shadow: var(--glass-rim-medium);
   }
 
   .status-error {
-    @apply border border-red-500/20 bg-red-500/10 text-[rgb(var(--error-foreground))] backdrop-blur-xl;
+    @apply border-[rgb(var(--error-foreground))]/20 bg-[rgb(var(--error-foreground))]/10 text-[rgb(var(--error-foreground))] backdrop-blur-xl;
     box-shadow: var(--glass-rim-medium);
   }
 

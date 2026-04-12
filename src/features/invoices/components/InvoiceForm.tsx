@@ -438,7 +438,7 @@ export const InvoiceForm = forwardRef<InvoiceFormHandle, InvoiceFormProps>(({
               <Textarea label="Notes to client" value={notes} onChange={setNotes} rows={3} disabled={resolvedReadOnly} />
               <Textarea label="Internal memo" value={memo} onChange={setMemo} rows={2} disabled={resolvedReadOnly} />
               {sendError ? (
-                <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+                <div className="rounded-lg status-error p-4 text-sm">
                   <p>{sendError}</p>
                   {createdInvoiceId ? (
                     <div className="mt-2">

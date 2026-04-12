@@ -48,7 +48,7 @@ export const AppConnectionDialog: FunctionComponent<AppConnectionDialogProps> = 
     {
       id: 'risk',
       icon: ExclamationTriangleIcon,
-      iconClassName: 'h-5 w-5 text-amber-600 dark:text-amber-400',
+      iconClassName: 'h-5 w-5 text-[rgb(var(--warning-foreground))]',
       title: t(`${connectModalKey}.risk.title`),
       description: (
         <>

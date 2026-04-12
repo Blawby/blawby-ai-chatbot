@@ -65,7 +65,7 @@ export const Switch = ({
           sizeClasses[size],
           value 
             ? 'bg-accent-500 focus:ring-accent-500' 
-            : 'bg-surface-utility/60 dark:bg-surface-utility/80 focus:ring-accent-500/40',
+            : 'bg-surface-utility/60 dark:bg-surface-utility/80 focus:ring-accent-500',
           disabled && 'opacity-50 cursor-not-allowed'
         )}
         onClick={() => !disabled && onChange(!value)}

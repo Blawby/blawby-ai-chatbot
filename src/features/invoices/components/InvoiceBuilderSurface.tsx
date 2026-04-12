@@ -200,7 +200,7 @@ export const InvoiceBuilderSurface = forwardRef<InvoiceFormHandle, InvoiceBuilde
   const displayError = loadError ?? clientsData.error;
 
   if (!practiceId) {
-    return <div className="p-6 text-sm text-red-300">Practice context is missing from this route.</div>;
+    return <div className="p-6 text-sm text-[rgb(var(--error-foreground))]">Practice context is missing from this route.</div>;
   }
 
   if (mode === 'edit' && !resolvedInvoice && !loading && !loadError) {
@@ -210,7 +210,7 @@ export const InvoiceBuilderSurface = forwardRef<InvoiceFormHandle, InvoiceBuilde
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-6">
       {displayError ? (
-        <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+        <div className="rounded-xl status-error px-4 py-3 text-sm">
           {displayError}
         </div>
       ) : null}

@@ -151,7 +151,7 @@ export const PracticeServicesPage = ({ className }: PracticeServicesPageProps) =
       contentClassName="pb-6"
     >
       {servicesError && (
-        <p className="text-xs text-red-600 dark:text-red-400 mb-4">
+        <p className="text-xs text-[rgb(var(--error-foreground))] mb-4">
           {servicesError}
         </p>
       )}

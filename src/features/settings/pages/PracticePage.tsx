@@ -618,7 +618,7 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
     return (
       <div className={`h-full flex items-center justify-center ${className}`}>
         <div className="text-center">
-          <p className="text-sm text-red-600 mb-4">{error}</p>
+          <p className="text-sm text-[rgb(var(--error-foreground))] mb-4">{error}</p>
           <Button size="sm" onClick={refetch}>
             Try Again
           </Button>

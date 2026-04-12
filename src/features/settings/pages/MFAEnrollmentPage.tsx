@@ -214,7 +214,7 @@ export const MFAEnrollmentPage = ({
               <div className="flex items-start">
                 <div className="flex-shrink-0">
                   <svg
-                    className="h-5 w-5 text-red-400"
+                    className="h-5 w-5 text-[rgb(var(--error-foreground))]"
                     viewBox="0 0 20 20"
                     fill="currentColor"
                     aria-hidden="true"
@@ -230,7 +230,7 @@ export const MFAEnrollmentPage = ({
                   <h3 className="text-sm font-medium">
                     {t('settings:mfa.errors.configurationError.title')}
                   </h3>
-                  <div className="mt-2 text-sm text-red-700 dark:text-red-300">
+                  <div className="mt-2 text-sm text-[rgb(var(--error-foreground))]/80">
                     <p>{t('settings:mfa.errors.configurationError.body')}</p>
                   </div>
                 </div>

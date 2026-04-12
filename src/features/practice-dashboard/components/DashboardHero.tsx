@@ -72,7 +72,7 @@ export const DashboardHero = ({
           >
             <dt className="text-sm font-medium text-input-placeholder">{stat.label}</dt>
             {stat.changeLabel ? (
-              <dd className={cn(stat.changeTone === 'negative' ? 'text-rose-300' : 'text-input-placeholder', 'text-xs font-medium')}>
+              <dd className={cn(stat.changeTone === 'negative' ? 'text-[rgb(var(--error-foreground))]/80' : 'text-input-placeholder', 'text-xs font-medium')}>
                 {stat.changeLabel}
               </dd>
             ) : null}

@@ -114,7 +114,7 @@ const ChatMarkdown: FunctionComponent<ChatMarkdownProps> = memo(({
   return (
     <div className={classes}>
       {markdownError ? (
-        <div className="text-red-500 text-sm">Failed to load markdown: {markdownError}</div>
+        <div className="text-[rgb(var(--error-foreground))] text-sm">Failed to load markdown: {markdownError}</div>
       ) : ReactMarkdown ? (
         <ReactMarkdown
           components={markdownComponents}

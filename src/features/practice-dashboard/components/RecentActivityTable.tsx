@@ -1,5 +1,6 @@
 import { Fragment } from 'preact';
 import { ArrowDownCircleIcon, ArrowPathIcon, ArrowUpCircleIcon } from '@heroicons/react/20/solid';
+import { StatusBadge, type StatusVariant } from '@/shared/ui/badges/StatusBadge';
 import { Icon } from '@/shared/ui/Icon';
 import { cn } from '@/shared/utils/cn';
 import { SkeletonLoader } from '@/shared/ui/layout/SkeletonLoader';
@@ -30,13 +31,12 @@ const statusIcon = (status: ActivityEntry['status']) => {
   return ArrowDownCircleIcon;
 };
 
-const statusClass = (status: ActivityEntry['status']) => {
+const statusVariant = (status: ActivityEntry['status']): StatusVariant => {
   const normalized = status.toLowerCase();
-  if (normalized === 'paid') return 'bg-emerald-500/10 text-emerald-700 ring-emerald-500/20 dark:text-emerald-300';
-  if (normalized === 'overdue') return 'bg-rose-500/10 text-rose-700 ring-rose-500/20 dark:text-rose-300';
-  if (normalized === 'draft') return 'bg-surface-overlay/80 text-input-placeholder ring-line-glass/20';
-  if (normalized === 'sent' || normalized === 'pending') return 'bg-surface-overlay/80 text-input-placeholder ring-line-glass/20';
-  return 'bg-surface-overlay/80 text-input-placeholder ring-line-glass/20';
+  if (normalized === 'paid') return 'success';
+  if (normalized === 'overdue') return 'error';
+  if (normalized === 'sent' || normalized === 'pending') return 'pending';
+  return 'inactive';
 };
 
 export const RecentActivityTable = ({ days, loading = false, error = null, onOpenInvoice }: RecentActivityTableProps) => (
@@ -121,9 +121,9 @@ export const RecentActivityTable = ({ days, loading = false, error = null, onOpe
                                   <div className="text-sm font-medium text-input-text">
                                     {formatAmountLabel(entry.amount)}
                                   </div>
-                                  <div className={cn(statusClass(entry.status), 'rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset')}>
-                                    {formatStatusLabel(entry.status)}
-                                  </div>
+                                    <StatusBadge status={statusVariant(entry.status)}>
+                                      {formatStatusLabel(entry.status)}
+                                    </StatusBadge>
                                 </div>
                                 {(() => {
                                   const displayDate = entry.issuedAt ? formatDate(entry.issuedAt) : '';

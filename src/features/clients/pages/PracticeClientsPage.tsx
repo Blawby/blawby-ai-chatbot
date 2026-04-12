@@ -12,6 +12,7 @@ import { Avatar } from '@/shared/ui/profile';
 import { FormActions } from '@/shared/ui/form';
 import { AddressExperienceForm } from '@/shared/ui/address/AddressExperienceForm';
 import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
+import { StatusBadge } from '@/shared/ui/badges/StatusBadge';
 import { cn } from '@/shared/utils/cn';
 import { ActivityTimeline, type TimelineItem } from '@/shared/ui/activity/ActivityTimeline';
 import { formatDate } from '@/shared/utils/dateTime';
@@ -270,7 +271,13 @@ const ClientDetailPanel = ({
                   {isClientRecord ? 'Relationship status' : 'Team role'}
                 </dt>
                 <dd className="mt-1 text-sm text-input-text">
-                  {isClientRecord ? relationshipLabel : teamRoleLabel}
+                  {isClientRecord ? (
+                    client.status ? (
+                      <StatusBadge status={client.status}>
+                        {STATUS_LABELS[client.status]}
+                      </StatusBadge>
+                    ) : 'Client'
+                  ) : teamRoleLabel}
                 </dd>
               </div>
             </dl>
@@ -838,7 +845,7 @@ export const PracticeClientsPage = ({
     >
       <div className="space-y-4">
         {addClientError && (
-          <div className="glass-panel p-3 border-red-500/20 text-sm text-red-200">
+          <div className="glass-panel p-3 border-[rgb(var(--error-foreground))]/20 text-sm text-[rgb(var(--error-foreground))]/80">
             {addClientError}
           </div>
         )}

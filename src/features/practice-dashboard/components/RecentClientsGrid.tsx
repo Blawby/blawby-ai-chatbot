@@ -1,4 +1,5 @@
 import { EllipsisHorizontalIcon } from '@heroicons/react/24/outline';
+import { StatusBadge, type StatusVariant } from '@/shared/ui/badges/StatusBadge';
 import { Icon } from '@/shared/ui/Icon';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/shared/ui/dropdown';
 import { Avatar } from '@/shared/ui/profile';
@@ -7,13 +8,12 @@ import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import { formatDate } from '@/shared/utils/dateTime';
 import type { RecentClient } from '@/features/practice-dashboard/hooks/usePracticeBillingData';
 
-const neutralTone = 'ring-line-glass/20 bg-surface-overlay/80 text-input-placeholder';
-const statusTone: Record<string, string> = {
-  paid: 'bg-emerald-500/10 text-emerald-700 ring-emerald-500/20 dark:text-emerald-300',
-  overdue: 'bg-rose-500/10 text-rose-700 ring-rose-500/20 dark:text-rose-300',
-  draft: neutralTone,
-  sent: neutralTone,
-  pending: neutralTone
+const getStatusVariant = (status?: string): StatusVariant => {
+  const normalized = status?.toLowerCase() || '';
+  if (normalized === 'paid') return 'success';
+  if (normalized === 'overdue') return 'error';
+  if (normalized === 'sent' || normalized === 'pending') return 'pending';
+  return 'inactive';
 };
 
 type RecentClientsGridProps = {
@@ -119,9 +119,9 @@ export const RecentClientsGrid = ({
                     <dt className="text-input-placeholder">Amount</dt>
                     <dd className="flex items-start gap-x-2">
                       <div className="font-medium text-input-text">{formatCurrency(client.lastInvoice.amount)}</div>
-                      <div className={`rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset ${statusTone[client.lastInvoice.status?.toLowerCase() || ''] ?? neutralTone}`}>
+                      <StatusBadge status={getStatusVariant(client.lastInvoice.status)}>
                         {client.lastInvoice.status ?? '-'}
-                      </div>
+                      </StatusBadge>
                     </dd>
                   </div>
                 </dl>

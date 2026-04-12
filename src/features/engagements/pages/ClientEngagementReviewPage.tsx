@@ -21,6 +21,7 @@ import {
   ExclamationTriangleIcon,
   XCircleIcon,
 } from '@heroicons/react/24/outline';
+import { StatusBadge } from '@/shared/ui/badges/StatusBadge';
 import { Icon } from '@/shared/ui/Icon';
 import { Button } from '@/shared/ui/Button';
 import { LoadingBlock } from '@/shared/ui/layout/LoadingBlock';
@@ -70,7 +71,7 @@ const ScopeSection: FunctionComponent<{ proposal: ProposalData }> = ({ proposal 
         <ul className="space-y-2 mt-2">
           {included_services.map((s, i) => (
             <li key={i} className="flex items-center gap-2.5 text-sm text-input-text">
-              <CheckCircleIcon className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+              <CheckCircleIcon className="w-4 h-4 text-[rgb(var(--success-foreground))] flex-shrink-0" />
               {s}
             </li>
           ))}
@@ -82,7 +83,7 @@ const ScopeSection: FunctionComponent<{ proposal: ProposalData }> = ({ proposal 
           <ul className="space-y-2">
             {excluded_services.map((s, i) => (
               <li key={i} className="flex items-center gap-2.5 text-sm text-input-placeholder">
-                <XCircleIcon className="w-4 h-4 text-rose-500/70 flex-shrink-0" />
+                <XCircleIcon className="w-4 h-4 text-[rgb(var(--error-foreground))]/70 flex-shrink-0" />
                 {s}
               </li>
             ))}
@@ -165,10 +166,10 @@ const PartiesSection: FunctionComponent<{ proposal: ProposalData; practiceName: 
         </div>
       )}
       {non_clients && non_clients.length > 0 && (
-        <div className="mt-2 p-3 rounded-lg bg-rose-500/5 border border-rose-500/15">
+        <div className="mt-2 p-3 rounded-lg bg-[rgb(var(--error-foreground))]/5 border border-[rgb(var(--error-foreground))]/15">
           <div className="flex items-start gap-2">
-            <ExclamationTriangleIcon className="w-4 h-4 text-rose-500 flex-shrink-0 mt-0.5" />
-            <div className="text-xs text-rose-400 space-y-0.5">
+            <ExclamationTriangleIcon className="w-4 h-4 text-[rgb(var(--error-foreground))]" />
+            <div className="text-xs text-[rgb(var(--error-foreground))]/80 space-y-0.5">
               <p className="font-medium">NOT represented in this matter:</p>
               {non_clients.map((c, i) => <p key={i}>{c}</p>)}
             </div>
@@ -305,7 +306,7 @@ export const ClientEngagementReviewPage: FunctionComponent<ClientEngagementRevie
     return (
       <div className="min-h-dvh flex flex-col items-center justify-center p-6">
         <div className="glass-card max-w-md w-full p-8 text-center space-y-4">
-          <ExclamationTriangleIcon className="w-10 h-10 text-rose-400 mx-auto" />
+          <ExclamationTriangleIcon className="w-10 h-10 text-[rgb(var(--error-foreground))]/80 mx-auto" />
           <h1 className="text-lg font-bold text-input-text">Unable to load engagement</h1>
           <p className="text-sm text-input-placeholder">{loadError ?? 'This engagement could not be found.'}</p>
         </div>
@@ -324,14 +325,9 @@ export const ClientEngagementReviewPage: FunctionComponent<ClientEngagementRevie
             <p className="text-xs text-input-placeholder font-medium">{practiceName}</p>
             <h1 className="text-base font-bold text-input-text">Engagement Review</h1>
           </div>
-          <span className={cn(
-            "inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ring-1 ring-inset",
-            accepted 
-              ? "bg-emerald-500/10 text-emerald-700 ring-emerald-500/20 dark:text-emerald-300"
-              : "bg-violet-500/10 text-violet-700 ring-violet-500/20 dark:text-violet-300"
-          )}>
+          <StatusBadge status={accepted ? 'success' : 'pending'}>
             {accepted ? 'Accepted' : 'Pending your review'}
-          </span>
+          </StatusBadge>
         </div>
       </header>
 
@@ -368,8 +364,8 @@ export const ClientEngagementReviewPage: FunctionComponent<ClientEngagementRevie
         <div className="pt-4 space-y-3">
           {accepted ? (
             <div className="glass-card p-6 text-center space-y-3">
-              <CheckCircleIcon className="w-10 h-10 text-emerald-400 mx-auto" />
-              <p className="text-base font-bold text-emerald-600 dark:text-emerald-300">Engagement Accepted</p>
+              <CheckCircleIcon className="w-10 h-10 text-[rgb(var(--success-foreground))]/80 mx-auto" />
+              <p className="text-base font-bold text-[rgb(var(--success-foreground))]">Engagement Accepted</p>
               <p className="text-sm text-input-placeholder">
                 Thank you! Your attorney will be in touch shortly.
               </p>

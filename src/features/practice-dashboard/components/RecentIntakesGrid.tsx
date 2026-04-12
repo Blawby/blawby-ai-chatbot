@@ -1,4 +1,5 @@
 import { EllipsisHorizontalIcon } from '@heroicons/react/24/outline';
+import { StatusBadge, type StatusVariant } from '@/shared/ui/badges/StatusBadge';
 import { Icon } from '@/shared/ui/Icon';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/shared/ui/dropdown';
 import { Avatar } from '@/shared/ui/profile';
@@ -7,10 +8,18 @@ import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import { formatDate } from '@/shared/utils/dateTime';
 import type { IntakeListItem } from '@/features/intake/api/intakesApi';
 
-const statusTone: Record<string, string> = {
-  accepted: 'bg-emerald-500/10 text-emerald-700 ring-emerald-500/20 dark:text-emerald-300',
-  declined: 'bg-rose-500/10 text-rose-700 ring-rose-500/20 dark:text-rose-300',
-  pending_review: 'ring-line-glass/20 bg-surface-overlay/80 text-input-placeholder',
+const getStatusVariant = (status: string): StatusVariant => {
+  const normalized = status.toLowerCase();
+  if (normalized === 'accepted') return 'success';
+  if (normalized === 'declined') return 'error';
+  return 'pending';
+};
+
+const getStatusLabel = (status: string): string => {
+  if (status === 'pending_review') return 'Pending';
+  if (status === 'accepted') return 'Accepted';
+  if (status === 'declined') return 'Declined';
+  return 'Unknown';
 };
 
 type RecentIntakesGridProps = {
@@ -125,11 +134,9 @@ export const RecentIntakesGrid = ({
                 <div className="flex justify-between gap-x-4 py-3">
                   <dt className="text-input-placeholder">Status</dt>
                   <dd className="flex items-start gap-x-2">
-                    <div className={`rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset ${statusTone[intake.triage_status] || statusTone.pending_review}`}>
-                      {intake.triage_status === 'pending_review' ? 'Pending' :
-                       intake.triage_status === 'accepted' ? 'Accepted' :
-                       intake.triage_status === 'declined' ? 'Declined' : 'Unknown'}
-                    </div>
+                    <StatusBadge status={getStatusVariant(intake.triage_status)}>
+                      {getStatusLabel(intake.triage_status)}
+                    </StatusBadge>
                   </dd>
                 </div>
               </dl>

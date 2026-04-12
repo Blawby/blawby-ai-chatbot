@@ -173,7 +173,7 @@ export function PracticeInvoiceDetailPage({
   }
 
   if (error) {
-    return <div className="p-6 text-sm text-red-300">{error}</div>;
+    return <div className="p-6 text-sm text-[rgb(var(--error-foreground))]">{error}</div>;
   }
 
   if (!detail) {
@@ -181,7 +181,7 @@ export function PracticeInvoiceDetailPage({
   }
 
   if (!practiceId) {
-    return <div className="p-6 text-sm text-red-300">Practice context is missing from this route.</div>;
+    return <div className="p-6 text-sm text-[rgb(var(--error-foreground))]">Practice context is missing from this route.</div>;
   }
 
   return (

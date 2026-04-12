@@ -1,7 +1,7 @@
 import type { ComponentChildren } from 'preact';
 import { cn } from '@/shared/utils/cn';
 
-export type StatusVariant = 'active' | 'pending' | 'inactive' | 'suspended' | 'cancelled' | 'completed' | 'warning' | 'error' | 'info' | 'success';
+export type StatusVariant = 'active' | 'pending' | 'inactive' | 'suspended' | 'cancelled' | 'completed' | 'warning' | 'error' | 'info' | 'success' | 'lead' | 'archived';
 
 const STATUS_CLASSES: Record<StatusVariant, string> = {
   active: 'status-success',
@@ -13,7 +13,9 @@ const STATUS_CLASSES: Record<StatusVariant, string> = {
   success: 'status-success',
   warning: 'status-warning',
   error: 'status-error',
-  info: 'status-info'
+  info: 'status-info',
+  lead: 'status-info',
+  archived: 'glass-input text-input-placeholder'
 };
 
 interface StatusBadgeProps {

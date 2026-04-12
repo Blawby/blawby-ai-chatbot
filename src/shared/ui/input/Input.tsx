@@ -104,7 +104,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({
   };
 
   const variantClasses = {
-    default: 'border-line-glass/20 focus:ring-accent-500/40 focus:border-accent-500/40',
+    default: 'border-line-glass/20 focus:ring-accent-500 focus:border-accent-500',
     error: 'border-[rgb(var(--error-foreground))] focus:ring-[rgb(var(--error-foreground))]/40 focus:border-[rgb(var(--error-foreground))]/40',
     success: 'border-[rgb(var(--success-foreground))] focus:ring-[rgb(var(--success-foreground))]/40 focus:border-[rgb(var(--success-foreground))]/40'
   };

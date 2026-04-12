@@ -168,21 +168,21 @@ export const PayoutsPage = ({ className = '' }: { className?: string }) => {
         title: 'Stripe connected and ready',
         description: 'Your practice can receive payments and payouts through Stripe.',
         icon: CheckCircleIcon,
-        iconClassName: 'text-emerald-600 dark:text-emerald-400'
+        iconClassName: 'text-[rgb(var(--success-foreground))]'
       }
     : needsAction
     ? {
         title: 'Stripe setup needs your attention',
         description: 'Finish submitting your business and representative details to enable payouts.',
         icon: ExclamationTriangleIcon,
-        iconClassName: 'text-amber-600 dark:text-amber-400'
+        iconClassName: 'text-[rgb(var(--warning-foreground))]'
       }
     : isPendingVerification
     ? {
         title: 'Verification in progress',
         description: 'Stripe has your details. Payouts will unlock after verification is complete.',
         icon: ShieldCheckIcon,
-        iconClassName: 'text-sky-600 dark:text-sky-400'
+        iconClassName: 'text-accent-500'
       }
     : null;
 
@@ -213,7 +213,7 @@ export const PayoutsPage = ({ className = '' }: { className?: string }) => {
               <Icon
                 icon={missingBusinessEmail ? ExclamationTriangleIcon : (hasStripeAccount && statusSummary ? statusSummary.icon : ShieldCheckIcon)}
                 className={missingBusinessEmail
-                  ? 'h-5 w-5 text-amber-600 dark:text-amber-400'
+                  ? 'h-5 w-5 text-[rgb(var(--warning-foreground))]'
                   : hasStripeAccount && statusSummary
                     ? `h-5 w-5 ${statusSummary.iconClassName}`
                     : 'h-5 w-5 text-input-placeholder'}

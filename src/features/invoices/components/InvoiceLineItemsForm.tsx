@@ -216,7 +216,7 @@ export const InvoiceLineItemsForm = ({ lineItems, onChange, billingIncrementMinu
                             variant="ghost"
                             onClick={() => removeItem(index)}
                             icon={TrashIcon} 
-                            iconClassName="h-4 w-4 text-input-placeholder hover:text-red-400"
+                            iconClassName="h-4 w-4 text-input-placeholder hover:text-[rgb(var(--error-foreground))]"
                             title="Delete item"
                           />
                         </div>

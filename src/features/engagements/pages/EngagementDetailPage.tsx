@@ -13,6 +13,7 @@ import {
   ClockIcon,
   XCircleIcon,
 } from '@heroicons/react/24/outline';
+import { StatusBadge, type StatusVariant } from '@/shared/ui/badges/StatusBadge';
 import { Icon } from '@/shared/ui/Icon';
 import { Button } from '@/shared/ui/Button';
 import { UserCard } from '@/shared/ui/profile';
@@ -37,18 +38,12 @@ import type { EngagementDetail, ProposalData, ConflictStatus } from '../types/en
 
 // ── Status display utilities ──────────────────────────────────────────────────
 
-const ENGAGEMENT_CHIP: Record<string, string> = {
-  intake_accepted:    'bg-blue-500/10 text-blue-700 ring-blue-500/20 dark:text-blue-300',
-  engagement_draft:   'bg-amber-500/10 text-amber-700 ring-amber-500/20 dark:text-amber-300',
-  engagement_sent:    'bg-violet-500/10 text-violet-700 ring-violet-500/20 dark:text-violet-300',
-  engagement_pending: 'bg-amber-500/10 text-amber-700 ring-amber-500/20 dark:text-amber-300',
-  engagement_accepted:'bg-emerald-500/10 text-emerald-700 ring-emerald-500/20 dark:text-emerald-300',
-  active:             'bg-emerald-500/10 text-emerald-700 ring-emerald-500/20 dark:text-emerald-300',
-};
-const NEUTRAL_CHIP = 'bg-surface-overlay/60 text-input-placeholder ring-line-glass/30';
-
-function statusChipClass(status?: string) {
-  return ENGAGEMENT_CHIP[status ?? ''] ?? NEUTRAL_CHIP;
+function getEngagementStatusVariant(status?: string): StatusVariant {
+  if (status === 'engagement_accepted' || status === 'active') return 'success';
+  if (status === 'engagement_draft' || status === 'engagement_pending') return 'warning';
+  if (status === 'engagement_sent') return 'pending';
+  if (status === 'intake_accepted') return 'info';
+  return 'inactive';
 }
 
 function statusLabel(status?: string) {
@@ -64,16 +59,11 @@ function statusLabel(status?: string) {
 
 // ── Conflict / jurisdiction indicators ────────────────────────────────────────
 
-const CONFLICT_CHIP: Record<ConflictStatus, string> = {
-  clear:             'bg-emerald-500/10 text-emerald-700 ring-emerald-500/20 dark:text-emerald-300',
-  review_required:   'bg-amber-500/10 text-amber-700 ring-amber-500/20 dark:text-amber-300',
-  conflicted:        'bg-rose-500/10 text-rose-700 ring-rose-500/20 dark:text-rose-300',
-  unknown:           'bg-surface-overlay/60 text-input-placeholder ring-line-glass/30',
-  insufficient_data: 'bg-surface-overlay/60 text-input-placeholder ring-line-glass/30',
-};
-
-function conflictChipClass(status?: ConflictStatus) {
-  return CONFLICT_CHIP[status ?? 'unknown'] ?? CONFLICT_CHIP.unknown;
+function getConflictStatusVariant(status?: ConflictStatus): StatusVariant {
+  if (status === 'clear') return 'success';
+  if (status === 'review_required') return 'warning';
+  if (status === 'conflicted') return 'error';
+  return 'inactive';
 }
 
 function conflictLabel(status?: ConflictStatus) {
@@ -137,27 +127,27 @@ const ConflictPanel: FunctionComponent<{ proposal: ProposalData | null | undefin
   if (!proposal?.risk_review) return null;
   const { conflict_status, jurisdiction_status, open_questions, conflict_note } = proposal.risk_review;
 
-  const jurisdictionChip =
+  const jurisdictionVariant =
     jurisdiction_status === 'supported'
-      ? 'bg-emerald-500/10 text-emerald-700 ring-emerald-500/20 dark:text-emerald-300'
+      ? 'success'
       : jurisdiction_status === 'unsupported'
-        ? 'bg-amber-500/10 text-amber-700 ring-amber-500/20 dark:text-amber-300'
-        : 'bg-surface-overlay/60 text-input-placeholder ring-line-glass/30';
+        ? 'warning'
+        : 'inactive';
 
   return (
     <SectionCard title="Conflict & Jurisdiction" icon={ShieldExclamationIcon}>
       <div className="flex flex-wrap gap-3">
         <div>
           <p className="text-xs text-input-placeholder mb-1">Conflict check</p>
-          <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ring-1 ring-inset ${conflictChipClass(conflict_status)}`}>
+          <StatusBadge status={getConflictStatusVariant(conflict_status)}>
             {conflictLabel(conflict_status)}
-          </span>
+          </StatusBadge>
         </div>
         <div>
           <p className="text-xs text-input-placeholder mb-1">Jurisdiction</p>
-          <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ring-1 ring-inset ${jurisdictionChip}`}>
+          <StatusBadge status={jurisdictionVariant}>
             {jurisdiction_status === 'supported' ? 'Supported' : jurisdiction_status === 'unsupported' ? 'Not Supported' : 'Unknown'}
-          </span>
+          </StatusBadge>
         </div>
       </div>
       {conflict_note && (
@@ -169,7 +159,7 @@ const ConflictPanel: FunctionComponent<{ proposal: ProposalData | null | undefin
           <ul className="space-y-1.5">
             {open_questions.map((q, i) => (
               <li key={i} className="flex items-start gap-2 text-sm text-input-text">
-                <ExclamationTriangleIcon className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
+                <ExclamationTriangleIcon className="w-4 h-4 text-[rgb(var(--warning-foreground))] flex-shrink-0 mt-0.5" />
                 {q}
               </li>
             ))}
@@ -195,7 +185,7 @@ const ScopeCard: FunctionComponent<{ proposal: ProposalData | null | undefined }
           <ul className="space-y-1">
             {included_services.map((s, i) => (
               <li key={i} className="flex items-center gap-2 text-sm text-input-text">
-                <CheckCircleIcon className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                <CheckCircleIcon className="w-4 h-4 text-[rgb(var(--success-foreground))] flex-shrink-0" />
                 {s}
               </li>
             ))}
@@ -208,7 +198,7 @@ const ScopeCard: FunctionComponent<{ proposal: ProposalData | null | undefined }
           <ul className="space-y-1">
             {excluded_services.map((s, i) => (
               <li key={i} className="flex items-center gap-2 text-sm text-input-text">
-                <XCircleIcon className="w-4 h-4 text-rose-500/70 flex-shrink-0" />
+                <XCircleIcon className="w-4 h-4 text-[rgb(var(--error-foreground))]/70 flex-shrink-0" />
                 {s}
               </li>
             ))}
@@ -468,7 +458,7 @@ export const EngagementDetailPage: FunctionComponent<EngagementDetailPageProps> 
       <div className="flex h-full flex-col min-h-0">
         <DetailHeader title="Engagement" showBack onBack={onBack} />
         <div className="p-6">
-          <div className="glass-card p-6 text-sm text-rose-400">
+          <div className="glass-card p-6 text-sm text-[rgb(var(--error-foreground))]">
             {loadError ?? 'Engagement not found.'}
           </div>
         </div>
@@ -490,9 +480,9 @@ export const EngagementDetailPage: FunctionComponent<EngagementDetailPageProps> 
         showBack
         onBack={onBack}
         actions={
-          <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ring-1 ring-inset ${statusChipClass(effectiveStatus)}`}>
+          <StatusBadge status={getEngagementStatusVariant(effectiveStatus)}>
             {statusLabel(effectiveStatus)}
-          </span>
+          </StatusBadge>
         }
       />
 
@@ -573,7 +563,7 @@ export const EngagementDetailPage: FunctionComponent<EngagementDetailPageProps> 
                     ) : previewError ? (
                       <div className="h-full flex items-center justify-center p-6 text-center">
                         <div className="space-y-4">
-                          <Icon icon={ExclamationTriangleIcon} className="w-8 h-8 text-rose-400 mx-auto" />
+                          <Icon icon={ExclamationTriangleIcon} className="w-8 h-8 text-[rgb(var(--error-foreground))]/80 mx-auto" />
                           <p className="text-sm text-input-placeholder">{previewError}</p>
                         </div>
                       </div>
@@ -643,8 +633,8 @@ export const EngagementDetailPage: FunctionComponent<EngagementDetailPageProps> 
 
               {isSent && (
                 <>
-                  <div className="rounded-xl bg-violet-500/10 border border-violet-500/20 p-5 text-center">
-                    <p className="text-base font-bold text-violet-700 dark:text-violet-300">Sent to Client</p>
+                  <div className="rounded-xl status-info p-5 text-center">
+                    <p className="text-base font-bold text-[rgb(var(--info-foreground))]">Sent to Client</p>
                     <p className="text-xs text-input-placeholder mt-2">Awaiting client acceptance.</p>
                   </div>
                   <Button
@@ -660,8 +650,8 @@ export const EngagementDetailPage: FunctionComponent<EngagementDetailPageProps> 
               )}
 
               {isAccepted && (
-                <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/20 p-5 text-center">
-                  <p className="text-base font-bold text-emerald-700 dark:text-emerald-300">Engagement Active</p>
+                <div className="rounded-xl status-success p-5 text-center">
+                  <p className="text-base font-bold text-[rgb(var(--success-foreground))]">Engagement Active</p>
                   <p className="text-xs text-input-placeholder mt-2">
                     The client has accepted the engagement.
                   </p>
@@ -705,7 +695,7 @@ export const EngagementDetailPage: FunctionComponent<EngagementDetailPageProps> 
               {proposal?.client_summary?.non_clients && proposal.client_summary.non_clients.length > 0 && (
                 <div>
                   <h3 className="text-xs font-semibold uppercase tracking-widest text-input-placeholder mb-3">Not Represented</h3>
-                  <ul className="space-y-1 text-sm text-rose-400">
+                  <ul className="space-y-1 text-sm text-[rgb(var(--error-foreground))]">
                     {proposal.client_summary.non_clients.map((c, i) => <li key={i}>{c}</li>)}
                   </ul>
                 </div>

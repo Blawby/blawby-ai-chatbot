@@ -281,7 +281,7 @@ export const AppDetailPage = ({ app, onBack, onUpdate }: AppDetailPageProps) => 
                   size="sm"
                   disabled={!slug}
                   className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 transition-opacity bg-elevation-3 hover:bg-elevation-4 border-line-glass/30"
-                  icon={copiedScript ? <Icon icon={CheckIcon} className="w-4 h-4 text-green-500"  /> : <Icon icon={DocumentDuplicateIcon} className="w-4 h-4"  />}
+                  icon={copiedScript ? <Icon icon={CheckIcon} className="w-4 h-4 text-[rgb(var(--success-foreground))]"  /> : <Icon icon={DocumentDuplicateIcon} className="w-4 h-4"  />}
                   onClick={copySnippet}
                 >
                   {copiedScript ? t('settings:apps.copied') : t('settings:apps.copy')}
@@ -310,7 +310,7 @@ export const AppDetailPage = ({ app, onBack, onUpdate }: AppDetailPageProps) => 
                   variant="secondary"
                   size="sm"
                   className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 transition-opacity bg-elevation-3 hover:bg-elevation-4 border-line-glass/30"
-                  icon={copiedTrackingScript ? <Icon icon={CheckIcon} className="w-4 h-4 text-green-500"  /> : <Icon icon={DocumentDuplicateIcon} className="w-4 h-4"  />}
+                  icon={copiedTrackingScript ? <Icon icon={CheckIcon} className="w-4 h-4 text-[rgb(var(--success-foreground))]"  /> : <Icon icon={DocumentDuplicateIcon} className="w-4 h-4"  />}
                   onClick={copyTrackingSnippet}
                 >
                   {copiedTrackingScript ? t('settings:apps.copied') : t('settings:apps.copy')}

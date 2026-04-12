@@ -57,8 +57,8 @@ export const PendingReviewCard = ({
     >
       {/* Header row */}
       <div className="flex items-start gap-3">
-        <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-500/15">
-          <Icon icon={CheckCircleIcon} className="h-5 w-5 text-emerald-400" aria-hidden />
+        <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full status-success">
+          <Icon icon={CheckCircleIcon} className="h-5 w-5 text-[rgb(var(--success-foreground))]" aria-hidden />
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold text-input-text leading-snug">

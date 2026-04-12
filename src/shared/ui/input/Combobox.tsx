@@ -605,7 +605,7 @@ export function Combobox({
                 className={cn(
                   'w-full rounded-md bg-surface-utility/40 px-3 py-1.5 text-sm text-input-text transition-colors',
                   'placeholder:text-input-placeholder/60',
-                  'focus:outline-none focus:ring-1 focus:ring-accent-500/40',
+                  'focus:outline-none focus:ring-1 focus:ring-accent-500',
                 )}
                 aria-autocomplete="list"
                 aria-controls={listboxId}
