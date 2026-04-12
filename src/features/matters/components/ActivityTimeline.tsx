@@ -125,7 +125,7 @@ const ActivityTimeline: FunctionComponent<ActivityTimelineProps> = ({
                     
                     {/* Icon */}
                     <div className="glass-input relative flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center">
-                      <IconComponent className="w-3 h-3 text-gray-600 dark:text-gray-400" />
+                      <IconComponent className="w-3 h-3 text-input-placeholder" />
                     </div>
                     
                     {/* Content */}
@@ -134,15 +134,15 @@ const ActivityTimeline: FunctionComponent<ActivityTimelineProps> = ({
                         <h5 className="text-xs sm:text-sm font-medium text-input-text">
                           {event.title}
                         </h5>
-                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                        <span className="text-xs text-input-placeholder">
                           {formatRelativeTime(event.eventDate)}
                         </span>
                       </div>
-                      <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mt-1">
+                      <p className="text-xs sm:text-sm text-input-placeholder mt-1">
                         {event.description}
                       </p>
                       {event.actorType && (
-                        <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        <div className="text-xs text-input-placeholder mt-1">
                           by {event.actorType}
                         </div>
                       )}
@@ -153,7 +153,7 @@ const ActivityTimeline: FunctionComponent<ActivityTimelineProps> = ({
 
               {/* Empty state */}
               {!error && events.length === 0 && (
-                <div className="text-center py-6 text-gray-500 dark:text-gray-400">
+                <div className="text-center py-6 text-input-placeholder">
                   <Icon icon={ClockIcon} className="w-8 h-8 mx-auto mb-2 opacity-50"  />
                   <p className="text-sm">No activity yet</p>
                   <p className="text-xs mt-1">Activity will appear here as you use the system</p>

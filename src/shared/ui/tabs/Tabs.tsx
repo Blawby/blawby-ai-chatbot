@@ -18,7 +18,7 @@ interface TabsProps {
 export const Tabs = ({ items, activeId, onChange, className = '', actions }: TabsProps) => (
   <div className={cn('flex flex-col gap-3', className)}>
     <div className="flex flex-wrap items-center gap-3">
-    <div className="flex flex-wrap items-center gap-4 border-b border-line-glass/30" role="tablist">
+    <div className="flex flex-wrap items-center gap-4" role="tablist">
         {items.map((item) => {
           const isActive = item.id === activeId;
           return (
@@ -32,13 +32,13 @@ export const Tabs = ({ items, activeId, onChange, className = '', actions }: Tab
               className={cn(
                 'pb-2 text-sm font-medium transition-colors',
                 isActive
-                  ? 'text-input-text border-b-2 border-input-text'
-                  : 'text-gray-500 hover:text-input-text'
+                  ? 'text-input-text border-b-2 border-accent-500'
+                  : 'text-input-placeholder hover:text-input-text'
               )}
             >
               {item.label}
               {typeof item.count === 'number' && (
-                <span className="ml-2 text-xs text-gray-400">{item.count}</span>
+                <span className="ml-2 text-xs text-input-placeholder/80">{item.count}</span>
               )}
             </button>
           );

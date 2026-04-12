@@ -110,13 +110,13 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({
   };
 
   const inputClasses = cn(
-    'w-full border rounded-lg text-input-text placeholder:text-input-placeholder',
+    'w-full rounded-lg text-input-text placeholder:text-input-placeholder',
     'focus:outline-none focus:ring-2 focus:ring-offset-0 transition-colors',
     sizeClasses[size],
     icon && iconPaddingClasses[size],
     variantClasses[variant],
     disabled && 'opacity-50 cursor-not-allowed',
-    variant === 'default' ? 'glass-input' : 'bg-input-bg',
+    variant === 'default' ? 'glass-input border-none' : 'bg-input-bg border',
     className
   );
 
@@ -124,11 +124,11 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({
     if (!icon) return null;
 
     if (isIconComponent(icon)) {
-      return <Icon icon={icon} className={cn('w-4 h-4 text-gray-400 dark:text-gray-500', iconClassName)} />;
+      return <Icon icon={icon} className={cn('w-4 h-4 text-input-placeholder', iconClassName)} />;
     }
 
     return (
-      <div className="w-4 h-4 text-gray-400 dark:text-gray-500">
+      <div className="w-4 h-4 text-input-placeholder">
         {icon}
       </div>
     );
@@ -182,7 +182,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({
       )}
       
       {displayDescription && !displayError && (
-        <p id={descriptionId} className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+        <p id={descriptionId} className="mt-1 text-xs text-input-placeholder">
           {displayDescription}
         </p>
       )}

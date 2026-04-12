@@ -15,8 +15,8 @@ export const MatterListItem = ({ matter, onSelect, isSelected = false }: MatterL
 
   const rowClassName = cn(
     'w-full text-left flex items-center gap-3 px-4 py-3.5 transition-colors duration-150',
-    isSelected ? 'bg-white/5' : '',
-    isInteractive ? 'hover:bg-white/5 cursor-pointer' : 'cursor-default'
+    isSelected ? 'bg-surface-utility/60' : '',
+    isInteractive ? 'hover:bg-surface-utility/40 cursor-pointer' : 'cursor-default'
   );
 
   const content = (
@@ -24,7 +24,7 @@ export const MatterListItem = ({ matter, onSelect, isSelected = false }: MatterL
       <Avatar
         name={matter.clientName}
         size="sm"
-        className="bg-white/10 text-input-text ring-1 ring-white/20"
+        className="bg-surface-utility/40 text-input-text ring-1 ring-line-glass/20"
       />
       <div className="min-w-0 flex-1">
         <div className="flex items-start justify-between gap-3">

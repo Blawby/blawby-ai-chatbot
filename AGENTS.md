@@ -24,7 +24,6 @@ Keep Workbox/PWA navigation denylist for /api/*; index.html fallback only for do
 Greenfield app: no backward-compat/legacy support. Do not add other fallbacks or shims. Frontend + Worker proxy must speak directly to the Railway backend; surface backend errors rather than masking them.
 Fail fast: do not add fallback paths, silent catches, default substitutions, or retry-on-unknown-error logic unless explicitly requested by the user; propagate backend/runtime errors verbatim.
 For accent-colored surfaces (`bg-accent-*` / accent overlays), never hardcode foreground text colors (`text-white`, `text-gray-*`, `text-input-text`); use `text-[rgb(var(--accent-foreground))]` so contrast stays WCAG-safe across dynamic accent themes.
-Matter detail editing UX is inline-only: do not add `/edit` routes or modal edit forms; use section-level inline editing within the detail view.
 Never write .md files unless requested by the user.
 Before creating any new component, hook, or utility, search for an existing one that serves the same purpose. Extend existing abstractions rather than creating parallel ones. Canonical systems that must not be duplicated:
 - Conversation state: `useIntakeFlow` / `useSetupFlow` (patch/apply via conversation metadata)

@@ -48,12 +48,12 @@ const IntakeListItemRow = ({
   return (
     <div className={cn(
       'w-full px-4 py-3.5 text-left flex items-center gap-3 transition-colors duration-150',
-      isSelected ? 'bg-white/10' : 'hover:bg-white/[0.03]'
+      isSelected ? 'bg-surface-utility/60' : 'hover:bg-surface-utility/40'
     )}>
       <Avatar
         name={name}
         size="sm"
-        className="bg-white/10 text-input-text ring-1 ring-white/20"
+        className="bg-surface-utility/40 text-input-text ring-1 ring-line-glass/20"
       />
       <div className="min-w-0 flex-1">
         <div className="flex items-start justify-between gap-3">

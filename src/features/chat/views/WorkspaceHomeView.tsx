@@ -82,7 +82,7 @@ const WorkspaceHomeView: FunctionComponent<WorkspaceHomeViewProps> = ({
             type="button"
             onClick={onOpenRecentMessage}
             disabled={!canOpenRecentMessage}
-            className="glass-card px-5 py-5 text-left transition-all duration-300 hover:scale-[1.01] hover:bg-white/10 hover:shadow-xl active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-70"
+            className="glass-card px-5 py-5 text-left transition-all duration-300 hover:scale-[1.01] hover:bg-surface-utility/40 dark:hover:bg-white/10 hover:shadow-xl active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-70"
             aria-label={t('workspace.home.recentMessage')}
           >
             <div className="text-xs font-semibold uppercase tracking-wide text-input-placeholder">
@@ -93,7 +93,7 @@ const WorkspaceHomeView: FunctionComponent<WorkspaceHomeViewProps> = ({
                 src={recentMessage.avatarSrc ?? null}
                 name={recentMessage.senderLabel}
                 size="md"
-                className="ring-2 ring-white/10"
+                className="ring-2 ring-line-glass/10"
               />
               <div className="min-w-0 flex-1">
                 <div className="flex items-center justify-between gap-3">
@@ -116,7 +116,7 @@ const WorkspaceHomeView: FunctionComponent<WorkspaceHomeViewProps> = ({
           type="button"
           onClick={onSendMessage}
           disabled={!canSendMessage}
-          className="glass-card flex w-full items-center justify-between px-6 py-5 text-left text-input-text transition-all duration-300 hover:scale-[1.01] hover:bg-white/10 hover:shadow-xl active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-70"
+          className="glass-card flex w-full items-center justify-between px-6 py-5 text-left text-input-text transition-all duration-300 hover:scale-[1.01] hover:bg-surface-utility/40 dark:hover:bg-white/10 hover:shadow-xl active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-70"
           aria-label={t('workspace.home.sendMessage')}
         >
           <span className="text-lg font-bold tracking-tight">{t('workspace.home.sendMessage')}</span>

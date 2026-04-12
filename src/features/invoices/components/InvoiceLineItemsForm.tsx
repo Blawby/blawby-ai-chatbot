@@ -148,7 +148,7 @@ export const InvoiceLineItemsForm = ({ lineItems, onChange, billingIncrementMinu
       </div>
 
       {lineItems.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-line-glass/30 p-8 text-center bg-white/[0.02]">
+        <div className="rounded-xl border border-dashed border-line-glass/30 p-8 text-center bg-surface-utility/20">
            <p className="text-sm text-input-placeholder">No line items added yet.</p>
            {!readOnly ? (
              <Button 
@@ -162,10 +162,10 @@ export const InvoiceLineItemsForm = ({ lineItems, onChange, billingIncrementMinu
            ) : null}
         </div>
       ) : (
-        <div className="overflow-hidden rounded-xl border border-line-glass/30 bg-white/[0.02]">
+        <div className="overflow-hidden rounded-xl border border-line-glass/30 bg-surface-utility/20">
           <table className="min-w-full divide-y divide-line-glass/30 text-sm">
             <thead>
-              <tr className="text-left text-xs uppercase tracking-wider text-input-placeholder bg-white/[0.03]">
+              <tr className="text-left text-xs uppercase tracking-wider text-input-placeholder bg-surface-utility/40">
                 <th className="px-5 py-3 font-medium">Description</th>
                 <th className="px-5 py-3 w-20 text-right font-medium">Qty</th>
                 <th className="px-5 py-3 w-28 text-right font-medium">Unit Price</th>
@@ -179,7 +179,7 @@ export const InvoiceLineItemsForm = ({ lineItems, onChange, billingIncrementMinu
                 const qtyFormatted = Number(item.quantity ?? 1).toFixed(billingIncrementMinutes ? 2 : 1);
                 
                 return (
-                  <tr key={item.id} className="group hover:bg-white/[0.04] transition-colors">
+                  <tr key={item.id} className="group hover:bg-surface-utility/60 transition-colors">
                     <td className="px-5 py-4">
                       <span className="font-medium text-input-text leading-tight block">
                         {item.description || (<i>No description</i>)}

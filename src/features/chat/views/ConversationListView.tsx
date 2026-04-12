@@ -2,6 +2,7 @@ import { FunctionComponent } from 'preact';
 import { useTranslation } from 'react-i18next';
 import { PaperAirplaneIcon } from '@heroicons/react/24/outline';
 import { Avatar } from '@/shared/ui/profile/atoms/Avatar';
+import { InteractiveListItem } from '@/shared/ui/layout';
 import { Button } from '@/shared/ui/Button';
 import { cn } from '@/shared/utils/cn';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
@@ -83,34 +84,32 @@ const ConversationListView: FunctionComponent<ConversationListViewProps> = ({
               const isActive = activeConversationId === conversation.id;
 
               return (
-                <button
+                <InteractiveListItem
                   key={conversation.id}
-                  type="button"
-                  className={cn(
-                    'flex w-full items-start gap-3 px-4 py-3 text-left transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50',
-                    isActive ? 'bg-white/10' : 'hover:bg-white/5'
-                  )}
                   onClick={() => onSelectConversation(conversation.id)}
+                  isSelected={isActive}
+                  padding="px-4 py-3"
+                  className="gap-3"
                 >
                   <Avatar
                     src={null}
                     name={title}
                     size="md"
-                    className="ring-2 ring-white/10"
+                    className="ring-1 ring-line-glass/10"
                   />
                   <div className="min-w-0 flex-1 space-y-1">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0 flex-1">
                         <span className={cn(
-                          'block truncate',
+                          'block truncate text-input-text',
                           chatTypography.previewName,
-                          isUnread && 'font-bold text-input-text'
+                          isUnread && 'font-bold'
                         )}>
                           {title}
                         </span>
                         <div className="mt-1 flex items-center gap-1.5">
                           {conversation.lead?.is_lead && (
-                            <span className="flex-shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700 dark:bg-amber-500/20 dark:text-amber-200">
+                            <span className="flex-shrink-0 rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-200">
                               {t('conversation.badge.lead', { defaultValue: 'Lead' })}
                             </span>
                           )}
@@ -134,7 +133,7 @@ const ConversationListView: FunctionComponent<ConversationListViewProps> = ({
                       <ChatText text={previewText} className="truncate" />
                     </div>
                   </div>
-                </button>
+                </InteractiveListItem>
               );
             })}
           </div>

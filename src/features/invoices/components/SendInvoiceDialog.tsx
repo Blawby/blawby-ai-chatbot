@@ -60,13 +60,13 @@ export const SendInvoiceDialog = ({
     >
       {/* Loading overlay */}
       {loading && (
-        <div className="absolute inset-0 z-20 flex items-center justify-center rounded-3xl bg-white/60 backdrop-blur-sm">
+        <div className="absolute inset-0 z-20 flex items-center justify-center rounded-3xl bg-surface-app-frame/60 backdrop-blur-sm">
           <LoadingSpinner size="lg" />
         </div>
       )}
 
       <DialogBody className="space-y-4">
-        <div className="rounded-xl border border-line-glass/10 bg-white/[0.03] p-4">
+        <div className="rounded-xl border border-line-glass/10 bg-surface-utility/40 dark:bg-white/[0.03] p-4">
           <p className="text-sm text-input-placeholder">Send this invoice now?</p>
           <p className="mt-1 text-base font-semibold text-input-text">
             Total due: {formatCurrency(totalAmount)}
@@ -78,7 +78,7 @@ export const SendInvoiceDialog = ({
 
         {/* Embedded invoice preview — visual confirmation before send */}
         {hasPreview && (
-          <div className="rounded-xl border border-line-glass/20 bg-gray-50 p-3 overflow-y-auto max-h-[28rem]">
+          <div className="rounded-xl border border-line-glass/20 bg-surface-workspace p-3 overflow-y-auto max-h-[28rem]">
             <InvoicePreview
               title={previewTitle ?? 'Invoice'}
               referenceLabel={previewReferenceLabel}

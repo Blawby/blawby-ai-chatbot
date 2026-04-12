@@ -85,7 +85,7 @@ export const Avatar = ({ src, name, size = 'md', className = '', bgClassName, st
 
   return (
     <div className={`${sizeClasses[size]} relative flex-shrink-0 rounded-full ${className}`}>
-      <div className={`${bgClassName ?? 'glass-input'} h-full w-full rounded-full text-input-text flex items-center justify-center overflow-hidden`}>
+      <div className={`${bgClassName ?? 'glass-input'} h-full w-full rounded-full text-input-text flex items-center justify-center overflow-hidden shadow-sm ring-1 ring-line-glass/10`}>
         {sanitizedImageUrl && !hasImgError ? (
           <img 
             src={sanitizedImageUrl} 

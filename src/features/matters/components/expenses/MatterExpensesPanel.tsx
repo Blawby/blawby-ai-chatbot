@@ -12,15 +12,15 @@ import {
   DropdownMenuTrigger
 } from '@/shared/ui/dropdown';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
-import { LoadingBlock } from '@/shared/ui/layout/LoadingBlock';
+import { LoadingBlock, PanelSectionHeader, PanelEmptyState, InteractiveListItem } from '@/shared/ui/layout';
 import type { MatterDetail, MatterExpense } from '@/features/matters/data/matterTypes';
 import { ExpenseForm, type ExpenseFormValues } from './ExpenseForm';
 
 const formatExpenseDate = (dateString: string) => format(parseISO(dateString), 'MMM d, yyyy');
 
 const statusStyles: Record<'billable' | 'nonbillable', string> = {
-  billable: 'text-green-700 bg-green-50 ring-green-600/20 dark:text-green-200 dark:bg-green-500/10',
-  nonbillable: 'text-red-700 bg-red-50 ring-red-600/20 dark:text-red-200 dark:bg-red-500/10'
+  billable: 'text-emerald-700 bg-emerald-50 ring-emerald-600/20 dark:text-emerald-200 dark:bg-emerald-500/10',
+  nonbillable: 'text-rose-700 bg-rose-50 ring-rose-600/20 dark:text-rose-200 dark:bg-rose-500/10'
 };
 
 interface MatterExpensesPanelProps {
@@ -173,17 +173,15 @@ export const MatterExpensesPanel = ({
 
   return (
     <section className="glass-panel">
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line-glass/30 px-6 py-4">
-        <div>
-          <h3 className="text-sm font-semibold text-input-text">Expenses</h3>
-          <p className="text-xs text-gray-500 dark:text-gray-400">
-            {sortedExpenses.length} recorded · {formatCurrency(totalExpenses)} total · {formatCurrency(billableTotal)} billable
-          </p>
-        </div>
-        <Button size="sm" icon={PlusIcon} iconClassName="h-4 w-4" onClick={openNewExpense} disabled={!canCreate}>
-          Add expense
-        </Button>
-      </header>
+      <PanelSectionHeader
+        title="Expenses"
+        subtitle={`${sortedExpenses.length} recorded · ${formatCurrency(totalExpenses)} total · ${formatCurrency(billableTotal)} billable`}
+        actions={(
+          <Button size="sm" icon={PlusIcon} iconClassName="h-4 w-4" onClick={openNewExpense} disabled={!canCreate}>
+            Add expense
+          </Button>
+        )}
+      />
 
       {error ? (
         <div className="px-6 py-6 text-sm text-red-600 dark:text-red-400">
@@ -192,24 +190,18 @@ export const MatterExpensesPanel = ({
       ) : loading && sortedExpenses.length === 0 ? (
         <LoadingBlock className="px-6 py-6" label="Loading expenses..." />
       ) : sortedExpenses.length === 0 ? (
-        <div className="px-6 py-6 text-sm text-gray-500 dark:text-gray-400">
-          No expenses yet. Add receipts, filing fees, or other costs tied to this matter.
-        </div>
+        <PanelEmptyState message="No expenses yet. Add receipts, filing fees, or other costs tied to this matter." />
       ) : (
         <ul className="divide-y divide-line-default">
           {sortedExpenses.map((expense) => {
             const statusClass = expense.billable ? statusStyles.billable : statusStyles.nonbillable;
             return (
-              <li
+              <InteractiveListItem
                 key={expense.id}
-                className="flex flex-wrap items-start justify-between gap-4 px-6 py-4 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
+                onClick={() => openEditExpense(expense)}
+                disabled={!canEdit}
               >
-                <button
-                  type="button"
-                  className="min-w-0 text-left flex-1"
-                  onClick={() => openEditExpense(expense)}
-                  disabled={!canEdit}
-                >
+                <div className="min-w-0 flex-1">
                   <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <p className="text-sm font-semibold text-input-text">
@@ -224,17 +216,17 @@ export const MatterExpensesPanel = ({
                       {expense.billable ? 'Billable' : 'Not billable'}
                     </span>
                   </div>
-                  <div className="mt-1 flex flex-wrap items-center gap-x-2 text-xs leading-5 text-gray-500 dark:text-gray-400">
+                  <div className="mt-1 flex flex-wrap items-center gap-x-2 text-xs leading-5 text-input-placeholder">
                     <span className="whitespace-nowrap">
                       Date: <time dateTime={expense.date}>{formatExpenseDate(expense.date)}</time>
                     </span>
-                    <svg viewBox="0 0 2 2" className="h-0.5 w-0.5 fill-current">
+                    <svg viewBox="0 0 2 2" className="h-0.5 w-0.5 fill-current opacity-30">
                       <circle cx="1" cy="1" r="1" />
                     </svg>
                     <span className="truncate">Amount: {formatCurrency(expense.amount)}</span>
                   </div>
                 </div>
-                </button>
+                </div>
                 {canEdit ? (
                   <div className="flex items-center gap-2">
                   <DropdownMenu>
@@ -265,7 +257,7 @@ export const MatterExpensesPanel = ({
                   </DropdownMenu>
                 </div>
                 ) : null}
-              </li>
+              </InteractiveListItem>
             );
           })}
         </ul>
@@ -290,7 +282,7 @@ export const MatterExpensesPanel = ({
               <p className="mt-3 text-sm text-red-600 dark:text-red-400">{submitError}</p>
             )}
             {isSubmitting && (
-              <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">Saving expense...</p>
+              <p className="mt-3 text-sm text-input-placeholder">Saving expense...</p>
             )}
           </DialogBody>
         </Dialog>

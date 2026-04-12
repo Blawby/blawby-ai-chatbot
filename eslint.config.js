@@ -84,6 +84,24 @@ export default [
       custom: {
         rules: {
           'loading-consistency': loadingConsistency,
+          'no-hardcoded-colors': {
+            create(context) {
+              const COLORS_REGEX = /text-white|text-black|bg-white|bg-black|gray-|zinc-|neutral-|stone-|blue-|indigo-|purple-|slate-/;
+              const MESSAGE = 'Prefer system tokens (surface-*, input-*, or accent-*) over hardcoded colors to ensure proper theme inversion.';
+              return {
+                'JSXAttribute[name.name="className"] Literal': (node) => {
+                  if (typeof node.value === 'string' && COLORS_REGEX.test(node.value)) {
+                    context.report({ node, message: MESSAGE });
+                  }
+                },
+                'JSXAttribute[name.name="className"] TemplateElement': (node) => {
+                  if (node.value.raw && COLORS_REGEX.test(node.value.raw)) {
+                    context.report({ node, message: MESSAGE });
+                  }
+                }
+              };
+            }
+          }
         },
       },
     },
@@ -133,6 +151,7 @@ export default [
 
       // Custom loading consistency rule
       'custom/loading-consistency': 'error',
+      'custom/no-hardcoded-colors': 'warn',
 
       // Project guardrails
       'no-restricted-syntax': [
@@ -140,10 +159,6 @@ export default [
         {
           selector: 'a[href^="/"]',
           message: 'Use Link or navigate()/location.route() for in-app routes instead of internal <a href="/..."> anchors'
-        },
-        {
-          selector: 'ClassExpression[class*="blue"]',
-          message: 'Avoid using blue utility classes directly - use accent color system instead'
         },
         {
           selector: 'ImportDeclaration[source.value=/LoadingIndicator/]',
@@ -154,7 +169,7 @@ export default [
           message: 'Use shared loading components from shared/ui/layout instead of redeclaring'
         },
         {
-          selector: 'JSXAttribute[name="className"][value.*="animate-spin"]',
+          selector: 'JSXAttribute[name.name="className"] > Literal[value=/animate-spin/]',
           message: 'Use LoadingSpinner component instead of inline animate-spin classes'
         }
       ],

@@ -728,7 +728,7 @@ export const EngagementDetailPage: FunctionComponent<EngagementDetailPageProps> 
         disableBackdropClick={isSubmitting}
       >
         <DialogBody className="space-y-4">
-          <div className="rounded-xl border border-line-glass/10 bg-white/[0.03] p-4">
+          <div className="rounded-xl border border-line-glass/10 bg-surface-utility/40 dark:bg-white/[0.03] p-4">
             <p className="text-sm text-input-placeholder">
               {dialogAction === 'send'
                 ? 'Once sent, the client can review the scope, fee terms, and accept online.'

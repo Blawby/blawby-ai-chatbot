@@ -32,7 +32,7 @@ const DashboardCard: FunctionComponent<DashboardCardProps> = ({ title, value, la
     }}
   >
     <div className="flex items-center justify-between">
-      <div className="w-12 h-12 rounded-2xl bg-accent-500/10 flex items-center justify-center text-accent-500 group-hover:bg-accent-500 group-hover:text-white transition-colors">
+      <div className="w-12 h-12 rounded-2xl bg-accent-500/10 flex items-center justify-center text-accent-500 group-hover:bg-accent-500 group-hover:text-[rgb(var(--accent-foreground))] transition-colors">
         <Icon className="w-6 h-6" />
       </div>
       <div className="text-right">

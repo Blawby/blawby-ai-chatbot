@@ -17,6 +17,9 @@ export { FormGrid } from './FormGrid';
 export { DetailHeader } from './DetailHeader';
 export { WorkspaceListHeader } from './WorkspaceListHeader';
 export { WorkspacePlaceholderState } from './WorkspacePlaceholderState';
+export { PanelSectionHeader } from './PanelSectionHeader';
+export { PanelEmptyState } from './PanelEmptyState';
+export { InteractiveListItem } from './InteractiveListItem';
 
 export type { IconContainerProps } from './IconContainer';
 export type { LoadingBlockProps } from './LoadingBlock';

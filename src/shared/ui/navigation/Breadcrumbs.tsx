@@ -21,7 +21,7 @@ export const Breadcrumbs = ({
 }: BreadcrumbsProps) => {
   const lastIndex = items.length - 1;
   return (
-    <nav aria-label="Breadcrumb" className={cn('flex items-center text-sm text-gray-500', className)}>
+    <nav aria-label="Breadcrumb" className={cn('flex items-center text-sm text-input-placeholder', className)}>
       <ol className="flex items-center gap-2">
         {items.map((item, index) => {
           const isLast = index === lastIndex;
@@ -29,7 +29,7 @@ export const Breadcrumbs = ({
             <button
               type="button"
               onClick={() => onNavigate?.(item.href as string)}
-              className="text-gray-600 hover:text-input-text dark:text-gray-400 dark:hover:text-gray-200"
+              className="text-input-placeholder hover:text-input-text transition-colors"
             >
               {item.label}
             </button>
@@ -39,7 +39,7 @@ export const Breadcrumbs = ({
           return (
             <li key={`${item.label}-${index}`} className="flex items-center gap-2">
               {content}
-              {!isLast && <span className="text-gray-300 dark:text-gray-600">{separator}</span>}
+              {!isLast && <span className="text-line-glass/30">{separator}</span>}
             </li>
           );
         })}

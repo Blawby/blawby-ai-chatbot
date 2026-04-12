@@ -108,7 +108,7 @@ function Chip({
         compact ? 'min-h-8 px-3 py-1 text-sm' : 'px-2 py-0.5',
         isCustom
           ? 'border-accent-500/25 bg-accent-500/12 text-accent-300'
-          : 'border-black/5 bg-black/[0.045] text-input-text dark:border-white/10 dark:bg-white/[0.08]'
+          : 'border-black/10 bg-black/5 text-input-text dark:border-white/10 dark:bg-white/[0.08]'
       )}
     >
       <span className="truncate">{label}</span>
@@ -164,8 +164,8 @@ function DropdownOption({
       className={cn(
         'group relative flex w-full items-center justify-between px-3 py-2 text-left text-sm transition-colors',
         isSelected || isFocused
-          ? 'bg-accent-500/15 text-accent-400'
-          : 'text-input-text hover:bg-white/[0.08]'
+          ? 'bg-accent-500/15 text-[rgb(var(--accent-foreground))]'
+          : 'text-input-text hover:bg-black/5 dark:hover:bg-white/[0.08]'
       )}
     >
       <span className="flex min-w-0 items-center gap-2.5">
@@ -585,13 +585,13 @@ export function Combobox({
           tabIndex={-1}
           onMouseDown={(e) => e.preventDefault()}
           className={cn(
-            'z-50 w-full overflow-hidden rounded-xl border border-white/10 bg-surface-overlay shadow-glass absolute',
+            'z-50 w-full overflow-hidden rounded-xl bg-surface-workspace border border-black/5 dark:border-white/10 shadow-glass absolute',
             hideTrigger ? 'top-0 mt-1' : (direction === 'up' ? 'bottom-full mb-1 top-auto' : 'top-full mt-1')
           )}
         >
           {/* Search input */}
           {searchable && (
-            <div className="border-b border-white/[0.06] px-2 py-2">
+            <div className="border-b border-black/5 dark:border-white/[0.06] px-2 py-2">
               <input
                 ref={inputRef}
                 type="text"
@@ -603,7 +603,7 @@ export function Combobox({
                 }}
                 onKeyDown={handleKeyDown}
                 className={cn(
-                  'w-full rounded-md bg-white/[0.06] px-3 py-1.5 text-sm text-input-text',
+                  'w-full rounded-md bg-black/5 dark:bg-white/[0.06] px-3 py-1.5 text-sm text-input-text',
                   'placeholder:text-input-placeholder/60',
                   'focus:outline-none focus:ring-1 focus:ring-accent-500/50',
                 )}
@@ -630,8 +630,8 @@ export function Combobox({
                 className={cn(
                   'flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm transition-colors',
                   clampedFocus === 0
-                    ? 'bg-accent-500/15 text-accent-400'
-                    : 'text-input-text hover:bg-white/[0.08]'
+                    ? 'bg-accent-500/15 text-[rgb(var(--accent-foreground))]'
+                    : 'text-input-text hover:bg-black/5 dark:hover:bg-white/[0.08]'
                 )}
               >
                 <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded bg-accent-500/20 text-accent-400">
@@ -645,7 +645,7 @@ export function Combobox({
             )}
 
             {showAddRow && filteredOptions.length > 0 && (
-              <div className="my-1 border-t border-white/[0.06]" />
+              <div className="my-1 border-t border-black/5 dark:border-white/[0.06]" />
             )}
 
             {filteredOptions.map((option, index) => {

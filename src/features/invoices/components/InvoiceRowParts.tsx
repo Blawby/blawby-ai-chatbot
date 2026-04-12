@@ -65,7 +65,7 @@ export const InvoiceStatusActions = ({
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          className="rounded-md p-1 text-input-placeholder transition-colors hover:bg-white/[0.06] hover:text-input-text"
+          className="rounded-md p-1 text-input-placeholder transition-colors hover:bg-surface-utility/40 hover:text-input-text"
           aria-label="Invoice actions"
           disabled={hasPendingAction}
           onClick={(event) => event.stopPropagation()}

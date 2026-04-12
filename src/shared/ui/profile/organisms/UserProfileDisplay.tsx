@@ -153,7 +153,7 @@ export const UserProfileDisplay = ({
   // Handle session fetch errors
   if (error) {
     return (
-      <div className={`p-2 border-t border-line-glass/30`}>
+      <div className="p-2 w-full">
         <div className={`flex items-center ${isCollapsed ? 'justify-center py-2' : 'gap-3 px-3 py-2'}`}>
           <Avatar 
             src={null} 
@@ -179,10 +179,10 @@ export const UserProfileDisplay = ({
 
   if (!user) {
     return (
-      <div className={`p-2 border-t border-line-glass/30`}>
+      <div className="p-2 w-full">
         <button
           onClick={handleSignIn}
-          className={`flex items-center w-full rounded-lg text-left transition-colors text-input-text hover:bg-white/[0.08] ${
+          className={`flex items-center w-full rounded-lg text-left transition-colors text-input-text hover:bg-black/5 dark:hover:bg-white/[0.08] ${
             isCollapsed 
               ? 'justify-center py-2' 
               : 'gap-3 px-3 py-2'
@@ -203,7 +203,7 @@ export const UserProfileDisplay = ({
   }
 
   return (
-    <div className={`p-2 border-t border-line-glass/30 w-full overflow-visible`}>
+    <div className="p-2 w-full overflow-visible">
       <div className="relative w-full max-w-full" ref={dropdownRef}>
         <ProfileButton
           name={user.name}
