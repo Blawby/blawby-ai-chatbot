@@ -10,9 +10,7 @@ export type EngagementStatus =
   | 'engagement_sent'
   | 'engagement_accepted'
   | 'active'
-  // Legacy / catch-all:
-  | 'intake_accepted'
-  | string;
+  | 'intake_accepted';
 
 // ── Conflict / Jurisdiction ────────────────────────────────────────────────────
 
@@ -77,7 +75,6 @@ export interface EngagementListItem {
   client_name?: string | null;
   client_email?: string | null;
   practice_area?: string | null;
-  engagement_status?: EngagementStatus | null;
   proposal_data?: ProposalData | null;
   conversation_id?: string | null;
   organization_id: string;

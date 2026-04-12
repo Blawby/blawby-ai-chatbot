@@ -383,14 +383,12 @@ function ClientEngagementReviewRoute({
   if (!resolvedPracticeId) return <LoadingScreen />;
 
   return (
-    <ToastProvider>
-      <ClientEngagementReviewPage
-        practiceId={resolvedPracticeId}
-        engagementId={engagementId}
-        practiceName={practiceConfig.name || slug}
-        conversationsBasePath={conversationsBasePath}
-      />
-    </ToastProvider>
+    <ClientEngagementReviewPage
+      practiceId={resolvedPracticeId}
+      engagementId={engagementId}
+      practiceName={practiceConfig.name || slug}
+      conversationsBasePath={conversationsBasePath}
+    />
   );
 }
 

@@ -31,6 +31,7 @@ export interface PendingReviewCardProps {
 const formatSubmittedAt = (iso: string): string => {
   try {
     const date = new Date(iso);
+    if (isNaN(date.getTime())) return '';
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   } catch {
     return '';

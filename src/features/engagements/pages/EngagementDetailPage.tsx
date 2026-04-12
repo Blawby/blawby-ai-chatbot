@@ -401,7 +401,7 @@ export const EngagementDetailPage: FunctionComponent<EngagementDetailPageProps> 
     if (isSubmitting || !engagement) return;
     setIsSubmitting(true);
     try {
-      await sendEngagementToClient(engagement.id);
+      await sendEngagementToClient(engagement.id, dialogNote);
       if (isMountedRef.current) {
         setLocalStatus('engagement_sent');
         setEngagement((prev) => prev ? { ...prev, status: 'engagement_sent' } : prev);

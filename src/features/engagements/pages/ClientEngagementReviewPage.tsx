@@ -25,6 +25,7 @@ import { Icon } from '@/shared/ui/Icon';
 import { Button } from '@/shared/ui/Button';
 import { LoadingBlock } from '@/shared/ui/layout/LoadingBlock';
 import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
+import { cn } from '@/shared/utils/cn';
 import { useNavigation } from '@/shared/utils/navigation';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { formatLongDate } from '@/shared/utils/dateFormatter';
@@ -61,7 +62,7 @@ const ReviewCard: FunctionComponent<{
 // ── Scope section ─────────────────────────────────────────────────────────────
 
 const ScopeSection: FunctionComponent<{ proposal: ProposalData }> = ({ proposal }) => {
-  const { scope_summary, included_services, excluded_services } = proposal.representation;
+  const { scope_summary, included_services, excluded_services } = proposal.representation ?? {};
   return (
     <ReviewCard title="What We Will Handle" icon={BriefcaseIcon}>
       <p className="text-base text-input-text leading-relaxed">{scope_summary}</p>
@@ -143,7 +144,7 @@ const PartiesSection: FunctionComponent<{ proposal: ProposalData; practiceName: 
   proposal,
   practiceName,
 }) => {
-  const { client_name, co_clients, non_clients } = proposal.client_summary;
+  const { client_name, co_clients, non_clients } = proposal.client_summary ?? {};
   const hasParties = client_name || (co_clients && co_clients.length > 0) || (non_clients && non_clients.length > 0);
   if (!hasParties) return null;
 
@@ -223,11 +224,14 @@ export const ClientEngagementReviewPage: FunctionComponent<ClientEngagementRevie
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isAccepting, setIsAccepting] = useState(false);
   const [accepted, setAccepted] = useState(false);
-  const isMountedRef = useRef(true);
+  const navigationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     isMountedRef.current = true;
-    return () => { isMountedRef.current = false; };
+    return () => {
+      isMountedRef.current = false;
+      if (navigationTimeoutRef.current) clearTimeout(navigationTimeoutRef.current);
+    };
   }, []);
 
   useEffect(() => {
@@ -265,8 +269,10 @@ export const ClientEngagementReviewPage: FunctionComponent<ClientEngagementRevie
         setAccepted(true);
         showSuccess('Accepted!', 'Your engagement has been confirmed. Opening your conversation…');
         if (engagement.conversation_id && conversationsBasePath) {
-          setTimeout(() => {
-            navigate(`${conversationsBasePath}/${encodeURIComponent(engagement.conversation_id!)}`);
+          navigationTimeoutRef.current = setTimeout(() => {
+            if (isMountedRef.current) {
+              navigate(`${conversationsBasePath}/${encodeURIComponent(engagement.conversation_id!)}`);
+            }
           }, 1200);
         }
       }
@@ -317,8 +323,13 @@ export const ClientEngagementReviewPage: FunctionComponent<ClientEngagementRevie
             <p className="text-xs text-input-placeholder font-medium">{practiceName}</p>
             <h1 className="text-base font-bold text-input-text">Engagement Review</h1>
           </div>
-          <span className="inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ring-1 ring-inset bg-violet-500/10 text-violet-700 ring-violet-500/20 dark:text-violet-300">
-            Pending your review
+          <span className={cn(
+            "inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ring-1 ring-inset",
+            accepted 
+              ? "bg-emerald-500/10 text-emerald-700 ring-emerald-500/20 dark:text-emerald-300"
+              : "bg-violet-500/10 text-violet-700 ring-violet-500/20 dark:text-violet-300"
+          )}>
+            {accepted ? 'Accepted' : 'Pending your review'}
           </span>
         </div>
       </header>

@@ -7,7 +7,7 @@ export const MATTER_WORKFLOW_STATUSES = [
   'referred',
   'consultation_scheduled',
   'declined',
-  // Engagement lifecycle (intake_accepted → engagement_draft → engagement_sent → engagement_accepted → active)
+  // Engagement lifecycle (intake_accepted → engagement_draft → engagement_sent → engagement_accepted → engagement_pending → active)
   'intake_accepted',
   'engagement_draft',
   'engagement_sent',

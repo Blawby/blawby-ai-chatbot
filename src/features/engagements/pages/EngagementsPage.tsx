@@ -124,7 +124,7 @@ export const EngagementsPage: FunctionComponent<EngagementsPageProps> = ({
       if (!practiceId) return { items: [], hasMore: false };
       const result = await listEngagements(
         practiceId,
-        { page, limit: PAGE_SIZE },
+        { page, limit: PAGE_SIZE, status: activeStatusFilter || undefined },
         { signal }
       );
       return {

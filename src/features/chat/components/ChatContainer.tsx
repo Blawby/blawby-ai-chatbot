@@ -503,7 +503,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
                       practiceName={practiceConfig?.name}
                       submittedAt={intakeStatus.submittedAt}
                       paymentRequired={intakeStatus.paymentRequired && !intakeStatus.paymentReceived}
-                      compact={layoutMode === 'widget'}
+                      compact={isWidgetMode}
                     />
                   </div>
                 ) : (

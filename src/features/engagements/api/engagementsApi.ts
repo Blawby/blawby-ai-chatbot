@@ -57,11 +57,15 @@ export async function listEngagements(
     (item) => ENGAGEMENT_STATUSES.includes(item.status as EngagementStatus)
   );
 
+  const total = engagementItems.length;
+  const page_size = (params.page_size ?? params.pageSize ?? total) || 1;
+  const total_pages = Math.max(1, Math.ceil(total / page_size));
+
   return {
     items: engagementItems,
-    total: typeof data.total === 'number' ? data.total : engagementItems.length,
+    total,
     page: typeof data.page === 'number' ? data.page : (params.page ?? 1),
-    total_pages: typeof data.total_pages === 'number' ? data.total_pages : 1,
+    total_pages,
   };
 }
 
@@ -124,6 +128,7 @@ export async function patchEngagementProposal(
 
 export async function sendEngagementToClient(
   matterId: string,
+  note?: string,
   options: { signal?: AbortSignal } = {}
 ): Promise<EngagementDetail> {
   if (!matterId) throw new Error('matterId is required');
@@ -133,7 +138,7 @@ export async function sendEngagementToClient(
     credentials: 'include',
     signal: options.signal,
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({}),
+    body: JSON.stringify({ note }),
   });
 
   if (!res.ok) {
@@ -206,7 +211,7 @@ export async function overrideConflictCheck(
   options: { signal?: AbortSignal } = {}
 ): Promise<void> {
   if (!matterId) throw new Error('matterId is required');
-  if (!payload.override_reason.trim()) throw new Error('override_reason is required');
+  if (!payload.override_reason?.trim()) throw new Error('override_reason is required');
 
   const res = await fetch(`/api/matters/${encodeSegment(matterId)}/conflict-override`, {
     method: 'POST',
