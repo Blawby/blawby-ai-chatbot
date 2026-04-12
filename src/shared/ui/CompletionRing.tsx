@@ -19,9 +19,9 @@ export const CompletionRing: FunctionComponent<CompletionRingProps> = ({
   const offset = circumference - (Math.min(100, Math.max(0, score)) / 100) * circumference;
 
   const color = useMemo(() => {
-    if (score < 40) return 'rgb(239, 68, 68)'; // red-500
-    if (score < 80) return 'rgb(245, 158, 11)'; // amber-500
-    return 'rgb(34, 197, 94)'; // green-500
+    if (score < 40) return 'rgb(var(--error-foreground))';
+    if (score < 80) return 'rgb(var(--warning-foreground))';
+    return 'rgb(var(--success-foreground))';
   }, [score]);
 
   return (
