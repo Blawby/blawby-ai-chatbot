@@ -11,6 +11,7 @@ type WorkspaceView =
   | 'conversation'
   | 'intakes'
   | 'intakeDetail'
+  | 'engagements'
   | 'matters'
   | 'clients'
   | 'invoices'

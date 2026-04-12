@@ -16,6 +16,7 @@ import { isIntakeSubmittable } from '@/shared/utils/consultationState';
 import { getChatPatterns } from '../config/chatPatterns';
 import type { OnboardingActions } from './VirtualMessageList';
 import { ChatActionCard } from './ChatActionCard';
+import { PendingReviewCard } from './PendingReviewCard';
 import { features } from '@/config/features';
 
 export interface ChatContainerProps {
@@ -65,6 +66,7 @@ export interface ChatContainerProps {
     step: string;
     decision?: string;
     intakeUuid?: string | null;
+    submittedAt?: string | null;
     paymentRequired?: boolean;
     paymentReceived?: boolean;
   };
@@ -495,32 +497,43 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
               />
 
               {(!showAuthPrompt && !shouldShowSlimForm) && (
-                <MessageComposer
-                  inputValue={inputValue}
-                  setInputValue={setInputValue}
-                  previewFiles={previewFiles}
-                  uploadingFiles={uploadingFiles}
-                  removePreviewFile={removePreviewFile}
-                  handleFileSelect={handleFileSelect}
-                  handleCameraCapture={handleCameraCapture}
-                  cancelUpload={cancelUpload}
-                  isRecording={isRecording}
-                  handleMediaCapture={handleMediaCapture}
-                  setIsRecording={setIsRecording}
-                  onSubmit={handleSubmit}
-                  onKeyDown={handleKeyDown}
-                  textareaRef={textareaRef}
-                  isReadyToUpload={isReadyToUpload}
-                  isSessionReady={isSessionReady}
-                  isSocketReady={isSocketReady}
-                  intakeStatus={isPublicWorkspace ? intakeStatus : undefined}
-                  disabled={composerDisabled || (isPublicWorkspace && intakeStatus?.step === 'contact_form_slim')}
-                  replyTo={replyTarget}
-                  onCancelReply={handleCancelReply}
-                  mentionCandidates={mentionCandidates}
-                  hideAttachmentControls={!features.enableFileAttachments}
-                  isPublicWorkspace={isPublicWorkspace}
-                />
+                intakeStatus?.step === 'pending_review' ? (
+                  <div className="px-4 pb-4">
+                    <PendingReviewCard
+                      practiceName={practiceConfig?.name}
+                      submittedAt={intakeStatus.submittedAt}
+                      paymentRequired={intakeStatus.paymentRequired && !intakeStatus.paymentReceived}
+                      compact={layoutMode === 'widget'}
+                    />
+                  </div>
+                ) : (
+                  <MessageComposer
+                    inputValue={inputValue}
+                    setInputValue={setInputValue}
+                    previewFiles={previewFiles}
+                    uploadingFiles={uploadingFiles}
+                    removePreviewFile={removePreviewFile}
+                    handleFileSelect={handleFileSelect}
+                    handleCameraCapture={handleCameraCapture}
+                    cancelUpload={cancelUpload}
+                    isRecording={isRecording}
+                    handleMediaCapture={handleMediaCapture}
+                    setIsRecording={setIsRecording}
+                    onSubmit={handleSubmit}
+                    onKeyDown={handleKeyDown}
+                    textareaRef={textareaRef}
+                    isReadyToUpload={isReadyToUpload}
+                    isSessionReady={isSessionReady}
+                    isSocketReady={isSocketReady}
+                    intakeStatus={isPublicWorkspace ? intakeStatus : undefined}
+                    disabled={composerDisabled || (isPublicWorkspace && intakeStatus?.step === 'contact_form_slim')}
+                    replyTo={replyTarget}
+                    onCancelReply={handleCancelReply}
+                    mentionCandidates={mentionCandidates}
+                    hideAttachmentControls={!features.enableFileAttachments}
+                    isPublicWorkspace={isPublicWorkspace}
+                  />
+                )
               )}
             </div>
           </div>

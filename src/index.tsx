@@ -12,6 +12,7 @@ import DebugDialogsPage from '@/pages/DebugDialogsPage';
 import DebugChatPage from '@/pages/DebugChatPage';
 import DebugConversationsPage from '@/pages/DebugConversationsPage';
 import DebugMatterPage from '@/pages/DebugMatterPage';
+import { ClientEngagementReviewPage } from '@/features/engagements/pages/ClientEngagementReviewPage';
 import { SEOHead } from '@/app/SEOHead';
 import { ToastProvider } from '@/shared/contexts/ToastContext';
 import { SessionProvider, useSessionContext } from '@/shared/contexts/SessionContext';
@@ -263,6 +264,7 @@ function AppShell() {
           <Route path="/client/:practiceSlug/conversations/:conversationId" component={ClientPracticeRoute} workspaceView="conversation" />
           <Route path="/client/:practiceSlug/matters" component={ClientPracticeRoute} workspaceView="matters" />
           <Route path="/client/:practiceSlug/matters/*" component={ClientPracticeRoute} workspaceView="matters" />
+          <Route path="/client/:practiceSlug/engagements/:engagementId/review" component={ClientEngagementReviewRoute} />
           <Route path="/client/:practiceSlug/invoices" component={ClientPracticeRoute} workspaceView="invoices" />
           <Route path="/client/:practiceSlug/invoices/:invoiceId" component={ClientPracticeRoute} workspaceView="invoiceDetail" />
           <Route path="/client/:practiceSlug/settings" component={ClientPracticeRoute} workspaceView="settings" settingsView="general" />
@@ -290,6 +292,8 @@ function AppShell() {
           <Route path="/practice/:practiceSlug/matters/*" component={PracticeAppRoute} workspaceView="matters" />
           <Route path="/practice/:practiceSlug/intakes" component={PracticeAppRoute} workspaceView="intakes" />
           <Route path="/practice/:practiceSlug/intakes/:intakeId" component={PracticeAppRoute} workspaceView="intakeDetail" />
+          <Route path="/practice/:practiceSlug/engagements" component={PracticeAppRoute} workspaceView="engagements" />
+          <Route path="/practice/:practiceSlug/engagements/:engagementId" component={PracticeAppRoute} workspaceView="engagements" />
           <Route path="/practice/:practiceSlug/reports" component={PracticeAppRoute} workspaceView="reports" />
           <Route path="/practice/:practiceSlug/reports/*" component={PracticeAppRoute} workspaceView="reports" />
           <Route path="/practice/:practiceSlug/invoices" component={PracticeAppRoute} workspaceView="invoices" />
@@ -336,6 +340,57 @@ function RouteLoadError({
         Retry
       </button>
     </div>
+  );
+}
+
+/**
+ * Client engagement review route.
+ * Route: /client/:practiceSlug/engagements/:engagementId/review
+ *
+ * No magic link — client is already authenticated from the intake invite flow.
+ * Standard auth redirects apply if unauthenticated.
+ */
+function ClientEngagementReviewRoute({
+  practiceSlug,
+  engagementId,
+}: {
+  practiceSlug?: string;
+  engagementId?: string;
+}) {
+  const { session, isPending: sessionIsPending } = useSessionContext();
+  const { resolvePracticeBySlug, practicesLoading } = useWorkspaceResolver();
+  const handlePracticeError = useCallback((error: string) => {
+    console.error('Practice config error (engagement review):', error);
+  }, []);
+
+  const slug = (practiceSlug ?? '').trim();
+  const slugPractice = resolvePracticeBySlug(slug);
+  const practiceIdCandidate = slugPractice?.id ?? slug ?? '';
+
+  const { practiceConfig, isLoading: configLoading } = usePracticeConfig({
+    onError: handlePracticeError,
+    practiceId: practicesLoading ? '' : practiceIdCandidate,
+    allowUnauthenticated: false,
+  });
+
+  const resolvedPracticeId = (typeof practiceConfig.id === 'string' ? practiceConfig.id : '') || slugPractice?.id || '';
+
+  const conversationsBasePath = slug ? `/client/${encodeURIComponent(slug)}/conversations` : null;
+
+  if (sessionIsPending || configLoading || practicesLoading) return <LoadingScreen />;
+  if (!slug || !engagementId) return <App404 />;
+  if (!session?.user) return <AuthPage />;
+  if (!resolvedPracticeId) return <LoadingScreen />;
+
+  return (
+    <ToastProvider>
+      <ClientEngagementReviewPage
+        practiceId={resolvedPracticeId}
+        engagementId={engagementId}
+        practiceName={practiceConfig.name || slug}
+        conversationsBasePath={conversationsBasePath}
+      />
+    </ToastProvider>
   );
 }
 
@@ -398,7 +453,7 @@ function PracticeAppRoute({
   conversationId?: string;
   invoiceId?: string;
   appId?: string;
-  workspaceView?: 'home' | 'setup' | 'list' | 'conversation' | 'intakes' | 'intakeDetail' | 'matters' | 'clients' | 'invoices' | 'invoiceCreate' | 'invoiceEdit' | 'invoiceDetail' | 'reports' | 'settings';
+  workspaceView?: 'home' | 'setup' | 'list' | 'conversation' | 'intakes' | 'intakeDetail' | 'engagements' | 'matters' | 'clients' | 'invoices' | 'invoiceCreate' | 'invoiceEdit' | 'invoiceDetail' | 'reports' | 'settings';
   settingsView?: 'general' | 'notifications' | 'account' | 'practice' | 'practice-payouts' | 'practice-services' | 'practice-team' | 'practice-pricing' | 'apps' | 'app-detail' | 'security' | 'help';
   practiceSlug?: string;
 }) {

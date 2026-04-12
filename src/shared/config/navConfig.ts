@@ -1,5 +1,6 @@
 import type { ComponentType, JSX } from 'preact';
 import {
+  BriefcaseIcon,
   ChartBarIcon,
   ChatBubbleOvalLeftEllipsisIcon,
   ClipboardDocumentListIcon,
@@ -121,6 +122,13 @@ const buildPracticeRail = (basePath: string): NavRailItem[] => [
     icon: InboxStackIcon,
     href: `${basePath}/intakes`,
     matchHrefs: [`${basePath}/intakes`],
+  },
+  {
+    id: 'engagements',
+    label: 'Engagements',
+    icon: BriefcaseIcon,
+    href: `${basePath}/engagements`,
+    matchHrefs: [`${basePath}/engagements`],
   },
   {
     id: 'matters',
