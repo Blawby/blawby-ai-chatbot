@@ -132,9 +132,7 @@ const US_STATE_CODES = [
 ];
 
 const extractUsStates = (details: PracticeDetails | null): string[] => {
-  if (!details?.supportedStates) return [];
-  const usEntry = details.supportedStates.find((e) => e.country === 'US');
-  return usEntry?.states ?? [];
+  return details?.serviceStates ?? [];
 };
 
 const formatAddressSummary = (data: OnboardingDetails) => {
@@ -562,10 +560,7 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
     // TagInput's normalizeTag already uppercases tags; filter here to guard
     // against any state that slipped through without a valid US code.
     const validStates = licensedStatesDraft.filter((s) => US_STATE_CODES.includes(s));
-    const supportedStates = validStates.length > 0
-      ? [{ country: 'US', states: validStates }]
-      : [];
-    const { detailsPayload } = buildPracticeProfilePayloads({ supportedStates });
+    const { detailsPayload } = buildPracticeProfilePayloads({ serviceStates: validStates });
     setIsSettingsSaving(true);
     try {
       await updateDetails(detailsPayload);

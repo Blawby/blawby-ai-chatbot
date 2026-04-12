@@ -19,6 +19,7 @@ export type PracticeProfileInput = {
   accentColor?: string | null;
   isPublic?: boolean;
   services?: Array<Record<string, unknown>> | null;
+  serviceStates?: string[] | null;
   supportedStates?: SupportedStateEntry[] | null;
 };
 
@@ -148,6 +149,10 @@ export const buildPracticeProfilePayloads = (
 
   if (Array.isArray(input.services)) {
     detailsPayload.services = input.services;
+  }
+
+  if (input.serviceStates !== undefined) {
+    detailsPayload.serviceStates = input.serviceStates;
   }
 
   if (input.supportedStates !== undefined) {

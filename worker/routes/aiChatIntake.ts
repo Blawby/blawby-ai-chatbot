@@ -789,26 +789,13 @@ const buildCompactPracticeContextForPrompt = (
     compact.services = normalizeServicesForPrompt(normalized);
   }
 
-  const rawSupportedStates = normalized.supported_states ?? normalized.supportedStates;
-  if (Array.isArray(rawSupportedStates) && rawSupportedStates.length > 0) {
-    const footprintParts: string[] = [];
-    for (const entry of rawSupportedStates) {
-      if (!entry || typeof entry !== 'object') continue;
-      const entryRecord = entry as Record<string, unknown>;
-      const country = typeof entryRecord.country === 'string' ? entryRecord.country.trim() : '';
-      const states = Array.isArray(entryRecord.states)
-        ? (entryRecord.states as unknown[])
-            .filter((s): s is string => typeof s === 'string' && s.trim().length > 0)
-            .map((s) => s.trim())
-        : [];
-      if (states.length > 0) {
-        footprintParts.push(`${states.join(', ')} (${country})`);
-      } else if (country) {
-        footprintParts.push(country);
-      }
-    }
-    if (footprintParts.length > 0) {
-      compact.licensedJurisdictions = footprintParts.join('; ');
+  const rawServiceStates = normalized.service_states ?? normalized.serviceStates;
+  if (Array.isArray(rawServiceStates)) {
+    const states = rawServiceStates
+      .filter((state): state is string => typeof state === 'string' && state.trim().length > 0)
+      .map((state) => state.trim().toUpperCase());
+    if (states.length > 0) {
+      compact.licensedJurisdictions = `${states.join(', ')} (US)`;
     }
   }
 
