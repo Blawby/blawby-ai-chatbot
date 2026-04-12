@@ -58,7 +58,7 @@ function statusLabel(status?: string) {
   if (status === 'engagement_pending') return 'Under review';
   if (status === 'engagement_accepted') return 'Client accepted';
   if (status === 'active') return 'Active';
-  if (status === 'withdrawn') return 'Withdrawn';
+  if (status === 'engagement_withdrawn') return 'Withdrawn';
   return status ?? 'Unknown';
 }
 
@@ -405,10 +405,10 @@ export const EngagementDetailPage: FunctionComponent<EngagementDetailPageProps> 
     if (isSubmitting || !engagement) return;
     setIsSubmitting(true);
     try {
-      await sendEngagementToClient(engagement.id, dialogNote);
+      const updated = await sendEngagementToClient(engagement.id, dialogNote);
       if (isMountedRef.current) {
-        setLocalStatus('engagement_sent');
-        setEngagement((prev) => prev ? { ...prev, status: 'engagement_sent' } : prev);
+        setEngagement(updated);
+        setLocalStatus(updated.status);
         setDialogAction(null);
         setDialogNote('');
         showSuccess('Sent to client', 'The engagement proposal has been sent to the client for review.');
@@ -427,10 +427,10 @@ export const EngagementDetailPage: FunctionComponent<EngagementDetailPageProps> 
     if (isSubmitting || !engagement) return;
     setIsSubmitting(true);
     try {
-      await withdrawEngagement(engagement.id);
+      const updated = await withdrawEngagement(engagement.id);
       if (isMountedRef.current) {
-        setLocalStatus('engagement_draft');
-        setEngagement((prev) => prev ? { ...prev, status: 'engagement_draft' } : prev);
+        setEngagement(updated);
+        setLocalStatus(updated.status);
         setDialogAction(null);
         setDialogNote('');
         showSuccess('Withdrawn', 'The proposal has been withdrawn.');

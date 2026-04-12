@@ -34,6 +34,8 @@ import { normalizePracticeRole } from '@/shared/utils/practiceRoles';
 import { LoadingScreen } from '@/shared/ui/layout/LoadingScreen';
 import { resolvePracticeSetupStatus } from '@/features/practice-setup/utils/status';
 import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
+import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
+import { WorkspacePlaceholderState } from '@/shared/ui/layout/WorkspacePlaceholderState';
 import './index.css';
 import { i18n, initI18n } from '@/shared/i18n';
 import { initializeAccentColor } from '@/shared/utils/accentColors';
@@ -367,7 +369,7 @@ function ClientEngagementReviewRoute({
   const slugPractice = resolvePracticeBySlug(slug);
   const practiceIdCandidate = slugPractice?.id ?? slug ?? '';
 
-  const { practiceConfig, isLoading: configLoading } = usePracticeConfig({
+  const { practiceConfig, isLoading: configLoading, practiceNotFound, loadError, handleRetryPracticeConfig } = usePracticeConfig({
     onError: handlePracticeError,
     practiceId: practicesLoading ? '' : practiceIdCandidate,
     allowUnauthenticated: false,
@@ -378,7 +380,20 @@ function ClientEngagementReviewRoute({
   const conversationsBasePath = slug ? `/client/${encodeURIComponent(slug)}/conversations` : null;
 
   if (sessionIsPending || configLoading || practicesLoading) return <LoadingScreen />;
-  if (!slug || !engagementId) return <App404 />;
+  if (practiceNotFound || !slug || !engagementId) return <App404 />;
+  if (loadError) {
+    return (
+      <WorkspacePlaceholderState
+        icon={ExclamationTriangleIcon}
+        title="Failed to load practice"
+        description={loadError}
+        primaryAction={{
+          label: 'Retry',
+          onClick: handleRetryPracticeConfig,
+        }}
+      />
+    );
+  }
   if (!session?.user) return <AuthPage />;
   if (!resolvedPracticeId) return <LoadingScreen />;
 

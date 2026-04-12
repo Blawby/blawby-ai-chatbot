@@ -35,15 +35,27 @@ export async function listEngagements(
   if (!practiceId) throw new Error('practiceId is required');
 
   const requestedPage = Math.max(1, params.page ?? 1);
-  const requestedLimit = params.limit ?? 20;
-  const allowedStatuses = params.status && params.status.length > 0 
-    ? new Set(params.status) 
-    : new Set(ENGAGEMENT_STATUSES);
+  const requestedLimit = Math.max(1, params.limit ?? 20);
+
+  const engagementStatuses = new Set<string>(ENGAGEMENT_STATUSES);
+  const requestedStatuses = params.status && params.status.length > 0
+    ? params.status.filter((s): s is EngagementStatus => engagementStatuses.has(s))
+    : ENGAGEMENT_STATUSES;
+
+  const invalidStatuses = params.status && params.status.length > 0
+    ? params.status.filter((s) => !engagementStatuses.has(s))
+    : [];
+
+  if (invalidStatuses.length > 0) {
+    throw new Error(`Invalid engagement status filter: ${invalidStatuses.join(', ')}`);
+  }
+
+  const allowedStatuses = new Set<string>(requestedStatuses);
 
   const baseQuery = new URLSearchParams();
   baseQuery.set('limit', String(requestedLimit));
-  if (params.status && params.status.length > 0) {
-    params.status.forEach((s) => baseQuery.append('status', s));
+  if (requestedStatuses.length > 0) {
+    requestedStatuses.forEach((s) => baseQuery.append('status', s));
   }
 
   const filteredItems: EngagementListItem[] = [];

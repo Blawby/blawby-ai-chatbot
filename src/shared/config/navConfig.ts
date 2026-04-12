@@ -18,7 +18,7 @@ export type NavCtx = {
   canAccessPractice: boolean;
 };
 
-export type WorkspaceSection = 'home' | 'conversations' | 'intakes' | 'matters' | 'invoices' | 'reports' | 'settings';
+export type WorkspaceSection = 'home' | 'conversations' | 'intakes' | 'engagements' | 'matters' | 'invoices' | 'reports' | 'settings';
 
 export type NavRailItem = {
   id: string;
@@ -368,6 +368,8 @@ const buildSecondary = (basePath: string, section: WorkspaceSection, workspace: 
       return buildSettingsSecondary(basePath, canAccessPractice);
     case 'home':
       return buildHomeSecondary(basePath, workspace);
+    case 'engagements':
+      return undefined;
     default:
       return undefined;
   }
