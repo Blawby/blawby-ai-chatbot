@@ -9,6 +9,7 @@ export type EngagementStatus =
   | 'engagement_draft'
   | 'engagement_sent'
   | 'engagement_accepted'
+  | 'engagement_pending'
   | 'active'
   | 'intake_accepted';
 

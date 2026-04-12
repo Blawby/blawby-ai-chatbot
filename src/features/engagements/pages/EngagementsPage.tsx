@@ -31,6 +31,7 @@ const ENGAGEMENT_STATUS_CHIP: Record<string, string> = {
   intake_accepted:    'bg-blue-500/10 text-blue-700 ring-blue-500/20 dark:text-blue-300',
   engagement_draft:   'bg-amber-500/10 text-amber-700 ring-amber-500/20 dark:text-amber-300',
   engagement_sent:    'bg-violet-500/10 text-violet-700 ring-violet-500/20 dark:text-violet-300',
+  engagement_pending: 'bg-amber-500/10 text-amber-700 ring-amber-500/20 dark:text-amber-300',
   engagement_accepted:'bg-emerald-500/10 text-emerald-700 ring-emerald-500/20 dark:text-emerald-300',
   active:             'bg-emerald-500/10 text-emerald-700 ring-emerald-500/20 dark:text-emerald-300',
 };
@@ -44,6 +45,7 @@ function engagementStatusLabel(status?: string) {
   if (status === 'intake_accepted') return 'Accepted';
   if (status === 'engagement_draft') return 'Draft';
   if (status === 'engagement_sent') return 'Sent to client';
+  if (status === 'engagement_pending') return 'Under review';
   if (status === 'engagement_accepted') return 'Client accepted';
   if (status === 'active') return 'Active';
   return status?.replace(/_/g, ' ') ?? 'Unknown';

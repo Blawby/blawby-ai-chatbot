@@ -21,6 +21,7 @@ export const ENGAGEMENT_STATUSES: EngagementStatus[] = [
   'engagement_draft',
   'engagement_sent',
   'engagement_accepted',
+  'engagement_pending',
   'active',
 ];
 
@@ -33,36 +34,14 @@ export async function listEngagements(
 ): Promise<EngagementListResponse> {
   if (!practiceId) throw new Error('practiceId is required');
 
-  const query = new URLSearchParams();
-  query.set('page', String(params.page ?? 1));
-  if (params.limit) query.set('limit', String(params.limit));
-  if (params.status && params.status.length > 0) {
-    // Filter to engagement-specific statuses on the client side until backend supports it.
-    params.status.forEach((s) => query.append('status', s));
-  }
-
-  const url = `/api/matters/${encodeSegment(practiceId)}?${query.toString()}`;
-  const res = await fetch(url, { credentials: 'include', signal: options.signal });
-
-  if (!res.ok) {
-    throw new Error(`Failed to fetch engagements (HTTP ${res.status})`);
-  }
-
-  const raw = await res.json() as Record<string, unknown>;
-  const data = (raw.success !== undefined && raw.data) ? raw.data as Record<string, unknown> : raw;
-
-  // Backend returns all matters; we filter to engagement-relevant statuses client-side
-  // until the backend exposes a dedicated endpoint.
-  const allItems = (Array.isArray(data.items) ? data.items : []) as EngagementListItem[];
-  const engagementItems = allItems.filter(
-    (item) => ENGAGEMENT_STATUSES.includes(item.status as EngagementStatus)
-  );
-
   const requestedPage = Math.max(1, params.page ?? 1);
-  const requestedLimit = params.limit;
+  const requestedLimit = params.limit ?? 20;
+  const allowedStatuses = params.status && params.status.length > 0 
+    ? new Set(params.status) 
+    : new Set(ENGAGEMENT_STATUSES);
 
   const baseQuery = new URLSearchParams();
-  if (requestedLimit) baseQuery.set('limit', String(requestedLimit));
+  baseQuery.set('limit', String(requestedLimit));
   if (params.status && params.status.length > 0) {
     params.status.forEach((s) => baseQuery.append('status', s));
   }
@@ -71,7 +50,7 @@ export async function listEngagements(
   let backendPage = 1;
   let backendTotalPages: number | null = null;
 
-  // We loop until we have enough items for the requested page or hit the end.
+  // We loop until we have enough items for the requested page plus one item to check hasMore.
   // This is a bridge until the backend provides a dedicated /engagements endpoint.
   while (true) {
     const pageQuery = new URLSearchParams(baseQuery);
@@ -86,7 +65,7 @@ export async function listEngagements(
     const allItems = (Array.isArray(data.items) ? data.items : []) as EngagementListItem[];
 
     filteredItems.push(
-      ...allItems.filter((item) => ENGAGEMENT_STATUSES.includes(item.status as EngagementStatus))
+      ...allItems.filter((item) => allowedStatuses.has(item.status as string))
     );
 
     if (typeof data.total_pages === 'number' && Number.isFinite(data.total_pages)) {
@@ -95,20 +74,17 @@ export async function listEngagements(
 
     const reachedKnownEnd = backendTotalPages !== null && backendPage >= backendTotalPages;
     const reachedEmptyPage = allItems.length === 0;
+    const hasEnoughForPagination = filteredItems.length >= (requestedPage * requestedLimit) + 1;
 
-    // We fetch everything for now to compute accurate total, as the backend
-    // matters endpoint returns a mix of all statuses.
-    if (reachedKnownEnd || reachedEmptyPage) break;
+    if (reachedKnownEnd || reachedEmptyPage || hasEnoughForPagination) break;
     backendPage += 1;
   }
 
   const total = filteredItems.length;
-  const page_size = requestedLimit ?? (total || 1);
+  const page_size = requestedLimit;
   const total_pages = Math.max(1, Math.ceil(total / page_size));
-  const startIndex = requestedLimit ? (requestedPage - 1) * requestedLimit : 0;
-  const items = requestedLimit
-    ? filteredItems.slice(startIndex, startIndex + requestedLimit)
-    : filteredItems;
+  const startIndex = (requestedPage - 1) * requestedLimit;
+  const items = filteredItems.slice(startIndex, startIndex + requestedLimit);
 
   return {
     items,
@@ -163,10 +139,7 @@ export async function patchEngagementProposal(
     body: JSON.stringify({ proposal_data: proposalData }),
   });
 
-  if (!res.ok) {
-    const json = await res.json().catch(() => null) as Record<string, unknown> | null;
-    throw new Error(String(json?.message ?? json?.error ?? `HTTP ${res.status}`));
-  }
+  if (!res.ok) await handleResponseError(res, 'Failed to update proposal');
 
   const raw = await res.json() as Record<string, unknown>;
   const data = (raw.success !== undefined && raw.data) ? raw.data as Record<string, unknown> : raw;
@@ -190,10 +163,7 @@ export async function sendEngagementToClient(
     body: JSON.stringify({ note }),
   });
 
-  if (!res.ok) {
-    const json = await res.json().catch(() => null) as Record<string, unknown> | null;
-    throw new Error(String(json?.message ?? json?.error ?? `HTTP ${res.status}`));
-  }
+  if (!res.ok) await handleResponseError(res, 'Failed to send engagement');
 
   const raw = await res.json() as Record<string, unknown>;
   const data = (raw.success !== undefined && raw.data) ? raw.data as Record<string, unknown> : raw;
@@ -216,10 +186,7 @@ export async function withdrawEngagement(
     body: JSON.stringify({}),
   });
 
-  if (!res.ok) {
-    const json = await res.json().catch(() => null) as Record<string, unknown> | null;
-    throw new Error(String(json?.message ?? json?.error ?? `HTTP ${res.status}`));
-  }
+  if (!res.ok) await handleResponseError(res, 'Failed to withdraw engagement');
 
   const raw = await res.json() as Record<string, unknown>;
   const data = (raw.success !== undefined && raw.data) ? raw.data as Record<string, unknown> : raw;
@@ -242,10 +209,7 @@ export async function acceptEngagement(
     body: JSON.stringify({}),
   });
 
-  if (!res.ok) {
-    const json = await res.json().catch(() => null) as Record<string, unknown> | null;
-    throw new Error(String(json?.message ?? json?.error ?? `HTTP ${res.status}`));
-  }
+  if (!res.ok) await handleResponseError(res, 'Failed to accept engagement');
 
   const raw = await res.json() as Record<string, unknown>;
   const data = (raw.success !== undefined && raw.data) ? raw.data as Record<string, unknown> : raw;
@@ -270,8 +234,19 @@ export async function overrideConflictCheck(
     body: JSON.stringify(payload),
   });
 
-  if (!res.ok) {
-    const json = await res.json().catch(() => null) as Record<string, unknown> | null;
-    throw new Error(String(json?.message ?? json?.error ?? `HTTP ${res.status}`));
+  if (!res.ok) await handleResponseError(res, 'Failed to override conflict check');
+}
+
+// ── Helpers ────────────────────────────────────────────────────────────────────
+
+async function handleResponseError(res: Response, defaultMessage: string): Promise<never> {
+  let message = `${defaultMessage} (HTTP ${res.status})`;
+  try {
+    const json = await res.json() as Record<string, unknown>;
+    message = String(json?.message ?? json?.error ?? message);
+  } catch {
+    const text = await res.text().catch(() => '');
+    if (text) message = text;
   }
+  throw new Error(message);
 }
