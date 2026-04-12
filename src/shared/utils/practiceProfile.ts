@@ -1,4 +1,4 @@
-import type { PracticeDetailsUpdate, UpdatePracticeRequest } from '@/shared/lib/apiClient';
+import type { PracticeDetailsUpdate, UpdatePracticeRequest, SupportedStateEntry } from '@/shared/lib/apiClient';
 import { asMajor, type MajorAmount } from '@/shared/utils/money';
 
 export type PracticeProfileInput = {
@@ -19,6 +19,8 @@ export type PracticeProfileInput = {
   accentColor?: string | null;
   isPublic?: boolean;
   services?: Array<Record<string, unknown>> | null;
+  serviceStates?: string[] | null;
+  supportedStates?: SupportedStateEntry[] | null;
 };
 
 export type PracticeProfileComparison = Partial<PracticeProfileInput>;
@@ -147,6 +149,14 @@ export const buildPracticeProfilePayloads = (
 
   if (Array.isArray(input.services)) {
     detailsPayload.services = input.services;
+  }
+
+  if (input.serviceStates !== undefined) {
+    detailsPayload.serviceStates = input.serviceStates;
+  }
+
+  if (input.supportedStates !== undefined) {
+    detailsPayload.supportedStates = input.supportedStates;
   }
 
   return { practicePayload, detailsPayload };

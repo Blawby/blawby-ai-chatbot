@@ -179,6 +179,11 @@ export interface CreatePracticeRequest {
   calendlyUrl?: string;
 }
 
+export interface SupportedStateEntry {
+  country: string;
+  states?: string[];
+}
+
 export interface PracticeDetailsUpdate {
   businessPhone?: string | null;
   businessEmail?: string | null;
@@ -199,6 +204,8 @@ export interface PracticeDetailsUpdate {
   description?: string | null;
   isPublic?: boolean | null;
   services?: Array<Record<string, unknown>> | null;
+  serviceStates?: string[] | null;
+  supportedStates?: SupportedStateEntry[] | null;
   businessOnboardingStatus?: 'not_required' | 'pending' | 'completed' | 'skipped';
   businessOnboardingHasDraft?: boolean;
 }
@@ -226,6 +233,8 @@ export interface PracticeDetails {
   description?: string | null;
   isPublic?: boolean | null;
   services?: Array<Record<string, unknown>> | null;
+  serviceStates?: string[] | null;
+  supportedStates?: SupportedStateEntry[] | null;
 }
 
 export interface ConnectedAccountRequest {
@@ -1696,6 +1705,44 @@ function normalizePracticeDetailsPayload(payload: PracticeDetailsUpdate): Record
     normalized.business_onboarding_has_draft = payload.businessOnboardingHasDraft;
   }
 
+  if ('serviceStates' in payload && payload.serviceStates !== undefined) {
+    normalized.service_states = Array.isArray(payload.serviceStates)
+      ? payload.serviceStates
+          .filter((state): state is string => typeof state === 'string')
+          .map((state) => state.trim().toUpperCase())
+          .filter(Boolean)
+      : payload.serviceStates;
+  }
+
+  if ('supportedStates' in payload && payload.supportedStates !== undefined) {
+    if (Array.isArray(payload.supportedStates)) {
+      normalized.supported_states = payload.supportedStates
+        .map((entry) => {
+          if (!isRecord(entry) || typeof entry.country !== 'string') {
+            return null;
+          }
+          const country = entry.country.trim().toUpperCase();
+          if (!country) {
+            return null;
+          }
+          const result: Record<string, unknown> = { country };
+          if (Array.isArray(entry.states)) {
+            const states = entry.states
+              .filter((state): state is string => typeof state === 'string')
+              .map((state) => state.trim().toUpperCase())
+              .filter(Boolean);
+            if (states.length > 0) {
+              result.states = states;
+            }
+          }
+          return result;
+        })
+        .filter((entry): entry is Record<string, unknown> => entry !== null);
+    } else {
+      normalized.supported_states = payload.supportedStates;
+    }
+  }
+
   return normalized;
 }
 
@@ -1728,7 +1775,11 @@ export function normalizePracticeDetailsResponse(payload: unknown): PracticeDeta
     'is_public',
     'isPublic',
     'services',
-    'address'
+    'address',
+    'service_states',
+    'serviceStates',
+    'supported_states',
+    'supportedStates',
   ].some((key) => key in value));
   const resolveCandidate = (value: unknown): Record<string, unknown> | null =>
     isRecord(value) && hasMappedDetailKey(value) ? value : null;
@@ -1843,7 +1894,42 @@ export function normalizePracticeDetailsResponse(payload: unknown): PracticeDeta
       ?? getOptionalNullableString(container, ['postalCode', 'postal_code']),
     country: getOptionalNullableString(address, ['country']) ?? getOptionalNullableString(container, ['country']),
      primaryColor: getOptionalNullableString(container, ['primary_color', 'primaryColor']),
-     accentColor: getOptionalNullableString(container, ['accent_color', 'accentColor'])
+     accentColor: getOptionalNullableString(container, ['accent_color', 'accentColor']),
+     serviceStates: (() => {
+       const raw = 'service_states' in container
+         ? container.service_states
+         : ('serviceStates' in container ? container.serviceStates : undefined);
+       if (raw === undefined) return undefined;
+       if (!Array.isArray(raw)) return null;
+       return raw
+         .filter((state): state is string => typeof state === 'string')
+         .map((state) => state.trim().toUpperCase())
+         .filter(Boolean);
+     })(),
+     supportedStates: (() => {
+       const raw = 'supported_states' in container
+         ? container.supported_states
+         : ('supportedStates' in container ? container.supportedStates : undefined);
+       if (raw === undefined) return undefined;
+       if (!Array.isArray(raw)) return null;
+       const result = raw
+         .map((entry) => {
+           if (!isRecord(entry)) return null;
+           const country = typeof entry.country === 'string' ? entry.country.trim().toUpperCase() : '';
+           if (!country) return null;
+           const states = Array.isArray(entry.states)
+             ? (entry.states as unknown[])
+                 .filter((s): s is string => typeof s === 'string')
+                 .map((s) => s.trim().toUpperCase())
+                 .filter(Boolean)
+             : undefined;
+           const entryResult: SupportedStateEntry = { country };
+           if (states !== undefined) entryResult.states = states;
+           return entryResult;
+         })
+         .filter((e): e is SupportedStateEntry => e !== null);
+       return result;
+     })(),
    };
  }
 
