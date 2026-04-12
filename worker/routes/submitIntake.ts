@@ -78,6 +78,8 @@ interface BackendIntakeCreatePayload {
   practice_area?: string;
   city?: string;
   state?: string;
+  /** Plain-text digest of the intake conversation; max 4000 chars. Used by backend to bootstrap proposal_data. */
+  transcript_summary?: string;
 }
 
 interface BackendIntakeCreateResponse {
@@ -171,6 +173,60 @@ const readFiniteNumberField = (record: Record<string, unknown> | null | undefine
   }
   return null;
 };
+
+// ------------------------------------------------------------------
+// Transcript summary builder
+// ------------------------------------------------------------------
+
+const TRANSCRIPT_MAX_CHARS = 4000;
+const TRANSCRIPT_MESSAGE_LIMIT = 30;
+
+/**
+ * Assembles a plain-text conversation transcript from D1.
+ * Pulls the last TRANSCRIPT_MESSAGE_LIMIT user/assistant messages (excludes system).
+ * Returns null silently if the query fails — submission must not be blocked.
+ */
+async function buildTranscriptSummary(
+  env: Env,
+  conversationId: string,
+  practiceId: string,
+): Promise<string | null> {
+  try {
+    const records = await env.DB.prepare(`
+      SELECT role, content
+      FROM chat_messages
+      WHERE conversation_id = ?
+        AND practice_id = ?
+        AND role IN ('user', 'assistant')
+        AND TRIM(COALESCE(content, '')) <> ''
+      ORDER BY seq DESC
+      LIMIT ?
+    `).bind(conversationId, practiceId, TRANSCRIPT_MESSAGE_LIMIT).all<{
+      role: string;
+      content: string;
+    }>();
+
+    if (!records.results || records.results.length === 0) return null;
+
+    // Reverse so oldest is first (DESC pulls newest, we want chronological)
+    const lines = records.results.reverse().map((row) => {
+      const label = row.role === 'user' ? 'User' : 'Assistant';
+      // Trim each message to prevent one long message dominating the budget
+      const content = row.content.trim().slice(0, 800);
+      return `${label}: ${content}`;
+    });
+
+    const full = lines.join('\n');
+    // Hard cap to stay under backend field limits
+    return full.length > TRANSCRIPT_MAX_CHARS ? full.slice(-TRANSCRIPT_MAX_CHARS) : full;
+  } catch (error) {
+    Logger.warn('[submitIntake] Failed to build transcript_summary — proceeding without it', {
+      conversationId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return null;
+  }
+}
 
 const getResolvedAmountMinor = ({
   intakeSettings,
@@ -495,6 +551,16 @@ export async function handleSubmitIntake(
     hasCookie: Boolean(request.headers.get('Cookie')?.trim()),
     hasAuthorization: Boolean(request.headers.get('Authorization')?.trim()),
   });
+
+  // Assemble transcript_summary from D1 — best-effort, does not block submission
+  const transcriptSummary = await buildTranscriptSummary(env, conversationId, practiceId);
+  if (transcriptSummary) {
+    intakePayload.transcript_summary = transcriptSummary;
+    Logger.info('[submitIntake] transcript_summary assembled', {
+      conversationId,
+      chars: transcriptSummary.length,
+    });
+  }
 
   // Call backend API via existing RemoteApiService pattern
   let backendResponse: Response;

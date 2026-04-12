@@ -37,6 +37,7 @@ const ClientInvoicesPage = lazy(() => import('@/features/invoices/pages/ClientIn
 const ClientInvoiceDetailPage = lazy(() => import('@/features/invoices/pages/ClientInvoiceDetailPage').then(m => ({ default: m.ClientInvoiceDetailPage })));
 const PracticeReportsPage = lazy(() => import('@/features/reports/pages/PracticeReportsPage').then(m => ({ default: m.PracticeReportsPage })));
 const IntakesPage = lazy(() => import('@/features/intake/pages/IntakesPage').then(m => ({ default: m.IntakesPage })));
+const EngagementsPage = lazy(() => import('@/features/engagements/pages/EngagementsPage').then(m => ({ default: m.EngagementsPage })));
 import { useConversationSystemMessages } from '@/shared/hooks/useConversationSystemMessages';
 import { initializeAccentColor } from '@/shared/utils/accentColors';
 import { useMentionCandidates } from '@/shared/hooks/useMentionCandidates';
@@ -57,7 +58,7 @@ import { features } from '@/config/features';
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
-type WorkspaceView = 'home' | 'setup' | 'list' | 'conversation' | 'intakes' | 'intakeDetail' | 'matters' | 'clients' | 'invoices' | 'invoiceCreate' | 'invoiceEdit' | 'invoiceDetail' | 'reports' | 'settings';
+type WorkspaceView = 'home' | 'setup' | 'list' | 'conversation' | 'intakes' | 'intakeDetail' | 'engagements' | 'matters' | 'clients' | 'invoices' | 'invoiceCreate' | 'invoiceEdit' | 'invoiceDetail' | 'reports' | 'settings';
 
 /**
  * LayoutMode controls how ChatContainer renders its shell.
@@ -212,6 +213,13 @@ export function MainApp({
     const slug = resolvedPracticeSlug;
     if (!slug) return null;
     return `/practice/${encodeURIComponent(slug)}/intakes`;
+  }, [isPracticeWorkspace, resolvedPracticeSlug]);
+
+  const practiceEngagementsPath = useMemo(() => {
+    if (!isPracticeWorkspace) return null;
+    const slug = resolvedPracticeSlug;
+    if (!slug) return null;
+    return `/practice/${encodeURIComponent(slug)}/engagements`;
   }, [isPracticeWorkspace, resolvedPracticeSlug]);
 
   useEffect(() => {
@@ -1004,6 +1012,21 @@ export function MainApp({
                 practiceId={effectivePracticeId ?? practiceId}
                 activeTriageFilter={activeFilter}
                 basePath={practiceIntakesPath ?? '/practice/intakes'}
+                conversationsBasePath={conversationsBasePath}
+                practiceName={resolvedPracticeName}
+                practiceLogo={resolvedPracticeLogo}
+              />
+            </Suspense>
+          )
+          : undefined
+      }
+      engagementsView={
+        isPracticeWorkspace
+          ? () => (
+            <Suspense fallback={<WorkspaceSubviewFallback />}>
+              <EngagementsPage
+                practiceId={effectivePracticeId ?? practiceId}
+                basePath={practiceEngagementsPath ?? '/practice/engagements'}
                 conversationsBasePath={conversationsBasePath}
                 practiceName={resolvedPracticeName}
                 practiceLogo={resolvedPracticeLogo}

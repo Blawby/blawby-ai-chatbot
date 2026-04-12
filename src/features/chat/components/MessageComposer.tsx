@@ -34,6 +34,7 @@ interface MessageComposerProps {
     step: string;
     decision?: string;
     intakeUuid?: string | null;
+    submittedAt?: string | null;
     paymentRequired?: boolean;
     paymentReceived?: boolean;
   };

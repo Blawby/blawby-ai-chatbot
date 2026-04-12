@@ -98,7 +98,7 @@ import type { MatterStatus } from '@/shared/types/matterStatus';
 import type { IntakeConversationState, DerivedIntakeStatus, IntakeFieldChangeOptions } from '@/shared/types/intake';
 import { features } from '@/config/features';
 
-type WorkspaceView = 'home' | 'setup' | 'list' | 'conversation' | 'intakes' | 'intakeDetail' | 'matters' | 'clients' | 'invoices' | 'invoiceCreate' | 'invoiceEdit' | 'invoiceDetail' | 'reports' | 'settings';
+type WorkspaceView = 'home' | 'setup' | 'list' | 'conversation' | 'intakes' | 'intakeDetail' | 'engagements' | 'matters' | 'clients' | 'invoices' | 'invoiceCreate' | 'invoiceEdit' | 'invoiceDetail' | 'reports' | 'settings';
 type PreviewTab = 'home' | 'messages' | 'intake';
 type WorkspacePrefetchData = {
   mattersData?: {
@@ -146,6 +146,7 @@ interface WorkspacePageProps {
   invoicesListContent?: ComponentChildren | ((statusFilter: string[]) => ComponentChildren);
   reportsView?: ComponentChildren | ((title: string) => ComponentChildren);
   intakesView?: ComponentChildren | ((activeFilter: string | null) => ComponentChildren);
+  engagementsView?: ComponentChildren | (() => ComponentChildren);
   primaryCreateAction?: WorkspacePrimaryCreateAction | null;
   mockConversations?: Conversation[] | null;
   mockConversationPreviews?: Record<string, {
@@ -209,6 +210,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   invoicesView,
   invoicesListContent,
   intakesView,
+  engagementsView,
   reportsView,
   primaryCreateAction = null,
   mockConversations = null,
@@ -1548,6 +1550,9 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   const intakesContent = (typeof intakesView === 'function'
     ? intakesView(activeSecondaryFilter)
     : intakesView) ?? null;
+  const engagementsContent = (typeof engagementsView === 'function'
+    ? engagementsView()
+    : engagementsView) ?? null;
   const clientsContent = (typeof clientsView === 'function'
     ? clientsView(
       clientsStatusFilter,
@@ -1655,6 +1660,8 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       case 'invoiceEdit':
       case 'invoiceDetail':
         return null;
+      case 'engagements':
+        return 'Engagements';
       case 'settings':
         return 'Settings';
       case 'home':
@@ -1726,6 +1733,8 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       case 'intakes':
       case 'intakeDetail':
         return intakesContent;
+      case 'engagements':
+        return engagementsContent;
       case 'matters':
         return mattersContent;
       case 'clients':
@@ -1748,7 +1757,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     if (view === 'list' || view === 'conversation') {
       return { kind: 'conversation-shell' };
     }
-    if (view === 'intakes' || view === 'intakeDetail') {
+    if (view === 'intakes' || view === 'intakeDetail' || view === 'engagements') {
       return { kind: 'full-page', overflow: 'hidden' };
     }
     if (view === 'matters') {

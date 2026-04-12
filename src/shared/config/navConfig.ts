@@ -1,5 +1,6 @@
 import type { ComponentType, JSX } from 'preact';
 import {
+  BriefcaseIcon,
   ChartBarIcon,
   ChatBubbleOvalLeftEllipsisIcon,
   ClipboardDocumentListIcon,
@@ -17,7 +18,7 @@ export type NavCtx = {
   canAccessPractice: boolean;
 };
 
-export type WorkspaceSection = 'home' | 'conversations' | 'intakes' | 'matters' | 'invoices' | 'reports' | 'settings';
+export type WorkspaceSection = 'home' | 'conversations' | 'intakes' | 'engagements' | 'matters' | 'invoices' | 'reports' | 'settings';
 
 export type NavRailItem = {
   id: string;
@@ -121,6 +122,13 @@ const buildPracticeRail = (basePath: string): NavRailItem[] => [
     icon: InboxStackIcon,
     href: `${basePath}/intakes`,
     matchHrefs: [`${basePath}/intakes`],
+  },
+  {
+    id: 'engagements',
+    label: 'Engagements',
+    icon: BriefcaseIcon,
+    href: `${basePath}/engagements`,
+    matchHrefs: [`${basePath}/engagements`],
   },
   {
     id: 'matters',
@@ -360,6 +368,8 @@ const buildSecondary = (basePath: string, section: WorkspaceSection, workspace: 
       return buildSettingsSecondary(basePath, canAccessPractice);
     case 'home':
       return buildHomeSecondary(basePath, workspace);
+    case 'engagements':
+      return undefined;
     default:
       return undefined;
   }

@@ -440,6 +440,7 @@ export const deriveIntakeStatusFromConsultation = (
       step: 'contact_form_slim',
       decision: metadata?.intakeDecision as string | undefined,
       intakeUuid: metadata?.intakeUuid as string | undefined,
+      submittedAt: typeof metadata?.submittedAt === 'string' ? (metadata.submittedAt as string) : undefined,
       paymentRequired: metadata?.intakePaymentRequired as boolean | undefined,
       paymentReceived: metadata?.intakePaymentReceived as boolean | undefined,
     } as const;
@@ -460,6 +461,7 @@ export const deriveIntakeStatusFromConsultation = (
     step,
     decision: metadata?.intakeDecision as string | undefined,
     intakeUuid: consultation.submission.intakeUuid ?? undefined,
+    submittedAt: consultation.submission.submittedAt ?? undefined,
     paymentRequired: consultation.submission.paymentRequired ?? undefined,
     paymentReceived: consultation.submission.paymentReceived ?? undefined,
   } as const;
