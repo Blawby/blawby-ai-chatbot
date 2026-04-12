@@ -1,9 +1,9 @@
 import type { ComponentChildren } from 'preact';
 import { cn } from '@/shared/utils/cn';
 
-type Status = 'active' | 'pending' | 'inactive' | 'suspended' | 'cancelled' | 'completed';
+export type StatusVariant = 'active' | 'pending' | 'inactive' | 'suspended' | 'cancelled' | 'completed' | 'warning' | 'error' | 'info' | 'success';
 
-const STATUS_CLASSES: Record<Status | 'warning' | 'error' | 'info' | 'success', string> = {
+const STATUS_CLASSES: Record<StatusVariant, string> = {
   active: 'status-success',
   pending: 'status-warning',
   inactive: 'glass-input text-input-placeholder',
@@ -17,7 +17,7 @@ const STATUS_CLASSES: Record<Status | 'warning' | 'error' | 'info' | 'success', 
 };
 
 interface StatusBadgeProps {
-  status: Status;
+  status: StatusVariant;
   children?: ComponentChildren;
   className?: string;
 }
@@ -27,7 +27,7 @@ export const StatusBadge = ({ status, children, className }: StatusBadgeProps) =
     <span
       className={cn(
         'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium',
-        STATUS_CLASSES[status] ?? 'status-info',
+        STATUS_CLASSES[status],
         className
       )}
     >

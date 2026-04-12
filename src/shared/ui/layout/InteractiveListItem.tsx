@@ -24,15 +24,41 @@ export const InteractiveListItem = ({
 }: InteractiveListItemProps) => {
   const isClickable = Boolean(onClick);
 
+  const handleKeyDown = (e: KeyboardEvent) => {
+    if (disabled || !onClick) return;
+    if (e.key === 'Enter' || e.key === ' ') {
+      if (e.key === ' ') e.preventDefault();
+      onClick();
+    }
+  };
+
+  const handleClick = (e: MouseEvent) => {
+    if (disabled || !onClick) return;
+    
+    // Ignore clicks originating from nested interactive elements
+    const interactiveTarget = (e.target as HTMLElement).closest('button, a, [role="button"], input, select, textarea');
+    if (interactiveTarget && interactiveTarget !== e.currentTarget) {
+      return;
+    }
+
+    onClick();
+  };
+
   const content = (
-    <div className={cn(
-      'flex flex-wrap items-start justify-between gap-4 transition-colors',
-      padding,
-      isSelected ? 'bg-surface-utility/60' : (isClickable && !disabled && 'hover:bg-surface-utility/40 cursor-pointer'),
-      disabled && 'opacity-60 cursor-not-allowed',
-      className
-    )}
-    onClick={!disabled ? onClick : undefined}
+    <div 
+      className={cn(
+        'flex flex-wrap items-start justify-between gap-4 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40',
+        padding,
+        isSelected ? 'bg-surface-utility/60' : (isClickable && !disabled && 'hover:bg-surface-utility/40 cursor-pointer'),
+        disabled && 'opacity-60 cursor-not-allowed',
+        className
+      )}
+      onClick={isClickable ? handleClick : undefined}
+      onKeyDown={handleKeyDown}
+      role={isClickable ? 'button' : undefined}
+      tabIndex={isClickable && !disabled ? 0 : -1}
+      aria-disabled={disabled}
+      aria-selected={isSelected}
     >
       {children}
     </div>

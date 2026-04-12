@@ -149,7 +149,7 @@ export default [
         {
           selector: 'JSXAttribute[name.name="className"] > Literal[value=/text-white|text-black|bg-white|bg-black/]',
           // Changed to warn to avoid blocking existing work while transitioning to the new system
-          message: 'Preference system tokens (text-input-text, bg-surface-base, etc.) over hardcoded white/black to ensure proper theme inversion.'
+          message: 'Prefer system tokens (text-input-text, bg-surface-base, etc.) over hardcoded white/black to ensure proper theme inversion.'
         },
         {
           selector: 'ImportDeclaration[source.value=/LoadingIndicator/]',
