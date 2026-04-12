@@ -50,9 +50,9 @@ export const ProgressRing: FunctionComponent<ProgressRingProps> = ({
     if (color) return color;
     if (!useTrafficLights) return 'currentColor';
     
-    if (clampedProgress < 40) return 'rgb(239, 68, 68)'; // red-500
-    if (clampedProgress < 80) return 'rgb(245, 158, 11)'; // amber-500
-    return 'rgb(34, 197, 94)'; // green-500
+    if (clampedProgress < 40) return 'rgb(var(--error-foreground))';
+    if (clampedProgress < 80) return 'rgb(var(--warning-foreground))';
+    return 'rgb(var(--success-foreground))';
   }, [color, useTrafficLights, clampedProgress]);
 
   return (
@@ -69,7 +69,7 @@ export const ProgressRing: FunctionComponent<ProgressRingProps> = ({
           stroke="currentColor"
           strokeWidth={strokeWidth}
           fill="transparent"
-          className={cn('text-gray-200 dark:text-white/10', trackClassName)}
+          className={cn('text-input-placeholder/20 dark:text-line-glass/10', trackClassName)}
         />
         {/* Progress circle */}
         <circle

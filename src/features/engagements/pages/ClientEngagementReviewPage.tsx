@@ -191,7 +191,7 @@ const AcknowledgmentsSection: FunctionComponent<{ proposal: ProposalData }> = ({
       <div className="space-y-4 text-sm text-input-placeholder leading-relaxed">
         {ack && <p>{ack}</p>}
         {noGuar && (
-          <div className="p-3 rounded-lg border border-line-glass/20 bg-surface-utility/40 dark:bg-white/[0.02]">
+          <div className="p-3 rounded-lg border border-line-glass/20 bg-surface-utility/40 dark:bg-surface-utility/40">
             <p className="text-xs font-medium uppercase tracking-wide text-input-placeholder mb-1">No guarantee of outcome</p>
             <p>{noGuar}</p>
           </div>

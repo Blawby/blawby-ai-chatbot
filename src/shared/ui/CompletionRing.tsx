@@ -35,7 +35,7 @@ export const CompletionRing: FunctionComponent<CompletionRingProps> = ({
           stroke="currentColor"
           strokeWidth={strokeWidth}
           fill="transparent"
-          className="text-gray-200 dark:text-white/10"
+          className="text-input-placeholder/20 dark:text-line-glass/10"
         />
         {/* Progress circle */}
         <circle

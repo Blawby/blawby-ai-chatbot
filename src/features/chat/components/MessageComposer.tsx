@@ -322,7 +322,7 @@ const MessageComposer = ({
       >
         <div className="message-composer-container">
           {replyTo && (
-            <div className="flex items-center justify-between gap-3 rounded-t-2xl bg-surface-utility/40 dark:bg-white/[0.06] px-4 py-1.5 text-sm text-input-text -mx-2 -mt-1">
+            <div className="flex items-center justify-between gap-3 rounded-t-2xl bg-surface-utility/40 dark:bg-surface-utility/20 px-4 py-1.5 text-sm text-input-text -mx-2 -mt-1">
               <div className="flex min-w-0 items-center gap-2">
                 <span className="text-input-text/70">
                   <Trans
@@ -385,7 +385,7 @@ const MessageComposer = ({
 
             <div className={`col-start-2 min-w-0 relative flex flex-1 items-end gap-2 glass-input min-h-12 ${isInputExpanded ? 'rounded-2xl py-2 px-3.5' : 'rounded-full py-1 px-3'} ${isInputFocused ? 'ring-2 ring-accent-500/40 border-accent-500/40' : ''}`}>
               {showScrollFade && (
-                <div className="pointer-events-none absolute left-3 right-12 top-2 h-4 bg-gradient-to-b from-surface-app-frame/60 dark:from-black/20 to-transparent z-10" />
+                <div className="pointer-events-none absolute left-3 right-12 top-2 h-4 bg-gradient-to-b from-surface-app-frame/60 dark:from-surface-app-frame/20 to-transparent z-10" />
               )}
               <div className="relative flex-1 min-w-0 self-stretch flex items-center">
                 <div 

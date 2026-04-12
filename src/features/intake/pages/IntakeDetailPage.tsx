@@ -669,7 +669,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
         disableBackdropClick={isSubmitting}
       >
         <DialogBody className="space-y-4">
-          <div className="rounded-xl border border-line-glass/10 bg-surface-utility/40 dark:bg-white/[0.03] p-4">
+          <div className="rounded-xl border border-line-glass/10 bg-surface-utility/40 dark:bg-surface-utility/40 p-4">
             <p className="text-sm text-input-placeholder">
               {triageDialogAction === 'accepted'
                 ? 'Accepting will notify the client and move this conversation into your active inbox.'
