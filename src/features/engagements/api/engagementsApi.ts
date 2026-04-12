@@ -58,7 +58,7 @@ export async function listEngagements(
   );
 
   const total = engagementItems.length;
-  const page_size = (params.page_size ?? params.pageSize ?? total) || 1;
+  const page_size = params.limit ?? total || 1;
   const total_pages = Math.max(1, Math.ceil(total / page_size));
 
   return {
