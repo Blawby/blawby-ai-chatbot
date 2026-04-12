@@ -146,7 +146,7 @@ export const DataTable = ({
       <table className={cn('min-w-full', tableClassName)}>
         {caption ? <caption className="sr-only">{caption}</caption> : null}
         <thead>
-          <tr className={cn(stickyHeader && 'sticky top-0 z-10 bg-surface-base')}>
+          <tr className={cn(stickyHeader && 'sticky top-0 z-10 bg-surface-workspace')}>
             {columns.map((column, index) => {
               const isPrimary = column.id === primaryColumn?.id || (index === 0 && !primaryColumn);
               const baseHeaderClass = isPrimary
@@ -176,7 +176,7 @@ export const DataTable = ({
             })}
           </tr>
         </thead>
-        <tbody className={cn('bg-surface-base', bodyClassName)}>
+        <tbody className={cn('bg-surface-workspace', bodyClassName)}>
           {rows.length === 0 ? (
             <tr>
               <td colSpan={columns.length} className="px-4 py-6 text-sm text-input-placeholder">
@@ -192,7 +192,7 @@ export const DataTable = ({
                   key={row.id}
                   className={cn(
                     density === 'compact' ? 'h-14' : 'h-20',
-                    isClickable && 'cursor-pointer hover:bg-surface-glass/50 dark:hover:bg-white/[0.04]',
+                    isClickable && 'cursor-pointer hover:bg-black/5 dark:hover:bg-white/[0.04]',
                     rowClassName,
                     row.className
                   )}

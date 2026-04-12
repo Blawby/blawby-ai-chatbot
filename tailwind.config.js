@@ -24,6 +24,11 @@ export default {
           'list-panel': 'rgb(var(--surface-list-panel))',
           'inspector': 'rgb(var(--surface-inspector))',
           glass: 'rgb(var(--surface-glass) / <alpha-value>)',
+          'app-frame': 'rgb(var(--surface-app-frame) / <alpha-value>)',
+          navigation: 'rgb(var(--surface-navigation) / <alpha-value>)',
+          collection: 'rgb(var(--surface-collection) / <alpha-value>)',
+          workspace: 'rgb(var(--surface-workspace) / <alpha-value>)',
+          utility: 'rgb(var(--surface-utility) / <alpha-value>)',
         },
         line: {
 

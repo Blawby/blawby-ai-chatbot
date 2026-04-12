@@ -322,7 +322,7 @@ const MessageComposer = ({
       >
         <div className="message-composer-container">
           {replyTo && (
-            <div className="flex items-center justify-between gap-3 rounded-t-2xl bg-surface-overlay/80 px-4 py-1.5 text-sm text-input-text -mx-2 -mt-1">
+            <div className="flex items-center justify-between gap-3 rounded-t-2xl bg-black/[0.03] dark:bg-white/[0.06] px-4 py-1.5 text-sm text-input-text -mx-2 -mt-1">
               <div className="flex min-w-0 items-center gap-2">
                 <span className="text-input-text/70">
                   <Trans
@@ -385,7 +385,7 @@ const MessageComposer = ({
 
             <div className={`col-start-2 min-w-0 relative flex flex-1 items-end gap-2 glass-input min-h-12 ${isInputExpanded ? 'rounded-2xl py-2 px-3.5' : 'rounded-full py-1 px-3'} ${isInputFocused ? 'ring-2 ring-accent-500/40 border-accent-500/40' : ''}`}>
               {showScrollFade && (
-                <div className="pointer-events-none absolute left-3 right-12 top-2 h-4 bg-gradient-to-b from-black/20 to-transparent z-10" />
+                <div className="pointer-events-none absolute left-3 right-12 top-2 h-4 bg-gradient-to-b from-black/5 dark:from-black/20 to-transparent z-10" />
               )}
               <div className="relative flex-1 min-w-0 self-stretch flex items-center">
                 <div 
@@ -452,7 +452,7 @@ const MessageComposer = ({
                 <div 
                   id="mention-listbox"
                   role="listbox"
-                  className="absolute bottom-full left-2 right-2 z-40 mb-2 overflow-hidden rounded-xl border border-white/10 bg-surface-overlay/95 shadow-glass backdrop-blur-2xl"
+                  className="absolute bottom-full left-2 right-2 z-40 mb-2 overflow-hidden rounded-xl border border-black/5 dark:border-white/10 bg-surface-workspace dark:bg-surface-overlay/95 shadow-glass backdrop-blur-2xl"
                 >
                   <div className="max-h-56 overflow-y-auto py-1">
                     {filteredMentionCandidates.map((candidate, index) => (
@@ -466,8 +466,8 @@ const MessageComposer = ({
                         onClick={() => handleMentionSelect(index)}
                         className={`flex w-full items-center justify-between px-3 py-2 text-left text-sm transition-colors ${
                           index === mentionFocusIndex
-                            ? 'bg-accent-500/15 text-accent-400'
-                            : 'text-input-text hover:bg-white/[0.08]'
+                            ? 'bg-accent-500/15 text-accent-500'
+                            : 'text-input-text hover:bg-black/5 dark:hover:bg-white/[0.08]'
                         }`}
                       >
                         <span className="truncate">{candidate.name}</span>

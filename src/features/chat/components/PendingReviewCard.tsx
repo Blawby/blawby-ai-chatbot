@@ -51,9 +51,7 @@ export const PendingReviewCard = ({
       role="status"
       aria-label="Intake submitted — pending review"
       className={cn(
-        'flex flex-col gap-3 rounded-2xl border border-white/10',
-        'bg-surface-overlay/60 backdrop-blur-md p-4',
-        'shadow-glass',
+        'flex flex-col gap-3 glass-card p-4 shadow-glass border-none',
         className,
       )}
     >

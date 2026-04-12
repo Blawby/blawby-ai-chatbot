@@ -130,7 +130,7 @@ export const AppShell = ({
     : null;
 
   return (
-    <div className={cn('relative grid h-full min-h-full w-full bg-surface-base', gridClassName, className)}>
+    <div className={cn('relative grid h-full min-h-full w-full bg-surface-app-frame', gridClassName, className)}>
       {backgroundDecor && (
         <div className="pointer-events-none absolute inset-0 overflow-hidden">
           {backgroundDecor}
@@ -153,7 +153,7 @@ export const AppShell = ({
       {hasSidebar && (
         <aside
           className={cn(
-            'relative z-10 row-start-2 min-h-0 overflow-y-auto bg-surface-nav-rail hidden lg:block',
+            'relative z-10 row-start-2 min-h-0 overflow-y-auto bg-surface-navigation hidden lg:block',
             sidebarClassName
           )}
         >
@@ -164,7 +164,7 @@ export const AppShell = ({
       {hasSecondarySidebar && (
         <aside
           className={cn(
-            'relative z-10 row-start-2 min-h-0 overflow-y-auto bg-surface-nav-secondary hidden lg:block',
+            'relative z-10 row-start-2 min-h-0 overflow-y-auto bg-surface-navigation hidden lg:block',
             secondarySidebarColStartClass,
             secondarySidebarClassName
           )}
@@ -176,7 +176,7 @@ export const AppShell = ({
       {hasListPanel && (
         <aside
           className={cn(
-            'relative z-10 p-2 row-start-2 min-h-0 overflow-y-auto bg-surface-list-panel hidden lg:block',
+            'relative z-10 p-2 row-start-2 min-h-0 overflow-y-auto bg-surface-collection hidden lg:block',
             listPanelColStartClass,
             listPanelClassName
           )}
@@ -187,7 +187,7 @@ export const AppShell = ({
 
       <main
         className={cn(
-          'relative z-10 row-start-2 min-h-0 h-full flex flex-col bg-surface-base',
+          'relative z-10 row-start-2 min-h-0 h-full flex flex-col bg-surface-workspace',
           mainColStartClass,
           mainClassName
         )}
@@ -198,7 +198,7 @@ export const AppShell = ({
       {hasInspector && (
         <aside
           className={cn(
-            'relative z-10 row-start-2 min-h-0 overflow-y-auto bg-surface-inspector hidden lg:block',
+            'relative z-10 row-start-2 min-h-0 overflow-y-auto bg-surface-utility hidden lg:block',
             inspectorColStartClass,
             inspectorClassName
           )}
@@ -225,7 +225,7 @@ export const AppShell = ({
           ) : (
             <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" />
           )}
-          <aside className="absolute left-0 top-0 h-dvh w-full max-w-xs overflow-y-auto bg-surface-nav-secondary">
+          <aside className="absolute left-0 top-0 h-dvh w-full max-w-xs overflow-y-auto bg-surface-navigation">
             {secondarySidebar}
           </aside>
         </div>

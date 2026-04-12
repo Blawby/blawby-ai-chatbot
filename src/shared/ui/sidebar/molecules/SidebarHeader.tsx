@@ -28,7 +28,7 @@ export const SidebarHeader = ({
 }: SidebarHeaderProps) => {
   if (isCollapsed) {
     return (
-      <div className="flex items-center justify-center border-b border-line-glass/30 px-3 py-2">
+      <div className="flex items-center justify-center px-3 py-2">
         <div className="relative group w-full h-10 flex items-center justify-center">
           {practiceConfig?.profileImage ? (
             <button
@@ -70,7 +70,7 @@ export const SidebarHeader = ({
   }
 
   return (
-    <div className="flex items-center justify-between border-b border-line-glass/30 px-3 py-2">
+    <div className="flex items-center justify-between px-3 py-2">
       {practiceConfig?.profileImage && (
         <PracticeLogo 
           src={practiceConfig.profileImage} 
