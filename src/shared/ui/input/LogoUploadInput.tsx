@@ -81,7 +81,7 @@ export const LogoUploadInput = forwardRef<HTMLInputElement, LogoUploadInputProps
       {label && (
         <label htmlFor={inputId} className="block text-sm font-medium text-input-text">
           {label}
-          {required && <span className="ml-1 text-red-500">*</span>}
+          {required && <span className="ml-1 text-[rgb(var(--error-foreground))]">*</span>}
         </label>
       )}
       {description && (
@@ -126,7 +126,7 @@ export const LogoUploadInput = forwardRef<HTMLInputElement, LogoUploadInputProps
           </svg>
         )}
         <div
-          className="absolute inset-1 overflow-hidden rounded-full glass-panel border-white/10"
+          className="absolute inset-1 overflow-hidden rounded-full glass-panel border border-line-glass/10"
           style={{ width: size, height: size, left: 4, top: 4 }}
         >
         {hasImage ? (
@@ -136,7 +136,7 @@ export const LogoUploadInput = forwardRef<HTMLInputElement, LogoUploadInputProps
             className="h-full w-full object-cover"
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center bg-white/5">
+          <div className="flex h-full w-full items-center justify-center bg-surface-utility/40">
             <Icon icon={UserIcon} className="h-1/2 w-1/2 text-input-placeholder"  />
           </div>
         )}

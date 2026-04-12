@@ -104,9 +104,9 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({
   };
 
   const variantClasses = {
-    default: 'border-input-border focus:ring-accent-500 focus:border-accent-500',
-    error: 'border-red-500 dark:border-red-400 focus:ring-red-500 dark:focus:ring-red-400 focus:border-red-500 dark:focus:border-red-400',
-    success: 'border-green-500 dark:border-green-400 focus:ring-green-500 dark:focus:ring-green-400 focus:border-green-500 dark:focus:border-green-400'
+    default: 'border-line-glass/20 focus:ring-accent-500/40 focus:border-accent-500/40',
+    error: 'border-[rgb(var(--error-foreground))] focus:ring-[rgb(var(--error-foreground))]/40 focus:border-[rgb(var(--error-foreground))]/40',
+    success: 'border-[rgb(var(--success-foreground))] focus:ring-[rgb(var(--success-foreground))]/40 focus:border-[rgb(var(--success-foreground))]/40'
   };
 
   const inputClasses = cn(
@@ -139,7 +139,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({
       {displayLabel && (
         <label htmlFor={inputId} className="block text-sm font-medium text-input-text mb-1">
           {displayLabel}
-          {required && <span className="text-red-500 ml-1">*</span>}
+          {required && <span className="text-[rgb(var(--error-foreground))] ml-1" aria-hidden="true">*</span>}
         </label>
       )}
       
@@ -176,7 +176,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({
       </div>
       
       {displayError && (
-        <p id={errorId} className="text-xs text-red-600 dark:text-red-400 mt-1" role="alert" aria-live="assertive">
+        <p id={errorId} className="text-xs text-[rgb(var(--error-foreground))] mt-1 font-medium" role="alert" aria-live="assertive">
           {displayError}
         </p>
       )}

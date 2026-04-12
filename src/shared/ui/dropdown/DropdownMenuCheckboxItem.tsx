@@ -41,10 +41,9 @@ export const DropdownMenuCheckboxItem = ({
   return (
     <div 
       className={cn(
-        'flex items-center justify-between px-2 py-1.5 text-sm text-input-text',
-        'hover:bg-white/[0.04]',
-        'focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-accent-500/50',
-        'dark:focus-visible:ring-accent-400/40',
+        'flex items-center justify-between px-2 py-1.5 text-sm text-input-text transition-colors',
+        'hover:bg-surface-utility/40',
+        'focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40',
         disabled && 'opacity-50 cursor-not-allowed',
         className
       )}

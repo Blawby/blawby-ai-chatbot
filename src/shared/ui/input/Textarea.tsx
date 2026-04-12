@@ -131,9 +131,9 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(({
   };
 
   const variantClasses = {
-    default: 'border-input-border focus:ring-accent-500 focus:border-accent-500',
-    error: 'border-red-300 focus:ring-red-500 focus:border-red-500',
-    success: 'border-green-300 focus:ring-green-500 focus:border-green-500'
+    default: 'border-line-glass/10 focus:ring-accent-500/40 focus:border-accent-500/40',
+    error: 'border-[rgb(var(--error-foreground))] focus:ring-[rgb(var(--error-foreground))]/40 focus:border-[rgb(var(--error-foreground))]/40',
+    success: 'border-[rgb(var(--success-foreground))] focus:ring-[rgb(var(--success-foreground))]/40 focus:border-[rgb(var(--success-foreground))]/40'
   };
 
   const resizeClasses = {
@@ -144,13 +144,12 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(({
   };
 
   const textareaClasses = cn(
-    'w-full border rounded-lg text-input-text placeholder:text-input-placeholder',
+    'w-full border rounded-lg text-input-text placeholder:text-input-placeholder bg-surface-utility/40',
     'focus:outline-none focus:ring-2 focus:ring-offset-0 transition-colors',
     sizeClasses[size],
     resizeClasses[resize],
     variantClasses[variant],
     disabled && 'opacity-50 cursor-not-allowed',
-    variant === 'default' ? 'glass-input border-input-border' : 'bg-input-bg',
     className
   );
 
@@ -168,7 +167,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(({
       {displayLabel && (
         <label htmlFor={textareaId} className="block text-sm font-medium text-input-text mb-1">
           {displayLabel}
-          {required && <span className="text-red-500 ml-1">*</span>}
+          {required && <span className="text-[rgb(var(--error-foreground))] ml-1">*</span>}
         </label>
       )}
       
@@ -222,14 +221,14 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(({
       />
       
       {displayError && (
-        <p className="text-xs text-red-600 dark:text-red-400 mt-1">
+        <p className="text-xs text-[rgb(var(--error-foreground))] mt-1">
           {displayError}
         </p>
       )}
       
       <div className="flex justify-between items-center mt-1">
         {displayDescription && (
-          <p className="text-xs text-gray-500 dark:text-gray-400">
+          <p className="text-xs text-input-placeholder">
             {displayDescription}
           </p>
         )}
@@ -237,9 +236,9 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(({
         {showCharCount && maxLength && (
           <p className={cn(
             'text-xs ml-auto',
-            isOverLimit ? 'text-red-600 dark:text-red-400' : 
-            isNearLimit ? 'text-yellow-600 dark:text-yellow-400' : 
-            'text-gray-500 dark:text-gray-400'
+            isOverLimit ? 'text-[rgb(var(--error-foreground))]' : 
+            isNearLimit ? 'text-[rgb(var(--warning-foreground))]' : 
+            'text-input-placeholder'
           )}>
             {currentLength}/{maxLength}
           </p>

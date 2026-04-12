@@ -56,7 +56,7 @@ export const NavigationItem = ({
   const collapsedClasses = isCollapsed ? 'justify-center py-2' : 'gap-2 px-2 py-2';
   const activeClasses = isActive
     ? 'glass-input text-input-text shadow-sm'
-    : 'text-input-text hover:bg-black/5 dark:hover:bg-white/[0.08]';
+    : 'text-input-text hover:bg-surface-utility/40 transition-colors';
   const labelClasses = hasUnread ? 'font-semibold' : 'font-medium';
 
   return (

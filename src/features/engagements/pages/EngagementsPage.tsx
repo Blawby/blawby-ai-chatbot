@@ -10,6 +10,7 @@ import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime'
 import { EntityList } from '@/shared/ui/list/EntityList';
 import { usePaginatedList } from '@/shared/hooks/usePaginatedList';
 import { listEngagements } from '../api/engagementsApi';
+import { StatusBadge, type StatusVariant } from '@/shared/ui/badges/StatusBadge';
 import type { EngagementListItem } from '../types/engagement';
 import EngagementDetailPage from './EngagementDetailPage';
 
@@ -27,18 +28,17 @@ type EngagementsPageProps = {
   activeStatusFilter?: string | null;
 };
 
-const ENGAGEMENT_STATUS_CHIP: Record<string, string> = {
-  intake_accepted:    'bg-blue-500/10 text-blue-700 ring-blue-500/20 dark:text-blue-300',
-  engagement_draft:   'bg-amber-500/10 text-amber-700 ring-amber-500/20 dark:text-amber-300',
-  engagement_sent:    'bg-violet-500/10 text-violet-700 ring-violet-500/20 dark:text-violet-300',
-  engagement_pending: 'bg-amber-500/10 text-amber-700 ring-amber-500/20 dark:text-amber-300',
-  engagement_accepted:'bg-emerald-500/10 text-emerald-700 ring-emerald-500/20 dark:text-emerald-300',
-  active:             'bg-emerald-500/10 text-emerald-700 ring-emerald-500/20 dark:text-emerald-300',
+const ENGAGEMENT_STATUS_MAP: Record<string, StatusVariant> = {
+  intake_accepted:    'info',
+  engagement_draft:   'inactive',
+  engagement_sent:    'warning',
+  engagement_pending: 'warning',
+  engagement_accepted:'success',
+  active:             'success',
 };
-const NEUTRAL_CHIP = 'bg-surface-overlay/60 text-input-placeholder ring-line-glass/30';
 
-function engagementStatusChip(status?: string) {
-  return ENGAGEMENT_STATUS_CHIP[status ?? ''] ?? NEUTRAL_CHIP;
+function engagementStatusVariant(status?: string): StatusVariant {
+  return ENGAGEMENT_STATUS_MAP[status ?? ''] ?? 'inactive';
 }
 
 function engagementStatusLabel(status?: string) {
@@ -79,12 +79,12 @@ const EngagementListItemRow = ({
             <h2 className="min-w-0 truncate text-sm font-semibold leading-6 text-input-text">
               {name}
             </h2>
-            <div className="mt-1 flex items-center gap-2 text-xs text-input-placeholder">
-              {email && <span className="truncate">{email}</span>}
-              {email && <span>•</span>}
-              <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${engagementStatusChip(status)}`}>
+            <div className="mt-1 flex items-center gap-2">
+              {email && <span className="truncate text-xs text-input-placeholder">{email}</span>}
+              {email && <span className="text-xs text-input-placeholder">•</span>}
+              <StatusBadge status={engagementStatusVariant(status)}>
                 {engagementStatusLabel(status)}
-              </span>
+              </StatusBadge>
             </div>
           </div>
           <div className="flex flex-col items-end gap-1">

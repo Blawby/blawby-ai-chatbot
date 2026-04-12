@@ -385,7 +385,7 @@
 
   /* Semantic surface helpers */
   .surface-subtle {
-    @apply bg-black/5 dark:bg-white/5 backdrop-blur-xl;
+    @apply bg-surface-utility/40 backdrop-blur-xl;
 
     border: none;
     box-shadow: var(--glass-rim-subtle);
@@ -396,7 +396,7 @@
   }
 
   .surface-hover:hover {
-    @apply bg-black/10 dark:bg-white/10;
+    @apply bg-surface-utility/60;
 
     box-shadow: var(--glass-rim-medium);
   }
@@ -486,17 +486,17 @@
 
   /* Secondary — neutral glass */
   .btn-secondary {
-    @apply bg-black/5 dark:bg-white/5 backdrop-blur-xl text-input-text;
+    @apply bg-surface-utility/40 backdrop-blur-xl text-input-text;
     box-shadow: var(--glass-rim-subtle);
   }
 
   .btn-secondary:hover:not(:disabled) {
-    @apply bg-black/10 dark:bg-white/15;
+    @apply bg-surface-utility/60;
     box-shadow: var(--glass-rim-medium);
   }
 
   .btn-secondary:focus {
-    @apply ring-black/20 dark:ring-white/40;
+    @apply ring-accent-500/40;
   }
 
   /* Ghost — no bg until hover */
@@ -507,13 +507,13 @@
 
   .btn-ghost:hover:not(:disabled),
   .btn-icon:hover:not(:disabled) {
-    @apply bg-black/5 dark:bg-white/10;
+    @apply bg-surface-utility/40 transition-colors;
     box-shadow: var(--glass-rim-subtle);
   }
 
   .btn-ghost:focus,
   .btn-icon:focus {
-    @apply ring-black/20 dark:ring-white/40;
+    @apply ring-accent-500/40;
   }
 
   /* Icon — same as ghost, used for icon-only controls */
@@ -1057,7 +1057,7 @@
   }
 
   .message-action-popover {
-    @apply absolute right-3 top-0 z-10 hidden -translate-y-1/2 items-center gap-1 rounded-md border border-black/5 dark:border-white/10 bg-white/95 dark:bg-black/40 px-1 py-0.5 opacity-0 backdrop-blur-sm transition-opacity duration-150 group-hover:flex group-hover:opacity-100 group-focus-within:flex group-focus-within:opacity-100;
+    @apply absolute right-3 top-0 z-10 hidden -translate-y-1/2 items-center gap-1 rounded-md border border-line-glass/10 bg-surface-overlay/95 px-1 py-0.5 opacity-0 backdrop-blur-sm transition-opacity duration-150 group-hover:flex group-hover:opacity-100 group-focus-within:flex group-focus-within:opacity-100;
 
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
   }
@@ -1068,16 +1068,16 @@
   }
 
   .message-action-btn:hover:not(:disabled) {
-    @apply bg-black/5 dark:bg-white/10 text-input-text;
+    @apply bg-surface-utility/40 text-input-text transition-colors;
   }
 
   .message-reaction-chip {
-    @apply inline-flex items-center gap-1 rounded-full border border-black/5 dark:border-white/10 bg-black/5 dark:bg-white/5 px-2 py-0.5 text-xs text-input-text transition;
+    @apply inline-flex items-center gap-1 rounded-full border border-line-glass/10 bg-surface-utility/40 px-2 py-0.5 text-xs text-input-text transition-colors;
     box-shadow: none;
   }
 
   .message-reaction-chip:hover:not(:disabled) {
-    @apply bg-black/10 dark:bg-white/10;
+    @apply bg-surface-utility/60;
   }
 
   .message-reaction-chip-active {

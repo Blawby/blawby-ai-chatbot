@@ -89,9 +89,9 @@ export const FileInput = forwardRef<HTMLInputElement, FileInputProps>(({
 
 
   const variantClasses = {
-    default: 'border-input-border focus:ring-accent-500 focus:border-accent-500',
-    error: 'border-red-300 focus:ring-red-500 focus:border-red-500',
-    success: 'border-green-300 focus:ring-green-500 focus:border-green-500'
+    default: 'border-line-glass/10 focus:ring-accent-500/40 focus:border-accent-500/40',
+    error: 'border-[rgb(var(--error-foreground))] focus:ring-[rgb(var(--error-foreground))]/40 focus:border-[rgb(var(--error-foreground))]/40',
+    success: 'border-[rgb(var(--success-foreground))] focus:ring-[rgb(var(--success-foreground))]/40 focus:border-[rgb(var(--success-foreground))]/40'
   };
 
   const handleFileChange = useCallback((e: Event) => {
@@ -149,7 +149,7 @@ export const FileInput = forwardRef<HTMLInputElement, FileInputProps>(({
       {displayLabel && (
         <label htmlFor={inputId} className="block text-sm font-medium text-input-text mb-1">
           {displayLabel}
-          {required && <span className="text-red-500 ml-1">*</span>}
+          {required && <span className="text-[rgb(var(--error-foreground))] ml-1">*</span>}
         </label>
       )}
       
@@ -160,8 +160,8 @@ export const FileInput = forwardRef<HTMLInputElement, FileInputProps>(({
         aria-disabled={disabled}
         className={cn(
           'relative border-2 border-dashed rounded-lg transition-colors',
-          'hover:border-accent-400 dark:hover:border-accent-500',
-          isDragOver ? 'border-accent-500 bg-accent-50 dark:bg-accent-900/20' : 'border-input-border',
+          'hover:border-accent-400 dark:hover:border-accent-500/40',
+          isDragOver ? 'border-accent-500 bg-accent-500/10' : 'border-line-glass/10 bg-surface-utility/40',
           variantClasses[variant],
           disabled && 'opacity-50 cursor-not-allowed',
           className
@@ -186,7 +186,7 @@ export const FileInput = forwardRef<HTMLInputElement, FileInputProps>(({
         
         <div className="p-6 text-center">
           <svg
-            className="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500"
+            className="mx-auto h-12 w-12 text-input-placeholder"
             stroke="currentColor"
             fill="none"
             viewBox="0 0 48 48"
@@ -200,14 +200,14 @@ export const FileInput = forwardRef<HTMLInputElement, FileInputProps>(({
           </svg>
           
           <div className="mt-4">
-            <p className="text-sm text-gray-600 dark:text-gray-400">
+            <p className="text-sm text-input-placeholder">
               <span className="font-medium text-accent-600 dark:text-accent-400">
                 Click to upload
               </span>
               {' '}or drag and drop
             </p>
             {accept && showAcceptText && (
-              <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+              <p className="text-xs text-input-placeholder/60 mt-1">
                 {accept}
               </p>
             )}
@@ -223,21 +223,21 @@ export const FileInput = forwardRef<HTMLInputElement, FileInputProps>(({
                 <p className="text-sm font-medium text-input-text truncate">
                   {file.name}
                 </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
+                <p className="text-xs text-input-placeholder">
                   {formatFileSize(file.size)}
                 </p>
               </div>
               {onRemove && (
                 <button
                   type="button"
-                  className="text-xs font-medium text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                  className="text-xs font-medium text-[rgb(var(--error-foreground))] brightness-90 hover:brightness-110"
                   onClick={() => onRemove(index)}
                 >
                   Remove
                 </button>
               )}
               {effectiveMaxFileSize && file.size > effectiveMaxFileSize && (
-                <span className="text-xs text-red-600 dark:text-red-400">
+                <span className="text-xs text-[rgb(var(--error-foreground))]">
                   File too large (max {formatFileSize(effectiveMaxFileSize)})
                 </span>
               )}
@@ -245,7 +245,7 @@ export const FileInput = forwardRef<HTMLInputElement, FileInputProps>(({
           ))}
           
           {effectiveMaxTotalSize && totalSize > effectiveMaxTotalSize && (
-            <p className="text-xs text-red-600 dark:text-red-400">
+            <p className="text-xs text-[rgb(var(--error-foreground))]">
               Total size exceeds {formatFileSize(effectiveMaxTotalSize)}
             </p>
           )}
@@ -253,7 +253,7 @@ export const FileInput = forwardRef<HTMLInputElement, FileInputProps>(({
       )}
       
       {displayDescription && (
-        <p id={descriptionId} className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+        <p id={descriptionId} className="text-xs text-input-placeholder mt-1">
           {displayDescription}
         </p>
       )}
