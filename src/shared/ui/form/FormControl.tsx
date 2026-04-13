@@ -2,17 +2,17 @@ import { ComponentChildren } from 'preact';
 import { cn } from '@/shared/utils/cn';
 
 export interface FormControlProps {
-  children: ComponentChildren;
-  className?: string;
+ children: ComponentChildren;
+ className?: string;
 }
 
 export const FormControl = ({
-  children,
-  className = ''
+ children,
+ className = ''
 }: FormControlProps) => {
-  return (
-    <div className={cn('relative', className)}>
-      {children}
-    </div>
-  );
+ return (
+  <div className={cn('relative', className)}>
+   {children}
+  </div>
+ );
 };

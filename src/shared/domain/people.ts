@@ -10,8 +10,8 @@ export type PersonRelationshipStatus = UserDetailStatus;
 export const PEOPLE_DIRECTORY_LABEL = 'People';
 
 export const PERSON_RELATIONSHIP_STATUS_LABELS: Record<PersonRelationshipStatus, string> = {
-  lead: 'Lead',
-  active: 'Client',
-  inactive: 'Former client',
-  archived: 'Archived',
+ lead: 'Lead',
+ active: 'Client',
+ inactive: 'Former client',
+ archived: 'Archived',
 };

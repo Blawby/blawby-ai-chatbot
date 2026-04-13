@@ -15,18 +15,18 @@ export { UserProfileDisplay } from './organisms/UserProfileDisplay';
 
 // Avatar utilities
 export { 
-  createAvatarProps, 
-  createUserCardProps, 
-  createStackedAvatarsData,
-  getAvatarUrl,
-  getDisplayName,
-  type AvatarUser,
-  type StackedAvatarUser
+ createAvatarProps, 
+ createUserCardProps, 
+ createStackedAvatarsData,
+ getAvatarUrl,
+ getDisplayName,
+ type AvatarUser,
+ type StackedAvatarUser
 } from './utils/avatarUtils';
 
 // Avatar render components
 export { 
-  renderUserAvatar,
-  renderUserCard,
-  renderStackedAvatars
+ renderUserAvatar,
+ renderUserCard,
+ renderStackedAvatars
 } from './components/AvatarComponents';

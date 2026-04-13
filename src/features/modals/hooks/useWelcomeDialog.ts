@@ -4,99 +4,99 @@ import { getPreferencesCategory, updatePreferencesCategory } from '@/shared/lib/
 import type { OnboardingPreferences } from '@/shared/types/preferences';
 
 interface UseWelcomeDialogOptions {
-  enabled?: boolean;
+ enabled?: boolean;
 }
 
 interface UseWelcomeDialogResult {
-  shouldShow: boolean;
-  markAsShown: () => Promise<void>;
+ shouldShow: boolean;
+ markAsShown: () => Promise<void>;
 }
 
 export function useWelcomeDialog(options: UseWelcomeDialogOptions = {}): UseWelcomeDialogResult {
-  const { enabled = true } = options;
-  const { session, isPending: sessionIsPending, isAnonymous } = useSessionContext();
-  const [shouldShow, setShouldShow] = useState(false);
-  const bcRef = useRef<BroadcastChannel | null>(null);
-  const receivedShownRef = useRef(false);
+ const { enabled = true } = options;
+ const { session, isPending: sessionIsPending, isAnonymous } = useSessionContext();
+ const [shouldShow, setShouldShow] = useState(false);
+ const bcRef = useRef<BroadcastChannel | null>(null);
+ const receivedShownRef = useRef(false);
 
-  useEffect(() => {
-    if (!enabled) return;
-    if (typeof window === 'undefined') return;
-    try {
-      bcRef.current = new BroadcastChannel('welcome');
-      const handler = (e: MessageEvent) => {
-        if (e?.data === 'shown') {
-          receivedShownRef.current = true;
-          setShouldShow(false);
-        }
-      };
-      bcRef.current.addEventListener('message', handler as never);
-      return () => {
-        try { bcRef.current?.removeEventListener('message', handler as never); } catch (err) {
-          console.warn('[WELCOME_MODAL] Failed to remove event listener', err);
-        }
-        try { bcRef.current?.close(); } catch (err) {
-          console.warn('[WELCOME_MODAL] BroadcastChannel close failed', err);
-        }
-      };
-    } catch (err) {
-      console.error('[WELCOME_MODAL] Failed to initialize BroadcastChannel', err);
+ useEffect(() => {
+  if (!enabled) return;
+  if (typeof window === 'undefined') return;
+  try {
+   bcRef.current = new BroadcastChannel('welcome');
+   const handler = (e: MessageEvent) => {
+    if (e?.data === 'shown') {
+     receivedShownRef.current = true;
+     setShouldShow(false);
     }
-  }, [enabled, session?.user?.id]);
-
-  useEffect(() => {
-    if (!enabled) {
-      setShouldShow(false);
-      return;
+   };
+   bcRef.current.addEventListener('message', handler as never);
+   return () => {
+    try { bcRef.current?.removeEventListener('message', handler as never); } catch (err) {
+     console.warn('[WELCOME_MODAL] Failed to remove event listener', err);
     }
-    if (sessionIsPending || isAnonymous || !session?.user?.id) {
-      setShouldShow(false);
-      return;
+    try { bcRef.current?.close(); } catch (err) {
+     console.warn('[WELCOME_MODAL] BroadcastChannel close failed', err);
     }
+   };
+  } catch (err) {
+   console.error('[WELCOME_MODAL] Failed to initialize BroadcastChannel', err);
+  }
+ }, [enabled, session?.user?.id]);
 
-    let isMounted = true;
-    receivedShownRef.current = false;
+ useEffect(() => {
+  if (!enabled) {
+   setShouldShow(false);
+   return;
+  }
+  if (sessionIsPending || isAnonymous || !session?.user?.id) {
+   setShouldShow(false);
+   return;
+  }
 
-    const checkPreferences = async () => {
-      try {
-        const prefs = await getPreferencesCategory<OnboardingPreferences>('onboarding');
-        const hasCompletedOnboarding = prefs?.completed === true;
-        const hasSeenWelcome = Boolean(prefs?.welcome_modal_shown);
-        if (isMounted && !receivedShownRef.current) {
-          setShouldShow(hasCompletedOnboarding && !hasSeenWelcome);
-        }
-      } catch (error) {
-        console.warn('[WELCOME_MODAL] Failed to load onboarding preferences', error);
-        if (isMounted && !receivedShownRef.current) {
-          setShouldShow(false);
-        }
-      }
-    };
+  let isMounted = true;
+  receivedShownRef.current = false;
 
-    void checkPreferences();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [enabled, isAnonymous, session?.user?.id, sessionIsPending]);
-
-  const markAsShown = useCallback(async () => {
-    if (isAnonymous || !session?.user?.id) {
-      setShouldShow(false);
-      return;
+  const checkPreferences = async () => {
+   try {
+    const prefs = await getPreferencesCategory<OnboardingPreferences>('onboarding');
+    const hasCompletedOnboarding = prefs?.completed === true;
+    const hasSeenWelcome = Boolean(prefs?.welcome_modal_shown);
+    if (isMounted && !receivedShownRef.current) {
+     setShouldShow(hasCompletedOnboarding && !hasSeenWelcome);
     }
-    setShouldShow(false);
-    try { bcRef.current?.postMessage('shown'); } catch (err) {
-      console.warn('[WELCOME_MODAL] BroadcastChannel postMessage failed', err);
+   } catch (error) {
+    console.warn('[WELCOME_MODAL] Failed to load onboarding preferences', error);
+    if (isMounted && !receivedShownRef.current) {
+     setShouldShow(false);
     }
-    try {
-      await updatePreferencesCategory('onboarding', {
-        welcome_modal_shown: true
-      });
-    } catch (err) {
-      console.error('[WELCOME_MODAL] Failed to update preferences', err);
-    }
-  }, [isAnonymous, session?.user?.id]);
+   }
+  };
 
-  return { shouldShow, markAsShown };
+  void checkPreferences();
+
+  return () => {
+   isMounted = false;
+  };
+ }, [enabled, isAnonymous, session?.user?.id, sessionIsPending]);
+
+ const markAsShown = useCallback(async () => {
+  if (isAnonymous || !session?.user?.id) {
+   setShouldShow(false);
+   return;
+  }
+  setShouldShow(false);
+  try { bcRef.current?.postMessage('shown'); } catch (err) {
+   console.warn('[WELCOME_MODAL] BroadcastChannel postMessage failed', err);
+  }
+  try {
+   await updatePreferencesCategory('onboarding', {
+    welcome_modal_shown: true
+   });
+  } catch (err) {
+   console.error('[WELCOME_MODAL] Failed to update preferences', err);
+  }
+ }, [isAnonymous, session?.user?.id]);
+
+ return { shouldShow, markAsShown };
 }

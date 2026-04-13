@@ -4,42 +4,42 @@ import { cn } from '@/shared/utils/cn';
 import { DropdownContext } from './DropdownMenu';
 
 export interface DropdownMenuItemProps {
-  children: ComponentChildren;
-  onSelect?: () => void;
-  disabled?: boolean;
-  className?: string;
+ children: ComponentChildren;
+ onSelect?: () => void;
+ disabled?: boolean;
+ className?: string;
 }
 
 export const DropdownMenuItem = ({
-  children,
-  onSelect,
-  disabled = false,
-  className = ''
+ children,
+ onSelect,
+ disabled = false,
+ className = ''
 }: DropdownMenuItemProps) => {
-  const context = useContext(DropdownContext);
+ const context = useContext(DropdownContext);
 
-  const handleClick = () => {
-    if (!disabled && onSelect) {
-      onSelect();
-    }
+ const handleClick = () => {
+  if (!disabled && onSelect) {
+   onSelect();
+  }
 
-    if (!disabled) {
-      context?.handleOpenChange(false);
-    }
-  };
+  if (!disabled) {
+   context?.handleOpenChange(false);
+  }
+ };
 
-  return (
-    <button
-      onClick={handleClick}
-      disabled={disabled}
-      className={cn(
-        'w-full text-left px-2 py-1.5 text-sm text-input-text transition-colors',
-        'hover:bg-surface-utility/40 focus:outline-none focus:bg-surface-utility/60',
-        disabled && 'opacity-50 cursor-not-allowed',
-        className
-      )}
-    >
-      {children}
-    </button>
-  );
+ return (
+  <button
+   onClick={handleClick}
+   disabled={disabled}
+   className={cn(
+    'w-full text-left px-2 py-1.5 text-sm text-input-text transition-colors',
+    'hover:bg-surface-utility/40 focus:outline-none focus:bg-surface-utility/60',
+    disabled && 'opacity-50 cursor-not-allowed',
+    className
+   )}
+  >
+   {children}
+  </button>
+ );
 };

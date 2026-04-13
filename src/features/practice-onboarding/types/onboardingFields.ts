@@ -3,22 +3,22 @@
  */
 
 export interface ExtractedFields {
-  name?: string;
-  slug?: string;
-  description?: string;
-  accentColor?: string;
-  website?: string;
-  contactPhone?: string;
-  businessEmail?: string;
-  address?: {
-    address?: string;
-    city?: string;
-    state?: string;
-    postalCode?: string;
-    country?: string;
-  };
-  isRemote?: boolean; // New field to track remote practices
-  services?: Array<{ name: string; key?: string }>;
-  completionScore?: number;
-  missingFields?: string[];
+ name?: string;
+ slug?: string;
+ description?: string;
+ accentColor?: string;
+ website?: string;
+ contactPhone?: string;
+ businessEmail?: string;
+ address?: {
+  address?: string;
+  city?: string;
+  state?: string;
+  postalCode?: string;
+  country?: string;
+ };
+ isRemote?: boolean; // New field to track remote practices
+ services?: Array<{ name: string; key?: string }>;
+ completionScore?: number;
+ missingFields?: string[];
 }

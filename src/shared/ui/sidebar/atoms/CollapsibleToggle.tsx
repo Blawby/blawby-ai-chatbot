@@ -9,29 +9,29 @@ import { Button } from '../../Button';
 import type { IconComponent } from '@/shared/ui/Icon';
 
 interface CollapsibleToggleProps {
-  icon: IconComponent;
-  onClick: () => void;
-  ariaLabel: string;
-  className?: string;
-  iconClassName?: string;
+ icon: IconComponent;
+ onClick: () => void;
+ ariaLabel: string;
+ className?: string;
+ iconClassName?: string;
 }
 
 export const CollapsibleToggle = ({ 
-  icon, 
-  onClick, 
-  ariaLabel,
-  className = '',
-  iconClassName = ''
+ icon, 
+ onClick, 
+ ariaLabel,
+ className = '',
+ iconClassName = ''
 }: CollapsibleToggleProps) => {
-  return (
-    <Button
-      variant="ghost"
-      size="sm"
-      onClick={onClick}
-      icon={icon}
-      iconClassName={iconClassName}
-      aria-label={ariaLabel}
-      className={`w-8 h-8 p-0 ${className}`}
-    />
-  );
+ return (
+  <Button
+   variant="ghost"
+   size="sm"
+   onClick={onClick}
+   icon={icon}
+   iconClassName={iconClassName}
+   aria-label={ariaLabel}
+   className={`w-8 h-8 p-0 ${className}`}
+  />
+ );
 };

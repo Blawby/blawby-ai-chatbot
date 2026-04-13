@@ -1,139 +1,139 @@
 export interface AppAction {
-  name: string;
-  description: string;
-  hasMetadata?: boolean;
-  visibility?: 'public' | 'private';
+ name: string;
+ description: string;
+ hasMetadata?: boolean;
+ visibility?: 'public' | 'private';
 }
 
 export interface App {
-  id: string;
-  name: string;
-  description: string;
-  category: string;
-  developer: string;
-  website: string;
-  privacyPolicy: string;
-  connected: boolean;
-  connectedAt?: string;
-  logo?: string;
-  actions?: AppAction[];
-  comingSoon?: boolean;
+ id: string;
+ name: string;
+ description: string;
+ category: string;
+ developer: string;
+ website: string;
+ privacyPolicy: string;
+ connected: boolean;
+ connectedAt?: string;
+ logo?: string;
+ actions?: AppAction[];
+ comingSoon?: boolean;
 }
 
 export const mockApps: App[] = [
-  {
-    id: 'blawby-messenger',
-    name: 'Website Messenger',
-    description: 'Embed the Blawby AI chatbot directly on your law firm\'s website to capture leads and answer client questions instantly.',
-    category: 'Client Intake',
-    developer: 'Blawby',
-    website: 'https://ai.blawby.com',
-    privacyPolicy: 'https://ai.blawby.com/privacy',
-    logo: '/blawby-favicon-iframe.png',
-    connected: true,      // Natively enabled, no OAuth flow needed
-    comingSoon: false,
-    actions: [
-      {
-        name: 'INSTALL widget-loader.js',
-        description: 'Embed the widget loader script and initialize window.BlawbyWidget with your practiceSlug.',
-        hasMetadata: false,
-        visibility: 'public'
-      },
-      {
-        name: 'EVENT lead_submitted',
-        description: 'Emits after successful intake submission with intakeUuid, status, requiresPayment, and attribution params (utm_*, gclid, fbclid, etc.).',
-        hasMetadata: true,
-        visibility: 'public'
-      },
-      {
-        name: 'DATALAYER blawby_lead_submitted',
-        description: 'Optional GTM/GA conversion event when pushDataLayerOnLeadSubmit is enabled in the snippet config.',
-        hasMetadata: true,
-        visibility: 'public'
-      },
-      {
-        name: 'DATALAYER blawby_chat_start',
-        description: 'Optional engagement event when pushDataLayerOnChatStart is enabled in the snippet config.',
-        hasMetadata: true,
-        visibility: 'public'
-      }
-    ],
-  },
-  {
-    id: 'clio',
-    name: 'Clio',
-    description: 'Connect your Clio account to sync matters, contacts, and calendar events.',
-    category: 'Legal Practice Management',
-    developer: 'Clio',
-    website: 'https://www.clio.com',
-    privacyPolicy: 'https://www.clio.com/privacy',
-    logo: 'https://imagedelivery.net/Frxyb2_d_vGyiaXhS5xqCg/be24ae2a-0286-4946-abf1-2250f6cc5800/public',
-    connected: false,
-    comingSoon: true,
-    actions: [
-      {
-        name: 'GET /api/v4/matters',
-        description: 'Retrieve a list of matters (cases) from your Clio account.',
-        hasMetadata: true,
-        visibility: 'public'
-      },
-      {
-        name: 'GET /api/v4/contacts',
-        description: 'Retrieve a list of contacts (clients, opposing counsel, etc.) from your Clio account.',
-        hasMetadata: true,
-        visibility: 'public'
-      },
-      {
-        name: 'GET /api/v4/activities',
-        description: 'Retrieve a list of activities (time entries, events, tasks) from your Clio account.',
-        hasMetadata: true,
-        visibility: 'public'
-      },
-      {
-        name: 'GET /api/v4/documents',
-        description: 'Retrieve a list of documents from your Clio account.',
-        hasMetadata: true,
-        visibility: 'public'
-      },
-      {
-        name: 'POST /api/v4/matters',
-        description: 'Create a new matter in your Clio account.',
-        hasMetadata: true,
-        visibility: 'public'
-      },
-      {
-        name: 'POST /api/v4/contacts',
-        description: 'Create a new contact in your Clio account.',
-        hasMetadata: true,
-        visibility: 'public'
-      },
-      {
-        name: 'POST /api/v4/activities',
-        description: 'Create a new activity (time entry, event, or task) in your Clio account.',
-        hasMetadata: true,
-        visibility: 'public'
-      },
-      {
-        name: 'GET /api/v4/billings',
-        description: 'Retrieve billing information and invoices from your Clio account.',
-        hasMetadata: true,
-        visibility: 'public'
-      }
-    ],
-  },
+ {
+  id: 'blawby-messenger',
+  name: 'Website Messenger',
+  description: 'Embed the Blawby AI chatbot directly on your law firm\'s website to capture leads and answer client questions instantly.',
+  category: 'Client Intake',
+  developer: 'Blawby',
+  website: 'https://ai.blawby.com',
+  privacyPolicy: 'https://ai.blawby.com/privacy',
+  logo: '/blawby-favicon-iframe.png',
+  connected: true,   // Natively enabled, no OAuth flow needed
+  comingSoon: false,
+  actions: [
+   {
+    name: 'INSTALL widget-loader.js',
+    description: 'Embed the widget loader script and initialize window.BlawbyWidget with your practiceSlug.',
+    hasMetadata: false,
+    visibility: 'public'
+   },
+   {
+    name: 'EVENT lead_submitted',
+    description: 'Emits after successful intake submission with intakeUuid, status, requiresPayment, and attribution params (utm_*, gclid, fbclid, etc.).',
+    hasMetadata: true,
+    visibility: 'public'
+   },
+   {
+    name: 'DATALAYER blawby_lead_submitted',
+    description: 'Optional GTM/GA conversion event when pushDataLayerOnLeadSubmit is enabled in the snippet config.',
+    hasMetadata: true,
+    visibility: 'public'
+   },
+   {
+    name: 'DATALAYER blawby_chat_start',
+    description: 'Optional engagement event when pushDataLayerOnChatStart is enabled in the snippet config.',
+    hasMetadata: true,
+    visibility: 'public'
+   }
+  ],
+ },
+ {
+  id: 'clio',
+  name: 'Clio',
+  description: 'Connect your Clio account to sync matters, contacts, and calendar events.',
+  category: 'Legal Practice Management',
+  developer: 'Clio',
+  website: 'https://www.clio.com',
+  privacyPolicy: 'https://www.clio.com/privacy',
+  logo: 'https://imagedelivery.net/Frxyb2_d_vGyiaXhS5xqCg/be24ae2a-0286-4946-abf1-2250f6cc5800/public',
+  connected: false,
+  comingSoon: true,
+  actions: [
+   {
+    name: 'GET /api/v4/matters',
+    description: 'Retrieve a list of matters (cases) from your Clio account.',
+    hasMetadata: true,
+    visibility: 'public'
+   },
+   {
+    name: 'GET /api/v4/contacts',
+    description: 'Retrieve a list of contacts (clients, opposing counsel, etc.) from your Clio account.',
+    hasMetadata: true,
+    visibility: 'public'
+   },
+   {
+    name: 'GET /api/v4/activities',
+    description: 'Retrieve a list of activities (time entries, events, tasks) from your Clio account.',
+    hasMetadata: true,
+    visibility: 'public'
+   },
+   {
+    name: 'GET /api/v4/documents',
+    description: 'Retrieve a list of documents from your Clio account.',
+    hasMetadata: true,
+    visibility: 'public'
+   },
+   {
+    name: 'POST /api/v4/matters',
+    description: 'Create a new matter in your Clio account.',
+    hasMetadata: true,
+    visibility: 'public'
+   },
+   {
+    name: 'POST /api/v4/contacts',
+    description: 'Create a new contact in your Clio account.',
+    hasMetadata: true,
+    visibility: 'public'
+   },
+   {
+    name: 'POST /api/v4/activities',
+    description: 'Create a new activity (time entry, event, or task) in your Clio account.',
+    hasMetadata: true,
+    visibility: 'public'
+   },
+   {
+    name: 'GET /api/v4/billings',
+    description: 'Retrieve billing information and invoices from your Clio account.',
+    hasMetadata: true,
+    visibility: 'public'
+   }
+  ],
+ },
 ];
 
 // Mock functions that will be replaced with real API calls later
 export const mockConnectApp = async (_appId: string) => {
-  return new Promise<{ connectedAt: string }>((resolve) => {
-    setTimeout(() => {
-      resolve({ connectedAt: new Date().toISOString() });
-    }, 800);
-  });
+ return new Promise<{ connectedAt: string }>((resolve) => {
+  setTimeout(() => {
+   resolve({ connectedAt: new Date().toISOString() });
+  }, 800);
+ });
 };
 
 export const mockDisconnectApp = async (_appId: string) => {
-  return new Promise<void>((resolve) => {
-    setTimeout(() => resolve(), 500);
-  });
+ return new Promise<void>((resolve) => {
+  setTimeout(() => resolve(), 500);
+ });
 };

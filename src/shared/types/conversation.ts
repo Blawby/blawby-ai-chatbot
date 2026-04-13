@@ -1,9 +1,9 @@
 // TypeScript types for user-to-user conversations and messages
 
 export interface MessageReaction {
-  emoji: string;
-  count: number;
-  reactedByMe: boolean;
+ emoji: string;
+ count: number;
+ reactedByMe: boolean;
 }
 
 /**
@@ -21,143 +21,143 @@ export type ConversationMode = 'ASK_QUESTION' | 'REQUEST_CONSULTATION' | 'PRACTI
 export type ChatMessageActionVariant = 'primary' | 'secondary';
 
 export type ChatMessageAction =
-  | {
-      type: 'reply';
-      label: string;
-      value: string;
-      variant?: ChatMessageActionVariant;
-    }
-  | {
-      type: 'submit';
-      label: string;
-      variant?: ChatMessageActionVariant;
-    }
-  | {
-      type: 'continue_payment';
-      label: string;
-      variant?: ChatMessageActionVariant;
-    }
-  | {
-      type: 'open_url';
-      label: string;
-      url: string;
-      variant?: ChatMessageActionVariant;
-    }
-  | {
-      type: 'build_brief';
-      label: string;
-      variant?: ChatMessageActionVariant;
-    }
-  | {
-      type: 'strengthen_case';
-      label: string;
-      variant?: ChatMessageActionVariant;
-    };
+ | {
+   type: 'reply';
+   label: string;
+   value: string;
+   variant?: ChatMessageActionVariant;
+  }
+ | {
+   type: 'submit';
+   label: string;
+   variant?: ChatMessageActionVariant;
+  }
+ | {
+   type: 'continue_payment';
+   label: string;
+   variant?: ChatMessageActionVariant;
+  }
+ | {
+   type: 'open_url';
+   label: string;
+   url: string;
+   variant?: ChatMessageActionVariant;
+  }
+ | {
+   type: 'build_brief';
+   label: string;
+   variant?: ChatMessageActionVariant;
+  }
+ | {
+   type: 'strengthen_case';
+   label: string;
+   variant?: ChatMessageActionVariant;
+  };
 
 export interface FirstMessageIntent {
-  intent: ConversationMode | 'UNCLEAR';
-  confidence: number;
-  reason: string;
+ intent: ConversationMode | 'UNCLEAR';
+ confidence: number;
+ reason: string;
 }
 
 /**
  * Conversation participant info
  */
 export interface ConversationParticipant {
-  userId: string;
-  name?: string;
-  email?: string;
-  image?: string | null;
+ userId: string;
+ name?: string;
+ email?: string;
+ image?: string | null;
 }
 
 export interface SetupAddressPayload {
-  address?: string;
-  apartment?: string;
-  city?: string;
-  state?: string;
-  postalCode?: string;
-  country?: string;
+ address?: string;
+ apartment?: string;
+ city?: string;
+ state?: string;
+ postalCode?: string;
+ country?: string;
 }
 
 export interface SetupServicePayload {
-  name: string;
-  key?: string;
-  description?: string;
+ name: string;
+ key?: string;
+ description?: string;
 }
 
 export interface SetupFieldsPayload {
-  name?: string;
-  slug?: string;
-  description?: string;
-  accentColor?: string;
-  website?: string;
-  businessEmail?: string;
-  businessPhone?: string;
-  address?: SetupAddressPayload;
-  services?: SetupServicePayload[];
+ name?: string;
+ slug?: string;
+ description?: string;
+ accentColor?: string;
+ website?: string;
+ businessEmail?: string;
+ businessPhone?: string;
+ address?: SetupAddressPayload;
+ services?: SetupServicePayload[];
 }
 
 /**
  * Conversation metadata stored in user_info JSON field
  */
 export interface ConversationMetadata {
-  title?: string;
-  mode?: ConversationMode;
-  first_message_intent?: FirstMessageIntent;
-  system_conversation?: boolean;
-  consultation?: import('./intake').ConsultationState | null;
-  intakeConversationState?: import('./intake').IntakeConversationState;
-  intakeSlimContactDraft?: import('./intake').SlimContactDraft | null;
-  intakeAiBriefActive?: boolean;
-  intakeUuid?: string | null;
-  intakePaymentRequired?: boolean;
-  intakePaymentReceived?: boolean;
-  intakeSubmitted?: boolean;
-  intakeCompleted?: boolean;
-  intakeDecision?: string | null;
-  setupFields?: SetupFieldsPayload | null;
-  practiceName?: string;
-  practiceSlug?: string;
-  anonParticipantId?: string;
-  [key: string]: unknown;
+ title?: string;
+ mode?: ConversationMode;
+ first_message_intent?: FirstMessageIntent;
+ system_conversation?: boolean;
+ consultation?: import('./intake').ConsultationState | null;
+ intakeConversationState?: import('./intake').IntakeConversationState;
+ intakeSlimContactDraft?: import('./intake').SlimContactDraft | null;
+ intakeAiBriefActive?: boolean;
+ intakeUuid?: string | null;
+ intakePaymentRequired?: boolean;
+ intakePaymentReceived?: boolean;
+ intakeSubmitted?: boolean;
+ intakeCompleted?: boolean;
+ intakeDecision?: string | null;
+ setupFields?: SetupFieldsPayload | null;
+ practiceName?: string;
+ practiceSlug?: string;
+ anonParticipantId?: string;
+ [key: string]: unknown;
 }
 
 /**
  * Conversation object from API
  */
 export interface Conversation {
+ id: string;
+ practice_id: string;
+ practice?: {
   id: string;
-  practice_id: string;
-  practice?: {
-    id: string;
-    name: string;
-    slug: string;
-  } | null;
-  user_id: string | null; // Creator/owner of the conversation (nullable for anonymous users)
-  matter_id: string | null; // Optional: link to specific matter
-  participants: string[]; // Array of user IDs
-  user_info: ConversationMetadata | null;
-  status: ConversationStatus;
-  // Triage fields (optional, practice workflows only)
-  assigned_to?: string | null; // User ID of assigned practice member
-  priority?: 'low' | 'normal' | 'high' | 'urgent';
-  tags?: string[]; // Array of tag strings
-  internal_notes?: string | null; // Internal notes for practice members
-  last_message_at?: string | null; // ISO timestamp of last message
-  last_message_content?: string | null; // Content of last message for preview
-  unread_count?: number | null;
-  latest_seq?: number;
-  first_response_at?: string | null; // ISO timestamp of first practice member response
-  closed_at?: string | null; // ISO timestamp when conversation was closed
-  created_at: string; // ISO timestamp
-  updated_at: string; // ISO timestamp
-  lead?: {
-    is_lead: boolean;
-    lead_id?: string;
-    matter_id?: string;
-    lead_source?: string | null;
-    created_at?: string | null;
-  };
+  name: string;
+  slug: string;
+ } | null;
+ user_id: string | null; // Creator/owner of the conversation (nullable for anonymous users)
+ matter_id: string | null; // Optional: link to specific matter
+ participants: string[]; // Array of user IDs
+ user_info: ConversationMetadata | null;
+ status: ConversationStatus;
+ // Triage fields (optional, practice workflows only)
+ assigned_to?: string | null; // User ID of assigned practice member
+ priority?: 'low' | 'normal' | 'high' | 'urgent';
+ tags?: string[]; // Array of tag strings
+ internal_notes?: string | null; // Internal notes for practice members
+ last_message_at?: string | null; // ISO timestamp of last message
+ last_message_content?: string | null; // Content of last message for preview
+ unread_count?: number | null;
+ latest_seq?: number;
+ first_response_at?: string | null; // ISO timestamp of first practice member response
+ closed_at?: string | null; // ISO timestamp when conversation was closed
+ created_at: string; // ISO timestamp
+ updated_at: string; // ISO timestamp
+ lead?: {
+  is_lead: boolean;
+  lead_id?: string;
+  matter_id?: string;
+  lead_source?: string | null;
+  created_at?: string | null;
+ };
 }
 
 /**
@@ -165,99 +165,99 @@ export interface Conversation {
  */
 
 export interface ConversationMessage {
-  id: string;
-  conversation_id: string;
-  practice_id: string;
-  user_id: string; // Sender of the message
-  role: MessageRole;
-  content: string;
-  reply_to_message_id?: string | null;
-  metadata: Record<string, unknown> | null;
-  // Protocol-level message dedupe/ordering id. Not a person/client relationship identifier.
-  client_id: string;
-  seq: number;
-  server_ts: string;
-  token_count: number | null;
-  created_at: string; // ISO timestamp
-  reactions?: MessageReaction[];
+ id: string;
+ conversation_id: string;
+ practice_id: string;
+ user_id: string; // Sender of the message
+ role: MessageRole;
+ content: string;
+ reply_to_message_id?: string | null;
+ metadata: Record<string, unknown> | null;
+ // Protocol-level message dedupe/ordering id. Not a person/client relationship identifier.
+ client_id: string;
+ seq: number;
+ server_ts: string;
+ token_count: number | null;
+ created_at: string; // ISO timestamp
+ reactions?: MessageReaction[];
 }
 
 export interface MessageReactionSummary {
-  emoji: string;
-  count: number;
-  reacted_by_me: boolean;
+ emoji: string;
+ count: number;
+ reacted_by_me: boolean;
 }
 
 /**
  * UI-friendly message type that extends ConversationMessage
  */
 export interface ConversationMessageUI extends ConversationMessage {
-  isUser: boolean; // Derived from sender user_id matching the current session user
-  timestamp: number; // Converted from created_at ISO string to milliseconds
-  files?: Array<{
-    id: string;
-    name: string;
-    size: number;
-    type: string;
-    url: string;
-  }>;
+ isUser: boolean; // Derived from sender user_id matching the current session user
+ timestamp: number; // Converted from created_at ISO string to milliseconds
+ files?: Array<{
+  id: string;
+  name: string;
+  size: number;
+  type: string;
+  url: string;
+ }>;
 }
 
 /**
  * Create conversation request payload
  */
 export interface CreateConversationRequest {
-  matterId?: string;
-  participantUserIds?: string[];
-  metadata?: Record<string, unknown>;
-  title?: string;
+ matterId?: string;
+ participantUserIds?: string[];
+ metadata?: Record<string, unknown>;
+ title?: string;
 }
 
 /**
  * Add participants request payload
  */
 export interface AddParticipantsRequest {
-  participantUserIds: string[];
+ participantUserIds: string[];
 }
 
 /**
  * Update conversation request payload
  */
 export interface UpdateConversationRequest {
-  status?: ConversationStatus;
-  metadata?: Record<string, unknown>;
+ status?: ConversationStatus;
+ metadata?: Record<string, unknown>;
 }
 
 /**
  * Send message request payload
  */
 export interface SendMessageRequest {
-  conversationId: string;
-  content: string;
-  attachments?: string[]; // Array of file IDs
-  metadata?: Record<string, unknown>;
-  reply_to_message_id?: string | null;
+ conversationId: string;
+ content: string;
+ attachments?: string[]; // Array of file IDs
+ metadata?: Record<string, unknown>;
+ reply_to_message_id?: string | null;
 }
 
 /**
  * Get messages response with pagination
  */
 export interface GetMessagesResponse {
-  messages: ConversationMessage[];
-  hasMore?: boolean;
-  cursor?: string | null;
-  latest_seq?: number;
-  // undefined when sequence pagination not requested; null when no more pages.
-  next_from_seq?: number | null;
-  warning?: string;
+ messages: ConversationMessage[];
+ hasMore?: boolean;
+ cursor?: string | null;
+ latest_seq?: number;
+ // undefined when sequence pagination not requested; null when no more pages.
+ next_from_seq?: number | null;
+ warning?: string;
 }
 
 /**
  * Get messages query parameters
  */
 export interface GetMessagesOptions {
-  conversationId: string;
-  limit?: number;
-  cursor?: string;
-  from_seq?: number;
+ conversationId: string;
+ limit?: number;
+ cursor?: string;
+ from_seq?: number;
 }

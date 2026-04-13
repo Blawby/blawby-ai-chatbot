@@ -1,29 +1,29 @@
 import type { FormData } from '@/shared/ui/form';
 
 export interface OnboardingPersonalInfo extends FormData {
-  fullName: string;
-  birthday?: string;
-  agreedToTerms: boolean;
+ fullName: string;
+ birthday?: string;
+ agreedToTerms: boolean;
 }
 
 export const sanitizeOnboardingPersonalInfo = (info: OnboardingPersonalInfo) => ({
-  ...info
+ ...info
 });
 
 export type OnboardingPrimaryUseCase =
-  | 'messaging'
-  | 'legal_payments'
-  | 'matter_management'
-  | 'intake_forms'
-  | 'other';
+ | 'messaging'
+ | 'legal_payments'
+ | 'matter_management'
+ | 'intake_forms'
+ | 'other';
 
 export interface OnboardingUseCase {
-  primaryUseCase: OnboardingPrimaryUseCase;
-  productUsage: OnboardingPrimaryUseCase[];
-  additionalInfo?: string;
+ primaryUseCase: OnboardingPrimaryUseCase;
+ productUsage: OnboardingPrimaryUseCase[];
+ additionalInfo?: string;
 }
 
 export interface OnboardingFormData {
-  personalInfo: OnboardingPersonalInfo;
-  useCase: OnboardingUseCase;
+ personalInfo: OnboardingPersonalInfo;
+ useCase: OnboardingUseCase;
 }

@@ -7,12 +7,12 @@
 
 // Frontend type - camelCase, used in UI and local state
 export interface Address {
-  address: string;
-  apartment?: string;
-  city: string;
-  state: string;
-  postalCode: string;
-  country: string;
+ address: string;
+ apartment?: string;
+ city: string;
+ state: string;
+ postalCode: string;
+ country: string;
 }
 
 // Backend wire type - snake_case, used in API requests/responses
@@ -21,73 +21,73 @@ export type { AddressApi } from './api';
 
 // Address suggestion from autocomplete API
 export interface AddressSuggestion {
-  id: string;
-  label: string;
-  address: Address;
-  formatted: string;
-  lat?: number;
-  lon?: number;
-  placeId?: string;
-  dedupeKey?: string;
-  properties?: {
-    result_type?: string;
-    match_type?: string;
-    confidence?: number;
-    rank?: {
-      importance?: number;
-      confidence?: number;
-      confidence_street_level?: number;
-      confidence_building_level?: number;
-      match_type?: string;
-    };
-    datasource?: {
-      sourcename?: string;
-      attribution?: string;
-      license?: string;
-      url?: string;
-    };
-    country?: string;
-    state?: string;
-    city?: string;
-    postcode?: string;
-    [key: string]: unknown;
+ id: string;
+ label: string;
+ address: Address;
+ formatted: string;
+ lat?: number;
+ lon?: number;
+ placeId?: string;
+ dedupeKey?: string;
+ properties?: {
+  result_type?: string;
+  match_type?: string;
+  confidence?: number;
+  rank?: {
+   importance?: number;
+   confidence?: number;
+   confidence_street_level?: number;
+   confidence_building_level?: number;
+   match_type?: string;
   };
+  datasource?: {
+   sourcename?: string;
+   attribution?: string;
+   license?: string;
+   url?: string;
+  };
+  country?: string;
+  state?: string;
+  city?: string;
+  postcode?: string;
+  [key: string]: unknown;
+ };
 }
 
 // Autocomplete API response
 export interface AutocompleteResponse {
-  suggestions: AddressSuggestion[];
+ suggestions: AddressSuggestion[];
 }
 
 // Autocomplete API error responses
 export interface AutocompleteError {
-  code: 'INVALID_REQUEST' | 'AUTOCOMPLETE_DISABLED' | 'UPSTREAM_ERROR' | 'RATE_LIMITED';
+ code: 'INVALID_REQUEST' | 'AUTOCOMPLETE_DISABLED' | 'UPSTREAM_ERROR' | 'RATE_LIMITED';
 }
 
 // Jurisdiction configuration for practices
 export interface SupportedJurisdiction {
-  country: string; // ISO-2 uppercase
-  state?: string;  // State code if country requires state-level jurisdiction
+ country: string; // ISO-2 uppercase
+ state?: string; // State code if country requires state-level jurisdiction
 }
 
 // Jurisdiction status for intakes
 export type JurisdictionStatus = 
-  | 'jurisdiction_unknown'
-  | 'jurisdiction_out_of_scope'
-  | 'jurisdiction_supported';
+ | 'jurisdiction_unknown'
+ | 'jurisdiction_out_of_scope'
+ | 'jurisdiction_supported';
 
 // Address validation levels
 export type AddressValidationLevel = 'loose' | 'strict';
 
 // Address validation result
 export interface AddressValidationResult {
-  isValid: boolean;
-  errors: Array<{
-    field: keyof Address;
-    message: string;
-    code: string;
-  }>;
-  level: AddressValidationLevel;
+ isValid: boolean;
+ errors: Array<{
+  field: keyof Address;
+  message: string;
+  code: string;
+ }>;
+ level: AddressValidationLevel;
 }
 
 // Address source tracking
@@ -95,7 +95,7 @@ export type AddressSource = 'manual' | 'autocomplete';
 
 // Address with metadata
 export interface AddressWithMetadata extends Address {
-  source?: AddressSource;
-  validatedAt?: string;
-  jurisdictionStatus?: JurisdictionStatus;
+ source?: AddressSource;
+ validatedAt?: string;
+ jurisdictionStatus?: JurisdictionStatus;
 }

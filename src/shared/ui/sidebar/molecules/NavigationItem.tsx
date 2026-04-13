@@ -15,66 +15,66 @@ import type { IconComponent } from '@/shared/ui/Icon';
  * Translates matter status to user-friendly screen reader text
  */
 const translateMatterStatus = (status: MatterStatus | null | undefined): string => {
-  if (!status) return '';
-  
-  switch (status) {
-    case 'ready':
-      return 'status: ready';
-    case 'incomplete':
-      return 'status: incomplete';
-    case 'empty':
-      return 'status: empty';
-    default:
-      return `status: ${status}`;
-  }
+ if (!status) return '';
+ 
+ switch (status) {
+  case 'ready':
+   return 'status: ready';
+  case 'incomplete':
+   return 'status: incomplete';
+  case 'empty':
+   return 'status: empty';
+  default:
+   return `status: ${status}`;
+ }
 };
 
 interface NavigationItemProps {
-  icon: IconComponent;
-  label: string;
-  isActive: boolean;
-  onClick: () => void;
-  isCollapsed: boolean;
-  matterStatus?: MatterStatus;
-  hasUnread?: boolean;
-  showUnreadDot?: boolean;
-  className?: string;
+ icon: IconComponent;
+ label: string;
+ isActive: boolean;
+ onClick: () => void;
+ isCollapsed: boolean;
+ matterStatus?: MatterStatus;
+ hasUnread?: boolean;
+ showUnreadDot?: boolean;
+ className?: string;
 }
 
 export const NavigationItem = ({ 
-  icon, 
-  label, 
-  isActive, 
-  onClick, 
-  isCollapsed,
-  matterStatus,
-  hasUnread = false,
-  showUnreadDot = false,
-  className = ''
+ icon, 
+ label, 
+ isActive, 
+ onClick, 
+ isCollapsed,
+ matterStatus,
+ hasUnread = false,
+ showUnreadDot = false,
+ className = ''
 }: NavigationItemProps) => {
-  const baseClasses = 'flex items-center w-full rounded-lg text-left transition-colors';
-  const collapsedClasses = isCollapsed ? 'justify-center py-2' : 'gap-2 px-2 py-2';
-  const activeClasses = isActive
-    ? 'glass-input text-input-text shadow-sm'
-    : 'text-input-text hover:bg-surface-utility/40 transition-colors';
-  const labelClasses = hasUnread ? 'font-semibold' : 'font-medium';
+ const baseClasses = 'flex items-center w-full rounded-lg text-left transition-colors';
+ const collapsedClasses = isCollapsed ? 'justify-center py-2' : 'gap-2 px-2 py-2';
+ const activeClasses = isActive
+  ? 'glass-input text-input-text shadow-sm'
+  : 'text-input-text hover:bg-surface-utility/40 transition-colors';
+ const labelClasses = hasUnread ? 'font-semibold' : 'font-medium';
 
-  return (
-    <div className="relative">
-      <button
-            type="button"
-        onClick={onClick}
-        className={`${baseClasses} ${collapsedClasses} ${activeClasses} ${className}`}
-        aria-current={isActive ? 'page' : undefined}
-        aria-label={`${label}${matterStatus ? `, ${translateMatterStatus(matterStatus)}` : ''}`}
-        title={isCollapsed ? label : undefined}
-      >
-        <NavigationIcon icon={icon} size="md" />
-        {!isCollapsed && <span className={`text-sm ${labelClasses}`}>{label}</span>}
-      </button>
-      {/* Status dot for matter status */}
-      <StatusDot status={matterStatus} />
-      <NotificationDot show={showUnreadDot} className={hasUnread ? 'bg-accent-500' : 'bg-accent-400/70'} />
-    </div>
-  );
+ return (
+  <div className="relative">
+   <button
+      type="button"
+    onClick={onClick}
+    className={`${baseClasses} ${collapsedClasses} ${activeClasses} ${className}`}
+    aria-current={isActive ? 'page' : undefined}
+    aria-label={`${label}${matterStatus ? `, ${translateMatterStatus(matterStatus)}` : ''}`}
+    title={isCollapsed ? label : undefined}
+   >
+    <NavigationIcon icon={icon} size="md" />
+    {!isCollapsed && <span className={`text-sm ${labelClasses}`}>{label}</span>}
+   </button>
+   {/* Status dot for matter status */}
+   <StatusDot status={matterStatus} />
+   <NotificationDot show={showUnreadDot} className={hasUnread ? 'bg-accent-500' : 'bg-accent-400/70'} />
+  </div>
+ );
 };

@@ -9,180 +9,180 @@ import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
 import { schemas } from '@/shared/ui/validation/schemas';
 
 interface PersonalInfoData extends FormData {
-  fullName: string;
-  birthday?: string;
-  agreedToTerms: boolean;
+ fullName: string;
+ birthday?: string;
+ agreedToTerms: boolean;
 }
 
 
 interface PersonalInfoStepProps {
-  data: PersonalInfoData;
-  onComplete: (data: PersonalInfoData) => void;
-  isSubmitting?: boolean;
-  requireName?: boolean;
+ data: PersonalInfoData;
+ onComplete: (data: PersonalInfoData) => void;
+ isSubmitting?: boolean;
+ requireName?: boolean;
 }
 
 const PersonalInfoStep = ({
-  data: _data,
-  onComplete,
-  isSubmitting: parentSubmitting = false,
-  requireName = true
+ data: _data,
+ onComplete,
+ isSubmitting: parentSubmitting = false,
+ requireName = true
 }: PersonalInfoStepProps) => {
-  const { t } = useTranslation('common');
-  const [localSubmitting, setLocalSubmitting] = useState(false);
-  const mountedRef = useRef<boolean>(true);
+ const { t } = useTranslation('common');
+ const [localSubmitting, setLocalSubmitting] = useState(false);
+ const mountedRef = useRef<boolean>(true);
 
-  useEffect(() => {
-    mountedRef.current = true;
-    return () => {
-      mountedRef.current = false;
-    };
-  }, []);
-
-  const handleSubmit = async (formData: PersonalInfoData) => {
-    if (parentSubmitting || localSubmitting) return;
-    
-    setLocalSubmitting(true);
-    
-    try {
-      await onComplete(formData);
-    } catch (error) {
-      console.error('Error submitting personal info:', error);
-    } finally {
-      if (mountedRef.current) {
-        setLocalSubmitting(false);
-      }
-    }
+ useEffect(() => {
+  mountedRef.current = true;
+  return () => {
+   mountedRef.current = false;
   };
+ }, []);
+
+ const handleSubmit = async (formData: PersonalInfoData) => {
+  if (parentSubmitting || localSubmitting) return;
+  
+  setLocalSubmitting(true);
+  
+  try {
+   await onComplete(formData);
+  } catch (error) {
+   console.error('Error submitting personal info:', error);
+  } finally {
+   if (mountedRef.current) {
+    setLocalSubmitting(false);
+   }
+  }
+ };
 
 
-  return (
-    <div className="min-h-screen bg-transparent flex flex-col justify-center px-4 py-12 sm:px-6 lg:px-8">
-      {/* Header */}
-      <div className="mx-auto w-full max-w-md">
-        <div className="flex justify-center mb-6">
-          <Logo size="lg" />
-        </div>
-
-        <h2 className="mt-6 text-center text-3xl font-extrabold text-input-text">
-          {t('onboarding.step1.title')}
-        </h2>
-        <p className="mt-2 text-center text-sm text-input-placeholder">
-          {t('onboarding.step1.subtitle')}
-        </p>
-      </div>
-
-      <div className="mt-8 mx-auto w-full max-w-md">
-        <div className="glass-card py-8 px-6 sm:px-10">
-          <Form<PersonalInfoData> 
-            onSubmit={async (formData: PersonalInfoData): Promise<void> => {
-              await handleSubmit(formData);
-            }} 
-            initialData={_data}
-            schema={requireName ? schemas.onboarding.personalInfo : schemas.onboarding.personalInfoNoName}
-          >
-            <div className="space-y-4">
-              {/* Full Name */}
-              {requireName && (
-                <FormField name="fullName">
-                  {({ value, error, onChange }) => (
-                    <FormItem>
-                      <FormLabel>{t('onboarding.step1.fullName')}</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="text"
-                          required
-                          value={(value as string) || ''}
-                          onChange={(value) => onChange(value)}
-                          placeholder={t('onboarding.step1.fullNamePlaceholder')}
-                          icon={UserIcon}
-                          iconClassName="h-5 w-5 text-input-placeholder"
-                          error={error?.message}
-                        />
-                      </FormControl>
-                      {error && (
-                        <FormMessage>{error.message}</FormMessage>
-                      )}
-                    </FormItem>
-                  )}
-                </FormField>
-              )}
-
-              {/* Birthday */}
-              <FormField name="birthday">
-                {({ value, error, onChange }) => (
-                  <FormItem>
-                    <FormLabel>{t('onboarding.step1.birthday')}</FormLabel>
-                    <FormControl>
-                      <DatePicker
-                        value={(value as string) || ''}
-                        onChange={(date) => onChange(date as string)}
-                        placeholder={t('onboarding.step1.birthdayPlaceholder')}
-                        isBirthday
-                        format="date"
-                        max={new Date().toISOString().split('T')[0]} // Prevent future dates
-                        required
-                        error={error?.message}
-                      />
-                    </FormControl>
-                    {error && (
-                      <FormMessage>{error.message}</FormMessage>
-                    )}
-                  </FormItem>
-                )}
-              </FormField>
-
-            </div>
-
-            {/* Terms Agreement */}
-            <FormField name="agreedToTerms">
-              {({ value, error, onChange }) => (
-                <FormItem>
-                  <FormControl>
-                    <Checkbox
-                      id="agreedToTerms"
-                      checked={(value as boolean) || false}
-                      onChange={(checked) => onChange(checked)}
-                      label={
-                        <Trans
-                          i18nKey="onboarding.step1.termsAgreement"
-                          components={{
-                            termsLink: <a href="https://blawby.com/terms" className="text-accent-600 dark:text-accent-400 hover:text-accent-500 dark:hover:text-accent-300 underline" aria-label="Terms of Service" target="_blank" rel="noopener noreferrer">Terms</a>,
-                            privacyLink: <a href="https://blawby.com/privacy" className="text-accent-600 dark:text-accent-400 hover:text-accent-500 dark:hover:text-accent-300 underline" aria-label="Privacy Policy" target="_blank" rel="noopener noreferrer">Privacy Policy</a>
-                          }}
-                        />
-                      }
-                      error={error?.message}
-                    />
-                  </FormControl>
-                  {error && (
-                    <FormMessage>{error.message}</FormMessage>
-                  )}
-                </FormItem>
-              )}
-            </FormField>
-
-            {/* Action Buttons */}
-            <div className="space-y-3">
-              <Button
-                type="submit"
-                disabled={parentSubmitting || localSubmitting}
-                variant="primary"
-                size="lg"
-                className="w-full"
-              >
-                {(parentSubmitting || localSubmitting) ? (
-                  <LoadingSpinner size="md" ariaLabel={t('common:app.loading', { ns: 'common' })} />
-                ) : (
-                  t('onboarding.step1.continue')
-                )}
-              </Button>
-            </div>
-          </Form>
-        </div>
-      </div>
+ return (
+  <div className="min-h-screen bg-transparent flex flex-col justify-center px-4 py-12 sm:px-6 lg:px-8">
+   {/* Header */}
+   <div className="mx-auto w-full max-w-md">
+    <div className="flex justify-center mb-6">
+     <Logo size="lg" />
     </div>
-  );
+
+    <h2 className="mt-6 text-center text-3xl font-extrabold text-input-text">
+     {t('onboarding.step1.title')}
+    </h2>
+    <p className="mt-2 text-center text-sm text-input-placeholder">
+     {t('onboarding.step1.subtitle')}
+    </p>
+   </div>
+
+   <div className="mt-8 mx-auto w-full max-w-md">
+    <div className="glass-card py-8 px-6 sm:px-10">
+     <Form<PersonalInfoData> 
+      onSubmit={async (formData: PersonalInfoData): Promise<void> => {
+       await handleSubmit(formData);
+      }} 
+      initialData={_data}
+      schema={requireName ? schemas.onboarding.personalInfo : schemas.onboarding.personalInfoNoName}
+     >
+      <div className="space-y-4">
+       {/* Full Name */}
+       {requireName && (
+        <FormField name="fullName">
+         {({ value, error, onChange }) => (
+          <FormItem>
+           <FormLabel>{t('onboarding.step1.fullName')}</FormLabel>
+           <FormControl>
+            <Input
+             type="text"
+             required
+             value={(value as string) || ''}
+             onChange={(value) => onChange(value)}
+             placeholder={t('onboarding.step1.fullNamePlaceholder')}
+             icon={UserIcon}
+             iconClassName="h-5 w-5 text-input-placeholder"
+             error={error?.message}
+            />
+           </FormControl>
+           {error && (
+            <FormMessage>{error.message}</FormMessage>
+           )}
+          </FormItem>
+         )}
+        </FormField>
+       )}
+
+       {/* Birthday */}
+       <FormField name="birthday">
+        {({ value, error, onChange }) => (
+         <FormItem>
+          <FormLabel>{t('onboarding.step1.birthday')}</FormLabel>
+          <FormControl>
+           <DatePicker
+            value={(value as string) || ''}
+            onChange={(date) => onChange(date as string)}
+            placeholder={t('onboarding.step1.birthdayPlaceholder')}
+            isBirthday
+            format="date"
+            max={new Date().toISOString().split('T')[0]} // Prevent future dates
+            required
+            error={error?.message}
+           />
+          </FormControl>
+          {error && (
+           <FormMessage>{error.message}</FormMessage>
+          )}
+         </FormItem>
+        )}
+       </FormField>
+
+      </div>
+
+      {/* Terms Agreement */}
+      <FormField name="agreedToTerms">
+       {({ value, error, onChange }) => (
+        <FormItem>
+         <FormControl>
+          <Checkbox
+           id="agreedToTerms"
+           checked={(value as boolean) || false}
+           onChange={(checked) => onChange(checked)}
+           label={
+            <Trans
+             i18nKey="onboarding.step1.termsAgreement"
+             components={{
+              termsLink: <a href="https://blawby.com/terms" className="text-accent-600 hover:text-accent-500 dark:hover:text-accent-300 underline" aria-label="Terms of Service" target="_blank" rel="noopener noreferrer">Terms</a>,
+              privacyLink: <a href="https://blawby.com/privacy" className="text-accent-600 hover:text-accent-500 dark:hover:text-accent-300 underline" aria-label="Privacy Policy" target="_blank" rel="noopener noreferrer">Privacy Policy</a>
+             }}
+            />
+           }
+           error={error?.message}
+          />
+         </FormControl>
+         {error && (
+          <FormMessage>{error.message}</FormMessage>
+         )}
+        </FormItem>
+       )}
+      </FormField>
+
+      {/* Action Buttons */}
+      <div className="space-y-3">
+       <Button
+        type="submit"
+        disabled={parentSubmitting || localSubmitting}
+        variant="primary"
+        size="lg"
+        className="w-full"
+       >
+        {(parentSubmitting || localSubmitting) ? (
+         <LoadingSpinner size="md" ariaLabel={t('common:app.loading', { ns: 'common' })} />
+        ) : (
+         t('onboarding.step1.continue')
+        )}
+       </Button>
+      </div>
+     </Form>
+    </div>
+   </div>
+  </div>
+ );
 };
 
 export default PersonalInfoStep;

@@ -9,32 +9,32 @@
  * This application uses TWO separate backends:
  * 
  * 1. WORKER API (Cloudflare Worker)
- *    - Handles: /api/conversations, /api/files
- *    - Dev: http://localhost:8787
- *    - Prod: Same origin as frontend (ai.blawby.com)
+ *  - Handles: /api/conversations, /api/files
+ *  - Dev: http://localhost:8787
+ *  - Prod: Same origin as frontend (ai.blawby.com)
  * 
  * 2. BACKEND API (Remote Node.js server - blawby-ts repository)
- *    - Handles: /api/auth/*, /api/practices, /api/subscription/*, /api/members/*
- *    - Dev/Prod: must be set via env var
+ *  - Handles: /api/auth/*, /api/practices, /api/subscription/*, /api/members/*
+ *  - Dev/Prod: must be set via env var
  * 
  * ENDPOINT ROUTING GUIDE:
  * 
  * WORKER API (use getWorkerApiUrl()):
- *   /api/conversations/*           - Conversation management + messages
- *   /api/ai/chat                   - AI chat responses
- *   /api/files/*                   - File uploads/downloads
- *   /api/status                    - Status check
- *   /api/health                    - Health check
- *   /api/practices/:id/workspace/* - Practice workspace data (chatbot-specific)
+ *  /api/conversations/*      - Conversation management + messages
+ *  /api/ai/chat          - AI chat responses
+ *  /api/files/*          - File uploads/downloads
+ *  /api/status          - Status check
+ *  /api/health          - Health check
+ *  /api/practices/:id/workspace/* - Practice workspace data (chatbot-specific)
  * 
  * BACKEND API (use getBackendApiUrl()):
- *   /api/auth/*                    - Better Auth endpoints (login, signup, etc.)
- *   /api/practices/*               - Practice CRUD operations
- *   /api/subscription/*            - Subscription management
- *   /api/members/*                 - Member management
- *   /api/practice-client-intakes/* - Intake settings, status, creation
- *   /api/clients/*                 - Client user details & memos
- *   /api/conversations/:id/link    - Conversation link generation
+ *  /api/auth/*          - Better Auth endpoints (login, signup, etc.)
+ *  /api/practices/*        - Practice CRUD operations
+ *  /api/subscription/*      - Subscription management
+ *  /api/members/*         - Member management
+ *  /api/practice-client-intakes/* - Intake settings, status, creation
+ *  /api/clients/*         - Client user details & memos
+ *  /api/conversations/:id/link  - Conversation link generation
  */
 
 import { isDevelopment } from '@/shared/utils/environment';

@@ -10,24 +10,24 @@ import { WorkspaceProvider } from '../contexts/WorkspaceContext';
 import type { WorkspaceType } from '@/shared/types/workspace';
 
 export interface WorkspaceContainerProps {
-  workspace: WorkspaceType;
-  practiceSlug: string | null;
-  clientPracticeSlug: string | null;
-  view: 'home' | 'list' | 'conversation' | 'matters' | 'clients';
-  children: React.ReactNode;
+ workspace: WorkspaceType;
+ practiceSlug: string | null;
+ clientPracticeSlug: string | null;
+ view: 'home' | 'list' | 'conversation' | 'matters' | 'clients';
+ children: React.ReactNode;
 }
 
 const WorkspaceContainer: FunctionComponent<WorkspaceContainerProps> = ({
-  children,
+ children,
 }) => {
 
-  return (
-    <WorkspaceProvider>
-      <div className="workspace-container h-full flex flex-col">
-        {children}
-      </div>
-    </WorkspaceProvider>
-  );
+ return (
+  <WorkspaceProvider>
+   <div className="workspace-container h-full flex flex-col">
+    {children}
+   </div>
+  </WorkspaceProvider>
+ );
 };
 
 export default WorkspaceContainer;

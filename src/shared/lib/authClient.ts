@@ -11,27 +11,27 @@ type AuthClientType = ReturnType<typeof createAuthClient>;
 type AuthSession = ReturnType<AuthClientType['useSession']>;
 type AuthSessionData = AuthSession['data'];
 type UntrustedSessionUser = {
-  id: string;
-  email?: string;
-  name?: string;
-  image?: string;
-  isAnonymous?: boolean;
-  onboardingComplete?: boolean;
+ id: string;
+ email?: string;
+ name?: string;
+ image?: string;
+ isAnonymous?: boolean;
+ onboardingComplete?: boolean;
 } & Record<string, unknown>;
 type TypedSessionData = NonNullable<AuthSessionData> extends { user: unknown; session: infer S }
-  ? (
-    { user: BetterAuthSessionUser; session: S; transformError?: false }
-    | { user: UntrustedSessionUser; session: S; transformError: true }
-  ) | Extract<AuthSessionData, null | undefined>
-  : AuthSessionData;
+ ? (
+  { user: BetterAuthSessionUser; session: S; transformError?: false }
+  | { user: UntrustedSessionUser; session: S; transformError: true }
+ ) | Extract<AuthSessionData, null | undefined>
+ : AuthSessionData;
 
 // Auth requests are proxied through the Worker to keep session cookies same-origin.
 function getAuthBaseUrl(): string | undefined {
-  if (typeof window === 'undefined') {
-    return 'https://placeholder-auth-server.com';
-  }
+ if (typeof window === 'undefined') {
+  return 'https://placeholder-auth-server.com';
+ }
 
-  return getWorkerApiUrl();
+ return getWorkerApiUrl();
 }
 
 // Cached auth client instance (only one is ever created and cached - the browser client)
@@ -59,41 +59,41 @@ let cachedAuthClient: AuthClientType | null = null;
  * @throws {Error} If VITE_BACKEND_API_URL is missing (browser context)
  */
 function getAuthClient(): AuthClientType {
-  // If already created (browser context), return cached client
-  if (cachedAuthClient) {
-    return cachedAuthClient;
-  }
+ // If already created (browser context), return cached client
+ if (cachedAuthClient) {
+  return cachedAuthClient;
+ }
 
-  // During SSR/build (prerender), return minimal placeholder (not cached)
-  // This is ONLY to prevent build errors - it's never used at runtime
-  if (typeof window === 'undefined') {
-    const placeholderBaseURL = getAuthBaseUrl(); // Returns a placeholder during SSR/build, not the real backend URL.
-    return createAuthClient({
-      plugins: [organizationClient(), anonymousClient(), stripeClient({ subscription: true })],
-      baseURL: placeholderBaseURL,
-      fetchOptions: {
-        credentials: 'include'
-      }
-    });
-  }
-
-  // Browser context - create the REAL client (only one is ever created and cached)
-  const client = createAuthClient({
-    plugins: [organizationClient(), anonymousClient(), stripeClient({ subscription: true })],
-    baseURL: getAuthBaseUrl(),
-    fetchOptions: {
-      credentials: 'include'
-    }
+ // During SSR/build (prerender), return minimal placeholder (not cached)
+ // This is ONLY to prevent build errors - it's never used at runtime
+ if (typeof window === 'undefined') {
+  const placeholderBaseURL = getAuthBaseUrl(); // Returns a placeholder during SSR/build, not the real backend URL.
+  return createAuthClient({
+   plugins: [organizationClient(), anonymousClient(), stripeClient({ subscription: true })],
+   baseURL: placeholderBaseURL,
+   fetchOptions: {
+    credentials: 'include'
+   }
   });
+ }
 
-  // Cache the browser client (only one is ever created)
-  cachedAuthClient = client;
-  return client;
+ // Browser context - create the REAL client (only one is ever created and cached)
+ const client = createAuthClient({
+  plugins: [organizationClient(), anonymousClient(), stripeClient({ subscription: true })],
+  baseURL: getAuthBaseUrl(),
+  fetchOptions: {
+   credentials: 'include'
+  }
+ });
+
+ // Cache the browser client (only one is ever created)
+ cachedAuthClient = client;
+ return client;
 }
 
 // Helper to get the actual client (for cases where proxy doesn't work)
 export function getClient(): AuthClientType {
-  return getAuthClient();
+ return getAuthClient();
 }
 
 // Export the auth client getter.
@@ -105,69 +105,69 @@ export function getClient(): AuthClientType {
 // non-public fetchOptions property so it fails locally instead of being
 // interpreted as an auth route.
 export const authClient = new Proxy({} as AuthClientType, {
-  get(_target, prop) {
-    if (prop === 'fetchOptions') {
-      return undefined;
-    }
-
-    const client = getAuthClient();
-    return (client as Record<PropertyKey, unknown>)[prop];
+ get(_target, prop) {
+  if (prop === 'fetchOptions') {
+   return undefined;
   }
+
+  const client = getAuthClient();
+  return (client as Record<PropertyKey, unknown>)[prop];
+ }
 }) as AuthClientType;
 
 export const signOut = (...args: Parameters<AuthClientType['signOut']>) => getAuthClient().signOut(...args);
 
 // useSession is a React hook - must be called directly, not wrapped
 export const useSession = () => {
-  const client = getAuthClient();
-  return client.useSession();
+ const client = getAuthClient();
+ return client.useSession();
 };
 
 export const useTypedSession = (): Omit<AuthSession, 'data'> & { data: TypedSessionData | undefined } => {
-  const client = getAuthClient();
-  const session = client.useSession();
+ const client = getAuthClient();
+ const session = client.useSession();
 
-  const data = useMemo(() => {
-    if (!session.data?.user) return undefined;
-    
-    try {
-      const typedUser = transformSessionUser(session.data.user as Record<string, unknown>);
-      return {
-        ...session.data,
-        user: typedUser
-      } as TypedSessionData;
-    } catch (error) {
-      console.error('[Auth] Failed to transform session user', {
-        error,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        userId: (session.data.user as any)?.id
-      });
-      return {
-        ...session.data,
-        user: (() => {
-          const raw = session.data.user;
-          const userRecord = (raw && typeof raw === 'object')
-            ? raw as Record<string, unknown>
-            : {};
-          return {
-            ...userRecord,
-            id: typeof userRecord.id === 'string' ? userRecord.id : '',
-          } as UntrustedSessionUser;
-        })(),
-        transformError: true
-      } as TypedSessionData;
-    }
-  }, [session.data]);
+ const data = useMemo(() => {
+  if (!session.data?.user) return undefined;
+  
+  try {
+   const typedUser = transformSessionUser(session.data.user as Record<string, unknown>);
+   return {
+    ...session.data,
+    user: typedUser
+   } as TypedSessionData;
+  } catch (error) {
+   console.error('[Auth] Failed to transform session user', {
+    error,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    userId: (session.data.user as any)?.id
+   });
+   return {
+    ...session.data,
+    user: (() => {
+     const raw = session.data.user;
+     const userRecord = (raw && typeof raw === 'object')
+      ? raw as Record<string, unknown>
+      : {};
+     return {
+      ...userRecord,
+      id: typeof userRecord.id === 'string' ? userRecord.id : '',
+     } as UntrustedSessionUser;
+    })(),
+    transformError: true
+   } as TypedSessionData;
+  }
+ }, [session.data]);
 
-  return {
-    ...session,
-    data
-  };
+ return {
+  ...session,
+  data
+ };
 };
 
 export const useActiveMemberRole = () => {
-  const client = getAuthClient();
-  return client.useActiveMemberRole();
+ const client = getAuthClient();
+ return client.useActiveMemberRole();
 };
 
 export const getSession = (...args: Parameters<AuthClientType['getSession']>) => getAuthClient().getSession(...args);
@@ -176,10 +176,10 @@ type UpdateUserInput = Partial<BetterAuthSessionUser> & Record<string, unknown>;
 type UpdateUserFn = (data: UpdateUserInput, options?: UpdateUserArgs[1]) => ReturnType<AuthClientType['updateUser']>;
 
 export const updateUser: UpdateUserFn = (data, options) =>
-  getAuthClient().updateUser(
-    data as UpdateUserArgs[0],
-    options as UpdateUserArgs[1]
-  );
+ getAuthClient().updateUser(
+  data as UpdateUserArgs[0],
+  options as UpdateUserArgs[1]
+ );
 export const deleteUser = (...args: Parameters<AuthClientType['deleteUser']>) => getAuthClient().deleteUser(...args);
 
 // Keep type export for compatibility
@@ -187,8 +187,8 @@ export type AuthClient = typeof authClient;
 
 // Two-factor auth exports
 export const hasTwoFactorPlugin = () => {
-  const client = getAuthClient();
-  return Boolean(client.twoFactor);
+ const client = getAuthClient();
+ return Boolean(client.twoFactor);
 };
 
 export type TwoFactorClient = NonNullable<AuthClientType['twoFactor']>;

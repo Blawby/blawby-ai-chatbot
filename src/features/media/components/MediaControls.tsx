@@ -164,7 +164,7 @@ const MediaControls: FunctionComponent<MediaControlsProps> = ({
 				disabled={permissionDenied}
 				className="w-8 h-8 p-0 rounded-full"
 			>
-				<Icon icon={MicrophoneIcon} className="w-4 h-4" aria-hidden="true"  />
+				<Icon icon={MicrophoneIcon} className="w-4 h-4" aria-hidden="true" />
 			</Button>
 			{permissionDenied && (
 				<div className="sr-only" role="alert">

@@ -3,18 +3,18 @@ import type { JSX } from 'preact';
 import { cn } from '@/shared/utils/cn';
 
 export interface SettingsHelperTextProps extends Omit<JSX.HTMLAttributes<HTMLSpanElement>, 'className'> {
-  children: ComponentChildren;
-  className?: string;
+ children: ComponentChildren;
+ className?: string;
 }
 
 export const SettingsHelperText = ({
-  children,
-  className = '',
-  ...rest
+ children,
+ className = '',
+ ...rest
 }: SettingsHelperTextProps) => {
-  return (
-    <span className={cn('text-xs text-input-placeholder', className)} {...rest}>
-      {children}
-    </span>
-  );
+ return (
+  <span className={cn('text-xs text-input-placeholder', className)} {...rest}>
+   {children}
+  </span>
+ );
 };

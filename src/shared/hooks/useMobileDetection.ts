@@ -9,31 +9,31 @@ import { useState, useLayoutEffect } from 'preact/hooks';
 import { debounce } from '@/shared/utils/debounce';
 
 export const useMobileDetection = () => {
-  const [isMobile, setIsMobile] = useState(false);
+ const [isMobile, setIsMobile] = useState(false);
 
-  useLayoutEffect(() => {
-    // Function to check if mobile
-    const checkIsMobile = () => {
-      return window.innerWidth < 1024;
-    };
+ useLayoutEffect(() => {
+  // Function to check if mobile
+  const checkIsMobile = () => {
+   return window.innerWidth < 1024;
+  };
 
-    // Set initial mobile state
-    setIsMobile(checkIsMobile());
+  // Set initial mobile state
+  setIsMobile(checkIsMobile());
 
-    // Create debounced resize handler for performance
-    const debouncedResizeHandler = debounce(() => {
-      setIsMobile(checkIsMobile());
-    }, 100);
+  // Create debounced resize handler for performance
+  const debouncedResizeHandler = debounce(() => {
+   setIsMobile(checkIsMobile());
+  }, 100);
 
-    // Add resize listener
-    window.addEventListener('resize', debouncedResizeHandler);
+  // Add resize listener
+  window.addEventListener('resize', debouncedResizeHandler);
 
-    // Cleanup function
-    return () => {
-      window.removeEventListener('resize', debouncedResizeHandler);
-      debouncedResizeHandler.cancel();
-    };
-  }, []);
+  // Cleanup function
+  return () => {
+   window.removeEventListener('resize', debouncedResizeHandler);
+   debouncedResizeHandler.cancel();
+  };
+ }, []);
 
-  return isMobile;
+ return isMobile;
 };

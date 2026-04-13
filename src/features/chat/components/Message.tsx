@@ -242,7 +242,7 @@ const Message: FunctionComponent<MessageProps> = memo(({
 							aria-label="Reply to message"
 							onClick={onReply}
 						>
-							<Icon icon={ArrowUturnLeftIcon} className="h-4 w-4"  />
+							<Icon icon={ArrowUturnLeftIcon} className="h-4 w-4" />
 						</button>
 					)}
 				</div>

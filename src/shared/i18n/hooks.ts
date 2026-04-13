@@ -6,15 +6,15 @@ export { useTranslation, Trans } from 'react-i18next';
 
 // Re-export all i18n utilities and constants
 export {
-  i18n,
-  initI18n,
-  setLocale,
-  detectBestLocale,
-  DEFAULT_LOCALE,
-  SUPPORTED_LOCALES,
-  RTL_LOCALES,
-  isRTLLocale,
-  type AppLocale
+ i18n,
+ initI18n,
+ setLocale,
+ detectBestLocale,
+ DEFAULT_LOCALE,
+ SUPPORTED_LOCALES,
+ RTL_LOCALES,
+ isRTLLocale,
+ type AppLocale
 } from './index';
 
 // Alias for backward compatibility with tests

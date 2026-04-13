@@ -6,102 +6,102 @@ import { DashboardHero } from '@/features/practice-dashboard/components/Dashboar
 import type { BillingWindow } from '@/features/practice-dashboard/hooks/usePracticeBillingData';
 
 type RecentMessage = {
-  preview: string;
-  timestampLabel: string;
-  senderLabel: string;
-  avatarSrc: string | null;
-  conversationId: string | null;
+ preview: string;
+ timestampLabel: string;
+ senderLabel: string;
+ avatarSrc: string | null;
+ conversationId: string | null;
 } | null;
 
 type WorkspaceHomeSectionProps = {
-  workspace: 'public' | 'practice' | 'client';
-  practiceName?: string | null;
-  practiceLogo?: string | null;
-  recentMessage: RecentMessage;
-  intakeContactStarted: boolean;
-  onOpenRecentMessage: () => void;
-  onSendMessage: () => void;
-  onRequestConsultation: () => void;
-  dashboardWindow: BillingWindow;
-  summaryStats: Parameters<typeof DashboardHero>[0]['stats'];
-  practiceBillingLoading: boolean;
-  practiceBillingError: string | null;
-  recentActivity: Parameters<typeof RecentActivityTable>[0]['days'];
-  recentIntakes: Parameters<typeof RecentIntakesGrid>[0]['intakes'];
-  onDashboardWindowChange: (value: BillingWindow) => void;
-  onCreateInvoice: () => void;
-  onOpenInvoice: (invoiceId: string) => void;
-  onViewAllIntakes: () => void;
-  onViewIntake: (intakeId: string) => void;
+ workspace: 'public' | 'practice' | 'client';
+ practiceName?: string | null;
+ practiceLogo?: string | null;
+ recentMessage: RecentMessage;
+ intakeContactStarted: boolean;
+ onOpenRecentMessage: () => void;
+ onSendMessage: () => void;
+ onRequestConsultation: () => void;
+ dashboardWindow: BillingWindow;
+ summaryStats: Parameters<typeof DashboardHero>[0]['stats'];
+ practiceBillingLoading: boolean;
+ practiceBillingError: string | null;
+ recentActivity: Parameters<typeof RecentActivityTable>[0]['days'];
+ recentIntakes: Parameters<typeof RecentIntakesGrid>[0]['intakes'];
+ onDashboardWindowChange: (value: BillingWindow) => void;
+ onCreateInvoice: () => void;
+ onOpenInvoice: (invoiceId: string) => void;
+ onViewAllIntakes: () => void;
+ onViewIntake: (intakeId: string) => void;
 };
 
 export const WorkspaceHomeSection: FunctionComponent<WorkspaceHomeSectionProps> = ({
-  workspace,
-  practiceName,
-  practiceLogo,
-  recentMessage,
-  intakeContactStarted,
-  onOpenRecentMessage,
-  onSendMessage,
-  onRequestConsultation,
-  dashboardWindow,
-  summaryStats,
-  practiceBillingLoading,
-  practiceBillingError,
-  recentActivity,
-  recentIntakes,
-  onDashboardWindowChange,
-  onCreateInvoice,
-  onOpenInvoice,
-  onViewAllIntakes,
-  onViewIntake,
+ workspace,
+ practiceName,
+ practiceLogo,
+ recentMessage,
+ intakeContactStarted,
+ onOpenRecentMessage,
+ onSendMessage,
+ onRequestConsultation,
+ dashboardWindow,
+ summaryStats,
+ practiceBillingLoading,
+ practiceBillingError,
+ recentActivity,
+ recentIntakes,
+ onDashboardWindowChange,
+ onCreateInvoice,
+ onOpenInvoice,
+ onViewAllIntakes,
+ onViewIntake,
 }) => {
-  if (workspace === 'practice') {
-    return (
-      <div className="flex h-full min-h-0 flex-1 flex-col gap-5">
-        <DashboardHero
-          windowSize={dashboardWindow}
-          stats={summaryStats}
-          loading={practiceBillingLoading}
-          onWindowChange={onDashboardWindowChange}
-          onCreateInvoice={onCreateInvoice}
-        />
-        {practiceBillingError ? (
-          <div className="border-b border-line-glass/30" role="alert">
-            <div className="mx-auto max-w-7xl px-4 py-3 text-sm text-input-text sm:px-6 lg:px-8">
-              {practiceBillingError}
-            </div>
-          </div>
-        ) : null}
-        <RecentActivityTable
-          days={recentActivity}
-          loading={practiceBillingLoading}
-          error={null}
-          onOpenInvoice={(entry) => onOpenInvoice(entry.invoiceId)}
-        />
-        <RecentIntakesGrid
-          intakes={recentIntakes}
-          loading={practiceBillingLoading}
-          error={null}
-          onViewAll={onViewAllIntakes}
-          onViewIntake={onViewIntake}
-        />
-      </div>
-    );
-  }
-
+ if (workspace === 'practice') {
   return (
-    <WorkspaceHomeView
-      practiceName={practiceName}
-      practiceLogo={practiceLogo}
-      onSendMessage={onSendMessage}
-      onRequestConsultation={onRequestConsultation}
-      recentMessage={recentMessage}
-      onOpenRecentMessage={onOpenRecentMessage}
-      consultationTitle={undefined}
-      consultationDescription={undefined}
-      consultationCta={undefined}
-      showConsultationCard={!intakeContactStarted}
+   <div className="flex h-full min-h-0 flex-1 flex-col gap-5">
+    <DashboardHero
+     windowSize={dashboardWindow}
+     stats={summaryStats}
+     loading={practiceBillingLoading}
+     onWindowChange={onDashboardWindowChange}
+     onCreateInvoice={onCreateInvoice}
     />
+    {practiceBillingError ? (
+     <div className="border-b border-line-glass/30" role="alert">
+      <div className="mx-auto max-w-7xl px-4 py-3 text-sm text-input-text sm:px-6 lg:px-8">
+       {practiceBillingError}
+      </div>
+     </div>
+    ) : null}
+    <RecentActivityTable
+     days={recentActivity}
+     loading={practiceBillingLoading}
+     error={null}
+     onOpenInvoice={(entry) => onOpenInvoice(entry.invoiceId)}
+    />
+    <RecentIntakesGrid
+     intakes={recentIntakes}
+     loading={practiceBillingLoading}
+     error={null}
+     onViewAll={onViewAllIntakes}
+     onViewIntake={onViewIntake}
+    />
+   </div>
   );
+ }
+
+ return (
+  <WorkspaceHomeView
+   practiceName={practiceName}
+   practiceLogo={practiceLogo}
+   onSendMessage={onSendMessage}
+   onRequestConsultation={onRequestConsultation}
+   recentMessage={recentMessage}
+   onOpenRecentMessage={onOpenRecentMessage}
+   consultationTitle={undefined}
+   consultationDescription={undefined}
+   consultationCta={undefined}
+   showConsultationCard={!intakeContactStarted}
+  />
+ );
 };

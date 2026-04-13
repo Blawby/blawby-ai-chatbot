@@ -13,71 +13,71 @@ import type { IconComponent } from '@/shared/ui/Icon';
 import type { MatterStatus } from '@/shared/types/matter';
 
 export interface SidebarNavItem {
-  id: string;
-  label: string;
-  icon: IconComponent;
-  isActive: boolean;
-  onClick: () => void;
-  matterStatus?: MatterStatus;
-  hasUnread?: boolean;
-  showUnreadDot?: boolean;
+ id: string;
+ label: string;
+ icon: IconComponent;
+ isActive: boolean;
+ onClick: () => void;
+ matterStatus?: MatterStatus;
+ hasUnread?: boolean;
+ showUnreadDot?: boolean;
 }
 
 interface SidebarContentProps {
-  practiceConfig?: {
-    name: string;
-    profileImage: string | null;
-    practiceId: string;
-  };
-  navItems: SidebarNavItem[];
-  onClose?: () => void;
-  isCollapsed: boolean;
-  onToggleCollapse: () => void;
+ practiceConfig?: {
+  name: string;
+  profileImage: string | null;
+  practiceId: string;
+ };
+ navItems: SidebarNavItem[];
+ onClose?: () => void;
+ isCollapsed: boolean;
+ onToggleCollapse: () => void;
 }
 
 export const SidebarContent = ({
-  practiceConfig,
-  navItems,
-  onClose,
-  isCollapsed,
-  onToggleCollapse
+ practiceConfig,
+ navItems,
+ onClose,
+ isCollapsed,
+ onToggleCollapse
 }: SidebarContentProps) => {
 
-  return (
-    <div className={`flex flex-col h-full glass-panel rounded-none transition-all duration-300 ${isCollapsed ? 'w-12' : 'w-60'}`}>
-      {/* Header Section */}
-      <SidebarHeader
-        practiceConfig={practiceConfig}
-        isCollapsed={isCollapsed}
-        onToggleCollapse={onToggleCollapse}
-        onClose={onClose}
-      />
+ return (
+  <div className={`flex flex-col h-full glass-panel rounded-none transition-all duration-300 ${isCollapsed ? 'w-12' : 'w-60'}`}>
+   {/* Header Section */}
+   <SidebarHeader
+    practiceConfig={practiceConfig}
+    isCollapsed={isCollapsed}
+    onToggleCollapse={onToggleCollapse}
+    onClose={onClose}
+   />
 
-      {/* Navigation Section */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <div className="p-2">
-          <NavigationList>
-            {navItems.map((item) => (
-              <NavigationItem
-                key={item.id}
-                icon={item.icon}
-                label={item.label}
-                isActive={item.isActive}
-                onClick={item.onClick}
-                isCollapsed={isCollapsed}
-                matterStatus={item.matterStatus}
-                hasUnread={item.hasUnread}
-                showUnreadDot={item.showUnreadDot}
-              />
-            ))}
-          </NavigationList>
-        </div>
-      </div>
-
-      {/* User Profile Section */}
-      <UserProfile 
+   {/* Navigation Section */}
+   <div className="flex-1 flex flex-col overflow-hidden">
+    <div className="p-2">
+     <NavigationList>
+      {navItems.map((item) => (
+       <NavigationItem
+        key={item.id}
+        icon={item.icon}
+        label={item.label}
+        isActive={item.isActive}
+        onClick={item.onClick}
         isCollapsed={isCollapsed}
-      />
+        matterStatus={item.matterStatus}
+        hasUnread={item.hasUnread}
+        showUnreadDot={item.showUnreadDot}
+       />
+      ))}
+     </NavigationList>
     </div>
-  );
+   </div>
+
+   {/* User Profile Section */}
+   <UserProfile 
+    isCollapsed={isCollapsed}
+   />
+  </div>
+ );
 };

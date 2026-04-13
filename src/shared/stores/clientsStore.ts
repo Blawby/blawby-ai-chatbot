@@ -11,44 +11,44 @@ export const clientsInFlight = new Map<string, Promise<ClientListItem[]>>();
 export let clientsCacheKey: string | null = null;
 
 export const resetClientsStore = () => {
-  clientsStore.set({});
-  clientsLoaded.set(new Set());
-  clientsInFlight.clear();
-  clientsCacheKey = null;
+ clientsStore.set({});
+ clientsLoaded.set(new Set());
+ clientsInFlight.clear();
+ clientsCacheKey = null;
 };
 
 export const setClientsForPractice = (key: string, items: ClientListItem[]) => {
-  if (!key) return;
-  clientsStore.set({ ...clientsStore.get(), [key]: items });
+ if (!key) return;
+ clientsStore.set({ ...clientsStore.get(), [key]: items });
 };
 
 export const markClientsCacheKey = (key: string | null) => {
-  clientsCacheKey = key;
+ clientsCacheKey = key;
 };
 
 export const invalidateClientsForPractice = (practiceId: string) => {
-  if (!practiceId) return;
-  const searchPattern = `:${practiceId}:`;
-  const snapshot = clientsStore.get();
-  const loadedSnapshot = clientsLoaded.get();
-  const nextLoaded = new Set(loadedSnapshot);
-  const next: StoreShape = {};
+ if (!practiceId) return;
+ const searchPattern = `:${practiceId}:`;
+ const snapshot = clientsStore.get();
+ const loadedSnapshot = clientsLoaded.get();
+ const nextLoaded = new Set(loadedSnapshot);
+ const next: StoreShape = {};
 
-  for (const [key, value] of Object.entries(snapshot)) {
-    if (key.includes(searchPattern)) {
-      nextLoaded.delete(key);
-      continue;
-    }
-    next[key] = value;
+ for (const [key, value] of Object.entries(snapshot)) {
+  if (key.includes(searchPattern)) {
+   nextLoaded.delete(key);
+   continue;
   }
+  next[key] = value;
+ }
 
-  // Also clean up stale in-flight promises matching the pattern (even if not in store snapshot yet)
-  for (const key of clientsInFlight.keys()) {
-    if (key.includes(searchPattern)) {
-      clientsInFlight.delete(key);
-    }
+ // Also clean up stale in-flight promises matching the pattern (even if not in store snapshot yet)
+ for (const key of clientsInFlight.keys()) {
+  if (key.includes(searchPattern)) {
+   clientsInFlight.delete(key);
   }
+ }
 
-  clientsLoaded.set(nextLoaded);
-  clientsStore.set(next);
+ clientsLoaded.set(nextLoaded);
+ clientsStore.set(next);
 };

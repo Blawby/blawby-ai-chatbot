@@ -5,98 +5,98 @@ import { CheckCircleIcon, ExclamationTriangleIcon, InformationCircleIcon, XMarkI
 import { Icon } from '@/shared/ui/Icon';
 
 export interface Toast {
-  id: string;
-  type: 'success' | 'error' | 'info' | 'warning';
-  title: string;
-  message?: string;
-  duration?: number;
+ id: string;
+ type: 'success' | 'error' | 'info' | 'warning';
+ title: string;
+ message?: string;
+ duration?: number;
 }
 
 interface ToastProps {
-  toast: Toast;
-  onRemove: (id: string) => void;
+ toast: Toast;
+ onRemove: (id: string) => void;
 }
 
 const ToastComponent: FunctionComponent<ToastProps> = ({ toast, onRemove }) => {
-  const visibilityTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+ const visibilityTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const handleRemove = useCallback(() => {
-    onRemove(toast.id);
-  }, [onRemove, toast.id]);
+ const handleRemove = useCallback(() => {
+  onRemove(toast.id);
+ }, [onRemove, toast.id]);
 
-  useEffect(() => {
-    const duration = Math.max(1000, toast.duration ?? 5000); // Clamp duration to minimum 1 second
-    visibilityTimerRef.current = globalThis.setTimeout(handleRemove, duration);
+ useEffect(() => {
+  const duration = Math.max(1000, toast.duration ?? 5000); // Clamp duration to minimum 1 second
+  visibilityTimerRef.current = globalThis.setTimeout(handleRemove, duration);
 
-    return () => {
-      if (visibilityTimerRef.current) {
-        globalThis.clearTimeout(visibilityTimerRef.current);
-        visibilityTimerRef.current = null;
-      }
-    };
-  }, [toast.id, toast.duration, handleRemove]);
-
-  const getIcon = () => {
-    switch (toast.type) {
-      case 'success':
-        return <Icon icon={CheckCircleIcon} className="h-5 w-5 text-[rgb(var(--success-foreground))]"  />;
-      case 'error':
-        return <Icon icon={ExclamationTriangleIcon} className="h-5 w-5 text-[rgb(var(--error-foreground))]"  />;
-      case 'warning':
-        return <Icon icon={ExclamationTriangleIcon} className="h-5 w-5 text-yellow-500"  />;
-      case 'info':
-      default:
-        return <Icon icon={InformationCircleIcon} className="h-5 w-5 text-accent-400"  />;
-    }
+  return () => {
+   if (visibilityTimerRef.current) {
+    globalThis.clearTimeout(visibilityTimerRef.current);
+    visibilityTimerRef.current = null;
+   }
   };
+ }, [toast.id, toast.duration, handleRemove]);
 
-  const getStatusClass = () => {
-    switch (toast.type) {
-      case 'success':
-        return 'status-success';
-      case 'error':
-        return 'status-error';
-      case 'warning':
-        return 'status-warning';
-      case 'info':
-      default:
-        return 'status-info';
-    }
-  };
+ const getIcon = () => {
+  switch (toast.type) {
+   case 'success':
+    return <Icon icon={CheckCircleIcon} className="h-5 w-5 text-[rgb(var(--success-foreground))]" />;
+   case 'error':
+    return <Icon icon={ExclamationTriangleIcon} className="h-5 w-5 text-[rgb(var(--error-foreground))]" />;
+   case 'warning':
+    return <Icon icon={ExclamationTriangleIcon} className="h-5 w-5 text-yellow-500" />;
+   case 'info':
+   default:
+    return <Icon icon={InformationCircleIcon} className="h-5 w-5 text-accent-400" />;
+  }
+ };
 
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: -50, scale: 0.95 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, y: -50, scale: 0.95 }}
-      transition={{ duration: 0.3, ease: 'easeOut' }}
-      className={`max-w-sm w-full ${getStatusClass()} rounded-lg p-4 relative`}
-    >
-      <div className="flex items-start">
-        <div className="flex-shrink-0">
-          {getIcon()}
-        </div>
-        <div className="ml-3 flex-1">
-          <h3 className="text-sm font-medium text-input-text">
-            {toast.title}
-          </h3>
-          {toast.message && (
-            <p className="mt-1 text-sm text-input-placeholder">
-              {toast.message}
-            </p>
-          )}
-        </div>
-        <div className="ml-4 flex-shrink-0">
-          <button
-            onClick={handleRemove}
-            className="inline-flex text-input-placeholder hover:text-input-text transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-accent-500 rounded-sm focus:outline-none"
-          >
-            <Icon icon={XMarkIcon} className="h-4 w-4"  />
-          </button>
-        </div>
-      </div>
-    </motion.div>
-  );
+ const getStatusClass = () => {
+  switch (toast.type) {
+   case 'success':
+    return 'status-success';
+   case 'error':
+    return 'status-error';
+   case 'warning':
+    return 'status-warning';
+   case 'info':
+   default:
+    return 'status-info';
+  }
+ };
+
+ return (
+  <motion.div
+   initial={{ opacity: 0, y: -50, scale: 0.95 }}
+   animate={{ opacity: 1, y: 0, scale: 1 }}
+   exit={{ opacity: 0, y: -50, scale: 0.95 }}
+   transition={{ duration: 0.3, ease: 'easeOut' }}
+   className={`max-w-sm w-full ${getStatusClass()} rounded-lg p-4 relative`}
+  >
+   <div className="flex items-start">
+    <div className="flex-shrink-0">
+     {getIcon()}
+    </div>
+    <div className="ml-3 flex-1">
+     <h3 className="text-sm font-medium text-input-text">
+      {toast.title}
+     </h3>
+     {toast.message && (
+      <p className="mt-1 text-sm text-input-placeholder">
+       {toast.message}
+      </p>
+     )}
+    </div>
+    <div className="ml-4 flex-shrink-0">
+     <button
+      onClick={handleRemove}
+      className="inline-flex text-input-placeholder hover:text-input-text transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-accent-500 rounded-sm focus:outline-none"
+     >
+      <Icon icon={XMarkIcon} className="h-4 w-4" />
+     </button>
+    </div>
+   </div>
+  </motion.div>
+ );
 };
 
 export default ToastComponent;

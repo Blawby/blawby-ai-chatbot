@@ -11,45 +11,45 @@ export const mattersInFlight = new Map<string, Promise<MatterListItem[]>>();
 export let mattersCacheKey: string | null = null;
 
 export const resetMattersStore = () => {
-  mattersStore.set({});
-  mattersLoaded.set(new Set());
-  mattersInFlight.clear();
-  mattersCacheKey = null;
+ mattersStore.set({});
+ mattersLoaded.set(new Set());
+ mattersInFlight.clear();
+ mattersCacheKey = null;
 };
 
 export const setMattersForPractice = (key: string, items: MatterListItem[]) => {
-  if (!key) return;
-  mattersStore.set({ ...mattersStore.get(), [key]: items });
+ if (!key) return;
+ mattersStore.set({ ...mattersStore.get(), [key]: items });
 };
 
 export const markMattersCacheKey = (key: string | null) => {
-  mattersCacheKey = key;
+ mattersCacheKey = key;
 };
 
 export const invalidateMattersForPractice = (practiceId: string) => {
-  if (!practiceId) return;
-  const prefix = `${practiceId}:`;
-  const snapshot = mattersStore.get();
-  
-  const loadedSnapshot = mattersLoaded.get();
-  const nextLoaded = new Set(loadedSnapshot);
-  const next: StoreShape = {};
-  
-  for (const [key, value] of Object.entries(snapshot)) {
-    if (key.startsWith(prefix)) {
-      nextLoaded.delete(key);
-      continue;
-    }
-    next[key] = value;
+ if (!practiceId) return;
+ const prefix = `${practiceId}:`;
+ const snapshot = mattersStore.get();
+ 
+ const loadedSnapshot = mattersLoaded.get();
+ const nextLoaded = new Set(loadedSnapshot);
+ const next: StoreShape = {};
+ 
+ for (const [key, value] of Object.entries(snapshot)) {
+  if (key.startsWith(prefix)) {
+   nextLoaded.delete(key);
+   continue;
   }
-  
-  for (const key of mattersInFlight.keys()) {
-    if (key.startsWith(prefix)) {
-      nextLoaded.delete(key);
-      mattersInFlight.delete(key);
-    }
+  next[key] = value;
+ }
+ 
+ for (const key of mattersInFlight.keys()) {
+  if (key.startsWith(prefix)) {
+   nextLoaded.delete(key);
+   mattersInFlight.delete(key);
   }
-  
-  mattersLoaded.set(nextLoaded);
-  mattersStore.set(next);
+ }
+ 
+ mattersLoaded.set(nextLoaded);
+ mattersStore.set(next);
 };

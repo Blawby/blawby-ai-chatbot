@@ -6,10 +6,10 @@ import { ulid } from 'ulid';
 import { Dialog, DialogBody, DialogFooter } from '@/shared/ui/dialog';
 import { Button } from '@/shared/ui/Button';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger
+ DropdownMenu,
+ DropdownMenuContent,
+ DropdownMenuItem,
+ DropdownMenuTrigger
 } from '@/shared/ui/dropdown';
 import { Avatar } from '@/shared/ui/profile';
 import { LoadingBlock, PanelSectionHeader, PanelEmptyState, InteractiveListItem } from '@/shared/ui/layout';
@@ -19,298 +19,298 @@ import { NoteForm, type NoteFormValues } from './NoteForm';
 const formatNoteDate = (dateString: string) => format(parseISO(dateString), 'MMM d, yyyy h:mm a');
 
 const defaultAuthor: MatterNote['author'] = {
-  name: 'You',
-  role: 'Case Manager'
+ name: 'You',
+ role: 'Case Manager'
 };
 
 interface MatterNotesPanelProps {
-  matter: MatterDetail;
-  practiceId?: string | null;
-  notes?: MatterNote[];
-  loading?: boolean;
-  error?: string | null;
-  onCreateNote?: (values: NoteFormValues) => Promise<void> | void;
-  onUpdateNote?: (note: MatterNote, values: NoteFormValues) => Promise<void> | void;
-  onDeleteNote?: (note: MatterNote) => Promise<void> | void;
-  allowEdit?: boolean;
+ matter: MatterDetail;
+ practiceId?: string | null;
+ notes?: MatterNote[];
+ loading?: boolean;
+ error?: string | null;
+ onCreateNote?: (values: NoteFormValues) => Promise<void> | void;
+ onUpdateNote?: (note: MatterNote, values: NoteFormValues) => Promise<void> | void;
+ onDeleteNote?: (note: MatterNote) => Promise<void> | void;
+ allowEdit?: boolean;
 }
 
 export const MatterNotesPanel = ({
-  matter,
-  practiceId,
-  notes,
-  loading = false,
-  error = null,
-  onCreateNote,
-  onUpdateNote,
-  onDeleteNote,
-  allowEdit = true
+ matter,
+ practiceId,
+ notes,
+ loading = false,
+ error = null,
+ onCreateNote,
+ onUpdateNote,
+ onDeleteNote,
+ allowEdit = true
 }: MatterNotesPanelProps) => {
-  const [localNotes, setLocalNotes] = useState<MatterNote[]>(() => matter.notes ?? []);
-  const [isFormOpen, setIsFormOpen] = useState(false);
-  const [editingNote, setEditingNote] = useState<MatterNote | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<MatterNote | null>(null);
-  const [formKey, setFormKey] = useState(0);
-  const [submitError, setSubmitError] = useState<string | null>(null);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+ const [localNotes, setLocalNotes] = useState<MatterNote[]>(() => matter.notes ?? []);
+ const [isFormOpen, setIsFormOpen] = useState(false);
+ const [editingNote, setEditingNote] = useState<MatterNote | null>(null);
+ const [deleteTarget, setDeleteTarget] = useState<MatterNote | null>(null);
+ const [formKey, setFormKey] = useState(0);
+ const [submitError, setSubmitError] = useState<string | null>(null);
+ const [deleteError, setDeleteError] = useState<string | null>(null);
+ const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const resolvedNotes = notes ?? localNotes;
-  const canEdit = allowEdit && (Boolean(onUpdateNote) || (notes === undefined && !onCreateNote));
-  const canDelete = allowEdit && (Boolean(onDeleteNote) || (notes === undefined && !onCreateNote));
-  const canCreate = Boolean(onCreateNote) || notes === undefined;
+ const resolvedNotes = notes ?? localNotes;
+ const canEdit = allowEdit && (Boolean(onUpdateNote) || (notes === undefined && !onCreateNote));
+ const canDelete = allowEdit && (Boolean(onDeleteNote) || (notes === undefined && !onCreateNote));
+ const canCreate = Boolean(onCreateNote) || notes === undefined;
 
-  const sortedNotes = useMemo(() => {
-    return [...resolvedNotes].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-  }, [resolvedNotes]);
+ const sortedNotes = useMemo(() => {
+  return [...resolvedNotes].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+ }, [resolvedNotes]);
 
-  const openNewNote = () => {
-    if (!canCreate) return;
-    setEditingNote(null);
-    setFormKey((prev) => prev + 1);
-    setIsFormOpen(true);
-  };
+ const openNewNote = () => {
+  if (!canCreate) return;
+  setEditingNote(null);
+  setFormKey((prev) => prev + 1);
+  setIsFormOpen(true);
+ };
 
-  const openEditNote = (note: MatterNote) => {
-    if (!canEdit) return;
-    setEditingNote(note);
-    setFormKey((prev) => prev + 1);
-    setIsFormOpen(true);
-  };
+ const openEditNote = (note: MatterNote) => {
+  if (!canEdit) return;
+  setEditingNote(note);
+  setFormKey((prev) => prev + 1);
+  setIsFormOpen(true);
+ };
 
-  const closeForm = () => {
-    setIsFormOpen(false);
-    setEditingNote(null);
-  };
+ const closeForm = () => {
+  setIsFormOpen(false);
+  setEditingNote(null);
+ };
 
-  const handleSave = async ({ content }: NoteFormValues) => {
-    setSubmitError(null);
-    if (editingNote && onUpdateNote) {
-      setIsSubmitting(true);
-      try {
-        await onUpdateNote(editingNote, { content });
-        closeForm();
-      } catch (error) {
-        const message = error instanceof Error ? error.message : 'Failed to update note';
-        setSubmitError(message);
-      } finally {
-        setIsSubmitting(false);
-      }
-      return;
-    }
-    if (onCreateNote && !editingNote) {
-      setIsSubmitting(true);
-      try {
-        await onCreateNote({ content });
-        closeForm();
-      } catch (error) {
-        const message = error instanceof Error ? error.message : 'Failed to save note';
-        setSubmitError(message);
-      } finally {
-        setIsSubmitting(false);
-      }
-      return;
-    }
-
-    const now = new Date().toISOString();
-    const nextNote: MatterNote = {
-      id: editingNote?.id ?? ulid(),
-      author: editingNote?.author ?? defaultAuthor,
-      content,
-      createdAt: editingNote?.createdAt ?? now,
-      updatedAt: editingNote ? now : undefined
-    };
-
-    setLocalNotes((prev) => (
-      editingNote
-        ? prev.map((note) => (note.id === editingNote.id ? nextNote : note))
-        : [nextNote, ...prev]
-    ));
-
+ const handleSave = async ({ content }: NoteFormValues) => {
+  setSubmitError(null);
+  if (editingNote && onUpdateNote) {
+   setIsSubmitting(true);
+   try {
+    await onUpdateNote(editingNote, { content });
     closeForm();
+   } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to update note';
+    setSubmitError(message);
+   } finally {
+    setIsSubmitting(false);
+   }
+   return;
+  }
+  if (onCreateNote && !editingNote) {
+   setIsSubmitting(true);
+   try {
+    await onCreateNote({ content });
+    closeForm();
+   } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to save note';
+    setSubmitError(message);
+   } finally {
+    setIsSubmitting(false);
+   }
+   return;
+  }
+
+  const now = new Date().toISOString();
+  const nextNote: MatterNote = {
+   id: editingNote?.id ?? ulid(),
+   author: editingNote?.author ?? defaultAuthor,
+   content,
+   createdAt: editingNote?.createdAt ?? now,
+   updatedAt: editingNote ? now : undefined
   };
 
-  const confirmDelete = (note: MatterNote) => {
-    if (!canDelete) return;
-    if (isFormOpen || editingNote?.id === note.id) {
-      setIsFormOpen(false);
-      setEditingNote(null);
-    }
-    setDeleteTarget(note);
-  };
+  setLocalNotes((prev) => (
+   editingNote
+    ? prev.map((note) => (note.id === editingNote.id ? nextNote : note))
+    : [nextNote, ...prev]
+  ));
 
-  const handleDelete = async () => {
-    if (!deleteTarget) return;
-    setDeleteError(null);
-    if (onDeleteNote) {
-      setIsSubmitting(true);
-      try {
-        await onDeleteNote(deleteTarget);
-        setDeleteTarget(null);
-        if (editingNote?.id === deleteTarget.id) {
-          closeForm();
-        }
-      } catch (error) {
-        const message = error instanceof Error ? error.message : 'Failed to delete note';
-        setDeleteError(message);
-      } finally {
-        setIsSubmitting(false);
-      }
-      return;
-    }
-    setLocalNotes((prev) => prev.filter((note) => note.id !== deleteTarget.id));
+  closeForm();
+ };
+
+ const confirmDelete = (note: MatterNote) => {
+  if (!canDelete) return;
+  if (isFormOpen || editingNote?.id === note.id) {
+   setIsFormOpen(false);
+   setEditingNote(null);
+  }
+  setDeleteTarget(note);
+ };
+
+ const handleDelete = async () => {
+  if (!deleteTarget) return;
+  setDeleteError(null);
+  if (onDeleteNote) {
+   setIsSubmitting(true);
+   try {
+    await onDeleteNote(deleteTarget);
     setDeleteTarget(null);
     if (editingNote?.id === deleteTarget.id) {
-      closeForm();
+     closeForm();
     }
-  };
+   } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to delete note';
+    setDeleteError(message);
+   } finally {
+    setIsSubmitting(false);
+   }
+   return;
+  }
+  setLocalNotes((prev) => prev.filter((note) => note.id !== deleteTarget.id));
+  setDeleteTarget(null);
+  if (editingNote?.id === deleteTarget.id) {
+   closeForm();
+  }
+ };
 
-  return (
-    <section className="glass-panel">
-      <PanelSectionHeader
-        title="Notes"
-        subtitle={sortedNotes.length}
-        subtitleSuffix="notes recorded"
-        actions={(
-          <Button size="sm" icon={PlusIcon} iconClassName="h-4 w-4" onClick={openNewNote} disabled={!canCreate}>
-            Add note
-          </Button>
-        )}
-      />
+ return (
+  <section className="glass-panel">
+   <PanelSectionHeader
+    title="Notes"
+    subtitle={sortedNotes.length}
+    subtitleSuffix="notes recorded"
+    actions={(
+     <Button size="sm" icon={PlusIcon} iconClassName="h-4 w-4" onClick={openNewNote} disabled={!canCreate}>
+      Add note
+     </Button>
+    )}
+   />
 
-      {error ? (
-        <div className="px-6 py-6 text-sm text-[rgb(var(--error-foreground))] dark:text-[rgb(var(--error-foreground))]">
-          {error}
+   {error ? (
+    <div className="px-6 py-6 text-sm text-[rgb(var(--error-foreground))] dark:text-[rgb(var(--error-foreground))]">
+     {error}
+    </div>
+   ) : loading && sortedNotes.length === 0 ? (
+    <LoadingBlock className="px-6 py-6" label="Loading notes..." />
+   ) : sortedNotes.length === 0 ? (
+    <PanelEmptyState message="No notes yet. Capture internal updates, decisions, or next steps tied to this matter." />
+   ) : (
+    <ul className="divide-y divide-line-default">
+     {sortedNotes.map((note) => (
+      <InteractiveListItem
+       key={note.id}
+       onClick={() => openEditNote(note)}
+       disabled={!canEdit}
+       className="flex-col sm:flex-row"
+      >
+       <div className="flex min-w-0 gap-3 text-left flex-1">
+        <Avatar name={note.author.name} src={note.author.avatarUrl} size="sm" />
+        <div className="min-w-0">
+         <div className="flex flex-wrap items-center gap-2">
+          <p className="text-sm font-semibold text-input-text">
+           {note.author.name}
+          </p>
+          {note.author.role && (
+           <span className="glass-input rounded-full px-2 py-0.5 text-xs font-medium text-input-placeholder">
+            {note.author.role}
+           </span>
+          )}
+          <span className="text-xs text-input-placeholder">
+           {formatNoteDate(note.updatedAt ?? note.createdAt)}
+          </span>
+          {note.updatedAt && (
+           <span className="text-xs text-input-placeholder">(edited)</span>
+          )}
+         </div>
+         <p className="mt-2 whitespace-pre-wrap text-sm text-input-text opacity-80 decoration-input-placeholder">
+          {note.content}
+         </p>
         </div>
-      ) : loading && sortedNotes.length === 0 ? (
-        <LoadingBlock className="px-6 py-6" label="Loading notes..." />
-      ) : sortedNotes.length === 0 ? (
-        <PanelEmptyState message="No notes yet. Capture internal updates, decisions, or next steps tied to this matter." />
-      ) : (
-        <ul className="divide-y divide-line-default">
-          {sortedNotes.map((note) => (
-            <InteractiveListItem
-              key={note.id}
-              onClick={() => openEditNote(note)}
-              disabled={!canEdit}
-              className="flex-col sm:flex-row"
-            >
-              <div className="flex min-w-0 gap-3 text-left flex-1">
-                <Avatar name={note.author.name} src={note.author.avatarUrl} size="sm" />
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="text-sm font-semibold text-input-text">
-                      {note.author.name}
-                    </p>
-                    {note.author.role && (
-                      <span className="glass-input rounded-full px-2 py-0.5 text-xs font-medium text-input-placeholder">
-                        {note.author.role}
-                      </span>
-                    )}
-                    <span className="text-xs text-input-placeholder">
-                      {formatNoteDate(note.updatedAt ?? note.createdAt)}
-                    </span>
-                    {note.updatedAt && (
-                      <span className="text-xs text-input-placeholder">(edited)</span>
-                    )}
-                  </div>
-                  <p className="mt-2 whitespace-pre-wrap text-sm text-input-text opacity-80 decoration-input-placeholder">
-                    {note.content}
-                  </p>
-                </div>
-              </div>
-              {canEdit || canDelete ? (
-                <div className="flex items-center gap-2">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      aria-label="Open note actions"
-                      icon={EllipsisVerticalIcon} iconClassName="h-4 w-4"
-                    />
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-32">
-                    <div className="py-1">
-                      {canEdit ? (
-                        <DropdownMenuItem onSelect={() => openEditNote(note)}>
-                          <span className="flex items-center gap-2">
-                            <Icon icon={PencilIcon} className="h-4 w-4"  />
-                            Edit
-                          </span>
-                        </DropdownMenuItem>
-                      ) : null}
-                      {canDelete ? (
-                        <DropdownMenuItem onSelect={() => confirmDelete(note)}>
-                          <span className="flex items-center gap-2 text-[rgb(var(--error-foreground))] dark:text-[rgb(var(--error-foreground))]">
-                            <Icon icon={TrashIcon} className="h-4 w-4"  />
-                            Delete
-                          </span>
-                        </DropdownMenuItem>
-                      ) : null}
-                    </div>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-              ) : null}
-            </InteractiveListItem>
-          ))}
-        </ul>
-      )}
+       </div>
+       {canEdit || canDelete ? (
+        <div className="flex items-center gap-2">
+        <DropdownMenu>
+         <DropdownMenuTrigger asChild>
+          <Button
+           variant="ghost"
+           size="sm"
+           aria-label="Open note actions"
+           icon={EllipsisVerticalIcon} iconClassName="h-4 w-4"
+          />
+         </DropdownMenuTrigger>
+         <DropdownMenuContent align="end" className="w-32">
+          <div className="py-1">
+           {canEdit ? (
+            <DropdownMenuItem onSelect={() => openEditNote(note)}>
+             <span className="flex items-center gap-2">
+              <Icon icon={PencilIcon} className="h-4 w-4" />
+              Edit
+             </span>
+            </DropdownMenuItem>
+           ) : null}
+           {canDelete ? (
+            <DropdownMenuItem onSelect={() => confirmDelete(note)}>
+             <span className="flex items-center gap-2 text-[rgb(var(--error-foreground))] dark:text-[rgb(var(--error-foreground))]">
+              <Icon icon={TrashIcon} className="h-4 w-4" />
+              Delete
+             </span>
+            </DropdownMenuItem>
+           ) : null}
+          </div>
+         </DropdownMenuContent>
+        </DropdownMenu>
+       </div>
+       ) : null}
+      </InteractiveListItem>
+     ))}
+    </ul>
+   )}
 
-      {isFormOpen && (
-        <Dialog
-          isOpen={isFormOpen}
-          onClose={closeForm}
-          title={editingNote ? 'Edit note' : 'Add note'}
-          contentClassName="max-w-2xl"
-        >
-          <DialogBody>
-            <NoteForm
-              key={`${editingNote?.id ?? 'new'}-${formKey}`}
-              initialNote={editingNote ?? undefined}
-              practiceId={practiceId}
-              matterId={matter.id}
-              onSubmit={handleSave}
-              onCancel={closeForm}
-              onDelete={canDelete && editingNote ? () => confirmDelete(editingNote) : undefined}
-              isSubmitting={isSubmitting}
-            />
-            {submitError && (
-              <p className="mt-3 text-sm text-[rgb(var(--error-foreground))] dark:text-[rgb(var(--error-foreground))]">{submitError}</p>
-            )}
-            {isSubmitting && (
-              <p className="mt-3 text-sm text-input-placeholder">Saving note...</p>
-            )}
-          </DialogBody>
-        </Dialog>
+   {isFormOpen && (
+    <Dialog
+     isOpen={isFormOpen}
+     onClose={closeForm}
+     title={editingNote ? 'Edit note' : 'Add note'}
+     contentClassName="max-w-2xl"
+    >
+     <DialogBody>
+      <NoteForm
+       key={`${editingNote?.id ?? 'new'}-${formKey}`}
+       initialNote={editingNote ?? undefined}
+       practiceId={practiceId}
+       matterId={matter.id}
+       onSubmit={handleSave}
+       onCancel={closeForm}
+       onDelete={canDelete && editingNote ? () => confirmDelete(editingNote) : undefined}
+       isSubmitting={isSubmitting}
+      />
+      {submitError && (
+       <p className="mt-3 text-sm text-[rgb(var(--error-foreground))] dark:text-[rgb(var(--error-foreground))]">{submitError}</p>
       )}
+      {isSubmitting && (
+       <p className="mt-3 text-sm text-input-placeholder">Saving note...</p>
+      )}
+     </DialogBody>
+    </Dialog>
+   )}
 
-      {canDelete && deleteTarget && (
-        <Dialog
-          isOpen={Boolean(deleteTarget)}
-          onClose={() => setDeleteTarget(null)}
-          title="Delete note"
-          contentClassName="max-w-xl"
-        >
-          <DialogBody className="space-y-4">
-            <p className="text-sm text-input-text opacity-80">
-              Are you sure you want to delete this note? This action cannot be undone.
-            </p>
-            {deleteError && (
-              <p className="text-sm text-[rgb(var(--error-foreground))] dark:text-[rgb(var(--error-foreground))]">{deleteError}</p>
-            )}
-          </DialogBody>
-          <DialogFooter>
-            <Button variant="secondary" onClick={() => setDeleteTarget(null)}>
-              Cancel
-            </Button>
-            <Button variant="danger" onClick={handleDelete} disabled={isSubmitting}>
-              {isSubmitting ? 'Deleting...' : 'Delete note'}
-            </Button>
-          </DialogFooter>
-        </Dialog>
+   {canDelete && deleteTarget && (
+    <Dialog
+     isOpen={Boolean(deleteTarget)}
+     onClose={() => setDeleteTarget(null)}
+     title="Delete note"
+     contentClassName="max-w-xl"
+    >
+     <DialogBody className="space-y-4">
+      <p className="text-sm text-input-text opacity-80">
+       Are you sure you want to delete this note? This action cannot be undone.
+      </p>
+      {deleteError && (
+       <p className="text-sm text-[rgb(var(--error-foreground))] dark:text-[rgb(var(--error-foreground))]">{deleteError}</p>
       )}
-    </section>
-  );
+     </DialogBody>
+     <DialogFooter>
+      <Button variant="secondary" onClick={() => setDeleteTarget(null)}>
+       Cancel
+      </Button>
+      <Button variant="danger" onClick={handleDelete} disabled={isSubmitting}>
+       {isSubmitting ? 'Deleting...' : 'Delete note'}
+      </Button>
+     </DialogFooter>
+    </Dialog>
+   )}
+  </section>
+ );
 };

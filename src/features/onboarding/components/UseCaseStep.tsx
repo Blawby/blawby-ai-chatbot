@@ -3,12 +3,12 @@ import { useTranslation } from '@/shared/i18n/hooks';
 import { Button } from '@/shared/ui/Button';
 import { Logo } from '@/shared/ui/Logo';
 import {
-  ChatBubbleLeftRightIcon,
-  BanknotesIcon,
-  ClipboardDocumentListIcon,
-  ClipboardDocumentCheckIcon,
-  EllipsisHorizontalIcon,
-  CheckIcon
+ ChatBubbleLeftRightIcon,
+ BanknotesIcon,
+ ClipboardDocumentListIcon,
+ ClipboardDocumentCheckIcon,
+ EllipsisHorizontalIcon,
+ CheckIcon
 } from '@heroicons/react/24/outline';
 import { Icon } from '@/shared/ui/Icon';
 import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from '@/shared/ui/form';
@@ -16,209 +16,209 @@ import { Textarea } from '@/shared/ui/input';
 import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
 
 interface UseCaseData {
-  primaryUseCase: 'messaging' | 'legal_payments' | 'matter_management' | 'intake_forms' | 'other';
-  productUsage: Array<'messaging' | 'legal_payments' | 'matter_management' | 'intake_forms' | 'other'>;
-  additionalInfo?: string;
+ primaryUseCase: 'messaging' | 'legal_payments' | 'matter_management' | 'intake_forms' | 'other';
+ productUsage: Array<'messaging' | 'legal_payments' | 'matter_management' | 'intake_forms' | 'other'>;
+ additionalInfo?: string;
 }
 
 interface UseCaseStepProps {
-  data: UseCaseData;
-  onComplete: (data: UseCaseData) => void;
-  isSubmitting?: boolean;
+ data: UseCaseData;
+ onComplete: (data: UseCaseData) => void;
+ isSubmitting?: boolean;
 }
 
 const useCaseOptions = [
-  {
-    id: 'messaging' as const,
-    icon: ChatBubbleLeftRightIcon,
-    labelKey: 'onboarding.step2.options.messaging'
-  },
-  {
-    id: 'legal_payments' as const,
-    icon: BanknotesIcon,
-    labelKey: 'onboarding.step2.options.legal_payments'
-  },
-  {
-    id: 'matter_management' as const,
-    icon: ClipboardDocumentListIcon,
-    labelKey: 'onboarding.step2.options.matter_management'
-  },
-  {
-    id: 'intake_forms' as const,
-    icon: ClipboardDocumentCheckIcon,
-    labelKey: 'onboarding.step2.options.intake_forms'
-  },
-  {
-    id: 'other' as const,
-    icon: EllipsisHorizontalIcon,
-    labelKey: 'onboarding.step2.options.other'
-  }
+ {
+  id: 'messaging' as const,
+  icon: ChatBubbleLeftRightIcon,
+  labelKey: 'onboarding.step2.options.messaging'
+ },
+ {
+  id: 'legal_payments' as const,
+  icon: BanknotesIcon,
+  labelKey: 'onboarding.step2.options.legal_payments'
+ },
+ {
+  id: 'matter_management' as const,
+  icon: ClipboardDocumentListIcon,
+  labelKey: 'onboarding.step2.options.matter_management'
+ },
+ {
+  id: 'intake_forms' as const,
+  icon: ClipboardDocumentCheckIcon,
+  labelKey: 'onboarding.step2.options.intake_forms'
+ },
+ {
+  id: 'other' as const,
+  icon: EllipsisHorizontalIcon,
+  labelKey: 'onboarding.step2.options.other'
+ }
 ];
 
 const UseCaseStep = ({ data, onComplete, isSubmitting: parentSubmitting = false }: UseCaseStepProps) => {
-  const { t } = useTranslation('common');
-  const [selectedUseCases, setSelectedUseCases] = useState<UseCaseData['productUsage']>(
-    data.productUsage?.length ? data.productUsage : [data.primaryUseCase]
-  );
-  const [additionalInfo, setAdditionalInfo] = useState(data.additionalInfo || '');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const hasSelection = selectedUseCases.length > 0;
-  const isFormSubmitting = parentSubmitting || isSubmitting;
+ const { t } = useTranslation('common');
+ const [selectedUseCases, setSelectedUseCases] = useState<UseCaseData['productUsage']>(
+  data.productUsage?.length ? data.productUsage : [data.primaryUseCase]
+ );
+ const [additionalInfo, setAdditionalInfo] = useState(data.additionalInfo || '');
+ const [isSubmitting, setIsSubmitting] = useState(false);
+ const hasSelection = selectedUseCases.length > 0;
+ const isFormSubmitting = parentSubmitting || isSubmitting;
 
-  const resolvePrimaryUseCase = (values: UseCaseData['productUsage']): UseCaseData['primaryUseCase'] => {
-    const order: UseCaseData['primaryUseCase'][] = [
-      'messaging',
-      'legal_payments',
-      'matter_management',
-      'intake_forms',
-      'other'
-    ];
-    const found = order.find((value) => values.includes(value));
-    return found ?? 'other';
-  };
+ const resolvePrimaryUseCase = (values: UseCaseData['productUsage']): UseCaseData['primaryUseCase'] => {
+  const order: UseCaseData['primaryUseCase'][] = [
+   'messaging',
+   'legal_payments',
+   'matter_management',
+   'intake_forms',
+   'other'
+  ];
+  const found = order.find((value) => values.includes(value));
+  return found ?? 'other';
+ };
 
-  const handleSubmit = async () => {
-    if (!hasSelection || isFormSubmitting) return;
-    setIsSubmitting(true);
-    
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    onComplete({
-      primaryUseCase: resolvePrimaryUseCase(selectedUseCases),
-      productUsage: selectedUseCases,
-      additionalInfo: selectedUseCases.includes('other') && additionalInfo.trim() ? additionalInfo.trim() : undefined
-    });
-    
-    setIsSubmitting(false);
-  };
+ const handleSubmit = async () => {
+  if (!hasSelection || isFormSubmitting) return;
+  setIsSubmitting(true);
+  
+  // Simulate API call delay
+  await new Promise(resolve => setTimeout(resolve, 500));
+  
+  onComplete({
+   primaryUseCase: resolvePrimaryUseCase(selectedUseCases),
+   productUsage: selectedUseCases,
+   additionalInfo: selectedUseCases.includes('other') && additionalInfo.trim() ? additionalInfo.trim() : undefined
+  });
+  
+  setIsSubmitting(false);
+ };
 
-  const handleUseCaseSelect = (useCase: UseCaseData['primaryUseCase']) => {
-    setSelectedUseCases((prev) => {
-      if (prev.includes(useCase)) {
-        const next = prev.filter((value) => value !== useCase);
-        if (useCase === 'other') {
-          setAdditionalInfo('');
-        }
-        return next;
-      }
-      return [...prev, useCase];
-    });
-  };
+ const handleUseCaseSelect = (useCase: UseCaseData['primaryUseCase']) => {
+  setSelectedUseCases((prev) => {
+   if (prev.includes(useCase)) {
+    const next = prev.filter((value) => value !== useCase);
+    if (useCase === 'other') {
+     setAdditionalInfo('');
+    }
+    return next;
+   }
+   return [...prev, useCase];
+  });
+ };
 
-  return (
-    <div className="min-h-screen bg-transparent flex flex-col justify-center px-4 py-12 sm:px-6 lg:px-8">
-      {/* Header */}
-      <div className="mx-auto w-full max-w-2xl">
-        <div className="flex justify-center mb-6">
-          <Logo size="lg" />
-        </div>
-        <h2 id="use-case-title" className="mt-6 text-center text-3xl font-extrabold text-input-text">
-          {t('onboarding.step2.title')}
-        </h2>
-        <p className="mt-2 text-center text-sm text-input-placeholder">
-          {t('onboarding.step2.subtitle')}
-        </p>
-      </div>
-
-      <div className="mt-8 mx-auto w-full max-w-2xl">
-        <div className="glass-card py-8 px-6 sm:px-10">
-          <Form onSubmit={handleSubmit} className="space-y-6">
-            {/* Use Case Options */}
-            <div
-              role="group"
-              aria-labelledby="use-case-title"
-              className="grid gap-3 sm:grid-cols-2"
-            >
-              {useCaseOptions.map((option) => {
-                const optionIcon = option.icon;
-                const isSelected = selectedUseCases.includes(option.id);
-
-                return (
-                  <button
-                    key={option.id}
-                    type="button"
-                    role="checkbox"
-                    aria-checked={isSelected}
-                    onClick={() => handleUseCaseSelect(option.id)}
-                    className={`w-full text-left p-5 rounded-2xl border transition-all duration-300 backdrop-blur-xl ${
-                      isSelected
-                        ? 'border-accent-500/60 bg-accent-500 shadow-lg shadow-accent-500/25'
-                        : 'surface-subtle surface-hover'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-3">
-                        <Icon icon={optionIcon} className={`h-6 w-6 ${
-                          isSelected 
-                            ? 'text-[rgb(var(--accent-foreground))]' 
-                            : 'text-input-placeholder'
-                        }`} />
-                          <span className={`text-sm font-medium ${
-                          isSelected 
-                            ? 'text-[rgb(var(--accent-foreground))]' 
-                            : 'text-input-text'
-                        }`}>
-                          {t(option.labelKey)}
-                        </span>
-                      </div>
-                      {isSelected && (
-                        <Icon icon={CheckIcon} className="h-5 w-5 text-[rgb(var(--accent-foreground))]"  />
-                      )}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Additional Info for "Other" option */}
-            {selectedUseCases.includes('other') && (
-              <FormField name="additionalInfo">
-                {({ error, onChange }) => (
-                  <FormItem>
-                    <FormLabel>{t('onboarding.step2.otherPlaceholder')}</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        rows={3}
-                        value={additionalInfo}
-                        onChange={(value) => {
-                          const nextValue = String(value ?? '');
-                          onChange(nextValue);
-                          setAdditionalInfo(nextValue);
-                        }}
-                        placeholder={t('onboarding.step2.otherPlaceholder')}
-                        error={error?.message}
-                      />
-                    </FormControl>
-                    {error && <FormMessage>{error.message}</FormMessage>}
-                  </FormItem>
-                )}
-              </FormField>
-            )}
-
-            {/* Action Buttons */}
-            <div className="flex flex-col space-y-3">
-            <Button
-              type="submit"
-              disabled={isFormSubmitting || !hasSelection}
-              variant="primary"
-              size="lg"
-              className="w-full"
-            >
-              {isFormSubmitting ? (
-                  <div className="flex items-center justify-center space-x-2">
-                    <LoadingSpinner size="md" ariaLabel={t('submitting')} />
-                  </div>
-                ) : (
-                  t('onboarding.step2.next')
-                )}
-              </Button>
-            </div>
-          </Form>
-        </div>
-      </div>
+ return (
+  <div className="min-h-screen bg-transparent flex flex-col justify-center px-4 py-12 sm:px-6 lg:px-8">
+   {/* Header */}
+   <div className="mx-auto w-full max-w-2xl">
+    <div className="flex justify-center mb-6">
+     <Logo size="lg" />
     </div>
-  );
+    <h2 id="use-case-title" className="mt-6 text-center text-3xl font-extrabold text-input-text">
+     {t('onboarding.step2.title')}
+    </h2>
+    <p className="mt-2 text-center text-sm text-input-placeholder">
+     {t('onboarding.step2.subtitle')}
+    </p>
+   </div>
+
+   <div className="mt-8 mx-auto w-full max-w-2xl">
+    <div className="glass-card py-8 px-6 sm:px-10">
+     <Form onSubmit={handleSubmit} className="space-y-6">
+      {/* Use Case Options */}
+      <div
+       role="group"
+       aria-labelledby="use-case-title"
+       className="grid gap-3 sm:grid-cols-2"
+      >
+       {useCaseOptions.map((option) => {
+        const optionIcon = option.icon;
+        const isSelected = selectedUseCases.includes(option.id);
+
+        return (
+         <button
+          key={option.id}
+          type="button"
+          role="checkbox"
+          aria-checked={isSelected}
+          onClick={() => handleUseCaseSelect(option.id)}
+          className={`w-full text-left p-5 rounded-2xl border transition-all duration-300 backdrop-blur-xl ${
+           isSelected
+            ? 'border-accent-500/60 bg-accent-500 shadow-lg shadow-accent-500/25'
+            : 'surface-subtle surface-hover'
+          }`}
+         >
+          <div className="flex items-center justify-between">
+           <div className="flex items-center space-x-3">
+            <Icon icon={optionIcon} className={`h-6 w-6 ${
+             isSelected 
+              ? 'text-[rgb(var(--accent-foreground))]' 
+              : 'text-input-placeholder'
+            }`} />
+             <span className={`text-sm font-medium ${
+             isSelected 
+              ? 'text-[rgb(var(--accent-foreground))]' 
+              : 'text-input-text'
+            }`}>
+             {t(option.labelKey)}
+            </span>
+           </div>
+           {isSelected && (
+            <Icon icon={CheckIcon} className="h-5 w-5 text-[rgb(var(--accent-foreground))]" />
+           )}
+          </div>
+         </button>
+        );
+       })}
+      </div>
+
+      {/* Additional Info for "Other" option */}
+      {selectedUseCases.includes('other') && (
+       <FormField name="additionalInfo">
+        {({ error, onChange }) => (
+         <FormItem>
+          <FormLabel>{t('onboarding.step2.otherPlaceholder')}</FormLabel>
+          <FormControl>
+           <Textarea
+            rows={3}
+            value={additionalInfo}
+            onChange={(value) => {
+             const nextValue = String(value ?? '');
+             onChange(nextValue);
+             setAdditionalInfo(nextValue);
+            }}
+            placeholder={t('onboarding.step2.otherPlaceholder')}
+            error={error?.message}
+           />
+          </FormControl>
+          {error && <FormMessage>{error.message}</FormMessage>}
+         </FormItem>
+        )}
+       </FormField>
+      )}
+
+      {/* Action Buttons */}
+      <div className="flex flex-col space-y-3">
+      <Button
+       type="submit"
+       disabled={isFormSubmitting || !hasSelection}
+       variant="primary"
+       size="lg"
+       className="w-full"
+      >
+       {isFormSubmitting ? (
+         <div className="flex items-center justify-center space-x-2">
+          <LoadingSpinner size="md" ariaLabel={t('submitting')} />
+         </div>
+        ) : (
+         t('onboarding.step2.next')
+        )}
+       </Button>
+      </div>
+     </Form>
+    </div>
+   </div>
+  </div>
+ );
 };
 
 export default UseCaseStep;

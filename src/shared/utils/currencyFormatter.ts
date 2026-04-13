@@ -7,19 +7,19 @@
  * @returns Valid currency code or 'USD' as fallback
  */
 function sanitizeCurrency(currency: string | null | undefined): string {
-  if (!currency || typeof currency !== 'string') {
-    return 'USD';
-  }
-  
-  const sanitized = currency.toUpperCase().trim();
-  
-  // Must be exactly 3 alphabetic characters (ISO 4217 format)
-  if (!/^[A-Z]{3}$/.test(sanitized)) {
-    console.warn(`Invalid currency code: ${currency}, defaulting to USD`);
-    return 'USD';
-  }
-  
-  return sanitized;
+ if (!currency || typeof currency !== 'string') {
+  return 'USD';
+ }
+ 
+ const sanitized = currency.toUpperCase().trim();
+ 
+ // Must be exactly 3 alphabetic characters (ISO 4217 format)
+ if (!/^[A-Z]{3}$/.test(sanitized)) {
+  console.warn(`Invalid currency code: ${currency}, defaulting to USD`);
+  return 'USD';
+ }
+ 
+ return sanitized;
 }
 
 /**
@@ -30,32 +30,32 @@ function sanitizeCurrency(currency: string | null | undefined): string {
  * @returns Formatted currency string
  */
 export function formatCurrency(
-  amount: number,
-  currency: string = "USD",
-  locale: string = "en"
+ amount: number,
+ currency: string = "USD",
+ locale: string = "en"
 ): string {
-  const sanitizedCurrency = sanitizeCurrency(currency);
-  
-  try {
-    return new Intl.NumberFormat(locale, {
-      style: "currency",
-      currency: sanitizedCurrency,
-      minimumFractionDigits: amount % 1 === 0 ? 0 : 2,
-      maximumFractionDigits: 2,
-    }).format(amount);
-  } catch (error) {
-    // Fallback to en-US with requested currency preserved
-    console.warn(
-      `Currency formatting failed for locale ${locale}, falling back to en-US with ${sanitizedCurrency}`,
-      error
-    );
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: sanitizedCurrency,
-      minimumFractionDigits: amount % 1 === 0 ? 0 : 2,
-      maximumFractionDigits: 2,
-    }).format(amount);
-  }
+ const sanitizedCurrency = sanitizeCurrency(currency);
+ 
+ try {
+  return new Intl.NumberFormat(locale, {
+   style: "currency",
+   currency: sanitizedCurrency,
+   minimumFractionDigits: amount % 1 === 0 ? 0 : 2,
+   maximumFractionDigits: 2,
+  }).format(amount);
+ } catch (error) {
+  // Fallback to en-US with requested currency preserved
+  console.warn(
+   `Currency formatting failed for locale ${locale}, falling back to en-US with ${sanitizedCurrency}`,
+   error
+  );
+  return new Intl.NumberFormat("en-US", {
+   style: "currency",
+   currency: sanitizedCurrency,
+   minimumFractionDigits: amount % 1 === 0 ? 0 : 2,
+   maximumFractionDigits: 2,
+  }).format(amount);
+ }
 }
 
 /**
@@ -65,30 +65,30 @@ export function formatCurrency(
  * @returns Currency symbol string
  */
 export function getCurrencySymbol(
-  currency: string = "USD",
-  locale: string = "en"
+ currency: string = "USD",
+ locale: string = "en"
 ): string {
-  const sanitizedCurrency = sanitizeCurrency(currency);
-  
-  try {
-    const formatter = new Intl.NumberFormat(locale, {
-      style: "currency",
-      currency: sanitizedCurrency,
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    });
+ const sanitizedCurrency = sanitizeCurrency(currency);
+ 
+ try {
+  const formatter = new Intl.NumberFormat(locale, {
+   style: "currency",
+   currency: sanitizedCurrency,
+   minimumFractionDigits: 0,
+   maximumFractionDigits: 0,
+  });
 
-    // Extract symbol using formatToParts
-    const parts = formatter.formatToParts(0);
-    const symbolPart = parts.find((p) => p.type === "currency");
-    return symbolPart?.value ?? sanitizedCurrency;
-  } catch (error) {
-    console.warn(
-      `Currency symbol retrieval failed for ${sanitizedCurrency} in locale ${locale}`,
-      error
-    );
-    return sanitizedCurrency;
-  }
+  // Extract symbol using formatToParts
+  const parts = formatter.formatToParts(0);
+  const symbolPart = parts.find((p) => p.type === "currency");
+  return symbolPart?.value ?? sanitizedCurrency;
+ } catch (error) {
+  console.warn(
+   `Currency symbol retrieval failed for ${sanitizedCurrency} in locale ${locale}`,
+   error
+  );
+  return sanitizedCurrency;
+ }
 }
 /**
  * Format price for display without currency symbol
@@ -97,15 +97,15 @@ export function getCurrencySymbol(
  * @returns Formatted number string
  */
 export function formatPrice(amount: number, locale: string = "en"): string {
-  try {
-    return new Intl.NumberFormat(locale, {
-      minimumFractionDigits: amount % 1 === 0 ? 0 : 2,
-      maximumFractionDigits: 2,
-    }).format(amount);
-  } catch (error) {
-    console.warn(`Price formatting failed for locale ${locale}`, error);
-    return amount.toFixed(amount % 1 === 0 ? 0 : 2);
-  }
+ try {
+  return new Intl.NumberFormat(locale, {
+   minimumFractionDigits: amount % 1 === 0 ? 0 : 2,
+   maximumFractionDigits: 2,
+  }).format(amount);
+ } catch (error) {
+  console.warn(`Price formatting failed for locale ${locale}`, error);
+  return amount.toFixed(amount % 1 === 0 ? 0 : 2);
+ }
 }
 
 /**
@@ -118,17 +118,17 @@ export function formatPrice(amount: number, locale: string = "en"): string {
  * @returns Formatted price string like "$20 USD / month"
  */
 export function buildPriceDisplay(
-  amount: number,
-  currency: string,
-  billingPeriod: "month" | "year",
-  locale: string,
-  t: (key: string) => string
+ amount: number,
+ currency: string,
+ billingPeriod: "month" | "year",
+ locale: string,
+ t: (key: string) => string
 ): string {
-  const sanitizedCurrency = sanitizeCurrency(currency);
-  const formattedAmount = formatCurrency(amount, sanitizedCurrency, locale);
-  const period = t(
-    `pricing:billing.${billingPeriod === "month" ? "monthly" : "yearly"}`
-  );
+ const sanitizedCurrency = sanitizeCurrency(currency);
+ const formattedAmount = formatCurrency(amount, sanitizedCurrency, locale);
+ const period = t(
+  `pricing:billing.${billingPeriod === "month" ? "monthly" : "yearly"}`
+ );
 
-  return `${formattedAmount} / ${period}`;
+ return `${formattedAmount} / ${period}`;
 }

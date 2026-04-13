@@ -6,340 +6,340 @@ import { useUniqueId } from '@/shared/hooks/useUniqueId';
 
 // Country data with emojis and codes
 const countries = [
-  { code: '+1', emoji: '🇺🇸', name: 'United States' },
-  { code: '+44', emoji: '🇬🇧', name: 'United Kingdom' },
-  { code: '+61', emoji: '🇦🇺', name: 'Australia' },
-  { code: '+49', emoji: '🇩🇪', name: 'Germany' },
-  { code: '+33', emoji: '🇫🇷', name: 'France' },
-  { code: '+81', emoji: '🇯🇵', name: 'Japan' },
-  { code: '+86', emoji: '🇨🇳', name: 'China' },
-  { code: '+91', emoji: '🇮🇳', name: 'India' },
-  { code: '+55', emoji: '🇧🇷', name: 'Brazil' },
-  { code: '+39', emoji: '🇮🇹', name: 'Italy' },
+ { code: '+1', emoji: '🇺🇸', name: 'United States' },
+ { code: '+44', emoji: '🇬🇧', name: 'United Kingdom' },
+ { code: '+61', emoji: '🇦🇺', name: 'Australia' },
+ { code: '+49', emoji: '🇩🇪', name: 'Germany' },
+ { code: '+33', emoji: '🇫🇷', name: 'France' },
+ { code: '+81', emoji: '🇯🇵', name: 'Japan' },
+ { code: '+86', emoji: '🇨🇳', name: 'China' },
+ { code: '+91', emoji: '🇮🇳', name: 'India' },
+ { code: '+55', emoji: '🇧🇷', name: 'Brazil' },
+ { code: '+39', emoji: '🇮🇹', name: 'Italy' },
 ];
 
 export interface PhoneInputProps {
-  id?: string;
-  value?: string;
-  onChange?: (value: string) => void;
-  placeholder?: string;
-  disabled?: boolean;
-  required?: boolean;
-  className?: string;
-  size?: 'sm' | 'md' | 'lg';
-  variant?: 'default' | 'error' | 'success';
-  label?: string;
-  description?: string;
-  error?: string;
-  countryCode?: string;
-  onCountryChange?: (countryCode: string) => void;
-  showCountryCode?: boolean;
-  format?: boolean;
-  labelKey?: string;
-  descriptionKey?: string;
-  placeholderKey?: string;
-  errorKey?: string;
-  namespace?: string;
+ id?: string;
+ value?: string;
+ onChange?: (value: string) => void;
+ placeholder?: string;
+ disabled?: boolean;
+ required?: boolean;
+ className?: string;
+ size?: 'sm' | 'md' | 'lg';
+ variant?: 'default' | 'error' | 'success';
+ label?: string;
+ description?: string;
+ error?: string;
+ countryCode?: string;
+ onCountryChange?: (countryCode: string) => void;
+ showCountryCode?: boolean;
+ format?: boolean;
+ labelKey?: string;
+ descriptionKey?: string;
+ placeholderKey?: string;
+ errorKey?: string;
+ namespace?: string;
 }
 
 export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(({
-  value = '',
-  onChange,
-  placeholder,
-  disabled = false,
-  required = false,
-  className = '',
-  size = 'md',
-  variant = 'default',
-  label,
-  description,
-  error,
-  countryCode = '+1',
-  onCountryChange,
-  showCountryCode = true,
-  format = true,
-  labelKey: _labelKey,
-  descriptionKey: _descriptionKey,
-  placeholderKey: _placeholderKey,
-  errorKey: _errorKey,
-  namespace: _namespace = 'common',
-  id
+ value = '',
+ onChange,
+ placeholder,
+ disabled = false,
+ required = false,
+ className = '',
+ size = 'md',
+ variant = 'default',
+ label,
+ description,
+ error,
+ countryCode = '+1',
+ onCountryChange,
+ showCountryCode = true,
+ format = true,
+ labelKey: _labelKey,
+ descriptionKey: _descriptionKey,
+ placeholderKey: _placeholderKey,
+ errorKey: _errorKey,
+ namespace: _namespace = 'common',
+ id
 }, ref) => {
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [focusedIndex, setFocusedIndex] = useState(-1);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-  const buttonRef = useRef<HTMLButtonElement>(null);
-  const listRef = useRef<HTMLDivElement>(null);
-  
-  const [selectedCountryCode, setSelectedCountryCode] = useState(countryCode);
+ const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+ const [focusedIndex, setFocusedIndex] = useState(-1);
+ const dropdownRef = useRef<HTMLDivElement>(null);
+ const buttonRef = useRef<HTMLButtonElement>(null);
+ const listRef = useRef<HTMLDivElement>(null);
+ 
+ const [selectedCountryCode, setSelectedCountryCode] = useState(countryCode);
 
-  useEffect(() => {
-    setSelectedCountryCode(countryCode);
-  }, [countryCode]);
+ useEffect(() => {
+  setSelectedCountryCode(countryCode);
+ }, [countryCode]);
 
-  const currentCountry = countries.find(c => c.code === selectedCountryCode) || countries[0];
-  
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsDropdownOpen(false);
-        setFocusedIndex(-1);
-      }
-    };
+ const currentCountry = countries.find(c => c.code === selectedCountryCode) || countries[0];
+ 
+ // Close dropdown when clicking outside
+ useEffect(() => {
+  const handleClickOutside = (event: MouseEvent) => {
+   if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+    setIsDropdownOpen(false);
+    setFocusedIndex(-1);
+   }
+  };
 
-    if (isDropdownOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
+  if (isDropdownOpen) {
+   document.addEventListener('mousedown', handleClickOutside);
+  }
 
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [isDropdownOpen]);
+  return () => {
+   document.removeEventListener('mousedown', handleClickOutside);
+  };
+ }, [isDropdownOpen]);
 
-  const handleCountrySelect = useCallback((country: typeof countries[0]) => {
-    setSelectedCountryCode(country.code);
-    onCountryChange?.(country.code);
+ const handleCountrySelect = useCallback((country: typeof countries[0]) => {
+  setSelectedCountryCode(country.code);
+  onCountryChange?.(country.code);
+  setIsDropdownOpen(false);
+  setFocusedIndex(-1);
+  buttonRef.current?.focus();
+ }, [onCountryChange]);
+
+ // Keyboard navigation handler
+ const handleKeyDown = useCallback((e: KeyboardEvent) => {
+  if (!isDropdownOpen) {
+   if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowDown') {
+    e.preventDefault();
+    setIsDropdownOpen(true);
+    setFocusedIndex(0);
+    return;
+   }
+   return;
+  }
+
+  switch (e.key) {
+   case 'Escape':
+    e.preventDefault();
     setIsDropdownOpen(false);
     setFocusedIndex(-1);
     buttonRef.current?.focus();
-  }, [onCountryChange]);
-
-  // Keyboard navigation handler
-  const handleKeyDown = useCallback((e: KeyboardEvent) => {
-    if (!isDropdownOpen) {
-      if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowDown') {
-        e.preventDefault();
-        setIsDropdownOpen(true);
-        setFocusedIndex(0);
-        return;
-      }
-      return;
+    break;
+   case 'ArrowDown':
+    e.preventDefault();
+    setFocusedIndex(prev => (prev + 1) % countries.length);
+    break;
+   case 'ArrowUp':
+    e.preventDefault();
+    setFocusedIndex(prev => prev <= 0 ? countries.length - 1 : prev - 1);
+    break;
+   case 'Enter':
+   case ' ':
+    e.preventDefault();
+    if (focusedIndex >= 0 && focusedIndex < countries.length) {
+     handleCountrySelect(countries[focusedIndex]);
     }
+    break;
+   case 'Tab':
+    // Allow default tab behavior but close dropdown
+    setIsDropdownOpen(false);
+    setFocusedIndex(-1);
+    break;
+  }
+ }, [isDropdownOpen, focusedIndex, handleCountrySelect]);
 
-    switch (e.key) {
-      case 'Escape':
-        e.preventDefault();
-        setIsDropdownOpen(false);
-        setFocusedIndex(-1);
-        buttonRef.current?.focus();
-        break;
-      case 'ArrowDown':
-        e.preventDefault();
-        setFocusedIndex(prev => (prev + 1) % countries.length);
-        break;
-      case 'ArrowUp':
-        e.preventDefault();
-        setFocusedIndex(prev => prev <= 0 ? countries.length - 1 : prev - 1);
-        break;
-      case 'Enter':
-      case ' ':
-        e.preventDefault();
-        if (focusedIndex >= 0 && focusedIndex < countries.length) {
-          handleCountrySelect(countries[focusedIndex]);
-        }
-        break;
-      case 'Tab':
-        // Allow default tab behavior but close dropdown
-        setIsDropdownOpen(false);
-        setFocusedIndex(-1);
-        break;
-    }
-  }, [isDropdownOpen, focusedIndex, handleCountrySelect]);
+ // Focus management
+ useEffect(() => {
+  if (isDropdownOpen && listRef.current) {
+   const focusedItem = listRef.current.children[focusedIndex] as HTMLElement;
+   if (focusedItem) {
+    focusedItem.focus();
+   }
+  }
+ }, [isDropdownOpen, focusedIndex]);
 
-  // Focus management
-  useEffect(() => {
-    if (isDropdownOpen && listRef.current) {
-      const focusedItem = listRef.current.children[focusedIndex] as HTMLElement;
-      if (focusedItem) {
-        focusedItem.focus();
-      }
-    }
-  }, [isDropdownOpen, focusedIndex]);
+ // Add keyboard event listener
+ useEffect(() => {
+  if (isDropdownOpen) {
+   document.addEventListener('keydown', handleKeyDown);
+  }
 
-  // Add keyboard event listener
-  useEffect(() => {
-    if (isDropdownOpen) {
-      document.addEventListener('keydown', handleKeyDown);
-    }
+  return () => {
+   document.removeEventListener('keydown', handleKeyDown);
+  };
+ }, [isDropdownOpen, handleKeyDown]);
+ 
+ // TODO: Add i18n support when useTranslation hook is available
+ // const { t } = useTranslation(namespace);
+ // const displayLabel = labelKey ? t(labelKey) : label;
+ // const displayDescription = descriptionKey ? t(descriptionKey) : description;
+ // const displayPlaceholder = placeholderKey ? t(placeholderKey) : placeholder;
+ // const displayError = errorKey ? t(errorKey) : error;
+ 
+ const displayLabel = label;
+ const displayDescription = description;
+ const displayPlaceholder = placeholder;
+ const displayError = error;
 
-    return () => {
-      document.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [isDropdownOpen, handleKeyDown]);
+ // Generate stable IDs for accessibility
+ const generatedId = useUniqueId('phone-input');
+ const baseId = id || generatedId;
+ const inputId = baseId;
+ const descriptionId = `${baseId}-description`;
+ const errorId = `${baseId}-error`;
+
+ const sizeClasses = {
+  sm: 'px-2 py-1 text-sm h-8',
+  md: 'px-3 py-2 text-sm h-10',
+  lg: 'px-4 py-3 text-base h-12'
+ };
+
+ const iconPaddingClasses = {
+  sm: 'pl-8',
+  md: 'pl-10',
+  lg: 'pl-12'
+ };
+
+
+ const variantClasses = {
+  default: 'border-input-border focus:ring-accent-500 focus:border-accent-500',
+  error: 'border-[rgb(var(--error-foreground))] focus:ring-red-500 focus:border-[rgb(var(--error-foreground))]',
+  success: 'border-green-300 focus:ring-green-500 focus:border-green-500'
+ };
+
+ const formatPhoneNumber = useCallback((phone: string) => {
+  if (!format) return phone;
   
-  // TODO: Add i18n support when useTranslation hook is available
-  // const { t } = useTranslation(namespace);
-  // const displayLabel = labelKey ? t(labelKey) : label;
-  // const displayDescription = descriptionKey ? t(descriptionKey) : description;
-  // const displayPlaceholder = placeholderKey ? t(placeholderKey) : placeholder;
-  // const displayError = errorKey ? t(errorKey) : error;
+  // Remove all non-digit characters
+  const digits = phone.replace(/\D/g, '');
   
-  const displayLabel = label;
-  const displayDescription = description;
-  const displayPlaceholder = placeholder;
-  const displayError = error;
+  // Format as (XXX) XXX-XXXX for US numbers
+  if (digits.length <= 3) {
+   return digits;
+  } else if (digits.length <= 6) {
+   return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
+  } else {
+   return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6, 10)}`;
+  }
+ }, [format]);
 
-  // Generate stable IDs for accessibility
-  const generatedId = useUniqueId('phone-input');
-  const baseId = id || generatedId;
-  const inputId = baseId;
-  const descriptionId = `${baseId}-description`;
-  const errorId = `${baseId}-error`;
+ const handleChange = useCallback((e: Event) => {
+  const target = e.target as HTMLInputElement;
+  const rawValue = target.value;
+  const formattedValue = formatPhoneNumber(rawValue);
+  onChange?.(formattedValue);
+ }, [onChange, formatPhoneNumber]);
 
-  const sizeClasses = {
-    sm: 'px-2 py-1 text-sm h-8',
-    md: 'px-3 py-2 text-sm h-10',
-    lg: 'px-4 py-3 text-base h-12'
-  };
+ const inputClasses = cn(
+  'w-full border rounded-lg text-input-text placeholder:text-input-placeholder',
+  'focus:outline-none focus:ring-2 focus:ring-offset-0 transition-colors',
+  sizeClasses[size],
+  iconPaddingClasses[size],
+  variantClasses[variant],
+  disabled && 'opacity-50 cursor-not-allowed',
+  variant === 'default' ? 'glass-input' : 'bg-input-bg',
+  className
+ );
 
-  const iconPaddingClasses = {
-    sm: 'pl-8',
-    md: 'pl-10',
-    lg: 'pl-12'
-  };
-
-
-  const variantClasses = {
-    default: 'border-input-border focus:ring-accent-500 focus:border-accent-500',
-    error: 'border-[rgb(var(--error-foreground))] focus:ring-red-500 focus:border-[rgb(var(--error-foreground))]',
-    success: 'border-green-300 focus:ring-green-500 focus:border-green-500'
-  };
-
-  const formatPhoneNumber = useCallback((phone: string) => {
-    if (!format) return phone;
-    
-    // Remove all non-digit characters
-    const digits = phone.replace(/\D/g, '');
-    
-    // Format as (XXX) XXX-XXXX for US numbers
-    if (digits.length <= 3) {
-      return digits;
-    } else if (digits.length <= 6) {
-      return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
-    } else {
-      return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6, 10)}`;
-    }
-  }, [format]);
-
-  const handleChange = useCallback((e: Event) => {
-    const target = e.target as HTMLInputElement;
-    const rawValue = target.value;
-    const formattedValue = formatPhoneNumber(rawValue);
-    onChange?.(formattedValue);
-  }, [onChange, formatPhoneNumber]);
-
-  const inputClasses = cn(
-    'w-full border rounded-lg text-input-text placeholder:text-input-placeholder',
-    'focus:outline-none focus:ring-2 focus:ring-offset-0 transition-colors',
-    sizeClasses[size],
-    iconPaddingClasses[size],
-    variantClasses[variant],
-    disabled && 'opacity-50 cursor-not-allowed',
-    variant === 'default' ? 'glass-input' : 'bg-input-bg',
-    className
-  );
-
-  return (
-    <div className="w-full">
-      {displayLabel && (
-        <label htmlFor={inputId} className="block text-sm font-medium text-input-text mb-1">
-          {displayLabel}
-          {required && <span className="text-[rgb(var(--error-foreground))] ml-1">*</span>}
-        </label>
-      )}
+ return (
+  <div className="w-full">
+   {displayLabel && (
+    <label htmlFor={inputId} className="block text-sm font-medium text-input-text mb-1">
+     {displayLabel}
+     {required && <span className="text-[rgb(var(--error-foreground))] ml-1">*</span>}
+    </label>
+   )}
+   
+   <div className="flex items-stretch">
+    {showCountryCode && (
+     <div className="relative" ref={dropdownRef}>
+      <button
+       ref={buttonRef}
+       type="button"
+       onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+       disabled={disabled}
+       aria-expanded={isDropdownOpen}
+       aria-haspopup="menu"
+       aria-label={`Select country code. Current: ${currentCountry.name} (${currentCountry.code})`}
+       className={cn(
+        "inline-flex items-center border border-input-border rounded-l-lg text-input-text hover:bg-white/[0.04] focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500 transition-colors glass-input",
+        sizeClasses[size],
+        disabled && 'opacity-50 cursor-not-allowed'
+       )}
+      >
+       <span className="text-base mr-1">{currentCountry.emoji}</span>
+       <span className="text-sm">{currentCountry.code}</span>
+       <Icon icon={ChevronDownIcon} className="w-3 h-3 ml-1" />
+      </button>
       
-      <div className="flex items-stretch">
-        {showCountryCode && (
-          <div className="relative" ref={dropdownRef}>
-            <button
-              ref={buttonRef}
-              type="button"
-              onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-              disabled={disabled}
-              aria-expanded={isDropdownOpen}
-              aria-haspopup="menu"
-              aria-label={`Select country code. Current: ${currentCountry.name} (${currentCountry.code})`}
-              className={cn(
-                "inline-flex items-center border border-input-border rounded-l-lg text-input-text hover:bg-white/[0.04] focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500 transition-colors glass-input",
-                sizeClasses[size],
-                disabled && 'opacity-50 cursor-not-allowed'
-              )}
-            >
-              <span className="text-base mr-1">{currentCountry.emoji}</span>
-              <span className="text-sm">{currentCountry.code}</span>
-              <Icon icon={ChevronDownIcon} className="w-3 h-3 ml-1"  />
-            </button>
-            
-            {isDropdownOpen && (
-              <div className="absolute z-10 glass-panel border border-line-glass/30 rounded-lg shadow-glass w-52 top-full left-0 mt-1">
-                <div 
-                  ref={listRef}
-                  role="listbox"
-                  aria-label="Country selection"
-                  className="py-1 text-sm"
-                >
-                  {countries.map((country, index) => (
-                    <div key={country.code} role="option" aria-selected={index === focusedIndex}>
-                      <button
-                        type="button"
-                        onClick={() => handleCountrySelect(country)}
-                        className={cn(
-                          "inline-flex w-full px-3 py-2 text-sm text-input-text hover:bg-white/[0.04] focus:outline-none focus:bg-white/[0.08]",
-                          index === focusedIndex && "bg-white/[0.08]"
-                        )}
-                        tabIndex={-1}
-                      >
-                        <span className="inline-flex items-center">
-                          <span className="text-base mr-2">{country.emoji}</span>
-                          <span>{country.name} ({country.code})</span>
-                        </span>
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-        
-        <div className="relative flex-1">
-          <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-            <Icon icon={PhoneIcon} className="w-4 h-4 text-input-placeholder"  />
-          </div>
-          
-          <input
-            ref={ref}
-            id={inputId}
-            type="tel"
-            value={value}
-            onChange={handleChange}
-            placeholder={displayPlaceholder}
-            disabled={disabled}
-            required={required}
-            aria-required={required}
-            aria-invalid={Boolean(displayError)}
-            aria-describedby={displayError ? errorId : displayDescription ? descriptionId : undefined}
+      {isDropdownOpen && (
+       <div className="absolute z-10 glass-panel border border-line-glass/30 rounded-lg shadow-glass w-52 top-full left-0 mt-1">
+        <div 
+         ref={listRef}
+         role="listbox"
+         aria-label="Country selection"
+         className="py-1 text-sm"
+        >
+         {countries.map((country, index) => (
+          <div key={country.code} role="option" aria-selected={index === focusedIndex}>
+           <button
+            type="button"
+            onClick={() => handleCountrySelect(country)}
             className={cn(
-              inputClasses,
-              showCountryCode ? 'rounded-l-none border-l-0' : 'rounded-lg',
-              'rounded-r-lg'
+             "inline-flex w-full px-3 py-2 text-sm text-input-text hover:bg-white/[0.04] focus:outline-none focus:bg-white/[0.08]",
+             index === focusedIndex && "bg-white/[0.08]"
             )}
-          />
+            tabIndex={-1}
+           >
+            <span className="inline-flex items-center">
+             <span className="text-base mr-2">{country.emoji}</span>
+             <span>{country.name} ({country.code})</span>
+            </span>
+           </button>
+          </div>
+         ))}
         </div>
-      </div>
-      
-      {displayError && (
-        <p id={errorId} className="text-xs text-[rgb(var(--error-foreground))] dark:text-[rgb(var(--error-foreground))] mt-1" role="alert" aria-live="assertive">
-          {displayError}
-        </p>
+       </div>
       )}
-      
-      {displayDescription && !displayError && (
-        <p id={descriptionId} className="text-xs text-input-placeholder mt-1">
-          {displayDescription}
-        </p>
+     </div>
+    )}
+    
+    <div className="relative flex-1">
+     <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+      <Icon icon={PhoneIcon} className="w-4 h-4 text-input-placeholder" />
+     </div>
+     
+     <input
+      ref={ref}
+      id={inputId}
+      type="tel"
+      value={value}
+      onChange={handleChange}
+      placeholder={displayPlaceholder}
+      disabled={disabled}
+      required={required}
+      aria-required={required}
+      aria-invalid={Boolean(displayError)}
+      aria-describedby={displayError ? errorId : displayDescription ? descriptionId : undefined}
+      className={cn(
+       inputClasses,
+       showCountryCode ? 'rounded-l-none border-l-0' : 'rounded-lg',
+       'rounded-r-lg'
       )}
+     />
     </div>
-  );
+   </div>
+   
+   {displayError && (
+    <p id={errorId} className="text-xs text-[rgb(var(--error-foreground))] dark:text-[rgb(var(--error-foreground))] mt-1" role="alert" aria-live="assertive">
+     {displayError}
+    </p>
+   )}
+   
+   {displayDescription && !displayError && (
+    <p id={descriptionId} className="text-xs text-input-placeholder mt-1">
+     {displayDescription}
+    </p>
+   )}
+  </div>
+ );
 });

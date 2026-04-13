@@ -6,147 +6,147 @@
  */
 
 interface FeatureFlags {
-    /**
-     * Enable audio recording feature
-     * When false, the audio recording button will be hidden from the UI
-     */
-    enableAudioRecording: boolean;
+  /**
+   * Enable audio recording feature
+   * When false, the audio recording button will be hidden from the UI
+   */
+  enableAudioRecording: boolean;
 
-    /**
-     * Enable video recording feature (future)
-     * Not currently implemented in the UI
-     */
-    enableVideoRecording: boolean;
+  /**
+   * Enable video recording feature (future)
+   * Not currently implemented in the UI
+   */
+  enableVideoRecording: boolean;
 
-    /**
-     * Enable file attachments
-     * When false, file upload functionality will be hidden
-     */
-    enableFileAttachments: boolean;
+  /**
+   * Enable file attachments
+   * When false, file upload functionality will be hidden
+   */
+  enableFileAttachments: boolean;
 
-    /**
-     * Enable left sidebar
-     * When false, the left column will be hidden and the layout will be 2-column
-     */
-    enableLeftSidebar: boolean;
+  /**
+   * Enable left sidebar
+   * When false, the left column will be hidden and the layout will be 2-column
+   */
+  enableLeftSidebar: boolean;
 
-    /**
-     * Enable AI feedback and copy buttons on messages
-     * When false, feedback UI and copy functionality will be hidden from messages
-     */
-    enableMessageFeedback: boolean;
+  /**
+   * Enable AI feedback and copy buttons on messages
+   * When false, feedback UI and copy functionality will be hidden from messages
+   */
+  enableMessageFeedback: boolean;
 
-    /**
-     * Enable disclaimer text below input
-     * When false, the disclaimer text will be hidden
-     */
-    enableDisclaimerText: boolean;
+  /**
+   * Enable disclaimer text below input
+   * When false, the disclaimer text will be hidden
+   */
+  enableDisclaimerText: boolean;
 
-    /**
-     * Enable "Learn about our services" button
-     * When false, the learn services button will be hidden from welcome messages
-     */
-    enableLearnServicesButton: boolean;
+  /**
+   * Enable "Learn about our services" button
+   * When false, the learn services button will be hidden from welcome messages
+   */
+  enableLearnServicesButton: boolean;
 
-    /**
-     * Enable "Request a consultation" button
-     * When false, the consultation request button will be hidden from welcome messages
-     */
-    enableConsultationButton: boolean;
+  /**
+   * Enable "Request a consultation" button
+   * When false, the consultation request button will be hidden from welcome messages
+   */
+  enableConsultationButton: boolean;
 
-    /**
-     * Enable mobile bottom navigation bar
-     * When false, the bottom nav is hidden on mobile
-     */
-    enableMobileBottomNav: boolean;
+  /**
+   * Enable mobile bottom navigation bar
+   * When false, the bottom nav is hidden on mobile
+   */
+  enableMobileBottomNav: boolean;
 
-    /**
-     * Enable payment iframe/drawer functionality
-     * When false, only the "Open in Browser" button will be shown
-     * When true, both "Pay" button (opens drawer) and "Open in Browser" button will be shown
-     */
-    enablePaymentIframe: boolean;
+  /**
+   * Enable payment iframe/drawer functionality
+   * When false, only the "Open in Browser" button will be shown
+   * When true, both "Pay" button (opens drawer) and "Open in Browser" button will be shown
+   */
+  enablePaymentIframe: boolean;
 
-    /**
-     * Enable lead qualification flow
-     * When false, AI will show contact form immediately after getting legal issue info
-     * When true, AI will ask qualifying questions before showing contact form
-     */
-    enableLeadQualification: boolean;
+  /**
+   * Enable lead qualification flow
+   * When false, AI will show contact form immediately after getting legal issue info
+   * When true, AI will ask qualifying questions before showing contact form
+   */
+  enableLeadQualification: boolean;
 
-    /**
-     * Enable multiple practices feature
-     * When false, users can only have one practice
-     * When true, users can create and manage multiple practices
-     */
-    enableMultiplePractices: boolean;
+  /**
+   * Enable multiple practices feature
+   * When false, users can only have one practice
+   * When true, users can create and manage multiple practices
+   */
+  enableMultiplePractices: boolean;
 
-    /**
-     * Enable account links settings UI
-     * When false, the account links section is hidden
-     */
-    enableAccountLinks: boolean;
+  /**
+   * Enable account links settings UI
+   * When false, the account links section is hidden
+   */
+  enableAccountLinks: boolean;
 
-    /**
-     * Enable multi-factor authentication settings UI and enrollment flow
-     * When false, MFA controls and routes stay hidden from settings
-     */
-    enableMfa: boolean;
-    /**
-     * Enable Plus subscription tier in UI
-     * When false, the Plus plan is hidden from pricing/upgrade flows
-     */
-    enablePlusTier: boolean;
+  /**
+   * Enable multi-factor authentication settings UI and enrollment flow
+   * When false, MFA controls and routes stay hidden from settings
+   */
+  enableMfa: boolean;
+  /**
+   * Enable Plus subscription tier in UI
+   * When false, the Plus plan is hidden from pricing/upgrade flows
+   */
+  enablePlusTier: boolean;
 
-    /**
-     * Enable Activity Timeline UI + /api/activity calls.
-     *
-     * Default: false
-     *
-     * NOTE: Activity is currently backed by the Worker + D1 and is not fully
-     * migrated to staging-api. Keep this disabled until the remote API is the
-     * source of truth for activity events.
-     */
-    enableActivity: boolean;
+  /**
+   * Enable Activity Timeline UI + /api/activity calls.
+   *
+   * Default: false
+   *
+   * NOTE: Activity is currently backed by the Worker + D1 and is not fully
+   * migrated to staging-api. Keep this disabled until the remote API is the
+   * source of truth for activity events.
+   */
+  enableActivity: boolean;
 
-    /**
-     * Enable message reactions feature
-     * When false, reaction UI and functionality will be hidden from messages
-     */
-    enableMessageReactions: boolean;
+  /**
+   * Enable message reactions feature
+   * When false, reaction UI and functionality will be hidden from messages
+   */
+  enableMessageReactions: boolean;
 }
 
 // Immutable base configuration
 const baseFeatureConfig: FeatureFlags = {
-    enableAudioRecording: false, // Set to false to hide voice recording
-    enableVideoRecording: false, // Not implemented yet
-    enableFileAttachments: false, // Legacy chat attachments are disabled pending backend upload migration
-    enableLeftSidebar: true, // Enable left sidebar
-    enableMessageFeedback: false, // Disable feedback and copy buttons on messages
-    enableDisclaimerText: false, // Disable disclaimer text below input
-    enableLearnServicesButton: false, // Hide learn services button
-    enableConsultationButton: false, // Hide consultation request button
-    enableMobileBottomNav: false, // Temporarily hide mobile bottom nav
-    enablePaymentIframe: false, // Disable payment iframe/drawer - only show "Open in Browser" button
-    enableLeadQualification: true, // Enable lead qualification flow - AI asks questions before contact form
-    enableMultiplePractices: true, // Enable multiple practices feature
-    enableAccountLinks: false, // Hide account links until the settings flow is ready
-    enableMfa: false, // Hide MFA until the backend/auth flow is ready end-to-end
+  enableAudioRecording: false, // Set to false to hide voice recording
+  enableVideoRecording: false, // Not implemented yet
+  enableFileAttachments: false, // Legacy chat attachments are disabled pending backend upload migration
+  enableLeftSidebar: true, // Enable left sidebar
+  enableMessageFeedback: false, // Disable feedback and copy buttons on messages
+  enableDisclaimerText: false, // Disable disclaimer text below input
+  enableLearnServicesButton: false, // Hide learn services button
+  enableConsultationButton: false, // Hide consultation request button
+  enableMobileBottomNav: false, // Temporarily hide mobile bottom nav
+  enablePaymentIframe: false, // Disable payment iframe/drawer - only show "Open in Browser" button
+  enableLeadQualification: true, // Enable lead qualification flow - AI asks questions before contact form
+  enableMultiplePractices: true, // Enable multiple practices feature
+  enableAccountLinks: false, // Hide account links until the settings flow is ready
+  enableMfa: false, // Hide MFA until the backend/auth flow is ready end-to-end
 
-    enablePlusTier: false, // Hide Plus plan by default (not available at launch)
-    enableActivity: false, // Disabled until activity is migrated off Worker/D1
-    enableMessageReactions: false, // Disable message reactions for MVP
+  enablePlusTier: false, // Hide Plus plan by default (not available at launch)
+  enableActivity: false, // Disabled until activity is migrated off Worker/D1
+  enableMessageReactions: false, // Disable message reactions for MVP
 };
 
 // DEV-only overrides (computed via spread, no mutation)
 const devOverrides: Partial<FeatureFlags> = import.meta.env.DEV ? {
-    // Enable all features in development if needed
-    // enableAudioRecording: true,
-    // enablePlusTier: true,
+  // Enable all features in development if needed
+  // enableAudioRecording: true,
+  // enablePlusTier: true,
 } : {};
 
 // Export frozen, readonly configuration
 export const features: Readonly<FeatureFlags> = Object.freeze({
-    ...baseFeatureConfig,
-    ...devOverrides
+  ...baseFeatureConfig,
+  ...devOverrides
 }); 

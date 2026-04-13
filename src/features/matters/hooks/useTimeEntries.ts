@@ -4,51 +4,51 @@ import type { TimeEntry } from '@/features/matters/data/matterTypes';
 import type { TimeEntryFormValues } from '@/features/matters/components/time-entries/TimeEntryForm';
 
 type UseTimeEntriesOptions = {
-  initialEntries?: TimeEntry[];
-  resetKey?: string;
+ initialEntries?: TimeEntry[];
+ resetKey?: string;
 };
 
 export const useTimeEntries = ({ initialEntries = [], resetKey }: UseTimeEntriesOptions) => {
-  const [entries, setEntries] = useState<TimeEntry[]>(() => initialEntries);
+ const [entries, setEntries] = useState<TimeEntry[]>(() => initialEntries);
 
-  useEffect(() => {
-    setEntries(initialEntries);
-  }, [initialEntries, resetKey]);
+ useEffect(() => {
+  setEntries(initialEntries);
+ }, [initialEntries, resetKey]);
 
-  const saveEntry = useCallback((values: TimeEntryFormValues, existing?: TimeEntry | null) => {
-    setEntries((prev) => {
-      if (existing) {
-        return prev.map((entry) => (
-          entry.id === existing.id
-            ? {
-              ...entry,
-              startTime: values.startTime,
-              endTime: values.endTime,
-              description: values.description,
-              billable: values.billable
-            }
-            : entry
-        ));
+ const saveEntry = useCallback((values: TimeEntryFormValues, existing?: TimeEntry | null) => {
+  setEntries((prev) => {
+   if (existing) {
+    return prev.map((entry) => (
+     entry.id === existing.id
+      ? {
+       ...entry,
+       startTime: values.startTime,
+       endTime: values.endTime,
+       description: values.description,
+       billable: values.billable
       }
-      const newEntry: TimeEntry = {
-        id: ulid(),
-        startTime: values.startTime,
-        endTime: values.endTime,
-        description: values.description,
-        billable: values.billable
-      };
-      return [newEntry, ...prev];
-    });
-  }, []);
+      : entry
+    ));
+   }
+   const newEntry: TimeEntry = {
+    id: ulid(),
+    startTime: values.startTime,
+    endTime: values.endTime,
+    description: values.description,
+    billable: values.billable
+   };
+   return [newEntry, ...prev];
+  });
+ }, []);
 
-  const deleteEntry = useCallback((entry: TimeEntry) => {
-    setEntries((prev) => prev.filter((item) => item.id !== entry.id));
-  }, []);
+ const deleteEntry = useCallback((entry: TimeEntry) => {
+  setEntries((prev) => prev.filter((item) => item.id !== entry.id));
+ }, []);
 
-  return {
-    entries,
-    saveEntry,
-    deleteEntry,
-    setEntries
-  };
+ return {
+  entries,
+  saveEntry,
+  deleteEntry,
+  setEntries
+ };
 };

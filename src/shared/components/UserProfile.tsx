@@ -2,16 +2,16 @@ import { UserProfileDisplay } from '@/shared/ui/profile/organisms/UserProfileDis
 
 
 interface UserProfileProps {
-  isCollapsed?: boolean;
-  isMobile?: boolean;
+ isCollapsed?: boolean;
+ isMobile?: boolean;
 }
 
 const UserProfile = ({ isCollapsed = false }: UserProfileProps) => {
-  return (
-    <UserProfileDisplay 
-      isCollapsed={isCollapsed}
-    />
-  );
+ return (
+  <UserProfileDisplay 
+   isCollapsed={isCollapsed}
+  />
+ );
 };
 
 export default UserProfile;

@@ -9,6 +9,6 @@ import { useId } from 'preact/hooks';
  * @returns A stable unique ID string
  */
 export function useUniqueId(prefix?: string): string {
-  const id = useId();
-  return prefix ? `${prefix}-${id}` : id;
+ const id = useId();
+ return prefix ? `${prefix}-${id}` : id;
 }

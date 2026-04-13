@@ -2,160 +2,160 @@ import { useMemo } from 'preact/hooks';
 import { useTranslation } from '@/shared/i18n/hooks';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import {
-  AddressExperienceForm,
-  type AddressExperienceData,
-  type AddressExperienceField,
+ AddressExperienceForm,
+ type AddressExperienceData,
+ type AddressExperienceField,
 } from '@/shared/ui/address/AddressExperienceForm';
 import type { Address } from '@/shared/types/address';
 
 export const ALLOWED_FIELDS = [
-  'name',
-  'email',
-  'phone',
-  'city',
-  'state',
-  'address',
-  'opposingParty',
-  'description',
+ 'name',
+ 'email',
+ 'phone',
+ 'city',
+ 'state',
+ 'address',
+ 'opposingParty',
+ 'description',
 ] as const;
 
 export type AllowedField = typeof ALLOWED_FIELDS[number];
 
 export interface ContactFormProps {
-  onSubmit: (data: ContactData) => void | Promise<void>;
-  fields?: string[];
-  required?: string[];
-  message?: string;
-  initialValues?: Partial<ContactData>;
-  variant?: 'card' | 'plain';
-  formId?: string;
-  showSubmitButton?: boolean;
-  submitFullWidth?: boolean;
-  submitLabel?: string;
+ onSubmit: (data: ContactData) => void | Promise<void>;
+ fields?: string[];
+ required?: string[];
+ message?: string;
+ initialValues?: Partial<ContactData>;
+ variant?: 'card' | 'plain';
+ formId?: string;
+ showSubmitButton?: boolean;
+ submitFullWidth?: boolean;
+ submitLabel?: string;
 }
 
 export interface ContactData {
-  name?: string;
-  email?: string;
-  phone?: string;
-  city?: string;
-  state?: string;
-  address?: Partial<Address>;
-  opposingParty?: string;
-  description?: string;
+ name?: string;
+ email?: string;
+ phone?: string;
+ city?: string;
+ state?: string;
+ address?: Partial<Address>;
+ opposingParty?: string;
+ description?: string;
 }
 
 const normalizeFields = (fields?: string[]): AddressExperienceField[] => {
-  if (!Array.isArray(fields) || fields.length === 0) {
-    return [...ALLOWED_FIELDS];
-  }
-  const uniqueFields = [...new Set(fields)];
-  return uniqueFields.filter((field): field is AddressExperienceField =>
-    ALLOWED_FIELDS.includes(field as AllowedField)
-  );
+ if (!Array.isArray(fields) || fields.length === 0) {
+  return [...ALLOWED_FIELDS];
+ }
+ const uniqueFields = [...new Set(fields)];
+ return uniqueFields.filter((field): field is AddressExperienceField =>
+  ALLOWED_FIELDS.includes(field as AllowedField)
+ );
 };
 
 const normalizeRequired = (fields: AddressExperienceField[], required?: string[]) => {
-  if (Array.isArray(required) && required.length === 0) {
-    return [];
-  }
-  
-  const uniqueRequired = Array.isArray(required) ? [...new Set(required)] : [];
-  const filtered = uniqueRequired.filter((field): field is AddressExperienceField =>
-    fields.includes(field as AddressExperienceField)
-  );
-  
-  if (filtered.length > 0) {
-    return filtered;
-  }
+ if (Array.isArray(required) && required.length === 0) {
+  return [];
+ }
+ 
+ const uniqueRequired = Array.isArray(required) ? [...new Set(required)] : [];
+ const filtered = uniqueRequired.filter((field): field is AddressExperienceField =>
+  fields.includes(field as AddressExperienceField)
+ );
+ 
+ if (filtered.length > 0) {
+  return filtered;
+ }
 
-  const safeDefault = fields.filter(f => (['name', 'email', 'phone', 'city', 'state', 'address'] as string[]).includes(f));
-  return safeDefault.length > 0 
-    ? safeDefault 
-    : fields.slice(0, Math.min(2, fields.length));
+ const safeDefault = fields.filter(f => (['name', 'email', 'phone', 'city', 'state', 'address'] as string[]).includes(f));
+ return safeDefault.length > 0 
+  ? safeDefault 
+  : fields.slice(0, Math.min(2, fields.length));
 };
 
 export function ContactForm({
-  onSubmit,
-  fields,
-  required,
-  message,
-  initialValues,
-  variant = 'card',
-  formId,
-  showSubmitButton = true,
-  submitFullWidth = false,
-  submitLabel
+ onSubmit,
+ fields,
+ required,
+ message,
+ initialValues,
+ variant = 'card',
+ formId,
+ showSubmitButton = true,
+ submitFullWidth = false,
+ submitLabel
 }: ContactFormProps) {
-  const { t } = useTranslation('common');
-  const { currentPractice } = usePracticeManagement();
+ const { t } = useTranslation('common');
+ const { currentPractice } = usePracticeManagement();
 
-  const normalizedFields = useMemo(() => normalizeFields(fields), [fields]);
-  const normalizedRequired = useMemo(
-    () => normalizeRequired(normalizedFields, required),
-    [normalizedFields, required]
-  );
+ const normalizedFields = useMemo(() => normalizeFields(fields), [fields]);
+ const normalizedRequired = useMemo(
+  () => normalizeRequired(normalizedFields, required),
+  [normalizedFields, required]
+ );
 
-  const handleAddressSubmit = async (data: AddressExperienceData) => {
-    // Transform AddressExperienceData to ContactData
-    const nextAddress: Partial<Address> = { ...(data.address ?? {}) };
-    if (data.city) nextAddress.city = data.city;
-    if (data.state) nextAddress.state = data.state;
-    const hasAddress = Object.values(nextAddress).some((value) => Boolean(value));
-    const contact: ContactData = {
-      name: data.name,
-      email: data.email,
-      phone: data.phone,
-      city: data.city,
-      state: data.state,
-      address: hasAddress ? nextAddress : undefined,
-      opposingParty: data.opposingParty,
-      description: data.description,
-    };
-    await onSubmit(contact);
+ const handleAddressSubmit = async (data: AddressExperienceData) => {
+  // Transform AddressExperienceData to ContactData
+  const nextAddress: Partial<Address> = { ...(data.address ?? {}) };
+  if (data.city) nextAddress.city = data.city;
+  if (data.state) nextAddress.state = data.state;
+  const hasAddress = Object.values(nextAddress).some((value) => Boolean(value));
+  const contact: ContactData = {
+   name: data.name,
+   email: data.email,
+   phone: data.phone,
+   city: data.city,
+   state: data.state,
+   address: hasAddress ? nextAddress : undefined,
+   opposingParty: data.opposingParty,
+   description: data.description,
   };
+  await onSubmit(contact);
+ };
 
-  const labels = {
-    name: t('forms.labels.name'),
-    email: t('forms.labels.email'),
-    phone: t('forms.labels.phone'),
-    city: t('contact.city'),
-    state: t('contact.state'),
-    address: t('forms.contactForm.location'),
-    opposingParty: t('forms.contactForm.opposingParty'),
-    description: t('forms.contactForm.description'),
-  };
+ const labels = {
+  name: t('forms.labels.name'),
+  email: t('forms.labels.email'),
+  phone: t('forms.labels.phone'),
+  city: t('contact.city'),
+  state: t('contact.state'),
+  address: t('forms.contactForm.location'),
+  opposingParty: t('forms.contactForm.opposingParty'),
+  description: t('forms.contactForm.description'),
+ };
 
-  const placeholders = {
-    name: t('forms.placeholders.name'),
-    email: t('forms.placeholders.email'),
-    phone: t('forms.placeholders.phone'),
-    city: t('contact.city'),
-    state: t('contact.state'),
-    address: t('forms.contactForm.placeholders.location'),
-    opposingParty: t('forms.contactForm.placeholders.opposingParty'),
-    description: t('forms.contactForm.placeholders.description'),
-  };
+ const placeholders = {
+  name: t('forms.placeholders.name'),
+  email: t('forms.placeholders.email'),
+  phone: t('forms.placeholders.phone'),
+  city: t('contact.city'),
+  state: t('contact.state'),
+  address: t('forms.contactForm.placeholders.location'),
+  opposingParty: t('forms.contactForm.placeholders.opposingParty'),
+  description: t('forms.contactForm.placeholders.description'),
+ };
 
-  return (
-    <AddressExperienceForm
-      onSubmit={handleAddressSubmit}
-      fields={normalizedFields}
-      required={normalizedRequired}
-      message={message}
-      initialValues={initialValues}
-      variant={variant}
-      formId={formId}
-      showSubmitButton={showSubmitButton}
-      submitFullWidth={submitFullWidth}
-      submitLabel={submitLabel ?? t('forms.contactForm.submit')}
-      labels={labels}
-      placeholders={placeholders}
-      addressOptions={{
-        country: currentPractice?.country || undefined,
-        showCountry: !currentPractice?.country,
-        enableAutocomplete: true,
-      }}
-    />
-  );
+ return (
+  <AddressExperienceForm
+   onSubmit={handleAddressSubmit}
+   fields={normalizedFields}
+   required={normalizedRequired}
+   message={message}
+   initialValues={initialValues}
+   variant={variant}
+   formId={formId}
+   showSubmitButton={showSubmitButton}
+   submitFullWidth={submitFullWidth}
+   submitLabel={submitLabel ?? t('forms.contactForm.submit')}
+   labels={labels}
+   placeholders={placeholders}
+   addressOptions={{
+    country: currentPractice?.country || undefined,
+    showCountry: !currentPractice?.country,
+    enableAutocomplete: true,
+   }}
+  />
+ );
 }

@@ -3,24 +3,24 @@ import { addressLooseSchema } from '@/shared/ui/validation/schemas/address';
 
 // Base client schema
 export const ClientSchema = z.object({
-  name: z.string().min(1, 'Name is required'),
-  email: z.string().email('Valid email is required'),
-  phone: z.string().optional(),
-  status: z.enum(['lead', 'active', 'inactive', 'archived']),
-  currency: z.enum(['usd', 'cad', 'eur', 'gbp']),
-  address: addressLooseSchema.optional(),
+ name: z.string().min(1, 'Name is required'),
+ email: z.string().email('Valid email is required'),
+ phone: z.string().optional(),
+ status: z.enum(['lead', 'active', 'inactive', 'archived']),
+ currency: z.enum(['usd', 'cad', 'eur', 'gbp']),
+ address: addressLooseSchema.optional(),
 });
 
 // Form variants
 export const ClientMinimalSchema = ClientSchema.pick({
-  name: true,
-  email: true,
+ name: true,
+ email: true,
 });
 
 export const ClientWithPhoneSchema = ClientSchema.pick({
-  name: true,
-  email: true,
-  phone: true,
+ name: true,
+ email: true,
+ phone: true,
 });
 
 export const ClientFullSchema = ClientSchema;

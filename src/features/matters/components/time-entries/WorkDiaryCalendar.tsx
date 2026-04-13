@@ -3,113 +3,113 @@ import { useMemo } from 'preact/hooks';
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 const startOfWeekUtc = (date: Date) => {
-  const start = new Date(date);
-  const dayIndex = start.getUTCDay();
-  start.setUTCDate(start.getUTCDate() - dayIndex);
-  start.setUTCHours(0, 0, 0, 0);
-  return start;
+ const start = new Date(date);
+ const dayIndex = start.getUTCDay();
+ start.setUTCDate(start.getUTCDate() - dayIndex);
+ start.setUTCHours(0, 0, 0, 0);
+ return start;
 };
 
 const endOfWeekUtc = (date: Date) => {
-  const start = startOfWeekUtc(date);
-  const end = new Date(start);
-  end.setUTCDate(end.getUTCDate() + 6);
-  end.setUTCHours(23, 59, 59, 999);
-  return end;
+ const start = startOfWeekUtc(date);
+ const end = new Date(start);
+ end.setUTCDate(end.getUTCDate() + 6);
+ end.setUTCHours(23, 59, 59, 999);
+ return end;
 };
 
 const startOfMonthUtc = (date: Date) => {
-  const start = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1));
-  return start;
+ const start = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1));
+ return start;
 };
 
 const endOfMonthUtc = (date: Date) => {
-  const end = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 0));
-  end.setUTCHours(23, 59, 59, 999);
-  return end;
+ const end = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 0));
+ end.setUTCHours(23, 59, 59, 999);
+ return end;
 };
 
 const addDays = (date: Date, amount: number) => {
-  const next = new Date(date);
-  next.setUTCDate(next.getUTCDate() + amount);
-  return next;
+ const next = new Date(date);
+ next.setUTCDate(next.getUTCDate() + amount);
+ return next;
 };
 
 interface WorkDiaryCalendarProps {
-  selectedWeekStart: Date;
-  onSelectWeek: (date: Date) => void;
+ selectedWeekStart: Date;
+ onSelectWeek: (date: Date) => void;
 }
 
 export const WorkDiaryCalendar = ({ selectedWeekStart, onSelectWeek }: WorkDiaryCalendarProps) => {
-  const monthStart = startOfMonthUtc(selectedWeekStart);
-  const monthEnd = endOfMonthUtc(selectedWeekStart);
-  const calendarStart = startOfWeekUtc(monthStart);
-  const calendarEnd = endOfWeekUtc(monthEnd);
-  const calendarStartTime = calendarStart.getTime();
-  const calendarEndTime = calendarEnd.getTime();
-  const selectedWeekEnd = endOfWeekUtc(selectedWeekStart);
+ const monthStart = startOfMonthUtc(selectedWeekStart);
+ const monthEnd = endOfMonthUtc(selectedWeekStart);
+ const calendarStart = startOfWeekUtc(monthStart);
+ const calendarEnd = endOfWeekUtc(monthEnd);
+ const calendarStartTime = calendarStart.getTime();
+ const calendarEndTime = calendarEnd.getTime();
+ const selectedWeekEnd = endOfWeekUtc(selectedWeekStart);
 
-  const calendarDays = useMemo(() => {
-    const days: Date[] = [];
-    let current = new Date(calendarStartTime);
-    while (current.getTime() <= calendarEndTime) {
-      days.push(new Date(current));
-      current = addDays(current, 1);
-    }
-    return days;
-  }, [calendarStartTime, calendarEndTime]);
+ const calendarDays = useMemo(() => {
+  const days: Date[] = [];
+  let current = new Date(calendarStartTime);
+  while (current.getTime() <= calendarEndTime) {
+   days.push(new Date(current));
+   current = addDays(current, 1);
+  }
+  return days;
+ }, [calendarStartTime, calendarEndTime]);
 
-  const monthLabel = monthStart.toLocaleDateString('en-US', {
-    month: 'long',
-    year: 'numeric',
-    timeZone: 'UTC'
-  });
+ const monthLabel = monthStart.toLocaleDateString('en-US', {
+  month: 'long',
+  year: 'numeric',
+  timeZone: 'UTC'
+ });
 
-  const nowUtc = new Date();
-  const todayUtc = new Date(Date.UTC(
-    nowUtc.getUTCFullYear(),
-    nowUtc.getUTCMonth(),
-    nowUtc.getUTCDate()
-  ));
+ const nowUtc = new Date();
+ const todayUtc = new Date(Date.UTC(
+  nowUtc.getUTCFullYear(),
+  nowUtc.getUTCMonth(),
+  nowUtc.getUTCDate()
+ ));
 
-  return (
-    <div className="glass-panel p-4">
-      <div className="text-sm font-semibold text-input-text text-center">{monthLabel}</div>
+ return (
+  <div className="glass-panel p-4">
+   <div className="text-sm font-semibold text-input-text text-center">{monthLabel}</div>
 
-      <div
-        className="mt-4 grid gap-2 text-center text-[11px] font-medium text-input-placeholder dark:text-input-placeholder justify-items-center"
-        style={{ gridTemplateColumns: 'repeat(7, minmax(0, 1fr))' }}
+   <div
+    className="mt-4 grid gap-2 text-center text-[11px] font-medium text-input-placeholder dark:text-input-placeholder justify-items-center"
+    style={{ gridTemplateColumns: 'repeat(7, minmax(0, 1fr))' }}
+   >
+    {WEEKDAYS.map((day) => (
+     <div key={day}>{day}</div>
+    ))}
+   </div>
+
+   <div
+    className="mt-2 grid gap-2 justify-items-center"
+    style={{ gridTemplateColumns: 'repeat(7, minmax(0, 1fr))' }}
+   >
+    {calendarDays.map((day) => {
+     const isCurrentMonth = day.getUTCMonth() === monthStart.getUTCMonth();
+     const isSelectedWeek = day >= selectedWeekStart && day <= selectedWeekEnd;
+     const isToday = day.getTime() === todayUtc.getTime();
+     return (
+      <button
+       key={day.toISOString()}
+       type="button"
+       onClick={() => onSelectWeek(day)}
+       className={[
+        'h-9 w-9 rounded-full text-sm font-medium transition-colors',
+        isCurrentMonth ? 'text-input-text' : 'text-input-placeholder dark:text-input-placeholder',
+        isSelectedWeek ? 'bg-accent-500/20 text-[rgb(var(--accent-foreground))]' : 'hover:bg-accent-500/10',
+        isToday ? 'ring-2 ring-accent-500' : 'ring-1 ring-transparent'
+       ].join(' ')}
       >
-        {WEEKDAYS.map((day) => (
-          <div key={day}>{day}</div>
-        ))}
-      </div>
-
-      <div
-        className="mt-2 grid gap-2 justify-items-center"
-        style={{ gridTemplateColumns: 'repeat(7, minmax(0, 1fr))' }}
-      >
-        {calendarDays.map((day) => {
-          const isCurrentMonth = day.getUTCMonth() === monthStart.getUTCMonth();
-          const isSelectedWeek = day >= selectedWeekStart && day <= selectedWeekEnd;
-          const isToday = day.getTime() === todayUtc.getTime();
-          return (
-            <button
-              key={day.toISOString()}
-              type="button"
-              onClick={() => onSelectWeek(day)}
-              className={[
-                'h-9 w-9 rounded-full text-sm font-medium transition-colors',
-                isCurrentMonth ? 'text-input-text' : 'text-input-placeholder dark:text-input-placeholder',
-                isSelectedWeek ? 'bg-accent-500/20 text-[rgb(var(--accent-foreground))]' : 'hover:bg-accent-500/10',
-                isToday ? 'ring-2 ring-accent-500' : 'ring-1 ring-transparent'
-              ].join(' ')}
-            >
-              {day.getUTCDate()}
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
+       {day.getUTCDate()}
+      </button>
+     );
+    })}
+   </div>
+  </div>
+ );
 };

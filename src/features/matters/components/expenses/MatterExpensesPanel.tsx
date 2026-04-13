@@ -6,10 +6,10 @@ import { format, parseISO } from 'date-fns';
 import { Dialog, DialogBody, DialogFooter } from '@/shared/ui/dialog';
 import { Button } from '@/shared/ui/Button';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger
+ DropdownMenu,
+ DropdownMenuContent,
+ DropdownMenuItem,
+ DropdownMenuTrigger
 } from '@/shared/ui/dropdown';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import { LoadingBlock, PanelSectionHeader, PanelEmptyState, InteractiveListItem } from '@/shared/ui/layout';
@@ -19,300 +19,300 @@ import { ExpenseForm, type ExpenseFormValues } from './ExpenseForm';
 const formatExpenseDate = (dateString: string) => format(parseISO(dateString), 'MMM d, yyyy');
 
 const statusStyles: Record<'billable' | 'nonbillable', string> = {
-  billable: 'text-[rgb(var(--success-foreground))] bg-emerald-50 ring-emerald-600/20 dark:text-emerald-200 dark:bg-emerald-500/10',
-  nonbillable: 'text-[rgb(var(--error-foreground))] bg-rose-50 ring-rose-600/20 dark:text-rose-200 dark:bg-rose-500/10'
+ billable: 'text-[rgb(var(--success-foreground))] bg-emerald-50 ring-emerald-600/20 ',
+ nonbillable: 'text-[rgb(var(--error-foreground))] bg-rose-50 ring-rose-600/20 '
 };
 
 interface MatterExpensesPanelProps {
-  matter: MatterDetail;
-  expenses?: MatterExpense[];
-  loading?: boolean;
-  error?: string | null;
-  onCreateExpense?: (values: ExpenseFormValues) => Promise<void> | void;
-  onUpdateExpense?: (expense: MatterExpense, values: ExpenseFormValues) => Promise<void> | void;
-  onDeleteExpense?: (expense: MatterExpense) => Promise<void> | void;
-  allowEdit?: boolean;
-  createOnly?: boolean;
+ matter: MatterDetail;
+ expenses?: MatterExpense[];
+ loading?: boolean;
+ error?: string | null;
+ onCreateExpense?: (values: ExpenseFormValues) => Promise<void> | void;
+ onUpdateExpense?: (expense: MatterExpense, values: ExpenseFormValues) => Promise<void> | void;
+ onDeleteExpense?: (expense: MatterExpense) => Promise<void> | void;
+ allowEdit?: boolean;
+ createOnly?: boolean;
 }
 
 export const MatterExpensesPanel = ({
-  matter,
-  expenses,
-  loading = false,
-  error = null,
-  onCreateExpense,
-  onUpdateExpense,
-  onDeleteExpense,
-  allowEdit = true,
-  createOnly = false
+ matter,
+ expenses,
+ loading = false,
+ error = null,
+ onCreateExpense,
+ onUpdateExpense,
+ onDeleteExpense,
+ allowEdit = true,
+ createOnly = false
 }: MatterExpensesPanelProps) => {
-  const [localExpenses, setLocalExpenses] = useState<MatterExpense[]>(() => matter.expenses ?? []);
-  const [isFormOpen, setIsFormOpen] = useState(false);
-  const [editingExpense, setEditingExpense] = useState<MatterExpense | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<MatterExpense | null>(null);
-  const [formKey, setFormKey] = useState(0);
-  const [submitError, setSubmitError] = useState<string | null>(null);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+ const [localExpenses, setLocalExpenses] = useState<MatterExpense[]>(() => matter.expenses ?? []);
+ const [isFormOpen, setIsFormOpen] = useState(false);
+ const [editingExpense, setEditingExpense] = useState<MatterExpense | null>(null);
+ const [deleteTarget, setDeleteTarget] = useState<MatterExpense | null>(null);
+ const [formKey, setFormKey] = useState(0);
+ const [submitError, setSubmitError] = useState<string | null>(null);
+ const [deleteError, setDeleteError] = useState<string | null>(null);
+ const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const resolvedExpenses = expenses ?? localExpenses;
-  const canEdit = !createOnly && allowEdit
-    && (Boolean(onUpdateExpense) || Boolean(onDeleteExpense) || (expenses === undefined && !onCreateExpense));
-  const canCreate = Boolean(onCreateExpense) || expenses === undefined;
+ const resolvedExpenses = expenses ?? localExpenses;
+ const canEdit = !createOnly && allowEdit
+  && (Boolean(onUpdateExpense) || Boolean(onDeleteExpense) || (expenses === undefined && !onCreateExpense));
+ const canCreate = Boolean(onCreateExpense) || expenses === undefined;
 
-  const sortedExpenses = useMemo(() => {
-    return [...resolvedExpenses].sort((a, b) => b.date.localeCompare(a.date));
-  }, [resolvedExpenses]);
+ const sortedExpenses = useMemo(() => {
+  return [...resolvedExpenses].sort((a, b) => b.date.localeCompare(a.date));
+ }, [resolvedExpenses]);
 
-  const totalExpenses = useMemo(() => {
-    return resolvedExpenses.reduce((total, expense) => total + expense.amount, 0);
-  }, [resolvedExpenses]);
+ const totalExpenses = useMemo(() => {
+  return resolvedExpenses.reduce((total, expense) => total + expense.amount, 0);
+ }, [resolvedExpenses]);
 
-  const billableTotal = useMemo(() => {
-    return resolvedExpenses.filter((expense) => expense.billable).reduce((total, expense) => total + expense.amount, 0);
-  }, [resolvedExpenses]);
+ const billableTotal = useMemo(() => {
+  return resolvedExpenses.filter((expense) => expense.billable).reduce((total, expense) => total + expense.amount, 0);
+ }, [resolvedExpenses]);
 
-  const openNewExpense = () => {
-    if (!canCreate) return;
-    setEditingExpense(null);
-    setFormKey((prev) => prev + 1);
-    setIsFormOpen(true);
-  };
+ const openNewExpense = () => {
+  if (!canCreate) return;
+  setEditingExpense(null);
+  setFormKey((prev) => prev + 1);
+  setIsFormOpen(true);
+ };
 
-  const openEditExpense = (expense: MatterExpense) => {
-    if (!canEdit) return;
-    setEditingExpense(expense);
-    setFormKey((prev) => prev + 1);
-    setIsFormOpen(true);
-  };
+ const openEditExpense = (expense: MatterExpense) => {
+  if (!canEdit) return;
+  setEditingExpense(expense);
+  setFormKey((prev) => prev + 1);
+  setIsFormOpen(true);
+ };
 
-  const closeForm = () => {
-    setIsFormOpen(false);
-    setEditingExpense(null);
-  };
+ const closeForm = () => {
+  setIsFormOpen(false);
+  setEditingExpense(null);
+ };
 
-  const handleSave = async (values: ExpenseFormValues) => {
-    if (values.amount === undefined) return;
-    setSubmitError(null);
-    if (editingExpense && onUpdateExpense) {
-      setIsSubmitting(true);
-      try {
-        await onUpdateExpense(editingExpense, values);
-        closeForm();
-      } catch (error) {
-        const message = error instanceof Error ? error.message : 'Failed to update expense';
-        setSubmitError(message);
-      } finally {
-        setIsSubmitting(false);
-      }
-      return;
-    }
-    if (onCreateExpense) {
-      setIsSubmitting(true);
-      try {
-        await onCreateExpense(values);
-        closeForm();
-      } catch (error) {
-        const message = error instanceof Error ? error.message : 'Failed to save expense';
-        setSubmitError(message);
-      } finally {
-        setIsSubmitting(false);
-      }
-      return;
-    }
-
-    const nextExpense: MatterExpense = {
-      id: editingExpense?.id ?? ulid(),
-      description: values.description,
-      amount: values.amount,
-      date: values.date,
-      billable: values.billable
-    };
-
-    setLocalExpenses((prev) => (
-      editingExpense
-        ? prev.map((expense) => (expense.id === editingExpense.id ? nextExpense : expense))
-        : [nextExpense, ...prev]
-    ));
-
+ const handleSave = async (values: ExpenseFormValues) => {
+  if (values.amount === undefined) return;
+  setSubmitError(null);
+  if (editingExpense && onUpdateExpense) {
+   setIsSubmitting(true);
+   try {
+    await onUpdateExpense(editingExpense, values);
     closeForm();
+   } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to update expense';
+    setSubmitError(message);
+   } finally {
+    setIsSubmitting(false);
+   }
+   return;
+  }
+  if (onCreateExpense) {
+   setIsSubmitting(true);
+   try {
+    await onCreateExpense(values);
+    closeForm();
+   } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to save expense';
+    setSubmitError(message);
+   } finally {
+    setIsSubmitting(false);
+   }
+   return;
+  }
+
+  const nextExpense: MatterExpense = {
+   id: editingExpense?.id ?? ulid(),
+   description: values.description,
+   amount: values.amount,
+   date: values.date,
+   billable: values.billable
   };
 
-  const confirmDelete = (expense: MatterExpense) => {
-    if (!canEdit) return;
-    setDeleteTarget(expense);
-  };
+  setLocalExpenses((prev) => (
+   editingExpense
+    ? prev.map((expense) => (expense.id === editingExpense.id ? nextExpense : expense))
+    : [nextExpense, ...prev]
+  ));
 
-  const handleDelete = () => {
-    if (!deleteTarget) return;
-    setDeleteError(null);
-    if (onDeleteExpense) {
-      setIsSubmitting(true);
-      Promise.resolve(onDeleteExpense(deleteTarget))
-        .then(() => {
-          setDeleteTarget(null);
-          if (editingExpense?.id === deleteTarget.id) {
-            closeForm();
-          }
-        })
-        .catch((error) => {
-          const message = error instanceof Error ? error.message : 'Failed to delete expense';
-          setDeleteError(message);
-        })
-        .finally(() => {
-          setIsSubmitting(false);
-        });
-      return;
-    }
-    setLocalExpenses((prev) => prev.filter((expense) => expense.id !== deleteTarget.id));
-    setDeleteTarget(null);
-    if (editingExpense?.id === deleteTarget.id) {
+  closeForm();
+ };
+
+ const confirmDelete = (expense: MatterExpense) => {
+  if (!canEdit) return;
+  setDeleteTarget(expense);
+ };
+
+ const handleDelete = () => {
+  if (!deleteTarget) return;
+  setDeleteError(null);
+  if (onDeleteExpense) {
+   setIsSubmitting(true);
+   Promise.resolve(onDeleteExpense(deleteTarget))
+    .then(() => {
+     setDeleteTarget(null);
+     if (editingExpense?.id === deleteTarget.id) {
       closeForm();
-    }
-  };
+     }
+    })
+    .catch((error) => {
+     const message = error instanceof Error ? error.message : 'Failed to delete expense';
+     setDeleteError(message);
+    })
+    .finally(() => {
+     setIsSubmitting(false);
+    });
+   return;
+  }
+  setLocalExpenses((prev) => prev.filter((expense) => expense.id !== deleteTarget.id));
+  setDeleteTarget(null);
+  if (editingExpense?.id === deleteTarget.id) {
+   closeForm();
+  }
+ };
 
-  return (
-    <section className="glass-panel">
-      <PanelSectionHeader
-        title="Expenses"
-        subtitle={`${sortedExpenses.length} recorded · ${formatCurrency(totalExpenses)} total · ${formatCurrency(billableTotal)} billable`}
-        actions={(
-          <Button size="sm" icon={PlusIcon} iconClassName="h-4 w-4" onClick={openNewExpense} disabled={!canCreate}>
-            Add expense
-          </Button>
-        )}
-      />
+ return (
+  <section className="glass-panel">
+   <PanelSectionHeader
+    title="Expenses"
+    subtitle={`${sortedExpenses.length} recorded · ${formatCurrency(totalExpenses)} total · ${formatCurrency(billableTotal)} billable`}
+    actions={(
+     <Button size="sm" icon={PlusIcon} iconClassName="h-4 w-4" onClick={openNewExpense} disabled={!canCreate}>
+      Add expense
+     </Button>
+    )}
+   />
 
-      {error ? (
-        <div className="px-6 py-6 text-sm text-[rgb(var(--error-foreground))] dark:text-[rgb(var(--error-foreground))]">
-          {error}
+   {error ? (
+    <div className="px-6 py-6 text-sm text-[rgb(var(--error-foreground))] dark:text-[rgb(var(--error-foreground))]">
+     {error}
+    </div>
+   ) : loading && sortedExpenses.length === 0 ? (
+    <LoadingBlock className="px-6 py-6" label="Loading expenses..." />
+   ) : sortedExpenses.length === 0 ? (
+    <PanelEmptyState message="No expenses yet. Add receipts, filing fees, or other costs tied to this matter." />
+   ) : (
+    <ul className="divide-y divide-line-default">
+     {sortedExpenses.map((expense) => {
+      const statusClass = expense.billable ? statusStyles.billable : statusStyles.nonbillable;
+      return (
+       <InteractiveListItem
+        key={expense.id}
+        onClick={() => openEditExpense(expense)}
+        disabled={!canEdit}
+       >
+        <div className="min-w-0 flex-1">
+         <div className="min-w-0">
+         <div className="flex flex-wrap items-center gap-2">
+          <p className="text-sm font-semibold text-input-text">
+           {expense.description}
+          </p>
+          <span
+           className={[
+            statusClass,
+            'whitespace-nowrap rounded-md px-2 py-0.5 text-xs font-medium ring-1 ring-inset'
+           ].join(' ')}
+          >
+           {expense.billable ? 'Billable' : 'Not billable'}
+          </span>
+         </div>
+         <div className="mt-1 flex flex-wrap items-center gap-x-2 text-xs leading-5 text-input-placeholder">
+          <span className="whitespace-nowrap">
+           Date: <time dateTime={expense.date}>{formatExpenseDate(expense.date)}</time>
+          </span>
+          <svg viewBox="0 0 2 2" className="h-0.5 w-0.5 fill-current opacity-30">
+           <circle cx="1" cy="1" r="1" />
+          </svg>
+          <span className="truncate">Amount: {formatCurrency(expense.amount)}</span>
+         </div>
         </div>
-      ) : loading && sortedExpenses.length === 0 ? (
-        <LoadingBlock className="px-6 py-6" label="Loading expenses..." />
-      ) : sortedExpenses.length === 0 ? (
-        <PanelEmptyState message="No expenses yet. Add receipts, filing fees, or other costs tied to this matter." />
-      ) : (
-        <ul className="divide-y divide-line-default">
-          {sortedExpenses.map((expense) => {
-            const statusClass = expense.billable ? statusStyles.billable : statusStyles.nonbillable;
-            return (
-              <InteractiveListItem
-                key={expense.id}
-                onClick={() => openEditExpense(expense)}
-                disabled={!canEdit}
-              >
-                <div className="min-w-0 flex-1">
-                  <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="text-sm font-semibold text-input-text">
-                      {expense.description}
-                    </p>
-                    <span
-                      className={[
-                        statusClass,
-                        'whitespace-nowrap rounded-md px-2 py-0.5 text-xs font-medium ring-1 ring-inset'
-                      ].join(' ')}
-                    >
-                      {expense.billable ? 'Billable' : 'Not billable'}
-                    </span>
-                  </div>
-                  <div className="mt-1 flex flex-wrap items-center gap-x-2 text-xs leading-5 text-input-placeholder">
-                    <span className="whitespace-nowrap">
-                      Date: <time dateTime={expense.date}>{formatExpenseDate(expense.date)}</time>
-                    </span>
-                    <svg viewBox="0 0 2 2" className="h-0.5 w-0.5 fill-current opacity-30">
-                      <circle cx="1" cy="1" r="1" />
-                    </svg>
-                    <span className="truncate">Amount: {formatCurrency(expense.amount)}</span>
-                  </div>
-                </div>
-                </div>
-                {canEdit ? (
-                  <div className="flex items-center gap-2">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        aria-label="Open expense actions"
-                        icon={EllipsisVerticalIcon} iconClassName="h-4 w-4"
-                      />
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-32">
-                      <div className="py-1">
-                        <DropdownMenuItem onSelect={() => openEditExpense(expense)}>
-                          <span className="flex items-center gap-2">
-                            <Icon icon={PencilIcon} className="h-4 w-4"  />
-                            Edit
-                          </span>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onSelect={() => confirmDelete(expense)}>
-                          <span className="flex items-center gap-2 text-[rgb(var(--error-foreground))] dark:text-[rgb(var(--error-foreground))]">
-                            <Icon icon={TrashIcon} className="h-4 w-4"  />
-                            Delete
-                          </span>
-                        </DropdownMenuItem>
-                      </div>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-                ) : null}
-              </InteractiveListItem>
-            );
-          })}
-        </ul>
-      )}
+        </div>
+        {canEdit ? (
+         <div className="flex items-center gap-2">
+         <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+           <Button
+            variant="ghost"
+            size="sm"
+            aria-label="Open expense actions"
+            icon={EllipsisVerticalIcon} iconClassName="h-4 w-4"
+           />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-32">
+           <div className="py-1">
+            <DropdownMenuItem onSelect={() => openEditExpense(expense)}>
+             <span className="flex items-center gap-2">
+              <Icon icon={PencilIcon} className="h-4 w-4" />
+              Edit
+             </span>
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => confirmDelete(expense)}>
+             <span className="flex items-center gap-2 text-[rgb(var(--error-foreground))] dark:text-[rgb(var(--error-foreground))]">
+              <Icon icon={TrashIcon} className="h-4 w-4" />
+              Delete
+             </span>
+            </DropdownMenuItem>
+           </div>
+          </DropdownMenuContent>
+         </DropdownMenu>
+        </div>
+        ) : null}
+       </InteractiveListItem>
+      );
+     })}
+    </ul>
+   )}
 
-      {isFormOpen && (
-        <Dialog
-          isOpen={isFormOpen}
-          onClose={closeForm}
-          title={editingExpense ? 'Edit expense' : 'Add expense'}
-          contentClassName="max-w-2xl"
-        >
-          <DialogBody>
-            <ExpenseForm
-              key={`${editingExpense?.id ?? 'new'}-${formKey}`}
-              initialExpense={editingExpense ?? undefined}
-              onSubmit={handleSave}
-              onCancel={closeForm}
-              onDelete={canEdit && editingExpense ? () => confirmDelete(editingExpense) : undefined}
-            />
-            {submitError && (
-              <p className="mt-3 text-sm text-[rgb(var(--error-foreground))] dark:text-[rgb(var(--error-foreground))]">{submitError}</p>
-            )}
-            {isSubmitting && (
-              <p className="mt-3 text-sm text-input-placeholder">Saving expense...</p>
-            )}
-          </DialogBody>
-        </Dialog>
+   {isFormOpen && (
+    <Dialog
+     isOpen={isFormOpen}
+     onClose={closeForm}
+     title={editingExpense ? 'Edit expense' : 'Add expense'}
+     contentClassName="max-w-2xl"
+    >
+     <DialogBody>
+      <ExpenseForm
+       key={`${editingExpense?.id ?? 'new'}-${formKey}`}
+       initialExpense={editingExpense ?? undefined}
+       onSubmit={handleSave}
+       onCancel={closeForm}
+       onDelete={canEdit && editingExpense ? () => confirmDelete(editingExpense) : undefined}
+      />
+      {submitError && (
+       <p className="mt-3 text-sm text-[rgb(var(--error-foreground))] dark:text-[rgb(var(--error-foreground))]">{submitError}</p>
       )}
+      {isSubmitting && (
+       <p className="mt-3 text-sm text-input-placeholder">Saving expense...</p>
+      )}
+     </DialogBody>
+    </Dialog>
+   )}
 
-      {canEdit && deleteTarget && (
-        <Dialog
-          isOpen={Boolean(deleteTarget)}
-          onClose={() => setDeleteTarget(null)}
-          title="Delete expense"
-          contentClassName="max-w-xl"
-        >
-          <DialogBody className="space-y-4">
-            <p className="text-sm text-input-placeholder dark:text-input-placeholder">
-              Are you sure you want to delete this expense? This action cannot be undone.
-            </p>
-            {deleteError && (
-              <p className="text-sm text-[rgb(var(--error-foreground))] dark:text-[rgb(var(--error-foreground))]">{deleteError}</p>
-            )}
-          </DialogBody>
-          <DialogFooter>
-            <Button variant="secondary" onClick={() => setDeleteTarget(null)}>
-              Cancel
-            </Button>
-            <Button variant="danger" onClick={handleDelete} disabled={isSubmitting}>
-              {isSubmitting ? 'Deleting...' : 'Delete expense'}
-            </Button>
-          </DialogFooter>
-        </Dialog>
+   {canEdit && deleteTarget && (
+    <Dialog
+     isOpen={Boolean(deleteTarget)}
+     onClose={() => setDeleteTarget(null)}
+     title="Delete expense"
+     contentClassName="max-w-xl"
+    >
+     <DialogBody className="space-y-4">
+      <p className="text-sm text-input-placeholder dark:text-input-placeholder">
+       Are you sure you want to delete this expense? This action cannot be undone.
+      </p>
+      {deleteError && (
+       <p className="text-sm text-[rgb(var(--error-foreground))] dark:text-[rgb(var(--error-foreground))]">{deleteError}</p>
       )}
-    </section>
-  );
+     </DialogBody>
+     <DialogFooter>
+      <Button variant="secondary" onClick={() => setDeleteTarget(null)}>
+       Cancel
+      </Button>
+      <Button variant="danger" onClick={handleDelete} disabled={isSubmitting}>
+       {isSubmitting ? 'Deleting...' : 'Delete expense'}
+      </Button>
+     </DialogFooter>
+    </Dialog>
+   )}
+  </section>
+ );
 };

@@ -7,69 +7,69 @@
 
 import { ProfileMenuItem } from './ProfileMenuItem';
 import {
-  Cog6ToothIcon,
-  QuestionMarkCircleIcon,
-  ArrowRightOnRectangleIcon
+ Cog6ToothIcon,
+ QuestionMarkCircleIcon,
+ ArrowRightOnRectangleIcon
 } from '@heroicons/react/24/outline';
 import { useTranslation } from '@/shared/i18n/hooks';
 
 interface ProfileDropdownProps {
-  onSettings: () => void;
-  onHelp: () => void;
-  onLogout: () => void;
-  signOutError?: string | null;
-  className?: string;
+ onSettings: () => void;
+ onHelp: () => void;
+ onLogout: () => void;
+ signOutError?: string | null;
+ className?: string;
 }
 
 export const ProfileDropdown = ({ 
-  onSettings, 
-  onHelp, 
-  onLogout,
-  signOutError,
-  className = ''
+ onSettings, 
+ onHelp, 
+ onLogout,
+ signOutError,
+ className = ''
 }: ProfileDropdownProps) => {
-  const { t } = useTranslation(['profile', 'common']);
+ const { t } = useTranslation(['profile', 'common']);
 
-  return (
-    <div 
-      role="menu"
-      aria-orientation="vertical"
-      aria-label="Profile menu"
-      className={`absolute bottom-full right-0 mb-2 w-full max-w-xs rounded-lg shadow-glass border border-line-glass/30 py-2 z-50 bg-surface-overlay ${className}`}
-    >
-      {/* Settings */}
-      <ProfileMenuItem
-        icon={Cog6ToothIcon}
-        label={t('profile:menu.settings')}
-        onClick={onSettings}
-      />
+ return (
+  <div 
+   role="menu"
+   aria-orientation="vertical"
+   aria-label="Profile menu"
+   className={`absolute bottom-full right-0 mb-2 w-full max-w-xs rounded-lg shadow-glass border border-line-glass/30 py-2 z-50 bg-surface-overlay ${className}`}
+  >
+   {/* Settings */}
+   <ProfileMenuItem
+    icon={Cog6ToothIcon}
+    label={t('profile:menu.settings')}
+    onClick={onSettings}
+   />
 
-      {/* Separator */}
-      <div className="border-t border-line-glass/30 my-1" />
-      
-      {/* Help */}
-      <ProfileMenuItem
-        icon={QuestionMarkCircleIcon}
-        label={t('profile:menu.help')}
-        onClick={onHelp}
-      />
-      
-      {/* Log out */}
-      <ProfileMenuItem
-        icon={ArrowRightOnRectangleIcon}
-        label={t('profile:menu.signOut')}
-        onClick={onLogout}
-      />
-      
-      {/* Error message display */}
-      {signOutError && (
-        <>
-          <div className="border-t border-line-glass/30 my-1" />
-          <div className="px-3 py-2 text-sm text-[rgb(var(--error-foreground))] dark:text-[rgb(var(--error-foreground))] bg-red-50 dark:bg-red-900/20 border-l-2 border-[rgb(var(--error-foreground))] dark:border-red-800">
-            {signOutError}
-          </div>
-        </>
-      )}
-    </div>
-  );
+   {/* Separator */}
+   <div className="border-t border-line-glass/30 my-1" />
+   
+   {/* Help */}
+   <ProfileMenuItem
+    icon={QuestionMarkCircleIcon}
+    label={t('profile:menu.help')}
+    onClick={onHelp}
+   />
+   
+   {/* Log out */}
+   <ProfileMenuItem
+    icon={ArrowRightOnRectangleIcon}
+    label={t('profile:menu.signOut')}
+    onClick={onLogout}
+   />
+   
+   {/* Error message display */}
+   {signOutError && (
+    <>
+     <div className="border-t border-line-glass/30 my-1" />
+     <div className="px-3 py-2 text-sm text-[rgb(var(--error-foreground))] dark:text-[rgb(var(--error-foreground))] bg-surface-base border-l-2 border-[rgb(var(--error-foreground))] ">
+      {signOutError}
+     </div>
+    </>
+   )}
+  </div>
+ );
 };

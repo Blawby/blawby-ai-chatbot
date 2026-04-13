@@ -4,38 +4,38 @@ import { SettingDescription } from './SettingDescription';
 import { cn } from '@/shared/utils/cn';
 
 export interface SettingSelectProps {
-  label: string;
-  description?: string;
-  value: string;
-  options: ComboboxOption[];
-  onChange: (value: string) => void;
-  className?: string;
+ label: string;
+ description?: string;
+ value: string;
+ options: ComboboxOption[];
+ onChange: (value: string) => void;
+ className?: string;
 }
 
 export const SettingSelect = ({
-  label,
-  description,
-  value,
-  options,
-  onChange,
-  className = ''
+ label,
+ description,
+ value,
+ options,
+ onChange,
+ className = ''
 }: SettingSelectProps) => {
-  return (
-    <div className={cn('flex flex-col gap-3 py-3 sm:flex-row sm:items-start sm:justify-between', className)}>
-      <div className="flex-1 min-w-0">
-        <FormLabel>{label}</FormLabel>
-        {description && <SettingDescription text={description} />}
-      </div>
-      <div className="w-full sm:ml-4 sm:w-auto">
-        <Combobox
-          value={value}
-          options={options}
-          onChange={onChange}
-          className="w-full min-w-0 sm:min-w-[180px] [&_[role=combobox]]:w-full [&_[role=combobox]]:rounded-xl"
-          clearable={false}
-          searchable={false}
-        />
-      </div>
-    </div>
-  );
+ return (
+  <div className={cn('flex flex-col gap-3 py-3 sm:flex-row sm:items-start sm:justify-between', className)}>
+   <div className="flex-1 min-w-0">
+    <FormLabel>{label}</FormLabel>
+    {description && <SettingDescription text={description} />}
+   </div>
+   <div className="w-full sm:ml-4 sm:w-auto">
+    <Combobox
+     value={value}
+     options={options}
+     onChange={onChange}
+     className="w-full min-w-0 sm:min-w-[180px] [&_[role=combobox]]:w-full [&_[role=combobox]]:rounded-xl"
+     clearable={false}
+     searchable={false}
+    />
+   </div>
+  </div>
+ );
 };

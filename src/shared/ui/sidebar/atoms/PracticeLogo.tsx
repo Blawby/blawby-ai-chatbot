@@ -6,29 +6,29 @@
  */
 
 interface PracticeLogoProps {
-  src: string;
-  alt: string;
-  size?: 'sm' | 'md' | 'lg';
-  className?: string;
+ src: string;
+ alt: string;
+ size?: 'sm' | 'md' | 'lg';
+ className?: string;
 }
 
 export const PracticeLogo = ({ 
-  src, 
-  alt, 
-  size = 'md',
-  className = ''
+ src, 
+ alt, 
+ size = 'md',
+ className = ''
 }: PracticeLogoProps) => {
-  const sizeClasses = {
-    sm: 'w-6 h-6',
-    md: 'w-8 h-8',
-    lg: 'w-10 h-10'
-  };
+ const sizeClasses = {
+  sm: 'w-6 h-6',
+  md: 'w-8 h-8',
+  lg: 'w-10 h-10'
+ };
 
-  return (
-    <img 
-      src={src} 
-      alt={alt}
-      className={`${sizeClasses[size]} rounded-lg object-cover ${className}`}
-    />
-  );
+ return (
+  <img 
+   src={src} 
+   alt={alt}
+   className={`${sizeClasses[size]} rounded-lg object-cover ${className}`}
+  />
+ );
 };

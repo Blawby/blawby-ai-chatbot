@@ -10,28 +10,28 @@
  * See .env.example for documentation on each variable.
  */
 interface ImportMetaEnv {
-  // Feature flags
-  readonly VITE_DEBUG_OVERLAY?: string;
+ // Feature flags
+ readonly VITE_DEBUG_OVERLAY?: string;
 
-  // API URLs
-  /** Cloudflare Worker API URL (optional - auto-detected) */
-  readonly VITE_WORKER_API_URL?: string;
-  /** Backend API URL (REQUIRED in production) */
-  readonly VITE_BACKEND_API_URL?: string;
-  // Other configuration
-  readonly VITE_STRIPE_KEY?: string;
-  readonly VITE_ONESIGNAL_APP_ID?: string;
-  readonly VITE_TURNSTILE_SITE_KEY?: string;
+ // API URLs
+ /** Cloudflare Worker API URL (optional - auto-detected) */
+ readonly VITE_WORKER_API_URL?: string;
+ /** Backend API URL (REQUIRED in production) */
+ readonly VITE_BACKEND_API_URL?: string;
+ // Other configuration
+ readonly VITE_STRIPE_KEY?: string;
+ readonly VITE_ONESIGNAL_APP_ID?: string;
+ readonly VITE_TURNSTILE_SITE_KEY?: string;
 
-  // Frontend base URL (for SSR/fallback scenarios)
-  readonly VITE_APP_BASE_URL?: string;
-  readonly VITE_PUBLIC_APP_URL?: string;
-  readonly VITE_APP_URL?: string;
+ // Frontend base URL (for SSR/fallback scenarios)
+ readonly VITE_APP_BASE_URL?: string;
+ readonly VITE_PUBLIC_APP_URL?: string;
+ readonly VITE_APP_URL?: string;
 
-  readonly [key: string]: string | undefined;
+ readonly [key: string]: string | undefined;
 }
 
 interface ImportMeta {
-  readonly env: ImportMetaEnv;
-  readonly glob: (pattern: string) => Record<string, () => Promise<unknown>>;
+ readonly env: ImportMetaEnv;
+ readonly glob: (pattern: string) => Record<string, () => Promise<unknown>>;
 }

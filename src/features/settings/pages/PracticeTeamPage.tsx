@@ -25,448 +25,448 @@ import { buildSettingsPath, resolveSettingsBasePath } from '@/shared/utils/works
 import { Avatar, UserCard } from '@/shared/ui/profile';
 
 interface PracticeTeamPageProps {
-  className?: string;
+ className?: string;
 }
 
 export const PracticeTeamPage = ({ className }: PracticeTeamPageProps) => {
-  const { session, activeMemberRole, activeMemberRoleLoading } = useSessionContext();
-  const {
-    currentPractice,
-    updateMemberRole,
-    removeMember,
-    loading
-  } = usePracticeManagement();
-  const {
-    invitations,
-    sendInvitation: sendPracticeInvitation,
-    acceptInvitation,
-    declineInvitation,
-    cancelInvitation,
-  } = usePracticeInvitations(currentPractice?.id ?? null);
-  const { showSuccess, showError, showWarning } = useToastContext();
-  const { openBillingPortal, submitting } = usePaymentUpgrade();
-  const { t } = useTranslation(['settings']);
-  const location = useLocation();
-  const settingsBasePath = resolveSettingsBasePath(location.path);
-  const toSettingsPath = (subPath?: string) => buildSettingsPath(settingsBasePath, subPath);
+ const { session, activeMemberRole, activeMemberRoleLoading } = useSessionContext();
+ const {
+  currentPractice,
+  updateMemberRole,
+  removeMember,
+  loading
+ } = usePracticeManagement();
+ const {
+  invitations,
+  sendInvitation: sendPracticeInvitation,
+  acceptInvitation,
+  declineInvitation,
+  cancelInvitation,
+ } = usePracticeInvitations(currentPractice?.id ?? null);
+ const { showSuccess, showError, showWarning } = useToastContext();
+ const { openBillingPortal, submitting } = usePaymentUpgrade();
+ const { t } = useTranslation(['settings']);
+ const location = useLocation();
+ const settingsBasePath = resolveSettingsBasePath(location.path);
+ const toSettingsPath = (subPath?: string) => buildSettingsPath(settingsBasePath, subPath);
 
-  const currentUserEmail = session?.user?.email || '';
-  const {
-    members,
-    summary,
-    isLoading: teamLoading,
-    error: teamError,
-    refetch: refetchTeam,
-  } = usePracticeTeam(
-    currentPractice?.id ?? null,
-    session?.user?.id ?? null,
-    { enabled: Boolean(currentPractice?.id) }
-  );
+ const currentUserEmail = session?.user?.email || '';
+ const {
+  members,
+  summary,
+  isLoading: teamLoading,
+  error: teamError,
+  refetch: refetchTeam,
+ } = usePracticeTeam(
+  currentPractice?.id ?? null,
+  session?.user?.id ?? null,
+  { enabled: Boolean(currentPractice?.id) }
+ );
 
-  const currentMember = useMemo(() => {
-    if (!currentPractice || !currentUserEmail) return null;
-    return members.find(m => m.email && m.email.toLowerCase() === currentUserEmail.toLowerCase()) ||
-      members.find(m => m.userId === session?.user?.id);
-  }, [currentPractice, currentUserEmail, members, session?.user?.id]);
+ const currentMember = useMemo(() => {
+  if (!currentPractice || !currentUserEmail) return null;
+  return members.find(m => m.email && m.email.toLowerCase() === currentUserEmail.toLowerCase()) ||
+   members.find(m => m.userId === session?.user?.id);
+ }, [currentPractice, currentUserEmail, members, session?.user?.id]);
 
-  const roleFromMembers = currentMember?.role ?? null;
-  const normalizedActiveRole = normalizePracticeRole(activeMemberRole);
-  const currentUserRole = normalizedActiveRole ?? roleFromMembers ?? 'member';
-  const isOwner = currentUserRole === 'owner';
-  const isAdmin = currentUserRole === 'admin' || isOwner;
-  const isMembershipResolved = !teamLoading && !teamError;
-  const isMember = Boolean(normalizedActiveRole ?? roleFromMembers);
-  const teamRoleOptions = PRACTICE_ROLE_OPTIONS.filter(option => option.value !== 'owner');
+ const roleFromMembers = currentMember?.role ?? null;
+ const normalizedActiveRole = normalizePracticeRole(activeMemberRole);
+ const currentUserRole = normalizedActiveRole ?? roleFromMembers ?? 'member';
+ const isOwner = currentUserRole === 'owner';
+ const isAdmin = currentUserRole === 'admin' || isOwner;
+ const isMembershipResolved = !teamLoading && !teamError;
+ const isMember = Boolean(normalizedActiveRole ?? roleFromMembers);
+ const teamRoleOptions = PRACTICE_ROLE_OPTIONS.filter(option => option.value !== 'owner');
 
-  const [isInvitingMember, setIsInvitingMember] = useState(false);
-  const [isEditingMember, setIsEditingMember] = useState(false);
-  const [inviteForm, setInviteForm] = useState({
-    email: '',
-    role: 'admin' as Role
-  });
-  const [editMemberData, setEditMemberData] = useState<{
-    userId: string;
-    email: string;
-    name?: string;
-    role: Role;
-  } | null>(null);
+ const [isInvitingMember, setIsInvitingMember] = useState(false);
+ const [isEditingMember, setIsEditingMember] = useState(false);
+ const [inviteForm, setInviteForm] = useState({
+  email: '',
+  role: 'admin' as Role
+ });
+ const [editMemberData, setEditMemberData] = useState<{
+  userId: string;
+  email: string;
+  name?: string;
+  role: Role;
+ } | null>(null);
 
-  const origin = (typeof window !== 'undefined' && window.location)
-    ? window.location.origin
-    : '';
+ const origin = (typeof window !== 'undefined' && window.location)
+  ? window.location.origin
+  : '';
 
-  useEffect(() => {
-    const inviteQuery = typeof location.query?.invite === 'string' ? location.query.invite : '';
-    if (inviteQuery === '1' || inviteQuery === 'true') {
-      setIsInvitingMember(true);
-    }
-  }, [location.query]);
-
-  useEffect(() => {
-    if (!teamError) return;
-    showError(teamError);
-  }, [showError, teamError]);
-
-  if (currentPractice && !activeMemberRoleLoading && isMembershipResolved && !isMember) {
-    return (
-      <div className="h-full flex items-center justify-center">
-        <p className="text-sm text-input-placeholder">You are not a member of this practice.</p>
-      </div>
-    );
+ useEffect(() => {
+  const inviteQuery = typeof location.query?.invite === 'string' ? location.query.invite : '';
+  if (inviteQuery === '1' || inviteQuery === 'true') {
+   setIsInvitingMember(true);
   }
+ }, [location.query]);
 
-  const handleSendInvitation = async () => {
-    if (!currentPractice || !inviteForm.email.trim()) {
-      showError('Email is required');
-      return;
-    }
+ useEffect(() => {
+  if (!teamError) return;
+  showError(teamError);
+ }, [showError, teamError]);
 
-    try {
-      await sendPracticeInvitation(inviteForm.email, inviteForm.role);
-      showSuccess('Invitation sent successfully!');
-      setIsInvitingMember(false);
-      setInviteForm({ email: '', role: 'admin' });
-    } catch (err) {
-      showError(err instanceof Error ? err.message : 'Failed to send invitation');
-    }
-  };
-
-  const handleUpdateMemberRole = async () => {
-    if (!currentPractice || !editMemberData) return;
-
-    try {
-      await updateMemberRole(currentPractice.id, editMemberData.userId, editMemberData.role);
-      showSuccess('Member role updated successfully!');
-      setEditMemberData(null);
-      setIsEditingMember(false);
-      try {
-        await refetchTeam();
-      } catch (refetchErr) {
-        console.warn('[PracticeTeamPage] Failed to refresh team — changes were saved.', refetchErr);
-        showWarning('Failed to refresh team — changes were saved.');
-      }
-    } catch (err) {
-      showError(err instanceof Error ? err.message : 'Failed to update member role');
-    }
-  };
-
-  const handleRemoveMember = async (member: { userId: string; email: string; name?: string; role: Role }) => {
-    if (!currentPractice) return;
-    const confirmed = window.confirm(
-      `Are you sure you want to remove ${member.name || member.email} from the practice?`
-    );
-    if (!confirmed) return;
-
-    try {
-      await removeMember(currentPractice.id, member.userId);
-      showSuccess('Member removed successfully!');
-      setEditMemberData(null);
-      setIsEditingMember(false);
-      try {
-        await refetchTeam();
-      } catch (refetchErr) {
-        console.warn('[PracticeTeamPage] Failed to refresh team — changes were saved.', refetchErr);
-        showWarning('Failed to refresh team — changes were saved.');
-      }
-    } catch (err) {
-      showError(err instanceof Error ? err.message : 'Failed to remove member');
-    }
-  };
-
-  const handleAcceptInvitation = async (invitationId: string) => {
-    try {
-      await acceptInvitation(invitationId);
-      showSuccess('Invitation accepted!');
-      try {
-        await refetchTeam();
-      } catch (refetchErr) {
-        console.warn('[PracticeTeamPage] Failed to refresh team — changes were saved.', refetchErr);
-        showWarning('Failed to refresh team — changes were saved.');
-      }
-    } catch (err) {
-      showError(err instanceof Error ? err.message : 'Failed to accept invitation');
-    }
-  };
-
-  const handleDeclineInvitation = async (invitationId: string) => {
-    try {
-      await declineInvitation(invitationId);
-      showSuccess('Invitation declined successfully!');
-    } catch (err) {
-      showError(err instanceof Error ? err.message : 'Failed to decline invitation');
-    }
-  };
-
-  const handleCancelInvitation = async (invitationId: string) => {
-    try {
-      await cancelInvitation(invitationId);
-      showSuccess('Invitation canceled successfully!');
-    } catch (err) {
-      showError(err instanceof Error ? err.message : 'Failed to cancel invitation');
-    }
-  };
-
-  const buildInvitationLink = (invitationId: string) => {
-    const path = `/auth/accept-invitation?invitationId=${encodeURIComponent(invitationId)}`;
-    return origin ? `${origin}${path}` : path;
-  };
-
-  const copyInvitationLink = async (invitationId: string) => {
-    const link = buildInvitationLink(invitationId);
-    try {
-      await navigator.clipboard.writeText(link);
-      showSuccess('Invite link copied', link);
-    } catch (err) {
-      showError('Failed to copy invite link', err instanceof Error ? err.message : 'Unknown error');
-    }
-  };
-
-  if (!currentPractice) {
-    return (
-      <div className="h-full flex items-center justify-center">
-        <p className="text-sm text-input-placeholder">No practice selected.</p>
-      </div>
-    );
-  }
-
+ if (currentPractice && !activeMemberRoleLoading && isMembershipResolved && !isMember) {
   return (
-    <ContentPageLayout
-      title="Team Members"
-      className={className}
-      wrapChildren={false}
-      contentClassName="pb-6"
-    >
-      <div className="pt-2 pb-6">
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <p className="text-sm text-input-placeholder">
-              Manage access to your practice workspace.
-            </p>
-            <SettingsHelperText className="mt-2">
-              Seats used: {summary.seatsUsed} / {summary.seatsIncluded}
-            </SettingsHelperText>
-          </div>
-          {isAdmin && (
-            <Button
-              size="sm"
-              onClick={() => setIsInvitingMember(!isInvitingMember)}
-            >
-              <Icon icon={UserPlusIcon} className="w-4 h-4 mr-2"  />
-              {isInvitingMember ? 'Cancel' : 'Invite'}
-            </Button>
-          )}
+   <div className="h-full flex items-center justify-center">
+    <p className="text-sm text-input-placeholder">You are not a member of this practice.</p>
+   </div>
+  );
+ }
+
+ const handleSendInvitation = async () => {
+  if (!currentPractice || !inviteForm.email.trim()) {
+   showError('Email is required');
+   return;
+  }
+
+  try {
+   await sendPracticeInvitation(inviteForm.email, inviteForm.role);
+   showSuccess('Invitation sent successfully!');
+   setIsInvitingMember(false);
+   setInviteForm({ email: '', role: 'admin' });
+  } catch (err) {
+   showError(err instanceof Error ? err.message : 'Failed to send invitation');
+  }
+ };
+
+ const handleUpdateMemberRole = async () => {
+  if (!currentPractice || !editMemberData) return;
+
+  try {
+   await updateMemberRole(currentPractice.id, editMemberData.userId, editMemberData.role);
+   showSuccess('Member role updated successfully!');
+   setEditMemberData(null);
+   setIsEditingMember(false);
+   try {
+    await refetchTeam();
+   } catch (refetchErr) {
+    console.warn('[PracticeTeamPage] Failed to refresh team — changes were saved.', refetchErr);
+    showWarning('Failed to refresh team — changes were saved.');
+   }
+  } catch (err) {
+   showError(err instanceof Error ? err.message : 'Failed to update member role');
+  }
+ };
+
+ const handleRemoveMember = async (member: { userId: string; email: string; name?: string; role: Role }) => {
+  if (!currentPractice) return;
+  const confirmed = window.confirm(
+   `Are you sure you want to remove ${member.name || member.email} from the practice?`
+  );
+  if (!confirmed) return;
+
+  try {
+   await removeMember(currentPractice.id, member.userId);
+   showSuccess('Member removed successfully!');
+   setEditMemberData(null);
+   setIsEditingMember(false);
+   try {
+    await refetchTeam();
+   } catch (refetchErr) {
+    console.warn('[PracticeTeamPage] Failed to refresh team — changes were saved.', refetchErr);
+    showWarning('Failed to refresh team — changes were saved.');
+   }
+  } catch (err) {
+   showError(err instanceof Error ? err.message : 'Failed to remove member');
+  }
+ };
+
+ const handleAcceptInvitation = async (invitationId: string) => {
+  try {
+   await acceptInvitation(invitationId);
+   showSuccess('Invitation accepted!');
+   try {
+    await refetchTeam();
+   } catch (refetchErr) {
+    console.warn('[PracticeTeamPage] Failed to refresh team — changes were saved.', refetchErr);
+    showWarning('Failed to refresh team — changes were saved.');
+   }
+  } catch (err) {
+   showError(err instanceof Error ? err.message : 'Failed to accept invitation');
+  }
+ };
+
+ const handleDeclineInvitation = async (invitationId: string) => {
+  try {
+   await declineInvitation(invitationId);
+   showSuccess('Invitation declined successfully!');
+  } catch (err) {
+   showError(err instanceof Error ? err.message : 'Failed to decline invitation');
+  }
+ };
+
+ const handleCancelInvitation = async (invitationId: string) => {
+  try {
+   await cancelInvitation(invitationId);
+   showSuccess('Invitation canceled successfully!');
+  } catch (err) {
+   showError(err instanceof Error ? err.message : 'Failed to cancel invitation');
+  }
+ };
+
+ const buildInvitationLink = (invitationId: string) => {
+  const path = `/auth/accept-invitation?invitationId=${encodeURIComponent(invitationId)}`;
+  return origin ? `${origin}${path}` : path;
+ };
+
+ const copyInvitationLink = async (invitationId: string) => {
+  const link = buildInvitationLink(invitationId);
+  try {
+   await navigator.clipboard.writeText(link);
+   showSuccess('Invite link copied', link);
+  } catch (err) {
+   showError('Failed to copy invite link', err instanceof Error ? err.message : 'Unknown error');
+  }
+ };
+
+ if (!currentPractice) {
+  return (
+   <div className="h-full flex items-center justify-center">
+    <p className="text-sm text-input-placeholder">No practice selected.</p>
+   </div>
+  );
+ }
+
+ return (
+  <ContentPageLayout
+   title="Team Members"
+   className={className}
+   wrapChildren={false}
+   contentClassName="pb-6"
+  >
+   <div className="pt-2 pb-6">
+    <div className="flex items-center justify-between gap-4">
+     <div>
+      <p className="text-sm text-input-placeholder">
+       Manage access to your practice workspace.
+      </p>
+      <SettingsHelperText className="mt-2">
+       Seats used: {summary.seatsUsed} / {summary.seatsIncluded}
+      </SettingsHelperText>
+     </div>
+     {isAdmin && (
+      <Button
+       size="sm"
+       onClick={() => setIsInvitingMember(!isInvitingMember)}
+      >
+       <Icon icon={UserPlusIcon} className="w-4 h-4 mr-2" />
+       {isInvitingMember ? 'Cancel' : 'Invite'}
+      </Button>
+     )}
+    </div>
+   </div>
+
+    {summary.seatsUsed > summary.seatsIncluded && (
+     <SettingsNotice variant="warning" className="mb-4" role="status" aria-live="polite">
+      <p className="text-sm">
+       You&apos;re using {summary.seatsUsed} seats but your plan includes {summary.seatsIncluded}. The billing owner can increase seats in Stripe.
+       {isOwner && (
+        <Button
+         variant="ghost"
+         size="sm"
+         onClick={() => openBillingPortal({
+          practiceId: currentPractice.id,
+          returnUrl: origin
+           ? `${origin}${toSettingsPath('practice')}?sync=1`
+           : `${toSettingsPath('practice')}?sync=1`
+         })}
+         disabled={submitting}
+         className="ml-2 underline text-accent-600 hover:text-accent-700"
+        >
+         {t('settings:account.plan.manage')}
+        </Button>
+       )}
+      </p>
+     </SettingsNotice>
+    )}
+
+   {members.length === 0 && (loading || teamLoading) ? (
+    <LoadingBlock label="Loading members..." />
+   ) : members.length > 0 ? (
+     <div className="space-y-3">
+      {members.map((member) => (
+       <div key={member.userId} className="flex items-center justify-between py-2">
+        <div className="flex min-w-0 flex-1 items-center gap-3">
+         <UserCard
+          name={member.name || member.email || member.userId}
+          image={member.image ?? null}
+          secondary={`${member.email || member.userId} • ${getPracticeRoleLabel(member.role)}`}
+          badge={member.role === 'owner' ? 'Owner' : undefined}
+          size="md"
+          className="-ml-3"
+         />
         </div>
+        {isAdmin && member.role !== 'owner' && (
+         <Button
+          size="sm"
+          variant="ghost"
+          onClick={() => {
+           if (isEditingMember && editMemberData?.userId === member.userId) {
+            setIsEditingMember(false);
+            setEditMemberData(null);
+            return;
+           }
+           setEditMemberData(member);
+           setIsEditingMember(true);
+          }}
+          className="text-input-text hover:text-accent-600 dark:hover:text-accent-400"
+         >
+          {isEditingMember && editMemberData?.userId === member.userId ? 'Cancel' : 'Manage'}
+         </Button>
+        )}
+       </div>
+      ))}
+     </div>
+   ) : (
+    <SettingsHelperText>No team members yet</SettingsHelperText>
+   )}
+
+    {isInvitingMember && (
+     <div className="mt-6 space-y-4">
+      <FormGrid>
+       <div>
+        <FormLabel htmlFor="invite-email">Email Address</FormLabel>
+        <EmailInput
+         id="invite-email"
+         value={inviteForm.email}
+         onChange={(value) => setInviteForm(prev => ({ ...prev, email: value }))}
+         placeholder="colleague@lawfirm.com"
+         showValidation
+         required
+        />
+       </div>
+
+       <div>
+        <FormLabel htmlFor="invite-role">Role</FormLabel>
+        <Combobox
+         id="invite-role"
+         value={inviteForm.role}
+         options={teamRoleOptions}
+         onChange={(value) => setInviteForm(prev => ({ ...prev, role: value as Role }))}
+         searchable={false}
+        />
+       </div>
+      </FormGrid>
+
+      <FormActions
+       className="gap-2 pt-2"
+       onCancel={() => setIsInvitingMember(false)}
+       onSubmit={handleSendInvitation}
+       submitType="button"
+       submitText="Send Invitation"
+      />
+     </div>
+    )}
+
+    {isEditingMember && editMemberData && (
+     <div className="mt-6 space-y-4">
+      <div>
+       <p className="text-sm font-medium text-input-text mb-2">
+        {editMemberData.name || editMemberData.email}
+       </p>
+      <SettingsHelperText>
+       {editMemberData.email}
+      </SettingsHelperText>
       </div>
 
-        {summary.seatsUsed > summary.seatsIncluded && (
-          <SettingsNotice variant="warning" className="mb-4" role="status" aria-live="polite">
-            <p className="text-sm">
-              You&apos;re using {summary.seatsUsed} seats but your plan includes {summary.seatsIncluded}. The billing owner can increase seats in Stripe.
-              {isOwner && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => openBillingPortal({
-                    practiceId: currentPractice.id,
-                    returnUrl: origin
-                      ? `${origin}${toSettingsPath('practice')}?sync=1`
-                      : `${toSettingsPath('practice')}?sync=1`
-                  })}
-                  disabled={submitting}
-                  className="ml-2 underline text-accent-600 hover:text-accent-700"
-                >
-                  {t('settings:account.plan.manage')}
-                </Button>
-              )}
-            </p>
-          </SettingsNotice>
-        )}
+      <div>
+       <FormLabel htmlFor="member-role">Role</FormLabel>
+       <Combobox
+        id="member-role"
+        value={editMemberData.role}
+        options={teamRoleOptions}
+        onChange={(value) => setEditMemberData(prev => prev ? { ...prev, role: value as Role } : null)}
+        searchable={false}
+       />
+      </div>
 
-      {members.length === 0 && (loading || teamLoading) ? (
-        <LoadingBlock label="Loading members..." />
-      ) : members.length > 0 ? (
-          <div className="space-y-3">
-            {members.map((member) => (
-              <div key={member.userId} className="flex items-center justify-between py-2">
-                <div className="flex min-w-0 flex-1 items-center gap-3">
-                  <UserCard
-                    name={member.name || member.email || member.userId}
-                    image={member.image ?? null}
-                    secondary={`${member.email || member.userId} • ${getPracticeRoleLabel(member.role)}`}
-                    badge={member.role === 'owner' ? 'Owner' : undefined}
-                    size="md"
-                    className="-ml-3"
-                  />
-                </div>
-                {isAdmin && member.role !== 'owner' && (
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => {
-                      if (isEditingMember && editMemberData?.userId === member.userId) {
-                        setIsEditingMember(false);
-                        setEditMemberData(null);
-                        return;
-                      }
-                      setEditMemberData(member);
-                      setIsEditingMember(true);
-                    }}
-                    className="text-input-text hover:text-accent-600 dark:hover:text-accent-400"
-                  >
-                    {isEditingMember && editMemberData?.userId === member.userId ? 'Cancel' : 'Manage'}
-                  </Button>
-                )}
-              </div>
-            ))}
+      <div className="flex justify-between pt-2">
+       <Button
+        variant="danger-ghost"
+        onClick={() => handleRemoveMember(editMemberData)}
+       >
+        Remove Member
+       </Button>
+       <FormActions
+        className="gap-2 pt-0"
+        onCancel={() => {
+         setIsEditingMember(false);
+         setEditMemberData(null);
+        }}
+        onSubmit={handleUpdateMemberRole}
+        submitType="button"
+        submitText="Save Changes"
+       />
+      </div>
+     </div>
+    )}
+
+    <SectionDivider className="mt-8" />
+    <div className="pt-6">
+     <h3 className="text-sm font-semibold text-input-text mb-4">
+      Pending Invitations
+     </h3>
+     {invitations.length > 0 ? (
+      <div className="space-y-3">
+       {invitations.map(inv => (
+        <div key={inv.id} className="flex items-center justify-between py-2">
+         <div className="flex min-w-0 flex-1 items-center gap-3">
+          <Avatar
+           name={inv.email}
+           size="md"
+          />
+          <div className="min-w-0 flex-1">
+           <p className="truncate text-sm font-medium text-input-text">
+           {inv.email}
+           </p>
+           <SettingsHelperText className="truncate">
+            Role: {getPracticeRoleLabel(inv.role)} • Expires: {formatDate(new Date(inv.expiresAt))}
+           </SettingsHelperText>
           </div>
-      ) : (
-        <SettingsHelperText>No team members yet</SettingsHelperText>
-      )}
-
-        {isInvitingMember && (
-          <div className="mt-6 space-y-4">
-            <FormGrid>
-              <div>
-                <FormLabel htmlFor="invite-email">Email Address</FormLabel>
-                <EmailInput
-                  id="invite-email"
-                  value={inviteForm.email}
-                  onChange={(value) => setInviteForm(prev => ({ ...prev, email: value }))}
-                  placeholder="colleague@lawfirm.com"
-                  showValidation
-                  required
-                />
-              </div>
-
-              <div>
-                <FormLabel htmlFor="invite-role">Role</FormLabel>
-                <Combobox
-                  id="invite-role"
-                  value={inviteForm.role}
-                  options={teamRoleOptions}
-                  onChange={(value) => setInviteForm(prev => ({ ...prev, role: value as Role }))}
-                  searchable={false}
-                />
-              </div>
-            </FormGrid>
-
-            <FormActions
-              className="gap-2 pt-2"
-              onCancel={() => setIsInvitingMember(false)}
-              onSubmit={handleSendInvitation}
-              submitType="button"
-              submitText="Send Invitation"
+         </div>
+         <div className="flex gap-2">
+          {inv.email.toLowerCase() === currentUserEmail.toLowerCase() ? (
+           <>
+            <Button size="sm" onClick={() => handleAcceptInvitation(inv.id)}>
+             Accept
+            </Button>
+            <Button size="sm" variant="secondary" onClick={() => handleDeclineInvitation(inv.id)}>
+             Decline
+            </Button>
+           </>
+          ) : isAdmin ? (
+           <>
+            <Button
+             variant="icon"
+             size="icon-sm"
+             onClick={() => void copyInvitationLink(inv.id)}
+             aria-label={`Copy invite link for ${inv.email}`}
+             title="Copy invite link"
+             icon={DocumentDuplicateIcon}
+             iconClassName="h-4 w-4"
             />
-          </div>
-        )}
-
-        {isEditingMember && editMemberData && (
-          <div className="mt-6 space-y-4">
-            <div>
-              <p className="text-sm font-medium text-input-text mb-2">
-                {editMemberData.name || editMemberData.email}
-              </p>
-            <SettingsHelperText>
-              {editMemberData.email}
-            </SettingsHelperText>
-            </div>
-
-            <div>
-              <FormLabel htmlFor="member-role">Role</FormLabel>
-              <Combobox
-                id="member-role"
-                value={editMemberData.role}
-                options={teamRoleOptions}
-                onChange={(value) => setEditMemberData(prev => prev ? { ...prev, role: value as Role } : null)}
-                searchable={false}
-              />
-            </div>
-
-            <div className="flex justify-between pt-2">
-              <Button
-                variant="danger-ghost"
-                onClick={() => handleRemoveMember(editMemberData)}
-              >
-                Remove Member
-              </Button>
-              <FormActions
-                className="gap-2 pt-0"
-                onCancel={() => {
-                  setIsEditingMember(false);
-                  setEditMemberData(null);
-                }}
-                onSubmit={handleUpdateMemberRole}
-                submitType="button"
-                submitText="Save Changes"
-              />
-            </div>
-          </div>
-        )}
-
-        <SectionDivider className="mt-8" />
-        <div className="pt-6">
-          <h3 className="text-sm font-semibold text-input-text mb-4">
-            Pending Invitations
-          </h3>
-          {invitations.length > 0 ? (
-            <div className="space-y-3">
-              {invitations.map(inv => (
-                <div key={inv.id} className="flex items-center justify-between py-2">
-                  <div className="flex min-w-0 flex-1 items-center gap-3">
-                    <Avatar
-                      name={inv.email}
-                      size="md"
-                    />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-input-text">
-                      {inv.email}
-                      </p>
-                      <SettingsHelperText className="truncate">
-                        Role: {getPracticeRoleLabel(inv.role)} • Expires: {formatDate(new Date(inv.expiresAt))}
-                      </SettingsHelperText>
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    {inv.email.toLowerCase() === currentUserEmail.toLowerCase() ? (
-                      <>
-                        <Button size="sm" onClick={() => handleAcceptInvitation(inv.id)}>
-                          Accept
-                        </Button>
-                        <Button size="sm" variant="secondary" onClick={() => handleDeclineInvitation(inv.id)}>
-                          Decline
-                        </Button>
-                      </>
-                    ) : isAdmin ? (
-                      <>
-                        <Button
-                          variant="icon"
-                          size="icon-sm"
-                          onClick={() => void copyInvitationLink(inv.id)}
-                          aria-label={`Copy invite link for ${inv.email}`}
-                          title="Copy invite link"
-                          icon={DocumentDuplicateIcon}
-                          iconClassName="h-4 w-4"
-                        />
-                        <Button
-                          variant="icon"
-                          size="icon-sm"
-                          onClick={() => handleCancelInvitation(inv.id)}
-                          aria-label={`Cancel invitation for ${inv.email}`}
-                          title="Cancel invitation"
-                          icon={XMarkIcon}
-                          iconClassName="h-4 w-4"
-                        />
-                      </>
-                    ) : null
-                    }
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <SettingsHelperText>No pending invitations</SettingsHelperText>
-          )}
+            <Button
+             variant="icon"
+             size="icon-sm"
+             onClick={() => handleCancelInvitation(inv.id)}
+             aria-label={`Cancel invitation for ${inv.email}`}
+             title="Cancel invitation"
+             icon={XMarkIcon}
+             iconClassName="h-4 w-4"
+            />
+           </>
+          ) : null
+          }
+         </div>
         </div>
-    </ContentPageLayout>
-  );
+       ))}
+      </div>
+     ) : (
+      <SettingsHelperText>No pending invitations</SettingsHelperText>
+     )}
+    </div>
+  </ContentPageLayout>
+ );
 };

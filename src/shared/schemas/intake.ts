@@ -3,31 +3,31 @@ import { addressLooseSchema } from '@/shared/ui/validation/schemas/address';
 
 // Base intake schema
 export const IntakeSchema = z.object({
-  name: z.string().min(1, 'Name is required'),
-  email: z.string().email('Valid email is required'),
-  phone: z.string().optional(),
-  address: addressLooseSchema.optional(),
-  opposingParty: z.string().optional(),
-  description: z.string().optional(),
+ name: z.string().min(1, 'Name is required'),
+ email: z.string().email('Valid email is required'),
+ phone: z.string().optional(),
+ address: addressLooseSchema.optional(),
+ opposingParty: z.string().optional(),
+ description: z.string().optional(),
 });
 
 // Form variants using pick/partial
 export const IntakeMinimalSchema = IntakeSchema.pick({
-  name: true,
-  email: true,
+ name: true,
+ email: true,
 });
 
 export const IntakeWithPhoneSchema = IntakeSchema.pick({
-  name: true,
-  email: true,
-  phone: true,
+ name: true,
+ email: true,
+ phone: true,
 });
 
 export const IntakeWithAddressSchema = IntakeSchema.pick({
-  name: true,
-  email: true,
-  phone: true,
-  address: true,
+ name: true,
+ email: true,
+ phone: true,
+ address: true,
 });
 
 export const IntakeFullSchema = IntakeSchema;

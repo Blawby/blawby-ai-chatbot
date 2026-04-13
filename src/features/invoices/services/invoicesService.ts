@@ -1,37 +1,37 @@
 import { apiClient } from '@/shared/lib/apiClient';
 import { urls } from '@/config/urls';
 import {
-  createInvoice as createMatterInvoice,
-  listInvoices as listMatterInvoices,
-  sendInvoice as sendMatterInvoice,
-  syncInvoice as syncMatterInvoice,
-  voidInvoice as voidMatterInvoice,
-  deleteInvoice as deleteMatterInvoice,
-  updateInvoice as updateMatterInvoice,
-  normalizeInvoice,
-  extractInvoicesArray,
-  type BackendInvoice,
+ createInvoice as createMatterInvoice,
+ listInvoices as listMatterInvoices,
+ sendInvoice as sendMatterInvoice,
+ syncInvoice as syncMatterInvoice,
+ voidInvoice as voidMatterInvoice,
+ deleteInvoice as deleteMatterInvoice,
+ updateInvoice as updateMatterInvoice,
+ normalizeInvoice,
+ extractInvoicesArray,
+ type BackendInvoice,
 } from '@/features/matters/services/invoicesApi';
 import type { CreateInvoicePayload } from '@/features/matters/types/billing.types';
 import {
-  createRefundRequest as createRefundRequestApi,
-  listClientInvoices as listClientInvoiceRecords,
-  listClientRefundRequests,
-  type RefundRequestPayload,
+ createRefundRequest as createRefundRequestApi,
+ listClientInvoices as listClientInvoiceRecords,
+ listClientRefundRequests,
+ type RefundRequestPayload,
 } from '@/features/invoices/services/invoicesClient';
 import {
-  asString,
-  extractInvoiceRecord,
-  normalizeInvoiceDetail,
-  normalizeInvoiceSummary,
+ asString,
+ extractInvoiceRecord,
+ normalizeInvoiceDetail,
+ normalizeInvoiceSummary,
 } from '@/features/invoices/services/normalizers';
 import { applyInvoiceFilterRule } from '@/features/invoices/config/invoiceCollection';
 import type {
-  InvoiceDetail,
-  InvoiceFilterRule,
-  InvoiceListFilters,
-  InvoiceListResult,
-  InvoiceSummary,
+ InvoiceDetail,
+ InvoiceFilterRule,
+ InvoiceListFilters,
+ InvoiceListResult,
+ InvoiceSummary,
 } from '@/features/invoices/types';
 
 type FetchOptions = { signal?: AbortSignal; statusFilter?: string[] };
@@ -39,186 +39,186 @@ type FetchOptions = { signal?: AbortSignal; statusFilter?: string[] };
 const FALLBACK_PAGE_SIZE = 10;
 
 type ApiErrorWithStatus = {
+ status?: number;
+ statusCode?: number;
+ response?: {
   status?: number;
-  statusCode?: number;
-  response?: {
-    status?: number;
-  };
+ };
 };
 
 const getErrorStatus = (error: unknown): number | undefined => {
-  if (!error || typeof error !== 'object') return undefined;
-  const candidate = error as ApiErrorWithStatus;
-  return candidate.status ?? candidate.response?.status ?? candidate.statusCode;
+ if (!error || typeof error !== 'object') return undefined;
+ const candidate = error as ApiErrorWithStatus;
+ return candidate.status ?? candidate.response?.status ?? candidate.statusCode;
 };
 
 const filterInvoiceSummaries = (
-  items: InvoiceSummary[],
-  filters: InvoiceListFilters,
-  statusFilter: string[] = [],
-  audience: 'client' | 'practice' = 'practice'
+ items: InvoiceSummary[],
+ filters: InvoiceListFilters,
+ statusFilter: string[] = [],
+ audience: 'client' | 'practice' = 'practice'
 ): InvoiceSummary[] => {
-  const rules = (filters.rules ?? []).filter((rule): rule is InvoiceFilterRule => Boolean(rule?.field && rule.operator));
-  const normalizedStatusFilter = statusFilter.map((value) => value.trim().toLowerCase()).filter(Boolean);
-  const allowedStatuses = normalizedStatusFilter.length > 0 ? new Set(normalizedStatusFilter) : null;
+ const rules = (filters.rules ?? []).filter((rule): rule is InvoiceFilterRule => Boolean(rule?.field && rule.operator));
+ const normalizedStatusFilter = statusFilter.map((value) => value.trim().toLowerCase()).filter(Boolean);
+ const allowedStatuses = normalizedStatusFilter.length > 0 ? new Set(normalizedStatusFilter) : null;
 
-  return items.filter((item) => {
-    if (allowedStatuses && !allowedStatuses.has(item.status.toLowerCase())) return false;
-    return rules.every((rule) => applyInvoiceFilterRule(item, rule, audience));
-  });
+ return items.filter((item) => {
+  if (allowedStatuses && !allowedStatuses.has(item.status.toLowerCase())) return false;
+  return rules.every((rule) => applyInvoiceFilterRule(item, rule, audience));
+ });
 };
 
 const paginate = (items: InvoiceSummary[], page: number, pageSize: number): InvoiceListResult => {
-  const normalizedPageSize = pageSize > 0 ? pageSize : FALLBACK_PAGE_SIZE;
-  const normalizedPage = page > 0 ? page : 1;
-  const start = (normalizedPage - 1) * normalizedPageSize;
-  const end = start + normalizedPageSize;
+ const normalizedPageSize = pageSize > 0 ? pageSize : FALLBACK_PAGE_SIZE;
+ const normalizedPage = page > 0 ? page : 1;
+ const start = (normalizedPage - 1) * normalizedPageSize;
+ const end = start + normalizedPageSize;
 
-  return {
-    items: items.slice(start, end),
-    total: items.length,
-    page: normalizedPage,
-    pageSize: normalizedPageSize,
-  };
+ return {
+  items: items.slice(start, end),
+  total: items.length,
+  page: normalizedPage,
+  pageSize: normalizedPageSize,
+ };
 };
 
 
 export const listInvoices = async (
-  practiceId: string,
-  filters: InvoiceListFilters,
-  options: FetchOptions = {}
+ practiceId: string,
+ filters: InvoiceListFilters,
+ options: FetchOptions = {}
 ): Promise<InvoiceListResult> => {
-  const invoices = await listMatterInvoices(practiceId, undefined, options);
-  const summaries = invoices
-    .map(normalizeInvoiceSummary)
-    .sort((a, b) => {
-      const timea = new Date(a.updatedAt).getTime();
-      const timeb = new Date(b.updatedAt).getTime();
-      return (Number.isNaN(timeb) ? 0 : timeb) - (Number.isNaN(timea) ? 0 : timea);
-    });
-  return paginate(
-    filterInvoiceSummaries(summaries, filters, options.statusFilter, 'practice'),
-    filters.page ?? 1,
-    filters.pageSize ?? FALLBACK_PAGE_SIZE
-  );
+ const invoices = await listMatterInvoices(practiceId, undefined, options);
+ const summaries = invoices
+  .map(normalizeInvoiceSummary)
+  .sort((a, b) => {
+   const timea = new Date(a.updatedAt).getTime();
+   const timeb = new Date(b.updatedAt).getTime();
+   return (Number.isNaN(timeb) ? 0 : timeb) - (Number.isNaN(timea) ? 0 : timea);
+  });
+ return paginate(
+  filterInvoiceSummaries(summaries, filters, options.statusFilter, 'practice'),
+  filters.page ?? 1,
+  filters.pageSize ?? FALLBACK_PAGE_SIZE
+ );
 };
 
 export const getInvoice = async (
-  practiceId: string,
-  invoiceId: string,
-  options: FetchOptions = {}
+ practiceId: string,
+ invoiceId: string,
+ options: FetchOptions = {}
 ): Promise<InvoiceDetail | null> => {
-  if (!practiceId || !invoiceId) return null;
-  const response = await apiClient.get(urls.invoice(practiceId, invoiceId), {
-    signal: options.signal,
-  });
-  const data = response.data;
-  // The detail endpoint returns a single invoice object (not wrapped in an array)
-  const rawInvoice = extractInvoiceRecord(data);
-  if (!rawInvoice) return null;
+ if (!practiceId || !invoiceId) return null;
+ const response = await apiClient.get(urls.invoice(practiceId, invoiceId), {
+  signal: options.signal,
+ });
+ const data = response.data;
+ // The detail endpoint returns a single invoice object (not wrapped in an array)
+ const rawInvoice = extractInvoiceRecord(data);
+ if (!rawInvoice) return null;
 
-  const invoice = normalizeInvoice(rawInvoice as BackendInvoice);
-  return normalizeInvoiceDetail(invoice, rawInvoice);
+ const invoice = normalizeInvoice(rawInvoice as BackendInvoice);
+ return normalizeInvoiceDetail(invoice, rawInvoice);
 };
 
 export const listClientInvoices = async (
-  practiceId: string,
-  filters: InvoiceListFilters,
-  options: FetchOptions = {}
+ practiceId: string,
+ filters: InvoiceListFilters,
+ options: FetchOptions = {}
 ): Promise<InvoiceListResult> => {
-  const invoices = await listClientInvoiceRecords(practiceId, options);
-  const summaries = invoices
-    .map(normalizeInvoiceSummary)
-    .sort((a, b) => {
-      const timea = new Date(a.updatedAt).getTime();
-      const timeb = new Date(b.updatedAt).getTime();
-      return (Number.isNaN(timeb) ? 0 : timeb) - (Number.isNaN(timea) ? 0 : timea);
-    });
-  return paginate(
-    filterInvoiceSummaries(summaries, filters, options.statusFilter, 'client'),
-    filters.page ?? 1,
-    filters.pageSize ?? FALLBACK_PAGE_SIZE
-  );
+ const invoices = await listClientInvoiceRecords(practiceId, options);
+ const summaries = invoices
+  .map(normalizeInvoiceSummary)
+  .sort((a, b) => {
+   const timea = new Date(a.updatedAt).getTime();
+   const timeb = new Date(b.updatedAt).getTime();
+   return (Number.isNaN(timeb) ? 0 : timeb) - (Number.isNaN(timea) ? 0 : timea);
+  });
+ return paginate(
+  filterInvoiceSummaries(summaries, filters, options.statusFilter, 'client'),
+  filters.page ?? 1,
+  filters.pageSize ?? FALLBACK_PAGE_SIZE
+ );
 };
 
 export const getClientInvoice = async (
-  practiceId: string,
-  invoiceId: string,
-  options: FetchOptions = {}
+ practiceId: string,
+ invoiceId: string,
+ options: FetchOptions = {}
 ): Promise<InvoiceDetail | null> => {
-  if (!practiceId || !invoiceId) return null;
-  const response = await apiClient.get(urls.clientInvoice(practiceId, invoiceId), {
-    signal: options.signal,
+ if (!practiceId || !invoiceId) return null;
+ const response = await apiClient.get(urls.clientInvoice(practiceId, invoiceId), {
+  signal: options.signal,
+ });
+ const data = response.data;
+ const invoiceRecord = extractInvoicesArray(data)[0];
+ if (!invoiceRecord) return null;
+
+ const invoice = normalizeInvoice(invoiceRecord);
+ const rawInvoice = extractInvoiceRecord(data);
+
+ let refundRequestSupported = true;
+ let refundRequestError: string | null = null;
+ let refundRequests: Array<Record<string, unknown>> = [];
+ try {
+  const allRefundRequests = await listClientRefundRequests(practiceId, options);
+  refundRequests = allRefundRequests.filter((request) => {
+   const requestInvoiceId = asString(request.invoice_id ?? request.invoiceId);
+   return requestInvoiceId === invoiceId;
   });
-  const data = response.data;
-  const invoiceRecord = extractInvoicesArray(data)[0];
-  if (!invoiceRecord) return null;
+ } catch (error) {
+  const status = getErrorStatus(error);
 
-  const invoice = normalizeInvoice(invoiceRecord);
-  const rawInvoice = extractInvoiceRecord(data);
-
-  let refundRequestSupported = true;
-  let refundRequestError: string | null = null;
-  let refundRequests: Array<Record<string, unknown>> = [];
-  try {
-    const allRefundRequests = await listClientRefundRequests(practiceId, options);
-    refundRequests = allRefundRequests.filter((request) => {
-      const requestInvoiceId = asString(request.invoice_id ?? request.invoiceId);
-      return requestInvoiceId === invoiceId;
-    });
-  } catch (error) {
-    const status = getErrorStatus(error);
-
-    if (status === 405 || status === 501) {
-      refundRequestSupported = false;
-    } else if (status === 404) {
-      refundRequestError = 'Refund request endpoint route mismatch (404).';
-    } else {
-      throw error;
-    }
+  if (status === 405 || status === 501) {
+   refundRequestSupported = false;
+  } else if (status === 404) {
+   refundRequestError = 'Refund request endpoint route mismatch (404).';
+  } else {
+   throw error;
   }
+ }
 
-  return normalizeInvoiceDetail(invoice, rawInvoice, { refundRequests, refundRequestSupported, refundRequestError });
+ return normalizeInvoiceDetail(invoice, rawInvoice, { refundRequests, refundRequestSupported, refundRequestError });
 };
 
 export const createInvoice = async (
-  practiceId: string,
-  payload: CreateInvoicePayload,
-  options: FetchOptions = {}
+ practiceId: string,
+ payload: CreateInvoicePayload,
+ options: FetchOptions = {}
 ) => {
-  return createMatterInvoice(practiceId, payload, options);
+ return createMatterInvoice(practiceId, payload, options);
 };
 
 export const sendInvoice = async (practiceId: string, invoiceId: string, options: FetchOptions = {}) => {
-  return sendMatterInvoice(practiceId, invoiceId, options);
+ return sendMatterInvoice(practiceId, invoiceId, options);
 };
 
 export const syncInvoice = async (practiceId: string, invoiceId: string, options: FetchOptions = {}) => {
-  return syncMatterInvoice(practiceId, invoiceId, options);
+ return syncMatterInvoice(practiceId, invoiceId, options);
 };
 
 export const voidInvoice = async (practiceId: string, invoiceId: string, options: FetchOptions = {}) => {
-  return voidMatterInvoice(practiceId, invoiceId, options);
+ return voidMatterInvoice(practiceId, invoiceId, options);
 };
 
 export const deleteInvoice = async (practiceId: string, invoiceId: string, options: FetchOptions = {}) => {
-  return deleteMatterInvoice(practiceId, invoiceId, options);
+ return deleteMatterInvoice(practiceId, invoiceId, options);
 };
 
 export const updateInvoice = async (
-  practiceId: string,
-  invoiceId: string,
-  payload: Partial<CreateInvoicePayload>,
-  options: FetchOptions = {}
+ practiceId: string,
+ invoiceId: string,
+ payload: Partial<CreateInvoicePayload>,
+ options: FetchOptions = {}
 ) => {
-  return updateMatterInvoice(practiceId, invoiceId, payload, options);
+ return updateMatterInvoice(practiceId, invoiceId, payload, options);
 };
 
 export const createRefundRequest = async (
-  practiceId: string,
-  invoiceId: string,
-  payload: RefundRequestPayload,
-  options: FetchOptions = {}
+ practiceId: string,
+ invoiceId: string,
+ payload: RefundRequestPayload,
+ options: FetchOptions = {}
 ): Promise<void> => {
-  await createRefundRequestApi(practiceId, invoiceId, payload, options);
+ await createRefundRequestApi(practiceId, invoiceId, payload, options);
 };
