@@ -145,13 +145,52 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
   // Use canonical conversation flow state
   const {
     conversationMetadata,
-    updateConversationMetadata,
+    updateConversationMetadata: updateConversationMetadataPatch,
     applyIntakeFields,
     intakeConversationState,
   } = useMessageHandling({
     practiceId: practiceId ?? undefined,
     conversationId: intake?.conversation_id,
   });
+    // Restore initial previewMessages loading
+    useEffect(() => {
+      const conversationId = intake?.conversation_id;
+      const targetPracticeId = intake?.organization_id;
+      if (!conversationId || !targetPracticeId) {
+        setPreviewMessages([]);
+        setPreviewLoading(false);
+        return;
+      }
+      const controller = new AbortController();
+      setPreviewMessages([]);
+      setPreviewLoading(true);
+      fetchConversationMessages(conversationId, targetPracticeId, { limit: 100, signal: controller.signal })
+        .then((messages) => {
+          if (!isMountedRef.current || controller.signal.aborted) return;
+          const mappedMessages = messages.map((message) => ({
+            id: message.id,
+            role: message.role,
+            content: message.content,
+            timestamp: new Date(message.created_at).getTime(),
+            reply_to_message_id: message.reply_to_message_id ?? null,
+            metadata: message.metadata ?? undefined,
+            isUser: message.user_id === session?.user?.id,
+            seq: message.seq,
+          } satisfies ChatMessageUI));
+          setPreviewMessages(mappedMessages);
+        })
+        .catch((err) => {
+          if (!isMountedRef.current || controller.signal.aborted) return;
+          console.warn('[IntakeDetailPage] Failed to load conversation preview', err);
+          setPreviewMessages([]);
+        })
+        .finally(() => {
+          if (isMountedRef.current && !controller.signal.aborted) {
+            setPreviewLoading(false);
+          }
+        });
+      return () => controller.abort();
+    }, [intake?.conversation_id, intake?.organization_id, session?.user?.id]);
   const [composerValue, setComposerValue] = useState('');
   const [composerSubmitting, setComposerSubmitting] = useState(false);
   const [gatherDetailsSubmitting, setGatherDetailsSubmitting] = useState(false);
@@ -429,7 +468,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
 
     setGatherDetailsSubmitting(true);
     try {
-      await updateConversationMetadata(nextMetadata, conversationId);
+      await updateConversationMetadataPatch(nextMetadata, conversationId);
       const message = await postSystemMessage(conversationId, targetPracticeId, {
         clientId: 'system-intake-gather-details',
         content: prompt,
@@ -507,8 +546,8 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
   const phone = typeof meta.phone === 'string' ? meta.phone : null;
   const description = typeof meta.description === 'string' ? meta.description : null;
   const practiceServiceUuid = typeof meta.practice_service_uuid === 'string' ? meta.practice_service_uuid : null;
-  const onBehalfOf = typeof meta.on_behalf_of === 'string' ? meta.on_behalf_of : null;
-  const opposingParty = typeof meta.opposing_party === 'string' ? meta.opposing_party : null;
+  const onBehalfOf = typeof meta.on_behalf_of === 'string' ? (meta.on_behalf_of.trim() || null) : null;
+  const opposingParty = typeof meta.opposing_party === 'string' ? (meta.opposing_party.trim() || null) : null;
   const services = Array.isArray(practiceDetails?.services) ? practiceDetails.services : [];
   const matchingService = services.find((service) => (
     service
@@ -544,7 +583,10 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
   const locationLabel = [city, state].filter(Boolean).join(', ') || null;
   const paymentLabel = feeAmount ? `${feeAmount} ${intake.stripe_charge_id ? 'paid' : 'consultation'}` : null;
   const canReplyInIntake = Boolean(intake.conversation_id && effectiveTriageStatus === 'accepted');
-  const hasMissingLegalDetails = !onBehalfOf || !opposingParty || !intake.desired_outcome;
+  const hasMissingLegalDetails =
+    !onBehalfOf ||
+    !opposingParty ||
+    (typeof intake.desired_outcome === 'string' ? intake.desired_outcome.trim() === '' : !intake.desired_outcome);
 
   return (
     <div className="flex h-full flex-col min-h-0">
