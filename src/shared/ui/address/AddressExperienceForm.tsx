@@ -10,7 +10,7 @@ import { AddressInput } from '@/shared/ui/address/AddressInput';
 import { Button } from '@/shared/ui/Button';
 import { cn } from '@/shared/utils/cn';
 import { isAddressEmpty } from '@/shared/utils/addressFormat';
-import { commonSchemas } from '@/shared/ui/validation/schemas';
+import { commonSchemas, isValidPhoneNumber } from '@/shared/ui/validation/schemas';
 import { addressLooseSchema, addressStrictWithCountrySchema } from '@/shared/ui/validation/schemas/address';
 import type { Address } from '@/shared/types/address';
 import { STATUS_OPTIONS } from '@/shared/forms/fieldRegistry';
@@ -178,9 +178,9 @@ const optionalEmail = z.string().email('Please enter a valid email address').opt
 const optionalPhone = z.string().optional().or(z.literal('')).refine(
   (val) => {
     if (!val || val === '') return true;
-    return /^\+?[\d\s\-()]+$/.test(val) && val.replace(/\D/g, '').length >= 10;
+    return isValidPhoneNumber(val);
   },
-  'Please enter a valid phone number (at least 10 digits)'
+  'Please enter a valid phone number'
 );
 
 const buildSchema = (fields: AddressExperienceField[], required: AddressExperienceField[]) => {

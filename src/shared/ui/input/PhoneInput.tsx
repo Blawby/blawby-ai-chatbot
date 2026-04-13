@@ -1,6 +1,5 @@
 import { forwardRef, useCallback, useState, useEffect, useRef } from 'preact/compat';
 import { PhoneIcon, ChevronDownIcon } from '@heroicons/react/24/outline';
-import { Icon } from '@/shared/ui/Icon';
 import { cn } from '@/shared/utils/cn';
 import { useUniqueId } from '@/shared/hooks/useUniqueId';
 
@@ -17,6 +16,97 @@ const countries = [
   { code: '+55', emoji: '🇧🇷', name: 'Brazil' },
   { code: '+39', emoji: '🇮🇹', name: 'Italy' },
 ];
+
+const countryCodeMatchOrder = [...countries].sort((left, right) => right.code.length - left.code.length);
+const unsupportedInternationalPrefixPattern = /^(\+\d{1,3})(?=$|[\s(-])(?:[\s-]*)/;
+
+type ParsedPhoneValue =
+  | { kind: 'supported'; prefix: string; localValue: string }
+  | { kind: 'unsupported'; prefix: string; localValue: string }
+  | { kind: 'none'; prefix: null; localValue: string };
+
+const normalizeSupportedCountryCode = (value?: string): string => {
+  const supportedCountry = countries.find((country) => country.code === value);
+  return supportedCountry?.code ?? countries[0].code;
+};
+
+const splitCombinedPhoneValue = (value: string): ParsedPhoneValue => {
+  const trimmedStart = value.trimStart();
+  const leadingDigitTokenMatch = trimmedStart.match(/^(\+\d{1,3})(.*)$/);
+
+  if (leadingDigitTokenMatch) {
+    const rawPrefix = leadingDigitTokenMatch[1];
+    const remainder = leadingDigitTokenMatch[2].trimStart();
+    const matchedCountry = countryCodeMatchOrder.find((country) => country.code === rawPrefix);
+
+    if (matchedCountry) {
+      return {
+        kind: 'supported',
+        prefix: matchedCountry.code,
+        localValue: trimmedStart.slice(matchedCountry.code.length).trimStart(),
+      };
+    }
+
+    return {
+      kind: 'unsupported',
+      prefix: rawPrefix,
+      localValue: remainder,
+    };
+  }
+
+  const matchedCountry = countryCodeMatchOrder.find((country) => trimmedStart.startsWith(country.code));
+  if (!matchedCountry) {
+    const unsupportedPrefixMatch = trimmedStart.match(unsupportedInternationalPrefixPattern);
+    if (!unsupportedPrefixMatch) {
+      return { kind: 'none', prefix: null, localValue: value };
+    }
+
+    return {
+      kind: 'unsupported',
+      prefix: unsupportedPrefixMatch[1],
+      localValue: trimmedStart.slice(unsupportedPrefixMatch[0].length).trimStart(),
+    };
+  }
+
+  return {
+    kind: 'supported',
+    prefix: matchedCountry.code,
+    localValue: trimmedStart.slice(matchedCountry.code.length).trimStart(),
+  };
+};
+
+const buildCombinedPhoneValue = (prefix: string, localValue: string): string => {
+  const trimmedLocalValue = localValue.trim();
+  if (!trimmedLocalValue) return '';
+  return `${prefix} ${trimmedLocalValue}`;
+};
+
+const resolvePhonePrefix = (
+  manualCountryCode: string | null,
+  currentPhoneValue: ParsedPhoneValue | null,
+  nextPhoneValue: ParsedPhoneValue | null,
+  normalizedCountryCode: string
+): string => {
+  if (manualCountryCode) return manualCountryCode;
+  if (nextPhoneValue?.kind === 'supported' || nextPhoneValue?.kind === 'unsupported') {
+    return nextPhoneValue.prefix;
+  }
+  if (currentPhoneValue?.kind === 'supported' || currentPhoneValue?.kind === 'unsupported') {
+    return currentPhoneValue.prefix;
+  }
+  return normalizedCountryCode;
+};
+
+const getPhoneInputPlaceholder = (placeholder?: string): string | undefined => {
+  if (!placeholder) return placeholder;
+
+  const trimmedStart = placeholder.trimStart();
+  const matchedCountry = countryCodeMatchOrder.find((country) => trimmedStart.startsWith(country.code));
+  if (!matchedCountry) return placeholder;
+
+  const localPlaceholder = trimmedStart.slice(matchedCountry.code.length).trimStart();
+  return localPlaceholder || placeholder;
+};
 
 export interface PhoneInputProps {
   id?: string;
@@ -70,12 +160,21 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(({
   const dropdownRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
-  
-  const [selectedCountryCode, setSelectedCountryCode] = useState(countryCode);
+  const manualSelectionRef = useRef<{ value: string; countryCode: string } | null>(null);
 
-  useEffect(() => {
-    setSelectedCountryCode(countryCode);
-  }, [countryCode]);
+  const normalizedCountryCode = normalizeSupportedCountryCode(countryCode);
+  const parsedPhoneValue = showCountryCode ? splitCombinedPhoneValue(value) : null;
+  const [manualCountryCode, setManualCountryCode] = useState<string | null>(null);
+  const activeManualCountryCode =
+    showCountryCode &&
+    parsedPhoneValue?.kind === 'none' &&
+    manualSelectionRef.current?.value === value &&
+    manualSelectionRef.current?.countryCode === normalizedCountryCode
+      ? manualCountryCode
+      : null;
+  const selectedCountryCode = parsedPhoneValue?.kind === 'supported'
+    ? parsedPhoneValue.prefix
+    : activeManualCountryCode ?? normalizedCountryCode;
 
   const currentCountry = countries.find(c => c.code === selectedCountryCode) || countries[0];
   
@@ -98,12 +197,21 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(({
   }, [isDropdownOpen]);
 
   const handleCountrySelect = useCallback((country: typeof countries[0]) => {
-    setSelectedCountryCode(country.code);
-    onCountryChange?.(country.code);
+    if (showCountryCode) {
+      const nextValue = buildCombinedPhoneValue(country.code, parsedPhoneValue?.localValue ?? '');
+      const emittedValue = nextValue || country.code;
+      manualSelectionRef.current = {
+        value: emittedValue,
+        countryCode: normalizedCountryCode,
+      };
+      setManualCountryCode(country.code);
+      onCountryChange?.(country.code);
+      onChange?.(emittedValue);
+    }
     setIsDropdownOpen(false);
     setFocusedIndex(-1);
     buttonRef.current?.focus();
-  }, [onCountryChange]);
+  }, [normalizedCountryCode, onChange, onCountryChange, parsedPhoneValue?.localValue, showCountryCode]);
 
   // Keyboard navigation handler
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
@@ -159,12 +267,13 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(({
 
   // Add keyboard event listener
   useEffect(() => {
-    if (isDropdownOpen) {
-      document.addEventListener('keydown', handleKeyDown);
-    }
+    const listElement = listRef.current;
+    if (!isDropdownOpen || !listElement) return;
+
+    listElement.addEventListener('keydown', handleKeyDown);
 
     return () => {
-      document.removeEventListener('keydown', handleKeyDown);
+      listElement.removeEventListener('keydown', handleKeyDown);
     };
   }, [isDropdownOpen, handleKeyDown]);
   
@@ -177,7 +286,7 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(({
   
   const displayLabel = label;
   const displayDescription = description;
-  const displayPlaceholder = placeholder;
+  const displayPlaceholder = showCountryCode ? getPhoneInputPlaceholder(placeholder) : placeholder;
   const displayError = error;
 
   // Generate stable IDs for accessibility
@@ -225,15 +334,86 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(({
   const handleChange = useCallback((e: Event) => {
     const target = e.target as HTMLInputElement;
     const rawValue = target.value;
+
+    if (showCountryCode) {
+      const parsedRawValue = splitCombinedPhoneValue(rawValue);
+      const isRawInternationalEntry =
+        rawValue.trimStart().startsWith('+') && parsedRawValue.kind !== 'supported';
+
+      if (isRawInternationalEntry) {
+        manualSelectionRef.current = null;
+        if (manualCountryCode !== null) {
+          setManualCountryCode(null);
+        }
+        onChange?.(rawValue);
+        return;
+      }
+
+      const droppedUnsupportedPrefix =
+        parsedPhoneValue?.kind === 'unsupported' &&
+        parsedRawValue.kind === 'none' &&
+        !rawValue.trimStart().startsWith('+');
+
+      if (droppedUnsupportedPrefix) {
+        manualSelectionRef.current = null;
+        if (manualCountryCode !== null) {
+          setManualCountryCode(null);
+        }
+        onChange?.(rawValue);
+        return;
+      }
+
+      const effectiveManualCountryCode =
+        parsedRawValue.kind === 'supported' ? parsedRawValue.prefix : manualCountryCode;
+      if (parsedRawValue.kind === 'supported' && parsedRawValue.prefix !== selectedCountryCode) {
+        setManualCountryCode(parsedRawValue.prefix);
+        onCountryChange?.(parsedRawValue.prefix);
+      }
+
+      const nextPhonePrefix = resolvePhonePrefix(
+        effectiveManualCountryCode,
+        parsedPhoneValue,
+        parsedRawValue,
+        normalizedCountryCode
+      );
+
+      const isPrefixOnlyState =
+        !parsedRawValue.localValue.trim() &&
+        (parsedRawValue.kind === 'supported' || parsedPhoneValue?.kind === 'supported');
+      const nextCombinedValue =
+        isPrefixOnlyState
+          ? nextPhonePrefix
+          : buildCombinedPhoneValue(nextPhonePrefix, parsedRawValue.localValue);
+
+      manualSelectionRef.current =
+        parsedRawValue.kind === 'supported' || isPrefixOnlyState
+          ? {
+              value: nextCombinedValue,
+              countryCode: normalizedCountryCode,
+            }
+          : null;
+      onChange?.(nextCombinedValue);
+      return;
+    }
+
     const formattedValue = formatPhoneNumber(rawValue);
     onChange?.(formattedValue);
-  }, [onChange, formatPhoneNumber]);
+  }, [
+    formatPhoneNumber,
+    manualCountryCode,
+    normalizedCountryCode,
+    onChange,
+    onCountryChange,
+    parsedPhoneValue,
+    selectedCountryCode,
+    showCountryCode,
+  ]);
 
   const inputClasses = cn(
     'w-full border rounded-lg text-input-text placeholder:text-input-placeholder',
     'focus:outline-none focus:ring-2 focus:ring-offset-0 transition-colors',
     sizeClasses[size],
-    iconPaddingClasses[size],
+    showCountryCode ? null : iconPaddingClasses[size],
     variantClasses[variant],
     disabled && 'opacity-50 cursor-not-allowed',
     variant === 'default' ? 'glass-input' : 'bg-input-bg',
@@ -256,6 +436,7 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(({
               ref={buttonRef}
               type="button"
               onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+              onKeyDown={handleKeyDown}
               disabled={disabled}
               aria-expanded={isDropdownOpen}
               aria-haspopup="menu"
@@ -265,10 +446,10 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(({
                 sizeClasses[size],
                 disabled && 'opacity-50 cursor-not-allowed'
               )}
-            >
+              >
               <span className="text-base mr-1">{currentCountry.emoji}</span>
               <span className="text-sm">{currentCountry.code}</span>
-              <Icon icon={ChevronDownIcon} className="w-3 h-3 ml-1"  />
+              <ChevronDownIcon className="w-3 h-3 ml-1 shrink-0" aria-hidden="true" />
             </button>
             
             {isDropdownOpen && (
@@ -304,15 +485,21 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(({
         )}
         
         <div className="relative flex-1">
-          <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-            <Icon icon={PhoneIcon} className="w-4 h-4 text-input-placeholder"  />
-          </div>
+          {!showCountryCode ? (
+            <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+              <PhoneIcon className="w-4 h-4 text-input-placeholder shrink-0" aria-hidden="true" />
+            </div>
+          ) : null}
           
           <input
             ref={ref}
             id={inputId}
             type="tel"
-            value={value}
+            value={showCountryCode
+              ? parsedPhoneValue?.kind === 'supported'
+                ? parsedPhoneValue.localValue
+                : value
+              : value}
             onChange={handleChange}
             placeholder={displayPlaceholder}
             disabled={disabled}
