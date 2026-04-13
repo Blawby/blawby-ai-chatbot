@@ -25,6 +25,7 @@ export function formatFormData(formData: Record<string, unknown>, practiceSlug: 
     getTrimmedString(formData.matterDescription) ??
     getTrimmedString(formData.description);
   const opposingParty = getTrimmedString(formData.opposingParty);
+  const practiceServiceUuid = getTrimmedString(formData.practiceServiceUuid);
 
   // Handle address field if present
   const address = formData.address as {
@@ -36,39 +37,43 @@ export function formatFormData(formData: Record<string, unknown>, practiceSlug: 
     country?: string;
   } | undefined;
   let addressPayload: {
-    line1: string;
+    line1?: string;
     line2?: string;
-    city: string;
+    city?: string;
     state?: string;
-    postal_code: string;
-    country: string;
+    postal_code?: string;
+    country?: string;
   } | undefined = undefined;
-  
-  if (address) {
+  const topLevelCity = getTrimmedString(formData.city);
+  const topLevelState = getTrimmedString(formData.state);
+
+  if (address || topLevelCity || topLevelState) {
     const trimmedAddress = {
-      address: address.address?.trim(),
-      apartment: address.apartment?.trim(),
-      city: address.city?.trim(),
-      state: address.state?.trim(),
-      postalCode: address.postalCode?.trim(),
-      country: address.country?.trim()
+      address: address?.address?.trim(),
+      apartment: address?.apartment?.trim(),
+      city: address?.city?.trim() || topLevelCity,
+      state: address?.state?.trim() || topLevelState,
+      postalCode: address?.postalCode?.trim(),
+      country: address?.country?.trim()
     };
 
-    const hasRequiredFields = [
+    const hasAddressFields = [
       trimmedAddress.address,
       trimmedAddress.city,
       trimmedAddress.country,
-      trimmedAddress.postalCode
-    ].every(field => field && field.length > 0);
+      trimmedAddress.postalCode,
+      trimmedAddress.state,
+      trimmedAddress.apartment,
+    ].some(field => field && field.length > 0);
     
-    if (hasRequiredFields) {
+    if (hasAddressFields) {
       addressPayload = {
-        line1: trimmedAddress.address,
-        line2: trimmedAddress.apartment,
-        city: trimmedAddress.city,
-        state: trimmedAddress.state,
-        postal_code: trimmedAddress.postalCode,
-        country: trimmedAddress.country
+        ...(trimmedAddress.address ? { line1: trimmedAddress.address } : {}),
+        ...(trimmedAddress.apartment ? { line2: trimmedAddress.apartment } : {}),
+        ...(trimmedAddress.city ? { city: trimmedAddress.city } : {}),
+        ...(trimmedAddress.state ? { state: trimmedAddress.state } : {}),
+        ...(trimmedAddress.postalCode ? { postal_code: trimmedAddress.postalCode } : {}),
+        ...(trimmedAddress.country ? { country: trimmedAddress.country } : {}),
       };
     }
   }
@@ -80,6 +85,7 @@ export function formatFormData(formData: Record<string, unknown>, practiceSlug: 
     ...(phone ? { phone } : {}),
     ...(description ? { description } : {}),
     ...(opposingParty ? { opposing_party: opposingParty } : {}),
+    ...(practiceServiceUuid ? { practice_service_uuid: practiceServiceUuid } : {}),
     ...(addressPayload ? { address: addressPayload } : {}),
   };
 }
@@ -393,6 +399,7 @@ export async function submitContactForm(
       ...(formPayload.phone ? { phone: formPayload.phone } : {}),
       ...(description ? { description } : { description: '' }), // Always include description
       ...(formPayload.opposing_party ? { opposing_party: formPayload.opposing_party } : { opposing_party: '' }), // Always include opposing_party
+      ...(formPayload.practice_service_uuid ? { practice_service_uuid: formPayload.practice_service_uuid } : {}),
       ...(formPayload.address ? { address: formPayload.address } : {}),
       ...(resolvedUserId ? { user_id: resolvedUserId } : {}),
       on_behalf_of: '' // Always include on_behalf_of

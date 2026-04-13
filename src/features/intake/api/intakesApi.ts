@@ -32,6 +32,7 @@ export interface IntakeListItem {
     on_behalf_of?: string;
     opposing_party?: string;
     description?: string;
+    practice_service_uuid?: string;
     [key: string]: unknown;
   };
   succeeded_at?: string | null;
@@ -71,7 +72,15 @@ export interface PracticeIntakeDetail {
     opposing_party?: string;
     description?: string;
     user_id?: string;
-    address?: Record<string, unknown>;
+    practice_service_uuid?: string;
+    address?: {
+      line1?: string;
+      line2?: string;
+      city?: string;
+      state?: string;
+      postal_code?: string;
+      country?: string;
+    };
     [key: string]: unknown;
   };
   stripe_charge_id?: string;

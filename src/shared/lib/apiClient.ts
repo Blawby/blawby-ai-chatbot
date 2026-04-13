@@ -211,7 +211,7 @@ export interface PracticeDetailsUpdate {
 }
 
 // Fix: Remove conflicting extension, merge manually if needed
-export type UpdatePracticeRequest = Omit<Partial<CreatePracticeRequest>, 'businessEmail'> & PracticeDetailsUpdate;
+export type UpdatePracticeRequest = Omit<Partial<CreatePracticeRequest>, keyof PracticeDetailsUpdate> & PracticeDetailsUpdate;
 
 export interface PracticeDetails {
   id?: string;
@@ -1166,7 +1166,12 @@ export async function createUserDetail(
         role: 'client'
       });
     }
-    await (authClient as any).organization?.inviteMember?.({
+    const inviteClient = authClient as unknown as {
+      organization?: {
+        inviteMember?: (payload: { email: string; role: string; organizationId: string }) => Promise<unknown>;
+      };
+    };
+    await inviteClient.organization?.inviteMember?.({
       email: normalizedEmail,
       role: 'client',
       organizationId: practiceId,

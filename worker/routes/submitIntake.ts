@@ -45,7 +45,7 @@ interface IntakeConversationState {
   hasDocuments?: boolean | null;
   income?: string | null;
   householdSize?: number | null;
-  practiceArea?: string | null;
+  practiceServiceUuid?: string | null;
 }
 
 interface ConversationUserInfo {
@@ -75,9 +75,11 @@ interface BackendIntakeCreatePayload {
   has_documents?: boolean;
   // income is intentionally omitted — free-text string incompatible with backend number type
   household_size?: number;
-  practice_area?: string;
-  city?: string;
-  state?: string;
+  practice_service_uuid?: string;
+  address?: {
+    city?: string;
+    state?: string;
+  };
   /** Plain-text digest of the intake conversation; max 4000 chars. Used by backend to bootstrap proposal_data. */
   transcript_summary?: string;
 }
@@ -140,7 +142,7 @@ const sanitizeMergedIntakeState = (value: unknown): IntakeConversationState | nu
     hasDocuments: typeof raw.hasDocuments === 'boolean' ? raw.hasDocuments : null,
     income: parseStr(raw.income),
     householdSize: typeof raw.householdSize === 'number' ? raw.householdSize : null,
-    practiceArea: parseStr(raw.practiceArea),
+    practiceServiceUuid: parseStr(raw.practiceServiceUuid),
   };
 
   for (const key of Object.keys(state) as Array<keyof IntakeConversationState>) {
@@ -299,8 +301,12 @@ const buildIntakePayload = (
   if (draft.phone) payload.phone = draft.phone;
   const city = intake?.city?.trim() || draft.city;
   const state = intake?.state?.trim() || draft.state;
-  if (city) payload.city = city;
-  if (state) payload.state = state;
+  if (city || state) {
+    payload.address = {
+      ...(city ? { city } : {}),
+      ...(state ? { state } : {}),
+    };
+  }
 
   // Merge AI-enriched fields — intake fields take precedence over draft
   const description = intake?.description?.trim() || draft.description?.trim();
@@ -316,7 +322,7 @@ const buildIntakePayload = (
   // income is intentionally omitted — the backend expects a number but extraction returns free-text;
   // if sliding-scale eligibility is needed, handle it in a separate dedicated flow.
   if (typeof intake?.householdSize === 'number') payload.household_size = intake.householdSize;
-  if (intake?.practiceArea) payload.practice_area = intake.practiceArea;
+  if (intake?.practiceServiceUuid) payload.practice_service_uuid = intake.practiceServiceUuid;
 
   return payload;
 };

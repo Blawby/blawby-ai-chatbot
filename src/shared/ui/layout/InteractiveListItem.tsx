@@ -44,22 +44,28 @@ export const InteractiveListItem = ({
     onClick();
   };
 
-  const content = (
-    <div 
-      className={cn(
-        'flex flex-wrap items-start justify-between gap-4 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40',
-        padding,
-        isSelected ? 'bg-surface-utility/60' : (isClickable && !disabled && 'hover:bg-surface-utility/40 cursor-pointer'),
-        disabled && 'opacity-60 cursor-not-allowed',
-        className
-      )}
-      onClick={isClickable ? handleClick : undefined}
+  const itemClassName = cn(
+    'flex flex-wrap items-start justify-between gap-4 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40',
+    padding,
+    isSelected ? 'bg-surface-utility/60' : (isClickable && !disabled && 'hover:bg-surface-utility/40 cursor-pointer'),
+    disabled && 'opacity-60 cursor-not-allowed',
+    className
+  );
+
+  const content = isClickable ? (
+    <div
+      className={itemClassName}
+      onClick={handleClick}
       onKeyDown={handleKeyDown}
-      role={isClickable ? 'button' : undefined}
-      tabIndex={isClickable && !disabled ? 0 : -1}
+      role="button"
+      tabIndex={disabled ? -1 : 0}
       aria-disabled={disabled}
-      aria-pressed={isClickable ? isSelected : undefined}
+      aria-pressed={isSelected}
     >
+      {children}
+    </div>
+  ) : (
+    <div className={itemClassName}>
       {children}
     </div>
   );

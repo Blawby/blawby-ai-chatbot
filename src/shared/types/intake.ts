@@ -26,7 +26,7 @@ export type ConsultationStatus =
   | 'completed';
 
 export interface IntakeConversationState {
-  practiceArea: string | null;
+  practiceServiceUuid: string | null;
   description: string | null;
   urgency: IntakeUrgency | null;
   opposingParty: string | null;
@@ -61,7 +61,7 @@ export interface ConsultationState {
 }
 
 export const initialIntakeState: IntakeConversationState = {
-  practiceArea: null,
+  practiceServiceUuid: null,
   description: null,
   urgency: null,
   opposingParty: null,
@@ -89,7 +89,7 @@ export const initialConsultationSubmissionState: ConsultationSubmissionState = {
 export const CONSULTATION_STATE_VERSION = 1;
 
 export type IntakeFieldsPayload = {
-  practiceArea?: string;
+  practiceServiceUuid?: string;
   description?: string;
   urgency?: IntakeUrgency;
   opposingParty?: string;

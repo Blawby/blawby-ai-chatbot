@@ -13,7 +13,7 @@ export const resolveStrengthTier = (state: IntakeConversationState | null): Stre
   if (hasDescription) score += 20;
   if (descriptionWords >= 15) score += 10;
   if (state.city?.trim() && state.state?.trim()) score += 15;
-  if (state.practiceArea) score += 10;
+  if (state.practiceServiceUuid) score += 10;
   if (state.urgency) score += 10;
   if (state.opposingParty?.trim()) score += 10;
   if (state.desiredOutcome?.trim()) score += 10;

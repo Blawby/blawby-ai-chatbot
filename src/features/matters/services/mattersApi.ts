@@ -541,7 +541,7 @@ export const updateMatter = async (
     throw new Error('practiceId and matterId are required');
   }
   const normalizedPayload = normalizeMatterPayload(payload);
-  console.log('[mattersApi] updateMatter normalizedPayload:', JSON.stringify(normalizedPayload));
+  // Debug log removed for security/cleanliness
   const json = await requestData(
     apiClient.put(
       matterItemPath(practiceId, matterId),

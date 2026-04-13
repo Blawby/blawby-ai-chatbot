@@ -381,11 +381,14 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
   const email = typeof meta.email === 'string' ? meta.email : null;
   const phone = typeof meta.phone === 'string' ? meta.phone : null;
   const description = typeof meta.description === 'string' ? meta.description : null;
-  const practiceArea = typeof meta.practice_area === 'string' ? meta.practice_area : (typeof meta.practiceArea === 'string' ? meta.practiceArea : null);
+  const practiceServiceUuid = typeof meta.practice_service_uuid === 'string' ? meta.practice_service_uuid : null;
   const onBehalfOf = typeof meta.on_behalf_of === 'string' ? meta.on_behalf_of : null;
   const opposingParty = typeof meta.opposing_party === 'string' ? meta.opposing_party : null;
-  const city = typeof meta.city === 'string' ? meta.city : null;
-  const state = typeof meta.state === 'string' ? meta.state : null;
+  const address = meta.address && typeof meta.address === 'object' && !Array.isArray(meta.address)
+    ? meta.address as Record<string, unknown>
+    : null;
+  const city = typeof address?.city === 'string' ? address.city : null;
+  const state = typeof address?.state === 'string' ? address.state : null;
   const dateLabel = formatLongDate(intake.created_at);
   const caseStrength = typeof intake.case_strength === 'number' ? `${intake.case_strength}%` : null;
   const feeAmount = formatAmount(intake.amount, intake.currency);
@@ -426,9 +429,9 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
                   {name}
                 </h1>
                 <div className="flex items-center flex-wrap gap-3 mb-6 sm:mb-8">
-                  {practiceArea ? (
+                  {practiceServiceUuid ? (
                     <div className="bg-accent/10 border border-accent/20 text-[rgb(var(--accent-foreground))] px-2 py-0.5 rounded-md text-xs font-semibold">
-                      {practiceArea}
+                      {practiceServiceUuid}
                     </div>
                   ) : null}
                   <span className="text-sm text-input-placeholder">

@@ -8,7 +8,7 @@ import type { IntakeConversationState } from '../../../src/shared/types/intake';
 
 // Helper function to create minimal intake state for testing
 const createMinimalIntakeState = (overrides: Partial<IntakeConversationState> = {}): IntakeConversationState => ({
-  practiceArea: null,
+  practiceServiceUuid: null,
   description: null,
   urgency: null,
   opposingParty: null,
@@ -218,7 +218,7 @@ describe('Intake State Transitions', () => {
         city: 'City',
         state: 'CA',
         opposingParty: 'Party',
-        practiceArea: 'Family Law',
+        practiceServiceUuid: '00000000-0000-0000-0000-000000000001',
         urgency: 'routine',
         desiredOutcome: 'Fair settlement',
         courtDate: '2024-06-15',

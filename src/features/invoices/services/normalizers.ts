@@ -87,9 +87,7 @@ export const extractInvoiceRecord = (payload: unknown): Record<string, unknown> 
   // Handle root-level invoice object (must have id and status fields)
   if (
     typeof record.id === 'string' &&
-    typeof record.status === 'string' &&
-    typeof record.created_at === 'string' &&
-    typeof record.total !== 'undefined'
+    typeof record.status === 'string'
   ) {
     return record;
   }

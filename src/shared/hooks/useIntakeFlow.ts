@@ -33,7 +33,7 @@ const sanitizeName = (name: string): string =>
     .replace(/'/g, '&#039;');
 
 const INTAKE_FIELD_LABELS: Partial<Record<keyof IntakeFieldsPayload, string>> = {
-  practiceArea: 'Practice area',
+  practiceServiceUuid: 'Practice area',
   description: 'Case summary',
   urgency: 'Urgency',
   opposingParty: 'Opposing party',
@@ -46,7 +46,7 @@ const INTAKE_FIELD_LABELS: Partial<Record<keyof IntakeFieldsPayload, string>> = 
 };
 
 const PERSISTED_INTAKE_FIELD_KEYS = [
-  'practiceArea',
+  'practiceServiceUuid',
   'description',
   'urgency',
   'opposingParty',

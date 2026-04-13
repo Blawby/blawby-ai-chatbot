@@ -123,8 +123,21 @@ export const getInvoice = async (
     }
     const invoice = normalizeInvoice(rawInvoice as BackendInvoice);
     return normalizeInvoiceDetail(invoice, rawInvoice);
-  } catch (error) {
-    return null;
+  } catch (error: unknown) {
+    // Only return null for 404, propagate AbortError, rethrow others
+    const errorRecord = error && typeof error === 'object' ? error as Record<string, unknown> : null;
+    const responseRecord = errorRecord?.response && typeof errorRecord.response === 'object'
+      ? errorRecord.response as Record<string, unknown>
+      : null;
+    const status = (responseRecord?.status ?? errorRecord?.status ?? errorRecord?.statusCode) as number | undefined;
+    if (status === 404) {
+      if (typeof console !== 'undefined' && console.warn) {
+        console.warn('[getInvoice] 404 Not Found', { practiceId, invoiceId, error });
+      }
+      return null;
+    }
+    if (errorRecord?.name === 'AbortError') throw error;
+    throw error;
   }
 };
 

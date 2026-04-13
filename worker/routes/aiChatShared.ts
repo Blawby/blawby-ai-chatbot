@@ -441,7 +441,7 @@ const normalizeKeys = (obj: unknown): unknown => {
   const record = obj as Record<string, unknown>;
   const next: Record<string, unknown> = {};
   const mapping: Record<string, string> = {
-    practice_area: 'practiceArea',
+    practice_service_uuid: 'practiceServiceUuid',
     opposing_party: 'opposingParty',
     desired_outcome: 'desiredOutcome',
     postal_code: 'postalCode',

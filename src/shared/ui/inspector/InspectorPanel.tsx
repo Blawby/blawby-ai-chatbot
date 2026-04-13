@@ -255,9 +255,9 @@ export const InspectorPanel = ({
   const intakeServiceOptions = useMemo<ComboboxOption[]>(() => {
     if (!practiceDetail?.services) return [];
     
-    const rawOptions = (practiceDetail.services as Array<{ key?: string; name?: string; title?: string }>).map((s, idx) => ({
-      value: s.key || s.name || s.title || `service-${idx}`,
-      label: s.name || s.title || (s.key ? s.key.replace(/_/g, ' ') : `Service ${idx + 1}`),
+    const rawOptions = (practiceDetail.services as Array<{ id?: string; name?: string; title?: string }>).map((s, idx) => ({
+      value: s.id || '',
+      label: s.name || s.title || `Service ${idx + 1}`,
     }));
 
     // Deduplicate by value
@@ -482,10 +482,20 @@ export const InspectorPanel = ({
     ?? resolveString(matterDetailRecord?.updated_at)
     ?? null;
   const resolvedMatterAssigneeIds = useMemo(() => {
-    return Array.isArray(matterDetailRecord?.assignee_ids)
-      ? matterDetailRecord.assignee_ids.filter((id): id is string => typeof id === 'string' && id.trim().length > 0)
-      : [];
-  }, [matterDetailRecord?.assignee_ids]);
+    // Prefer assignee_ids if present and non-empty
+    if (Array.isArray(matterDetailRecord?.assignee_ids) && matterDetailRecord.assignee_ids.length > 0) {
+      return matterDetailRecord.assignee_ids.filter((id): id is string => typeof id === 'string' && id.trim().length > 0);
+    }
+    // Fallback: extract ids from assignees array if available
+    const assignees = Array.isArray(matterDetailRecord?.assignees) ? matterDetailRecord.assignees : [];
+    return assignees
+      .map((assignee) => {
+        if (!assignee || typeof assignee !== 'object') return '';
+        const row = assignee as Record<string, unknown>;
+        return typeof row.id === 'string' ? row.id : '';
+      })
+      .filter((id): id is string => id.length > 0);
+  }, [matterDetailRecord?.assignee_ids, matterDetailRecord?.assignees]);
   const resolvedMatterAssigneeNames = useMemo(() => {
     if (matterAssigneeNames && matterAssigneeNames.length > 0) return matterAssigneeNames;
     const assigneesValue = matterDetailRecord?.assignees;
@@ -1044,11 +1054,11 @@ export const InspectorPanel = ({
                             </InspectorGroup>
 
                             {(() => {
-                              const rawPracticeArea = intakeConversationState.practiceArea;
-                              const resolvedOpt = rawPracticeArea 
-                                ? intakeServiceOptions.find((opt) => opt.value === rawPracticeArea || (opt as { key?: string }).key === rawPracticeArea) 
+                              const rawPracticeServiceUuid = intakeConversationState.practiceServiceUuid;
+                              const resolvedOpt = rawPracticeServiceUuid
+                                ? intakeServiceOptions.find((opt) => opt.value === rawPracticeServiceUuid)
                                 : null;
-                              const resolvedLabel = resolvedOpt ? resolvedOpt.label : rawPracticeArea;
+                              const resolvedLabel = resolvedOpt ? resolvedOpt.label : rawPracticeServiceUuid;
                               return (
                                 <InspectorGroup 
                                   label="Practice Area" 
@@ -1062,9 +1072,9 @@ export const InspectorPanel = ({
                                     isOpen={activeConversationEditor === 'intakePracticeArea'}
                                   >
                                     <Combobox
-                                      value={rawPracticeArea ?? ''}
+                                      value={rawPracticeServiceUuid ?? ''}
                                       onChange={(v) => {
-                                        void handleIntakeFieldChange({ practiceArea: v }, true);
+                                        void handleIntakeFieldChange({ practiceServiceUuid: v }, true);
                                       }}
                                       options={intakeServiceOptions}
                                       placeholder="Select Practice Area"

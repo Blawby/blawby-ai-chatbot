@@ -3,6 +3,7 @@ import { HttpErrors } from '../errorHandler.js';
 import { getDomain } from 'tldts';
 import { optionalAuth } from '../middleware/auth.js';
 import { invalidatePracticeDetailsCache } from '../utils/practiceDetailsCache.js';
+import { Logger } from '../utils/logger.js';
 
 const AUTH_PATH_PREFIX = '/api/auth';
 const SUBSCRIPTIONS_CURRENT_PATH = '/api/subscriptions/current';
@@ -342,15 +343,30 @@ export async function handleBackendProxy(request: Request, env: Env): Promise<Re
   }
 
   const fetchBackendResponse = async (): Promise<Response> => {
-    if (method === 'PUT' && url.pathname.includes('/matters/')) {
+    // Debug logging for PUT /matters/ with redaction, gated by DEBUG flag
+    if (
+      method === 'PUT' &&
+      url.pathname.match(/\/matters\//) &&
+      (env.DEBUG === '1' || env.DEBUG === 'true')
+    ) {
       try {
-        if (init.body) {
-          const decoder = new TextDecoder();
-          const clonedBody = decoder.decode(init.body as ArrayBuffer);
-          console.log(`[authProxy DEBUG] OUTGOING PUT ${url.pathname} BODY:`, clonedBody);
+        let bodyObj: unknown = null;
+        if (init.body instanceof ArrayBuffer) {
+          const text = new TextDecoder().decode(init.body);
+          bodyObj = JSON.parse(text);
+        } else if (typeof init.body === 'string') {
+          bodyObj = JSON.parse(init.body);
+        }
+        if (bodyObj && typeof bodyObj === 'object') {
+          // Redact sensitive fields
+          const redacted = { ...(bodyObj as Record<string, unknown>) };
+          for (const key of ['token', 'access_token', 'refresh_token', 'user_id', 'email', 'password']) {
+            if (redacted[key]) redacted[key] = '[REDACTED]';
+          }
+          Logger.debug('PUT /matters/ payload', redacted);
         }
       } catch (e) {
-        // ignore
+        Logger.debug('PUT /matters/ payload (unparseable)', { error: String(e) });
       }
     }
     const response = await fetch(targetUrl.toString(), init);
