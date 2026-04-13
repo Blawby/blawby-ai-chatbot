@@ -477,25 +477,25 @@ export const buildUpdatePayload = (
 ): Record<string, unknown> => ({
   title: values.title.trim(),
   billing_type: values.billingType,
-  description: values.description?.trim() ?? undefined,
-  client_id: nullIfEmpty(values.clientId),
-  practice_service_id: nullIfEmpty(values.practiceAreaId),
-  case_number: nullIfEmpty(values.caseNumber),
-  matter_type: nullIfEmpty(values.matterType),
-  urgency: nullIfEmpty(values.urgency),
-  responsible_attorney_id: uuidOrNull(values.responsibleAttorneyId),
-  originating_attorney_id: uuidOrNull(values.originatingAttorneyId),
-  court: nullIfEmpty(values.court),
-  judge: nullIfEmpty(values.judge),
-  opposing_party: nullIfEmpty(values.opposingParty),
-  opposing_counsel: nullIfEmpty(values.opposingCounsel),
-  attorney_hourly_rate: values.attorneyHourlyRate ?? undefined,
-  admin_hourly_rate: values.adminHourlyRate ?? undefined,
-  payment_frequency: values.paymentFrequency ?? undefined,
-  settlement_amount: values.settlementAmount ?? undefined,
+  description: values.description?.trim() ?? null,
+  client_id: values.clientId && values.clientId !== '' ? values.clientId : null,
+  practice_service_id: values.practiceAreaId && values.practiceAreaId !== '' ? values.practiceAreaId : null,
+  case_number: values.caseNumber && values.caseNumber !== '' ? values.caseNumber : null,
+  matter_type: values.matterType && values.matterType !== '' ? values.matterType : null,
+  urgency: values.urgency ? values.urgency : null,
+  responsible_attorney_id: values.responsibleAttorneyId && values.responsibleAttorneyId !== '' ? values.responsibleAttorneyId : null,
+  originating_attorney_id: values.originatingAttorneyId && values.originatingAttorneyId !== '' ? values.originatingAttorneyId : null,
+  court: values.court && values.court !== '' ? values.court : null,
+  judge: values.judge && values.judge !== '' ? values.judge : null,
+  opposing_party: values.opposingParty && values.opposingParty !== '' ? values.opposingParty : null,
+  opposing_counsel: values.opposingCounsel && values.opposingCounsel !== '' ? values.opposingCounsel : null,
+  attorney_hourly_rate: values.attorneyHourlyRate ?? null,
+  admin_hourly_rate: values.adminHourlyRate ?? null,
+  payment_frequency: values.paymentFrequency ?? null,
+  settlement_amount: values.settlementAmount ?? null,
   // Only send status if it changed
   status: values.status !== currentStatus ? values.status : undefined,
-  assignee_ids: values.assigneeIds.length > 0 ? values.assigneeIds : null
+  assignee_ids: Array.isArray(values.assigneeIds) ? values.assigneeIds : []
 });
 
 export const prunePayload = (payload: Record<string, unknown>): Record<string, unknown> =>

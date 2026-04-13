@@ -19,6 +19,7 @@ import { Logger } from '../utils/logger.js';
 import type { Env } from '../types.js';
 import { isIntakeReadyForSubmission, resolveConsultationState } from '../../src/shared/utils/consultationState';
 import { fetchPracticeDetailsWithCache } from '../utils/practiceDetailsCache.js';
+import { createAiClient } from '../utils/aiClient.js';
 
 // ------------------------------------------------------------------
 // Types
@@ -45,7 +46,7 @@ interface IntakeConversationState {
   hasDocuments?: boolean | null;
   income?: string | null;
   householdSize?: number | null;
-  practiceArea?: string | null;
+  practiceServiceUuid?: string | null;
 }
 
 interface ConversationUserInfo {
@@ -53,6 +54,8 @@ interface ConversationUserInfo {
   intakeSlimContactDraft?: SlimContactDraft | null;
   intakeConversationState?: IntakeConversationState | null;
   intakeUuid?: string | null;
+  title?: string | null;
+  intake_title?: string | null;
   [key: string]: unknown;
 }
 
@@ -75,9 +78,11 @@ interface BackendIntakeCreatePayload {
   has_documents?: boolean;
   // income is intentionally omitted — free-text string incompatible with backend number type
   household_size?: number;
-  practice_area?: string;
-  city?: string;
-  state?: string;
+  practice_service_uuid?: string;
+  address?: {
+    city?: string;
+    state?: string;
+  };
   /** Plain-text digest of the intake conversation; max 4000 chars. Used by backend to bootstrap proposal_data. */
   transcript_summary?: string;
 }
@@ -96,6 +101,10 @@ interface BackendIntakeCreateResponse {
   };
   error?: string;
 }
+
+const INTAKE_TITLE_MAX_LENGTH = 80;
+const INTAKE_TITLE_MAX_TOKENS = 24;
+const DEFAULT_AI_MODEL = '@cf/zai-org/glm-4.7-flash';
 
 // ------------------------------------------------------------------
 // Helpers
@@ -140,7 +149,7 @@ const sanitizeMergedIntakeState = (value: unknown): IntakeConversationState | nu
     hasDocuments: typeof raw.hasDocuments === 'boolean' ? raw.hasDocuments : null,
     income: parseStr(raw.income),
     householdSize: typeof raw.householdSize === 'number' ? raw.householdSize : null,
-    practiceArea: parseStr(raw.practiceArea),
+    practiceServiceUuid: parseStr(raw.practiceServiceUuid),
   };
 
   for (const key of Object.keys(state) as Array<keyof IntakeConversationState>) {
@@ -261,6 +270,132 @@ const isCaseInfoComplete = (state: IntakeConversationState | null | undefined, d
   return isIntakeReadyForSubmission(readinessState);
 };
 
+const normalizeIntakeTitle = (raw: string): string => {
+  const cleaned = raw.replace(/^["'`]+|["'`]+$/g, '').replace(/\s+/g, ' ').trim();
+  if (!cleaned) return '';
+  return cleaned.length <= INTAKE_TITLE_MAX_LENGTH
+    ? cleaned
+    : cleaned.slice(0, INTAKE_TITLE_MAX_LENGTH).trim();
+};
+
+const buildFallbackIntakeTitle = (draft: SlimContactDraft, intake: IntakeConversationState | null | undefined): string => {
+  const description = intake?.description?.trim() || draft.description?.trim() || '';
+  if (description) {
+    const sentence = description.split(/[.!?]\s/)[0]?.trim() || description;
+    return normalizeIntakeTitle(sentence.split(/\s+/).filter(Boolean).slice(0, 8).join(' '));
+  }
+
+  const opposingParty = intake?.opposingParty?.trim() || draft.opposingParty?.trim() || '';
+  if (opposingParty) {
+    return normalizeIntakeTitle(`${draft.name} matter with ${opposingParty}`);
+  }
+
+  return normalizeIntakeTitle(`${draft.name} intake`);
+};
+
+const generateIntakeTitle = async (
+  env: Env,
+  draft: SlimContactDraft,
+  intake: IntakeConversationState | null | undefined,
+  transcriptSummary?: string | null
+): Promise<string> => {
+  const fallbackTitle = buildFallbackIntakeTitle(draft, intake);
+  let aiClient;
+  try {
+    aiClient = createAiClient(env);
+  } catch (error) {
+    Logger.warn('[submitIntake] AI client unavailable for intake title generation', {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return fallbackTitle;
+  }
+
+  const caseDetails = [
+    intake?.description?.trim() ? `Description: ${intake.description.trim()}` : null,
+    intake?.opposingParty?.trim() ? `Opposing party: ${intake.opposingParty.trim()}` : null,
+    intake?.desiredOutcome?.trim() ? `Desired outcome: ${intake.desiredOutcome.trim()}` : null,
+    intake?.urgency ? `Urgency: ${intake.urgency}` : null,
+    draft.city || draft.state || intake?.city || intake?.state
+      ? `Location: ${[intake?.city || draft.city, intake?.state || draft.state].filter(Boolean).join(', ')}`
+      : null,
+    transcriptSummary?.trim() ? `Transcript: ${transcriptSummary.trim().slice(0, 1200)}` : null,
+  ].filter(Boolean).join('\n');
+
+  let response: Response;
+  try {
+    response = await aiClient.requestChatCompletions({
+      model: env.AI_MODEL || DEFAULT_AI_MODEL,
+      temperature: 0.2,
+      max_tokens: INTAKE_TITLE_MAX_TOKENS,
+      messages: [
+        {
+          role: 'system',
+          content: [
+            'Create a short legal intake title in 3-7 words.',
+            'Use plain text only. No quotes. No punctuation at the end.',
+            'Describe the legal issue, not the contact name.',
+            'Do not give legal advice.'
+          ].join(' ')
+        },
+        {
+          role: 'user',
+          content: caseDetails || `Contact: ${draft.name}`
+        }
+      ]
+    });
+  } catch (error) {
+    Logger.warn('[submitIntake] Intake title generation request failed', {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return fallbackTitle;
+  }
+
+  if (!response.ok) {
+    Logger.warn('[submitIntake] Intake title generation failed', { status: response.status });
+    return fallbackTitle;
+  }
+
+  const payload = await response.json().catch(() => null) as {
+    choices?: Array<{ message?: { content?: string | null } }>;
+  } | null;
+  const raw = payload?.choices?.[0]?.message?.content;
+  const title = typeof raw === 'string' ? normalizeIntakeTitle(raw) : '';
+  return title || fallbackTitle;
+};
+
+const persistConversationIntakeTitle = async (
+  env: Env,
+  conversationId: string,
+  title: string
+): Promise<void> => {
+  const record = await env.DB.prepare(`
+    SELECT user_info
+    FROM conversations
+    WHERE id = ?
+  `).bind(conversationId).first<{ user_info: string | null } | null>();
+
+  let metadata: Record<string, unknown> = {};
+  if (record?.user_info) {
+    metadata = JSON.parse(record.user_info) as Record<string, unknown>;
+  }
+
+  const nextMetadata = {
+    ...metadata,
+    title,
+    intake_title: title,
+  };
+
+  await env.DB.prepare(`
+    UPDATE conversations
+    SET user_info = ?, updated_at = ?
+    WHERE id = ?
+  `).bind(
+    JSON.stringify(nextMetadata),
+    new Date().toISOString(),
+    conversationId
+  ).run();
+};
+
 const buildIntakePayload = (
   conversationId: string,
   slug: string,
@@ -299,8 +434,12 @@ const buildIntakePayload = (
   if (draft.phone) payload.phone = draft.phone;
   const city = intake?.city?.trim() || draft.city;
   const state = intake?.state?.trim() || draft.state;
-  if (city) payload.city = city;
-  if (state) payload.state = state;
+  if (city || state) {
+    payload.address = {
+      ...(city ? { city } : {}),
+      ...(state ? { state } : {}),
+    };
+  }
 
   // Merge AI-enriched fields — intake fields take precedence over draft
   const description = intake?.description?.trim() || draft.description?.trim();
@@ -316,7 +455,7 @@ const buildIntakePayload = (
   // income is intentionally omitted — the backend expects a number but extraction returns free-text;
   // if sliding-scale eligibility is needed, handle it in a separate dedicated flow.
   if (typeof intake?.householdSize === 'number') payload.household_size = intake.householdSize;
-  if (intake?.practiceArea) payload.practice_area = intake.practiceArea;
+  if (intake?.practiceServiceUuid) payload.practice_service_uuid = intake.practiceServiceUuid;
 
   return payload;
 };
@@ -561,6 +700,9 @@ export async function handleSubmitIntake(
       chars: transcriptSummary.length,
     });
   }
+
+  const intakeTitle = await generateIntakeTitle(env, draft, intake, transcriptSummary);
+  await persistConversationIntakeTitle(env, conversationId, intakeTitle);
 
   // Call backend API via existing RemoteApiService pattern
   let backendResponse: Response;

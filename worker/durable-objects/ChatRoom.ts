@@ -1587,8 +1587,9 @@ export class ChatRoom {
         {
           role: 'system',
           content: [
-            'Create a short, descriptive conversation title (3-6 words).',
+            'Create a short legal conversation title (3-6 words).',
             'Use plain text only. No quotes. No punctuation at the end.',
+            'Describe the user issue, not the contact name.',
             'Summarize the user message without legal advice.'
           ].join(' ')
         },

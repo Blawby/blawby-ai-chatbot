@@ -210,7 +210,8 @@ export interface PracticeDetailsUpdate {
   businessOnboardingHasDraft?: boolean;
 }
 
-export interface UpdatePracticeRequest extends Partial<CreatePracticeRequest>, PracticeDetailsUpdate {}
+// Fix: Remove conflicting extension, merge manually if needed
+export type UpdatePracticeRequest = Omit<Partial<CreatePracticeRequest>, keyof PracticeDetailsUpdate> & PracticeDetailsUpdate;
 
 export interface PracticeDetails {
   id?: string;
@@ -601,7 +602,7 @@ function normalizePracticePayload(payload: unknown): Practice {
       if (typeof rawFee !== 'number') return null;
       assertMinorUnits(rawFee, 'practice.consultationFee');
       return toMajorUnits(Number(rawFee));
-    })(),
+    })() ?? null,
     paymentUrl: toNullableString(record.paymentUrl ?? record.payment_url),
     calendlyUrl: toNullableString(record.calendlyUrl ?? record.calendly_url),
     createdAt: toNullableString(record.createdAt ?? record.created_at),
@@ -625,7 +626,7 @@ function normalizePracticePayload(payload: unknown): Practice {
     country: toNullableString(record.country),
     primaryColor: toNullableString(record.primaryColor ?? record.primary_color),
     accentColor: toNullableString(record.accentColor ?? record.accent_color),
-    description: toNullableString(record.description ?? record.overview),
+    description: toNullableString(record.description ?? record.overview) ?? undefined,
     isPublic: 'isPublic' in record || 'is_public' in record
       ? Boolean(record.isPublic ?? record.is_public)
       : null,
@@ -1165,7 +1166,12 @@ export async function createUserDetail(
         role: 'client'
       });
     }
-    await authClient.organization.inviteMember({
+    const inviteClient = authClient as unknown as {
+      organization?: {
+        inviteMember?: (payload: { email: string; role: string; organizationId: string }) => Promise<unknown>;
+      };
+    };
+    await inviteClient.organization?.inviteMember?.({
       email: normalizedEmail,
       role: 'client',
       organizationId: practiceId,
@@ -1854,7 +1860,7 @@ export function normalizePracticeDetailsResponse(payload: unknown): PracticeDeta
   };
 
   return {
-    id: getOptionalNullableString(container, ['id', 'uuid', 'practice_id', 'practiceId', 'organization_id', 'organizationId']),
+    id: getOptionalNullableString(container, ['id', 'uuid', 'practice_id', 'practiceId', 'organization_id', 'organizationId']) ?? undefined,
     businessPhone: getOptionalNullableString(container, ['business_phone', 'businessPhone']),
     businessEmail: getOptionalNullableString(container, ['business_email', 'businessEmail']),
     consultationFee: (() => {

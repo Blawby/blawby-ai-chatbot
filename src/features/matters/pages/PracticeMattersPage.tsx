@@ -84,7 +84,9 @@ import { useBillingData } from '@/features/matters/hooks/useBillingData';
 import type { Invoice, InvoiceLineItem } from '@/features/matters/types/billing.types';
 import { createPendingInvoiceDraftContext } from '@/features/invoices/utils/invoiceDraftContext';
 import { getPracticeIntake } from '@/features/intake/api/intakesApi';
+import { resolveIntakeTitle } from '@/features/intake/utils/intakeTitle';
 import { getOnboardingStatus, listUserDetails, type UserDetailRecord } from '@/shared/lib/apiClient';
+import { getConversation } from '@/shared/lib/conversationApi';
 import { invalidateMattersForPractice } from '@/shared/stores/mattersStore';
 import { normalizePracticeOnboardingStatus } from '@/features/practice/types/onboarding.types';
 import {
@@ -631,6 +633,9 @@ export const PracticeMattersPage = ({
       return;
     }
 
+    // Clear stale convertInitialValues before async fetch
+    setConvertInitialValues(undefined);
+
     const controller = new AbortController();
     setConvertLoading(true);
     setConvertError(null);
@@ -638,21 +643,44 @@ export const PracticeMattersPage = ({
     getPracticeIntake(activePracticeId, convertIntakeUuid, { signal: controller.signal })
       .then((intake) => {
         const metadata = (intake.metadata ?? {}) as NonNullable<typeof intake.metadata>;
-        const contactName = typeof metadata.name === 'string' ? metadata.name.trim() : '';
-        const representedParty = typeof metadata.on_behalf_of === 'string' ? metadata.on_behalf_of.trim() : '';
         const description = typeof metadata.description === 'string' ? metadata.description : '';
         const opposingParty = typeof metadata.opposing_party === 'string' ? metadata.opposing_party : '';
-        const titleSource = representedParty || contactName;
-        setConvertInitialValues({
-          title: titleSource ? `Intake: ${titleSource}` : '',
-          description,
-          opposingParty,
-          urgency: intake.urgency === 'routine' || intake.urgency === 'time_sensitive' || intake.urgency === 'emergency'
-            ? intake.urgency
-            : '',
-          status: 'engagement_pending',
-          openDate: typeof intake.created_at === 'string' ? intake.created_at.slice(0, 10) : '',
-        });
+        const applyInitialValues = (conversationMetadata?: { title?: string; intake_title?: string } | null) => {
+          if (controller.signal.aborted) return;
+          const title = resolveIntakeTitle(
+            {
+              ...metadata,
+              title: conversationMetadata?.title ?? metadata.title,
+              intake_title: conversationMetadata?.intake_title ?? metadata.intake_title,
+            },
+            'Intake matter'
+          );
+          setConvertInitialValues({
+            title,
+            description,
+            opposingParty,
+            urgency: intake.urgency === 'routine' || intake.urgency === 'time_sensitive' || intake.urgency === 'emergency'
+              ? intake.urgency
+              : '',
+            status: 'engagement_pending',
+            openDate: typeof intake.created_at === 'string' ? intake.created_at.slice(0, 10) : '',
+          });
+        };
+
+        if (!intake.conversation_id) {
+          applyInitialValues();
+          return null;
+        }
+
+        return getConversation(intake.conversation_id, activePracticeId, { signal: controller.signal })
+          .then((conversation) => {
+            applyInitialValues(conversation?.user_info ?? null);
+          })
+          .catch((conversationError: unknown) => {
+            if ((conversationError as DOMException).name === 'AbortError') return;
+            console.warn('[PracticeMattersPage] Failed to load intake conversation title', conversationError);
+            applyInitialValues();
+          });
       })
       .catch((error: unknown) => {
         if ((error as DOMException).name === 'AbortError') return;

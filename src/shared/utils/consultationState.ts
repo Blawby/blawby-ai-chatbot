@@ -70,7 +70,7 @@ const mergeIntakeState = (
 ): IntakeConversationState => {
   const fallback = source ?? initialIntakeState;
   return {
-    practiceArea: normalized.practiceArea ?? fallback.practiceArea,
+    practiceServiceUuid: normalized.practiceServiceUuid ?? fallback.practiceServiceUuid,
     description: normalized.description ?? fallback.description,
     urgency: normalized.urgency ?? fallback.urgency,
     opposingParty: normalized.opposingParty ?? fallback.opposingParty,
@@ -162,7 +162,7 @@ export const normalizeIntakeConversationState = (value: unknown): IntakeConversa
   const record = value as Record<string, unknown>;
   const urgency = trimString(record.urgency);
   const nextState: IntakeConversationState = {
-    practiceArea: trimString(record.practiceArea) || null,
+    practiceServiceUuid: trimString(record.practiceServiceUuid) || null,
     description: trimString(record.description) || null,
     urgency: (urgency || null) as IntakeConversationState['urgency'],
     opposingParty: trimString(record.opposingParty) || null,

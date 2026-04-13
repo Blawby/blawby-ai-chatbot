@@ -102,6 +102,7 @@ export interface SetupFieldsPayload {
  */
 export interface ConversationMetadata {
   title?: string;
+  intake_title?: string;
   mode?: ConversationMode;
   first_message_intent?: FirstMessageIntent;
   system_conversation?: boolean;

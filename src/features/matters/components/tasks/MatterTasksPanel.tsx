@@ -303,7 +303,6 @@ export const MatterTasksPanel = ({
                       </DropdownMenu>
                     </div>
                   ) : null}
-                </div>
               </InteractiveListItem>
             );
           })}

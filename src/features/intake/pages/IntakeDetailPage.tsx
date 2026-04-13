@@ -1,5 +1,6 @@
 import { FunctionComponent } from 'preact';
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
+import { useMessageHandling } from '@/shared/hooks/useMessageHandling';
 import {
   CheckCircleIcon,
   UserIcon,
@@ -7,6 +8,8 @@ import {
   ClockIcon,
   ExclamationTriangleIcon,
   CreditCardIcon,
+  MapPinIcon,
+  ClipboardDocumentCheckIcon,
 } from '@heroicons/react/24/outline';
 import { CheckCircleIcon as CheckCircleIconSolid } from '@heroicons/react/24/solid';
 import { Icon } from '@/shared/ui/Icon';
@@ -18,7 +21,6 @@ import { LoadingBlock } from '@/shared/ui/layout/LoadingBlock';
 import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
 import { Dialog, DialogBody, DialogFooter } from '@/shared/ui/dialog';
 import { Textarea } from '@/shared/ui/input';
-import { useNavigation } from '@/shared/utils/navigation';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import {
@@ -27,6 +29,7 @@ import {
   type PracticeIntakeDetail,
 } from '@/features/intake/api/intakesApi';
 import {
+  getConversation,
   fetchConversationMessages,
   postConversationMessage,
   postSystemMessage,
@@ -34,15 +37,20 @@ import {
 } from '@/shared/lib/conversationApi';
 import { formatLongDate } from '@/shared/utils/dateFormatter';
 import VirtualMessageList from '@/features/chat/components/VirtualMessageList';
-import { ChatBubbleLeftRightIcon } from '@heroicons/react/24/outline';
+import MessageComposer from '@/features/chat/components/MessageComposer';
 import type { ChatMessageUI } from '../../../../worker/types';
+import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
+import { resolvePracticeServiceLabel } from '@/features/matters/utils/matterUtils';
+import { resolveIntakeTitle } from '@/features/intake/utils/intakeTitle';
+import type { ConversationMetadata } from '@/shared/types/conversation';
+import { applyConsultationPatchToMetadata, resolveConsultationState } from '@/shared/utils/consultationState';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 // Stat cell for use inside CSS grids — no border treatment
 type StatCellProps = { label: string; value?: string | null; icon?: typeof UserIcon };
 const StatCell: FunctionComponent<StatCellProps> = ({ label, value, icon: IconComp }) => {
-  if (!value) return null;
+  const resolvedValue = value && value.trim().length > 0 ? value : null;
   return (
     <div className="flex items-start gap-2.5">
       {IconComp && (
@@ -52,7 +60,25 @@ const StatCell: FunctionComponent<StatCellProps> = ({ label, value, icon: IconCo
       )}
       <div className="min-w-0">
         <p className="text-xs font-medium uppercase tracking-wide text-input-placeholder mb-0.5">{label}</p>
-        <p className="text-sm text-input-text break-words">{value}</p>
+        <p className={`text-sm break-words ${resolvedValue ? 'text-input-text' : 'text-input-placeholder'}`}>
+          {resolvedValue ?? 'Not provided'}
+        </p>
+      </div>
+    </div>
+  );
+};
+
+type SummaryRowProps = { label: string; value?: string | number | null; icon: typeof UserIcon };
+const SummaryRow: FunctionComponent<SummaryRowProps> = ({ label, value, icon: IconComp }) => {
+  if (value === null || value === undefined || value === '') return null;
+  return (
+    <div className="grid grid-cols-[2rem_minmax(0,1fr)] gap-4 py-4 first:pt-0 last:pb-0">
+      <div className="pt-1 text-input-text">
+        <Icon icon={IconComp} className="h-4 w-4" />
+      </div>
+      <div className="min-w-0">
+        <dt className="mt-1 text-sm font-medium leading-tight text-input-placeholder">{label}</dt>
+        <dd className="break-words text-lg font-semibold leading-tight text-input-text">{value}</dd>
       </div>
     </div>
   );
@@ -77,16 +103,6 @@ function urgencyLabel(u?: string | null) {
   return u ?? null;
 }
 
-const TRIAGE_CHIP: Record<string, string> = {
-  pending_review: 'bg-amber-500/10 text-amber-700 ring-amber-500/20 dark:text-amber-300',
-  accepted:  'bg-emerald-500/10 text-emerald-700 ring-emerald-500/20 dark:text-emerald-300',
-  declined:  'bg-rose-500/10 text-rose-700 ring-rose-500/20 dark:text-rose-300',
-};
-const NEUTRAL_CHIP = 'bg-surface-overlay/60 text-input-placeholder ring-line-glass/30';
-
-function triageChipClass(status?: string) {
-  return TRIAGE_CHIP[status ?? ''] ?? NEUTRAL_CHIP;
-}
 function triageLabel(status?: string) {
   if (status === 'pending_review') return 'Pending Review';
   if (status === 'accepted') return 'Accepted';
@@ -109,13 +125,11 @@ type IntakeDetailPageProps = {
 export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
   practiceId,
   intakeId,
-  conversationsBasePath: conversationsBasePathProp,
   practiceName,
   practiceLogo,
   onBack,
   onTriageComplete,
 }) => {
-  const { navigate } = useNavigation();
   const { showSuccess, showError } = useToastContext();
   const { session } = useSessionContext();
 
@@ -128,7 +142,65 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
   const [triageReason, setTriageReason] = useState('');
   const [previewMessages, setPreviewMessages] = useState<ChatMessageUI[]>([]);
   const [previewLoading, setPreviewLoading] = useState(false);
+  // Use canonical conversation flow state
+  const {
+    conversationMetadata,
+    updateConversationMetadata: updateConversationMetadataPatch,
+    applyIntakeFields,
+    intakeConversationState,
+  } = useMessageHandling({
+    practiceId: practiceId ?? undefined,
+    conversationId: intake?.conversation_id,
+  });
+    // Restore initial previewMessages loading
+    useEffect(() => {
+      const conversationId = intake?.conversation_id;
+      const targetPracticeId = intake?.organization_id;
+      if (!conversationId || !targetPracticeId) {
+        setPreviewMessages([]);
+        setPreviewLoading(false);
+        return;
+      }
+      const controller = new AbortController();
+      setPreviewMessages([]);
+      setPreviewLoading(true);
+      fetchConversationMessages(conversationId, targetPracticeId, { limit: 100, signal: controller.signal })
+        .then((messages) => {
+          if (!isMountedRef.current || controller.signal.aborted) return;
+          const mappedMessages = messages.map((message) => ({
+            id: message.id,
+            role: message.role,
+            content: message.content,
+            timestamp: new Date(message.created_at).getTime(),
+            reply_to_message_id: message.reply_to_message_id ?? null,
+            metadata: message.metadata ?? undefined,
+            isUser: message.user_id === session?.user?.id,
+            seq: message.seq,
+          } satisfies ChatMessageUI));
+          setPreviewMessages(mappedMessages);
+        })
+        .catch((err) => {
+          if (!isMountedRef.current || controller.signal.aborted) return;
+          console.warn('[IntakeDetailPage] Failed to load conversation preview', err);
+          setPreviewMessages([]);
+        })
+        .finally(() => {
+          if (isMountedRef.current && !controller.signal.aborted) {
+            setPreviewLoading(false);
+          }
+        });
+      return () => controller.abort();
+    }, [intake?.conversation_id, intake?.organization_id, session?.user?.id]);
+  const [composerValue, setComposerValue] = useState('');
+  const [composerSubmitting, setComposerSubmitting] = useState(false);
+  const [gatherDetailsSubmitting, setGatherDetailsSubmitting] = useState(false);
+  const composerTextareaRef = useRef<HTMLTextAreaElement>(null);
   const isMountedRef = useRef(true);
+  const {
+    details: practiceDetails,
+    hasDetails: hasPracticeDetails,
+    fetchDetails: fetchPracticeDetails,
+  } = usePracticeDetails(practiceId, null, false);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -160,6 +232,13 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
     return () => controller.abort();
   }, [practiceId, intakeId]);
 
+  useEffect(() => {
+    if (!practiceId || hasPracticeDetails) return;
+    fetchPracticeDetails().catch((err) => {
+      console.warn('[IntakeDetailPage] Failed to load practice services', err);
+    });
+  }, [fetchPracticeDetails, hasPracticeDetails, practiceId]);
+
   const closeTriageDialog = useCallback(() => {
     if (isSubmitting) return;
     setTriageDialogAction(null);
@@ -172,47 +251,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
     setTriageReason('');
   }, [isSubmitting]);
 
-  useEffect(() => {
-    const conversationId = intake?.conversation_id;
-    const targetPracticeId = intake?.organization_id;
-    if (!conversationId || !targetPracticeId) {
-      setPreviewMessages([]);
-      setPreviewLoading(false);
-      return;
-    }
-
-    const controller = new AbortController();
-    setPreviewMessages([]);
-    setPreviewLoading(true);
-
-    fetchConversationMessages(conversationId, targetPracticeId, { limit: 100, signal: controller.signal })
-      .then((messages) => {
-        if (!isMountedRef.current || controller.signal.aborted) return;
-        const mappedMessages = messages.map((message) => ({
-          id: message.id,
-          role: message.role,
-          content: message.content,
-          timestamp: new Date(message.created_at).getTime(),
-          reply_to_message_id: message.reply_to_message_id ?? null,
-          metadata: message.metadata ?? undefined,
-          isUser: message.user_id === session?.user?.id,
-          seq: message.seq,
-        } satisfies ChatMessageUI));
-        setPreviewMessages(mappedMessages);
-      })
-      .catch((err) => {
-        if (!isMountedRef.current || controller.signal.aborted) return;
-        console.warn('[IntakeDetailPage] Failed to load conversation preview', err);
-        setPreviewMessages([]);
-      })
-      .finally(() => {
-        if (isMountedRef.current && !controller.signal.aborted) {
-          setPreviewLoading(false);
-        }
-      });
-
-    return () => controller.abort();
-  }, [intake?.conversation_id, intake?.organization_id, session?.user?.id]);
+  // Remove local conversationMetadata effect; handled by useMessageHandling
 
   const runTriage = useCallback(async (action: 'accepted' | 'declined', reason?: string) => {
     if (isSubmitting || !intake) return;
@@ -332,11 +371,6 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
                 : 'The conversation is now active.'))
             : 'Your response has been recorded.'
         );
-        if (action === 'accepted' && responseConversationId && conversationsBasePathProp) {
-          onTriageComplete?.();
-          navigate(`${conversationsBasePathProp}/${encodeURIComponent(responseConversationId)}`);
-          return;
-        }
         onTriageComplete?.();
       }
     } catch (err) {
@@ -346,7 +380,137 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
     } finally {
       if (isMountedRef.current) setIsSubmitting(false);
     }
-  }, [conversationsBasePathProp, intake, intakeId, isSubmitting, navigate, onTriageComplete, session?.user, showError, showSuccess]);
+  }, [intake, intakeId, isSubmitting, onTriageComplete, session?.user, showError, showSuccess]);
+
+  const submitConversationReply = useCallback(async () => {
+    const conversationId = intake?.conversation_id;
+    const targetPracticeId = intake?.organization_id;
+    const content = composerValue.trim();
+    if (!conversationId || !targetPracticeId || !content || composerSubmitting) return;
+
+    setComposerSubmitting(true);
+    try {
+      const message = await postConversationMessage(conversationId, targetPracticeId, {
+        content,
+        metadata: {
+          source: 'intake-detail',
+          intakeUuid: intakeId,
+          senderType: 'team_member',
+        },
+      });
+      setComposerValue('');
+      if (composerTextareaRef.current) {
+        composerTextareaRef.current.value = '';
+        composerTextareaRef.current.style.height = '32px';
+      }
+      if (message) {
+        setPreviewMessages((current) => [
+          ...current,
+          {
+            id: message.id,
+            role: message.role,
+            content: message.content,
+            timestamp: new Date(message.created_at).getTime(),
+            reply_to_message_id: message.reply_to_message_id ?? null,
+            metadata: message.metadata ?? undefined,
+            isUser: true,
+            seq: message.seq,
+          } satisfies ChatMessageUI,
+        ]);
+      }
+    } catch (error) {
+      showError('Message failed', error instanceof Error ? error.message : 'Failed to send message');
+    } finally {
+      if (isMountedRef.current) setComposerSubmitting(false);
+    }
+  }, [composerSubmitting, composerValue, intake?.conversation_id, intake?.organization_id, intakeId, showError]);
+
+  const startGatherDetailsFlow = useCallback(async () => {
+    const conversationId = intake?.conversation_id;
+    const targetPracticeId = intake?.organization_id;
+    if (!conversationId || !targetPracticeId || gatherDetailsSubmitting) return;
+
+    // Use canonical flow state and patch/apply methods
+    const currentCase = intakeConversationState;
+    const nextMetadata = applyConsultationPatchToMetadata(
+      conversationMetadata,
+      { case: { ...(currentCase ?? {}), enrichmentMode: true } },
+      { mirrorLegacyFields: true }
+    );
+
+    const metadata = intake?.metadata ?? {};
+    const representedParty = typeof metadata.on_behalf_of === 'string' && metadata.on_behalf_of.trim().length > 0
+      ? metadata.on_behalf_of.trim()
+      : null;
+    const otherParty = typeof metadata.opposing_party === 'string' && metadata.opposing_party.trim().length > 0
+      ? metadata.opposing_party.trim()
+      : null;
+    const desiredOutcome = typeof intake?.desired_outcome === 'string' && intake.desired_outcome.trim().length > 0
+      ? intake.desired_outcome.trim()
+      : null;
+
+    const missingPrompts = [
+      {
+        missing: !representedParty,
+        content: 'I can gather a little more detail for the attorney. Are you reaching out for yourself, or on behalf of someone else?',
+      },
+      {
+        missing: !otherParty,
+        content: 'I can gather a little more detail for the attorney. Is there a specific person or organization on the other side of this issue?',
+      },
+      {
+        missing: !desiredOutcome,
+        content: 'I can gather a little more detail for the attorney. What outcome are you hoping for from this consultation?',
+      },
+    ];
+    const prompt = missingPrompts.find((item) => item.missing)?.content
+      ?? 'To help the attorney, may I ask—are you seeking assistance for yourself, or on behalf of someone else?';
+
+    setGatherDetailsSubmitting(true);
+    try {
+      await updateConversationMetadataPatch(nextMetadata, conversationId);
+      const message = await postSystemMessage(conversationId, targetPracticeId, {
+        clientId: 'system-intake-gather-details',
+        content: prompt,
+        metadata: {
+          source: 'ai',
+          systemMessageKey: 'intake_gather_details',
+          intakeUuid: intakeId,
+          enrichmentMode: true,
+        },
+      });
+      if (message) {
+        setPreviewMessages((current) => [
+          ...current,
+          {
+            id: message.id,
+            role: message.role,
+            content: message.content,
+            timestamp: new Date(message.created_at).getTime(),
+            reply_to_message_id: message.reply_to_message_id ?? null,
+            metadata: message.metadata ?? undefined,
+            isUser: false,
+            seq: message.seq,
+          } satisfies ChatMessageUI,
+        ]);
+      }
+      showSuccess('Blawby is gathering details', 'A follow-up question was added to the conversation.');
+    } catch (error) {
+      showError('Could not start detail gathering', error instanceof Error ? error.message : 'Failed to update the intake conversation');
+    } finally {
+      if (isMountedRef.current) setGatherDetailsSubmitting(false);
+    }
+  }, [
+    conversationMetadata,
+    gatherDetailsSubmitting,
+    intake?.conversation_id,
+    intake?.desired_outcome,
+    intake?.metadata,
+    intake?.organization_id,
+    intakeId,
+    showError,
+    showSuccess,
+  ]);
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -381,11 +545,25 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
   const email = typeof meta.email === 'string' ? meta.email : null;
   const phone = typeof meta.phone === 'string' ? meta.phone : null;
   const description = typeof meta.description === 'string' ? meta.description : null;
-  const practiceArea = typeof meta.practice_area === 'string' ? meta.practice_area : (typeof meta.practiceArea === 'string' ? meta.practiceArea : null);
-  const onBehalfOf = typeof meta.on_behalf_of === 'string' ? meta.on_behalf_of : null;
-  const opposingParty = typeof meta.opposing_party === 'string' ? meta.opposing_party : null;
-  const city = typeof meta.city === 'string' ? meta.city : null;
-  const state = typeof meta.state === 'string' ? meta.state : null;
+  const practiceServiceUuid = typeof meta.practice_service_uuid === 'string' ? meta.practice_service_uuid : null;
+  const onBehalfOf = typeof meta.on_behalf_of === 'string' ? (meta.on_behalf_of.trim() || null) : null;
+  const opposingParty = typeof meta.opposing_party === 'string' ? (meta.opposing_party.trim() || null) : null;
+  const services = Array.isArray(practiceDetails?.services) ? practiceDetails.services : [];
+  const matchingService = services.find((service) => (
+    service
+      && typeof service === 'object'
+      && service.id === practiceServiceUuid
+      && typeof service.name === 'string'
+  ));
+  const matchingServiceName = typeof matchingService?.name === 'string' ? matchingService.name : undefined;
+  const practiceServiceName = practiceServiceUuid
+    ? resolvePracticeServiceLabel(practiceServiceUuid, matchingServiceName)
+    : null;
+  const address = meta.address && typeof meta.address === 'object' && !Array.isArray(meta.address)
+    ? meta.address as Record<string, unknown>
+    : null;
+  const city = typeof address?.city === 'string' ? address.city : null;
+  const state = typeof address?.state === 'string' ? address.state : null;
   const dateLabel = formatLongDate(intake.created_at);
   const caseStrength = typeof intake.case_strength === 'number' ? `${intake.case_strength}%` : null;
   const feeAmount = formatAmount(intake.amount, intake.currency);
@@ -394,8 +572,21 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
   const hasDocs = intake.has_documents === true || meta.has_documents === true ? 'Yes' : 'No';
   const effectiveTriageStatus = localTriageStatus ?? intake.triage_status;
   const isPendingReview = effectiveTriageStatus === 'pending_review' || !effectiveTriageStatus;
-  const isAccepted = effectiveTriageStatus === 'accepted';
-  const isDeclined = effectiveTriageStatus === 'declined';
+  const intakeTitle = resolveIntakeTitle(
+    {
+      ...meta,
+      title: conversationMetadata?.title ?? meta.title,
+      intake_title: conversationMetadata?.intake_title ?? meta.intake_title,
+    },
+    name !== '—' ? `${name} intake` : 'Untitled intake'
+  );
+  const locationLabel = [city, state].filter(Boolean).join(', ') || null;
+  const paymentLabel = feeAmount ? `${feeAmount} ${intake.stripe_charge_id ? 'paid' : 'consultation'}` : null;
+  const canReplyInIntake = Boolean(intake.conversation_id && effectiveTriageStatus === 'accepted');
+  const hasMissingLegalDetails =
+    !onBehalfOf ||
+    !opposingParty ||
+    (typeof intake.desired_outcome === 'string' ? intake.desired_outcome.trim() === '' : !intake.desired_outcome);
 
   return (
     <div className="flex h-full flex-col min-h-0">
@@ -404,11 +595,6 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
         subtitle={name}
         showBack
         onBack={onBack}
-        actions={
-          <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ring-1 ring-inset ${triageChipClass(effectiveTriageStatus)}`}>
-            {triageLabel(effectiveTriageStatus)}
-          </span>
-        }
       />
 
       <div className="flex-1 min-h-0 overflow-y-auto">
@@ -416,34 +602,25 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
 
           {/* ── Left column: document ───────────────────────────── */}
           <div className="lg:col-span-2 space-y-6">
-            <section className="glass-card p-6 sm:p-10 min-h-[600px]">
-              {/* Top area */}
-              <header className="mb-6 sm:mb-10">
-                <h2 className="text-xs font-semibold uppercase tracking-widest text-input-placeholder mb-2">
-                  Intake details
-                </h2>
-                <h1 className="text-2xl sm:text-3xl font-bold text-input-text mb-4">
-                  {name}
-                </h1>
-                <div className="flex items-center flex-wrap gap-3 mb-6 sm:mb-8">
-                  {practiceArea ? (
-                    <div className="bg-accent/10 border border-accent/20 text-[rgb(var(--accent-foreground))] px-2 py-0.5 rounded-md text-xs font-semibold">
-                      {practiceArea}
-                    </div>
-                  ) : null}
-                  <span className="text-sm text-input-placeholder">
-                    Posted {dateLabel}
-                  </span>
-                </div>
+            <section className="glass-card overflow-hidden p-6 sm:p-10">
+              <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_280px]">
+                <header className="min-w-0">
+                  <h2 className="mb-2 text-xs font-semibold uppercase tracking-widest text-input-placeholder">
+                    Intake details
+                  </h2>
+                  <h1 className="break-words text-2xl font-bold leading-tight text-input-text sm:text-4xl">
+                    {intakeTitle}
+                  </h1>
+                  <p className="mt-3 text-sm text-input-placeholder">
+                    Posted {dateLabel}{practiceServiceName ? ` · ${practiceServiceName}` : ''}
+                  </p>
 
-                {/* Intake Description prominent */}
-                {description && (
-                  <div className="mt-6 sm:mt-10">
-                    <div className="relative">
-                      <p className={`text-base text-input-text leading-relaxed ${descriptionExpanded ? '' : 'line-clamp-6'}`}>
+                  {description ? (
+                    <div className="mt-8">
+                      <p className={`whitespace-pre-wrap text-base leading-relaxed text-input-text ${descriptionExpanded ? '' : 'line-clamp-6'}`}>
                         {description}
                       </p>
-                      {description.length > 350 && (
+                      {description.length > 350 ? (
                         <Button
                           variant="link"
                           size="sm"
@@ -453,93 +630,130 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
                         >
                           {descriptionExpanded ? 'Show less' : 'Read more'}
                         </Button>
-                      )}
+                      ) : null}
                     </div>
-                  </div>
-                )}
-              </header>
+                  ) : (
+                    <p className="mt-8 text-sm text-input-placeholder">No description yet.</p>
+                  )}
+                </header>
 
-              {/* Facts grid (replacing Matter Summary section) */}
-              <div className="pt-6 sm:pt-10 border-t border-line-glass/10">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {intake.court_date ? <StatCell label="Court date" value={formatLongDate(intake.court_date) ?? intake.court_date} icon={ClockIcon} /> : null}
-                  {intake.urgency ? (
-                    <StatCell label="Urgency" value={urgencyLabel(intake.urgency)} icon={ExclamationTriangleIcon} />
-                  ) : null}
-                  {caseStrength ? <StatCell label="AI case strength" value={caseStrength} icon={ScaleIcon} /> : null}
-                  {feeAmount ? <StatCell label="Consultation fee" value={feeAmount} icon={CreditCardIcon} /> : null}
-                  {income ? <StatCell label="Household income" value={income} icon={CreditCardIcon} /> : null}
-                  {householdSize != null ? <StatCell label="Household size" value={String(householdSize)} icon={UserIcon} /> : null}
-                  <StatCell label="Documents provided" value={hasDocs} icon={CheckCircleIcon} />
-                </div>
+                <aside className="lg:border-l lg:border-line-glass/10 lg:pl-6">
+                  <dl className="divide-y divide-line-glass/10 text-sm">
+                    <SummaryRow label="Status" value={triageLabel(effectiveTriageStatus)} icon={CheckCircleIcon} />
+                    <SummaryRow label="Consultation" value={paymentLabel} icon={CreditCardIcon} />
+                    <SummaryRow label="Location" value={locationLabel} icon={MapPinIcon} />
+                    <SummaryRow label="Urgency" value={intake.urgency ? urgencyLabel(intake.urgency) : null} icon={ExclamationTriangleIcon} />
+                    <SummaryRow label="Court date" value={intake.court_date ? (formatLongDate(intake.court_date) ?? intake.court_date) : null} icon={ClockIcon} />
+                    <SummaryRow label="Documents" value={hasDocs} icon={ClipboardDocumentCheckIcon} />
+                    <SummaryRow label="AI case strength" value={caseStrength} icon={ScaleIcon} />
+                    <SummaryRow label="Household income" value={income} icon={CreditCardIcon} />
+                    <SummaryRow label="Household size" value={householdSize} icon={UserIcon} />
+                  </dl>
+                </aside>
               </div>
             </section>
 
-            {/* Facts Card 2 (Inlined as requested: no glass-card border/bg) */}
-            {(opposingParty || intake.desired_outcome) && (
-              <section className="glass-card p-6 sm:p-10">
-                <h3 className="text-xs font-semibold uppercase tracking-widest text-input-placeholder mb-6">Conflicts & Goals</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-6">
-                  {opposingParty ? <StatCell label="Opposing party" value={opposingParty} icon={ScaleIcon} /> : null}
-                  {intake.desired_outcome ? <StatCell label="Desired outcome" value={intake.desired_outcome} icon={CheckCircleIcon} /> : null}
+            <section className="glass-card p-6 sm:p-8">
+              <h2 className="mb-6 text-xs font-semibold uppercase tracking-widest text-input-placeholder">
+                Legal details
+              </h2>
+              <dl className="grid grid-cols-1 gap-5 md:grid-cols-3">
+                <StatCell label="On behalf of" value={onBehalfOf} icon={UserIcon} />
+                <StatCell label="Opposing party" value={opposingParty} icon={ScaleIcon} />
+                <StatCell label="Desired outcome" value={intake.desired_outcome} icon={CheckCircleIcon} />
+              </dl>
+              {hasMissingLegalDetails && intake.conversation_id ? (
+                <div className="mt-6 flex flex-col gap-3 border-t border-line-glass/10 pt-5 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-sm leading-relaxed text-input-placeholder">
+                    Blawby can ask the client for the missing legal details and add them to this thread.
+                  </p>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => void startGatherDetailsFlow()}
+                    disabled={gatherDetailsSubmitting}
+                    className="shrink-0"
+                  >
+                    {gatherDetailsSubmitting ? 'Starting...' : 'Ask Blawby to gather details'}
+                  </Button>
                 </div>
-              </section>
-            )}
+              ) : null}
+            </section>
 
             {/* Conversation History Card */}
             {intake.conversation_id && (
-              <div className="space-y-4">
-                <section className="glass-card flex flex-col h-[500px] sm:h-[700px] overflow-hidden">
-                  <header className="p-4 sm:p-6 lg:p-10 pb-4 sm:pb-6 border-b border-line-glass/10 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <Icon icon={ChatBubbleLeftRightIcon} className="w-5 h-5 text-input-placeholder" />
-                      <h3 className="text-sm font-semibold text-input-text uppercase tracking-widest">
-                        Intake Conversation
-                      </h3>
-                    </div>
-                  </header>
-                  <div className="flex-1 min-h-0 overflow-hidden bg-surface-overlay/20 touch-pan-y">
-                    {previewLoading && previewMessages.length === 0 ? (
-                      <div className="h-full flex flex-col items-center justify-center p-6 text-center">
-                        <LoadingBlock label="Loading conversation history..." />
-                      </div>
-                    ) : previewMessages.length === 0 ? (
-                      <div className="h-full flex flex-col items-center justify-center p-6 text-center">
-                        <p className="text-sm text-input-placeholder">No conversation history found for this intake.</p>
-                      </div>
-                    ) : (
-                      <VirtualMessageList
-                        messages={previewMessages}
-                        conversationTitle={intake.metadata?.name ?? null}
-                        viewerContext="practice"
-                        practiceConfig={{
-                          name: practiceName,
-                          profileImage: practiceLogo,
-                          practiceId: intake.organization_id,
-                        }}
-                        practiceId={intake.organization_id}
-                      />
-                    )}
+              <div className="glass-card flex h-[720px] flex-col overflow-hidden">
+                <header className="shrink-0 px-6 py-5 sm:px-8 sm:py-6">
+                  <div className="min-w-0">
+                    <h3 className="truncate text-lg font-semibold leading-tight text-input-text">
+                      {intakeTitle || 'Messages'}
+                    </h3>
                   </div>
-                </section>
+                </header>
 
-                <div>
-                  <Button
-                    variant="secondary"
-                    className="w-full"
-                    onClick={() => intake.conversation_id && conversationsBasePathProp && navigate(`${conversationsBasePathProp}/${encodeURIComponent(intake.conversation_id)}`)}
-                    disabled={!intake.conversation_id || !conversationsBasePathProp}
-                  >
-                    Join conversation
-                  </Button>
+                <div className="flex min-h-0 flex-1 flex-col bg-surface-overlay/20 touch-pan-y">
+                  {previewLoading && previewMessages.length === 0 ? (
+                    <div className="h-full flex flex-col items-center justify-center p-6 text-center">
+                      <LoadingBlock label="Loading conversation history..." />
+                    </div>
+                  ) : previewMessages.length === 0 ? (
+                    <div className="h-full flex flex-col items-center justify-center p-6 text-center">
+                      <p className="text-sm text-input-placeholder">No conversation history found for this intake.</p>
+                    </div>
+                  ) : (
+                    <VirtualMessageList
+                      messages={previewMessages}
+                      conversationTitle={intakeTitle}
+                      viewerContext="practice"
+                      practiceConfig={{
+                        name: practiceName,
+                        profileImage: practiceLogo,
+                        practiceId: intake.organization_id,
+                      }}
+                      practiceId={intake.organization_id}
+                    />
+                  )}
                 </div>
+
+                {canReplyInIntake ? (
+                  <div className="shrink-0 border-t border-line-glass/10 px-4 py-5">
+                    <MessageComposer
+                      inputValue={composerValue}
+                      setInputValue={setComposerValue}
+                      previewFiles={[]}
+                      uploadingFiles={[]}
+                      removePreviewFile={() => undefined}
+                      handleFileSelect={async () => undefined}
+                      handleCameraCapture={async () => undefined}
+                      cancelUpload={() => undefined}
+                      isRecording={false}
+                      handleMediaCapture={() => undefined}
+                      setIsRecording={() => undefined}
+                      onSubmit={() => void submitConversationReply()}
+                      onKeyDown={(event) => {
+                        if ((event as KeyboardEvent & { isComposing?: boolean }).isComposing || event.repeat) return;
+                        if (event.key === 'Enter' && !event.shiftKey) {
+                          event.preventDefault();
+                          void submitConversationReply();
+                        }
+                      }}
+                      textareaRef={composerTextareaRef}
+                      isReadyToUpload={false}
+                      isSessionReady={!composerSubmitting}
+                      isSocketReady={!composerSubmitting}
+                      disabled={composerSubmitting}
+                      hideAttachmentControls
+                      mentionCandidates={[]}
+                    />
+                  </div>
+                ) : null}
               </div>
             )}
           </div>
 
           {/* ── Right column: action panel ──────────────────────── */}
           <div className="space-y-6">
-            {/* Action Section */}
             {/* Action Section: Inline layout */}
             <div className="px-1 mb-4">
               {isPendingReview && (
@@ -574,28 +788,6 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
                   </Button>
                   <p className="text-xs text-input-placeholder text-center leading-relaxed">
                     Accepting will move this conversation into your inbox and notify the client.
-                  </p>
-                </div>
-              )}
-
-              {isAccepted && (
-                <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/20 p-5 text-center">
-                  <p className="text-base font-bold text-emerald-700 dark:text-emerald-300">
-                    Consultation Accepted
-                  </p>
-                  <p className="text-xs text-input-placeholder mt-2">
-                    This conversation is now active in your inbox.
-                  </p>
-                </div>
-              )}
-
-              {isDeclined && (
-                <div className="rounded-xl bg-rose-500/10 border border-rose-500/20 p-5 text-center">
-                  <p className="text-base font-bold text-rose-700 dark:text-rose-300">
-                    Consultation Declined
-                  </p>
-                  <p className="text-xs text-input-placeholder mt-2">
-                    The client has been notified.
                   </p>
                 </div>
               )}

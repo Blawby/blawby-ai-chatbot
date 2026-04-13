@@ -540,10 +540,12 @@ export const updateMatter = async (
   if (!practiceId || !matterId) {
     throw new Error('practiceId and matterId are required');
   }
+  const normalizedPayload = normalizeMatterPayload(payload);
+  // Debug log removed for security/cleanliness
   const json = await requestData(
     apiClient.put(
       matterItemPath(practiceId, matterId),
-      normalizeMatterPayload(payload),
+      normalizedPayload,
       { signal: options.signal }
     ),
     'Failed to update matter'

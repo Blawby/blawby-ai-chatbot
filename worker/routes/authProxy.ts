@@ -3,6 +3,7 @@ import { HttpErrors } from '../errorHandler.js';
 import { getDomain } from 'tldts';
 import { optionalAuth } from '../middleware/auth.js';
 import { invalidatePracticeDetailsCache } from '../utils/practiceDetailsCache.js';
+import { Logger } from '../utils/logger.js';
 
 const AUTH_PATH_PREFIX = '/api/auth';
 const SUBSCRIPTIONS_CURRENT_PATH = '/api/subscriptions/current';
@@ -342,6 +343,46 @@ export async function handleBackendProxy(request: Request, env: Env): Promise<Re
   }
 
   const fetchBackendResponse = async (): Promise<Response> => {
+    // Debug logging for PUT /matters/ with redaction, gated by DEBUG flag
+    if (
+      method === 'PUT' &&
+      url.pathname.match(/\/matters\//) &&
+      (env.DEBUG === '1' || env.DEBUG === 'true')
+    ) {
+      try {
+        let bodyObj: unknown = null;
+        if (init.body instanceof ArrayBuffer) {
+          const text = new TextDecoder().decode(init.body);
+          bodyObj = JSON.parse(text);
+        } else if (typeof init.body === 'string') {
+          bodyObj = JSON.parse(init.body);
+        }
+        if (bodyObj && typeof bodyObj === 'object') {
+          // Recursively redact sensitive fields (deep clone)
+          const SENSITIVE_KEYS = ['token', 'access_token', 'refresh_token', 'user_id', 'email', 'password'];
+          function redactDeep(obj) {
+            if (Array.isArray(obj)) {
+              return obj.map(redactDeep);
+            } else if (obj && typeof obj === 'object') {
+              const clone = {};
+              for (const key in obj) {
+                if (SENSITIVE_KEYS.includes(key)) {
+                  clone[key] = '[REDACTED]';
+                } else {
+                  clone[key] = redactDeep(obj[key]);
+                }
+              }
+              return clone;
+            }
+            return obj;
+          }
+          const redacted = redactDeep(bodyObj);
+          Logger.debug('PUT /matters/ payload', redacted);
+        }
+      } catch (e) {
+        Logger.debug('PUT /matters/ payload (unparseable)', { error: String(e) });
+      }
+    }
     const response = await fetch(targetUrl.toString(), init);
 
     // Log errors for debugging

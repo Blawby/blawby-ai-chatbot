@@ -11,6 +11,7 @@ import { createSubmitAction } from '../../src/shared/utils/chatActions';
 
 const MAX_SERVICES_IN_PROMPT = 20;
 const MAX_SERVICES_IN_CONVERSATION_PROMPT = 8;
+type IntakePromptService = { name: string; uuid: string };
 
 const US_STATE_NAME_TO_CODE: Record<string, string> = {
   alabama: 'AL', alaska: 'AK', arizona: 'AZ', arkansas: 'AR', california: 'CA',
@@ -49,9 +50,9 @@ export const SAVE_CASE_DETAILS_TOOL = {
           type: 'string',
           description: 'Name of opposing person, company, or organization explicitly mentioned. Never extract descriptions or circumstances.',
         },
-        practiceArea: {
+        practiceServiceUuid: {
           type: 'string',
-          description: 'Service key from the firm services list provided in context, e.g. FAMILY_LAW',
+          description: 'Service UUID from the firm services list provided in context',
         },
         urgency: {
           type: 'string',
@@ -204,8 +205,8 @@ export const handleSaveCaseDetails = (
   if (typeof args.opposingParty === 'string' && args.opposingParty.trim()) {
     patch.opposingParty = args.opposingParty.trim();
   }
-  if (typeof args.practiceArea === 'string' && args.practiceArea.trim()) {
-    patch.practiceArea = args.practiceArea.trim();
+  if (typeof args.practiceServiceUuid === 'string' && args.practiceServiceUuid.trim()) {
+    patch.practiceServiceUuid = args.practiceServiceUuid.trim();
   }
   if (args.urgency === 'routine' || args.urgency === 'time_sensitive' || args.urgency === 'emergency') {
     patch.urgency = args.urgency;
@@ -225,7 +226,7 @@ export const handleSaveCaseDetails = (
 
   const merged = mergeIntakeState(storedIntakeState, patch);
   const isEnrichmentMode = merged?.enrichmentMode === true;
-  const nextEnrichmentField = isEnrichmentMode ? resolveNextEnrichmentField(merged) : null;
+  const nextEnrichmentField = isEnrichmentMode ? resolveNextEnrichmentField(merged, normalizeServicesForPrompt(submissionGate.details)) : null;
   const isSubmittable = isIntakeSubmittable(merged, submissionGate);
 
   // Derive suggested replies for the next open field
@@ -370,7 +371,7 @@ const deriveNextActions = (
         ? payLabel
         : 'Submit request'
     );
-    const nextField = resolveNextEnrichmentField(mergedState);
+    const nextField = resolveNextEnrichmentField(mergedState, normalizeServicesForPrompt(submissionGate.details));
     if (nextField) {
       return [
         ...deriveEnrichmentActions(nextField),
@@ -423,7 +424,10 @@ const deriveEnrichmentActions = (nextField: EnrichmentField): ChatMessageAction[
   return [];
 };
 
-const resolveNextEnrichmentField = (state: Record<string, unknown> | null): EnrichmentField | null => {
+const resolveNextEnrichmentField = (
+  state: Record<string, unknown> | null,
+  services: IntakePromptService[] = []
+): EnrichmentField | null => {
   if (!state) return 'opposingParty';
 
   const opposingParty = typeof state.opposingParty === 'string' ? state.opposingParty.trim() : '';
@@ -431,7 +435,7 @@ const resolveNextEnrichmentField = (state: Record<string, unknown> | null): Enri
 
   if (typeof state.hasDocuments !== 'boolean') return 'hasDocuments';
 
-  if (isBusinessMatter(state)) return null;
+  if (isBusinessMatter(state, services)) return null;
 
   const householdSize = state.householdSize;
   if (!(typeof householdSize === 'number' && Number.isFinite(householdSize) && householdSize > 0)) {
@@ -441,10 +445,12 @@ const resolveNextEnrichmentField = (state: Record<string, unknown> | null): Enri
   return null;
 };
 
-const isBusinessMatter = (state: Record<string, unknown>): boolean => {
-  const practiceArea = typeof state.practiceArea === 'string' ? state.practiceArea.trim().toLowerCase() : '';
-  if (!practiceArea) return false;
-  return /business|corporate|commercial|enterprise|company|llc|inc|startup/.test(practiceArea);
+const isBusinessMatter = (state: Record<string, unknown>, services: IntakePromptService[]): boolean => {
+  const practiceServiceUuid = typeof state.practiceServiceUuid === 'string' ? state.practiceServiceUuid.trim() : '';
+  const serviceName = practiceServiceUuid
+    ? services.find((service) => service.uuid === practiceServiceUuid)?.name ?? ''
+    : '';
+  return /business|corporate|commercial|enterprise|company|llc|inc|startup/i.test(serviceName);
 };
 
 // ---------------------------------------------------------------------------
@@ -452,14 +458,14 @@ const isBusinessMatter = (state: Record<string, unknown>): boolean => {
 // ---------------------------------------------------------------------------
 
 export const buildIntakeSystemPrompt = (
-  services: Array<{ name: string; key: string }>,
+  services: IntakePromptService[],
   practiceContext: Record<string, unknown> | null,
   storedIntakeState: Record<string, unknown> | null,
   userName?: string | null,
 ): string => {
   const cappedServices = services.slice(0, MAX_SERVICES_IN_CONVERSATION_PROMPT);
   const serviceList = cappedServices.length > 0
-    ? cappedServices.map((s) => `- ${s.name} (key: ${s.key})`).join('\n')
+    ? cappedServices.map((s) => `- ${s.name} (practice_service_uuid: ${s.uuid})`).join('\n')
     : '- General legal matters';
 
   const practiceName = typeof practiceContext?.practiceName === 'string'
@@ -527,17 +533,17 @@ ${intakeContext ? `Current intake state:\n${intakeContext}` : 'No case details c
 
 function buildIntakeContextSummary(
   state: Record<string, unknown> | null,
-  services: Array<{ name: string; key: string }>,
+  services: IntakePromptService[],
 ): string {
   if (!state) return '';
-  const serviceNameByKey = new Map(services.map((s) => [s.key, s.name]));
+  const serviceNameByUuid = new Map(services.map((s) => [s.uuid, s.name]));
   const lines: string[] = [];
 
   if (typeof state.description === 'string' && state.description.trim()) {
     lines.push(`Situation: ${state.description.trim().slice(0, 200)}`);
   }
-  if (typeof state.practiceArea === 'string' && state.practiceArea.trim()) {
-    const label = serviceNameByKey.get(state.practiceArea.trim()) ?? state.practiceArea.trim();
+  if (typeof state.practiceServiceUuid === 'string' && state.practiceServiceUuid.trim()) {
+    const label = serviceNameByUuid.get(state.practiceServiceUuid.trim()) ?? state.practiceServiceUuid.trim();
     lines.push(`Practice area: ${label}`);
   }
   if (typeof state.city === 'string' && state.city.trim()) lines.push(`City: ${state.city.trim()}`);
@@ -596,7 +602,7 @@ const deriveCaseSavedAcknowledgment = (
   toolResult: ToolResult | null,
   submissionGate: IntakeSubmissionGate,
   mergedState: Record<string, unknown> | null,
-  _services: Array<{ name: string; key: string }> = [],
+  services: IntakePromptService[] = [],
   consultationFee?: number | null,
   userName?: string | null,
 ): string => {
@@ -605,12 +611,11 @@ const deriveCaseSavedAcknowledgment = (
   const description = typeof mergedState.description === 'string' ? mergedState.description.trim() : '';
   const city = typeof mergedState.city === 'string' ? mergedState.city.trim() : '';
   const state = typeof mergedState.state === 'string' ? mergedState.state.trim() : '';
-  const _practiceAreaKey = typeof mergedState.practiceArea === 'string' ? mergedState.practiceArea.trim() : '';
 
   const needsPayment = submissionGate.paymentRequiredBeforeSubmit && !submissionGate.paymentCompleted;
   const isReady = isIntakeReadyForSubmission(mergedState);
   const isEnrichmentMode = mergedState.enrichmentMode === true;
-  const nextEnrichmentField = isEnrichmentMode ? resolveNextEnrichmentField(mergedState) : null;
+  const nextEnrichmentField = isEnrichmentMode ? resolveNextEnrichmentField(mergedState, services) : null;
 
   const userPart = userName ? `, ${getFirstName(userName)}` : '';
 
@@ -691,7 +696,7 @@ const normalizeStateCode = (value: string): string => {
 
 const normalizeServicesForPrompt = (
   details: Record<string, unknown> | null,
-): Array<{ name: string; key: string }> => {
+): IntakePromptService[] => {
   if (!details) return [];
   const services = details.services;
   if (!Array.isArray(services)) return [];
@@ -704,15 +709,11 @@ const normalizeServicesForPrompt = (
         : typeof record.title === 'string'
           ? record.title.trim()
           : '';
-      const key = typeof record.key === 'string'
-        ? record.key.trim()
-        : typeof record.service_key === 'string'
-          ? record.service_key.trim()
-          : '';
-      if (!name) return null;
-      return { name, key: key || name.toUpperCase().replace(/[^A-Z0-9]+/g, '_') };
+      const uuid = typeof record.id === 'string' ? record.id.trim() : '';
+      if (!name || !uuid) return null;
+      return { name, uuid };
     })
-    .filter((service): service is { name: string; key: string } => Boolean(service));
+    .filter((service): service is IntakePromptService => Boolean(service));
 };
 
 const extractServiceNames = (details: Record<string, unknown> | null): string[] => {

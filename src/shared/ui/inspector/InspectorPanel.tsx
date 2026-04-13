@@ -183,7 +183,7 @@ export const InspectorPanel = ({
   const [isSavingMatter, setIsSavingMatter] = useState(false);
   const [activeConversationEditor, setActiveConversationEditor] = useState<'assignment' | 'priority' | 'tags' | 'matter' | 'intakePracticeArea' | 'intakeCity' | 'intakeState' | 'intakeOpposingParty' | 'intakeDesiredOutcome' | 'intakeDescription' | 'intakeName' | 'intakeEmail' | 'intakePhone' | null>(null);
   const [activeMatterEditor, setActiveMatterEditor] = useState<
-    'status' | 'person' | 'responsible' | 'originating' | 'urgency' | 'caseNumber' | 'matterType' | 'court' | 'judge' | 'opposingParty' | 'opposingCounsel' | null
+    'status' | 'person' | 'responsible' | 'originating' | 'urgency' | 'caseNumber' | 'matterType' | 'court' | 'judge' | 'opposingParty' | 'opposingCounsel' | 'team' | null
   >(null);
   const [isSavingMatterStatus, setIsSavingMatterStatus] = useState(false);
   const [isSavingMatterField, setIsSavingMatterField] = useState(false);
@@ -255,9 +255,9 @@ export const InspectorPanel = ({
   const intakeServiceOptions = useMemo<ComboboxOption[]>(() => {
     if (!practiceDetail?.services) return [];
     
-    const rawOptions = (practiceDetail.services as Array<{ key?: string; name?: string; title?: string }>).map((s, idx) => ({
-      value: s.key || s.name || s.title || `service-${idx}`,
-      label: s.name || s.title || (s.key ? s.key.replace(/_/g, ' ') : `Service ${idx + 1}`),
+    const rawOptions = (practiceDetail.services as Array<{ id?: string; name?: string; title?: string }>).map((s, idx) => ({
+      value: s.id || '',
+      label: s.name || s.title || `Service ${idx + 1}`,
     }));
 
     // Deduplicate by value
@@ -481,6 +481,21 @@ export const InspectorPanel = ({
   const resolvedMatterUpdatedLabel = matterUpdatedLabel
     ?? resolveString(matterDetailRecord?.updated_at)
     ?? null;
+  const resolvedMatterAssigneeIds = useMemo(() => {
+    // Prefer assignee_ids if present and non-empty
+    if (Array.isArray(matterDetailRecord?.assignee_ids) && matterDetailRecord.assignee_ids.length > 0) {
+      return matterDetailRecord.assignee_ids.filter((id): id is string => typeof id === 'string' && id.trim().length > 0);
+    }
+    // Fallback: extract ids from assignees array if available
+    const assignees = Array.isArray(matterDetailRecord?.assignees) ? matterDetailRecord.assignees : [];
+    return assignees
+      .map((assignee) => {
+        if (!assignee || typeof assignee !== 'object') return '';
+        const row = assignee as Record<string, unknown>;
+        return typeof row.id === 'string' ? row.id : '';
+      })
+      .filter((id): id is string => id.length > 0);
+  }, [matterDetailRecord?.assignee_ids, matterDetailRecord?.assignees]);
   const resolvedMatterAssigneeNames = useMemo(() => {
     if (matterAssigneeNames && matterAssigneeNames.length > 0) return matterAssigneeNames;
     const assigneesValue = matterDetailRecord?.assignees;
@@ -700,6 +715,7 @@ export const InspectorPanel = ({
         matterType: 'matter_type',
         opposingParty: 'opposing_party',
         opposingCounsel: 'opposing_counsel',
+        assigneeIds: 'assignee_ids',
       };
       const normalizedPatch = Object.fromEntries(
         Object.entries(patch).map(([key, value]) => [keyMap[key] ?? key, value])
@@ -1038,11 +1054,11 @@ export const InspectorPanel = ({
                             </InspectorGroup>
 
                             {(() => {
-                              const rawPracticeArea = intakeConversationState.practiceArea;
-                              const resolvedOpt = rawPracticeArea 
-                                ? intakeServiceOptions.find((opt) => opt.value === rawPracticeArea || (opt as { key?: string }).key === rawPracticeArea) 
+                              const rawPracticeServiceUuid = intakeConversationState.practiceServiceUuid;
+                              const resolvedOpt = rawPracticeServiceUuid
+                                ? intakeServiceOptions.find((opt) => opt.value === rawPracticeServiceUuid)
                                 : null;
-                              const resolvedLabel = resolvedOpt ? resolvedOpt.label : rawPracticeArea;
+                              const resolvedLabel = resolvedOpt ? resolvedOpt.label : rawPracticeServiceUuid;
                               return (
                                 <InspectorGroup 
                                   label="Practice Area" 
@@ -1056,9 +1072,9 @@ export const InspectorPanel = ({
                                     isOpen={activeConversationEditor === 'intakePracticeArea'}
                                   >
                                     <Combobox
-                                      value={rawPracticeArea ?? ''}
+                                      value={rawPracticeServiceUuid ?? ''}
                                       onChange={(v) => {
-                                        void handleIntakeFieldChange({ practiceArea: v }, true);
+                                        void handleIntakeFieldChange({ practiceServiceUuid: v }, true);
                                       }}
                                       options={intakeServiceOptions}
                                       placeholder="Select Practice Area"
@@ -1506,16 +1522,37 @@ export const InspectorPanel = ({
               </InspectorGroup>
               <InspectorGroup
                 label="Team"
+                onToggle={canEditMatterFields
+                  ? () => setActiveMatterEditor((prev) => (prev === 'team' ? null : 'team'))
+                  : undefined}
+                isOpen={activeMatterEditor === 'team'}
+                disabled={isSavingMatterField}
               >
-                <InfoRow
+                <InspectorEditableRow
                   label=""
-                  valueNode={renderIdentityStack(
+                  summary={renderIdentityStack(
                     matterTeamIdentities,
                     'No team members assigned',
                     'team member',
                     'team members',
                   )}
-                />
+                  summaryMuted={matterTeamIdentities.length === 0}
+                  isOpen={activeMatterEditor === 'team'}
+                >
+                  <div className="relative z-30">
+                    <Combobox
+                      multiple
+                      value={resolvedMatterAssigneeIds}
+                      onChange={(value) => { void handleMatterPatchChange({ assigneeIds: value }); }}
+                      options={matterAssigneeOptions}
+                      searchable
+                      defaultOpen
+                      hideTrigger
+                      placeholder="Select team members"
+                      disabled={isSavingMatterField || !canEditMatterFields}
+                    />
+                  </div>
+                </InspectorEditableRow>
               </InspectorGroup>
               <InspectorGroup
                 label="Responsible Attorney"
@@ -1527,7 +1564,7 @@ export const InspectorPanel = ({
               >
                 <InspectorEditableRow
                   label=""
-                  summary={renderCompactIdentity(resolveAttorneyIdentity(resolvedMatterResponsibleAttorneyId)) ?? resolveAttorneyLabel(resolvedMatterResponsibleAttorneyId)}
+                  summary={renderCompactIdentity(resolveAttorneyIdentity(resolvedMatterResponsibleAttorneyId))}
                   summaryMuted={!resolvedMatterResponsibleAttorneyId}
                   isOpen={activeMatterEditor === 'responsible'}
                 >

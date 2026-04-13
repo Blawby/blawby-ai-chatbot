@@ -16,7 +16,7 @@ import { isIntakeSubmittable } from '@/shared/utils/consultationState';
 import { getChatPatterns } from '../config/chatPatterns';
 import type { OnboardingActions } from './VirtualMessageList';
 import { ChatActionCard } from './ChatActionCard';
-import { PendingReviewCard } from './PendingReviewCard';
+
 import { features } from '@/config/features';
 
 export interface ChatContainerProps {
@@ -497,16 +497,6 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
               />
 
               {(!showAuthPrompt && !shouldShowSlimForm) && (
-                intakeStatus?.step === 'pending_review' ? (
-                  <div className="px-4 pb-4">
-                    <PendingReviewCard
-                      practiceName={practiceConfig?.name}
-                      submittedAt={intakeStatus.submittedAt}
-                      paymentRequired={intakeStatus.paymentRequired && !intakeStatus.paymentReceived}
-                      compact={isWidgetMode}
-                    />
-                  </div>
-                ) : (
                   <MessageComposer
                     inputValue={inputValue}
                     setInputValue={setInputValue}
@@ -533,7 +523,6 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
                     hideAttachmentControls={!features.enableFileAttachments}
                     isPublicWorkspace={isPublicWorkspace}
                   />
-                )
               )}
             </div>
           </div>

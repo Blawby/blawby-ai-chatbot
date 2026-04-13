@@ -22,7 +22,8 @@ const SYSTEM_MESSAGE_ALLOWLIST = new Set([
   'system-submission-confirm',
   'system-lead-accepted',
   'system-lead-declined',
-  'system-intake-submit'
+  'system-intake-submit',
+  'system-intake-gather-details'
 ]);
 
 const isAllowedSystemMessageId = (clientId: string): boolean => {
