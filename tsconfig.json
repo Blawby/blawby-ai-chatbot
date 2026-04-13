@@ -11,8 +11,6 @@
 		"allowJs": true,
 		"checkJs": true,
 		"resolveJsonModule": true,
-		"downlevelIteration": true,
-		"baseUrl": ".",
 		/* Preact Config */
 		"jsx": "react-jsx",
 		"jsxImportSource": "preact",

@@ -183,7 +183,7 @@ export const InspectorPanel = ({
   const [isSavingMatter, setIsSavingMatter] = useState(false);
   const [activeConversationEditor, setActiveConversationEditor] = useState<'assignment' | 'priority' | 'tags' | 'matter' | 'intakePracticeArea' | 'intakeCity' | 'intakeState' | 'intakeOpposingParty' | 'intakeDesiredOutcome' | 'intakeDescription' | 'intakeName' | 'intakeEmail' | 'intakePhone' | null>(null);
   const [activeMatterEditor, setActiveMatterEditor] = useState<
-    'status' | 'person' | 'responsible' | 'originating' | 'urgency' | 'caseNumber' | 'matterType' | 'court' | 'judge' | 'opposingParty' | 'opposingCounsel' | null
+    'status' | 'person' | 'responsible' | 'originating' | 'urgency' | 'caseNumber' | 'matterType' | 'court' | 'judge' | 'opposingParty' | 'opposingCounsel' | 'team' | null
   >(null);
   const [isSavingMatterStatus, setIsSavingMatterStatus] = useState(false);
   const [isSavingMatterField, setIsSavingMatterField] = useState(false);
@@ -481,6 +481,11 @@ export const InspectorPanel = ({
   const resolvedMatterUpdatedLabel = matterUpdatedLabel
     ?? resolveString(matterDetailRecord?.updated_at)
     ?? null;
+  const resolvedMatterAssigneeIds = useMemo(() => {
+    return Array.isArray(matterDetailRecord?.assignee_ids)
+      ? matterDetailRecord.assignee_ids.filter((id): id is string => typeof id === 'string' && id.trim().length > 0)
+      : [];
+  }, [matterDetailRecord?.assignee_ids]);
   const resolvedMatterAssigneeNames = useMemo(() => {
     if (matterAssigneeNames && matterAssigneeNames.length > 0) return matterAssigneeNames;
     const assigneesValue = matterDetailRecord?.assignees;
@@ -700,6 +705,7 @@ export const InspectorPanel = ({
         matterType: 'matter_type',
         opposingParty: 'opposing_party',
         opposingCounsel: 'opposing_counsel',
+        assigneeIds: 'assignee_ids',
       };
       const normalizedPatch = Object.fromEntries(
         Object.entries(patch).map(([key, value]) => [keyMap[key] ?? key, value])
@@ -1506,16 +1512,37 @@ export const InspectorPanel = ({
               </InspectorGroup>
               <InspectorGroup
                 label="Team"
+                onToggle={canEditMatterFields
+                  ? () => setActiveMatterEditor((prev) => (prev === 'team' ? null : 'team'))
+                  : undefined}
+                isOpen={activeMatterEditor === 'team'}
+                disabled={isSavingMatterField}
               >
-                <InfoRow
+                <InspectorEditableRow
                   label=""
-                  valueNode={renderIdentityStack(
+                  summary={renderIdentityStack(
                     matterTeamIdentities,
                     'No team members assigned',
                     'team member',
                     'team members',
                   )}
-                />
+                  summaryMuted={matterTeamIdentities.length === 0}
+                  isOpen={activeMatterEditor === 'team'}
+                >
+                  <div className="relative z-30">
+                    <Combobox
+                      multiple
+                      value={resolvedMatterAssigneeIds}
+                      onChange={(value) => { void handleMatterPatchChange({ assigneeIds: value }); }}
+                      options={matterAssigneeOptions}
+                      searchable
+                      defaultOpen
+                      hideTrigger
+                      placeholder="Select team members"
+                      disabled={isSavingMatterField || !canEditMatterFields}
+                    />
+                  </div>
+                </InspectorEditableRow>
               </InspectorGroup>
               <InspectorGroup
                 label="Responsible Attorney"
@@ -1527,7 +1554,7 @@ export const InspectorPanel = ({
               >
                 <InspectorEditableRow
                   label=""
-                  summary={renderCompactIdentity(resolveAttorneyIdentity(resolvedMatterResponsibleAttorneyId)) ?? resolveAttorneyLabel(resolvedMatterResponsibleAttorneyId)}
+                  summary={renderCompactIdentity(resolveAttorneyIdentity(resolvedMatterResponsibleAttorneyId))}
                   summaryMuted={!resolvedMatterResponsibleAttorneyId}
                   isOpen={activeMatterEditor === 'responsible'}
                 >

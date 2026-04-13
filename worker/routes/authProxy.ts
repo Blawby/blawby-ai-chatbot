@@ -342,6 +342,17 @@ export async function handleBackendProxy(request: Request, env: Env): Promise<Re
   }
 
   const fetchBackendResponse = async (): Promise<Response> => {
+    if (method === 'PUT' && url.pathname.includes('/matters/')) {
+      try {
+        if (init.body) {
+          const decoder = new TextDecoder();
+          const clonedBody = decoder.decode(init.body as ArrayBuffer);
+          console.log(`[authProxy DEBUG] OUTGOING PUT ${url.pathname} BODY:`, clonedBody);
+        }
+      } catch (e) {
+        // ignore
+      }
+    }
     const response = await fetch(targetUrl.toString(), init);
 
     // Log errors for debugging

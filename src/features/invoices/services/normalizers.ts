@@ -84,6 +84,15 @@ export const extractInvoiceRecord = (payload: unknown): Record<string, unknown> 
   if (Array.isArray(record.invoices) && record.invoices.length > 0 && typeof record.invoices[0] === 'object') {
     return record.invoices[0] as Record<string, unknown>;
   }
+  // Handle root-level invoice object (must have id and status fields)
+  if (
+    typeof record.id === 'string' &&
+    typeof record.status === 'string' &&
+    typeof record.created_at === 'string' &&
+    typeof record.total !== 'undefined'
+  ) {
+    return record;
+  }
   if ('data' in record) return extractInvoiceRecord(record.data);
   return null;
 };

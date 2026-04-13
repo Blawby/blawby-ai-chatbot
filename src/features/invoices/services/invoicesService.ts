@@ -108,17 +108,24 @@ export const getInvoice = async (
   invoiceId: string,
   options: FetchOptions = {}
 ): Promise<InvoiceDetail | null> => {
-  if (!practiceId || !invoiceId) return null;
-  const response = await apiClient.get(urls.invoice(practiceId, invoiceId), {
-    signal: options.signal,
-  });
-  const data = response.data;
-  // The detail endpoint returns a single invoice object (not wrapped in an array)
-  const rawInvoice = extractInvoiceRecord(data);
-  if (!rawInvoice) return null;
-
-  const invoice = normalizeInvoice(rawInvoice as BackendInvoice);
-  return normalizeInvoiceDetail(invoice, rawInvoice);
+  if (!practiceId || !invoiceId) {
+    return null;
+  }
+  try {
+    const response = await apiClient.get(urls.invoice(practiceId, invoiceId), {
+      signal: options.signal,
+    });
+    const data = response.data;
+    // The detail endpoint returns a single invoice object (not wrapped in an array)
+    const rawInvoice = extractInvoiceRecord(data);
+    if (!rawInvoice) {
+      return null;
+    }
+    const invoice = normalizeInvoice(rawInvoice as BackendInvoice);
+    return normalizeInvoiceDetail(invoice, rawInvoice);
+  } catch (error) {
+    return null;
+  }
 };
 
 export const listClientInvoices = async (
