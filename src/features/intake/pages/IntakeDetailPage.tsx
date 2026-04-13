@@ -1,5 +1,6 @@
 import { FunctionComponent } from 'preact';
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
+import { useMessageHandling } from '@/shared/hooks/useMessageHandling';
 import {
   CheckCircleIcon,
   UserIcon,
@@ -76,8 +77,8 @@ const SummaryRow: FunctionComponent<SummaryRowProps> = ({ label, value, icon: Ic
         <Icon icon={IconComp} className="h-4 w-4" />
       </div>
       <div className="min-w-0">
-        <dd className="break-words text-lg font-semibold leading-tight text-input-text">{value}</dd>
         <dt className="mt-1 text-sm font-medium leading-tight text-input-placeholder">{label}</dt>
+        <dd className="break-words text-lg font-semibold leading-tight text-input-text">{value}</dd>
       </div>
     </div>
   );
@@ -141,7 +142,16 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
   const [triageReason, setTriageReason] = useState('');
   const [previewMessages, setPreviewMessages] = useState<ChatMessageUI[]>([]);
   const [previewLoading, setPreviewLoading] = useState(false);
-  const [conversationMetadata, setConversationMetadata] = useState<ConversationMetadata | null>(null);
+  // Use canonical conversation flow state
+  const {
+    conversationMetadata,
+    updateConversationMetadata,
+    applyIntakeFields,
+    intakeConversationState,
+  } = useMessageHandling({
+    practiceId: practiceId ?? undefined,
+    conversationId: intake?.conversation_id,
+  });
   const [composerValue, setComposerValue] = useState('');
   const [composerSubmitting, setComposerSubmitting] = useState(false);
   const [gatherDetailsSubmitting, setGatherDetailsSubmitting] = useState(false);
@@ -202,59 +212,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
     setTriageReason('');
   }, [isSubmitting]);
 
-  useEffect(() => {
-    const conversationId = intake?.conversation_id;
-    const targetPracticeId = intake?.organization_id;
-    if (!conversationId || !targetPracticeId) {
-      setPreviewMessages([]);
-      setPreviewLoading(false);
-      setConversationMetadata(null);
-      return;
-    }
-
-    const controller = new AbortController();
-    setPreviewMessages([]);
-    setPreviewLoading(true);
-
-    getConversation(conversationId, targetPracticeId, { signal: controller.signal })
-      .then((conversation) => {
-        if (!isMountedRef.current || controller.signal.aborted) return;
-        setConversationMetadata(conversation?.user_info ?? null);
-      })
-      .catch((err) => {
-        if (!isMountedRef.current || controller.signal.aborted) return;
-        console.warn('[IntakeDetailPage] Failed to load conversation metadata', err);
-        setConversationMetadata(null);
-      });
-
-    fetchConversationMessages(conversationId, targetPracticeId, { limit: 100, signal: controller.signal })
-      .then((messages) => {
-        if (!isMountedRef.current || controller.signal.aborted) return;
-        const mappedMessages = messages.map((message) => ({
-          id: message.id,
-          role: message.role,
-          content: message.content,
-          timestamp: new Date(message.created_at).getTime(),
-          reply_to_message_id: message.reply_to_message_id ?? null,
-          metadata: message.metadata ?? undefined,
-          isUser: message.user_id === session?.user?.id,
-          seq: message.seq,
-        } satisfies ChatMessageUI));
-        setPreviewMessages(mappedMessages);
-      })
-      .catch((err) => {
-        if (!isMountedRef.current || controller.signal.aborted) return;
-        console.warn('[IntakeDetailPage] Failed to load conversation preview', err);
-        setPreviewMessages([]);
-      })
-      .finally(() => {
-        if (isMountedRef.current && !controller.signal.aborted) {
-          setPreviewLoading(false);
-        }
-      });
-
-    return () => controller.abort();
-  }, [intake?.conversation_id, intake?.organization_id, session?.user?.id]);
+  // Remove local conversationMetadata effect; handled by useMessageHandling
 
   const runTriage = useCallback(async (action: 'accepted' | 'declined', reason?: string) => {
     if (isSubmitting || !intake) return;
@@ -433,11 +391,10 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
     const targetPracticeId = intake?.organization_id;
     if (!conversationId || !targetPracticeId || gatherDetailsSubmitting) return;
 
-    const currentMetadata = conversationMetadata ?? {};
-    const currentConsultation = resolveConsultationState(currentMetadata);
-    const currentCase = currentConsultation?.case ?? conversationMetadata?.intakeConversationState ?? null;
+    // Use canonical flow state and patch/apply methods
+    const currentCase = intakeConversationState;
     const nextMetadata = applyConsultationPatchToMetadata(
-      currentMetadata,
+      conversationMetadata,
       { case: { ...(currentCase ?? {}), enrichmentMode: true } },
       { mirrorLegacyFields: true }
     );
@@ -472,8 +429,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
 
     setGatherDetailsSubmitting(true);
     try {
-      const updatedConversation = await updateConversationMetadata(conversationId, targetPracticeId, nextMetadata);
-      setConversationMetadata(updatedConversation?.user_info ?? nextMetadata);
+      await updateConversationMetadata(nextMetadata, conversationId);
       const message = await postSystemMessage(conversationId, targetPracticeId, {
         clientId: 'system-intake-gather-details',
         content: prompt,

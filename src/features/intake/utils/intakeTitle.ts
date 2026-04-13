@@ -47,5 +47,5 @@ export const resolveIntakeTitle = (
   if (representedParty) return normalizeTitle(`${representedParty} intake`);
   if (contactName) return normalizeTitle(`${contactName} intake`);
 
-  return fallback;
+  return normalizeTitle(trimString(fallback));
 };

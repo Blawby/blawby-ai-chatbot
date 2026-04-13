@@ -633,6 +633,9 @@ export const PracticeMattersPage = ({
       return;
     }
 
+    // Clear stale convertInitialValues before async fetch
+    setConvertInitialValues(undefined);
+
     const controller = new AbortController();
     setConvertLoading(true);
     setConvertError(null);
