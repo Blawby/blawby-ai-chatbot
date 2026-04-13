@@ -19,6 +19,7 @@ import { Logger } from '../utils/logger.js';
 import type { Env } from '../types.js';
 import { isIntakeReadyForSubmission, resolveConsultationState } from '../../src/shared/utils/consultationState';
 import { fetchPracticeDetailsWithCache } from '../utils/practiceDetailsCache.js';
+import { createAiClient } from '../utils/aiClient.js';
 
 // ------------------------------------------------------------------
 // Types
@@ -53,6 +54,8 @@ interface ConversationUserInfo {
   intakeSlimContactDraft?: SlimContactDraft | null;
   intakeConversationState?: IntakeConversationState | null;
   intakeUuid?: string | null;
+  title?: string | null;
+  intake_title?: string | null;
   [key: string]: unknown;
 }
 
@@ -98,6 +101,10 @@ interface BackendIntakeCreateResponse {
   };
   error?: string;
 }
+
+const INTAKE_TITLE_MAX_LENGTH = 80;
+const INTAKE_TITLE_MAX_TOKENS = 24;
+const DEFAULT_AI_MODEL = '@cf/zai-org/glm-4.7-flash';
 
 // ------------------------------------------------------------------
 // Helpers
@@ -261,6 +268,132 @@ const isCaseInfoComplete = (state: IntakeConversationState | null | undefined, d
     opposingParty: readTrimmedString(state?.opposingParty) || readTrimmedString(draft?.opposingParty),
   };
   return isIntakeReadyForSubmission(readinessState);
+};
+
+const normalizeIntakeTitle = (raw: string): string => {
+  const cleaned = raw.replace(/^["'`]+|["'`]+$/g, '').replace(/\s+/g, ' ').trim();
+  if (!cleaned) return '';
+  return cleaned.length <= INTAKE_TITLE_MAX_LENGTH
+    ? cleaned
+    : cleaned.slice(0, INTAKE_TITLE_MAX_LENGTH).trim();
+};
+
+const buildFallbackIntakeTitle = (draft: SlimContactDraft, intake: IntakeConversationState | null | undefined): string => {
+  const description = intake?.description?.trim() || draft.description?.trim() || '';
+  if (description) {
+    const sentence = description.split(/[.!?]\s/)[0]?.trim() || description;
+    return normalizeIntakeTitle(sentence.split(/\s+/).filter(Boolean).slice(0, 8).join(' '));
+  }
+
+  const opposingParty = intake?.opposingParty?.trim() || draft.opposingParty?.trim() || '';
+  if (opposingParty) {
+    return normalizeIntakeTitle(`${draft.name} matter with ${opposingParty}`);
+  }
+
+  return normalizeIntakeTitle(`${draft.name} intake`);
+};
+
+const generateIntakeTitle = async (
+  env: Env,
+  draft: SlimContactDraft,
+  intake: IntakeConversationState | null | undefined,
+  transcriptSummary?: string | null
+): Promise<string> => {
+  const fallbackTitle = buildFallbackIntakeTitle(draft, intake);
+  let aiClient;
+  try {
+    aiClient = createAiClient(env);
+  } catch (error) {
+    Logger.warn('[submitIntake] AI client unavailable for intake title generation', {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return fallbackTitle;
+  }
+
+  const caseDetails = [
+    intake?.description?.trim() ? `Description: ${intake.description.trim()}` : null,
+    intake?.opposingParty?.trim() ? `Opposing party: ${intake.opposingParty.trim()}` : null,
+    intake?.desiredOutcome?.trim() ? `Desired outcome: ${intake.desiredOutcome.trim()}` : null,
+    intake?.urgency ? `Urgency: ${intake.urgency}` : null,
+    draft.city || draft.state || intake?.city || intake?.state
+      ? `Location: ${[intake?.city || draft.city, intake?.state || draft.state].filter(Boolean).join(', ')}`
+      : null,
+    transcriptSummary?.trim() ? `Transcript: ${transcriptSummary.trim().slice(0, 1200)}` : null,
+  ].filter(Boolean).join('\n');
+
+  let response: Response;
+  try {
+    response = await aiClient.requestChatCompletions({
+      model: env.AI_MODEL || DEFAULT_AI_MODEL,
+      temperature: 0.2,
+      max_tokens: INTAKE_TITLE_MAX_TOKENS,
+      messages: [
+        {
+          role: 'system',
+          content: [
+            'Create a short legal intake title in 3-7 words.',
+            'Use plain text only. No quotes. No punctuation at the end.',
+            'Describe the legal issue, not the contact name.',
+            'Do not give legal advice.'
+          ].join(' ')
+        },
+        {
+          role: 'user',
+          content: caseDetails || `Contact: ${draft.name}`
+        }
+      ]
+    });
+  } catch (error) {
+    Logger.warn('[submitIntake] Intake title generation request failed', {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return fallbackTitle;
+  }
+
+  if (!response.ok) {
+    Logger.warn('[submitIntake] Intake title generation failed', { status: response.status });
+    return fallbackTitle;
+  }
+
+  const payload = await response.json().catch(() => null) as {
+    choices?: Array<{ message?: { content?: string | null } }>;
+  } | null;
+  const raw = payload?.choices?.[0]?.message?.content;
+  const title = typeof raw === 'string' ? normalizeIntakeTitle(raw) : '';
+  return title || fallbackTitle;
+};
+
+const persistConversationIntakeTitle = async (
+  env: Env,
+  conversationId: string,
+  title: string
+): Promise<void> => {
+  const record = await env.DB.prepare(`
+    SELECT user_info
+    FROM conversations
+    WHERE id = ?
+  `).bind(conversationId).first<{ user_info: string | null } | null>();
+
+  let metadata: Record<string, unknown> = {};
+  if (record?.user_info) {
+    metadata = JSON.parse(record.user_info) as Record<string, unknown>;
+  }
+
+  const nextMetadata = {
+    ...metadata,
+    title,
+    intake_title: title,
+  };
+
+  await env.DB.prepare(`
+    UPDATE conversations
+    SET user_info = ?, updated_at = ?
+    WHERE id = ?
+  `).bind(
+    JSON.stringify(nextMetadata),
+    new Date().toISOString(),
+    conversationId
+  ).run();
 };
 
 const buildIntakePayload = (
@@ -567,6 +700,9 @@ export async function handleSubmitIntake(
       chars: transcriptSummary.length,
     });
   }
+
+  const intakeTitle = await generateIntakeTitle(env, draft, intake, transcriptSummary);
+  await persistConversationIntakeTitle(env, conversationId, intakeTitle);
 
   // Call backend API via existing RemoteApiService pattern
   let backendResponse: Response;

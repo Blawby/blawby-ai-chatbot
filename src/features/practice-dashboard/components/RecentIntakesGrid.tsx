@@ -6,6 +6,7 @@ import { SkeletonLoader } from '@/shared/ui/layout/SkeletonLoader';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import { formatDate } from '@/shared/utils/dateTime';
 import type { IntakeListItem } from '@/features/intake/api/intakesApi';
+import { resolveIntakeTitle } from '@/features/intake/utils/intakeTitle';
 
 const statusTone: Record<string, string> = {
   accepted: 'bg-emerald-500/10 text-emerald-700 ring-emerald-500/20 dark:text-emerald-300',
@@ -66,26 +67,29 @@ export const RecentIntakesGrid = ({
         <p className="mt-6 text-sm text-input-placeholder">No recent intakes.</p>
       ) : (
         <ul className="mt-6 grid grid-cols-1 gap-x-6 gap-y-8 lg:grid-cols-3 xl:gap-x-8">
-          {intakes.map((intake) => (
-            <li
-              key={intake.uuid}
-              className="glass-card flex flex-col overflow-hidden"
-            >
+          {intakes.map((intake) => {
+            const contactName = intake.metadata.name || 'Unknown';
+            const title = resolveIntakeTitle(intake.metadata, contactName);
+            return (
+              <li
+                key={intake.uuid}
+                className="glass-card flex flex-col overflow-hidden"
+              >
               <div className="flex items-center gap-x-4 border-b border-line-glass/20 p-6">
                 <Avatar 
-                  name={intake.metadata.name || 'Unknown'} 
+                  name={contactName}
                   size="lg" 
                   className="h-12 w-12 rounded-lg"
                 />
                 <div className="flex-1">
-                  <p className="text-sm font-medium text-input-text">{intake.metadata.name || 'Unknown'}</p>
+                  <p className="text-sm font-medium text-input-text">{title}</p>
                 </div>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <button
                       type="button"
                       className="relative block text-input-placeholder hover:text-input-text"
-                      aria-label={`Intake actions for ${intake.metadata.name || 'Unknown'}`}
+                      aria-label={`Intake actions for ${title}`}
                     >
                       <span className="absolute -inset-2.5" />
                       <Icon icon={EllipsisHorizontalIcon} className="h-5 w-5"  />
@@ -133,8 +137,9 @@ export const RecentIntakesGrid = ({
                   </dd>
                 </div>
               </dl>
-            </li>
-          ))}
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>

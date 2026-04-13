@@ -28,6 +28,8 @@ export interface IntakeListItem {
   metadata: {
     email: string;
     name: string;
+    title?: string;
+    intake_title?: string;
     phone?: string;
     on_behalf_of?: string;
     opposing_party?: string;
@@ -67,6 +69,8 @@ export interface PracticeIntakeDetail {
   metadata?: {
     email: string;
     name: string;
+    title?: string;
+    intake_title?: string;
     phone?: string;
     on_behalf_of?: string;
     opposing_party?: string;

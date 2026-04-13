@@ -84,14 +84,22 @@ export const extractInvoiceRecord = (payload: unknown): Record<string, unknown> 
   if (Array.isArray(record.invoices) && record.invoices.length > 0 && typeof record.invoices[0] === 'object') {
     return record.invoices[0] as Record<string, unknown>;
   }
-  // Handle root-level invoice object (must have id and status fields)
+  // Handle root-level invoice object: require id, status, and at least one invoice-specific field
   if (
     typeof record.id === 'string' &&
-    typeof record.status === 'string'
+    typeof record.status === 'string' &&
+    (
+      typeof record.total !== 'undefined' ||
+      typeof record.amount_due !== 'undefined' ||
+      typeof record.invoice_number !== 'undefined'
+    )
   ) {
     return record;
   }
-  if ('data' in record) return extractInvoiceRecord(record.data);
+  // If not, try recursing into record.data if present
+  if ('data' in record && typeof record.data === 'object' && record.data !== null) {
+    return extractInvoiceRecord(record.data);
+  }
   return null;
 };
 

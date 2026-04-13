@@ -101,7 +101,7 @@ describe('Intake State Transitions', () => {
 
     test('should handle null/undefined input gracefully', () => {
       expect(normalizeIntakeConversationState(null)).toMatchObject({
-        practiceArea: null,
+        practiceServiceUuid: null,
         description: null,
         urgency: null,
         opposingParty: null,
@@ -118,7 +118,7 @@ describe('Intake State Transitions', () => {
         notYetCount: 0,
       });
       expect(normalizeIntakeConversationState(undefined)).toMatchObject({
-        practiceArea: null,
+        practiceServiceUuid: null,
         description: null,
         urgency: null,
         opposingParty: null,

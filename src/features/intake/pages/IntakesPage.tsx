@@ -11,6 +11,7 @@ import { EntityList } from '@/shared/ui/list/EntityList';
 import { usePaginatedList } from '@/shared/hooks/usePaginatedList';
 import { listIntakes, type IntakeListItem } from '../api/intakesApi';
 import IntakeDetailPage from './IntakeDetailPage';
+import { resolveIntakeTitle } from '@/features/intake/utils/intakeTitle';
 
 const PAGE_SIZE = 20;
 
@@ -41,6 +42,7 @@ const IntakeListItemRow = ({
   isSelected: boolean;
 }) => {
   const name = intake.metadata?.name || 'Anonymous Lead';
+  const title = resolveIntakeTitle(intake.metadata, name);
   const email = intake.metadata?.email || 'No email';
   const timeLabel = formatRelativeTime(intake.created_at);
   const status = intake.triage_status?.replace(/_/g, ' ') || 'pending';
@@ -59,7 +61,7 @@ const IntakeListItemRow = ({
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
             <h2 className="min-w-0 truncate text-sm font-semibold leading-6 text-input-text">
-              {name}
+              {title}
             </h2>
             <div className="mt-1 flex items-center gap-2 text-xs text-input-placeholder">
               <span className="truncate">{email}</span>

@@ -74,6 +74,29 @@ export const updateConversationMetadata = async (
   return data.data ?? null;
 };
 
+export const getConversation = async (
+  conversationId: string,
+  practiceId: string,
+  options: { signal?: AbortSignal } = {}
+): Promise<Conversation | null> => {
+  const response = await fetch(
+    `/api/conversations/${encodeURIComponent(conversationId)}?practiceId=${encodeURIComponent(practiceId)}`,
+    {
+      headers: withWidgetAuthHeaders(),
+      credentials: 'include',
+      signal: options.signal
+    }
+  );
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({})) as { error?: string };
+    throw new Error(errorData.error || `HTTP ${response.status}`);
+  }
+
+  const data = await response.json() as { success: boolean; data?: Conversation };
+  return data.data ?? null;
+};
+
 export const updateConversationTriage = async (
   conversationId: string,
   practiceId: string,

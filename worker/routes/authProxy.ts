@@ -358,11 +358,25 @@ export async function handleBackendProxy(request: Request, env: Env): Promise<Re
           bodyObj = JSON.parse(init.body);
         }
         if (bodyObj && typeof bodyObj === 'object') {
-          // Redact sensitive fields
-          const redacted = { ...(bodyObj as Record<string, unknown>) };
-          for (const key of ['token', 'access_token', 'refresh_token', 'user_id', 'email', 'password']) {
-            if (redacted[key]) redacted[key] = '[REDACTED]';
+          // Recursively redact sensitive fields (deep clone)
+          const SENSITIVE_KEYS = ['token', 'access_token', 'refresh_token', 'user_id', 'email', 'password'];
+          function redactDeep(obj) {
+            if (Array.isArray(obj)) {
+              return obj.map(redactDeep);
+            } else if (obj && typeof obj === 'object') {
+              const clone = {};
+              for (const key in obj) {
+                if (SENSITIVE_KEYS.includes(key)) {
+                  clone[key] = '[REDACTED]';
+                } else {
+                  clone[key] = redactDeep(obj[key]);
+                }
+              }
+              return clone;
+            }
+            return obj;
           }
+          const redacted = redactDeep(bodyObj);
           Logger.debug('PUT /matters/ payload', redacted);
         }
       } catch (e) {
