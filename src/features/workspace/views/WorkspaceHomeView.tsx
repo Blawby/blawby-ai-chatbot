@@ -13,11 +13,9 @@ import { Button } from '@/shared/ui/Button';
 import { SparklesIcon, ChatBubbleLeftRightIcon, DocumentTextIcon } from '@heroicons/react/24/outline';
 import { Icon } from '@/shared/ui/Icon';
 import type { Practice } from '@/shared/hooks/usePracticeManagement';
-import type { PracticeDetails } from '@/shared/lib/apiClient';
 
 export interface WorkspaceHomeViewProps {
   practice: Practice | null;
-  details: PracticeDetails | null;
   onStartNewConversation?: () => void;
   onNavigateToMatters?: () => void;
   isLoading?: boolean;
@@ -25,14 +23,11 @@ export interface WorkspaceHomeViewProps {
 
 const WorkspaceHomeView: FunctionComponent<WorkspaceHomeViewProps> = ({
   practice,
-  details,
   onStartNewConversation,
   onNavigateToMatters,
   isLoading = false,
 }) => {
   const practiceName = practice?.name || 'Your Practice';
-  const hasDescription = Boolean(details?.description || practice?.description);
-  const description = details?.description || practice?.description || '';
 
   const quickActions = useMemo(() => [
     {
@@ -59,7 +54,6 @@ const WorkspaceHomeView: FunctionComponent<WorkspaceHomeViewProps> = ({
     <Page className="h-full">
       <PageHeader
         title={`Welcome to ${practiceName}`}
-        subtitle={hasDescription ? description : undefined}
       />
 
       <div className="space-y-8">

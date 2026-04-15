@@ -8,7 +8,6 @@ export { LayoutFormItem } from './FormItem';
 export { PageHeader } from './PageHeader';
 export { AppShell } from './AppShell';
 export { ContentHeader } from './ContentHeader';
-export { ContentPageLayout } from './ContentPageLayout';
 export { Page } from './Page';
 export { Panel } from './Panel';
 export { SplitView } from './SplitView';
@@ -20,6 +19,9 @@ export { WorkspacePlaceholderState } from './WorkspacePlaceholderState';
 export { PanelSectionHeader } from './PanelSectionHeader';
 export { PanelEmptyState } from './PanelEmptyState';
 export { InteractiveListItem } from './InteractiveListItem';
+// New canonical layout primitives
+export { SettingsPage } from './SettingsPage';
+export { ContentWithPreview } from './ContentWithPreview';
 
 export type { IconContainerProps } from './IconContainer';
 export type { LoadingBlockProps } from './LoadingBlock';
@@ -30,6 +32,7 @@ export type { SectionDividerProps } from './SectionDivider';
 export type { LayoutFormItemProps } from './FormItem';
 export type { DetailHeaderProps } from './DetailHeader';
 export type { ContentHeaderProps } from './ContentHeader';
-export type { ContentPageLayoutProps } from './ContentPageLayout';
 export type { WorkspaceListHeaderProps } from './WorkspaceListHeader';
 export type { WorkspacePlaceholderAction } from './WorkspacePlaceholderState';
+export type { SettingsPageProps } from './SettingsPage';
+export type { ContentWithPreviewProps } from './ContentWithPreview';

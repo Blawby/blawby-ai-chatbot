@@ -3,7 +3,6 @@ import { useNavigation } from '@/shared/utils/navigation';
 import { Button } from '@/shared/ui/Button';
 import { SettingRow } from '@/features/settings/components/SettingRow';
 import { SectionDivider } from '@/shared/ui/layout';
-import { ContentPageLayout } from '@/shared/ui/layout';
 
 export interface HelpPageProps {
   className?: string;
@@ -32,7 +31,8 @@ export const HelpPage = ({ className = '' }: HelpPageProps) => {
   };
 
   return (
-    <ContentPageLayout title={t('help.title')} className={className}>
+    <>
+      <div className="space-y-6">
       <SettingRow
         label={t('help.sections.helpCenter.title')}
         description={t('help.sections.helpCenter.description')}
@@ -164,6 +164,7 @@ export const HelpPage = ({ className = '' }: HelpPageProps) => {
           </SettingRow>
         </>
       )}
-    </ContentPageLayout>
+    </div>
+    </>
   );
 };

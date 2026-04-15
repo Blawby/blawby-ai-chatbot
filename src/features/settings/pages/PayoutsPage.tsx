@@ -1,8 +1,7 @@
 import axios from 'axios';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { Button } from '@/shared/ui/Button';
-import { SectionDivider } from '@/shared/ui';
-import { ContentPageLayout } from '@/shared/ui/layout';
+import { SectionDivider, SettingsPage } from '@/shared/ui';
 import { SettingsHelperText } from '@/features/settings/components/SettingsHelperText';
 import { SettingsNotice } from '@/features/settings/components/SettingsNotice';
 import { SettingSection } from '@/features/settings/components/SettingSection';
@@ -32,10 +31,17 @@ const maskStripeAccountId = (value?: string | null) => {
   return `${value.slice(0, 8)}...${value.slice(-4)}`;
 };
 
-export const PayoutsPage = ({ className = '' }: { className?: string }) => {
+export const PayoutsPage = ({
+  className = '',
+  onBack
+}: {
+  className?: string;
+  onBack?: () => void;
+}) => {
   const { session } = useSessionContext();
   const { currentPractice } = usePracticeManagement({ fetchPracticeDetails: true });
   const { showError } = useToastContext();
+
   const organizationId = useMemo(
     () => currentPractice?.betterAuthOrgId ?? currentPractice?.id ?? null,
     [currentPractice?.betterAuthOrgId, currentPractice?.id]
@@ -202,7 +208,14 @@ export const PayoutsPage = ({ className = '' }: { className?: string }) => {
       : 'Start Stripe setup';
 
   return (
-    <ContentPageLayout title="Payouts" className={className} contentClassName="pb-8">
+    <SettingsPage
+      title="Payouts"
+      showBack={Boolean(onBack)}
+      onBack={onBack}
+      className={className}
+      contentMaxWidth="max-w-3xl"
+    >
+      <div className="space-y-6">
       <SettingSection
         title="External payout accounts"
         description="Connect Stripe to receive payouts for your practice."
@@ -352,8 +365,7 @@ export const PayoutsPage = ({ className = '' }: { className?: string }) => {
           </SettingsHelperText>
         )}
       </SettingSection>
-    </ContentPageLayout>
+    </div>
+    </SettingsPage>
   );
 };
-
-export default PayoutsPage;

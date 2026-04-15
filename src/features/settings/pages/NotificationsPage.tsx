@@ -5,7 +5,6 @@ import { useTranslation } from '@/shared/i18n/hooks';
 import { getNotificationDisplayText } from '@/shared/ui/validation/defaultValues';
 import { SettingRow } from '@/features/settings/components/SettingRow';
 import { NotificationChannelSelector } from '@/features/settings/components/NotificationChannelSelector';
-import { ContentPageLayout } from '@/shared/ui/layout';
 import { LoadingBlock } from '@/shared/ui/layout/LoadingBlock';
 import { SettingsSubheader } from '@/features/settings/components/SettingsSubheader';
 import {
@@ -302,10 +301,8 @@ export const NotificationsPage = ({
   }
 
   return (
-    <ContentPageLayout
-      title={t('settings:notifications.title', { defaultValue: 'Notifications' })}
-      className={className}
-    >
+    <>
+      <div className="space-y-8">
       {CATEGORY_CONFIG.map((category, index) => {
         const categorySettings = getCategorySettings(settings, category.key);
         const isSystem = category.key === 'system';
@@ -437,6 +434,7 @@ export const NotificationsPage = ({
           />
         </div>
       </SettingRow>
-    </ContentPageLayout>
+    </div>
+    </>
   );
 };

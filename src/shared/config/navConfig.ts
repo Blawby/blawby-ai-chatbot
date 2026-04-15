@@ -315,9 +315,6 @@ const buildSettingsSecondary = (basePath: string, canAccessPractice: boolean): N
       items: [
         { id: 'practice', label: 'Practice', href: `${basePath}/settings/practice` },
         { id: 'practice-payouts', label: 'Payouts', href: `${basePath}/settings/practice/payouts` },
-        { id: 'practice-services', label: 'Services', href: `${basePath}/settings/practice/services` },
-        { id: 'practice-team', label: 'Team', href: `${basePath}/settings/practice/team` },
-        { id: 'practice-pricing', label: 'Pricing', href: `${basePath}/settings/practice/pricing` },
         { id: 'apps', label: 'Apps', href: `${basePath}/settings/apps` },
       ],
     });

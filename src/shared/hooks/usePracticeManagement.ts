@@ -65,7 +65,7 @@ export interface Practice {
   id: string;
   slug: string;
   name: string;
-  description?: string;
+  legalDisclaimer?: string | null;
   betterAuthOrgId?: string;
   stripeCustomerId?: string | null;
   currency?: string | null;
@@ -77,7 +77,6 @@ export interface Practice {
   config?: {
     ownerEmail?: string;
     metadata?: Record<string, unknown>;
-    description?: string;
     [key: string]: unknown; // Allow additional config properties
   };
   kind?: 'personal' | 'business' | 'practice';
@@ -132,14 +131,12 @@ export interface Invitation {
 export interface CreatePracticeData {
   name: string;
   slug?: string;
-  description?: string;
   metadata?: Record<string, unknown>;
 }
 
 export interface UpdatePracticeData {
   name?: string;
   slug?: string;
-  description?: string;
   businessPhone?: string;
   businessEmail?: string;
   consultationFee?: MajorAmount | null;
@@ -237,15 +234,15 @@ function normalizePracticeRecord(raw: Record<string, unknown>): Practice {
   const cfg = (() => {
     const c = (raw as Record<string, unknown>).config as unknown;
     if (c && typeof c === 'object' && !Array.isArray(c)) {
-      return c as Practice['config'] & { description?: string };
+      return c as Practice['config'];
     }
     const metadata = (raw as Record<string, unknown>).metadata;
     if (metadata && typeof metadata === 'object' && !Array.isArray(metadata)) {
       return {
         metadata: metadata as Record<string, unknown>
-      } as Practice['config'] & { description?: string };
+      } as Practice['config'];
     }
-    return undefined as Practice['config'] & { description?: string } | undefined;
+    return undefined as Practice['config'] | undefined;
   })();
   const metadataRecord = (() => {
     const direct = (raw as Record<string, unknown>).metadata;
@@ -364,26 +361,16 @@ function normalizePracticeRecord(raw: Record<string, unknown>): Practice {
     return undefined;
   })();
 
-  const topLevelDescription = (() => {
-    const candidate = raw.description ?? raw.overview;
-    return typeof candidate === 'string' && candidate.trim().length > 0 ? candidate : undefined;
-  })();
-  const configDescription = (() => {
-    const desc = cfg && (cfg as Record<string, unknown>).description;
-    return typeof desc === 'string' && desc.trim().length > 0 ? desc : undefined;
-  })();
-  const metadataDescription = (() => {
-    const metadata = cfg && (cfg as Record<string, unknown>).metadata;
-    if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) return undefined;
-    const desc = (metadata as Record<string, unknown>).description;
-    return typeof desc === 'string' && desc.trim().length > 0 ? desc : undefined;
+  const legalDisclaimer = (() => {
+    const candidate = raw.legalDisclaimer ?? raw.legal_disclaimer ?? raw.overview;
+    return typeof candidate === 'string' && candidate.trim().length > 0 ? candidate : null;
   })();
 
   return {
     id,
     slug,
     name,
-    description: topLevelDescription ?? configDescription ?? metadataDescription,
+    legalDisclaimer,
     stripeCustomerId: (() => {
       const val = (raw.stripeCustomerId ?? raw.stripe_customer_id ?? null);
       return typeof val === 'string' && val.trim().length > 0 ? val : null;
@@ -482,7 +469,7 @@ function mergePracticeDetails(practice: Practice, details: PracticeDetails | nul
   setIfNonNull('country', details.country as Practice['country'] | undefined | null);
   setIfNonNull('primaryColor', details.primaryColor as Practice['primaryColor'] | undefined | null);
   setIfNonNull('accentColor', details.accentColor as Practice['accentColor'] | undefined | null);
-  setIfNonNull('description', details.description as Practice['description'] | undefined | null);
+  setIfDefined('legalDisclaimer', details.legalDisclaimer as Practice['legalDisclaimer'] | undefined);
   setIfDefined('isPublic', details.isPublic as Practice['isPublic'] | undefined);
   setIfDefined('services', details.services as Practice['services'] | undefined);
   return {
@@ -935,20 +922,10 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
 
     // Only include slug if user explicitly provided one - API will auto-generate otherwise
     const slug = data.slug && data.slug.trim().length > 0 ? data.slug.trim() : undefined;
-    const baseMetadata = data.description
-      ? { description: data.description }
-      : undefined;
-    const metadata = data.metadata
-      ? {
-          ...(baseMetadata ?? {}),
-          ...data.metadata
-        }
-      : baseMetadata;
-
     const practice = await apiCreatePractice({
       name: data.name,
       ...(slug ? { slug } : {}),
-      ...(metadata ? { metadata } : {})
+      ...(data.metadata ? { metadata: data.metadata } : {})
     });
 
     if (practice?.id) {
@@ -1034,13 +1011,6 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
       metadataNext = {
         ...metadataBase,
         ...data.metadata
-      };
-    }
-
-    if (typeof data.description === 'string') {
-      metadataNext = {
-        ...(metadataNext ?? metadataBase),
-        description: data.description
       };
     }
 

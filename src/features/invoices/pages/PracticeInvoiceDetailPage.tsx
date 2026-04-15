@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'preact/hooks';
 import { Dialog } from '@/shared/ui/dialog';
 import { Button } from '@/shared/ui/Button';
 import { Input, Textarea } from '@/shared/ui/input';
-import { DetailHeader } from '@/shared/ui/layout/DetailHeader';
+import { SettingsPage } from '@/shared/ui/layout';
 import { LoadingBlock } from '@/shared/ui/layout/LoadingBlock';
 import { formatLongDate } from '@/shared/utils/dateFormatter';
 import { useToastContext } from '@/shared/contexts/ToastContext';
@@ -185,100 +185,97 @@ export function PracticeInvoiceDetailPage({
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-4 p-4 sm:p-6">
-      <DetailHeader
-        title={detail.invoiceNumber}
-        subtitle={`Issued ${renderEventDate(detail.issueDate)} • Due ${renderEventDate(detail.dueDate)} • Paid ${renderEventDate(detail.paidAt)}`}
-        showBack={showBack}
-        onBack={handleBackToList}
-        leadingAction={leadingAction}
-        onInspector={onInspector}
-        inspectorOpen={inspectorOpen}
-        actions={(
-          <div className="flex flex-wrap items-center gap-2">
-            {mode === 'edit' ? (
-              <Button variant="secondary" onClick={handleOpenEditor}>Edit invoice</Button>
-            ) : null}
-            {isActionableOpenStatus(status) ? (
-              <>
-                <Button variant="secondary" onClick={handleOpenHostedInvoice} disabled={!hasHostedUrl}>Open Stripe hosted invoice</Button>
-                <Button variant="secondary" onClick={() => void handleSync()}>Sync</Button>
-                <Button variant="danger-ghost" onClick={() => void handleVoid()}>Void</Button>
-              </>
-            ) : null}
-            {status === 'paid' ? (
+    <SettingsPage
+      title={detail.invoiceNumber}
+      subtitle={`Issued ${renderEventDate(detail.issueDate)} • Due ${renderEventDate(detail.dueDate)}`}
+      showBack={showBack}
+      onBack={handleBackToList}
+      actions={(
+        <div className="flex flex-wrap items-center gap-2">
+          {mode === 'edit' ? (
+            <Button variant="secondary" onClick={handleOpenEditor}>Edit invoice</Button>
+          ) : null}
+          {isActionableOpenStatus(status) ? (
+            <>
               <Button variant="secondary" onClick={handleOpenHostedInvoice} disabled={!hasHostedUrl}>Open Stripe hosted invoice</Button>
-            ) : null}
-            {canMockRefund ? (
-              <Button variant="secondary" onClick={() => setRefundModalOpen(true)}>Issue refund (Mock)</Button>
-            ) : null}
-          </div>
-        )}
-      />
-
-      <InvoiceForm
-        mode="readOnly"
-        practiceId={practiceId}
-        connectedAccountId={detail.sourceInvoice.connected_account_id}
-        clientOptions={[{ value: detail.sourceInvoice.client_id, label: detail.clientName?.trim() || 'Person' }]}
-        matterOptions={detail.sourceInvoice.matter_id
-          ? [{ value: detail.sourceInvoice.matter_id, label: detail.matterTitle?.trim() || 'Matter', meta: detail.sourceInvoice.client_id }]
-          : []}
-        initialClientId={detail.sourceInvoice.client_id}
-        initialMatterId={detail.sourceInvoice.matter_id ?? undefined}
-        initialLineItems={detail.lineItems}
-        initialDueDate={detail.dueDate ? detail.dueDate.slice(0, 10) : undefined}
-        initialNotes={detail.notes ?? undefined}
-        initialMemo={detail.memo ?? undefined}
-        initialInvoiceType={detail.sourceInvoice.invoice_type}
-        existingInvoiceId={detail.id}
-        closeAfterSuccess={false}
-        onClose={handleBackToList}
-        onSuccess={() => undefined}
-        practiceName={currentPractice?.name ?? undefined}
-        practiceLogoUrl={currentPractice?.logo ?? undefined}
-        practiceEmail={currentPractice?.businessEmail ?? undefined}
-        billingIncrementMinutes={currentPractice?.billingIncrementMinutes ?? undefined}
-      />
-
-      <Dialog
-        isOpen={refundModalOpen}
-        onClose={() => setRefundModalOpen(false)}
-        title="Issue refund (Mock)"
-        contentClassName="max-w-xl"
-        disableBackdropClick={submittingMockRefund}
-      >
-        <div className="space-y-4">
-          <p className="text-sm text-input-placeholder">
-            This flow is currently mocked and does not execute a real backend refund.
-          </p>
-          <Input
-            type="number"
-            label="Amount"
-            value={refundAmount}
-            onChange={setRefundAmount}
-            min={0}
-            step={0.01}
-            placeholder={`Up to ${detail.amountPaid}`}
-            disabled={submittingMockRefund}
-          />
-          <Textarea
-            label="Reason"
-            value={refundReason}
-            onChange={setRefundReason}
-            rows={3}
-            disabled={submittingMockRefund}
-          />
-          <div className="flex justify-end gap-2">
-            <Button variant="secondary" onClick={() => setRefundModalOpen(false)} disabled={submittingMockRefund}>
-              Cancel
-            </Button>
-            <Button onClick={() => void handleSubmitMockRefund()} disabled={submittingMockRefund}>
-              {submittingMockRefund ? 'Submitting...' : 'Queue refund request'}
-            </Button>
-          </div>
+              <Button variant="secondary" onClick={() => void handleSync()}>Sync</Button>
+              <Button variant="danger-ghost" onClick={() => void handleVoid()}>Void</Button>
+            </>
+          ) : null}
+          {status === 'paid' ? (
+            <Button variant="secondary" onClick={handleOpenHostedInvoice} disabled={!hasHostedUrl}>Open Stripe hosted invoice</Button>
+          ) : null}
+          {canMockRefund ? (
+            <Button variant="secondary" onClick={() => setRefundModalOpen(true)}>Issue refund (Mock)</Button>
+          ) : null}
         </div>
-      </Dialog>
-    </div>
+      )}
+    >
+      <div className="space-y-6">
+        <InvoiceForm
+          mode="readOnly"
+          practiceId={practiceId}
+          connectedAccountId={detail.sourceInvoice.connected_account_id}
+          clientOptions={[{ value: detail.sourceInvoice.client_id, label: detail.clientName?.trim() || 'Person' }]}
+          matterOptions={detail.sourceInvoice.matter_id
+            ? [{ value: detail.sourceInvoice.matter_id, label: detail.matterTitle?.trim() || 'Matter', meta: detail.sourceInvoice.client_id }]
+            : []}
+          initialClientId={detail.sourceInvoice.client_id}
+          initialMatterId={detail.sourceInvoice.matter_id ?? undefined}
+          initialLineItems={detail.lineItems}
+          initialDueDate={detail.dueDate ? detail.dueDate.slice(0, 10) : undefined}
+          initialNotes={detail.notes ?? undefined}
+          initialMemo={detail.memo ?? undefined}
+          initialInvoiceType={detail.sourceInvoice.invoice_type}
+          existingInvoiceId={detail.id}
+          closeAfterSuccess={false}
+          onClose={handleBackToList}
+          onSuccess={() => undefined}
+          practiceName={currentPractice?.name ?? undefined}
+          practiceLogoUrl={currentPractice?.logo ?? undefined}
+          practiceEmail={currentPractice?.businessEmail ?? undefined}
+          billingIncrementMinutes={currentPractice?.billingIncrementMinutes ?? undefined}
+        />
+
+        <Dialog
+          isOpen={refundModalOpen}
+          onClose={() => setRefundModalOpen(false)}
+          title="Issue refund (Mock)"
+          contentClassName="max-w-xl"
+          disableBackdropClick={submittingMockRefund}
+        >
+          <div className="space-y-4">
+            <p className="text-sm text-input-placeholder">
+              This flow is currently mocked and does not execute a real backend refund.
+            </p>
+            <Input
+              type="number"
+              label="Amount"
+              value={refundAmount}
+              onChange={setRefundAmount}
+              min={0}
+              step={0.01}
+              placeholder={`Up to ${detail.amountPaid}`}
+              disabled={submittingMockRefund}
+            />
+            <Textarea
+              label="Reason"
+              value={refundReason}
+              onChange={setRefundReason}
+              rows={3}
+              disabled={submittingMockRefund}
+            />
+            <div className="flex justify-end gap-2">
+              <Button variant="secondary" onClick={() => setRefundModalOpen(false)} disabled={submittingMockRefund}>
+                Cancel
+              </Button>
+              <Button onClick={() => void handleSubmitMockRefund()} disabled={submittingMockRefund}>
+                {submittingMockRefund ? 'Submitting...' : 'Queue refund request'}
+              </Button>
+            </div>
+          </div>
+        </Dialog>
+      </div>
+    </SettingsPage>
   );
 }

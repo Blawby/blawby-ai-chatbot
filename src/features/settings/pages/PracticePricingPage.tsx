@@ -3,26 +3,82 @@ import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
-import { asMajor, fromMinorUnits, type MajorAmount } from '@/shared/utils/money';
+import { asMajor, toMinorUnits, type MajorAmount } from '@/shared/utils/money';
 import { Button } from '@/shared/ui/Button';
-import { ContentPageLayout } from '@/shared/ui/layout';
 import { LoadingBlock } from '@/shared/ui/layout/LoadingBlock';
 import { SettingsHelperText } from '@/features/settings/components/SettingsHelperText';
-import { SectionDivider } from '@/shared/ui/layout';
+import { SectionDivider, SettingsPage } from '@/shared/ui/layout';
 import { CurrencyInput, Input, Switch } from '@/shared/ui/input';
 import { Dialog, DialogBody, DialogFooter } from '@/shared/ui/dialog';
 import { normalizePracticeRole } from '@/shared/utils/practiceRoles';
+import { WidgetPreviewFrame } from '@/features/settings/components/WidgetPreviewFrame';
+import { Tabs } from '@/shared/ui/tabs';
 
 const DEFAULT_BILLING_INCREMENT = 1;
 
+type PricingSettingsTab = 'payment' | 'billing';
+
+const PRICING_TABS = [
+  { id: 'payment', label: 'Payment request' },
+  { id: 'billing', label: 'Time entry' },
+];
+
+const roundMinutesToIncrement = (minutes: number, increment: number) => {
+  const normalizedIncrement = Number.isFinite(increment) && increment > 0 ? increment : DEFAULT_BILLING_INCREMENT;
+  return Math.ceil(minutes / normalizedIncrement) * normalizedIncrement;
+};
+
+const formatHours = (minutes: number) => {
+  const hours = minutes / 60;
+  return Number.isInteger(hours) ? `${hours}` : hours.toFixed(2);
+};
+
+const BillingIncrementPreview = ({ increment }: { increment: number }) => {
+  const actualMinutes = 52;
+  const billedMinutes = roundMinutesToIncrement(actualMinutes, increment);
+
+  return (
+    <div className="w-full">
+      <h3 className="mb-3 text-sm font-semibold text-input-text">Preview</h3>
+      <div className="rounded-xl border border-line-glass/40 bg-surface-card p-5 shadow-xl">
+        <div className="flex items-start justify-between gap-4 border-b border-line-glass/30 pb-4">
+          <div>
+            <p className="text-sm font-semibold text-input-text">Time entry</p>
+            <p className="mt-1 text-xs text-input-placeholder">Draft matter activity</p>
+          </div>
+          <span className="rounded-full bg-surface-utility px-3 py-1 text-xs font-semibold text-input-text">
+            Billable
+          </span>
+        </div>
+        <dl className="mt-4 space-y-3 text-sm">
+          <div className="flex items-center justify-between gap-4">
+            <dt className="text-input-placeholder">Actual time</dt>
+            <dd className="font-semibold text-input-text">{actualMinutes} minutes</dd>
+          </div>
+          <div className="flex items-center justify-between gap-4">
+            <dt className="text-input-placeholder">Billing increment</dt>
+            <dd className="font-semibold text-input-text">{increment} {increment === 1 ? 'minute' : 'minutes'}</dd>
+          </div>
+          <div className="flex items-center justify-between gap-4 rounded-lg bg-surface-utility px-3 py-2">
+            <dt className="text-input-placeholder">Invoice quantity</dt>
+            <dd className="font-semibold text-input-text">{formatHours(billedMinutes)} hours</dd>
+          </div>
+        </dl>
+      </div>
+    </div>
+  );
+};
+
 interface PracticePricingPageProps {
   className?: string;
+  onBack?: () => void;
 }
 
-export const PracticePricingPage = ({ className }: PracticePricingPageProps) => {
+export const PracticePricingPage = ({ className, onBack }: PracticePricingPageProps) => {
   const { activeMemberRole, activeMemberRoleLoading } = useSessionContext();
   const { currentPractice, loading, updatePracticeDetails } = usePracticeManagement({ fetchPracticeDetails: true });
   const { showSuccess, showError } = useToastContext();
+
   const [isFeeModalOpen, setIsFeeModalOpen] = useState(false);
   const [feeEnabledDraft, setFeeEnabledDraft] = useState(false);
   const [feeDraft, setFeeDraft] = useState<MajorAmount | undefined>(undefined);
@@ -32,6 +88,7 @@ export const PracticePricingPage = ({ className }: PracticePricingPageProps) => 
   const [showBillingValidation, setShowBillingValidation] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [showValidation, setShowValidation] = useState(false);
+  const [activeTab, setActiveTab] = useState<PricingSettingsTab>('payment');
   const locale = typeof navigator !== 'undefined' ? navigator.language : 'en';
   const normalizedRole = normalizePracticeRole(activeMemberRole);
   const canEdit = !activeMemberRoleLoading && (normalizedRole === 'owner' || normalizedRole === 'admin');
@@ -51,19 +108,27 @@ export const PracticePricingPage = ({ className }: PracticePricingPageProps) => 
   const currencyCode = currentPractice?.currency || 'USD';
   const formattedFee = useMemo(() => {
     if (!feeEnabled || typeof activeFee !== 'number') return null;
-    return formatCurrency(fromMinorUnits(activeFee), currencyCode, locale);
+    return formatCurrency(activeFee, currencyCode, locale);
   }, [activeFee, feeEnabled, locale, currencyCode]);
 
   const effectiveBillingIncrement = Number.isFinite(activeBillingIncrement)
     ? (activeBillingIncrement as number)
     : DEFAULT_BILLING_INCREMENT;
+  const previewFeeMinor = useMemo(() => {
+    if (isFeeModalOpen) {
+      return feeEnabledDraft && typeof feeDraft === 'number' && Number.isFinite(feeDraft)
+        ? toMinorUnits(feeDraft)
+        : null;
+    }
+    return feeEnabledDisplay && typeof activeFee === 'number' ? toMinorUnits(activeFee) : null;
+  }, [activeFee, feeDraft, feeEnabledDisplay, feeEnabledDraft, isFeeModalOpen]);
   const feeValidationError = showValidation && feeEnabledDraft && (!Number.isFinite(feeDraft) || (feeDraft ?? 0) <= 0)
     ? `Enter a fee greater than ${formatCurrency(0, currencyCode, locale)}.`
     : undefined;
 
   const openFeeModal = () => {
     const nextFee = typeof activeFee === 'number' && activeFee > 0 ? activeFee : undefined;
-    setFeeDraft(nextFee !== undefined ? fromMinorUnits(nextFee) : undefined);
+    setFeeDraft(nextFee !== undefined ? asMajor(nextFee) : undefined);
     setFeeEnabledDraft(Boolean(nextFee));
     setShowValidation(false);
     setIsFeeModalOpen(true);
@@ -99,7 +164,7 @@ export const PracticePricingPage = ({ className }: PracticePricingPageProps) => 
       return;
     }
 
-    const currentVal = typeof activeFee === 'number' ? fromMinorUnits(activeFee) : null;
+    const currentVal = typeof activeFee === 'number' ? activeFee : null;
     const nextVal = feeEnabledDraft && typeof feeDraft === 'number' ? feeDraft : null;
 
     if ((nextVal as number) === (currentVal as number) || (!feeEnabledDraft && !feeEnabled)) {
@@ -217,75 +282,111 @@ export const PracticePricingPage = ({ className }: PracticePricingPageProps) => 
   }
 
   return (
-    <ContentPageLayout
-      title="Pricing &amp; Fees"
+    <SettingsPage
+      title="Pricing"
+      showBack={Boolean(onBack)}
+      backVariant="close"
+      onBack={onBack}
       className={className}
-      wrapChildren={false}
-      contentClassName="pb-6"
-    >
-      <div className="pt-2 pb-6">
-        <p className="text-sm text-input-placeholder">
-          Configure intake payments and billing increments for this practice.
-        </p>
-      </div>
-
-      <SectionDivider />
-      <div className="py-3">
-          <Switch
-            id="consultation-fee-enabled"
-            label="Consultation fee"
-            description="Require payment before confirming an intake."
-            value={feeEnabledDisplay}
-            onChange={(value) => void handleFeeToggle(value)}
-            disabled={!canEdit || isSaving}
-            className="py-0"
+      contentMaxWidth={null}
+      previewVariant="widget"
+      preview={(
+        activeTab === 'payment' ? (
+          <WidgetPreviewFrame
+            practiceSlug={currentPractice?.slug}
+            scenario="consultation-payment"
+            title="Consultation payment preview"
+            config={{
+              name: currentPractice?.name,
+              profileImage: currentPractice?.logo ?? null,
+              accentColor: currentPractice?.accentColor,
+              consultationFee: previewFeeMinor,
+              paymentLinkEnabled: Boolean(previewFeeMinor && previewFeeMinor > 0),
+              currency: currencyCode,
+              billingIncrementMinutes: isBillingModalOpen ? billingDraft : effectiveBillingIncrement,
+            }}
           />
-      </div>
-      {feeEnabledDisplay && (
-        <>
-          <SectionDivider />
-          <div className="py-3">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <div className="text-sm font-semibold text-input-text">Amount</div>
-                <SettingsHelperText className="mt-1">
-                  {formattedFee ?? 'Not set'}
-                </SettingsHelperText>
-              </div>
-              <Button variant="secondary" size="sm" onClick={openFeeModal} disabled={!canEdit || isSaving}>
-                {formattedFee ? 'Edit' : 'Set amount'}
-              </Button>
-            </div>
-            {isReadOnly && (
-              <SettingsHelperText className="mt-2">
-                Owner/admin access required to update pricing.
-              </SettingsHelperText>
-            )}
-          </div>
-        </>
+        ) : (
+          <BillingIncrementPreview increment={isBillingModalOpen ? billingDraft ?? effectiveBillingIncrement : effectiveBillingIncrement} />
+        )
       )}
+    >
+      <div className="space-y-6">
+        <Tabs
+          items={PRICING_TABS}
+          activeId={activeTab}
+          onChange={(id) => setActiveTab(id as PricingSettingsTab)}
+        />
 
-      <SectionDivider className="mt-6" />
-      <div className="py-3">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <div className="text-sm font-semibold text-input-text">Billing increment</div>
-              <p className="mt-1 text-sm text-input-placeholder">
-                Current increment: {effectiveBillingIncrement} {effectiveBillingIncrement === 1 ? 'minute' : 'minutes'}.
-              </p>
+        <div className="pt-2 pb-6">
+          <p className="text-sm text-input-placeholder">
+            Configure intake payments and billing increments for this practice.
+          </p>
+        </div>
+
+        {activeTab === 'payment' ? (
+          <>
+            <SectionDivider />
+            <div className="py-3">
+              <Switch
+                id="consultation-fee-enabled"
+                label="Consultation fee"
+                description="Require payment before confirming an intake."
+                value={feeEnabledDisplay}
+                onChange={(value) => void handleFeeToggle(value)}
+                disabled={!canEdit || isSaving}
+                className="py-0"
+              />
             </div>
-            <Button variant="secondary" size="sm" onClick={openBillingModal} disabled={!canEdit || isSaving}>
-              Manage
-            </Button>
-          </div>
-          {isReadOnly && (
-            <SettingsHelperText className="mt-2">
-              Owner/admin access required to update billing increments.
-            </SettingsHelperText>
-          )}
-      </div>
+            {feeEnabledDisplay && (
+              <>
+                <SectionDivider />
+                <div className="py-3">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <div className="text-sm font-semibold text-input-text">Amount</div>
+                      <SettingsHelperText className="mt-1">
+                        {formattedFee ?? 'Not set'}
+                      </SettingsHelperText>
+                    </div>
+                    <Button variant="secondary" size="sm" onClick={openFeeModal} disabled={!canEdit || isSaving}>
+                      {formattedFee ? 'Edit' : 'Set amount'}
+                    </Button>
+                  </div>
+                  {isReadOnly && (
+                    <SettingsHelperText className="mt-2">
+                      Owner/admin access required to update pricing.
+                    </SettingsHelperText>
+                  )}
+                </div>
+              </>
+            )}
+          </>
+        ) : (
+          <>
+            <SectionDivider />
+            <div className="py-3">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div className="text-sm font-semibold text-input-text">Billing increment</div>
+                  <p className="mt-1 text-sm text-input-placeholder">
+                    Current increment: {effectiveBillingIncrement} {effectiveBillingIncrement === 1 ? 'minute' : 'minutes'}.
+                  </p>
+                </div>
+                <Button variant="secondary" size="sm" onClick={openBillingModal} disabled={!canEdit || isSaving}>
+                  Manage
+                </Button>
+              </div>
+              {isReadOnly && (
+                <SettingsHelperText className="mt-2">
+                  Owner/admin access required to update billing increments.
+                </SettingsHelperText>
+              )}
+            </div>
+          </>
+        )}
 
-      <Dialog isOpen={isFeeModalOpen} onClose={closeFeeModal} title="Consultation fee">
+        <Dialog isOpen={isFeeModalOpen} onClose={closeFeeModal} title="Consultation fee">
         <DialogBody className="space-y-4">
           <Switch
             id="consultation-fee-toggle"
@@ -374,6 +475,7 @@ export const PracticePricingPage = ({ className }: PracticePricingPageProps) => 
           </Button>
         </DialogFooter>
       </Dialog>
-    </ContentPageLayout>
+      </div>
+    </SettingsPage>
   );
 };

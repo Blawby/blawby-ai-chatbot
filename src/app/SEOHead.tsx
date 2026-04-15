@@ -68,8 +68,9 @@ export function SEOHead({
 
     // Update Open Graph tags
     updateMetaTag('og:title', title);
-    updateMetaTag('og:description', pageDescription || 
-      (practiceConfig?.description || 'Get instant legal guidance, document analysis, and matter creation with Blawby\'s AI-powered legal assistant. Available nationwide for legal professionals and individuals seeking legal information.'));
+    const defaultDescription = 'Get instant legal guidance, document analysis, and matter creation with Blawby\'s AI-powered legal assistant. Available nationwide for legal professionals and individuals seeking legal information.';
+
+    updateMetaTag('og:description', pageDescription || defaultDescription);
     updateMetaTag('og:url', currentUrl || window.location.href);
     updateMetaTag('og:image', pageImage || 
       (practiceConfig?.profileImage || '/team-profile-demo.png'));
@@ -81,14 +82,12 @@ export function SEOHead({
 
     // Update Twitter tags
     updateMetaName('twitter:title', title);
-    updateMetaName('twitter:description', pageDescription || 
-      (practiceConfig?.description || 'Get instant legal guidance, document analysis, and matter creation with Blawby\'s AI-powered legal assistant. Available nationwide for legal professionals and individuals seeking legal information.'));
+    updateMetaName('twitter:description', pageDescription || defaultDescription);
     updateMetaName('twitter:image', pageImage || 
       (practiceConfig?.profileImage || 'https://ai.blawby.com/organization-profile-demo.png'));
 
     // Update standard meta tags
-    updateMetaName('description', pageDescription || 
-      (practiceConfig?.description || 'Get instant legal guidance, document analysis, and matter creation with Blawby\'s AI-powered legal assistant. Available nationwide for legal professionals and individuals seeking legal information.'));
+    updateMetaName('description', pageDescription || defaultDescription);
 
     // Update canonical URL
     let canonical = document.querySelector('link[rel="canonical"]') as HTMLLinkElement;

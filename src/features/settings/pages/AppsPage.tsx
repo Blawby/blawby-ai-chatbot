@@ -2,10 +2,9 @@ import { App } from './appsData';
 import { SettingRow } from '@/features/settings/components/SettingRow';
 import { SettingsBadge } from '@/features/settings/components/SettingsBadge';
 import { SectionDivider } from '@/shared/ui/layout';
-import { ContentPageLayout } from '@/shared/ui/layout';
 import { ChevronRightIcon, PuzzlePieceIcon, CheckBadgeIcon } from '@heroicons/react/24/outline';
-import { Icon } from '@/shared/ui/Icon';
 import { useTranslation } from '@/shared/i18n/hooks';
+import { Icon } from '@/shared/ui/Icon';
 
 interface AppsPageProps {
   apps: App[];
@@ -17,7 +16,8 @@ export const AppsPage = ({ apps, onSelect, className = '' }: AppsPageProps) => {
   const { t } = useTranslation(['settings']);
 
   return (
-    <ContentPageLayout title={t('settings:apps.title')} className={className}>
+    <>
+      <div className="space-y-6">
       <p className="text-sm text-input-placeholder mb-4">
         {t('settings:apps.description')}
       </p>
@@ -70,6 +70,7 @@ export const AppsPage = ({ apps, onSelect, className = '' }: AppsPageProps) => {
           {index < apps.length - 1 && <SectionDivider />}
         </div>
       ))}
-    </ContentPageLayout>
+    </div>
+    </>
   );
 };

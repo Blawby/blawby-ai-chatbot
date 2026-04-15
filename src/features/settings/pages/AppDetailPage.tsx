@@ -1,20 +1,22 @@
 import { useState, useRef, useEffect } from 'preact/hooks';
 import { ComponentChildren } from 'preact';
+import { useLocation } from 'preact-iso';
 import { App, mockConnectApp, mockDisconnectApp } from './appsData';
 import { AppConnectionDialog } from '@/features/settings/components/AppConnectionDialog';
 import { Button } from '@/shared/ui/Button';
-import { SectionDivider } from '@/shared/ui/layout';
+import { SectionDivider, SettingsPage } from '@/shared/ui/layout';
 import { SettingRow } from '@/features/settings/components/SettingRow';
 import { SettingSection } from '@/features/settings/components/SettingSection';
-import { ContentPageLayout } from '@/shared/ui/layout';
 import { SettingsBadge } from '@/features/settings/components/SettingsBadge';
 import { Input } from '@/shared/ui/input';
-import { ArrowLeftIcon, EllipsisVerticalIcon, GlobeAltIcon, PuzzlePieceIcon, Cog6ToothIcon } from '@heroicons/react/24/outline';
+import { EllipsisVerticalIcon, GlobeAltIcon, PuzzlePieceIcon, Cog6ToothIcon } from '@heroicons/react/24/outline';
 import { useToastContext } from '@/shared/contexts/ToastContext';
+import { useNavigation } from '@/shared/utils/navigation';
 import { useTranslation } from '@/shared/i18n/hooks';
 import { formatDate } from '@/shared/utils/dateTime';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/shared/ui/dropdown';
 import { useWorkspaceResolver } from '@/shared/hooks/useWorkspaceResolver';
+import { buildSettingsPath, resolveSettingsBasePath } from '@/shared/utils/workspace';
 import { DocumentDuplicateIcon, CheckIcon } from '@heroicons/react/24/outline';
 import { Icon } from '@/shared/ui/Icon';
 
@@ -49,6 +51,8 @@ const copyToClipboardWithFallback = async (value: string): Promise<void> => {
 export const AppDetailPage = ({ app, onBack, onUpdate }: AppDetailPageProps) => {
   const { t } = useTranslation(['settings']);
   const { showSuccess, showError } = useToastContext();
+  const location = useLocation();
+  const settingsBasePath = resolveSettingsBasePath(location.path);
   const [isConnecting, setIsConnecting] = useState(false);
   const [isDisconnecting, setIsDisconnecting] = useState(false);
   const [showConnectModal, setShowConnectModal] = useState(false);
@@ -170,25 +174,23 @@ export const AppDetailPage = ({ app, onBack, onUpdate }: AppDetailPageProps) => 
     }
   };
 
+  const { navigate } = useNavigation();
   const handleOpenSettings = () => {
-    window.open(app.website, '_blank', 'noopener,noreferrer');
+    if (app.id === 'blawby-messenger') {
+      navigate(buildSettingsPath(settingsBasePath, 'apps/blawby-messenger/settings'));
+    } else {
+      window.open(app.website, '_blank', 'noopener,noreferrer');
+    }
   };
 
   return (
-    <ContentPageLayout
+    <SettingsPage
       title={app.name}
-      wrapChildren={false}
-      contentClassName="pb-6"
-      headerLeading={(
-        <Button
-          variant="icon"
-          size="icon"
-          onClick={onBack}
-          aria-label={t('settings:navigation.backToSettings')}
-          icon={ArrowLeftIcon} iconClassName="w-5 h-5"
-        />
-      )}
+      showBack
+      onBack={onBack}
+      contentMaxWidth={null}
     >
+      <div className="space-y-6">
       <div className="pt-2 pb-6">
         <SettingRow
           label={app.name}
@@ -404,7 +406,8 @@ export const AppDetailPage = ({ app, onBack, onUpdate }: AppDetailPageProps) => 
         app={app}
         onConnect={handleConnect}
       />
-    </ContentPageLayout>
+    </div>
+    </SettingsPage>
   );
 };
 

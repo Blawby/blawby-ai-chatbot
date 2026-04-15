@@ -17,7 +17,7 @@ import { formatDate } from '@/shared/utils/dateTime';
 import { getPracticeRoleLabel, PRACTICE_ROLE_OPTIONS, normalizePracticeRole } from '@/shared/utils/practiceRoles';
 import { FormGrid, SectionDivider } from '@/shared/ui/layout';
 import { FormActions } from '@/shared/ui/form';
-import { ContentPageLayout } from '@/shared/ui/layout';
+import { SettingsPage } from '@/shared/ui/layout';
 import { LoadingBlock } from '@/shared/ui/layout/LoadingBlock';
 import { SettingsNotice } from '@/features/settings/components/SettingsNotice';
 import { SettingsHelperText } from '@/features/settings/components/SettingsHelperText';
@@ -26,9 +26,10 @@ import { Avatar, UserCard } from '@/shared/ui/profile';
 
 interface PracticeTeamPageProps {
   className?: string;
+  onBack?: () => void;
 }
 
-export const PracticeTeamPage = ({ className }: PracticeTeamPageProps) => {
+export const PracticeTeamPage = ({ className, onBack }: PracticeTeamPageProps) => {
   const { session, activeMemberRole, activeMemberRoleLoading } = useSessionContext();
   const {
     currentPractice,
@@ -230,33 +231,35 @@ export const PracticeTeamPage = ({ className }: PracticeTeamPageProps) => {
   }
 
   return (
-    <ContentPageLayout
-      title="Team Members"
+    <SettingsPage
+      title="Team"
+      showBack={Boolean(onBack)}
+      onBack={onBack}
       className={className}
-      wrapChildren={false}
-      contentClassName="pb-6"
+      contentMaxWidth={null}
     >
-      <div className="pt-2 pb-6">
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <p className="text-sm text-input-placeholder">
-              Manage access to your practice workspace.
-            </p>
-            <SettingsHelperText className="mt-2">
-              Seats used: {summary.seatsUsed} / {summary.seatsIncluded}
-            </SettingsHelperText>
+      <div className="space-y-6">
+        <div className="pt-2 pb-6">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm text-input-placeholder">
+                Manage access to your practice workspace.
+              </p>
+              <SettingsHelperText className="mt-2">
+                Seats used: {summary.seatsUsed} / {summary.seatsIncluded}
+              </SettingsHelperText>
+            </div>
+            {isAdmin && (
+              <Button
+                size="sm"
+                onClick={() => setIsInvitingMember(!isInvitingMember)}
+              >
+                <Icon icon={UserPlusIcon} className="w-4 h-4 mr-2"  />
+                {isInvitingMember ? 'Cancel' : 'Invite'}
+              </Button>
+            )}
           </div>
-          {isAdmin && (
-            <Button
-              size="sm"
-              onClick={() => setIsInvitingMember(!isInvitingMember)}
-            >
-              <Icon icon={UserPlusIcon} className="w-4 h-4 mr-2"  />
-              {isInvitingMember ? 'Cancel' : 'Invite'}
-            </Button>
-          )}
         </div>
-      </div>
 
         {summary.seatsUsed > summary.seatsIncluded && (
           <SettingsNotice variant="warning" className="mb-4" role="status" aria-live="polite">
@@ -467,6 +470,7 @@ export const PracticeTeamPage = ({ className }: PracticeTeamPageProps) => {
             <SettingsHelperText>No pending invitations</SettingsHelperText>
           )}
         </div>
-    </ContentPageLayout>
+      </div>
+    </SettingsPage>
   );
 };

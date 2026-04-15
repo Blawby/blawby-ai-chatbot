@@ -129,7 +129,7 @@ export function MainApp({
   // ── workspace routing — single source of truth ────────────────────────────
   const { session, isPending: sessionIsPending, isAnonymous, activeMemberRole, routingClaims } = useSessionContext();
 
-  // ── practice details (accent color, description) ──────────────────────────
+  // ── practice details (accent color) ───────────────────────────────────────
   // For the public workspace, prefer practiceConfig.id (UUID) as the store key.
   // usePracticeConfig already seeds practiceDetailsStore under both the slug AND
   // the UUID (see usePracticeConfig lines 151-155), so using the UUID here gives
@@ -172,7 +172,6 @@ export function MainApp({
     resolvedClientPracticeSlug,
     resolvedPracticeName,
     resolvedPracticeLogo,
-    resolvedPracticeDescription: fullDescription,
     resolvedAccentColor: fullAccentColor,
     normalizedRouteConversationId,
     conversationsBasePath,
@@ -712,7 +711,6 @@ export function MainApp({
               name: resolvedPracticeName,
               profileImage: resolvedPracticeLogo,
               practiceId,
-              description: fullDescription,
               slug: resolvedPracticeSlug,
             }}
             practiceId={practiceId}

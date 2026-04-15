@@ -8,7 +8,6 @@ export type PracticeProfileInput = {
   businessEmail?: string | null;
   businessPhone?: string | null;
   consultationFee?: MajorAmount | null;
-  description?: string | null;
   website?: string | null;
   address?: string | null;
   apartment?: string | null;
@@ -17,6 +16,8 @@ export type PracticeProfileInput = {
   postalCode?: string | null;
   country?: string | null;
   accentColor?: string | null;
+  introMessage?: string | null;
+  legalDisclaimer?: string | null;
   isPublic?: boolean;
   services?: Array<Record<string, unknown>> | null;
   serviceStates?: string[] | null;
@@ -135,9 +136,16 @@ export const buildPracticeProfilePayloads = (
     detailsPayload.accentColor = accentColor;
   }
 
-  const description = normalizeOptionalText(input.description);
-  if (description !== undefined && shouldInclude(description, normalizeOptionalText(compareTo.description))) {
-    detailsPayload.description = description;
+  // Widget opening message (intro)
+  const introMessage = normalizeOptionalText(input.introMessage);
+  if (introMessage !== undefined) {
+    detailsPayload.introMessage = introMessage;
+  }
+
+  // Legal disclaimer
+  const legalDisclaimer = normalizeOptionalText(input.legalDisclaimer);
+  if (legalDisclaimer !== undefined) {
+    detailsPayload.legalDisclaimer = legalDisclaimer;
   }
 
   if (typeof input.isPublic === 'boolean') {

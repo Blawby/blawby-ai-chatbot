@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, mockNavigate, resetMockPath, mockRoute } from '../../../__tests__/test-utils';
-import { SettingsPage } from '../pages/SettingsPage';
+import { SettingsContent as SettingsPage } from '../pages/SettingsContent';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
 import { i18n } from '@/shared/i18n';

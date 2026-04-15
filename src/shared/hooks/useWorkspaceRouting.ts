@@ -30,8 +30,6 @@
  *
  *  resolvedPracticeName    – display name (live practice > config fallback)
  *  resolvedPracticeLogo    – logo URL (live practice > config fallback)
- *  resolvedPracticeDescription
- *
  *  resolvedPublicPracticeSlug   – slug for public workspace
  *  resolvedClientPracticeSlug   – slug for client workspace
  *
@@ -70,13 +68,11 @@ interface CurrentPractice {
   slug?: string | null;
   name?: string | null;
   logo?: string | null;
-  description?: string | null;
   accentColor?: string | null;
   metadata?: Record<string, unknown> | null;
 }
 
 interface PracticeDetails {
-  description?: string | null;
   accentColor?: string | null;
 }
 
@@ -206,11 +202,6 @@ export const useWorkspaceRouting = ({
     if (isPublicWorkspace) return practiceConfig.profileImage ?? null;
     return currentPractice?.logo ?? practiceConfig?.profileImage ?? null;
   }, [currentPractice?.logo, isPublicWorkspace, practiceConfig?.profileImage]);
-
-  const resolvedPracticeDescription = useMemo(
-    () => practiceDetails?.description ?? currentPractice?.description ?? practiceConfig?.description ?? '',
-    [currentPractice?.description, practiceConfig?.description, practiceDetails?.description]
-  );
 
   /**
    * Resolved accent color — used by initializeAccentColor in MainApp.
@@ -345,7 +336,6 @@ export const useWorkspaceRouting = ({
     // Display values
     resolvedPracticeName,
     resolvedPracticeLogo,
-    resolvedPracticeDescription,
     resolvedAccentColor,
 
     // Navigation

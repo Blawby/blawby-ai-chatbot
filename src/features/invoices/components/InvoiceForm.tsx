@@ -11,6 +11,8 @@ import { InvoiceLineItemsForm } from '@/features/invoices/components/InvoiceLine
 import { InvoicePreview } from '@/features/invoices/components/InvoicePreview';
 import { SendInvoiceDialog } from '@/features/invoices/components/SendInvoiceDialog';
 import type { InvoicePageMode } from '@/features/invoices/utils/invoicePageConfig';
+import { ContentWithPreview } from '@/shared/ui/layout';
+import { Tabs } from '@/shared/ui/tabs';
 
 type InvoiceFormProps = {
   mode?: InvoicePageMode;
@@ -54,6 +56,22 @@ type InvoiceUpdatePayload = {
   invoice_type: Invoice['invoice_type'];
   line_items: InvoiceLineItem[];
 };
+
+type InvoicePreviewTab = 'pdf' | 'email';
+
+const INVOICE_PREVIEW_TABS = [
+  { id: 'pdf', label: 'PDF' },
+  { id: 'email', label: 'Email' },
+];
+
+const InvoiceEmailPlaceholder = () => (
+  <div className="rounded-xl border border-line-glass/40 bg-surface-card p-5 text-sm shadow-xl">
+    <p className="font-semibold text-input-text">Email preview</p>
+    <p className="mt-2 text-input-placeholder">
+      Coming soon. This will preview the message your client receives with the invoice payment call to action.
+    </p>
+  </div>
+);
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -189,6 +207,7 @@ export const InvoiceForm = forwardRef<InvoiceFormHandle, InvoiceFormProps>(({
   ));
   const [sendError, setSendError] = useState<string | null>(null);
   const [invoiceType, _setInvoiceType] = useState<Invoice['invoice_type']>(defaultInvoiceType);
+  const [activePreviewTab, setActivePreviewTab] = useState<InvoicePreviewTab>('pdf');
   const isMatterScoped = Boolean(matter);
   const resolvedMatterId = isMatterScoped ? matter?.id ?? '' : matterId;
   const resolvedClientId = isMatterScoped ? matter?.clientId ?? '' : clientId;
@@ -351,127 +370,144 @@ export const InvoiceForm = forwardRef<InvoiceFormHandle, InvoiceFormProps>(({
 
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col">
-      <div className="flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden">
-        <div className="grid min-h-0 flex-1 gap-8 lg:grid-cols-[minmax(0,1fr)_520px] lg:gap-10">
-          <div className="min-h-0 overflow-y-auto">
-            <div className="space-y-5">
-              {!resolvedReadOnly && !isValidConnectedAccount ? (
-                <div className="status-warning rounded-xl px-4 py-3 text-sm">
-                  Complete Stripe onboarding to enable invoicing.
-                </div>
-              ) : null}
-              {!isMatterScoped ? (
-                <div className="space-y-4">
-                  <Combobox
-                    label="Person"
-                    value={clientId}
-                    onChange={handleClientChange}
-                    options={clientOptions}
-                    placeholder="Choose a person"
-                    disabled={resolvedReadOnly}
-                  />
-                  <Combobox
-                    label="Matter (optional)"
-                    value={matterId}
-                    onChange={setMatterId}
-                    options={matterOptions.filter((option) => {
-                      if (!clientId) return true;
-                      const clientMatch = typeof option.meta === 'string' ? option.meta : null;
-                      return !clientMatch || clientMatch === clientId;
-                    }).map((option) => ({
-                      value: option.value,
-                      label: option.label,
-                    }))}
-                    placeholder={clientId ? 'Link a matter' : 'Choose a person first'}
-                    disabled={resolvedReadOnly || !clientId}
-                    clearable
-                  />
-                </div>
-              ) : null}
-              <InvoiceLineItemsForm
-                lineItems={lineItems} 
-                onChange={setLineItems} 
-                billingIncrementMinutes={billingIncrementMinutes} 
-                readOnly={resolvedReadOnly}
-              />
-              <section className="space-y-3">
-                <h3 className="text-sm font-semibold text-input-text">Request payment</h3>
-                <p className="text-xs text-input-placeholder">
-                  Choose when this invoice should be due.
-                </p>
-                <div className="space-y-2">
-                  <label className="flex items-center gap-2 text-sm text-input-text">
-                    <input
-                      type="radio"
-                      name="due-date-mode"
-                      checked={dueDateMode === 'tomorrow'}
-                      onChange={() => {
-                        setDueDateMode('tomorrow');
-                        setDueDate(defaultDueDate);
-                      }}
-                      disabled={resolvedReadOnly}
-                    />
-                    <span>Due tomorrow ({defaultDueDate})</span>
-                  </label>
-                  <label className="flex items-center gap-2 text-sm text-input-text">
-                    <input
-                      type="radio"
-                      name="due-date-mode"
-                      checked={dueDateMode === 'custom'}
-                      onChange={() => setDueDateMode('custom')}
-                      disabled={resolvedReadOnly}
-                    />
-                    <span>Custom due date</span>
-                  </label>
-                </div>
-                {dueDateMode === 'custom' ? (
-                  <Input
-                    label="Due date"
-                    type="date"
-                    value={dueDate}
-                    onChange={setDueDate}
-                    disabled={resolvedReadOnly}
-                    min={defaultDueDate}
-                  />
-                ) : null}
-              </section>
-              <Textarea label="Notes to client" value={notes} onChange={setNotes} rows={3} disabled={resolvedReadOnly} />
-              <Textarea label="Internal memo" value={memo} onChange={setMemo} rows={2} disabled={resolvedReadOnly} />
-              {sendError ? (
-                <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800">
-                  <p>{sendError}</p>
-                  {createdInvoiceId ? (
-                    <div className="mt-2">
-                      <Button size="sm" onClick={handleSendInvoice} disabled={isSending}>
-                        Retry send
-                      </Button>
-                    </div>
-                  ) : null}
-                </div>
-              ) : null}
-            </div>
-          </div>
-
-          <div className="min-h-0 overflow-y-auto">
+      <ContentWithPreview
+        className="flex-1"
+        contentClassName="space-y-5"
+        preview={
+          <>
             <h3 className="mb-3 text-sm font-semibold text-input-text">Preview</h3>
-            <InvoicePreview
-              title={previewTitle}
-              referenceLabel={previewReferenceLabel}
+            {activePreviewTab === 'pdf' ? (
+              <InvoicePreview
+                title={previewTitle}
+                referenceLabel={previewReferenceLabel}
+                lineItems={lineItems}
+                issueDate={previewIssueDate}
+                dueDate={dueDate}
+                practiceName={practiceName}
+                practiceLogoUrl={practiceLogoUrl}
+                practiceEmail={practiceEmail}
+                clientName={resolvedClientLabel || null}
+                clientEmail={resolvedClientEmail}
+                billingIncrementMinutes={billingIncrementMinutes}
+                notes={notes || null}
+              />
+            ) : (
+              <InvoiceEmailPlaceholder />
+            )}
+          </>
+        }
+      >
+        <Tabs
+          items={INVOICE_PREVIEW_TABS}
+          activeId={activePreviewTab}
+          onChange={(id) => setActivePreviewTab(id as InvoicePreviewTab)}
+        />
+        {activePreviewTab === 'email' ? (
+          <section className="space-y-3">
+            <h3 className="text-sm font-semibold text-input-text">Email delivery</h3>
+            <p className="text-sm text-input-placeholder">
+              Email copy controls will live here. For now, use the PDF tab to edit invoice details.
+            </p>
+          </section>
+        ) : (
+          <>
+            {!resolvedReadOnly && !isValidConnectedAccount ? (
+              <div className="status-warning rounded-xl px-4 py-3 text-sm">
+                Complete Stripe onboarding to enable invoicing.
+              </div>
+            ) : null}
+            {!isMatterScoped ? (
+              <div className="space-y-4">
+                <Combobox
+                  label="Person"
+                  value={clientId}
+                  onChange={handleClientChange}
+                  options={clientOptions}
+                  placeholder="Choose a person"
+                  disabled={resolvedReadOnly}
+                />
+                <Combobox
+                  label="Matter (optional)"
+                  value={matterId}
+                  onChange={setMatterId}
+                  options={matterOptions.filter((option) => {
+                    if (!clientId) return true;
+                    const clientMatch = typeof option.meta === 'string' ? option.meta : null;
+                    return !clientMatch || clientMatch === clientId;
+                  }).map((option) => ({
+                    value: option.value,
+                    label: option.label,
+                  }))}
+                  placeholder={clientId ? 'Link a matter' : 'Choose a person first'}
+                  disabled={resolvedReadOnly || !clientId}
+                  clearable
+                />
+              </div>
+            ) : null}
+            <InvoiceLineItemsForm
               lineItems={lineItems}
-              issueDate={previewIssueDate}
-              dueDate={dueDate}
-              practiceName={practiceName}
-              practiceLogoUrl={practiceLogoUrl}
-              practiceEmail={practiceEmail}
-              clientName={resolvedClientLabel || null}
-              clientEmail={resolvedClientEmail}
+              onChange={setLineItems}
               billingIncrementMinutes={billingIncrementMinutes}
-              notes={notes || null}
+              readOnly={resolvedReadOnly}
             />
-          </div>
-        </div>
-
-      </div>
+            <section className="space-y-3">
+              <h3 className="text-sm font-semibold text-input-text">Request payment</h3>
+              <p className="text-xs text-input-placeholder">
+                Choose when this invoice should be due.
+              </p>
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 text-sm text-input-text">
+                  <input
+                    type="radio"
+                    name="due-date-mode"
+                    checked={dueDateMode === 'tomorrow'}
+                    onChange={() => {
+                      setDueDateMode('tomorrow');
+                      setDueDate(defaultDueDate);
+                    }}
+                    disabled={resolvedReadOnly}
+                  />
+                  <span>Due tomorrow ({defaultDueDate})</span>
+                </label>
+                <label className="flex items-center gap-2 text-sm text-input-text">
+                  <input
+                    type="radio"
+                    name="due-date-mode"
+                    checked={dueDateMode === 'custom'}
+                    onChange={() => setDueDateMode('custom')}
+                    disabled={resolvedReadOnly}
+                  />
+                  <span>Custom due date</span>
+                </label>
+              </div>
+              {dueDateMode === 'custom' ? (
+                <Input
+                  label="Due date"
+                  type="date"
+                  value={dueDate}
+                  onChange={setDueDate}
+                  disabled={resolvedReadOnly}
+                  min={defaultDueDate}
+                />
+              ) : null}
+            </section>
+            <Textarea label="Notes to client" value={notes} onChange={setNotes} rows={3} disabled={resolvedReadOnly} />
+            <Textarea label="Internal memo" value={memo} onChange={setMemo} rows={2} disabled={resolvedReadOnly} />
+            {sendError ? (
+              <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+                <p>{sendError}</p>
+                {createdInvoiceId ? (
+                  <div className="mt-2">
+                    <Button size="sm" onClick={handleSendInvoice} disabled={isSending}>
+                      Retry send
+                    </Button>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+          </>
+        )}
+      </ContentWithPreview>
 
       {!resolvedReadOnly ? (
         <SendInvoiceDialog

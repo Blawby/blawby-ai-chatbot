@@ -5,6 +5,7 @@ import { Button } from '@/shared/ui/Button';
 import { Icon } from '@/shared/ui/Icon';
 import { XMarkIcon, HomeIcon, ChatBubbleLeftRightIcon, InformationCircleIcon } from '@heroicons/react/24/outline';
 import ChatContainer from '@/features/chat/components/ChatContainer';
+import { ChatActionCard } from '@/features/chat/components/ChatActionCard';
 import InspectorPanel from '@/shared/ui/inspector/InspectorPanel';
 import WorkspaceHomeView from '@/features/chat/views/WorkspaceHomeView';
 import { useToastContext } from '@/shared/contexts/ToastContext';
@@ -63,7 +64,10 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
   const previousViewRef = useRef<'home' | 'list'>('home');
   const [isInspectorOpen, setIsInspectorOpen] = useState(false);
   const [isPaymentAuthPromptOpen, setIsPaymentAuthPromptOpen] = useState(false);
+  const [isWidgetDisclaimerAccepted, setIsWidgetDisclaimerAccepted] = useState(false);
+  const [isWidgetDisclaimerStarting, setIsWidgetDisclaimerStarting] = useState(false);
   const widgetVisibleRef = useRef(false);
+  const pendingDisclaimerAcceptanceIds = useRef(new Set<string>());
 
   useEffect(() => {
     if (view === 'home' || view === 'list') {
@@ -299,11 +303,87 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
   }, [applyIntakeFields, sendMessage]);
 
   // System Messages
-  useConversationSystemMessages({
+  const { persistSystemMessage } = useConversationSystemMessages({
     conversationId: activeConversationId ?? undefined,
     practiceId,
     ingestServerMessages,
   });
+
+  const widgetIntroMessage = useMemo(() => {
+    const source = cachedPracticeDetails?.introMessage ?? practiceConfig.introMessage;
+    return typeof source === 'string' ? source.trim() : '';
+  }, [cachedPracticeDetails?.introMessage, practiceConfig.introMessage]);
+
+  const widgetLegalDisclaimer = useMemo(() => {
+    const source = cachedPracticeDetails?.legalDisclaimer ?? practiceConfig.legalDisclaimer;
+    return typeof source === 'string' ? source.trim() : '';
+  }, [cachedPracticeDetails?.legalDisclaimer, practiceConfig.legalDisclaimer]);
+
+  useEffect(() => {
+    setIsWidgetDisclaimerAccepted(false);
+    setIsWidgetDisclaimerStarting(false);
+    pendingDisclaimerAcceptanceIds.current.clear();
+  }, [practiceId, widgetLegalDisclaimer]);
+
+  const hasConversationStarted = useMemo(() => (
+    messages.some((message) => (
+      message.role !== 'system' ||
+      message.metadata?.systemMessageKey === 'intro'
+    ))
+  ), [messages]);
+
+  useEffect(() => {
+    if (!activeConversationId || !messagesReady || !widgetIntroMessage || hasConversationStarted) {
+      return;
+    }
+
+    // Inject intro as a normal assistant message (not system message)
+    if (typeof messageHandling.addMessage === 'function') {
+      messageHandling.addMessage({
+        role: 'assistant',
+        content: widgetIntroMessage,
+        avatar: {
+          src: practiceConfig.profileImage ?? null,
+          name: practiceConfig.name || 'Practice',
+        },
+        // Optionally add a custom key to mark this as an intro if needed
+        metadata: { intro: true },
+      });
+    }
+  }, [
+    activeConversationId,
+    hasConversationStarted,
+    messagesReady,
+    messageHandling,
+    practiceConfig.name,
+    practiceConfig.profileImage,
+    widgetIntroMessage
+  ]);
+
+  // Persist disclaimer acceptance in conversation metadata if possible
+  useEffect(() => {
+    if (!activeConversationId || !messagesReady || !pendingDisclaimerAcceptanceIds.current.has(activeConversationId)) {
+      return;
+    }
+
+    pendingDisclaimerAcceptanceIds.current.delete(activeConversationId);
+    void persistSystemMessage(
+      'system-disclaimer-accepted',
+      'Legal disclaimer accepted.',
+      {
+        systemMessageKey: 'disclaimer_accepted',
+        source: 'practice_legal_disclaimer',
+        acceptedAt: new Date().toISOString(),
+      }
+    );
+    // Also persist in conversation metadata if updateConversationMetadata exists
+    if (typeof messageHandling.updateConversationMetadata === 'function') {
+      messageHandling.updateConversationMetadata({
+        disclaimerAccepted: true,
+        disclaimerAcceptedAt: new Date().toISOString(),
+      });
+    }
+  }, [activeConversationId, messagesReady, persistSystemMessage, messageHandling]);
 
   const canChat = activeConversationId != null || conversationMode != null;
   const _isComposerDisabled = false; // Add recording check if needed
@@ -321,13 +401,17 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
       }
       setBootstrapIgnored(true);
       setConversationMode(mode);
+      setIsWidgetDisclaimerAccepted(false);
       setView('chat');
+      if (!widgetLegalDisclaimer && widgetIntroMessage && !effectiveConversationId) {
+        await createConversationIfNeeded();
+      }
     } catch (error) {
       console.error('[WidgetApp] Failed to handle mode selection:', error);
       const message = error instanceof Error ? error.message : 'Failed to start conversation';
       showErrorRef.current?.(message);
     }
-  }, [practiceId, setupConversationId]);
+  }, [createConversationIfNeeded, effectiveConversationId, practiceId, setupConversationId, widgetIntroMessage, widgetLegalDisclaimer]);
 
   const attachmentsDisabledMessage = t('chat.attachments.disabled');
 
@@ -511,6 +595,73 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
       </>
     );
   }, [closeButton, conversationStrengthAction, isEmbedded]);
+  const shouldShowWidgetDisclaimer = view === 'chat'
+    && conversationMode !== null
+    && !activeConversationId
+    && Boolean(widgetLegalDisclaimer)
+    && !isWidgetDisclaimerAccepted;
+
+  const acceptWidgetDisclaimer = useCallback(async () => {
+    setIsWidgetDisclaimerStarting(true);
+    try {
+      const conversationId = await createConversationIfNeeded();
+      pendingDisclaimerAcceptanceIds.current.add(conversationId);
+      setIsWidgetDisclaimerAccepted(true);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to start conversation';
+      showErrorRef.current?.(message);
+    } finally {
+      setIsWidgetDisclaimerStarting(false);
+    }
+  }, [createConversationIfNeeded]);
+
+  const closeWidgetDisclaimer = useCallback(() => {
+    setConversationMode(null);
+    setIsWidgetDisclaimerAccepted(false);
+    setIsWidgetDisclaimerStarting(false);
+    setView(widgetBackTarget || 'home');
+  }, [widgetBackTarget]);
+
+  const widgetDisclaimerContent = useMemo(() => {
+    if (!shouldShowWidgetDisclaimer) return null;
+
+    return (
+      <div className="flex h-full min-h-0 flex-col">
+        <DetailHeader
+          title={practiceConfig.name ?? ''}
+          subtitle="Please read and accept to continue"
+          showBack={showConversationBack}
+          onBack={showConversationBack ? () => setView(widgetBackTarget) : undefined}
+          actions={isEmbedded ? closeButton : null}
+          className="workspace-conversation-header"
+        />
+        <div className="flex-1 min-h-0" />
+        <div className="sticky bottom-0 z-[1000] w-full">
+          <ChatActionCard
+            isOpen={true}
+            type="disclaimer"
+            onClose={closeWidgetDisclaimer}
+            disclaimerProps={{
+              text: widgetLegalDisclaimer,
+              onAccept: acceptWidgetDisclaimer,
+              isSubmitting: isWidgetDisclaimerStarting
+            }}
+          />
+        </div>
+      </div>
+    );
+  }, [
+    acceptWidgetDisclaimer,
+    closeButton,
+    closeWidgetDisclaimer,
+    isEmbedded,
+    isWidgetDisclaimerStarting,
+    practiceConfig.name,
+    shouldShowWidgetDisclaimer,
+    showConversationBack,
+    widgetBackTarget,
+    widgetLegalDisclaimer
+  ]);
   const showWidgetBottomNav = view !== 'chat';
 
   useEffect(() => {
@@ -565,6 +716,8 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
                 onSendMessage={() => handleModeSelection('ASK_QUESTION')}
               />
             </div>
+        ) : shouldShowWidgetDisclaimer && widgetDisclaimerContent ? (
+          widgetDisclaimerContent
         ) : (
           <>
             <div className="flex flex-1 min-h-0 overflow-hidden flex-row">
@@ -599,7 +752,6 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
                 ...practiceConfig,
                 name: practiceConfig.name ?? '',
                 profileImage: practiceConfig.profileImage ?? '',
-                description: practiceDetails?.description ?? practiceConfig.description ?? '',
                 practiceId
               }}
               onOpenSidebar={() => setIsInspectorOpen(true)}

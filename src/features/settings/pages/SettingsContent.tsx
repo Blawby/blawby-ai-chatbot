@@ -1,7 +1,7 @@
 import { useMemo, useState, useEffect } from 'preact/hooks';
 import { useNavigation } from '@/shared/utils/navigation';
 import { cn } from '@/shared/utils/cn';
-import { type App } from './appsData';
+import { type App, mockApps } from './appsData';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { useWorkspace } from '@/shared/hooks/useWorkspace';
 import { GeneralPage } from './GeneralPage';
@@ -11,28 +11,34 @@ import { PayoutsPage } from './PayoutsPage';
 import { SecurityPage } from './SecurityPage';
 import { HelpPage } from './HelpPage';
 import { PracticePage } from './PracticePage';
-import { PracticeServicesPage } from './PracticeServicesPage';
+import { MFAEnrollmentPage } from './MFAEnrollmentPage';
+import AppBlawbyMessengerSettingsPage from './AppBlawbyMessengerSettingsPage';
+import { PracticeCoveragePage } from './PracticeCoveragePage';
 import { PracticeTeamPage } from './PracticeTeamPage';
 import { PracticePricingPage } from './PracticePricingPage';
 import { AppsPage } from './AppsPage';
 import { AppDetailPage } from './AppDetailPage';
+import { SettingsPage } from '@/shared/ui/layout/SettingsPage';
+import { getSettingsNavConfig } from '@/shared/config/navConfig';
+import { useTranslation } from '@/shared/i18n/hooks';
 
 export type SettingsView =
   | 'general'
   | 'notifications'
   | 'account'
   | 'practice'
+  | 'blawby-messenger-settings'
   | 'practice-payouts'
-  | 'practice-services'
+  | 'practice-coverage'
   | 'practice-team'
   | 'practice-pricing'
   | 'apps'
   | 'app-detail'
   | 'security'
-  | 'help';
+  | 'help'
+  | 'mfa-enrollment';
 
 export interface SettingsContentProps {
-  // Legacy compatibility props (unused in content-only mode)
   isMobile?: boolean;
   onClose?: () => void;
   className?: string;
@@ -43,24 +49,141 @@ export interface SettingsContentProps {
   apps?: App[];
 }
 
-export const SettingsContent = ({
-  isMobile: _isMobile = false,
-  onClose: _onClose,
-  className = '',
-  workspace = 'practice',
-  practiceSlug = 'workspace',
-  view = 'general',
+const SettingsRouter = ({
+  view,
   appId,
-  apps: initialApps,
-}: SettingsContentProps) => {
+  apps,
+  handleAppUpdate,
+  toSettingsPath,
+  viewLabel,
+}: {
+  view: SettingsView;
+  appId?: string;
+  apps: App[];
+  handleAppUpdate: (targetAppId: string, updates: Partial<App>) => void;
+  toSettingsPath: (subPath?: string) => string;
+  viewLabel: string;
+}) => {
   const { navigate } = useNavigation();
-  const [apps, setApps] = useState<App[]>(initialApps ?? []);
+
+  const renderViewContent = () => {
+    switch (view) {
+      case 'general':
+        return <GeneralPage />;
+      case 'notifications':
+        return <NotificationsPage />;
+      case 'account':
+        return <AccountPage />;
+      case 'practice':
+        return <PracticePage />;
+      case 'blawby-messenger-settings':
+        return (
+          <AppBlawbyMessengerSettingsPage
+            onBack={() => navigate(toSettingsPath('apps/blawby-messenger'))}
+          />
+        );
+      case 'practice-payouts':
+        return <PayoutsPage onBack={() => navigate(toSettingsPath('practice'))} />;
+      case 'practice-coverage':
+        return <PracticeCoveragePage onBack={() => navigate(toSettingsPath('practice'))} />;
+      case 'practice-team':
+        return <PracticeTeamPage onBack={() => navigate(toSettingsPath('practice'))} />;
+      case 'practice-pricing':
+        return <PracticePricingPage onBack={() => navigate(toSettingsPath('practice'))} />;
+      case 'apps':
+        return (
+          <AppsPage
+            apps={apps}
+            onSelect={(selectedAppId) => navigate(toSettingsPath(`apps/${selectedAppId}`))}
+          />
+        );
+      case 'app-detail': {
+        if (!appId) {
+          return (
+            <SettingsPage title="Apps" showBack onBack={() => navigate(toSettingsPath('apps'))} contentMaxWidth={null}>
+              <AppsPage apps={apps} onSelect={(id) => navigate(toSettingsPath(`apps/${id}`))} />
+            </SettingsPage>
+          );
+        }
+        const currentApp = apps.find((app) => app.id === appId);
+        if (!currentApp) {
+          return (
+            <SettingsPage title="Apps" showBack onBack={() => navigate(toSettingsPath('apps'))} contentMaxWidth={null}>
+              <AppsPage apps={apps} onSelect={(id) => navigate(toSettingsPath(`apps/${id}`))} />
+            </SettingsPage>
+          );
+        }
+        return (
+          <AppDetailPage
+            app={currentApp}
+            onBack={() => navigate(toSettingsPath('apps'))}
+            onUpdate={handleAppUpdate}
+          />
+        );
+      }
+      case 'security':
+        return <SecurityPage />;
+      case 'mfa-enrollment':
+        return <MFAEnrollmentPage onBack={() => navigate(toSettingsPath('security'))} />;
+      case 'help':
+        return <HelpPage />;
+      default:
+        return <GeneralPage />;
+    }
+  };
+
+  const isSelfWrappedView = view === 'app-detail'
+    || view === 'blawby-messenger-settings'
+    || view === 'practice-payouts'
+    || view === 'practice-coverage'
+    || view === 'practice-team'
+    || view === 'practice-pricing'
+    || view === 'mfa-enrollment';
+
+  if (isSelfWrappedView) {
+    return renderViewContent();
+  }
+
+  const contentMaxWidth = view === 'apps' || view === 'practice'
+    ? null
+    : 'max-w-3xl';
+
+  return (
+    <SettingsPage
+      title={viewLabel}
+      contentMaxWidth={contentMaxWidth}
+    >
+      {renderViewContent()}
+    </SettingsPage>
+  );
+};
+
+/**
+ * Controller for all settings views.
+ *
+ * Provides settings routing while keeping list pages and detail/editor pages explicit.
+ * Top-level views are wrapped here. Detail/editor views render their own SettingsPage
+ * so header actions, back behavior, and previews stay local to the editor state.
+ */
+export const SettingsContent = (props: SettingsContentProps) => {
+  const {
+    className = '',
+    workspace = 'practice',
+    practiceSlug = 'workspace',
+    view = 'general',
+    appId,
+    apps: initialApps,
+  } = props;
+
+  const { navigate } = useNavigation();
+  const { t } = useTranslation(['settings']);
+  const [apps, setApps] = useState<App[]>(initialApps ?? mockApps);
 
   useEffect(() => {
-    setApps(initialApps ?? []);
+    setApps(initialApps ?? mockApps);
   }, [initialApps]);
 
-  const { isPending: sessionPending } = useSessionContext();
+  const { isPending: sessionPending, activeMemberRole } = useSessionContext();
   const { canAccessPractice } = useWorkspace();
 
   const settingsBasePath = `/${workspace}/${encodeURIComponent(practiceSlug)}/settings`;
@@ -71,11 +194,12 @@ export const SettingsContent = ({
 
   const isPracticeScopedView = view === 'practice'
     || view === 'practice-payouts'
-    || view === 'practice-services'
+    || view === 'practice-coverage'
     || view === 'practice-team'
     || view === 'practice-pricing'
     || view === 'apps'
-    || view === 'app-detail';
+    || view === 'app-detail'
+    || view === 'blawby-messenger-settings';
 
   useEffect(() => {
     if (sessionPending) return;
@@ -90,61 +214,36 @@ export const SettingsContent = ({
 
   const currentApp = useMemo(() => apps.find((item) => item.id === appId), [appId, apps]);
 
-  const renderContent = () => {
-    switch (view) {
-      case 'general':
-        return <GeneralPage className="h-full" />;
-      case 'notifications':
-        return <NotificationsPage className="h-full" />;
-      case 'account':
-        return <AccountPage className="h-full" />;
-      case 'practice':
-        return <PracticePage className="h-full" />;
-      case 'practice-payouts':
-        return <PayoutsPage className="h-full" />;
-      case 'practice-services':
-        return <PracticeServicesPage className="h-full" />;
-      case 'practice-team':
-        return <PracticeTeamPage className="h-full" />;
-      case 'practice-pricing':
-        return <PracticePricingPage className="h-full" />;
-      case 'apps':
-        return (
-          <AppsPage
-            apps={apps}
-            onSelect={(selectedAppId) => navigate(toSettingsPath(`apps/${selectedAppId}`))}
-            className="h-full"
-          />
-        );
-      case 'app-detail':
-        if (!currentApp) {
-          return (
-            <AppsPage
-              apps={apps}
-              onSelect={(selectedAppId) => navigate(toSettingsPath(`apps/${selectedAppId}`))}
-              className="h-full"
-            />
-          );
-        }
-        return (
-          <AppDetailPage
-            app={currentApp}
-            onBack={() => navigate(toSettingsPath('apps'))}
-            onUpdate={handleAppUpdate}
-          />
-        );
-      case 'security':
-        return <SecurityPage className="h-full" />;
-      case 'help':
-        return <HelpPage className="h-full" />;
-      default:
-        return <GeneralPage className="h-full" />;
+  const navConfig = useMemo(() => {
+    return getSettingsNavConfig({
+      practiceSlug,
+      role: activeMemberRole ?? undefined,
+      canAccessPractice,
+    });
+  }, [activeMemberRole, canAccessPractice, practiceSlug]);
+
+  const viewLabel = useMemo(() => {
+    if (view === 'app-detail' && currentApp) return currentApp.name;
+    for (const section of navConfig.secondary ?? []) {
+      const item = section.items.find((i) => i.id === view);
+      if (item) return item.label;
     }
-  };
+    if (view === 'blawby-messenger-settings') return t('settings:apps.messenger.title');
+    if (view === 'practice-coverage') return 'Coverage';
+    if (view === 'mfa-enrollment') return t('settings:mfa.title');
+    return t(`settings:${view}.title`);
+  }, [currentApp, navConfig.secondary, t, view]);
 
   return (
     <div className={cn('h-full min-h-0 overflow-hidden', className)}>
-      {renderContent()}
+      <SettingsRouter
+        view={view}
+        appId={appId}
+        apps={apps}
+        handleAppUpdate={handleAppUpdate}
+        toSettingsPath={toSettingsPath}
+        viewLabel={viewLabel}
+      />
     </div>
   );
 };

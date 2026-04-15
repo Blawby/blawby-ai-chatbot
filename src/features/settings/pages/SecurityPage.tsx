@@ -16,7 +16,6 @@ import { SettingSection } from '@/features/settings/components/SettingSection';
 import { SettingToggle } from '@/features/settings/components/SettingToggle';
 import { SettingRow } from '@/features/settings/components/SettingRow';
 import { PasswordChangeForm } from '@/features/settings/components/PasswordChangeForm';
-import { ContentPageLayout } from '@/shared/ui/layout';
 import { LoadingBlock } from '@/shared/ui/layout/LoadingBlock';
 import { SettingsDangerButton } from '@/features/settings/components/SettingsDangerButton';
 import { SettingsHelperText } from '@/features/settings/components/SettingsHelperText';
@@ -429,7 +428,8 @@ export const SecurityPage = ({
   }
 
   return (
-    <ContentPageLayout title={t('settings:security.title')} className={className}>
+    <>
+      <div className="space-y-6">
       {/* Password Section */}
       <SettingSection
         title={t('settings:security.password.sectionTitle')}
@@ -575,6 +575,7 @@ export const SecurityPage = ({
           </Dialog>
         </>
       )}
-    </ContentPageLayout>
+    </div>
+    </>
   );
 };

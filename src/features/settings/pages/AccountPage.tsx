@@ -29,7 +29,6 @@ import { SettingRow } from '@/features/settings/components/SettingRow';
 import { SettingSection } from '@/features/settings/components/SettingSection';
 import { PlanFeaturesList, type PlanFeature } from '@/features/settings/components/PlanFeaturesList';
 import { EmailSettingsSection } from '@/features/settings/components/EmailSettingsSection';
-import { ContentPageLayout } from '@/shared/ui/layout';
 import { LoadingBlock } from '@/shared/ui/layout/LoadingBlock';
 import { SettingsDangerButton } from '@/features/settings/components/SettingsDangerButton';
 import { SettingsHelperText } from '@/features/settings/components/SettingsHelperText';
@@ -822,7 +821,8 @@ export const AccountPage = ({
     : undefined;
 
   return (
-    <ContentPageLayout title={t('settings:account.title')} className={className}>
+    <>
+      <div className="space-y-6">
       <SettingRow label={t('settings:account.nameLabel')}>
         <div className="flex items-center gap-3">
           <div className="w-10">
@@ -1207,6 +1207,7 @@ export const AccountPage = ({
           />
         </div>
       </Dialog>
-    </ContentPageLayout>
+    </div>
+    </>
   );
 };
