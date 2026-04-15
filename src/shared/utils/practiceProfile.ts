@@ -138,13 +138,13 @@ export const buildPracticeProfilePayloads = (
 
   // Widget opening message (intro)
   const introMessage = normalizeOptionalText(input.introMessage);
-  if (introMessage !== undefined) {
+  if (introMessage !== undefined && shouldInclude(introMessage, normalizeOptionalText(compareTo.introMessage))) {
     detailsPayload.introMessage = introMessage;
   }
 
   // Legal disclaimer
   const legalDisclaimer = normalizeOptionalText(input.legalDisclaimer);
-  if (legalDisclaimer !== undefined) {
+  if (legalDisclaimer !== undefined && shouldInclude(legalDisclaimer, normalizeOptionalText(compareTo.legalDisclaimer))) {
     detailsPayload.legalDisclaimer = legalDisclaimer;
   }
 

@@ -55,18 +55,6 @@ export const PracticeCoveragePage = ({ className, onBack }: PracticeCoveragePage
   const lastToastAtRef = useRef(0);
   const toastCooldownMs = 4000;
 
-  // Track pending snapshot count in state to trigger effect
-  const [pendingSnapshotsCount, setPendingSnapshotsCount] = useState(pendingSaveSnapshotsRef.current.size);
-
-  useEffect(() => {
-    if (pendingSaveSnapshotsRef.current.size === 0) {
-      confirmedDetailsRef.current = details;
-      confirmedSaveIdRef.current = saveRequestIdRef.current;
-    }
-  }, [pendingSnapshotsCount, details, saveRequestIdRef.current]);
-
-  // Wherever pendingSaveSnapshotsRef is modified, also call setPendingSnapshotsCount(pendingSaveSnapshotsRef.current.size)
-
   const initialServiceDetails = useMemo(
     () => resolveServiceDetails(details, currentPractice),
     [details, currentPractice]
@@ -92,6 +80,10 @@ export const PracticeCoveragePage = ({ className, onBack }: PracticeCoveragePage
     }
 
     const saveId = ++saveRequestIdRef.current;
+    if (pendingSaveSnapshotsRef.current.size === 0) {
+      confirmedDetailsRef.current = details;
+      confirmedSaveIdRef.current = saveId - 1;
+    }
     const getLatestPendingSave = () => {
       let latestSaveId: number | null = null;
       let latestSave: { optimisticDetails: typeof details } | null = null;

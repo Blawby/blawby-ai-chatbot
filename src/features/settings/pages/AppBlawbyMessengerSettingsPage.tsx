@@ -4,7 +4,6 @@ import { Input, LogoUploadInput, Textarea } from '@/shared/ui/input';
 import { SectionDivider, SettingsPage } from '@/shared/ui/layout';
 import { SettingRow } from '@/features/settings/components/SettingRow';
 import { SettingSection } from '@/features/settings/components/SettingSection';
-import { SettingsBadge } from '@/features/settings/components/SettingsBadge';
 import { SettingsHelperText } from '@/features/settings/components/SettingsHelperText';
 import { WidgetPreviewFrame } from '@/features/settings/components/WidgetPreviewFrame';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
@@ -68,8 +67,6 @@ export default function AppBlawbyMessengerSettingsPage({
     practiceDetails?.legalDisclaimer,
   ]);
 
-  const introMessageSet = Boolean(normalizeOptionalText(values.introMessage));
-  const legalDisclaimerSet = Boolean(normalizeOptionalText(values.legalDisclaimer));
   const previewConfig = useMemo(() => {
     const base = {
       name: values.name.trim() || 'Blawby Messenger',
@@ -183,12 +180,14 @@ export default function AppBlawbyMessengerSettingsPage({
         },
       });
 
-      if (Object.keys(practicePayload).length > 0) {
-        await updatePractice(currentPractice.id, practicePayload);
-      }
-      if (Object.keys(detailsPayload).length > 0) {
-        await updateDetails(detailsPayload);
-      }
+      const updatePracticePromise = Object.keys(practicePayload).length > 0
+        ? updatePractice(currentPractice.id, practicePayload)
+        : Promise.resolve();
+      const updateDetailsPromise = Object.keys(detailsPayload).length > 0
+        ? updateDetails(detailsPayload)
+        : Promise.resolve();
+
+      await Promise.all([updatePracticePromise, updateDetailsPromise]);
 
       setDraft({});
       showSuccess('Messenger updated', 'Your widget settings were saved.');
@@ -254,10 +253,7 @@ export default function AppBlawbyMessengerSettingsPage({
         />
 
         {activeTab === 'branding' ? (
-          <SettingSection
-            title="Public identity"
-            description="Used wherever the widget needs a practice or assistant fallback."
-          >
+          <SettingSection title="Public identity">
             <SettingRow
               label="Brand name"
               description="Shown in the widget header and assistant fallback name."
@@ -334,16 +330,12 @@ export default function AppBlawbyMessengerSettingsPage({
         ) : null}
 
         {activeTab === 'opening' ? (
-          <SettingSection
-            title="Opening message"
-            description="Leave blank to skip the first assistant-style message."
-          >
-          <SettingRow
-            label="Widget opening message"
-            description="Appears as the first assistant-style message after the widget starts."
-            layout="stacked"
-          >
-            <div className="space-y-2">
+          <SettingSection title="Opening message">
+            <SettingRow
+              label="Widget opening message"
+              description="Appears as the first assistant-style message after the widget starts."
+              layout="stacked"
+            >
               <Textarea
                 value={values.introMessage}
                 onChange={(value) => setDraft((prev) => ({ ...prev, introMessage: value }))}
@@ -353,25 +345,17 @@ export default function AppBlawbyMessengerSettingsPage({
                 showCharCount
                 disabled={isSaving}
               />
-              <SettingsBadge variant={introMessageSet ? 'success' : 'info'}>
-                Opening message {introMessageSet ? 'set' : 'not set'}
-              </SettingsBadge>
-            </div>
-          </SettingRow>
+            </SettingRow>
           </SettingSection>
         ) : null}
 
         {activeTab === 'disclaimer' ? (
-          <SettingSection
-            title="Legal disclaimer"
-            description="Leave blank to skip the acceptance step before chat starts."
-          >
-          <SettingRow
-            label="Legal disclaimer"
-            description="Shown as an optional acceptance step before the public widget chat starts."
-            layout="stacked"
-          >
-            <div className="space-y-2">
+          <SettingSection title="Legal disclaimer">
+            <SettingRow
+              label="Legal disclaimer"
+              description="Shown as an optional acceptance step before the public widget chat starts."
+              layout="stacked"
+            >
               <Textarea
                 value={values.legalDisclaimer}
                 onChange={(value) => setDraft((prev) => ({ ...prev, legalDisclaimer: value }))}
@@ -381,11 +365,7 @@ export default function AppBlawbyMessengerSettingsPage({
                 showCharCount
                 disabled={isSaving}
               />
-              <SettingsBadge variant={legalDisclaimerSet ? 'success' : 'info'}>
-                Disclaimer {legalDisclaimerSet ? 'set' : 'not set'}
-              </SettingsBadge>
-            </div>
-          </SettingRow>
+            </SettingRow>
           </SettingSection>
         ) : null}
       </div>

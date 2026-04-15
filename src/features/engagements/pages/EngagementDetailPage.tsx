@@ -578,7 +578,7 @@ export const EngagementDetailPage: FunctionComponent<EngagementDetailPageProps> 
           </div>
 
           {/* Conversation preview */}
-          {engagement.conversation_id && (
+          {engagement.conversation_id && engagement.organization_id && (
             <section className="glass-card flex flex-col h-[600px] overflow-hidden mx-1">
               <header className="p-4 border-b border-line-glass/10 flex items-center gap-3">
                 <Icon icon={ChatBubbleLeftRightIcon} className="w-5 h-5 text-input-placeholder" />

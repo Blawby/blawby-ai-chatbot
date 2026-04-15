@@ -38,6 +38,7 @@ import { normalizePracticeRole } from '@/shared/utils/practiceRoles';
 import { FormActions, FormLabel } from '@/shared/ui/form';
 import { buildSettingsPath, resolveSettingsBasePath } from '@/shared/utils/workspace';
 import { features } from '@/config/features';
+import { cn } from '@/shared/utils/cn';
 
 
 export interface AccountPageProps {
@@ -821,8 +822,7 @@ export const AccountPage = ({
     : undefined;
 
   return (
-    <>
-      <div className="space-y-6">
+    <div className={cn('space-y-6', className)}>
       <SettingRow label={t('settings:account.nameLabel')}>
         <div className="flex items-center gap-3">
           <div className="w-10">
@@ -1208,6 +1208,5 @@ export const AccountPage = ({
         </div>
       </Dialog>
     </div>
-    </>
   );
 };

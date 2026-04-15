@@ -24,6 +24,7 @@ import type { SecurityPreferences } from '@/shared/types/preferences';
 import { FormActions } from '@/shared/ui/form';
 import { features } from '@/config/features';
 import { buildSettingsPath, resolveSettingsBasePath } from '@/shared/utils/workspace';
+import { cn } from '@/shared/utils/cn';
 
 // Local interface for user with security-related fields
 interface SecurityUser {
@@ -428,8 +429,7 @@ export const SecurityPage = ({
   }
 
   return (
-    <>
-      <div className="space-y-6">
+    <div className={cn('space-y-6', className)}>
       {/* Password Section */}
       <SettingSection
         title={t('settings:security.password.sectionTitle')}
@@ -576,6 +576,5 @@ export const SecurityPage = ({
         </>
       )}
     </div>
-    </>
   );
 };

@@ -34,13 +34,13 @@ import { LoadingBlock } from '@/shared/ui/layout/LoadingBlock';
 import { SettingsNotice } from '@/features/settings/components/SettingsNotice';
 import { SettingsHelperText } from '@/features/settings/components/SettingsHelperText';
 import { PracticeServicesSummary } from '@/features/settings/components/PracticeServicesSummary';
-import { SettingsBadge } from '@/features/settings/components/SettingsBadge';
 import { SettingRow } from '@/features/settings/components/SettingRow';
 import {
   usePracticeSyncParamRefetch,
 } from '@/features/settings/hooks/usePracticePageEffects';
 import { normalizeAccentColor } from '@/shared/utils/accentColors';
 import { buildSettingsPath, resolveSettingsBasePath } from '@/shared/utils/workspace';
+import { cn } from '@/shared/utils/cn';
 
 interface OnboardingDetails {
   contactPhone?: string;
@@ -166,7 +166,6 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
 
   const practice = currentPractice ?? null;
-  const hasPractice = !!practice;
   const {
     members,
     refetch: refetchTeam,
@@ -474,10 +473,7 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
   }
 
   return (
-    <>
-      <div className={clsx('space-y-6', className)}>
-      {hasPractice && (
-        <>
+    <div className={cn('space-y-6', className)}>
               <SettingRow
                 label="Brand"
                 labelNode={(
@@ -496,15 +492,7 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
                       )}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <h3 className="text-base font-medium text-input-text">Brand</h3>
-                        <SettingsBadge variant={practiceDetails?.introMessage ? 'success' : 'info'}>
-                          Opening {practiceDetails?.introMessage ? 'set' : 'not set'}
-                        </SettingsBadge>
-                        <SettingsBadge variant={practiceDetails?.legalDisclaimer ? 'success' : 'info'}>
-                          Disclaimer {practiceDetails?.legalDisclaimer ? 'set' : 'not set'}
-                        </SettingsBadge>
-                      </div>
+                      <h3 className="text-base font-medium text-input-text">Brand</h3>
                       <div className="mt-2 flex min-w-0 items-center gap-3">
                         <SettingsHelperText className="truncate">{practice.name || 'Practice'}</SettingsHelperText>
                         <div
@@ -528,7 +516,7 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
                   </Button>
                   <Button
                     variant="icon"
-                    size="icon"
+                    size="icon-sm"
                     onClick={() => navigateTo(toSettingsPath('apps/blawby-messenger/settings'))}
                     className="sm:hidden"
                     aria-label="Manage brand"
@@ -589,7 +577,7 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
                   </Button>
                   <Button
                     variant="icon"
-                    size="icon"
+                    size="icon-sm"
                     onClick={openContactModal}
                     className="sm:hidden"
                     aria-label="Manage contact details"
@@ -625,7 +613,7 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
                   </Button>
                   <Button
                     variant="icon"
-                    size="icon"
+                    size="icon-sm"
                     onClick={() => navigateTo(toSettingsPath('practice/coverage'))}
                     className="sm:hidden"
                     aria-label="Manage coverage"
@@ -658,7 +646,7 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
                   </Button>
                   <Button
                     variant="icon"
-                    size="icon"
+                    size="icon-sm"
                     onClick={() => navigateTo(toSettingsPath('practice/pricing'))}
                     className="sm:hidden"
                     aria-label="Manage pricing"
@@ -701,7 +689,7 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
                   </Button>
                   <Button
                     variant="icon"
-                    size="icon"
+                    size="icon-sm"
                     onClick={() => navigateTo(members.length === 0
                       ? `${toSettingsPath('practice/team')}?invite=1`
                       : toSettingsPath('practice/team'))}
@@ -783,8 +771,6 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
                   )}
                 </>
               )}
-            </>
-          )}
 
       {/* Contact Modal */}
       <Dialog
@@ -928,6 +914,5 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
       </Dialog>
 
     </div>
-    </>
   );
 };

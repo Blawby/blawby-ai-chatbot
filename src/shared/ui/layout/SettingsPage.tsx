@@ -117,7 +117,7 @@ export function SettingsPage({
             contentClassName
           )}
           previewClassName={cn(
-            'flex items-start justify-center bg-muted/40 px-6 py-6',
+            'flex items-start justify-center',
             previewClassName
           )}
         >

@@ -4,9 +4,9 @@ import { useToastContext } from '@/shared/contexts/ToastContext';
 import { useTranslation } from '@/shared/i18n/hooks';
 import { getNotificationDisplayText } from '@/shared/ui/validation/defaultValues';
 import { SettingRow } from '@/features/settings/components/SettingRow';
+import { SettingSection } from '@/features/settings/components/SettingSection';
 import { NotificationChannelSelector } from '@/features/settings/components/NotificationChannelSelector';
 import { LoadingBlock } from '@/shared/ui/layout/LoadingBlock';
-import { SettingsSubheader } from '@/features/settings/components/SettingsSubheader';
 import {
   useNotificationSettings,
   updateNotificationChannel,
@@ -24,6 +24,7 @@ import {
 } from '@/shared/notifications/oneSignalClient';
 import type { NotificationSettings } from '@/shared/types/user';
 import type { NotificationCategory, InAppNotificationFrequency } from '@/shared/types/notifications';
+import { cn } from '@/shared/utils/cn';
 
 export interface NotificationsPageProps {
   className?: string;
@@ -301,8 +302,7 @@ export const NotificationsPage = ({
   }
 
   return (
-    <>
-      <div className="space-y-8">
+    <div className={cn('space-y-6', className)}>
       {CATEGORY_CONFIG.map((category, index) => {
         const categorySettings = getCategorySettings(settings, category.key);
         const isSystem = category.key === 'system';
@@ -376,48 +376,46 @@ export const NotificationsPage = ({
 
       <SectionDivider />
 
-      <SettingsSubheader variant="section" className="text-left">
-        {t('settings:notifications.inApp.sectionTitle', { defaultValue: 'In-app bot messages' })}
-      </SettingsSubheader>
+      <SettingSection title={t('settings:notifications.inApp.sectionTitle', { defaultValue: 'In-app bot messages' })}>
+        {IN_APP_CATEGORY_CONFIG.map((category, index) => {
+          const isSystem = category.key === 'system';
+          const description = t(category.descriptionKey, { defaultValue: category.fallbackDescription });
 
-      {IN_APP_CATEGORY_CONFIG.map((category, index) => {
-        const isSystem = category.key === 'system';
-        const description = t(category.descriptionKey, { defaultValue: category.fallbackDescription });
-
-        return (
-          <div key={`in-app-${category.key}`}>
-            <SettingRow
-              label={t(category.labelKey, { defaultValue: category.fallbackLabel })}
-              description={description}
-            >
-              <Switch
-                value={settings.inApp[inAppSettingKey[category.key]]}
-                onChange={(value) => handleInAppToggle(category.key, value)}
-                disabled={isSystem}
-                className="py-0"
-              />
-            </SettingRow>
-            {isSystem && (
-              <>
-                <SectionDivider />
-                <SettingRow
-                  label={t('settings:notifications.inApp.frequencyLabel', { defaultValue: 'System summaries only' })}
-                  description={t('settings:notifications.inApp.frequencyDescription', {
-                    defaultValue: 'Show a single summary message for the Blawby System conversation.'
-                  })}
-                >
-                  <Switch
-                    value={settings.inAppFrequency === 'summaries_only'}
-                    onChange={handleInAppFrequencyToggle}
-                    className="py-0"
-                  />
-                </SettingRow>
-              </>
-            )}
-            {index < IN_APP_CATEGORY_CONFIG.length - 1 && <SectionDivider />}
-          </div>
-        );
-      })}
+          return (
+            <div key={`in-app-${category.key}`}>
+              <SettingRow
+                label={t(category.labelKey, { defaultValue: category.fallbackLabel })}
+                description={description}
+              >
+                <Switch
+                  value={settings.inApp[inAppSettingKey[category.key]]}
+                  onChange={(value) => handleInAppToggle(category.key, value)}
+                  disabled={isSystem}
+                  className="py-0"
+                />
+              </SettingRow>
+              {isSystem && (
+                <>
+                  <SectionDivider />
+                  <SettingRow
+                    label={t('settings:notifications.inApp.frequencyLabel', { defaultValue: 'System summaries only' })}
+                    description={t('settings:notifications.inApp.frequencyDescription', {
+                      defaultValue: 'Show a single summary message for the Blawby System conversation.'
+                    })}
+                  >
+                    <Switch
+                      value={settings.inAppFrequency === 'summaries_only'}
+                      onChange={handleInAppFrequencyToggle}
+                      className="py-0"
+                    />
+                  </SettingRow>
+                </>
+              )}
+              {index < IN_APP_CATEGORY_CONFIG.length - 1 && <SectionDivider />}
+            </div>
+          );
+        })}
+      </SettingSection>
 
       <SectionDivider />
 
@@ -435,6 +433,5 @@ export const NotificationsPage = ({
         </div>
       </SettingRow>
     </div>
-    </>
   );
 };

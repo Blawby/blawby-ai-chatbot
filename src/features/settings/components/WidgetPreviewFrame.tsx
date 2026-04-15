@@ -15,7 +15,7 @@ export const WidgetPreviewFrame = ({
   title = 'Widget preview',
 }: WidgetPreviewFrameProps) => {
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
-  const [isLoaded, setIsLoaded] = useState(false);
+  const [loadedSrc, setLoadedSrc] = useState<string | null>(null);
 
   const src = useMemo(() => {
     if (!practiceSlug) return null;
@@ -34,11 +34,7 @@ export const WidgetPreviewFrame = ({
   }), [config, scenario]);
 
   useEffect(() => {
-    setIsLoaded(false);
-  }, [src]);
-
-  useEffect(() => {
-    if (!isLoaded) return;
+    if (loadedSrc !== src) return;
     const target = iframeRef.current?.contentWindow;
     if (!target) return;
     const sendMessage = () => target.postMessage(message, window.location.origin);
@@ -46,7 +42,7 @@ export const WidgetPreviewFrame = ({
     const retryDelays = [100, 500];
     const timers = retryDelays.map((delay) => window.setTimeout(sendMessage, delay));
     return () => timers.forEach((timer) => window.clearTimeout(timer));
-  }, [isLoaded, message]);
+  }, [loadedSrc, message, src]);
 
   if (!src) {
     return (
@@ -65,7 +61,7 @@ export const WidgetPreviewFrame = ({
           title={title}
           src={src}
           className="h-[640px] w-full bg-surface-ground"
-          onLoad={() => setIsLoaded(true)}
+          onLoad={() => setLoadedSrc(src)}
           sandbox="allow-scripts allow-same-origin allow-forms"
         />
       </div>

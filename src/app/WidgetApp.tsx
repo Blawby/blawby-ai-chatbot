@@ -367,20 +367,21 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
     }
 
     pendingDisclaimerAcceptanceIds.current.delete(activeConversationId);
+    const acceptedAt = new Date().toISOString();
     void persistSystemMessage(
       'system-disclaimer-accepted',
       'Legal disclaimer accepted.',
       {
         systemMessageKey: 'disclaimer_accepted',
         source: 'practice_legal_disclaimer',
-        acceptedAt: new Date().toISOString(),
+        acceptedAt,
       }
     );
     // Also persist in conversation metadata if updateConversationMetadata exists
     if (typeof messageHandling.updateConversationMetadata === 'function') {
       messageHandling.updateConversationMetadata({
         disclaimerAccepted: true,
-        disclaimerAcceptedAt: new Date().toISOString(),
+        disclaimerAcceptedAt: acceptedAt,
       });
     }
   }, [activeConversationId, messagesReady, persistSystemMessage, messageHandling]);

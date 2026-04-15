@@ -144,14 +144,10 @@ const SettingsRouter = ({
     return renderViewContent();
   }
 
-  const contentMaxWidth = view === 'apps' || view === 'practice'
-    ? null
-    : 'max-w-3xl';
-
   return (
     <SettingsPage
       title={viewLabel}
-      contentMaxWidth={contentMaxWidth}
+      contentMaxWidth={null}
     >
       {renderViewContent()}
     </SettingsPage>
@@ -177,11 +173,7 @@ export const SettingsContent = (props: SettingsContentProps) => {
 
   const { navigate } = useNavigation();
   const { t } = useTranslation(['settings']);
-  const [apps, setApps] = useState<App[]>(initialApps ?? mockApps);
-
-  useEffect(() => {
-    setApps(initialApps ?? mockApps);
-  }, [initialApps]);
+  const [appUpdates, setAppUpdates] = useState<Record<string, Partial<App>>>({});
 
   const { isPending: sessionPending, activeMemberRole } = useSessionContext();
   const { canAccessPractice } = useWorkspace();
@@ -208,8 +200,19 @@ export const SettingsContent = (props: SettingsContentProps) => {
     }
   }, [canAccessPractice, isPracticeScopedView, navigate, sessionPending, settingsBasePath]);
 
+  const apps = useMemo(() => {
+    const sourceApps = initialApps ?? mockApps;
+    return sourceApps.map((app) => ({ ...app, ...appUpdates[app.id] }));
+  }, [appUpdates, initialApps]);
+
   const handleAppUpdate = (targetAppId: string, updates: Partial<App>) => {
-    setApps((prev) => prev.map((app) => app.id === targetAppId ? { ...app, ...updates } : app));
+    setAppUpdates((prev) => ({
+      ...prev,
+      [targetAppId]: {
+        ...prev[targetAppId],
+        ...updates,
+      },
+    }));
   };
 
   const currentApp = useMemo(() => apps.find((item) => item.id === appId), [appId, apps]);
