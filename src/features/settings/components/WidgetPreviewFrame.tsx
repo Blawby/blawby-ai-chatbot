@@ -17,6 +17,11 @@ export const WidgetPreviewFrame = ({
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const [loadedSrc, setLoadedSrc] = useState<string | null>(null);
 
+  // Reset loadedSrc to null whenever src changes so message posting waits for new iframe load
+  useEffect(() => {
+    setLoadedSrc(null);
+  }, [src]);
+
   const src = useMemo(() => {
     if (!practiceSlug) return null;
     const params = new URLSearchParams({
