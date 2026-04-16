@@ -61,7 +61,7 @@ export const CurrencyInput = forwardRef<HTMLInputElement, CurrencyInputProps>(({
       className={className}
       size={size}
       variant={variant}
-  icon={<span className="flex h-full w-full items-center justify-center text-gray-500">$</span>}
+  icon={<span className="flex h-full w-full items-center justify-center text-input-placeholder">$</span>}
   iconPosition="left"
   value={displayValue}
       onChange={(nextValue) => {

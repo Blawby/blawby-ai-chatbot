@@ -322,7 +322,7 @@ const MessageComposer = ({
       >
         <div className="message-composer-container">
           {replyTo && (
-            <div className="flex items-center justify-between gap-3 rounded-t-2xl bg-surface-utility/40 dark:bg-white/[0.06] px-4 py-1.5 text-sm text-input-text -mx-2 -mt-1">
+            <div className="flex items-center justify-between gap-3 rounded-t-2xl bg-surface-utility/40 dark:bg-surface-utility/20 px-4 py-1.5 text-sm text-input-text -mx-2 -mt-1">
               <div className="flex min-w-0 items-center gap-2">
                 <span className="text-input-text/70">
                   <Trans

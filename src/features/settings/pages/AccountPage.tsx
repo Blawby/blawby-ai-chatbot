@@ -908,7 +908,7 @@ export const AccountPage = ({
                           });
                         }}
                       >
-                        <span className="flex items-center gap-2 whitespace-nowrap text-red-600 dark:text-red-400">
+                        <span className="flex items-center gap-2 whitespace-nowrap text-accent-error dark:text-accent-error-light">
                           <Icon icon={XMarkIcon} className="h-4 w-4"  />
                           {t('settings:account.plan.cancelSubscription')}
                         </span>
@@ -930,7 +930,7 @@ export const AccountPage = ({
             </div>
           </SettingRow>
           {subscriptionError && (
-            <SettingsHelperText className="mt-2 text-red-500">
+            <SettingsHelperText className="mt-2 text-accent-error">
               {subscriptionError}
             </SettingsHelperText>
           )}
@@ -1017,7 +1017,7 @@ export const AccountPage = ({
                 ]}
                 onChange={handleDomainChange}
                 placeholder={t('settings:account.links.selectOption')}
-                className="border-0 bg-transparent px-3 py-1 hover:bg-white/[0.04] focus:ring-2 focus:ring-accent-500"
+                className="border-0 bg-transparent px-3 py-1 hover:bg-surface-workspace/10 focus:ring-2 focus:ring-accent-500"
                 searchable={false}
               />
             </SettingRow>
@@ -1027,8 +1027,8 @@ export const AccountPage = ({
               label="LinkedIn"
               labelNode={
                 <div className="flex items-center gap-3">
-                  <div className="w-4 h-4 bg-black rounded flex items-center justify-center">
-                    <span className="text-white text-xs font-bold">in</span>
+                  <div className="w-4 h-4 bg-surface-app-frame rounded flex items-center justify-center">
+                    <span className="text-[rgb(var(--accent-foreground))] text-xs font-bold">in</span>
                   </div>
                   <FormLabel>LinkedIn</FormLabel>
                 </div>

@@ -514,10 +514,10 @@ export const TagInput = forwardRef<HTMLInputElement, TagInputProps>(({
                 aria-selected={focusedSuggestionIndex === index}
                 onClick={() => addTag(suggestion)}
                 className={cn(
-                  'w-full text-left px-3 py-2 text-sm text-input-text',
-                  'hover:bg-white/[0.12]',
-                  'focus:outline-none focus:bg-white/[0.12]',
-                  focusedSuggestionIndex === index && 'bg-accent-50 dark:bg-accent-900/20'
+                  'w-full text-left px-3 py-2 text-sm text-[rgb(var(--input-foreground))]',
+                  'hover:bg-[rgb(var(--surface-utility))]/12',
+                  'focus:outline-none focus:bg-[rgb(var(--surface-utility))]/12',
+                  focusedSuggestionIndex === index && 'bg-[rgb(var(--accent-50))] dark:bg-[rgb(var(--accent-900))]/20'
                 )}
               >
                 {suggestion}

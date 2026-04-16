@@ -40,9 +40,9 @@ const MediaContent: FunctionComponent<MediaContentProps> = ({ media }) => {
                                 muted
                                 playsInline
                             />
-                            <div className="absolute inset-0 bg-black bg-opacity-50 flex flex-col items-center justify-center gap-2">
-                                <Icon icon={PlayIcon} className="text-white w-12 h-12"  />
-                                <p className="text-white text-sm font-medium">Click to play</p>
+                            <div className="absolute inset-0 bg-surface-app-frame/80 flex flex-col items-center justify-center gap-2">
+                                <Icon icon={PlayIcon} className="text-[rgb(var(--accent-foreground))] w-12 h-12"  />
+                                <p className="text-[rgb(var(--accent-foreground))] text-sm font-medium">Click to play</p>
                             </div>
                         </div>
                     ) : (

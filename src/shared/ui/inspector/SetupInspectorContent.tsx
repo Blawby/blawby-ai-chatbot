@@ -158,7 +158,7 @@ export function SetupInspectorContent({
               <div className="flex justify-end">
                 <button
                   type="button"
-                  className="rounded-md bg-white/[0.08] px-3 py-1.5 text-xs font-semibold text-input-text transition hover:bg-white/[0.12] disabled:cursor-not-allowed disabled:opacity-50"
+                  className="rounded-md bg-surface-panel/40 px-3 py-1.5 text-xs font-semibold text-input-text transition hover:bg-surface-panel/60 disabled:cursor-not-allowed disabled:opacity-50"
                   disabled={isReadOnly}
                   onClick={() => { void commitDraft('address', '', true); }}
                 >

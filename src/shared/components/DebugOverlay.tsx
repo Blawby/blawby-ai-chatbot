@@ -182,7 +182,7 @@ export const DebugOverlay: FunctionComponent<DebugOverlayProps> = ({ isVisible =
 
   return (
     <div 
-      className="fixed top-4 left-4 bg-black bg-opacity-80 text-white p-4 rounded-lg text-xs font-mono max-w-sm z-50" 
+      className="fixed top-4 left-4 bg-surface-app-frame/90 text-[rgb(var(--accent-foreground))] p-4 rounded-lg text-xs font-mono max-w-sm z-50" 
       data-testid="debug-overlay"
       role="region"
       aria-label="Debug information overlay"
@@ -192,7 +192,7 @@ export const DebugOverlay: FunctionComponent<DebugOverlayProps> = ({ isVisible =
         <strong>Debug Overlay</strong>
         <button
           onClick={() => setIsExpanded(!isExpanded)}
-          className="text-white hover:text-gray-300 focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-50 rounded px-1"
+          className="text-[rgb(var(--accent-foreground))] hover:text-[rgb(var(--accent-foreground))]/80 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-opacity-50 rounded px-1"
           aria-label={isExpanded ? 'Collapse debug overlay' : 'Expand debug overlay'}
           aria-expanded={isExpanded}
         >
@@ -201,9 +201,9 @@ export const DebugOverlay: FunctionComponent<DebugOverlayProps> = ({ isVisible =
       </div>
       
       {error && (
-        <div className="mb-2 p-2 bg-red-600 bg-opacity-50 rounded border border-red-400" role="alert" aria-live="assertive">
-          <div className="text-red-200 font-semibold">Error:</div>
-          <div className="text-red-100 text-xs">{error}</div>
+        <div className="mb-2 p-2 bg-accent-error/30 rounded border border-accent-error" role="alert" aria-live="assertive">
+          <div className="text-accent-error font-semibold">Error:</div>
+          <div className="text-accent-error/80 text-xs">{error}</div>
         </div>
       )}
       
@@ -214,13 +214,13 @@ export const DebugOverlay: FunctionComponent<DebugOverlayProps> = ({ isVisible =
       <div className="mb-2">
         <div><strong>Tool Calls ({toolCalls.length}):</strong></div>
         {toolCalls.length === 0 ? (
-          <div className="text-gray-400" aria-label="No tool calls have been detected">No tool calls detected</div>
+          <div className="text-input-placeholder" aria-label="No tool calls have been detected">No tool calls detected</div>
         ) : (
           <div className="max-h-32 overflow-y-auto" role="list" aria-label="List of tool calls">
             {toolCalls.map((call, index) => (
               <div 
                 key={index} 
-                className="text-green-400" 
+                className="text-accent-success" 
                 role="listitem"
                 aria-label={`Tool call ${index + 1}: ${call.tool} at ${new Date(call.timestamp).toLocaleTimeString()}`}
               >
@@ -231,15 +231,15 @@ export const DebugOverlay: FunctionComponent<DebugOverlayProps> = ({ isVisible =
         )}
       </div>
       
-      <div className="text-xs text-gray-400" aria-label={lastUpdated ? `Last updated at ${lastUpdated.toLocaleTimeString()}` : 'No successful updates yet'}>
+      <div className="text-xs text-input-placeholder" aria-label={lastUpdated ? `Last updated at ${lastUpdated.toLocaleTimeString()}` : 'No successful updates yet'}>
         Last updated: {lastUpdated ? lastUpdated.toLocaleTimeString() : 'Never'}
       </div>
       
       {isExpanded && (
-        <div className="mt-2 pt-2 border-t border-gray-600" role="region" aria-label="Additional debug information">
-          <div className="text-xs text-gray-300">
-            <div>Press <kbd className="bg-gray-700 px-1 rounded">Esc</kbd> to collapse</div>
-            <div>Press <kbd className="bg-gray-700 px-1 rounded">Enter</kbd> or <kbd className="bg-gray-700 px-1 rounded">Space</kbd> to toggle</div>
+        <div className="mt-2 pt-2 border-t border-line-glass/40" role="region" aria-label="Additional debug information">
+          <div className="text-xs text-input-placeholder">
+            <div>Press <kbd className="bg-surface-utility/40 px-1 rounded">Esc</kbd> to collapse</div>
+            <div>Press <kbd className="bg-surface-utility/40 px-1 rounded">Enter</kbd> or <kbd className="bg-surface-utility/40 px-1 rounded">Space</kbd> to toggle</div>
           </div>
         </div>
       )}

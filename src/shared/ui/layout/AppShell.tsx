@@ -218,12 +218,12 @@ export const AppShell = ({
           {onMobileSecondaryNavClose ? (
             <button
               type="button"
-              className="absolute inset-0 bg-surface-app-frame/60 dark:bg-black/60 backdrop-blur-sm"
+              className="absolute inset-0 bg-[rgb(var(--surface-app-frame))]/60 backdrop-blur-sm"
               onClick={() => onMobileSecondaryNavClose()}
               aria-label="Close navigation"
             />
           ) : (
-            <div className="absolute inset-0 bg-surface-app-frame/60 dark:bg-black/60 backdrop-blur-sm" />
+            <div className="absolute inset-0 bg-surface-app-frame/60 dark:bg-surface-overlay/60 backdrop-blur-sm" />
           )}
           <aside className="absolute left-0 top-0 h-dvh w-full max-w-xs overflow-y-auto bg-surface-navigation">
             {secondarySidebar}

@@ -350,7 +350,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
         metadata: { systemMessageKey: 'intro' },
       });
     }
-  }, [messagesReady, activeConversationId, widgetIntroMessage, hasConversationStarted, messageHandling, hasIntro, practiceConfig.profileImage, practiceConfig.name]);
+  }, [messagesReady, activeConversationId, widgetIntroMessage, hasConversationStarted, messageHandling, hasIntro]);
 
   // Inject intro when conversation becomes active and no intro exists, only after messagesReady
   useEffect(() => {
@@ -503,7 +503,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
       size="icon-sm"
       onClick={requestWidgetClose}
       aria-label="Close widget"
-      className="text-input-text/60 hover:text-input-text bg-surface-workspace/40 dark:bg-white/10 hover:bg-surface-workspace/60 dark:hover:bg-white/20 backdrop-blur-md border border-line-glass/20 shadow-lg"
+      className="text-input-text/60 hover:text-input-text bg-surface-workspace/40 dark:bg-surface-utility/10 hover:bg-surface-workspace/60 dark:hover:bg-surface-utility/20 backdrop-blur-md border border-line-glass/20 shadow-lg"
     >
       <Icon icon={XMarkIcon} className="h-5 w-5" />
     </Button>

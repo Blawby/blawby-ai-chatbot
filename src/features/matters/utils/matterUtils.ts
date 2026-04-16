@@ -435,7 +435,7 @@ export const buildFormStateFromDetail = (detail: MatterDetail, overrides?: Parti
 export const nullIfEmpty = (value: string | undefined | null): string | null | undefined =>
   value === '' ? null : value || undefined;
 
-const uuidOrNull = (value: string | undefined | null): string | null | undefined => {
+const _uuidOrNull = (value: string | undefined | null): string | null | undefined => {
   if (!value || value === '') return null;
   return isUuid(value) ? value : undefined;
 };

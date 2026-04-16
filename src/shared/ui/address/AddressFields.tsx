@@ -279,7 +279,7 @@ export const AddressFields = forwardRef<HTMLDivElement, AddressFieldsProps>(
                             'w-full px-3 py-2 text-left text-sm transition-colors duration-150',
                             isActive
                               ? 'bg-accent-500/15 text-accent-400'
-                              : 'text-input-text hover:bg-white/[0.08]'
+                              : 'text-input-text hover:bg-surface-utility/10'
                           )}
                         >
                           {s.formatted}

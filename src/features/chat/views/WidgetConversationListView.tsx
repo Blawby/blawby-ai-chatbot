@@ -92,7 +92,7 @@ const WidgetConversationListView: FunctionComponent<WidgetConversationListViewPr
                   type="button"
                   className={cn(
                     'flex w-full items-start gap-3 px-3 py-3 text-left transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50',
-                    isActive ? 'bg-white/10' : 'hover:bg-white/5'
+                    isActive ? 'bg-surface-utility/10' : 'hover:bg-surface-utility/5'
                   )}
                   onClick={() => onSelectConversation(conversation.id)}
                 >
@@ -100,7 +100,7 @@ const WidgetConversationListView: FunctionComponent<WidgetConversationListViewPr
                     src={null}
                     name={title}
                     size="md"
-                    className="ring-2 ring-white/10"
+                    className="ring-2 ring-line-glass/10"
                   />
                   <div className="min-w-0 flex-1 space-y-1">
                     <div className="flex items-start justify-between gap-3">

@@ -163,7 +163,7 @@ export const ActivityTimeline = ({
             <div className="relative flex w-8 flex-none justify-center pt-0.5 sm:w-10">
               <div
                 className={cn(
-                  'absolute left-1/2 z-0 w-px -translate-x-1/2 bg-line-default',
+                  'absolute left-1/2 z-0 w-px -translate-x-1/2 bg-[rgb(var(--line-utility))]',
                   isLast ? 'h-6' : '-bottom-6',
                   'top-0'
                 )}
@@ -174,21 +174,21 @@ export const ActivityTimeline = ({
                     name={item.person.name}
                     src={item.person.imageUrl}
                     size="md"
-                    className="ring-1 ring-black/10 bg-white/10 text-input-text dark:ring-white/20"
+                    className="ring-1 ring-line-utility/30 bg-surface-utility/10 text-input-text"
                   />
-                  <span className="absolute -right-1 -bottom-1 flex h-4 w-4 items-center justify-center rounded-full bg-surface-overlay text-input-text ring-1 ring-line-glass/30 shadow-sm sm:h-5 sm:w-5">
+                  <span className="absolute -right-1 -bottom-1 flex h-4 w-4 items-center justify-center rounded-full bg-surface-overlay text-input-text ring-1 ring-line-utility/30 shadow-sm sm:h-5 sm:w-5">
                     <Icon icon={ChatBubbleLeftRightIcon} className="h-2.5 w-2.5 sm:h-3 sm:w-3" aria-hidden="true"  />
                   </span>
                 </div>
               ) : (
                 <div className="relative z-10 flex h-8 w-8 items-center justify-center rounded-full bg-surface-overlay text-input-text ring-1 ring-line-glass/30 shadow-sm">
                   {item.type === 'paid' ? (
-                    <Icon icon={CheckCircleIcon} aria-hidden="true" className="h-5 w-5 text-emerald-500"  />
+                    <Icon icon={CheckCircleIcon} aria-hidden="true" className="h-5 w-5 text-accent-success"  />
                   ) : TYPE_ICONS[item.type] ? (
                     (() => {
                       const Icon = TYPE_ICONS[item.type];
                       return Icon ? (
-                        <Icon className="h-4 w-4 text-input-placeholder dark:text-gray-200" />
+                        <Icon className="h-4 w-4 text-input-placeholder dark:text-input-placeholder/80" />
                       ) : null;
                     })()
                   ) : (
@@ -201,7 +201,7 @@ export const ActivityTimeline = ({
             {item.type === 'commented' ? (
               <>
                 <div className="flex-auto min-w-0">
-                  <div className="text-sm leading-5 text-gray-500 dark:text-gray-400">
+                  <div className="text-sm leading-5 text-input-placeholder dark:text-input-placeholder/80">
                     <div className="font-semibold text-input-text">{item.person.name}</div>
                     <time dateTime={item.dateTime ?? item.date}>Commented {item.date}</time>
                   </div>
@@ -248,7 +248,7 @@ export const ActivityTimeline = ({
                         </p>
                       )}
                       {(onEditComment || onDeleteComment) && (
-                        <div className="mt-2 flex gap-3 text-xs text-gray-500 dark:text-gray-400">
+                        <div className="mt-2 flex gap-3 text-xs text-input-placeholder dark:text-input-placeholder/80">
                           {onEditComment && (
                             <button
                               type="button"
@@ -289,10 +289,10 @@ export const ActivityTimeline = ({
                   <span className="font-semibold">{item.person.name}</span>{' '}
                   {item.actionMeta?.type === 'status_change' ? (
                     <>
-                      <span className="text-gray-500 dark:text-gray-400">updated the status</span>{' '}
-                      <span className="text-gray-500 dark:text-gray-400">from</span>{' '}
+                      <span className="text-input-placeholder dark:text-input-placeholder/80">updated the status</span>{' '}
+                      <span className="text-input-placeholder dark:text-input-placeholder/80">from</span>{' '}
                       <span className="font-semibold text-input-text">{item.actionMeta.from}</span>{' '}
-                      <span className="text-gray-500 dark:text-gray-400">to</span>{' '}
+                      <span className="text-input-placeholder dark:text-input-placeholder/80">to</span>{' '}
                       <span className="font-semibold text-input-text">{item.actionMeta.to}</span>
                     </>
                   ) : (
@@ -317,7 +317,7 @@ export const ActivityTimeline = ({
                       const [, verb, rest] = match;
                       return (
                         <>
-                          <span className="text-gray-500 dark:text-gray-400">{verb}</span>{' '}
+                          <span className="text-input-placeholder dark:text-input-placeholder/80">{verb}</span>{' '}
                           {actionMeta?.type === 'task_event' && onTaskClick ? (
                             <button
                               type="button"
@@ -336,7 +336,7 @@ export const ActivityTimeline = ({
                     </p>
                     <time
                       dateTime={item.dateTime ?? item.date}
-                      className="shrink-0 py-0.5 text-xs leading-5 text-gray-500 dark:text-gray-400 sm:text-right"
+                      className="shrink-0 py-0.5 text-xs leading-5 text-input-placeholder dark:text-input-placeholder/80 sm:text-right"
                     >
                       {item.date}
                     </time>
@@ -355,7 +355,7 @@ export const ActivityTimeline = ({
           name={composerPerson?.name ?? 'You'}
           src={composerPerson?.imageUrl ?? null}
           size="sm"
-          className="ring-1 ring-white/15 bg-white/10 text-input-text dark:ring-white/10 sm:mt-1"
+          className="ring-1 ring-line-glass/30 bg-surface-utility/10 text-input-text dark:ring-line-glass/40 sm:mt-1"
         />
         <form className="flex-auto space-y-2" onSubmit={handleSubmit}>
           <MarkdownUploadTextarea

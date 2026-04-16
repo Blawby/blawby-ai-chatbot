@@ -70,7 +70,7 @@ const mockImageUrl =
       <circle cx="240" cy="220" r="120" fill="rgba(255,255,255,0.22)"/>
       <circle cx="940" cy="280" r="180" fill="rgba(255,255,255,0.14)"/>
       <rect x="120" y="600" width="960" height="120" rx="28" fill="rgba(255,255,255,0.14)"/>
-      <text x="120" y="160" fill="white" font-size="56" font-family="Arial, sans-serif">Mock attachment preview</text>
+      <text x="120" y="160" fill="#22272b" font-size="56" font-family="Arial, sans-serif">Mock attachment preview</text>
     </svg>
   `)}`;
 
@@ -539,7 +539,7 @@ function InspectorPanelPreview() {
 
   return (
     <div className="relative min-h-[760px] overflow-hidden rounded-2xl border border-line-glass/20 bg-app">
-      <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" />
+      <div className="absolute inset-0 bg-surface-app-frame/20 backdrop-blur-sm" />
       <aside
         role="dialog"
         aria-modal="true"
@@ -782,7 +782,7 @@ function GalleryCard({ item, previewNonce }: { item: DialogInventoryItem; previe
   const frameSrc = item.previewId ? `/debug/dialogs/${item.previewId}` : null;
 
   return (
-    <article className="space-y-3 rounded-2xl border border-line-glass/30 bg-white/[0.02] p-4">
+    <article className="space-y-3 rounded-2xl border border-line-glass/30 bg-surface-workspace/5 p-4">
       <div className="space-y-2">
         <h2 className="text-base font-semibold text-input-text">{item.name}</h2>
         <p className="break-all text-xs text-input-placeholder">{item.file}</p>

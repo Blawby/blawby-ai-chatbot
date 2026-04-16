@@ -91,7 +91,7 @@ export function PracticeInvoiceCreatePage({
     <Page className="min-h-full">
       <div className="mx-auto flex max-w-7xl flex-col gap-6">
         {draftId && !draftContext ? (
-          <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+          <div className="rounded-xl border border-accent-error/30 bg-accent-error/10 px-4 py-3 text-sm text-accent-error-foreground">
             Invoice draft context was not found. Start invoice creation from the matter or invoices page again.
           </div>
         ) : null}

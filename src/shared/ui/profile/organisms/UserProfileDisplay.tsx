@@ -164,10 +164,10 @@ export const UserProfileDisplay = ({
           />
           {!isCollapsed && (
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-red-600 dark:text-red-400">
+              <p className="text-sm font-medium text-[rgb(var(--accent-error))]">
                 Failed to load session
               </p>
-              <p className="text-xs text-input-placeholder">
+              <p className="text-xs text-[rgb(var(--input-placeholder))]">
                 Please try refreshing the page
               </p>
             </div>
@@ -182,7 +182,7 @@ export const UserProfileDisplay = ({
       <div className="p-2 w-full">
         <button
           onClick={handleSignIn}
-          className={`flex items-center w-full rounded-lg text-left transition-colors text-input-text hover:bg-black/5 dark:hover:bg-white/[0.08] ${
+          className={`flex items-center w-full rounded-lg text-left transition-colors text-[rgb(var(--input-foreground))] hover:bg-[rgb(var(--surface-utility))]/5 ${
             isCollapsed 
               ? 'justify-center py-2' 
               : 'gap-3 px-3 py-2'

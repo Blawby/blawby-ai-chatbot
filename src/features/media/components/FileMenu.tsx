@@ -142,10 +142,10 @@ const FileMenu: FunctionComponent<FileMenuProps> = ({
         aria-haspopup="menu"
         aria-controls="attachment-menu"
         aria-expanded={isOpen}
-        className={`shadow-lg border disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-0 focus-visible:ring-2 focus-visible:ring-white/30 focus-visible:ring-offset-0 active:scale-100 ${
+        className={`shadow-lg border disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-0 focus-visible:ring-2 focus-visible:ring-line-glass/30 focus-visible:ring-offset-0 active:scale-100 ${
           isOpen
-            ? 'bg-white/20 border-white/35'
-            : 'bg-white/10 border-white/20 hover:bg-white/20 hover:border-white/30 hover:scale-105'
+            ? 'bg-surface-utility/20 border-line-glass/35'
+            : 'bg-surface-utility/10 border-line-glass/20 hover:bg-surface-utility/20 hover:border-line-glass/30 hover:scale-105'
         }`}
         icon={PlusIcon} iconClassName="w-5 h-5"
       />
@@ -180,7 +180,7 @@ const FileMenu: FunctionComponent<FileMenuProps> = ({
             role="menuitem"
             onClick={openCamera}
             onMouseDown={preventPointerFocus}
-            className="file-menu-item py-3 border-t border-white/10 text-xs sm:text-sm"
+            className="file-menu-item py-3 border-t border-line-glass/10 text-xs sm:text-sm"
           >
             <span>Take Photo</span>
             <Icon icon={CameraIcon} className="w-5 h-5" aria-hidden="true"  />
@@ -192,14 +192,14 @@ const FileMenu: FunctionComponent<FileMenuProps> = ({
       {errorMessage && (
         <div
           role="alert" aria-live="polite"
-          className="absolute bottom-full left-0 mb-2 min-w-[250px] p-3 glass-card border-red-500/30 bg-red-500/10"
+          className="absolute bottom-full left-0 mb-2 min-w-[250px] p-3 glass-card border-accent-error/30 bg-accent-error/10"
           style={{ zIndex: THEME.zIndex.fileMenu + 1 }}
         >
           <div className="flex items-start gap-2">
-            <div className="flex-1 text-sm text-red-200">{errorMessage}</div>
+            <div className="flex-1 text-sm text-accent-error-foreground">{errorMessage}</div>
             <button
               onClick={() => setErrorMessage(null)}
-              className="p-1 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-200 transition-colors"
+              className="p-1 text-accent-error hover:text-accent-error-dark dark:text-accent-error-light dark:hover:text-accent-error-foreground transition-colors"
               aria-label="Dismiss error message"
             >
               <Icon icon={XMarkIcon} className="w-4 h-4"  />

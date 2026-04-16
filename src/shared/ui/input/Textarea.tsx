@@ -221,15 +221,15 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(({
         className={textareaClasses}
       />
       
-      {displayError && (
-        <p className="text-xs text-red-600 dark:text-red-400 mt-1">
-          {displayError}
-        </p>
-      )}
+        {displayError && (
+          <p className="text-xs text-accent-error dark:text-accent-error-light mt-1">
+            {displayError}
+          </p>
+        )}
       
       <div className="flex justify-between items-center mt-1">
         {displayDescription && (
-          <p className="text-xs text-gray-500 dark:text-gray-400">
+          <p className="text-xs text-input-placeholder">
             {displayDescription}
           </p>
         )}
@@ -237,9 +237,9 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(({
         {showCharCount && maxLength && (
           <p className={cn(
             'text-xs ml-auto',
-            isOverLimit ? 'text-red-600 dark:text-red-400' : 
-            isNearLimit ? 'text-yellow-600 dark:text-yellow-400' : 
-            'text-gray-500 dark:text-gray-400'
+            isOverLimit ? 'text-accent-error dark:text-accent-error-light' : 
+            isNearLimit ? 'text-accent-warning dark:text-accent-warning-light' : 
+            'text-input-placeholder'
           )}>
             {currentLength}/{maxLength}
           </p>

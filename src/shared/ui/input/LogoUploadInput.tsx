@@ -136,7 +136,7 @@ export const LogoUploadInput = forwardRef<HTMLInputElement, LogoUploadInputProps
             className="h-full w-full object-cover"
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center bg-white/5">
+          <div className="flex h-full w-full items-center justify-center bg-surface-utility/10">
             <Icon icon={UserIcon} className="h-1/2 w-1/2 text-input-placeholder"  />
           </div>
         )}

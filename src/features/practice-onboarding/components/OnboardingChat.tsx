@@ -56,7 +56,7 @@ export interface OnboardingChatProps {
 const OnboardingChat: FunctionComponent<OnboardingChatProps> = ({
   status,
   practice,
-  details,
+  details: _details,
   chatAdapter,
   logoUploading,
   logoUploadProgress,

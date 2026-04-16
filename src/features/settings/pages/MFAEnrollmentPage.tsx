@@ -199,7 +199,7 @@ export const MFAEnrollmentPage = ({
               <div className="flex items-start">
                 <div className="flex-shrink-0">
                   <svg
-                    className="h-5 w-5 text-red-400"
+                    className="h-5 w-5 text-accent-error-light"
                     viewBox="0 0 20 20"
                     fill="currentColor"
                     aria-hidden="true"
@@ -215,7 +215,7 @@ export const MFAEnrollmentPage = ({
                   <h3 className="text-sm font-medium">
                     {t('settings:mfa.errors.configurationError.title')}
                   </h3>
-                  <div className="mt-2 text-sm text-red-700 dark:text-red-300">
+                  <div className="mt-2 text-sm text-accent-error-foreground dark:text-accent-error-light">
                     <p>{t('settings:mfa.errors.configurationError.body')}</p>
                   </div>
                 </div>
@@ -236,13 +236,13 @@ export const MFAEnrollmentPage = ({
               {/* Mock QR Code - in real app, you'd use a QR code library */}
               <div className="w-48 h-48 bg-surface-base rounded flex items-center justify-center">
                 <div className="text-center">
-                  <div className="w-32 h-32 bg-black dark:bg-white rounded grid grid-cols-8 gap-1 p-2">
+                  <div className="w-32 h-32 bg-surface-app-frame dark:bg-surface-workspace rounded grid grid-cols-8 gap-1 p-2">
                     {/* Mock QR pattern - stable pattern that doesn't flicker */}
                     {qrPattern.map((isWhite, i) => (
                       <div
                         key={i}
                         className={`w-full h-full rounded-sm ${
-                          isWhite ? 'bg-white dark:bg-black' : 'bg-black dark:bg-white'
+                          isWhite ? 'bg-surface-workspace dark:bg-surface-app-frame' : 'bg-surface-app-frame dark:bg-surface-workspace'
                         }`}
                       />
                     ))}

@@ -80,7 +80,7 @@ export const InfoListDialog: FunctionComponent<InfoListDialogProps> = ({
         {items.map((item, index) => (
           <div key={item.id}>
             <div className="flex items-start gap-3 py-1">
-              <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-white/5">
+              <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-surface-utility/10">
                 <Icon icon={item.icon} className={item.iconClassName ?? 'h-5 w-5 text-input-text'} aria-hidden="true" />
               </div>
               <div className="min-w-0 space-y-1">

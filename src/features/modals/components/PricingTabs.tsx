@@ -40,7 +40,7 @@ const PricingTabs: FunctionComponent<PricingTabsProps> = ({ selected, onSelect, 
         onKeyDown={onKeyDown}
         onClick={() => onSelect('personal')}
         className={`btn btn-tab px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-          selected === 'personal' ? 'active bg-dark-bg text-white' : 'text-gray-400 hover:text-white'
+          selected === 'personal' ? 'active bg-accent-500 text-[rgb(var(--accent-foreground))]' : 'text-input-placeholder hover:text-[rgb(var(--accent-foreground))]'
         }`}
       >
         {personalLabel}
@@ -54,7 +54,7 @@ const PricingTabs: FunctionComponent<PricingTabsProps> = ({ selected, onSelect, 
         onKeyDown={onKeyDown}
         onClick={() => onSelect('business')}
         className={`btn btn-tab px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-          selected === 'business' ? 'active bg-dark-bg text-white' : 'text-gray-400 hover:text-white'
+          selected === 'business' ? 'active bg-accent-500 text-[rgb(var(--accent-foreground))]' : 'text-input-placeholder hover:text-[rgb(var(--accent-foreground))]'
         }`}
       >
         {businessLabel}

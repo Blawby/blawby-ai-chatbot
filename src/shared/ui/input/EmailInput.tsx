@@ -151,28 +151,28 @@ export const EmailInput = forwardRef<HTMLInputElement, EmailInputProps>(({
         {showValidationIcon && (
           <div className="absolute inset-y-0 right-0 z-10 flex items-center pr-3 pointer-events-none">
             {isEmailValid ? (
-              <Icon icon={CheckIcon} className="w-4 h-4 text-green-600 dark:text-green-400"  />
+              <Icon icon={CheckIcon} className="w-4 h-4 text-accent-success"  />
             ) : (
-              <Icon icon={XMarkIcon} className="w-4 h-4 text-red-600 dark:text-red-400"  />
+              <Icon icon={XMarkIcon} className="w-4 h-4 text-accent-error"  />
             )}
           </div>
         )}
       </div>
       
       {displayError && (
-        <p id={externalErrorId} className="text-xs text-red-600 dark:text-red-400 mt-1" role="alert" aria-live="assertive">
+        <p id={externalErrorId} className="text-xs text-accent-error mt-1" role="alert" aria-live="assertive">
           {displayError}
         </p>
       )}
       
       {showValidation && value && !isEmailValid && !displayError && (
-        <p id={validationErrorId} className="text-xs text-red-600 dark:text-red-400 mt-1">
+        <p id={validationErrorId} className="text-xs text-accent-error mt-1">
           Please enter a valid email address
         </p>
       )}
       
       {displayDescription && !displayError && (
-        <p id={descriptionId} className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+        <p id={descriptionId} className="text-xs text-input-placeholder mt-1">
           {displayDescription}
         </p>
       )}

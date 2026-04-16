@@ -235,14 +235,14 @@ export const AddressInput = ({
     <div className={cn('relative', className)} ref={dropdownRef}>
       {/* Description */}
       {description && (
-        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 mb-4">
+        <p className="text-xs text-input-placeholder dark:text-input-placeholder/80 mt-1 mb-4">
           {description}
         </p>
       )}
       
       {/* Error */}
       {(errors.address || errors.city || errors.state || errors.postalCode || errors.country) && (
-        <p className="text-xs text-red-600 dark:text-red-400 mt-1 mb-4">
+        <p className="text-xs text-accent-error dark:text-accent-error/80 mt-1 mb-4">
           {errors.address || errors.city || errors.state || errors.postalCode || errors.country}
         </p>
       )}

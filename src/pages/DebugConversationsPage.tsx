@@ -365,7 +365,7 @@ export default function DebugConversationsPage() {
                 type="button"
                 variant="icon"
                 size="icon-sm"
-                className="border border-line-glass/30 bg-white/[0.08] hover:bg-white/[0.12]"
+                className="border border-line-glass/30 bg-surface-workspace/10 hover:bg-surface-workspace/15"
                 aria-label="Open conversation details"
                 onClick={() => setIsConversationDetailsOpen(true)}
               >
@@ -377,7 +377,7 @@ export default function DebugConversationsPage() {
                 type="button"
                 variant="icon"
                 size="icon-sm"
-                className="border border-line-glass/30 bg-white/[0.08] hover:bg-white/[0.12]"
+                className="border border-line-glass/30 bg-surface-utility/10 hover:bg-surface-utility/20"
                 aria-label="Open conversation details"
                 onClick={() => setIsConversationDetailsOpen(true)}
               >

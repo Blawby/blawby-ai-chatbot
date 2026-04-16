@@ -251,13 +251,13 @@ export const URLInput = forwardRef<HTMLInputElement, URLInputProps>(({
       {displayLabel && (
         <label htmlFor={inputId} className="block text-sm font-medium text-input-text mb-1">
           {displayLabel}
-          {required && <span className="text-red-500 ml-1">*</span>}
+          {required && <span className="text-accent-error ml-1">*</span>}
         </label>
       )}
       
       <div className="relative">
         <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-          <Icon icon={LinkIcon} className="w-4 h-4 text-gray-400 dark:text-gray-500"  />
+          <Icon icon={LinkIcon} className="w-4 h-4 text-input-placeholder"  />
         </div>
         
         <input
@@ -277,9 +277,9 @@ export const URLInput = forwardRef<HTMLInputElement, URLInputProps>(({
         {showValidationIcon && (
           <div className="absolute inset-y-0 right-0 flex items-center pr-3">
             {isURLValid ? (
-              <Icon icon={CheckIcon} className="w-4 h-4 text-green-600 dark:text-green-400"  />
+              <Icon icon={CheckIcon} className="w-4 h-4 text-accent-success"  />
             ) : (
-              <Icon icon={XMarkIcon} className="w-4 h-4 text-red-600 dark:text-red-400"  />
+              <Icon icon={XMarkIcon} className="w-4 h-4 text-accent-error dark:text-accent-error-light"  />
             )}
           </div>
         )}
@@ -297,8 +297,8 @@ export const URLInput = forwardRef<HTMLInputElement, URLInputProps>(({
         }
         
         return (
-          <div className="mt-2 p-2 bg-gray-50 dark:bg-gray-800 rounded border">
-            <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Preview:</p>
+          <div className="mt-2 p-2 bg-[rgb(var(--surface-panel))] dark:bg-[rgb(var(--surface-panel))]/80 rounded border">
+            <p className="text-xs text-input-placeholder mb-1">Preview:</p>
             {isSafeProtocol ? (
               <a
                 href={value}
@@ -309,7 +309,7 @@ export const URLInput = forwardRef<HTMLInputElement, URLInputProps>(({
                 {value}
               </a>
             ) : (
-              <span className="text-sm text-gray-600 dark:text-gray-400">
+              <span className="text-sm text-input-placeholder">
                 {value}
               </span>
             )}
@@ -318,19 +318,19 @@ export const URLInput = forwardRef<HTMLInputElement, URLInputProps>(({
       })()}
       
       {displayError && (
-        <p id={errorId} className="text-xs text-red-600 dark:text-red-400 mt-1" role="alert" aria-live="assertive">
+        <p id={errorId} className="text-xs text-accent-error dark:text-accent-error-light mt-1" role="alert" aria-live="assertive">
           {displayError}
         </p>
       )}
       
       {showValidation && value && !isURLValid && !displayError && (
-        <p id={validationErrorId} className="text-xs text-red-600 dark:text-red-400 mt-1">
+        <p id={validationErrorId} className="text-xs text-accent-error dark:text-accent-error-light mt-1">
           Please enter a valid URL.
         </p>
       )}
       
       {displayDescription && !displayError && (
-        <p id={descriptionId} className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+        <p id={descriptionId} className="text-xs text-input-placeholder mt-1">
           {displayDescription}
         </p>
       )}

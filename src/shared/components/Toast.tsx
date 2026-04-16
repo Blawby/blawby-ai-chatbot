@@ -39,11 +39,11 @@ const ToastComponent: FunctionComponent<ToastProps> = ({ toast, onRemove }) => {
   const getIcon = () => {
     switch (toast.type) {
       case 'success':
-        return <Icon icon={CheckCircleIcon} className="h-5 w-5 text-green-500"  />;
+        return <Icon icon={CheckCircleIcon} className="h-5 w-5 text-accent-success"  />;
       case 'error':
-        return <Icon icon={ExclamationTriangleIcon} className="h-5 w-5 text-red-500"  />;
+        return <Icon icon={ExclamationTriangleIcon} className="h-5 w-5 text-accent-error"  />;
       case 'warning':
-        return <Icon icon={ExclamationTriangleIcon} className="h-5 w-5 text-yellow-500"  />;
+        return <Icon icon={ExclamationTriangleIcon} className="h-5 w-5 text-accent-warning"  />;
       case 'info':
       default:
         return <Icon icon={InformationCircleIcon} className="h-5 w-5 text-accent-400"  />;

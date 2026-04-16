@@ -43,7 +43,7 @@ export const WidgetPreviewApp: FunctionComponent<WidgetPreviewAppProps> = ({
   const practiceLogo = practiceConfig.profileImage ?? null;
   const introMessage = previewConfig.introMessage?.trim() || practiceConfig.introMessage?.trim() || '';
   const legalDisclaimer = previewConfig.legalDisclaimer?.trim() || practiceConfig.legalDisclaimer?.trim() || '';
-  const services = previewConfig.services ?? [];
+  const services = useMemo(() => previewConfig.services ?? [], [previewConfig.services]);
   const consultationFee = typeof previewConfig.consultationFee === 'number'
     ? previewConfig.consultationFee
     : typeof practiceConfig.consultationFee === 'number'

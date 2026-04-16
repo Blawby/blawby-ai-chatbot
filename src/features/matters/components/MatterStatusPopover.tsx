@@ -51,25 +51,25 @@ const STATUS_COLOR: Record<MatterStatus, string> = {
   first_contact: 'bg-accent-500 text-[rgb(var(--accent-foreground))] ring-accent-500/40',
   intake_pending: 'bg-amber-500 text-slate-950 ring-amber-500/45',
   conflict_check: 'bg-amber-500 text-slate-950 ring-amber-500/45',
-  conflicted: 'bg-red-500 text-white ring-red-500/45',
+  conflicted: 'bg-red-500 text-[rgb(var(--accent-foreground))] ring-red-500/45',
   eligibility: 'bg-accent-500 text-[rgb(var(--accent-foreground))] ring-accent-500/40',
-  referred: 'bg-white text-input-text ring-white/40',
+  referred: 'bg-surface-workspace text-input-text ring-line-glass/40',
   consultation_scheduled: 'bg-accent-500 text-[rgb(var(--accent-foreground))] ring-accent-500/40',
-  declined: 'bg-red-500 text-white ring-red-500/45',
-  intake_accepted: 'bg-blue-500 text-white ring-blue-500/45',
+  declined: 'bg-red-500 text-[rgb(var(--accent-foreground))] ring-red-500/45',
+  intake_accepted: 'bg-blue-500 text-[rgb(var(--accent-foreground))] ring-blue-500/45',
   engagement_draft: 'bg-amber-500 text-slate-950 ring-amber-500/45',
-  engagement_sent: 'bg-violet-500 text-white ring-violet-500/45',
-  engagement_accepted: 'bg-emerald-500 text-white ring-emerald-500/45',
+  engagement_sent: 'bg-violet-500 text-[rgb(var(--accent-foreground))] ring-violet-500/45',
+  engagement_accepted: 'bg-emerald-500 text-[rgb(var(--accent-foreground))] ring-emerald-500/45',
   engagement_pending: 'bg-amber-500 text-slate-950 ring-amber-500/45',
-  active: 'bg-emerald-500 text-white ring-emerald-500/45',
+  active: 'bg-emerald-500 text-[rgb(var(--accent-foreground))] ring-emerald-500/45',
   pleadings_filed: 'bg-accent-500 text-[rgb(var(--accent-foreground))] ring-accent-500/40',
   discovery: 'bg-accent-500 text-[rgb(var(--accent-foreground))] ring-accent-500/40',
   mediation: 'bg-amber-500 text-slate-950 ring-amber-500/45',
   pre_trial: 'bg-amber-500 text-slate-950 ring-amber-500/45',
-  trial: 'bg-red-500 text-white ring-red-500/45',
-  order_entered: 'bg-emerald-500 text-white ring-emerald-500/45',
+  trial: 'bg-red-500 text-[rgb(var(--accent-foreground))] ring-red-500/45',
+  order_entered: 'bg-emerald-500 text-[rgb(var(--accent-foreground))] ring-emerald-500/45',
   appeal_pending: 'bg-amber-500 text-slate-950 ring-amber-500/45',
-  closed: 'bg-white text-input-text ring-white/40'
+  closed: 'bg-surface-workspace text-input-text ring-line-glass/40'
 };
 
 interface MatterStatusPopoverProps {
@@ -182,7 +182,7 @@ export const MatterStatusPopover = ({ currentStatus, onSelect, disabled }: Matte
           onKeyDown={handleListboxKeyDown}
           className={cn(
             'absolute left-0 top-full z-50 mt-2 w-56',
-            'rounded-xl border border-white/10',
+            'rounded-xl border border-line-glass/10',
             'bg-surface-overlay/95 backdrop-blur-2xl shadow-glass',
             'py-1 overflow-y-auto max-h-72'
           )}
@@ -208,7 +208,7 @@ export const MatterStatusPopover = ({ currentStatus, onSelect, disabled }: Matte
                   'w-full flex items-center gap-2.5 px-3 py-2 text-left text-sm transition-colors duration-100',
                   isSelected
                     ? 'bg-accent-500 text-[rgb(var(--accent-foreground))]'
-                    : 'text-input-text hover:bg-white/10'
+                    : 'text-input-text hover:bg-surface-utility/10'
                 )}
               >
                 <Icon

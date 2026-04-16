@@ -5,7 +5,7 @@ import { useLocation } from 'preact-iso';
 import { DetailHeader } from '@/shared/ui/layout/DetailHeader';
 import { Panel } from '@/shared/ui/layout/Panel';
 import { WorkspacePlaceholderState } from '@/shared/ui/layout/WorkspacePlaceholderState';
-import { LoadingBlock, PanelSectionHeader, PanelEmptyState, InteractiveListItem } from '@/shared/ui/layout';
+import { LoadingBlock, InteractiveListItem } from '@/shared/ui/layout';
 import { Button } from '@/shared/ui/Button';
 import { Dialog } from '@/shared/ui/dialog';
 import { Avatar } from '@/shared/ui/profile';
@@ -838,7 +838,7 @@ export const PracticeClientsPage = ({
     >
       <div className="space-y-4">
         {addClientError && (
-          <div className="glass-panel p-3 border-red-500/20 text-sm text-red-200">
+          <div className="glass-panel p-3 border-accent-error/20 text-sm text-accent-error-foreground">
             {addClientError}
           </div>
         )}
@@ -915,7 +915,7 @@ export const PracticeClientsPage = ({
         </ul>
       </div>
       {letters.length > 0 ? (
-        <div className="pointer-events-auto absolute right-1 top-1/2 z-20 -translate-y-1/2 hidden md:flex flex-col items-center gap-1 text-[11px] font-medium text-input-placeholder">
+        <div className="pointer-events-auto absolute right-1 top-1/2 z-20 -translate-y-1/2 hidden md:flex flex-col items-center gap-1 text-[11px] font-medium text-[rgb(var(--input-placeholder))] border border-[rgb(var(--line-utility))] bg-[rgb(var(--surface-workspace))]/80">
           {letters.map((letter) => (
             <Button
               key={letter}

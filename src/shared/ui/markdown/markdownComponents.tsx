@@ -58,7 +58,7 @@ const CopyButton = ({ text }: { text: string }) => {
     <button
       type="button"
       onClick={handleCopy}
-      className="absolute top-2 right-2 inline-flex items-center gap-1 rounded-md border border-white/10 bg-black/60 px-2 py-1 text-[11px] font-medium text-input-text opacity-0 transition focus-visible:opacity-100 group-hover:opacity-100"
+      className="absolute top-2 right-2 inline-flex items-center gap-1 rounded-md border border-[rgb(var(--surface-utility))]/10 bg-[rgb(var(--surface-app-frame))]/60 px-2 py-1 text-[11px] font-medium text-input-text opacity-0 transition focus-visible:opacity-100 group-hover:opacity-100"
       aria-label="Copy code snippet"
     >
       {copied ? (
@@ -91,7 +91,7 @@ export const markdownComponents: Components = {
 
   thead({ children, ...props }) {
     return (
-      <thead className="bg-white/10" {...props}>
+      <thead className="bg-[rgb(var(--surface-utility))]/10" {...props}>
         {children}
       </thead>
     );
@@ -100,7 +100,7 @@ export const markdownComponents: Components = {
   th({ children, ...props }) {
     return (
       <th
-        className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-input-placeholder border-b border-white/10"
+        className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-[rgb(var(--input-placeholder))] border-b border-[rgb(var(--surface-utility))]/10"
         {...props}
       >
         {children}
@@ -110,7 +110,7 @@ export const markdownComponents: Components = {
 
   td({ children, ...props }) {
     return (
-      <td className="px-3 py-2 border-b border-white/[0.06] text-input-text" {...props}>
+      <td className="px-3 py-2 border-b border-[rgb(var(--surface-utility))]/6 text-[rgb(var(--input-foreground))]" {...props}>
         {children}
       </td>
     );
@@ -118,7 +118,7 @@ export const markdownComponents: Components = {
 
   tr({ children, ...props }) {
     return (
-      <tr className="transition-colors hover:bg-white/[0.04]" {...props}>
+      <tr className="transition-colors hover:bg-[rgb(var(--surface-utility))]/4" {...props}>
         {children}
       </tr>
     );
@@ -128,13 +128,13 @@ export const markdownComponents: Components = {
     const isBlock = typeof className === 'string' && className.includes('language-');
     if (isBlock) {
       return (
-        <code className="block font-mono text-sm leading-relaxed text-gray-100" {...props}>
+        <code className="block font-mono text-sm leading-relaxed text-[rgb(var(--accent-100))]" {...props}>
           {children}
         </code>
       );
     }
     return (
-      <code className="px-1.5 py-0.5 rounded font-mono text-[0.85em] bg-white/10 text-accent-300" {...props}>
+      <code className="px-1.5 py-0.5 rounded font-mono text-[0.85em] bg-[rgb(var(--surface-utility))]/10 text-[rgb(var(--accent-300))]" {...props}>
         {children}
       </code>
     );
@@ -146,7 +146,7 @@ export const markdownComponents: Components = {
       <div className="group relative my-3 max-w-full min-w-0">
         {copyableText ? <CopyButton text={copyableText} /> : null}
         <pre
-          className="max-w-full min-w-0 overflow-x-auto rounded-lg p-4 bg-black/40 backdrop-blur-sm text-gray-100 text-sm leading-relaxed"
+          className="max-w-full min-w-0 overflow-x-auto rounded-lg p-4 bg-[rgb(var(--surface-app-frame))]/40 backdrop-blur-sm text-[rgb(var(--input-foreground))] text-sm leading-relaxed"
           style={{ boxShadow: 'var(--glass-rim-subtle)' }}
           {...props}
         >
@@ -158,7 +158,7 @@ export const markdownComponents: Components = {
 
   blockquote({ children, ...props }) {
     return (
-      <blockquote className="pl-4 border-l-2 border-accent-500/40 text-input-placeholder italic my-3" {...props}>
+      <blockquote className="pl-4 border-l-2 border-[rgb(var(--accent-500))]/40 text-[rgb(var(--input-placeholder))] italic my-3" {...props}>
         {children}
       </blockquote>
     );

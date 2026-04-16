@@ -99,7 +99,7 @@ export const Dialog: FunctionComponent<DialogProps> = ({
       <div
         role="presentation"
         aria-hidden="true"
-        className="ui-overlay-enter absolute inset-0 bg-black/20 backdrop-blur-sm"
+        className="ui-overlay-enter absolute inset-0 bg-surface-overlay/80 backdrop-blur-sm"
         onClick={disableBackdropClick ? undefined : () => onCloseRef.current()}
       />
 

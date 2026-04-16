@@ -123,11 +123,11 @@ const CameraDialog: FunctionComponent<CameraDialogProps> = ({
     <Fullscreen isOpen={isOpen} onClose={onClose} showCloseButton={true}>
       <div className="relative flex h-full w-full flex-col">
         {error && (
-          <div className="p-3 bg-red-50 border border-red-200 rounded text-red-600 text-sm text-center absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-10 max-w-80">
+          <div className="p-3 bg-accent-error/10 border border-accent-error rounded text-accent-error-foreground text-sm text-center absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-10 max-w-80">
             <p>{error}</p>
           </div>
         )}
-        <div className="relative w-full h-full overflow-hidden bg-black flex-grow">
+        <div className="relative w-full h-full overflow-hidden bg-[rgb(var(--surface-app-frame))] flex-grow border-t border-[rgb(var(--line-utility))]">
           <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
           <canvas ref={canvasRef} style={{ display: 'none' }} />
         </div>
