@@ -192,7 +192,7 @@ export const DebugOverlay: FunctionComponent<DebugOverlayProps> = ({ isVisible =
         <strong>Debug Overlay</strong>
         <button
           onClick={() => setIsExpanded(!isExpanded)}
-          className="text-[rgb(var(--accent-foreground))] hover:text-accent-foreground/80 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-opacity-50 rounded px-1"
+          className="text-[rgb(var(--accent-foreground))] hover:text-[rgb(var(--accent-foreground))]/80 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-opacity-50 rounded px-1"
           aria-label={isExpanded ? 'Collapse debug overlay' : 'Expand debug overlay'}
           aria-expanded={isExpanded}
         >

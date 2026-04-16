@@ -178,7 +178,7 @@ export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(({
           disabled={disabled}
           aria-label={showPassword ? "Hide password" : "Show password"}
           aria-pressed={showPassword}
-          className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 focus:ring-2 focus:ring-accent-500 focus:ring-offset-1 focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-1"
+          className="absolute inset-y-0 right-0 flex items-center pr-3 text-input-placeholder hover:text-[rgb(var(--accent-foreground))] focus:ring-2 focus:ring-accent-500 focus:ring-offset-1 focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-1"
         >
           {showPassword ? (
             <Icon icon={EyeSlashIcon} className="w-4 h-4"  />
@@ -198,13 +198,13 @@ export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(({
       )}
       
       {displayError && (
-        <p id={errorId} className="text-xs text-red-600 dark:text-red-400 mt-1" role="alert" aria-live="assertive">
+        <p id={errorId} className="text-xs text-accent-error dark:text-accent-error-light mt-1" role="alert" aria-live="assertive">
           {displayError}
         </p>
       )}
       
       {displayDescription && !displayError && (
-        <p id={descriptionId} className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+        <p id={descriptionId} className="text-xs text-input-placeholder mt-1">
           {displayDescription}
         </p>
       )}

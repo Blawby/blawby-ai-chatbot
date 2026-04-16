@@ -34,10 +34,10 @@ export function PracticeInvoiceDetailPage({
   practiceId,
   practiceSlug,
   invoiceId,
-  leadingAction,
-  onInspector,
-  inspectorOpen = false,
-  showBack = true,
+  _leadingAction,
+  _onInspector,
+  _inspectorOpen = false,
+  _showBack = true,
 }: {
   practiceId: string | null;
   practiceSlug: string | null;
@@ -173,7 +173,7 @@ export function PracticeInvoiceDetailPage({
   }
 
   if (error) {
-    return <div className="p-6 text-sm text-red-300">{error}</div>;
+    return <div className="p-6 text-sm text-accent-error-light">{error}</div>;
   }
 
   if (!detail) {
@@ -181,7 +181,7 @@ export function PracticeInvoiceDetailPage({
   }
 
   if (!practiceId) {
-    return <div className="p-6 text-sm text-red-300">Practice context is missing from this route.</div>;
+    return <div className="p-6 text-sm text-accent-error-light">Practice context is missing from this route.</div>;
   }
 
   return (

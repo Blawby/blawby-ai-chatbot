@@ -908,7 +908,7 @@ export const AccountPage = ({
                           });
                         }}
                       >
-                        <span className="flex items-center gap-2 whitespace-nowrap text-red-600 dark:text-red-400">
+                        <span className="flex items-center gap-2 whitespace-nowrap text-accent-error dark:text-accent-error-light">
                           <Icon icon={XMarkIcon} className="h-4 w-4"  />
                           {t('settings:account.plan.cancelSubscription')}
                         </span>
@@ -930,7 +930,7 @@ export const AccountPage = ({
             </div>
           </SettingRow>
           {subscriptionError && (
-            <SettingsHelperText className="mt-2 text-red-500">
+            <SettingsHelperText className="mt-2 text-accent-error">
               {subscriptionError}
             </SettingsHelperText>
           )}

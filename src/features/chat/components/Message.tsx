@@ -257,12 +257,15 @@ const Message: FunctionComponent<MessageProps> = memo(({
 				{hasReplyPreview && replyPreview && (
 					<button
 						type="button"
-						className={`relative flex min-w-0 items-center gap-2 pl-7 text-left text-xs text-input-placeholder ${onReplyPreviewClick ? 'cursor-pointer transition hover:text-accent-foreground' : 'cursor-default pointer-events-none'}`}
+												className={onReplyPreviewClick
+													? 'relative flex min-w-0 items-center gap-2 pl-7 text-left text-xs text-[rgb(var(--input-placeholder))] cursor-pointer transition hover:text-[rgb(var(--accent-foreground))]'
+													: 'relative flex min-w-0 items-center gap-2 pl-7 text-left text-xs text-[rgb(var(--input-placeholder))] cursor-default pointer-events-none'
+												}
 						onClick={onReplyPreviewClick}
 						disabled={!onReplyPreviewClick}
 						aria-label="Jump to replied message"
 					>
-						<span className="pointer-events-none absolute left-[-32px] top-1/2 h-[14px] w-[60px] -translate-y-1/2 rounded-tl-lg border-l-2 border-t border-line-utility" />
+						<span className="pointer-events-none absolute left-[-32px] top-1/2 h-[14px] w-[60px] -translate-y-1/2 rounded-tl-lg border-l-[2px] border-t border-[rgb(var(--line-utility))]" />
 						{replyPreview.avatar && (
 							<MessageAvatar
 								src={replyPreview.avatar.src}

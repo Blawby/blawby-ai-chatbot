@@ -272,7 +272,9 @@ export const ClientEngagementReviewPage: FunctionComponent<ClientEngagementRevie
         if (engagement.conversation_id && conversationsBasePath) {
           navigationTimeoutRef.current = setTimeout(() => {
             if (isMountedRef.current) {
-              navigate(`${conversationsBasePath}/${encodeURIComponent(engagement.conversation_id!)}`);
+              if (engagement.conversation_id) {
+                navigate(`${conversationsBasePath}/${encodeURIComponent(engagement.conversation_id)}`);
+              }
             }
           }, 1200);
         }

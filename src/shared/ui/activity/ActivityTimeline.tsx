@@ -163,7 +163,7 @@ export const ActivityTimeline = ({
             <div className="relative flex w-8 flex-none justify-center pt-0.5 sm:w-10">
               <div
                 className={cn(
-                  'absolute left-1/2 z-0 w-px -translate-x-1/2 bg-line-default',
+                  'absolute left-1/2 z-0 w-px -translate-x-1/2 bg-[rgb(var(--line-utility))]',
                   isLast ? 'h-6' : '-bottom-6',
                   'top-0'
                 )}
@@ -174,9 +174,9 @@ export const ActivityTimeline = ({
                     name={item.person.name}
                     src={item.person.imageUrl}
                     size="md"
-                    className="ring-1 ring-line-glass/30 bg-surface-utility/10 text-input-text dark:ring-line-glass/40"
+                    className="ring-1 ring-line-utility/30 bg-surface-utility/10 text-input-text"
                   />
-                  <span className="absolute -right-1 -bottom-1 flex h-4 w-4 items-center justify-center rounded-full bg-surface-overlay text-input-text ring-1 ring-line-glass/30 shadow-sm sm:h-5 sm:w-5">
+                  <span className="absolute -right-1 -bottom-1 flex h-4 w-4 items-center justify-center rounded-full bg-surface-overlay text-input-text ring-1 ring-line-utility/30 shadow-sm sm:h-5 sm:w-5">
                     <Icon icon={ChatBubbleLeftRightIcon} className="h-2.5 w-2.5 sm:h-3 sm:w-3" aria-hidden="true"  />
                   </span>
                 </div>

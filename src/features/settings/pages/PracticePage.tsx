@@ -6,18 +6,16 @@ declare global {
 }
 
 
-import { useMemo, useState } from 'preact/hooks';
+import { useMemo, useState, useEffect } from 'preact/hooks';
 import { SettingRow, SettingsHelperText } from '@/features/settings/components';
 import { cn } from '@/shared/utils/cn';
 import { Button } from '@/shared/ui/Button';
 import { Switch } from '@/shared/ui/input/Switch';
 import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
 import { usePracticeTeam } from '@/shared/hooks/usePracticeTeam';
-import { usePracticeManagement, updatePracticeDetails } from '@/shared/hooks/usePracticeManagement';
+import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { normalizePracticeRole } from '@/shared/utils/practiceRoles';
-import { text } from '@/shared/utils/text';
-import { uniqueStrings } from '@/shared/utils/uniqueStrings';
 import { useLocation } from 'preact-iso';
 import type { PracticeService } from '@/shared/types/practice';
 import type { PracticeOverviewPageProps } from './PracticePage.types';
@@ -83,7 +81,7 @@ export const PracticeOverviewPage = ({
       })
       .filter((value: string) => Boolean(value));
 
-    return uniqueStrings(values);
+    return Array.from(new Set(values));
   }, [practiceDetails?.services, practice?.services]);
 
   const licensedStates = useMemo(() => {
@@ -91,25 +89,25 @@ export const PracticeOverviewPage = ({
       ? practiceDetails.serviceStates
       : [];
 
-    return uniqueStrings(
+    return Array.from(new Set(
       source.filter((value: unknown): value is string => typeof value === 'string')
-    );
+    ));
   }, [practiceDetails?.serviceStates]);
 
-  const websiteValue = text(practiceDetails?.website);
-  const phoneValue = text(practice?.businessPhone);
+  const websiteValue = practiceDetails?.website || '';
+  const phoneValue = practice?.businessPhone || '';
 
   const addressSummary = useMemo(() => {
     const address = practiceDetails?.address;
     if (!address || typeof address !== 'object') return '';
 
     const parts = [
-      text((address as Record<string, unknown>).address),
-      text((address as Record<string, unknown>).apartment),
-      text((address as Record<string, unknown>).city),
-      text((address as Record<string, unknown>).state),
-      text((address as Record<string, unknown>).postalCode),
-      text((address as Record<string, unknown>).country),
+      (address as Record<string, unknown>).address,
+      (address as Record<string, unknown>).apartment,
+      (address as Record<string, unknown>).city,
+      (address as Record<string, unknown>).state,
+      (address as Record<string, unknown>).postalCode,
+      (address as Record<string, unknown>).country,
     ].filter(Boolean);
 
     return parts.join(', ');
@@ -366,7 +364,7 @@ export const PracticeOverviewPage = ({
                     message: 'Failed to update public listing. Please try again.'
                   });
                 }
-                setLocalPublicListing((prev) => !checked); // revert
+                setLocalPublicListing((_prev) => !checked); // revert
               }
             }}
             label={localPublicListing ? 'Public' : 'Private'}
@@ -379,9 +377,9 @@ export const PracticeOverviewPage = ({
       </SettingRow>
 
       {showDeleteModal && (
-        <div className="glass-panel rounded-xl border border-red-500/30 p-4">
+        <div className="glass-panel rounded-xl border border-accent-error/30 p-4">
           <div className="space-y-2">
-            <h4 className="text-sm font-semibold text-red-500">Delete practice</h4>
+            <h4 className="text-sm font-semibold text-accent-error">Delete practice</h4>
             <p className="text-sm text-input-text">
               Replace this block with your existing delete modal flow.
             </p>

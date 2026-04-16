@@ -186,7 +186,7 @@ export const FileInput = forwardRef<HTMLInputElement, FileInputProps>(({
         
         <div className="p-6 text-center">
           <svg
-            className="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500"
+            className="mx-auto h-12 w-12 text-input-placeholder"
             stroke="currentColor"
             fill="none"
             viewBox="0 0 48 48"
@@ -200,14 +200,14 @@ export const FileInput = forwardRef<HTMLInputElement, FileInputProps>(({
           </svg>
           
           <div className="mt-4">
-            <p className="text-sm text-gray-600 dark:text-gray-400">
+            <p className="text-sm text-input-placeholder">
               <span className="font-medium text-accent-600 dark:text-accent-400">
                 Click to upload
               </span>
               {' '}or drag and drop
             </p>
             {accept && showAcceptText && (
-              <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+              <p className="text-xs text-input-placeholder mt-1">
                 {accept}
               </p>
             )}
@@ -223,7 +223,7 @@ export const FileInput = forwardRef<HTMLInputElement, FileInputProps>(({
                 <p className="text-sm font-medium text-input-text truncate">
                   {file.name}
                 </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
+                <p className="text-xs text-input-placeholder">
                   {formatFileSize(file.size)}
                 </p>
               </div>
@@ -237,7 +237,7 @@ export const FileInput = forwardRef<HTMLInputElement, FileInputProps>(({
                 </button>
               )}
               {effectiveMaxFileSize && file.size > effectiveMaxFileSize && (
-                <span className="text-xs text-red-600 dark:text-red-400">
+                <span className="text-xs text-accent-error">
                   File too large (max {formatFileSize(effectiveMaxFileSize)})
                 </span>
               )}
@@ -245,7 +245,7 @@ export const FileInput = forwardRef<HTMLInputElement, FileInputProps>(({
           ))}
           
           {effectiveMaxTotalSize && totalSize > effectiveMaxTotalSize && (
-            <p className="text-xs text-red-600 dark:text-red-400">
+            <p className="text-xs text-accent-error">
               Total size exceeds {formatFileSize(effectiveMaxTotalSize)}
             </p>
           )}
@@ -253,7 +253,7 @@ export const FileInput = forwardRef<HTMLInputElement, FileInputProps>(({
       )}
       
       {displayDescription && (
-        <p id={descriptionId} className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+        <p id={descriptionId} className="text-xs text-input-placeholder mt-1">
           {displayDescription}
         </p>
       )}

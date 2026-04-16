@@ -9,7 +9,7 @@ import { resolveServiceDetails } from '@/features/services/utils/serviceNormaliz
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { useTranslation } from '@/shared/i18n/hooks';
 import { SectionDivider, SettingsPage } from '@/shared/ui/layout';
-import { Tabs } from '@/shared/ui/tabs';
+
 import { Combobox } from '@/shared/ui/input/Combobox';
 import { STATE_OPTIONS } from '@/shared/ui/address/AddressFields';
 import { Button } from '@/shared/ui/Button';
@@ -18,13 +18,13 @@ import { buildPracticeProfilePayloads } from '@/shared/utils/practiceProfile';
 
 
 
-const US_STATE_CODES = [
-  'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA',
-  'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD',
-  'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ',
-  'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC',
-  'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY', 'DC',
-];
+// const US_STATE_CODES = [
+//   'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA',
+//   'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD',
+//   'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ',
+//   'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC',
+//   'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY', 'DC',
+// ];
 
 interface PracticeCoveragePageProps {
   className?: string;
@@ -229,7 +229,7 @@ export const PracticeCoveragePage = ({ className, onBack }: PracticeCoveragePage
 
 
         {servicesError && (
-          <p className="text-xs text-red-600 dark:text-red-400 mb-4">
+          <p className="text-xs text-accent-error dark:text-accent-error-light mb-4">
             {servicesError}
           </p>
         )}

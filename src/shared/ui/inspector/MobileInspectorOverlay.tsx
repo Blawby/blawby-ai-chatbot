@@ -66,7 +66,7 @@ export const MobileInspectorOverlay: FunctionComponent<MobileInspectorOverlayPro
     <div className="fixed inset-0 lg:hidden" style={{ zIndex: THEME.zIndex.modal }}>
       <button
         type="button"
-        className="absolute inset-0 bg-black/20 backdrop-blur-sm"
+        className="absolute inset-0 bg-surface-overlay/60 backdrop-blur-sm"
         onClick={onClose}
         aria-label="Close inspector"
       />

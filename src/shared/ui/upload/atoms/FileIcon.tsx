@@ -43,7 +43,7 @@ export const FileIcon = ({
       sizeClasses[size],
       className
     )}>
-      <IconComponent className={cn('text-white', iconSizeClasses[size])} />
+      <IconComponent className={cn('text-[rgb(var(--accent-foreground))]', iconSizeClasses[size])} />
     </div>
   );
 };

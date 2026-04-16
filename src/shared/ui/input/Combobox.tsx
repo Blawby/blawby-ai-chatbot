@@ -107,13 +107,13 @@ function Chip({
         'inline-flex max-w-full items-center gap-1 rounded-xl border text-xs font-medium',
         compact ? 'min-h-8 px-3 py-1 text-sm' : 'px-2 py-0.5',
         isCustom
-          ? 'border-accent-500/25 bg-accent-500/12 text-accent-300'
-          : 'border-black/10 bg-black/5 text-input-text dark:border-white/10 dark:bg-white/[0.08]'
+          ? 'border-accent-500/25 bg-accent-500/12 text-accent-utility'
+          : 'border-line-utility/10 bg-surface-utility/10 text-input-text'
       )}
     >
       <span className="truncate">{label}</span>
       {isCustom && showCustomBadge && (
-        <span className="text-accent-400/60 text-[10px] leading-none">custom</span>
+        <span className="text-accent-utility/60 text-[10px] leading-none">custom</span>
       )}
       <button
         type="button"
@@ -165,7 +165,7 @@ function DropdownOption({
         'group relative flex w-full items-center justify-between px-3 py-2 text-left text-sm transition-colors',
         isSelected || isFocused
           ? 'bg-accent-500/15 text-[rgb(var(--accent-foreground))]'
-          : 'text-input-text hover:bg-black/5 dark:hover:bg-white/[0.08]'
+          : 'text-input-text hover:bg-surface-utility/10'
       )}
     >
       <span className="flex min-w-0 items-center gap-2.5">
@@ -603,7 +603,7 @@ export function Combobox({
                 }}
                 onKeyDown={handleKeyDown}
                 className={cn(
-                  'w-full rounded-md bg-black/5 dark:bg-white/[0.06] px-3 py-1.5 text-sm text-input-text',
+                  'w-full rounded-md bg-surface-input dark:bg-surface-input px-3 py-1.5 text-sm text-input-text',
                   'placeholder:text-input-placeholder/60',
                   'focus:outline-none focus:ring-1 focus:ring-accent-500/50',
                 )}
@@ -631,7 +631,7 @@ export function Combobox({
                   'flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm transition-colors',
                   clampedFocus === 0
                     ? 'bg-accent-500/15 text-[rgb(var(--accent-foreground))]'
-                    : 'text-input-text hover:bg-black/5 dark:hover:bg-white/[0.08]'
+                    : 'text-input-text hover:bg-surface-utility/10 focus:bg-surface-utility/20'
                 )}
               >
                 <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded bg-accent-500/20 text-accent-400">

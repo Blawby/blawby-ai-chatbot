@@ -97,13 +97,13 @@ export const Avatar = ({ src, name, size = 'md', className = '', bgClassName, st
           initials ? (
             <span className={`font-medium text-input-text ${textSizeClasses[size]}`}>{initials}</span>
           ) : (
-            <Icon icon={UserIcon} className="h-1/2 w-1/2 text-input-placeholder" />
+            <Icon icon={UserIcon} className="h-1/2 w-1/2 text-[rgb(var(--input-placeholder))]" />
           )
         )}
       </div>
       {status && (
         <span
-          className={`absolute bottom-0 right-0 translate-x-1/4 translate-y-1/4 rounded-full ${statusClasses[status]} ${statusSizeClasses[size]}`}
+          className={`absolute bottom-0 right-0 translate-x-1/4 translate-y-1/4 rounded-full ${statusClasses[status]} ${statusSizeClasses[size]} bg-[rgb(var(--accent-foreground))]`}
           aria-hidden="true"
         />
       )}

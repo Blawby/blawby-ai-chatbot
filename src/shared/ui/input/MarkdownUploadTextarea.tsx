@@ -474,7 +474,7 @@ export const MarkdownUploadTextarea = ({
                     <button
                       type="button"
                       onClick={retryMarkdown}
-                      className="rounded bg-red-600 px-2 py-1 text-xs font-medium text-white hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-600"
+                      className="rounded bg-accent-error px-2 py-1 text-xs font-medium text-[rgb(var(--accent-foreground))] hover:bg-accent-error/80 dark:bg-accent-error/80 dark:hover:bg-accent-error/60"
                     >
                       Retry
                     </button>
@@ -484,7 +484,7 @@ export const MarkdownUploadTextarea = ({
                     {value}
                   </ReactMarkdown>
                 ) : (
-                  <div className="mt-2 flex justify-center rounded border border-gray-200 bg-gray-50 p-2 dark:border-gray-700 dark:bg-gray-900/40">
+                  <div className="mt-2 flex justify-center rounded border border-line-glass/20 bg-surface-panel p-2 dark:border-line-glass/40 dark:bg-surface-panel/40">
                     <LoadingSpinner size="sm" ariaLabel="Loading preview" />
                   </div>
                 )}

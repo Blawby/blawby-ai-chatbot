@@ -16,7 +16,7 @@ import { ClientEngagementReviewPage } from '@/features/engagements/pages/ClientE
 import { SEOHead } from '@/app/SEOHead';
 import { ToastProvider } from '@/shared/contexts/ToastContext';
 import { SessionProvider, useSessionContext } from '@/shared/contexts/SessionContext';
-import { getClient } from '@/shared/lib/authClient';
+import { getClient as _getClient } from '@/shared/lib/authClient';
 import { MainApp } from '@/app/MainApp';
 import { WidgetApp } from '@/app/WidgetApp';
 import { WidgetPreviewApp } from '@/app/WidgetPreviewApp';
@@ -24,7 +24,7 @@ import { useNavigation } from '@/shared/utils/navigation';
 import { usePracticeConfig } from '@/shared/hooks/usePracticeConfig';
 import type { UIPracticeConfig } from '@/shared/hooks/usePracticeConfig';
 import { useWidgetBootstrap } from '@/shared/hooks/useWidgetBootstrap';
-import { handleError } from '@/shared/utils/errorHandler';
+import { handleError as _handleError } from '@/shared/utils/errorHandler';
 import { useWorkspaceResolver } from '@/shared/hooks/useWorkspaceResolver';
 import {
   getWorkspaceHomePath,
@@ -41,7 +41,7 @@ import './index.css';
 import { i18n, initI18n } from '@/shared/i18n';
 import { initializeAccentColor } from '@/shared/utils/accentColors';
 import { consumePostAuthConversationContext } from '@/shared/utils/anonymousIdentity';
-import { isWidgetRuntimeContext, setWidgetRuntimeContext } from '@/shared/utils/widgetAuth';
+import { isWidgetRuntimeContext as _isWidgetRuntimeContext, setWidgetRuntimeContext } from '@/shared/utils/widgetAuth';
 import { useTheme } from '@/shared/hooks/useTheme';
 import { normalizePracticeDetailsResponse, setActivePractice } from '@/shared/lib/apiClient';
 import { setPracticeDetailsEntry } from '@/shared/stores/practiceDetailsStore';
@@ -333,8 +333,8 @@ function AppShell() {
 }
 
 function RouteLoadError({
-  message,
-  onRetry
+  _message,
+  _onRetry
 }: {
   message: string;
   onRetry: () => void;
@@ -827,16 +827,16 @@ function ClientPracticeRoute({
 function PublicPracticeRoute({
   practiceSlug,
   conversationId,
-  workspaceView = 'home'
+  _workspaceView = 'home'
 }: {
   practiceSlug?: string;
   conversationId?: string;
   workspaceView?: 'home' | 'list' | 'conversation' | 'matters';
 }) {
   const location = useLocation();
-  const { session, isPending: sessionIsPending, activeMemberRole } = useSessionContext();
-  const { navigate } = useNavigation();
-  const handlePracticeError = useCallback((error: string) => {
+  const { session: _session, isPending: _sessionIsPending, activeMemberRole: _activeMemberRole } = useSessionContext();
+  const { navigate: _navigate } = useNavigation();
+  const _handlePracticeError = useCallback((error: string) => {
     console.error('Practice config error:', error);
   }, []);
 

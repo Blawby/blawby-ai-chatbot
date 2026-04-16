@@ -350,7 +350,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
         metadata: { systemMessageKey: 'intro' },
       });
     }
-  }, [messagesReady, activeConversationId, widgetIntroMessage, hasConversationStarted, messageHandling, hasIntro, practiceConfig.profileImage, practiceConfig.name]);
+  }, [messagesReady, activeConversationId, widgetIntroMessage, hasConversationStarted, messageHandling, hasIntro]);
 
   // Inject intro when conversation becomes active and no intro exists, only after messagesReady
   useEffect(() => {

@@ -812,7 +812,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
         {showScrollToBottom && (
             <button
                 type="button"
-                className="absolute bottom-4 left-1/2 z-20 inline-flex h-9 w-9 -translate-x-1/2 items-center justify-center rounded-full bg-accent-500 text-[rgb(var(--accent-foreground))] shadow-lg transition hover:bg-accent-500/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-utility"
+                className="absolute bottom-4 left-1/2 z-20 inline-flex h-9 w-9 -translate-x-1/2 items-center justify-center rounded-full bg-[rgb(var(--accent-500))] text-[rgb(var(--accent-foreground))] shadow-lg transition hover:bg-[rgb(var(--accent-500))]/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-[rgb(var(--accent-utility))] border border-[rgb(var(--line-utility))]"
                 onClick={scrollToBottom}
                 aria-label="Scroll to latest message"
             >

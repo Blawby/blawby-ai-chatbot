@@ -192,7 +192,7 @@ export const DataTable = ({
                   key={row.id}
                   className={cn(
                     density === 'compact' ? 'h-14' : 'h-20',
-                    isClickable && 'cursor-pointer hover:bg-black/5 dark:hover:bg-white/[0.04]',
+                    isClickable && 'cursor-pointer hover:bg-[rgb(var(--surface-utility))]/5 dark:hover:bg-[rgb(var(--surface-base))]/[0.04]',
                     rowClassName,
                     row.className
                   )}

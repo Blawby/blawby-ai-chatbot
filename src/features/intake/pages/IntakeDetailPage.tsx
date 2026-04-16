@@ -29,7 +29,7 @@ import {
   type PracticeIntakeDetail,
 } from '@/features/intake/api/intakesApi';
 import {
-  getConversation,
+  _getConversation,
   fetchConversationMessages,
   postConversationMessage,
   postSystemMessage,
@@ -42,8 +42,8 @@ import type { ChatMessageUI } from '../../../../worker/types';
 import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
 import { resolvePracticeServiceLabel } from '@/features/matters/utils/matterUtils';
 import { resolveIntakeTitle } from '@/features/intake/utils/intakeTitle';
-import type { ConversationMetadata } from '@/shared/types/conversation';
-import { applyConsultationPatchToMetadata, resolveConsultationState } from '@/shared/utils/consultationState';
+// import type { ConversationMetadata } from '@/shared/types/conversation';
+import { applyConsultationPatchToMetadata } from '@/shared/utils/consultationState';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -115,22 +115,22 @@ function triageLabel(status?: string) {
 // ── Main component ────────────────────────────────────────────────────────────
 
 type IntakeDetailPageProps = {
-  practiceId: string | null;
-  intakeId: string;
-  conversationsBasePath?: string | null;
-  practiceName: string;
-  practiceLogo: string | null;
-  onBack: () => void;
-  onTriageComplete?: () => void;
+  _practiceId: string | null;
+  _intakeId: string;
+  _conversationsBasePath?: string | null;
+  _practiceName: string;
+  _practiceLogo: string | null;
+  _onBack: () => void;
+  _onTriageComplete?: () => void;
 };
 
 export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
-  practiceId,
-  intakeId,
-  practiceName,
-  practiceLogo,
-  onBack,
-  onTriageComplete,
+  _practiceId,
+  _intakeId,
+  _practiceName,
+  _practiceLogo,
+  _onBack,
+  _onTriageComplete,
 }) => {
   const { showSuccess, showError } = useToastContext();
   const { session } = useSessionContext();

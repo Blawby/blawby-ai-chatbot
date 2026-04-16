@@ -186,7 +186,7 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(({
               disabled={disabled || !canIncrement}
               className={cn(
                 'flex items-center justify-center border-l border-input-border rounded-r-lg',
-                'glass-input hover:bg-white/[0.04] focus:outline-none focus:ring-2 focus:ring-accent-500',
+                'glass-input hover:bg-surface-utility/40 focus:outline-none focus:ring-2 focus:ring-accent-500',
                 'disabled:opacity-50 disabled:cursor-not-allowed',
                 controlSizeClasses[size],
                 'rounded-tr-lg'
@@ -200,7 +200,7 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(({
               disabled={disabled || !canDecrement}
               className={cn(
                 'flex items-center justify-center border-l border-t border-input-border',
-                'glass-input hover:bg-white/[0.04] focus:outline-none focus:ring-2 focus:ring-accent-500',
+                'glass-input hover:bg-surface-utility/40 focus:outline-none focus:ring-2 focus:ring-accent-500',
                 'disabled:opacity-50 disabled:cursor-not-allowed',
                 controlSizeClasses[size],
                 'rounded-br-lg'
@@ -219,7 +219,7 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(({
       )}
       
       {displayDescription && !displayError && (
-        <p id={descriptionId} className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+        <p id={descriptionId} className="text-xs text-input-placeholder mt-1">
           {displayDescription}
         </p>
       )}

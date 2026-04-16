@@ -71,7 +71,7 @@ const WorkspaceConversationView: FunctionComponent<WorkspaceConversationViewProp
         />
         
         <div className="glass-card p-6 text-center">
-          <div className="mb-4 text-red-600">Conversation error</div>
+          <div className="mb-4 text-accent-error">Conversation error</div>
           <p className="text-sm text-input-placeholder mb-4">{error}</p>
           <Button onClick={handleBack} variant="secondary">
             Back to Conversations

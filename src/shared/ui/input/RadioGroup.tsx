@@ -130,7 +130,7 @@ export const RadioGroup = ({
               </label>
               
               {option.description && (
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                <p className="text-xs text-input-placeholder mt-1">
                   {option.description}
                 </p>
               )}
@@ -140,13 +140,13 @@ export const RadioGroup = ({
       </div>
       
       {displayDescription && !displayError && (
-        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+        <p className="text-xs text-input-placeholder mt-1">
           {displayDescription}
         </p>
       )}
       
       {displayError && (
-        <p id={errorId} className="text-xs text-red-600 dark:text-red-400 mt-1" role="alert" aria-live="assertive">
+        <p id={errorId} className="text-xs text-accent-error dark:text-accent-error-light mt-1" role="alert" aria-live="assertive">
           {displayError}
         </p>
       )}

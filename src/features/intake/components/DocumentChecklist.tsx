@@ -69,12 +69,12 @@ const DocumentChecklist: FunctionComponent<DocumentChecklistProps> = ({
   const getStatusIcon = (status: DocumentItem['status'], required: boolean) => {
     switch (status) {
       case 'uploaded':
-        return <Icon icon={CheckCircleIcon} className="w-5 h-5 text-green-500"  />;
+        return <Icon icon={CheckCircleIcon} className="w-5 h-5 text-accent-success"  />;
       case 'pending':
         return <Icon icon={ExclamationTriangleIcon} className="w-5 h-5 text-yellow-500"  />;
       case 'missing':
         return required ?
-          <Icon icon={ExclamationTriangleIcon} className="w-5 h-5 text-red-500"  /> :
+          <Icon icon={ExclamationTriangleIcon} className="w-5 h-5 text-accent-error"  /> :
           <Icon icon={DocumentIcon} className="w-5 h-5 text-input-placeholder"  />;
     }
   };
@@ -140,7 +140,7 @@ const DocumentChecklist: FunctionComponent<DocumentChecklistProps> = ({
                     {doc.name}
                   </h4>
                   {doc.required && (
-                    <span className="text-xs bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 px-2 py-1 rounded">
+                    <span className="text-xs bg-accent-error/10 dark:bg-accent-error/30 text-accent-error-foreground dark:text-accent-error-light px-2 py-1 rounded">
                       Required
                     </span>
                   )}

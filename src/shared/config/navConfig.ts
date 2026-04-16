@@ -1,4 +1,4 @@
-import type { ComponentType, JSX } from 'preact';
+import type { ComponentType } from 'preact';
 import {
   BriefcaseIcon,
   ChartBarIcon,
@@ -20,10 +20,12 @@ export type NavCtx = {
 
 export type WorkspaceSection = 'home' | 'conversations' | 'intakes' | 'engagements' | 'matters' | 'invoices' | 'reports' | 'settings';
 
+
+
 export type NavRailItem = {
   id: string;
   label: string;
-  icon: any; // Accept any type for icon to support React/Preact interop
+  icon: ComponentType<unknown>;
   href: string;
   matchHrefs?: string[];
   badge?: number | null;

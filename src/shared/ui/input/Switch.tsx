@@ -65,7 +65,7 @@ export const Switch = ({
           sizeClasses[size],
           value 
             ? 'bg-accent-500 focus:ring-accent-500' 
-            : 'bg-zinc-400/70 dark:bg-zinc-600/80 focus:ring-zinc-400',
+            : 'bg-surface-utility/70 dark:bg-surface-utility/80 focus:ring-line-glass',
           disabled && 'opacity-50 cursor-not-allowed'
         )}
         onClick={() => !disabled && onChange(!value)}
@@ -77,7 +77,7 @@ export const Switch = ({
       >
         <span
           className={cn(
-            'inline-block transform rounded-full bg-zinc-900 dark:bg-white shadow-sm transition-transform duration-200 ease-in-out',
+            'inline-block transform rounded-full bg-[rgb(var(--surface-workspace))] shadow-sm transition-transform duration-200 ease-in-out',
             thumbSizeClasses[size],
             thumbTranslateClasses[size]
           )}
