@@ -23,7 +23,7 @@ export type WorkspaceSection = 'home' | 'conversations' | 'intakes' | 'engagemen
 export type NavRailItem = {
   id: string;
   label: string;
-  icon: ComponentType<JSX.SVGAttributes<SVGSVGElement>>;
+  icon: any; // Accept any type for icon to support React/Preact interop
   href: string;
   matchHrefs?: string[];
   badge?: number | null;
@@ -313,9 +313,13 @@ const buildSettingsSecondary = (basePath: string, canAccessPractice: boolean): N
     sections.push({
       label: 'Practice',
       items: [
-        { id: 'practice', label: 'Practice', href: `${basePath}/settings/practice` },
+        { id: 'practice', label: 'Overview', href: `${basePath}/settings/practice` },
+        { id: 'practice-contact', label: 'Contact & Intake', href: `${basePath}/settings/practice/contact` },
+        { id: 'practice-coverage', label: 'Services', href: `${basePath}/settings/practice/coverage` },
+        { id: 'practice-pricing', label: 'Pricing & Fees', href: `${basePath}/settings/practice/pricing` },
         { id: 'practice-payouts', label: 'Payouts', href: `${basePath}/settings/practice/payouts` },
-        { id: 'apps', label: 'Apps', href: `${basePath}/settings/apps` },
+        { id: 'practice-team', label: 'Team & Access', href: `${basePath}/settings/practice/team` },
+        { id: 'apps', label: 'Apps & Integrations', href: `${basePath}/settings/apps` },
       ],
     });
   }

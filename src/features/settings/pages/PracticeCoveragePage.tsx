@@ -10,17 +10,13 @@ import { useToastContext } from '@/shared/contexts/ToastContext';
 import { useTranslation } from '@/shared/i18n/hooks';
 import { SectionDivider, SettingsPage } from '@/shared/ui/layout';
 import { Tabs } from '@/shared/ui/tabs';
-import { TagInput } from '@/shared/ui/tag';
+import { Combobox } from '@/shared/ui/input/Combobox';
+import { STATE_OPTIONS } from '@/shared/ui/address/AddressFields';
 import { Button } from '@/shared/ui/Button';
 import { SettingsHelperText } from '@/features/settings/components/SettingsHelperText';
 import { buildPracticeProfilePayloads } from '@/shared/utils/practiceProfile';
 
-type CoverageSettingsTab = 'services' | 'states';
 
-const COVERAGE_TABS = [
-  { id: 'services', label: 'Services' },
-  { id: 'states', label: 'Licensed states' },
-];
 
 const US_STATE_CODES = [
   'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA',
@@ -43,9 +39,11 @@ export const PracticeCoveragePage = ({ className, onBack }: PracticeCoveragePage
 
   const [servicesError, setServicesError] = useState<string | null>(null);
   const [statesError, setStatesError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<CoverageSettingsTab>('services');
+
   const [licensedStatesDraft, setLicensedStatesDraft] = useState<string[]>([]);
   const [statesDraftTouched, setStatesDraftTouched] = useState(false);
+  // Local-only: bar/admission info keyed by state code
+  const [licensedStatesMeta, setLicensedStatesMeta] = useState<Record<string, { barNumber?: string; admissionDate?: string }>>({});
   const [isSavingStates, setIsSavingStates] = useState(false);
   const lastSavedKeyRef = useRef<string>('');
   const saveRequestIdRef = useRef(0);
@@ -117,7 +115,7 @@ export const PracticeCoveragePage = ({ className, onBack }: PracticeCoveragePage
       });
 
       pendingSaveSnapshotsRef.current.delete(saveId);
-      if (saveId >= confirmedSaveIdRef.current) {
+      if (savedDetails !== undefined && saveId >= confirmedSaveIdRef.current) {
         confirmedSaveIdRef.current = saveId;
         confirmedDetailsRef.current = savedDetails;
       }
@@ -166,17 +164,18 @@ export const PracticeCoveragePage = ({ className, onBack }: PracticeCoveragePage
     }
   }, [currentPractice, details, setDetails, showError, showSuccess, t, updateDetails]);
 
-  const validateStateTag = useCallback((tag: string): boolean | string => {
-    const upper = tag.trim().toUpperCase();
-    if (!US_STATE_CODES.includes(upper)) {
-      return `"${tag}" is not a valid US state code`;
-    }
-    return true;
+  // Helper: Only allow valid state codes
+  const validateStateCode = useCallback((code: string) => {
+    return STATE_OPTIONS.some(opt => opt.value === code);
   }, []);
 
   const handleSaveLicensedStates = async () => {
     if (!currentPractice) return;
-    const validStates = licensedStatesDraft.filter((state) => US_STATE_CODES.includes(state));
+    // Only use licensedStatesDraft if touched and non-empty, otherwise fallback to savedLicensedStates
+    const validStates = (statesDraftTouched && licensedStatesDraft.length > 0)
+      ? licensedStatesDraft.filter(validateStateCode)
+      : savedLicensedStates;
+    // Only send state codes to backend
     const { detailsPayload } = buildPracticeProfilePayloads({ serviceStates: validStates });
     setStatesError(null);
     setIsSavingStates(true);
@@ -187,9 +186,17 @@ export const PracticeCoveragePage = ({ className, onBack }: PracticeCoveragePage
       };
       setDetails(optimisticDetails);
       const savedDetails = await updateDetails(detailsPayload);
-      setDetails(savedDetails);
+      if (savedDetails !== undefined) setDetails(savedDetails);
       setLicensedStatesDraft(validStates);
       setStatesDraftTouched(false);
+      // Optionally: prune meta for removed states
+      setLicensedStatesMeta(meta => {
+        const next: typeof meta = {};
+        for (const state of validStates) {
+          if (meta[state]) next[state] = meta[state];
+        }
+        return next;
+      });
       showSuccess('Licensed states updated.');
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to update licensed states';
@@ -232,65 +239,103 @@ export const PracticeCoveragePage = ({ className, onBack }: PracticeCoveragePage
           </p>
         )}
 
-        {activeTab === 'services' ? (
-          <section className="space-y-4">
-            <div>
-              <h3 className="text-sm font-semibold text-input-text">Services</h3>
-              <SettingsHelperText className="mt-1">
-                Choose the legal service areas this practice accepts for routing and intake setup.
-              </SettingsHelperText>
+        <section className="space-y-4">
+          <div>
+            <h3 className="text-sm font-semibold text-input-text">Services</h3>
+            <SettingsHelperText className="mt-1">
+              Choose the legal service areas this practice accepts for routing and intake setup.
+            </SettingsHelperText>
+          </div>
+          <ServicesEditor
+            services={initialServiceDetails}
+            onChange={(nextServices) => void saveServices(nextServices)}
+            catalog={SERVICE_CATALOG}
+          />
+        </section>
+        <SectionDivider />
+        <section className="space-y-3">
+          <div>
+            <h3 className="text-sm font-semibold text-input-text">Licensed states</h3>
+            <SettingsHelperText className="mt-1">
+              Enter US state codes where this practice is licensed. Used to help the assistant reason about jurisdiction.
+            </SettingsHelperText>
+          </div>
+          <Combobox
+            multiple
+            options={STATE_OPTIONS}
+            value={displayedLicensedStates}
+            onChange={(nextStates) => {
+              setLicensedStatesDraft(nextStates);
+              setStatesDraftTouched(true);
+              // Add meta for new states, prune for removed
+              setLicensedStatesMeta(meta => {
+                const next: typeof meta = {};
+                for (const state of nextStates) {
+                  next[state] = meta[state] || { barNumber: '', admissionDate: '' };
+                }
+                return next;
+              });
+            }}
+            placeholder="Select licensed states"
+            disabled={isSavingStates}
+            aria-label="Licensed states"
+          />
+          {/* Per-state bar number/admission date fields (local only) */}
+          {displayedLicensedStates.length > 0 && (
+            <div className="mt-4 space-y-3">
+              {displayedLicensedStates.map((state) => {
+                const meta = licensedStatesMeta[state] || { barNumber: '', admissionDate: '' };
+                const stateLabel = STATE_OPTIONS.find(opt => opt.value === state)?.label || state;
+                return (
+                  <div key={state} className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4 border border-line-glass/10 rounded-lg p-3 bg-surface-workspace/40">
+                    <div className="font-medium min-w-[120px]">{stateLabel}</div>
+                    <input
+                      type="text"
+                      className="input input-sm w-full md:w-48"
+                      placeholder="Bar number (optional)"
+                      value={meta.barNumber || ''}
+                      onInput={e => {
+                        const val = (e.target as HTMLInputElement).value;
+                        setLicensedStatesMeta(m => ({ ...m, [state]: { ...m[state], barNumber: val } }));
+                      }}
+                    />
+                    <input
+                      type="date"
+                      className="input input-sm w-full md:w-48"
+                      placeholder="Admission date (optional)"
+                      value={meta.admissionDate || ''}
+                      onInput={e => {
+                        const val = (e.target as HTMLInputElement).value;
+                        setLicensedStatesMeta(m => ({ ...m, [state]: { ...m[state], admissionDate: val } }));
+                      }}
+                    />
+                  </div>
+                );
+              })}
             </div>
-            <ServicesEditor
-              services={initialServiceDetails}
-              onChange={(nextServices) => void saveServices(nextServices)}
-              catalog={SERVICE_CATALOG}
-            />
-          </section>
-        ) : (
-          <section className="space-y-3">
-            <div>
-              <h3 className="text-sm font-semibold text-input-text">Licensed states</h3>
-              <SettingsHelperText className="mt-1">
-                Enter US state codes where this practice is licensed. Used to help the assistant reason about jurisdiction.
-              </SettingsHelperText>
-            </div>
-            <TagInput
-              value={displayedLicensedStates}
-              onChange={(nextStates) => {
-                setLicensedStatesDraft(nextStates);
-                setStatesDraftTouched(true);
+          )}
+          <SectionDivider />
+          <div className="flex items-center justify-end gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                setLicensedStatesDraft(savedLicensedStates);
+                setStatesDraftTouched(false);
               }}
-              suggestions={US_STATE_CODES}
-              placeholder="Add state code (e.g. NC)"
-              normalizeTag={(tag) => tag.trim().toUpperCase()}
-              onValidate={validateStateTag}
-              maxTagLength={2}
               disabled={isSavingStates}
-              aria-label="Licensed states"
-            />
-            <SectionDivider />
-            <div className="flex items-center justify-end gap-2">
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => {
-                  setLicensedStatesDraft(savedLicensedStates);
-                  setStatesDraftTouched(false);
-                }}
-                disabled={isSavingStates}
-              >
-                Reset
-              </Button>
-              <Button
-                size="sm"
-                onClick={handleSaveLicensedStates}
-                disabled={isSavingStates}
-              >
-                {isSavingStates ? 'Saving...' : 'Save'}
-              </Button>
-            </div>
-          </section>
-        )}
+            >
+              Reset
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleSaveLicensedStates}
+              disabled={isSavingStates}
+            >
+              {isSavingStates ? 'Saving...' : 'Save'}
+            </Button>
+          </div>
+        </section>
       </div>
     </SettingsPage>
   );

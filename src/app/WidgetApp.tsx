@@ -325,33 +325,35 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
     pendingDisclaimerAcceptanceIds.current.clear();
   }, [practiceId, widgetLegalDisclaimer]);
 
-  const hasConversationStarted = useMemo(() => (
-    messages.some((message) => (
-      message.role !== 'system' ||
-      message.metadata?.systemMessageKey === 'intro'
-    ))
-  ), [messages]);
 
-  // Move intro injection to conversation bootstrap/start logic
-  const maybeInjectIntro = () => {
+  // Canonical intro detection: only use metadata.systemMessageKey === 'intro'
+  const hasIntro = useMemo(() =>
+    messages.some((m) => m.metadata?.systemMessageKey === 'intro'),
+    [messages]
+  );
+
+  // Conversation is considered started if any non-system message exists or intro exists
+  const hasConversationStarted = useMemo(() =>
+    messages.some((message) => message.role !== 'system') || hasIntro,
+    [messages, hasIntro]
+  );
+
+  // Memoized intro injector
+  const maybeInjectIntro = useCallback(() => {
     if (!activeConversationId || !widgetIntroMessage || hasConversationStarted) return;
-    if (typeof messageHandling.addMessage === 'function') {
-      // Only inject if no intro message exists
-      const hasIntro = messages.some((m) => m.metadata?.intro === true);
-      if (!hasIntro) {
-        messageHandling.addMessage({
-          role: 'assistant',
-          content: widgetIntroMessage,
-          avatar: {
-            src: practiceConfig.profileImage ?? null,
-            name: practiceConfig.name || 'Practice',
-          },
-          metadata: { intro: true },
-        });
-      }
+    if (typeof messageHandling.addMessage === 'function' && !hasIntro) {
+      messageHandling.addMessage({
+        role: 'assistant',
+        content: widgetIntroMessage,
+        metadata: { systemMessageKey: 'intro' },
+      });
     }
-  };
-  // Call maybeInjectIntro in the conversation bootstrap/start logic where activeConversationId is first set
+  }, [activeConversationId, widgetIntroMessage, hasConversationStarted, messageHandling, hasIntro, practiceConfig.profileImage, practiceConfig.name]);
+
+  // Inject intro when conversation becomes active and no intro exists
+  useEffect(() => {
+    maybeInjectIntro();
+  }, [activeConversationId, maybeInjectIntro]);
 
   // Persist disclaimer acceptance in conversation metadata if possible
   useEffect(() => {

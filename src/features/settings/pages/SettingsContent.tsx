@@ -12,7 +12,7 @@ import { AccountPage } from './AccountPage';
 import { PayoutsPage } from './PayoutsPage';
 import { SecurityPage } from './SecurityPage';
 import { HelpPage } from './HelpPage';
-import { PracticePage } from './PracticePage';
+import { PracticeOverviewPage } from './PracticePage';
 import { MFAEnrollmentPage } from './MFAEnrollmentPage';
 import AppBlawbyMessengerSettingsPage from './AppBlawbyMessengerSettingsPage';
 import { PracticeCoveragePage } from './PracticeCoveragePage';
@@ -41,7 +41,8 @@ export type SettingsView =
   | 'app-detail'
   | 'security'
   | 'help'
-  | 'mfa-enrollment';
+  | 'mfa-enrollment'
+  ;
 
 export interface SettingsContentProps {
   isMobile?: boolean;
@@ -82,7 +83,7 @@ const SettingsRouter = ({
       case 'account':
         return <AccountPage />;
       case 'practice':
-        return <PracticePage />;
+        return <PracticeOverviewPage />;
       case 'blawby-messenger-settings':
         return (
           <AppBlawbyMessengerSettingsPage
@@ -148,7 +149,7 @@ const SettingsRouter = ({
     || view === 'practice-contact'
     || view === 'practice-team'
     || view === 'practice-pricing'
-    || view === 'mfa-enrollment';
+    || view === 'mfa-enrollment'
 
   if (isSelfWrappedView) {
     return renderViewContent();
@@ -204,9 +205,10 @@ export const SettingsContent = (props: SettingsContentProps) => {
     || view === 'practice-coverage'
     || view === 'practice-team'
     || view === 'practice-pricing'
+    || view === 'practice-contact'
     || view === 'apps'
     || view === 'app-detail'
-    || view === 'blawby-messenger-settings';
+    || view === 'blawby-messenger-settings'
 
   useEffect(() => {
     if (sessionPending) return;
@@ -241,7 +243,7 @@ export const SettingsContent = (props: SettingsContentProps) => {
   const navConfig = useMemo(() => {
     return getSettingsNavConfig({
       practiceSlug,
-      role: normalizePracticeRole(activeMemberRole) ?? undefined,
+      role: normalizePracticeRole(activeMemberRole) ?? null,
       canAccessPractice,
     });
   }, [activeMemberRole, canAccessPractice, practiceSlug]);

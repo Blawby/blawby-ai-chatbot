@@ -140,7 +140,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [localTriageStatus, setLocalTriageStatus] = useState<string | null>(null);
-  const [triageDialogAction, setTriageDialogAction] = useState<'accepted' | 'declined' | 'spam' | 'rejected' | null>(null);
+  const [triageDialogAction, setTriageDialogAction] = useState<'accepted' | 'declined' | null>(null);
   const [triageReason, setTriageReason] = useState('');
   const [previewMessages, setPreviewMessages] = useState<ChatMessageUI[]>([]);
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -250,13 +250,13 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
     setTriageReason('');
   }, [isSubmitting]);
 
-  const openTriageDialog = useCallback((action: 'accepted' | 'declined' | 'spam' | 'rejected') => {
+  const openTriageDialog = useCallback((action: 'accepted' | 'declined') => {
     if (isSubmitting) return;
     setTriageDialogAction(action);
     setTriageReason('');
   }, [isSubmitting]);
 
-  const runTriage = useCallback(async (action: 'accepted' | 'declined' | 'spam' | 'rejected', reason?: string) => {
+  const runTriage = useCallback(async (action: 'accepted' | 'declined', reason?: string) => {
     if (isSubmitting || !intake) return;
 
     setIsSubmitting(true);
@@ -265,9 +265,8 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
         ? reason.trim()
         : undefined;
       let participantFailed = false;
-      const mappedStatus = action === 'accepted' ? 'accepted' : 'declined';
       const result = await updateIntakeTriageStatus(intakeId, {
-        status: mappedStatus,
+        status: action,
         reason: trimmedReason,
       });
 
@@ -336,7 +335,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
         }
       }
 
-      if ((action === 'declined' || action === 'rejected') && responseConversationId && targetPracticeId) {
+      if (action === 'declined' && responseConversationId && targetPracticeId) {
         try {
           await postSystemMessage(responseConversationId, targetPracticeId, {
             clientId: 'system-lead-declined',
@@ -359,7 +358,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
         setTriageDialogAction(null);
         setTriageReason('');
         showSuccess(
-          action === 'accepted' ? 'Consultation accepted' : (action === 'spam' ? 'Marked as spam' : 'Consultation declined'),
+          action === 'accepted' ? 'Consultation accepted' : 'Consultation declined',
           action === 'accepted'
             ? (participantFailed
               ? 'The conversation is now active, but you may need to join it manually.'
@@ -627,18 +626,9 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
                     variant="secondary"
                     className="w-full"
                     disabled={isSubmitting}
-                    onClick={() => openTriageDialog('rejected')}
+                    onClick={() => openTriageDialog('declined')}
                   >
                     Reject
-                  </Button>
-                  <Button
-                    id="intake-spam-btn"
-                    variant="secondary"
-                    className="w-full"
-                    disabled={isSubmitting}
-                    onClick={() => openTriageDialog('spam')}
-                  >
-                    Spam
                   </Button>
                 </div>
               </div>
@@ -651,15 +641,9 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
               </div>
             )}
 
-            {(effectiveTriageStatus === 'rejected' || effectiveTriageStatus === 'declined') && (
+            {effectiveTriageStatus === 'declined' && (
               <div className="rounded-xl bg-rose-500/10 border border-rose-500/20 p-5 text-center">
                 <p className="text-base font-bold text-rose-700 dark:text-rose-300">Intake Rejected</p>
-              </div>
-            )}
-            
-            {effectiveTriageStatus === 'spam' && (
-              <div className="rounded-xl bg-surface-overlay/20 border border-line-glass/10 p-5 text-center">
-                <p className="text-base font-bold text-input-placeholder">Marked as Spam</p>
               </div>
             )}
           </div>
