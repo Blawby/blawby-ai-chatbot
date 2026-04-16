@@ -103,7 +103,7 @@ export const Avatar = ({ src, name, size = 'md', className = '', bgClassName, st
       </div>
       {status && (
         <span
-          className={`absolute bottom-0 right-0 translate-x-1/4 translate-y-1/4 rounded-full ${statusClasses[status]} ${statusSizeClasses[size]} bg-[rgb(var(--accent-foreground))]`}
+          className={`absolute bottom-0 right-0 translate-x-1/4 translate-y-1/4 rounded-full ring-2 ring-[rgb(var(--accent-foreground))] ${statusClasses[status]} ${statusSizeClasses[size]}`}
           aria-hidden="true"
         />
       )}

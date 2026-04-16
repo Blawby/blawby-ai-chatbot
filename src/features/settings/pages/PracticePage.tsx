@@ -36,7 +36,7 @@ export const PracticeOverviewPage = ({
   onNavigate,
 }: PracticeOverviewPageProps) => {
   const { session, activeMemberRole } = useSessionContext();
-  const { currentPractice } = usePracticeManagement({ fetchPracticeDetails: true });
+  const { currentPractice, updatePracticeDetails } = usePracticeManagement({ fetchPracticeDetails: true });
   const practice = currentPractice ?? null;
   const practiceId = practice?.id ?? null;
   const currentUserId = session?.user?.id ?? null;
@@ -122,12 +122,7 @@ export const PracticeOverviewPage = ({
 
 
   const publicListingEnabled = typeof practiceDetails?.isPublic === 'boolean' ? practiceDetails.isPublic : false;
-  const [localPublicListing, setLocalPublicListing] = useState<boolean>(!!publicListingEnabled);
-
-  // Sync local state with server value
-  useEffect(() => {
-    setLocalPublicListing(!!publicListingEnabled);
-  }, [publicListingEnabled]);
+  const [optimisticPublicListing, setOptimisticPublicListing] = useState<boolean | null>(null);
 
   const workspaceUrlLabel = practice?.slug ? `/public/${practice.slug}` : 'No workspace URL';
   const workspaceUrlHref = practice?.slug ? `/public/${practice.slug}` : null;
@@ -351,10 +346,10 @@ export const PracticeOverviewPage = ({
       >
         {isOwner ? (
           <Switch
-            value={localPublicListing}
+            value={optimisticPublicListing !== null ? optimisticPublicListing : publicListingEnabled}
             onChange={async (checked) => {
               if (!practice?.id) return;
-              setLocalPublicListing(checked); // optimistic UI
+              setOptimisticPublicListing(checked); // optimistic UI
               try {
                 await updatePracticeDetails(practice.id, { isPublic: checked });
               } catch (_err) {
@@ -364,10 +359,10 @@ export const PracticeOverviewPage = ({
                     message: 'Failed to update public listing. Please try again.'
                   });
                 }
-                setLocalPublicListing((_prev) => !checked); // revert
+                setOptimisticPublicListing(null); // revert
               }
             }}
-            label={localPublicListing ? 'Public' : 'Private'}
+            label={(optimisticPublicListing !== null ? optimisticPublicListing : publicListingEnabled) ? 'Public' : 'Private'}
             disabled={!practice?.id}
             data-public-listing-switch
           />

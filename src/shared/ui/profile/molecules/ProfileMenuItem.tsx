@@ -29,7 +29,7 @@ export const ProfileMenuItem = ({
       role="menuitem"
       onClick={onClick}
       aria-current={isActive ? 'page' : undefined}
-      className={`w-full px-3 py-2 text-left text-sm text-[rgb(var(--input-foreground))] hover:bg-[rgb(var(--surface-utility))]/4 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-[rgb(var(--accent-500))] flex items-center gap-2 ${isActive ? 'font-semibold text-[rgb(var(--input-foreground))]' : ''} ${className}`}
+      className={`w-full px-3 py-2 text-left text-sm text-[rgb(var(--input-text))] hover:bg-[rgb(var(--surface-utility)/0.04)] focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-[rgb(var(--accent-500))] flex items-center gap-2 ${isActive ? 'font-semibold text-[rgb(var(--input-text))]' : ''} ${className}`}
     >
       <ProfileIcon icon={icon} />
       {label}

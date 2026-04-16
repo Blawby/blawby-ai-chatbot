@@ -29,6 +29,7 @@ export default {
           collection: 'rgb(var(--surface-collection) / <alpha-value>)',
           workspace: 'rgb(var(--surface-workspace) / <alpha-value>)',
           utility: 'rgb(var(--surface-utility) / <alpha-value>)',
+          panel: 'rgb(var(--surface-panel) / <alpha-value>)',
         },
         line: {
 
@@ -66,6 +67,9 @@ export default {
           800: 'rgb(var(--accent-800) / <alpha-value>)',
           900: 'rgb(var(--accent-900) / <alpha-value>)',
           950: 'rgb(var(--accent-950) / <alpha-value>)',
+          error: 'rgb(var(--error-foreground) / <alpha-value>)',
+          success: 'rgb(var(--success-foreground) / <alpha-value>)',
+          warning: 'rgb(var(--warning-foreground) / <alpha-value>)',
         },
         // Light theme colors
 

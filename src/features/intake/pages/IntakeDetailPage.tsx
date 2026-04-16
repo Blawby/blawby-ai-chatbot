@@ -29,7 +29,7 @@ import {
   type PracticeIntakeDetail,
 } from '@/features/intake/api/intakesApi';
 import {
-  _getConversation,
+  getConversation,
   fetchConversationMessages,
   postConversationMessage,
   postSystemMessage,
@@ -42,8 +42,8 @@ import type { ChatMessageUI } from '../../../../worker/types';
 import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
 import { resolvePracticeServiceLabel } from '@/features/matters/utils/matterUtils';
 import { resolveIntakeTitle } from '@/features/intake/utils/intakeTitle';
-// import type { ConversationMetadata } from '@/shared/types/conversation';
-import { applyConsultationPatchToMetadata } from '@/shared/utils/consultationState';
+import type { ConversationMetadata } from '@/shared/types/conversation';
+import { applyConsultationPatchToMetadata, resolveConsultationState } from '@/shared/utils/consultationState';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -115,22 +115,22 @@ function triageLabel(status?: string) {
 // ── Main component ────────────────────────────────────────────────────────────
 
 type IntakeDetailPageProps = {
-  _practiceId: string | null;
-  _intakeId: string;
-  _conversationsBasePath?: string | null;
-  _practiceName: string;
-  _practiceLogo: string | null;
-  _onBack: () => void;
-  _onTriageComplete?: () => void;
+  practiceId: string | null;
+  intakeId: string;
+  conversationsBasePath?: string | null;
+  practiceName: string;
+  practiceLogo: string | null;
+  onBack: () => void;
+  onTriageComplete?: () => void;
 };
 
 export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
-  _practiceId,
-  _intakeId,
-  _practiceName,
-  _practiceLogo,
-  _onBack,
-  _onTriageComplete,
+  practiceId,
+  intakeId,
+  practiceName,
+  practiceLogo,
+  onBack,
+  onTriageComplete,
 }) => {
   const { showSuccess, showError } = useToastContext();
   const { session } = useSessionContext();
@@ -584,7 +584,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
   const statusChipClass = (status: string) => {
     if (status === 'accepted') return 'bg-emerald-500/10 text-emerald-500 ring-emerald-500/20';
     if (status === 'declined' || status === 'rejected') return 'bg-rose-500/10 text-rose-500 ring-rose-500/20';
-    if (status === 'spam') return 'bg-line-glass/10 text-input-placeholder ring-line-glass/20';
+    if (status === 'spam') return 'bg-gray-500/10 text-input-placeholder ring-gray-500/20';
     return 'bg-accent/10 text-accent ring-accent/20';
   };
 

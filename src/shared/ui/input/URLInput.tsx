@@ -297,7 +297,7 @@ export const URLInput = forwardRef<HTMLInputElement, URLInputProps>(({
         }
         
         return (
-          <div className="mt-2 p-2 bg-surface-panel dark:bg-surface-panel/80 rounded border">
+          <div className="mt-2 p-2 bg-[rgb(var(--surface-panel))] dark:bg-[rgb(var(--surface-panel))]/80 rounded border">
             <p className="text-xs text-input-placeholder mb-1">Preview:</p>
             {isSafeProtocol ? (
               <a

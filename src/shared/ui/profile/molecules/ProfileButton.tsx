@@ -39,7 +39,7 @@ export const ProfileButton = ({
       >
         <Avatar src={image} name={name} size="md" />
         <div className="flex-1 min-w-0 overflow-hidden text-left">
-          <p className="text-sm font-medium leading-none text-[rgb(var(--input-foreground))] truncate" title={name}>
+          <p className="text-sm font-medium leading-none text-[rgb(var(--input-text))] truncate" title={name}>
             {name}
           </p>
           {secondaryText && (

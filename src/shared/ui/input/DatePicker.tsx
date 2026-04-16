@@ -158,7 +158,13 @@ export const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(({
       />
       
       {_displayError && (
-        <p id={errorId} className="text-xs text-accent-error mt-1" role="alert" aria-live="assertive">
+        <p
+          id={errorId}
+          className="text-xs mt-1"
+          style={{ color: 'rgb(var(--error-foreground))' }}
+          role="alert"
+          aria-live="assertive"
+        >
           {_displayError}
         </p>
       )}

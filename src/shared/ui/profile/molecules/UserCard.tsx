@@ -80,7 +80,7 @@ export const UserCard = ({
           onClick={onClick}
           aria-label={ariaLabel ?? `Select ${name}`}
           className={cn(
-            'flex-1 text-left rounded-xl px-3 py-2 transition-colors hover:bg-[rgb(var(--surface-utility))]/6 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgb(var(--accent-500))]',
+            'flex-1 text-left rounded-xl px-3 py-2 transition-colors hover:bg-[rgb(var(--surface-utility)/0.06)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgb(var(--accent-500))]',
             className
           )}
         >
