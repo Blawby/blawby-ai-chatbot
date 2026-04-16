@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect } from 'preact/hooks';
+import { useState, useMemo, useEffect } from 'preact/hooks';
 import {
   ChevronRightIcon,
   GlobeAltIcon,
@@ -15,7 +15,6 @@ import type { Address } from '@/shared/types/address';
 import { Dialog } from '@/shared/ui/dialog';
 import { Input, Switch } from '@/shared/ui/input';
 import { FormLabel } from '@/shared/ui/form/FormLabel';
-import { AddressExperienceForm } from '@/shared/ui/address/AddressExperienceForm';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { formatDate } from '@/shared/utils/dateTime';
 import { useNavigation } from '@/shared/utils/navigation';
@@ -264,13 +263,6 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
   );
 
   const [isSettingsSaving, setIsSettingsSaving] = useState(false);
-  const [isContactModalOpen, setIsContactModalOpen] = useState(false);
-  const [contactDraft, setContactDraft] = useState({
-    website: '',
-    businessEmail: '',
-    phone: '',
-    address: undefined,
-  });
   const modalContentClassName = 'glass-panel';
 
   // SSR-safe origin for return URLs
@@ -363,37 +355,11 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
     }
   };
 
-  const openContactModal = useCallback(() => {
-    setContactDraft({
-      website: websiteValue,
-      businessEmail: practiceDetails?.businessEmail ?? practice?.businessEmail ?? '',
-      phone: phoneValue,
-      address: onboardingData.address,
-    });
-    setIsContactModalOpen(true);
-  }, [onboardingData.address, phoneValue, practice?.businessEmail, practiceDetails?.businessEmail, websiteValue]);
-
-  const handleSaveContact = async () => {
-    const success = await saveOnboardingSettings(
-      {
-        website: (contactDraft.website ?? '').trim(),
-        businessEmail: (contactDraft.businessEmail ?? '').trim(),
-        contactPhone: (contactDraft.phone ?? '').trim(),
-        address: contactDraft.address,
-      },
-      'Contact details updated.'
-    );
-    if (success) {
-      setIsContactModalOpen(false);
-    }
-  };
-
   useEffect(() => {
-    if (location.query?.setup === 'contact' && !isContactModalOpen) {
-      openContactModal();
-      navigate(buildSettingsPath(settingsBasePath, 'practice'), true);
+    if (location.query?.setup === 'contact') {
+      navigate(buildSettingsPath(settingsBasePath, 'practice/contact'), true);
     }
-  }, [isContactModalOpen, location.query?.setup, navigate, openContactModal, settingsBasePath]);
+  }, [location.query?.setup, navigate, settingsBasePath]);
 
   const handleTogglePublic = async (nextValue: boolean) => {
     await saveOnboardingSettings(
@@ -570,7 +536,7 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
                   <Button
                     variant="secondary"
                     size="sm"
-                    onClick={openContactModal}
+                    onClick={() => navigateTo(`${toSettingsPath('practice/contact')}?returnTo=${encodeURIComponent(toSettingsPath('practice'))}`)}
                     className="hidden sm:inline-flex"
                   >
                     Manage
@@ -578,7 +544,7 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
                   <Button
                     variant="icon"
                     size="icon-sm"
-                    onClick={openContactModal}
+                    onClick={() => navigateTo(`${toSettingsPath('practice/contact')}?returnTo=${encodeURIComponent(toSettingsPath('practice'))}`)}
                     className="sm:hidden"
                     aria-label="Manage contact details"
                     icon={ChevronRightIcon} iconClassName="w-5 h-5"
@@ -771,75 +737,6 @@ export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) 
                   )}
                 </>
               )}
-
-      {/* Contact Modal */}
-      <Dialog
-        isOpen={isContactModalOpen}
-        onClose={() => setIsContactModalOpen(false)}
-        title="Contact"
-        contentClassName={modalContentClassName}
-      >
-        <div className="space-y-4">
-          {/* Contact Information Fields */}
-          <FormGrid>
-            <Input
-              label="Website"
-              value={contactDraft.website || ''}
-              onChange={(value) => setContactDraft(prev => ({ ...prev, website: value }))}
-              disabled={isSettingsSaving}
-              placeholder="https://example.com"
-            />
-
-            <Input
-              label="Business Email"
-              value={contactDraft.businessEmail || ''}
-              onChange={(value) => setContactDraft(prev => ({ ...prev, businessEmail: value }))}
-              disabled={isSettingsSaving}
-              type="email"
-              placeholder="business@example.com"
-            />
-
-            <Input
-              label="Contact Phone"
-              value={contactDraft.phone || ''}
-              onChange={(value) => setContactDraft(prev => ({ ...prev, phone: value }))}
-              disabled={isSettingsSaving}
-              type="tel"
-              placeholder="+1 (555) 123-4567"
-            />
-          </FormGrid>
-
-          {/* Address Fields */}
-          <div className="space-y-4">
-            <h4 className="text-sm font-medium text-input-text">Address</h4>
-            <AddressExperienceForm
-              initialValues={{ address: contactDraft.address }}
-              fields={['address']}
-              required={[]}
-              onValuesChange={(values) => {
-                if (values.address !== undefined) {
-                  setContactDraft(prev => ({
-                    ...prev,
-                    address: values.address as Address,
-                  }));
-                }
-              }}
-              showSubmitButton={false}
-              variant="plain"
-              disabled={isSettingsSaving}
-            />
-          </div>
-
-          <FormActions
-            className="justify-end"
-            onCancel={() => setIsContactModalOpen(false)}
-            onSubmit={handleSaveContact}
-            submitType="button"
-            submitText="Save"
-            disabled={isSettingsSaving}
-          />
-        </div>
-      </Dialog>
 
       {/* Create Practice Modal */}
       <Dialog

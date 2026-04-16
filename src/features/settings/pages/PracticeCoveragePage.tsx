@@ -216,13 +216,10 @@ export const PracticeCoveragePage = ({ className, onBack }: PracticeCoveragePage
       backVariant="close"
       onBack={onBack}
       className={className}
+      contentMaxWidth={null}
     >
       <div className="space-y-6">
-        <Tabs
-          items={COVERAGE_TABS}
-          activeId={activeTab}
-          onChange={(id) => setActiveTab(id as CoverageSettingsTab)}
-        />
+
 
         {servicesError && (
           <p className="text-xs text-red-600 dark:text-red-400 mb-4">

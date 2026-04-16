@@ -265,8 +265,9 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
         ? reason.trim()
         : undefined;
       let participantFailed = false;
+      const mappedStatus = action === 'accepted' ? 'accepted' : 'declined';
       const result = await updateIntakeTriageStatus(intakeId, {
-        status: action === 'accepted' ? 'accepted' : (action === 'spam' ? 'spam' : (action === 'rejected' ? 'rejected' : 'declined')),
+        status: mappedStatus,
         reason: trimmedReason,
       });
 

@@ -332,33 +332,26 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
     ))
   ), [messages]);
 
-  useEffect(() => {
-    if (!activeConversationId || !messagesReady || !widgetIntroMessage || hasConversationStarted) {
-      return;
-    }
-
-    // Inject intro as a normal assistant message (not system message)
+  // Move intro injection to conversation bootstrap/start logic
+  const maybeInjectIntro = () => {
+    if (!activeConversationId || !widgetIntroMessage || hasConversationStarted) return;
     if (typeof messageHandling.addMessage === 'function') {
-      messageHandling.addMessage({
-        role: 'assistant',
-        content: widgetIntroMessage,
-        avatar: {
-          src: practiceConfig.profileImage ?? null,
-          name: practiceConfig.name || 'Practice',
-        },
-        // Optionally add a custom key to mark this as an intro if needed
-        metadata: { intro: true },
-      });
+      // Only inject if no intro message exists
+      const hasIntro = messages.some((m) => m.metadata?.intro === true);
+      if (!hasIntro) {
+        messageHandling.addMessage({
+          role: 'assistant',
+          content: widgetIntroMessage,
+          avatar: {
+            src: practiceConfig.profileImage ?? null,
+            name: practiceConfig.name || 'Practice',
+          },
+          metadata: { intro: true },
+        });
+      }
     }
-  }, [
-    activeConversationId,
-    hasConversationStarted,
-    messagesReady,
-    messageHandling,
-    practiceConfig.name,
-    practiceConfig.profileImage,
-    widgetIntroMessage
-  ]);
+  };
+  // Call maybeInjectIntro in the conversation bootstrap/start logic where activeConversationId is first set
 
   // Persist disclaimer acceptance in conversation metadata if possible
   useEffect(() => {

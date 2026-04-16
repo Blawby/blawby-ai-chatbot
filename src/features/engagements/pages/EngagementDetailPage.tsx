@@ -498,12 +498,15 @@ export const EngagementDetailPage: FunctionComponent<EngagementDetailPageProps> 
           <div className="px-1 space-y-3">
             {isDraft && (
               <>
-                <Button variant="primary" className="w-full" disabled={isSubmitting} onClick={() => openDialog('send')}>
+                <Button
+                  variant="primary"
+                  className="w-full"
+                  disabled={isSubmitting}
+                  onClick={() => openDialog('send')}
+                  aria-label={isSubmitting ? 'Sending' : undefined}
+                >
                   {isSubmitting ? (
-                    <span className="inline-flex items-center">
-                      <LoadingSpinner size="sm" className="mr-2" ariaLabel="Sending" />
-                      <span className="sr-only">Sending</span>
-                    </span>
+                    <LoadingSpinner size="sm" ariaLabel="Sending" />
                   ) : (
                     <span className="inline-flex items-center gap-2">
                       <PaperAirplaneIcon className="w-4 h-4" />
@@ -612,12 +615,12 @@ export const EngagementDetailPage: FunctionComponent<EngagementDetailPageProps> 
                   />
                 )}
               </div>
-              {conversationsBasePath && (
+              {conversationsBasePath && engagement.conversation_id && (
                 <div className="p-4 border-t border-line-glass/10">
                   <Button
                     variant="secondary"
                     className="w-full"
-                    onClick={() => navigate(`${conversationsBasePath}/${encodeURIComponent(engagement.conversation_id!)}`)}
+                    onClick={() => navigate(`${conversationsBasePath}/${encodeURIComponent(engagement.conversation_id)}`)}
                   >
                     Open full conversation
                   </Button>
@@ -695,7 +698,7 @@ export const EngagementDetailPage: FunctionComponent<EngagementDetailPageProps> 
         disableBackdropClick={isSubmitting}
       >
         <DialogBody className="space-y-4">
-          <div className="rounded-xl border border-line-glass/10 bg-surface-utility/40 dark:bg-white/[0.03] p-4">
+          <div className="rounded-xl border border-line-glass/10 bg-surface-utility/40 p-4">
             <p className="text-sm text-input-placeholder">
               {dialogAction === 'send'
                 ? 'Once sent, the client can review the scope, fee terms, and accept online.'

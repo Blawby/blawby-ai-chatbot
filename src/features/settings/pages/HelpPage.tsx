@@ -8,6 +8,8 @@ export interface HelpPageProps {
   className?: string;
 }
 
+import clsx from 'clsx';
+
 export const HelpPage = ({ className = '' }: HelpPageProps) => {
   const { navigate } = useNavigation();
   const { t } = useTranslation('settings');
@@ -31,8 +33,7 @@ export const HelpPage = ({ className = '' }: HelpPageProps) => {
   };
 
   return (
-    <>
-      <div className="space-y-6">
+    <div className={clsx('space-y-6', className)}>
       <SettingRow
         label={t('help.sections.helpCenter.title')}
         description={t('help.sections.helpCenter.description')}
@@ -164,7 +165,6 @@ export const HelpPage = ({ className = '' }: HelpPageProps) => {
           </SettingRow>
         </>
       )}
-    </div>
-    </>
-  );
+      </div>
+    );
 };

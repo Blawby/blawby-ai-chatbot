@@ -278,6 +278,7 @@ function AppShell() {
           <Route path="/client/:practiceSlug/settings/practice" component={ClientPracticeRoute} workspaceView="settings" settingsView="practice" />
           {/* Removed legacy brand settings route for client */}
           <Route path="/client/:practiceSlug/settings/apps/blawby-messenger/settings" component={ClientPracticeRoute} workspaceView="settings" settingsView="blawby-messenger-settings" />
+          <Route path="/client/:practiceSlug/settings/practice/contact" component={ClientPracticeRoute} workspaceView="settings" settingsView="practice-contact" />
           <Route path="/client/:practiceSlug/settings/practice/coverage" component={ClientPracticeRoute} workspaceView="settings" settingsView="practice-coverage" />
           <Route path="/client/:practiceSlug/settings/practice/team" component={ClientPracticeRoute} workspaceView="settings" settingsView="practice-team" />
           <Route path="/client/:practiceSlug/settings/practice/pricing" component={ClientPracticeRoute} workspaceView="settings" settingsView="practice-pricing" />
@@ -313,6 +314,7 @@ function AppShell() {
           <Route path="/practice/:practiceSlug/settings/practice" component={PracticeAppRoute} workspaceView="settings" settingsView="practice" />
           {/* Removed legacy brand settings route */}
           <Route path="/practice/:practiceSlug/settings/apps/blawby-messenger/settings" component={PracticeAppRoute} workspaceView="settings" settingsView="blawby-messenger-settings" />
+          <Route path="/practice/:practiceSlug/settings/practice/contact" component={PracticeAppRoute} workspaceView="settings" settingsView="practice-contact" />
           <Route path="/practice/:practiceSlug/settings/practice/payouts" component={PracticeAppRoute} workspaceView="settings" settingsView="practice-payouts" />
           <Route path="/practice/:practiceSlug/settings/practice/coverage" component={PracticeAppRoute} workspaceView="settings" settingsView="practice-coverage" />
           <Route path="/practice/:practiceSlug/settings/practice/team" component={PracticeAppRoute} workspaceView="settings" settingsView="practice-team" />
@@ -473,7 +475,7 @@ function PracticeAppRoute({
   invoiceId?: string;
   appId?: string;
   workspaceView?: 'home' | 'setup' | 'list' | 'conversation' | 'intakes' | 'intakeDetail' | 'engagements' | 'matters' | 'clients' | 'invoices' | 'invoiceCreate' | 'invoiceEdit' | 'invoiceDetail' | 'reports' | 'settings';
-  settingsView?: 'general' | 'notifications' | 'account' | 'practice' | 'blawby-messenger-settings' | 'practice-payouts' | 'practice-coverage' | 'practice-team' | 'practice-pricing' | 'apps' | 'app-detail' | 'security' | 'help';
+  settingsView?: 'general' | 'notifications' | 'account' | 'practice' | 'blawby-messenger-settings' | 'practice-contact' | 'practice-payouts' | 'practice-coverage' | 'practice-team' | 'practice-pricing' | 'apps' | 'app-detail' | 'security' | 'help';
   practiceSlug?: string;
 }) {
   const { session, isPending, activeMemberRole } = useSessionContext();
@@ -729,7 +731,7 @@ function ClientPracticeRoute({
   invoiceId?: string;
   appId?: string;
   workspaceView?: 'home' | 'list' | 'conversation' | 'matters' | 'invoices' | 'invoiceDetail' | 'settings';
-  settingsView?: 'general' | 'notifications' | 'account' | 'practice' | 'blawby-messenger-settings' | 'practice-payouts' | 'practice-coverage' | 'practice-team' | 'practice-pricing' | 'apps' | 'app-detail' | 'security' | 'help';
+  settingsView?: 'general' | 'notifications' | 'account' | 'practice' | 'blawby-messenger-settings' | 'practice-contact' | 'practice-payouts' | 'practice-coverage' | 'practice-team' | 'practice-pricing' | 'apps' | 'app-detail' | 'security' | 'help';
 }) {
   const location = useLocation();
   const { session, isPending: sessionIsPending, activeMemberRole } = useSessionContext();
@@ -1117,9 +1119,7 @@ function WidgetRoute({
         ?? resolveString(detailsRecord?.introMessage)
         ?? resolveString(detailsRecord?.intro_message)
         ?? resolveString(nestedDetailsRecord?.introMessage)
-        ?? resolveString(nestedDetailsRecord?.intro_message)
-        ?? resolveString(nestedDetailsRecord?.overview)
-        ?? resolveString(detailsRecord?.overview),
+        ?? resolveString(nestedDetailsRecord?.intro_message),
       legalDisclaimer: resolveString(pd.legalDisclaimer)
         ?? resolveString(pd.legal_disclaimer)
         ?? resolveString(pd.overview)

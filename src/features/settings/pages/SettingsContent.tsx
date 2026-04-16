@@ -1,9 +1,11 @@
 import { useMemo, useState, useEffect } from 'preact/hooks';
+import { useLocation } from 'preact-iso';
 import { useNavigation } from '@/shared/utils/navigation';
 import { cn } from '@/shared/utils/cn';
 import { type App, mockApps } from './appsData';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { useWorkspace } from '@/shared/hooks/useWorkspace';
+import { normalizePracticeRole } from '@/shared/utils/practiceRoles';
 import { GeneralPage } from './GeneralPage';
 import { NotificationsPage } from './NotificationsPage';
 import { AccountPage } from './AccountPage';
@@ -14,6 +16,7 @@ import { PracticePage } from './PracticePage';
 import { MFAEnrollmentPage } from './MFAEnrollmentPage';
 import AppBlawbyMessengerSettingsPage from './AppBlawbyMessengerSettingsPage';
 import { PracticeCoveragePage } from './PracticeCoveragePage';
+import { PracticeContactPage } from './PracticeContactPage';
 import { PracticeTeamPage } from './PracticeTeamPage';
 import { PracticePricingPage } from './PracticePricingPage';
 import { AppsPage } from './AppsPage';
@@ -21,6 +24,7 @@ import { AppDetailPage } from './AppDetailPage';
 import { SettingsPage } from '@/shared/ui/layout/SettingsPage';
 import { getSettingsNavConfig } from '@/shared/config/navConfig';
 import { useTranslation } from '@/shared/i18n/hooks';
+import { getValidatedSettingsReturnPath } from '@/shared/utils/workspace';
 
 export type SettingsView =
   | 'general'
@@ -30,6 +34,7 @@ export type SettingsView =
   | 'blawby-messenger-settings'
   | 'practice-payouts'
   | 'practice-coverage'
+  | 'practice-contact'
   | 'practice-team'
   | 'practice-pricing'
   | 'apps'
@@ -56,6 +61,7 @@ const SettingsRouter = ({
   handleAppUpdate,
   toSettingsPath,
   viewLabel,
+  messengerReturnPath,
 }: {
   view: SettingsView;
   appId?: string;
@@ -63,6 +69,7 @@ const SettingsRouter = ({
   handleAppUpdate: (targetAppId: string, updates: Partial<App>) => void;
   toSettingsPath: (subPath?: string) => string;
   viewLabel: string;
+  messengerReturnPath: string | null;
 }) => {
   const { navigate } = useNavigation();
 
@@ -79,13 +86,15 @@ const SettingsRouter = ({
       case 'blawby-messenger-settings':
         return (
           <AppBlawbyMessengerSettingsPage
-            onBack={() => navigate(toSettingsPath('apps/blawby-messenger'))}
+            onBack={() => navigate(messengerReturnPath ?? toSettingsPath('apps/blawby-messenger'))}
           />
         );
       case 'practice-payouts':
         return <PayoutsPage onBack={() => navigate(toSettingsPath('practice'))} />;
       case 'practice-coverage':
         return <PracticeCoveragePage onBack={() => navigate(toSettingsPath('practice'))} />;
+      case 'practice-contact':
+        return <PracticeContactPage onBack={() => navigate(toSettingsPath('practice'))} />;
       case 'practice-team':
         return <PracticeTeamPage onBack={() => navigate(toSettingsPath('practice'))} />;
       case 'practice-pricing':
@@ -136,6 +145,7 @@ const SettingsRouter = ({
     || view === 'blawby-messenger-settings'
     || view === 'practice-payouts'
     || view === 'practice-coverage'
+    || view === 'practice-contact'
     || view === 'practice-team'
     || view === 'practice-pricing'
     || view === 'mfa-enrollment';
@@ -171,6 +181,7 @@ export const SettingsContent = (props: SettingsContentProps) => {
     apps: initialApps,
   } = props;
 
+  const location = useLocation();
   const { navigate } = useNavigation();
   const { t } = useTranslation(['settings']);
   const [appUpdates, setAppUpdates] = useState<Record<string, Partial<App>>>({});
@@ -179,6 +190,10 @@ export const SettingsContent = (props: SettingsContentProps) => {
   const { canAccessPractice } = useWorkspace();
 
   const settingsBasePath = `/${workspace}/${encodeURIComponent(practiceSlug)}/settings`;
+  const messengerReturnPath = useMemo(() => {
+    const rawReturnTo = typeof location.query?.returnTo === 'string' ? location.query.returnTo : null;
+    return getValidatedSettingsReturnPath(rawReturnTo, workspace, practiceSlug);
+  }, [location.query?.returnTo, practiceSlug, workspace]);
   const toSettingsPath = (subPath?: string) => {
     if (!subPath) return settingsBasePath;
     return `${settingsBasePath}/${subPath.replace(/^\/+/, '')}`;
@@ -200,6 +215,12 @@ export const SettingsContent = (props: SettingsContentProps) => {
     }
   }, [canAccessPractice, isPracticeScopedView, navigate, sessionPending, settingsBasePath]);
 
+  useEffect(() => {
+    if (initialApps) {
+      setAppUpdates({});
+    }
+  }, [initialApps]);
+
   const apps = useMemo(() => {
     const sourceApps = initialApps ?? mockApps;
     return sourceApps.map((app) => ({ ...app, ...appUpdates[app.id] }));
@@ -220,7 +241,7 @@ export const SettingsContent = (props: SettingsContentProps) => {
   const navConfig = useMemo(() => {
     return getSettingsNavConfig({
       practiceSlug,
-      role: activeMemberRole ?? undefined,
+      role: normalizePracticeRole(activeMemberRole) ?? undefined,
       canAccessPractice,
     });
   }, [activeMemberRole, canAccessPractice, practiceSlug]);
@@ -233,6 +254,7 @@ export const SettingsContent = (props: SettingsContentProps) => {
     }
     if (view === 'blawby-messenger-settings') return t('settings:apps.messenger.title');
     if (view === 'practice-coverage') return 'Coverage';
+    if (view === 'practice-contact') return 'Contact';
     if (view === 'mfa-enrollment') return t('settings:mfa.title');
     return t(`settings:${view}.title`);
   }, [currentApp, navConfig.secondary, t, view]);
@@ -246,6 +268,7 @@ export const SettingsContent = (props: SettingsContentProps) => {
         handleAppUpdate={handleAppUpdate}
         toSettingsPath={toSettingsPath}
         viewLabel={viewLabel}
+        messengerReturnPath={messengerReturnPath}
       />
     </div>
   );

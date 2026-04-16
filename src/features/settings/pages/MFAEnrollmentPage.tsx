@@ -123,7 +123,7 @@ export const MFAEnrollmentPage = ({
         t('settings:security.mfa.toastEnabled.title'),
         t('settings:security.mfa.toastEnabled.body')
       );
-      navigate(toSettingsPath('security'));
+        if (onBack) onBack();
     } catch (error) {
       // Distinguish between configuration errors and verification failures
       if (error instanceof MFAConfigurationError) {

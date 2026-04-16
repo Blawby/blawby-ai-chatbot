@@ -97,8 +97,8 @@ export const ChatActionCard: FunctionComponent<ChatActionCardProps> = ({
       <ChatDockedAction
         isOpen={isOpen}
         onClose={onClose}
-        title="Legal Disclaimer"
-        description="Please read and accept the following legal disclaimer to continue using the service."
+        title={t('chat.card.disclaimer.title')}
+        description={t('chat.card.disclaimer.description')}
       >
         <div className="max-h-[45vh] overflow-y-auto whitespace-pre-wrap text-sm leading-6 text-input-text">
           {disclaimerProps.text}
@@ -109,7 +109,7 @@ export const ChatActionCard: FunctionComponent<ChatActionCardProps> = ({
           disabled={disclaimerProps.isSubmitting}
           className="mt-5 w-full"
         >
-          {disclaimerProps.isSubmitting ? 'Starting...' : 'I Understand and Agree'}
+          {disclaimerProps.isSubmitting ? t('chat.card.disclaimer.starting') : t('chat.card.disclaimer.acceptButton')}
         </Button>
       </ChatDockedAction>
     );
