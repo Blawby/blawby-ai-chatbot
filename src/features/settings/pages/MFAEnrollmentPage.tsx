@@ -236,13 +236,13 @@ export const MFAEnrollmentPage = ({
               {/* Mock QR Code - in real app, you'd use a QR code library */}
               <div className="w-48 h-48 bg-surface-base rounded flex items-center justify-center">
                 <div className="text-center">
-                  <div className="w-32 h-32 bg-black dark:bg-white rounded grid grid-cols-8 gap-1 p-2">
+                  <div className="w-32 h-32 bg-surface-app-frame dark:bg-surface-workspace rounded grid grid-cols-8 gap-1 p-2">
                     {/* Mock QR pattern - stable pattern that doesn't flicker */}
                     {qrPattern.map((isWhite, i) => (
                       <div
                         key={i}
                         className={`w-full h-full rounded-sm ${
-                          isWhite ? 'bg-white dark:bg-black' : 'bg-black dark:bg-white'
+                          isWhite ? 'bg-surface-workspace dark:bg-surface-app-frame' : 'bg-surface-app-frame dark:bg-surface-workspace'
                         }`}
                       />
                     ))}

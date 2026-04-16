@@ -584,7 +584,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
   const statusChipClass = (status: string) => {
     if (status === 'accepted') return 'bg-emerald-500/10 text-emerald-500 ring-emerald-500/20';
     if (status === 'declined' || status === 'rejected') return 'bg-rose-500/10 text-rose-500 ring-rose-500/20';
-    if (status === 'spam') return 'bg-gray-500/10 text-input-placeholder ring-gray-500/20';
+    if (status === 'spam') return 'bg-line-glass/10 text-input-placeholder ring-line-glass/20';
     return 'bg-accent/10 text-accent ring-accent/20';
   };
 

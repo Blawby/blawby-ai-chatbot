@@ -63,7 +63,7 @@ export const getDocumentIcon = (file: FileAttachment): VNode => {
 
 	// Default file icon
 	return (
-		<Icon icon={DocumentIcon} className="w-4 h-4 text-gray-600 dark:text-gray-400"  />
+		<Icon icon={DocumentIcon} className="w-4 h-4 text-input-placeholder"  />
 	);
 };
 

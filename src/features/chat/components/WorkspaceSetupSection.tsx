@@ -474,7 +474,7 @@ export const WorkspaceSetupSection: FunctionComponent<WorkspaceSetupSectionProps
                 showCloseButton={false}
               />
             )}
-            {showSidebarPreview ? <div className="pointer-events-none absolute inset-0 rounded-3xl ring-1 ring-white/10" aria-hidden="true" /> : null}
+            {showSidebarPreview ? <div className="pointer-events-none absolute inset-0 rounded-3xl ring-1 ring-line-glass/10" aria-hidden="true" /> : null}
           </div>
         </div>
       </div>

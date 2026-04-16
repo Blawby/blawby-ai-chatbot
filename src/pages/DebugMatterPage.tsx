@@ -355,7 +355,7 @@ export default function DebugMatterPage() {
                   className="px-0 py-0"
                 />
                 <nav
-                  className="flex items-end gap-0 border-b border-white/[0.06] px-5"
+                  className="flex items-end gap-0 border-b border-line-glass/20 px-5"
                   aria-label="Matter sections"
                 >
                   {detailTabs.map((tab) => {
@@ -373,7 +373,7 @@ export default function DebugMatterPage() {
                           'after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:rounded-full after:transition-all after:duration-150',
                           isActive
                             ? 'text-input-text after:bg-accent-500'
-                            : 'text-input-placeholder hover:text-input-text after:bg-transparent hover:after:bg-white/20'
+                            : 'text-input-placeholder hover:text-input-text after:bg-transparent hover:after:bg-line-glass/20'
                         ].join(' ')}
                       >
                         {tab.label}
@@ -394,7 +394,7 @@ export default function DebugMatterPage() {
               {activeTab === 'overview' ? (
                 <div className="space-y-4">
                   <section className="glass-panel overflow-hidden">
-                    <div className="border-b border-white/[0.06] px-6 py-4">
+                    <div className="border-b border-line-glass/20 px-6 py-4">
                       <h3 className="text-sm font-semibold text-input-text">Matter description</h3>
                     </div>
                     {isDescriptionEditing ? (
