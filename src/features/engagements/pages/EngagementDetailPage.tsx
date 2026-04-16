@@ -16,7 +16,7 @@ import {
 import { Icon } from '@/shared/ui/Icon';
 import { Button } from '@/shared/ui/Button';
 import { UserCard } from '@/shared/ui/profile';
-import { DetailHeader } from '@/shared/ui/layout/DetailHeader';
+import { SettingsPage, DetailHeader } from '@/shared/ui/layout';
 import { LoadingBlock } from '@/shared/ui/layout/LoadingBlock';
 import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
 import { Dialog, DialogBody, DialogFooter } from '@/shared/ui/dialog';
@@ -450,8 +450,6 @@ export const EngagementDetailPage: FunctionComponent<EngagementDetailPageProps> 
     else if (dialogAction === 'withdraw') await runWithdraw();
   }, [dialogAction, runSendToClient, runWithdraw]);
 
-  // ── Render ────────────────────────────────────────────────────────────────
-
   if (isLoading) {
     return (
       <div className="flex h-full flex-col min-h-0">
@@ -483,239 +481,211 @@ export const EngagementDetailPage: FunctionComponent<EngagementDetailPageProps> 
   const isAccepted = effectiveStatus === 'engagement_accepted' || effectiveStatus === 'active';
 
   return (
-    <div className="flex h-full flex-col min-h-0">
-      <DetailHeader
-        title="Engagement"
-        subtitle={engagement.client_name ?? undefined}
-        showBack
-        onBack={onBack}
-        actions={
-          <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ring-1 ring-inset ${statusChipClass(effectiveStatus)}`}>
-            {statusLabel(effectiveStatus)}
-          </span>
-        }
-      />
-
-      <div className="flex-1 min-h-0 overflow-y-auto">
-        <div className="max-w-6xl mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
-
-          {/* ── Left column ──────────────────────────────────────────── */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Main header card */}
-            <section className="glass-card p-6 sm:p-10">
-              <header className="mb-6">
-                <h2 className="text-xs font-semibold uppercase tracking-widest text-input-placeholder mb-2">
-                  Engagement details
-                </h2>
-                <h1 className="text-2xl sm:text-3xl font-bold text-input-text mb-4">
-                  {engagement.client_name ?? 'Unknown Client'}
-                </h1>
-                <div className="flex items-center flex-wrap gap-3">
-                  {engagement.practice_area && (
-                    <div className="bg-accent/10 border border-accent/20 text-[rgb(var(--accent-foreground))] px-2 py-0.5 rounded-md text-xs font-semibold">
-                      {engagement.practice_area}
-                    </div>
+    <SettingsPage
+      title="Engagement"
+      subtitle={engagement.client_name ?? undefined}
+      showBack
+      onBack={onBack}
+      actions={
+        <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ring-1 ring-inset ${statusChipClass(effectiveStatus)}`}>
+          {statusLabel(effectiveStatus)}
+        </span>
+      }
+      contentMaxWidth={null}
+      preview={
+        <div className="space-y-6">
+          {/* Action panel */}
+          <div className="px-1 space-y-3">
+            {isDraft && (
+              <>
+                <Button
+                  variant="primary"
+                  className="w-full"
+                  disabled={isSubmitting}
+                  onClick={() => openDialog('send')}
+                  aria-label={isSubmitting ? 'Sending' : undefined}
+                >
+                  {isSubmitting ? (
+                    <LoadingSpinner size="sm" ariaLabel="Sending" />
+                  ) : (
+                    <span className="inline-flex items-center gap-2">
+                      <PaperAirplaneIcon className="w-4 h-4" />
+                      Send to Client
+                    </span>
                   )}
-                  <span className="text-sm text-input-placeholder">
-                    Created {formatLongDate(engagement.created_at)}
-                  </span>
+                </Button>
+                <p className="text-xs text-input-placeholder text-center leading-relaxed">
+                  Client will receive an email to review and accept the engagement.
+                </p>
+              </>
+            )}
+
+            {isSent && (
+              <>
+                <div className="rounded-xl bg-violet-500/10 border border-violet-500/20 p-5 text-center">
+                  <p className="text-base font-bold text-violet-700 dark:text-violet-300">Sent to Client</p>
+                  <p className="text-xs text-input-placeholder mt-2">Awaiting client acceptance.</p>
                 </div>
-                <div className="mt-4">
-                  <DraftMetaBadge proposal={proposal} />
-                </div>
-              </header>
+                <Button variant="secondary" className="w-full" disabled={isSubmitting} onClick={() => openDialog('withdraw')}>
+                  Withdraw Proposal
+                </Button>
+              </>
+            )}
 
-              {/* Quick facts */}
-              {engagement.description && (
-                <div className="pt-6 border-t border-line-glass/10">
-                  <p className="text-sm text-input-placeholder uppercase tracking-wide font-medium mb-2">Description</p>
-                  <p className="text-sm text-input-text leading-relaxed">{engagement.description}</p>
-                </div>
-              )}
-
-              <div className="pt-6 border-t border-line-glass/10 grid grid-cols-1 md:grid-cols-2 gap-6">
-                {engagement.urgency && (
-                  <StatCell label="Urgency" value={engagement.urgency} icon={ExclamationTriangleIcon} />
-                )}
-                {engagement.opposing_party && (
-                  <StatCell label="Opposing party" value={engagement.opposing_party} icon={ScaleIcon} />
-                )}
-                {engagement.desired_outcome && (
-                  <StatCell label="Desired outcome" value={engagement.desired_outcome} icon={CheckCircleIcon} />
-                )}
-                {engagement.case_strength != null && (
-                  <StatCell label="AI case strength" value={`${engagement.case_strength}%`} icon={ScaleIcon} />
-                )}
-              </div>
-            </section>
-
-            {/* Proposal cards (from proposal_data) */}
-            <ScopeCard proposal={proposal} />
-            <FeesCard proposal={proposal} engagement={engagement} />
-            <GoalsSection proposal={proposal} />
-            <ConflictPanel proposal={proposal} />
-
-            {/* Conversation preview */}
-            {engagement.conversation_id && (
-              <div className="space-y-4">
-                <section className="glass-card flex flex-col h-[500px] sm:h-[700px] overflow-hidden">
-                  <header className="p-4 sm:p-6 lg:p-8 pb-4 border-b border-line-glass/10 flex items-center gap-3">
-                    <Icon icon={ChatBubbleLeftRightIcon} className="w-5 h-5 text-input-placeholder" />
-                    <h3 className="text-sm font-semibold text-input-text uppercase tracking-widest">
-                      Intake Conversation
-                    </h3>
-                  </header>
-                  <div className="flex-1 min-h-0 overflow-hidden bg-surface-overlay/20 touch-pan-y">
-                    {previewLoading && previewMessages.length === 0 ? (
-                      <div className="h-full flex items-center justify-center p-6">
-                        <LoadingBlock label="Loading conversation..." />
-                      </div>
-                    ) : previewError ? (
-                      <div className="h-full flex items-center justify-center p-6 text-center">
-                        <div className="space-y-4">
-                          <Icon icon={ExclamationTriangleIcon} className="w-8 h-8 text-rose-400 mx-auto" />
-                          <p className="text-sm text-input-placeholder">{previewError}</p>
-                        </div>
-                      </div>
-                    ) : previewMessages.length === 0 ? (
-                      <div className="h-full flex items-center justify-center p-6">
-                        <p className="text-sm text-input-placeholder">No conversation history.</p>
-                      </div>
-                    ) : (
-                      <VirtualMessageList
-                        messages={previewMessages}
-                        conversationTitle={engagement.client_name ?? null}
-                        viewerContext="practice"
-                        practiceConfig={{
-                          name: practiceName,
-                          profileImage: practiceLogo,
-                          practiceId: engagement.organization_id,
-                        }}
-                        practiceId={engagement.organization_id}
-                      />
-                    )}
-                  </div>
-                </section>
-
-                {conversationsBasePath && (
-                  <Button
-                    variant="secondary"
-                    className="w-full"
-                    onClick={() => navigate(`${conversationsBasePath}/${encodeURIComponent(engagement.conversation_id!)}`)}
-                  >
-                    Open conversation
-                  </Button>
-                )}
+            {isAccepted && (
+              <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/20 p-5 text-center">
+                <p className="text-base font-bold text-emerald-700 dark:text-emerald-300">Engagement Active</p>
+                <p className="text-xs text-input-placeholder mt-2">The client has accepted the engagement.</p>
               </div>
             )}
           </div>
 
-          {/* ── Right column: actions + client info ──────────────────── */}
-          <div className="space-y-6">
-            {/* Action panel */}
-            <div className="px-1 space-y-3">
-              {isDraft && (
-                <>
-                  <Button
-                    id="engagement-send-btn"
-                    variant="primary"
-                    className="w-full"
-                    disabled={isSubmitting}
-                    onClick={() => openDialog('send')}
-                  >
-                    {isSubmitting ? (
-                      <span className="inline-flex items-center">
-                        <LoadingSpinner size="sm" className="mr-2" ariaLabel="Sending" />
-                        Send to Client
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-2">
-                        <PaperAirplaneIcon className="w-4 h-4" />
-                        Send to Client
-                      </span>
-                    )}
-                  </Button>
-                  <p className="text-xs text-input-placeholder text-center leading-relaxed">
-                    Client will receive an email to review and accept the engagement.
-                  </p>
-                </>
-              )}
-
-              {isSent && (
-                <>
-                  <div className="rounded-xl bg-violet-500/10 border border-violet-500/20 p-5 text-center">
-                    <p className="text-base font-bold text-violet-700 dark:text-violet-300">Sent to Client</p>
-                    <p className="text-xs text-input-placeholder mt-2">Awaiting client acceptance.</p>
+          <div className="px-1 space-y-6">
+            <div>
+              <h3 className="text-xs font-semibold uppercase tracking-widest text-input-placeholder mb-3">Client</h3>
+              <UserCard
+                name={engagement.client_name ?? 'Unknown'}
+                secondary={null}
+                className="px-0 py-0"
+                size="md"
+              />
+            </div>
+            {engagement.client_email && (
+              <div>
+                <h3 className="text-xs font-semibold uppercase tracking-widest text-input-placeholder mb-3">Contact</h3>
+                <dl className="space-y-2 text-sm">
+                  <div className="flex flex-col">
+                    <dt className="text-input-placeholder text-xs mb-0.5">Email</dt>
+                    <dd className="text-input-text font-medium truncate">{engagement.client_email}</dd>
                   </div>
+                </dl>
+              </div>
+            )}
+            
+            {proposal?.client_summary?.co_clients && proposal.client_summary.co_clients.length > 0 && (
+              <div>
+                <h3 className="text-xs font-semibold uppercase tracking-widest text-input-placeholder mb-2">Co-Clients</h3>
+                <ul className="space-y-1 text-sm text-input-text">
+                  {proposal.client_summary.co_clients.map((c, i) => <li key={i}>{c}</li>)}
+                </ul>
+              </div>
+            )}
+            {proposal?.client_summary?.non_clients && proposal.client_summary.non_clients.length > 0 && (
+              <div>
+                <h3 className="text-xs font-semibold uppercase tracking-widest text-input-placeholder mb-2">Not Represented</h3>
+                <ul className="space-y-1 text-sm text-rose-400">
+                  {proposal.client_summary.non_clients.map((c, i) => <li key={i}>{c}</li>)}
+                </ul>
+              </div>
+            )}
+          </div>
+
+          {/* Conversation preview */}
+          {engagement.conversation_id && engagement.organization_id && (
+            <section className="glass-card flex flex-col h-[600px] overflow-hidden mx-1">
+              <header className="p-4 border-b border-line-glass/10 flex items-center gap-3">
+                <Icon icon={ChatBubbleLeftRightIcon} className="w-5 h-5 text-input-placeholder" />
+                <h3 className="text-sm font-semibold text-input-text uppercase tracking-widest">
+                  Intake Conversation
+                </h3>
+              </header>
+              <div className="flex-1 min-h-0 overflow-hidden bg-surface-overlay/20 touch-pan-y">
+                {previewLoading && previewMessages.length === 0 ? (
+                  <div className="h-full flex items-center justify-center p-6">
+                    <LoadingBlock label="Loading conversation..." />
+                  </div>
+                ) : previewError ? (
+                  <div className="h-full flex items-center justify-center p-6 text-center">
+                    <div className="space-y-4">
+                      <Icon icon={ExclamationTriangleIcon} className="w-8 h-8 text-rose-400 mx-auto" />
+                      <p className="text-sm text-input-placeholder">{previewError}</p>
+                    </div>
+                  </div>
+                ) : (
+                  <VirtualMessageList
+                    messages={previewMessages}
+                    conversationTitle={engagement.client_name ?? null}
+                    viewerContext="practice"
+                    practiceConfig={{
+                      name: practiceName,
+                      profileImage: practiceLogo,
+                      practiceId: engagement.organization_id,
+                    }}
+                    practiceId={engagement.organization_id}
+                  />
+                )}
+              </div>
+              {conversationsBasePath && engagement.conversation_id && (
+                <div className="p-4 border-t border-line-glass/10">
                   <Button
-                    id="engagement-withdraw-btn"
                     variant="secondary"
                     className="w-full"
-                    disabled={isSubmitting}
-                    onClick={() => openDialog('withdraw')}
+                    onClick={() => navigate(`${conversationsBasePath}/${encodeURIComponent(engagement.conversation_id)}`)}
                   >
-                    Withdraw Proposal
+                    Open full conversation
                   </Button>
-                </>
-              )}
-
-              {isAccepted && (
-                <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/20 p-5 text-center">
-                  <p className="text-base font-bold text-emerald-700 dark:text-emerald-300">Engagement Active</p>
-                  <p className="text-xs text-input-placeholder mt-2">
-                    The client has accepted the engagement.
-                  </p>
                 </div>
               )}
-            </div>
-
-            {/* Client info */}
-            <div className="px-1 space-y-6">
-              <div>
-                <h3 className="text-xs font-semibold uppercase tracking-widest text-input-placeholder mb-3">Client</h3>
-                <UserCard
-                  name={engagement.client_name ?? 'Unknown'}
-                  secondary={null}
-                  className="px-0 py-0"
-                  size="md"
-                />
-              </div>
-
-              {engagement.client_email && (
-                <div>
-                  <h3 className="text-xs font-semibold uppercase tracking-widest text-input-placeholder mb-3">Contact</h3>
-                  <dl className="space-y-2 text-sm">
-                    <div className="flex flex-col">
-                      <dt className="text-input-placeholder text-xs mb-0.5">Email</dt>
-                      <dd className="text-input-text font-medium truncate">{engagement.client_email}</dd>
-                    </div>
-                  </dl>
-                </div>
-              )}
-
-              {/* Who is the client / who is not */}
-              {proposal?.client_summary?.co_clients && proposal.client_summary.co_clients.length > 0 && (
-                <div>
-                  <h3 className="text-xs font-semibold uppercase tracking-widest text-input-placeholder mb-3">Co-Clients</h3>
-                  <ul className="space-y-1 text-sm text-input-text">
-                    {proposal.client_summary.co_clients.map((c, i) => <li key={i}>{c}</li>)}
-                  </ul>
-                </div>
-              )}
-              {proposal?.client_summary?.non_clients && proposal.client_summary.non_clients.length > 0 && (
-                <div>
-                  <h3 className="text-xs font-semibold uppercase tracking-widest text-input-placeholder mb-3">Not Represented</h3>
-                  <ul className="space-y-1 text-sm text-rose-400">
-                    {proposal.client_summary.non_clients.map((c, i) => <li key={i}>{c}</li>)}
-                  </ul>
-                </div>
-              )}
-            </div>
-          </div>
+            </section>
+          )}
         </div>
+      }
+    >
+      <div className="space-y-6">
+        {/* Main header card */}
+        <section className="glass-card p-6 sm:p-10">
+          <header className="mb-6">
+            <h2 className="text-xs font-semibold uppercase tracking-widest text-input-placeholder mb-2">
+              Engagement details
+            </h2>
+            <h1 className="text-2xl sm:text-3xl font-bold text-input-text mb-4">
+              {engagement.client_name ?? 'Unknown Client'}
+            </h1>
+            <div className="flex items-center flex-wrap gap-3">
+              {engagement.practice_area && (
+                <div className="bg-accent/10 border border-accent/20 text-[rgb(var(--accent-foreground))] px-2 py-0.5 rounded-md text-xs font-semibold">
+                  {engagement.practice_area}
+                </div>
+              )}
+              <span className="text-sm text-input-placeholder">
+                Created {formatLongDate(engagement.created_at)}
+              </span>
+            </div>
+            <div className="mt-4">
+              <DraftMetaBadge proposal={proposal} />
+            </div>
+          </header>
+
+          {engagement.description && (
+            <div className="pt-6 border-t border-line-glass/10">
+              <p className="text-xs font-medium uppercase tracking-wide text-input-placeholder mb-2">Description</p>
+              <p className="text-sm text-input-text leading-relaxed">{engagement.description}</p>
+            </div>
+          )}
+
+          <div className="pt-6 border-t border-line-glass/10 grid grid-cols-1 md:grid-cols-2 gap-6">
+            {engagement.urgency && (
+              <StatCell label="Urgency" value={engagement.urgency} icon={ExclamationTriangleIcon} />
+            )}
+            {engagement.opposing_party && (
+              <StatCell label="Opposing party" value={engagement.opposing_party} icon={ScaleIcon} />
+            )}
+            {engagement.desired_outcome && (
+              <StatCell label="Desired outcome" value={engagement.desired_outcome} icon={CheckCircleIcon} />
+            )}
+            {engagement.case_strength != null && (
+              <StatCell label="AI case strength" value={`${engagement.case_strength}%`} icon={ScaleIcon} />
+            )}
+          </div>
+        </section>
+
+        {/* Detail cards */}
+        <ScopeCard proposal={proposal} />
+        <FeesCard proposal={proposal} engagement={engagement} />
+        <GoalsSection proposal={proposal} />
+        <ConflictPanel proposal={proposal} />
       </div>
 
-      {/* ── Action dialogs ────────────────────────────────────────────── */}
       <Dialog
         isOpen={dialogAction !== null}
         onClose={closeDialog}
@@ -728,7 +698,7 @@ export const EngagementDetailPage: FunctionComponent<EngagementDetailPageProps> 
         disableBackdropClick={isSubmitting}
       >
         <DialogBody className="space-y-4">
-          <div className="rounded-xl border border-line-glass/10 bg-surface-utility/40 dark:bg-white/[0.03] p-4">
+          <div className="rounded-xl border border-line-glass/10 bg-surface-utility/40 p-4">
             <p className="text-sm text-input-placeholder">
               {dialogAction === 'send'
                 ? 'Once sent, the client can review the scope, fee terms, and accept online.'
@@ -762,7 +732,7 @@ export const EngagementDetailPage: FunctionComponent<EngagementDetailPageProps> 
           </Button>
         </DialogFooter>
       </Dialog>
-    </div>
+    </SettingsPage>
   );
 };
 

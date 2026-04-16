@@ -29,7 +29,6 @@ import { SettingRow } from '@/features/settings/components/SettingRow';
 import { SettingSection } from '@/features/settings/components/SettingSection';
 import { PlanFeaturesList, type PlanFeature } from '@/features/settings/components/PlanFeaturesList';
 import { EmailSettingsSection } from '@/features/settings/components/EmailSettingsSection';
-import { ContentPageLayout } from '@/shared/ui/layout';
 import { LoadingBlock } from '@/shared/ui/layout/LoadingBlock';
 import { SettingsDangerButton } from '@/features/settings/components/SettingsDangerButton';
 import { SettingsHelperText } from '@/features/settings/components/SettingsHelperText';
@@ -39,6 +38,7 @@ import { normalizePracticeRole } from '@/shared/utils/practiceRoles';
 import { FormActions, FormLabel } from '@/shared/ui/form';
 import { buildSettingsPath, resolveSettingsBasePath } from '@/shared/utils/workspace';
 import { features } from '@/config/features';
+import { cn } from '@/shared/utils/cn';
 
 
 export interface AccountPageProps {
@@ -822,7 +822,7 @@ export const AccountPage = ({
     : undefined;
 
   return (
-    <ContentPageLayout title={t('settings:account.title')} className={className}>
+    <div className={cn('space-y-6', className)}>
       <SettingRow label={t('settings:account.nameLabel')}>
         <div className="flex items-center gap-3">
           <div className="w-10">
@@ -1207,6 +1207,6 @@ export const AccountPage = ({
           />
         </div>
       </Dialog>
-    </ContentPageLayout>
+    </div>
   );
 };

@@ -1,21 +1,17 @@
 import { useState, useMemo, useEffect } from 'preact/hooks';
-import { useLocation } from 'preact-iso';
 import { Button } from '@/shared/ui/Button';
 import { Input } from '@/shared/ui/input';
-import { SectionDivider } from '@/shared/ui/layout';
-import { ContentPageLayout } from '@/shared/ui/layout';
+import { SectionDivider, SettingsPage } from '@/shared/ui/layout';
 import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
 import { SettingsNotice } from '@/features/settings/components/SettingsNotice';
 import { SettingsHelperText } from '@/features/settings/components/SettingsHelperText';
-import { ArrowLeftIcon } from '@heroicons/react/24/outline';
 import { useToastContext } from '@/shared/contexts/ToastContext';
-import { useNavigation } from '@/shared/utils/navigation';
 import { authClient, hasTwoFactorPlugin, type TwoFactorClient } from '@/shared/lib/authClient';
 import { useTranslation } from '@/shared/i18n/hooks';
-import { buildSettingsPath, resolveSettingsBasePath } from '@/shared/utils/workspace';
 
 export interface MFAEnrollmentPageProps {
   className?: string;
+  onBack?: () => void;
 }
 
 /**
@@ -39,17 +35,14 @@ export class MFAVerificationError extends Error {
 }
 
 export const MFAEnrollmentPage = ({
-  className = ''
+  className = '',
+  onBack
 }: MFAEnrollmentPageProps) => {
   const { showSuccess, showError } = useToastContext();
-  const { navigate } = useNavigation();
-  const location = useLocation();
   const [verificationCode, setVerificationCode] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
   const [isMFAConfigured, setIsMFAConfigured] = useState<boolean | null>(null);
   const { t } = useTranslation(['settings', 'common']);
-  const settingsBasePath = resolveSettingsBasePath(location.path);
-  const toSettingsPath = (subPath?: string) => buildSettingsPath(settingsBasePath, subPath);
 
   // Check for twoFactor availability during component initialization
   useEffect(() => {
@@ -130,7 +123,7 @@ export const MFAEnrollmentPage = ({
         t('settings:security.mfa.toastEnabled.title'),
         t('settings:security.mfa.toastEnabled.body')
       );
-      navigate(toSettingsPath('security'));
+        if (onBack) onBack();
     } catch (error) {
       // Distinguish between configuration errors and verification failures
       if (error instanceof MFAConfigurationError) {
@@ -192,20 +185,12 @@ export const MFAEnrollmentPage = ({
   };
 
   return (
-    <ContentPageLayout
+    <SettingsPage
       title={t('settings:mfa.title')}
+      showBack={Boolean(onBack)}
+      onBack={onBack}
       className={className}
-      wrapChildren={false}
-      contentClassName="pb-8"
-      headerLeading={(
-        <Button
-          variant="icon"
-          size="icon"
-          onClick={() => navigate(toSettingsPath('security'))}
-          aria-label={t('settings:mfa.back')}
-          icon={ArrowLeftIcon} iconClassName="w-5 h-5"
-        />
-      )}
+      contentMaxWidth={null}
     >
       <div className="max-w-md mx-auto text-center space-y-8">
           {/* Configuration Error Banner */}
@@ -352,6 +337,6 @@ export const MFAEnrollmentPage = ({
             </div>
           </div>
       </div>
-    </ContentPageLayout>
+    </SettingsPage>
   );
 };

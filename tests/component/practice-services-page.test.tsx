@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/preact';
 import type { ComponentChildren } from 'preact';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { PracticeServicesPage } from '@/features/settings/pages/PracticeServicesPage';
+import { PracticeCoveragePage } from '@/features/settings/pages/PracticeCoveragePage';
 
 type Deferred<T> = {
   promise: Promise<T>;
@@ -50,7 +50,7 @@ vi.mock('@heroicons/react/24/outline', async () => {
 });
 
 vi.mock('preact-iso', () => ({
-  useLocation: () => ({ path: '/practice/test/settings/practice/services' })
+  useLocation: () => ({ path: '/practice/test/settings/practice/coverage' })
 }));
 
 vi.mock('@/shared/hooks/usePracticeManagement', () => ({
@@ -190,7 +190,7 @@ vi.mock('@/features/services/components/ServicesEditor', () => ({
   )
 }));
 
-describe('PracticeServicesPage', () => {
+describe('PracticeCoveragePage', () => {
   beforeEach(() => {
     detailsSeed.current = {
       services: [
@@ -212,7 +212,7 @@ describe('PracticeServicesPage', () => {
       .mockImplementationOnce(() => firstSave.promise)
       .mockImplementationOnce(() => secondSave.promise);
 
-    render(<PracticeServicesPage />);
+    render(<PracticeCoveragePage />);
 
     fireEvent.click(screen.getByRole('button', { name: 'Save A' }));
     await waitFor(() => expect(screen.getByTestId('services-props')).toHaveTextContent('Mediation'));
@@ -254,7 +254,7 @@ describe('PracticeServicesPage', () => {
       .mockImplementationOnce(() => firstSave.promise)
       .mockImplementationOnce(() => secondSave.promise);
 
-    render(<PracticeServicesPage />);
+    render(<PracticeCoveragePage />);
 
     fireEvent.click(screen.getByRole('button', { name: 'Save A' }));
     await waitFor(() => expect(screen.getByTestId('services-props')).toHaveTextContent('Mediation'));
@@ -282,7 +282,7 @@ describe('PracticeServicesPage', () => {
       .mockImplementationOnce(() => firstSave.promise)
       .mockImplementationOnce(() => secondSave.promise);
 
-    render(<PracticeServicesPage />);
+    render(<PracticeCoveragePage />);
 
     fireEvent.click(screen.getByRole('button', { name: 'Save A' }));
     await waitFor(() => expect(screen.getByTestId('services-props')).toHaveTextContent('Mediation'));
@@ -322,7 +322,7 @@ describe('PracticeServicesPage', () => {
       .mockImplementationOnce(() => firstSave.promise)
       .mockImplementationOnce(() => secondSave.promise);
 
-    render(<PracticeServicesPage />);
+    render(<PracticeCoveragePage />);
 
     fireEvent.click(screen.getByRole('button', { name: 'Save A' }));
     await waitFor(() => expect(screen.getByTestId('services-props')).toHaveTextContent('Mediation'));
@@ -352,7 +352,7 @@ describe('PracticeServicesPage', () => {
     const failingSave = createDeferred<{ services?: Array<Record<string, unknown>> | null } | null>();
     mockUpdateDetailsRequest.mockImplementationOnce(() => failingSave.promise);
 
-    render(<PracticeServicesPage />);
+    render(<PracticeCoveragePage />);
 
     fireEvent.click(screen.getByRole('button', { name: 'Save A' }));
     await waitFor(() => expect(screen.getByTestId('services-props')).toHaveTextContent('Mediation'));

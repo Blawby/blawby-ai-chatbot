@@ -16,7 +16,6 @@ import { SettingSection } from '@/features/settings/components/SettingSection';
 import { SettingToggle } from '@/features/settings/components/SettingToggle';
 import { SettingRow } from '@/features/settings/components/SettingRow';
 import { PasswordChangeForm } from '@/features/settings/components/PasswordChangeForm';
-import { ContentPageLayout } from '@/shared/ui/layout';
 import { LoadingBlock } from '@/shared/ui/layout/LoadingBlock';
 import { SettingsDangerButton } from '@/features/settings/components/SettingsDangerButton';
 import { SettingsHelperText } from '@/features/settings/components/SettingsHelperText';
@@ -25,6 +24,7 @@ import type { SecurityPreferences } from '@/shared/types/preferences';
 import { FormActions } from '@/shared/ui/form';
 import { features } from '@/config/features';
 import { buildSettingsPath, resolveSettingsBasePath } from '@/shared/utils/workspace';
+import { cn } from '@/shared/utils/cn';
 
 // Local interface for user with security-related fields
 interface SecurityUser {
@@ -429,7 +429,7 @@ export const SecurityPage = ({
   }
 
   return (
-    <ContentPageLayout title={t('settings:security.title')} className={className}>
+    <div className={cn('space-y-6', className)}>
       {/* Password Section */}
       <SettingSection
         title={t('settings:security.password.sectionTitle')}
@@ -575,6 +575,6 @@ export const SecurityPage = ({
           </Dialog>
         </>
       )}
-    </ContentPageLayout>
+    </div>
   );
 };

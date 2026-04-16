@@ -39,7 +39,6 @@ export interface ChatContainerProps {
     name: string;
     profileImage: string | null;
     practiceId: string;
-    description?: string | null;
     slug?: string | null;
   };
   heightClassName?: string;
@@ -168,13 +167,11 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   const composerDockRef = useRef<HTMLDivElement>(null);
   const [composerInsetPx, setComposerInsetPx] = useState(104);
   const isChatInputLocked = Boolean(composerDisabled) || isSessionReady === false || isSocketReady === false || (isPublicWorkspace && intakeStatus?.step === 'contact_form_slim');
+  const hiddenSystemMessageKeys = new Set(['ask_question_help', 'disclaimer_accepted']);
   const baseMessages = isPublicWorkspace
-    ? messages.filter((message) => message.metadata?.systemMessageKey !== 'ask_question_help')
+    ? messages.filter((message) => !hiddenSystemMessageKeys.has(String(message.metadata?.systemMessageKey ?? '')))
     : messages;
-  const hasUserMessages = messages.some((message) => message.role === 'user');
-  const filteredMessages = hasUserMessages
-    ? baseMessages.filter((message) => message.metadata?.systemMessageKey !== 'intro')
-    : baseMessages;
+  const filteredMessages = baseMessages;
   
   const shouldShowSlimForm = isPublicWorkspace &&
     intakeStatus?.step === 'contact_form_slim' &&

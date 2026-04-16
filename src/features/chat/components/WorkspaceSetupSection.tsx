@@ -140,7 +140,7 @@ export const WorkspaceSetupSection: FunctionComponent<WorkspaceSetupSectionProps
 
   const derivedProgress = useMemo(() => {
     const name = (extracted.name ?? practice?.name ?? '').trim();
-    const description = (extracted.description ?? details?.description ?? practice?.description ?? '').trim();
+    const description = (extracted.description ?? '').trim();
     const website = (extracted.website ?? details?.website ?? practice?.website ?? '').trim();
     const contactPhone = (extracted.businessPhone ?? details?.businessPhone ?? practice?.businessPhone ?? '').trim();
     const businessEmail = (extracted.businessEmail ?? details?.businessEmail ?? practice?.businessEmail ?? '').trim();
@@ -210,8 +210,6 @@ export const WorkspaceSetupSection: FunctionComponent<WorkspaceSetupSectionProps
       if (JSON.stringify(nextAddress) !== JSON.stringify(currentAddress)) return true;
     }
     if (Array.isArray(extracted.services) && !sameServices(extracted.services, currentServices)) return true;
-    const currentDescription = (details?.description ?? practice?.description ?? '').trim();
-    if (typeof extracted.description === 'string' && extracted.description.trim() !== currentDescription) return true;
     return false;
   }, [details, extracted, practice]);
 
@@ -237,7 +235,6 @@ export const WorkspaceSetupSection: FunctionComponent<WorkspaceSetupSectionProps
         postalCode: details?.postalCode ?? practice?.postalCode ?? '',
         country: details?.country ?? practice?.country ?? '',
       },
-      description: details?.description ?? practice?.description ?? undefined,
     };
     let failingStep: string | null = null;
     try {
@@ -259,7 +256,6 @@ export const WorkspaceSetupSection: FunctionComponent<WorkspaceSetupSectionProps
         businessEmail: extracted.businessEmail ?? details?.businessEmail ?? practice?.businessEmail ?? '',
         businessPhone: extracted.businessPhone ?? details?.businessPhone ?? practice?.businessPhone ?? '',
         address: mergedAddress,
-        description: extracted.description ?? details?.description ?? practice?.description ?? undefined,
       }, { suppressSuccessToast: true });
       if (Array.isArray(extracted.services)) {
         failingStep = 'services';
@@ -309,9 +305,8 @@ export const WorkspaceSetupSection: FunctionComponent<WorkspaceSetupSectionProps
     name: practice?.name ?? 'Practice',
     profileImage: practice?.logo ?? null,
     practiceId: practiceId || (practice?.id ?? ''),
-    description: details?.description ?? practice?.description ?? '',
     slug: practice?.slug ?? undefined,
-  }), [details?.description, practice, practiceId]);
+  }), [practice, practiceId]);
 
   const chatMessagesReady = waitingForRealChat ? false : (chatAdapter?.messagesReady ?? true);
   const firstRunPromptMessages = useMemo<ChatMessageUI[]>(() => [{

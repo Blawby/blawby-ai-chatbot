@@ -10,6 +10,8 @@ export interface SettingRowProps {
   description?: string | ComponentChildren;
   children?: ComponentChildren;
   className?: string;
+  controlClassName?: string;
+  layout?: 'responsive' | 'stacked';
 }
 
 export const SettingRow = ({
@@ -18,24 +20,34 @@ export const SettingRow = ({
   labelNode,
   description,
   children,
-  className = ''
+  className = '',
+  controlClassName,
+  layout = 'responsive',
 }: SettingRowProps) => {
+  const isStacked = layout === 'stacked';
+
   return (
-    <div className={cn('flex flex-col gap-3 py-3 sm:flex-row sm:items-start sm:justify-between', className)}>
+    <div
+      className={cn(
+        'flex flex-col gap-3 py-3',
+        !isStacked && 'sm:flex-row sm:items-start sm:justify-between',
+        className
+      )}
+    >
       <div className="flex-1 min-w-0">
         {labelNode ?? <FormLabel className={labelClassName}>{label}</FormLabel>}
         {description && (
           typeof description === 'string' ? (
             <SettingDescription text={description} />
           ) : (
-            <div className="text-xs text-input-placeholder mt-1">
+            <div className="mt-1 text-xs text-input-placeholder">
               {description}
             </div>
           )
         )}
       </div>
       {children !== undefined && children !== null && (
-        <div className="w-full self-start sm:ml-4 sm:w-auto">
+        <div className={cn('w-full self-start', !isStacked && 'sm:ml-4 sm:w-auto', controlClassName)}>
           {children}
         </div>
       )}

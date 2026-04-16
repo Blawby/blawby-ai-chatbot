@@ -153,18 +153,17 @@ export interface Practice {
   config?: {
     ownerEmail?: string;
     metadata?: Record<string, unknown>;
-    description?: string;
     [key: string]: unknown; // Allow additional config properties
   };
   stripeCustomerId?: string | null;
   subscriptionPeriodEnd?: number | null;
-  description?: string;
   isPersonal?: boolean | null;
   betterAuthOrgId?: string;
   businessOnboardingStatus?: 'not_required' | 'pending' | 'completed' | 'skipped';
   businessOnboardingCompletedAt?: number | null;
   businessOnboardingSkipped?: boolean;
   businessOnboardingHasDraft?: boolean;
+  legalDisclaimer?: string | null;
 }
 
 export interface CreatePracticeRequest {
@@ -201,7 +200,8 @@ export interface PracticeDetailsUpdate {
   country?: string | null;
   primaryColor?: string | null;
   accentColor?: string | null;
-  description?: string | null;
+  introMessage?: string | null;
+  legalDisclaimer?: string | null;
   isPublic?: boolean | null;
   services?: Array<Record<string, unknown>> | null;
   serviceStates?: string[] | null;
@@ -231,7 +231,8 @@ export interface PracticeDetails {
   country?: string | null;
   primaryColor?: string | null;
   accentColor?: string | null;
-  description?: string | null;
+  introMessage?: string | null;
+  legalDisclaimer?: string | null;
   isPublic?: boolean | null;
   services?: Array<Record<string, unknown>> | null;
   serviceStates?: string[] | null;
@@ -626,7 +627,7 @@ function normalizePracticePayload(payload: unknown): Practice {
     country: toNullableString(record.country),
     primaryColor: toNullableString(record.primaryColor ?? record.primary_color),
     accentColor: toNullableString(record.accentColor ?? record.accent_color),
-    description: toNullableString(record.description ?? record.overview) ?? undefined,
+    legalDisclaimer: toNullableString(record.legalDisclaimer ?? record.legal_disclaimer ?? record.overview),
     isPublic: 'isPublic' in record || 'is_public' in record
       ? Boolean(record.isPublic ?? record.is_public)
       : null,
@@ -1666,8 +1667,20 @@ function normalizePracticeDetailsPayload(payload: PracticeDetailsUpdate): Record
   if ('accentColor' in payload && payload.accentColor !== undefined) {
     normalized.accent_color = payload.accentColor;
   }
-  const description = normalizeTextOrUndefined(payload.description);
-  if (description !== undefined) normalized.overview = description;
+  if ('legalDisclaimer' in payload) {
+    if (payload.legalDisclaimer === null) {
+      normalized.overview = '';
+    } else if (typeof payload.legalDisclaimer === 'string') {
+      normalized.overview = payload.legalDisclaimer.trim();
+    }
+  }
+  if ('introMessage' in payload) {
+    if (payload.introMessage === null) {
+      normalized.intro_message = '';
+    } else if (typeof payload.introMessage === 'string') {
+      normalized.intro_message = payload.introMessage.trim();
+    }
+  }
   if ('isPublic' in payload && payload.isPublic !== undefined) {
     normalized.is_public = payload.isPublic;
   }
@@ -1758,7 +1771,10 @@ export function normalizePracticeDetailsResponse(payload: unknown): PracticeDeta
   }
   const hasMappedDetailKey = (value: Record<string, unknown>): boolean => ([
     'overview',
-    'description',
+    'legalDisclaimer',
+    'legal_disclaimer',
+    'intro_message',
+    'introMessage',
     'business_phone',
     'businessPhone',
     'business_email',
@@ -1885,7 +1901,8 @@ export function normalizePracticeDetailsResponse(payload: unknown): PracticeDeta
     calendlyUrl: getOptionalNullableString(container, ['calendly_url', 'calendlyUrl']),
     billingIncrementMinutes: getOptionalNullableNumber(container, ['billing_increment_minutes', 'billingIncrementMinutes']),
     website: getOptionalNullableString(container, ['website']),
-    description: getOptionalNullableString(container, ['overview', 'description']),
+    introMessage: getOptionalNullableString(container, ['intro_message', 'introMessage']),
+    legalDisclaimer: getOptionalNullableString(container, ['overview', 'legalDisclaimer', 'legal_disclaimer']),
     isPublic: 'is_public' in container || 'isPublic' in container
       ? Boolean(container.is_public ?? container.isPublic)
       : undefined,

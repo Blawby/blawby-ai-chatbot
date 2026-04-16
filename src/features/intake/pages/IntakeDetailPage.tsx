@@ -15,7 +15,7 @@ import { CheckCircleIcon as CheckCircleIconSolid } from '@heroicons/react/24/sol
 import { Icon } from '@/shared/ui/Icon';
 import { Button } from '@/shared/ui/Button';
 import { UserCard } from '@/shared/ui/profile';
-import { DetailHeader } from '@/shared/ui/layout/DetailHeader';
+import { SettingsPage, DetailHeader } from '@/shared/ui/layout';
 import { Page } from '@/shared/ui/layout/Page';
 import { LoadingBlock } from '@/shared/ui/layout/LoadingBlock';
 import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
@@ -107,6 +107,8 @@ function triageLabel(status?: string) {
   if (status === 'pending_review') return 'Pending Review';
   if (status === 'accepted') return 'Accepted';
   if (status === 'declined') return 'Declined';
+  if (status === 'rejected') return 'Rejected';
+  if (status === 'spam') return 'Spam';
   return status ?? 'Unknown';
 }
 
@@ -142,70 +144,73 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
   const [triageReason, setTriageReason] = useState('');
   const [previewMessages, setPreviewMessages] = useState<ChatMessageUI[]>([]);
   const [previewLoading, setPreviewLoading] = useState(false);
+  
   // Use canonical conversation flow state
   const {
     conversationMetadata,
     updateConversationMetadata: updateConversationMetadataPatch,
-    applyIntakeFields,
     intakeConversationState,
   } = useMessageHandling({
     practiceId: practiceId ?? undefined,
     conversationId: intake?.conversation_id,
   });
-    // Restore initial previewMessages loading
-    useEffect(() => {
-      const conversationId = intake?.conversation_id;
-      const targetPracticeId = intake?.organization_id;
-      if (!conversationId || !targetPracticeId) {
-        setPreviewMessages([]);
-        setPreviewLoading(false);
-        return;
-      }
-      const controller = new AbortController();
+
+  const isMountedRef = useRef(true);
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => { isMountedRef.current = false; };
+  }, []);
+
+  // Restore initial previewMessages loading
+  useEffect(() => {
+    const conversationId = intake?.conversation_id;
+    const targetPracticeId = intake?.organization_id;
+    if (!conversationId || !targetPracticeId) {
       setPreviewMessages([]);
-      setPreviewLoading(true);
-      fetchConversationMessages(conversationId, targetPracticeId, { limit: 100, signal: controller.signal })
-        .then((messages) => {
-          if (!isMountedRef.current || controller.signal.aborted) return;
-          const mappedMessages = messages.map((message) => ({
-            id: message.id,
-            role: message.role,
-            content: message.content,
-            timestamp: new Date(message.created_at).getTime(),
-            reply_to_message_id: message.reply_to_message_id ?? null,
-            metadata: message.metadata ?? undefined,
-            isUser: message.user_id === session?.user?.id,
-            seq: message.seq,
-          } satisfies ChatMessageUI));
-          setPreviewMessages(mappedMessages);
-        })
-        .catch((err) => {
-          if (!isMountedRef.current || controller.signal.aborted) return;
-          console.warn('[IntakeDetailPage] Failed to load conversation preview', err);
-          setPreviewMessages([]);
-        })
-        .finally(() => {
-          if (isMountedRef.current && !controller.signal.aborted) {
-            setPreviewLoading(false);
-          }
-        });
-      return () => controller.abort();
-    }, [intake?.conversation_id, intake?.organization_id, session?.user?.id]);
+      setPreviewLoading(false);
+      return;
+    }
+    const controller = new AbortController();
+    setPreviewMessages([]);
+    setPreviewLoading(true);
+    fetchConversationMessages(conversationId, targetPracticeId, { limit: 100, signal: controller.signal })
+      .then((messages) => {
+        if (!isMountedRef.current || controller.signal.aborted) return;
+        const mappedMessages = messages.map((message) => ({
+          id: message.id,
+          role: message.role,
+          content: message.content,
+          timestamp: new Date(message.created_at).getTime(),
+          reply_to_message_id: message.reply_to_message_id ?? null,
+          metadata: message.metadata ?? undefined,
+          isUser: message.user_id === session?.user?.id,
+          seq: message.seq,
+        } satisfies ChatMessageUI));
+        setPreviewMessages(mappedMessages);
+      })
+      .catch((err) => {
+        if (!isMountedRef.current || controller.signal.aborted) return;
+        console.warn('[IntakeDetailPage] Failed to load conversation preview', err);
+        setPreviewMessages([]);
+      })
+      .finally(() => {
+        if (isMountedRef.current && !controller.signal.aborted) {
+          setPreviewLoading(false);
+        }
+      });
+    return () => controller.abort();
+  }, [intake?.conversation_id, intake?.organization_id, session?.user?.id]);
+
   const [composerValue, setComposerValue] = useState('');
   const [composerSubmitting, setComposerSubmitting] = useState(false);
   const [gatherDetailsSubmitting, setGatherDetailsSubmitting] = useState(false);
   const composerTextareaRef = useRef<HTMLTextAreaElement>(null);
-  const isMountedRef = useRef(true);
+  
   const {
     details: practiceDetails,
     hasDetails: hasPracticeDetails,
     fetchDetails: fetchPracticeDetails,
   } = usePracticeDetails(practiceId, null, false);
-
-  useEffect(() => {
-    isMountedRef.current = true;
-    return () => { isMountedRef.current = false; };
-  }, []);
 
   // Load intake detail
   useEffect(() => {
@@ -251,8 +256,6 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
     setTriageReason('');
   }, [isSubmitting]);
 
-  // Remove local conversationMetadata effect; handled by useMessageHandling
-
   const runTriage = useCallback(async (action: 'accepted' | 'declined', reason?: string) => {
     if (isSubmitting || !intake) return;
 
@@ -291,13 +294,6 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
           );
           if (!participantRes.ok) {
             participantFailed = true;
-            console.warn('[IntakeDetailPage] Failed to add participant', {
-              status: participantRes.status,
-              statusText: participantRes.statusText,
-              conversationId: responseConversationId,
-              practiceId: targetPracticeId,
-              userId: session.user.id,
-            });
           }
         } catch (participantErr) {
           participantFailed = true;
@@ -347,8 +343,8 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
             metadata: {
               systemMessageKey: 'lead_declined',
               intakeUuid: intakeId,
-              triageStatus: 'declined',
-              triage_status: 'declined',
+              triageStatus: action,
+              triage_status: action,
             },
           });
         } catch (msgErr) {
@@ -430,7 +426,6 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
     const targetPracticeId = intake?.organization_id;
     if (!conversationId || !targetPracticeId || gatherDetailsSubmitting) return;
 
-    // Use canonical flow state and patch/apply methods
     const currentCase = intakeConversationState;
     const nextMetadata = applyConsultationPatchToMetadata(
       conversationMetadata,
@@ -512,8 +507,6 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
     showSuccess,
   ]);
 
-  // ── Render ────────────────────────────────────────────────────────────────
-
   const [descriptionExpanded, setDescriptionExpanded] = useState(false);
 
   if (isLoading) {
@@ -588,299 +581,288 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
     !opposingParty ||
     (typeof intake.desired_outcome === 'string' ? intake.desired_outcome.trim() === '' : !intake.desired_outcome);
 
+  const statusChipClass = (status: string) => {
+    if (status === 'accepted') return 'bg-emerald-500/10 text-emerald-500 ring-emerald-500/20';
+    if (status === 'declined' || status === 'rejected') return 'bg-rose-500/10 text-rose-500 ring-rose-500/20';
+    if (status === 'spam') return 'bg-gray-500/10 text-input-placeholder ring-gray-500/20';
+    return 'bg-accent/10 text-accent ring-accent/20';
+  };
+
   return (
-    <div className="flex h-full flex-col min-h-0">
-      <DetailHeader
-        title="Consultation Request"
-        subtitle={name}
-        showBack
-        onBack={onBack}
-      />
-
-      <div className="flex-1 min-h-0 overflow-y-auto">
-        <div className="max-w-6xl mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
-
-          {/* ── Left column: document ───────────────────────────── */}
-          <div className="lg:col-span-2 space-y-6">
-            <section className="glass-card overflow-hidden p-6 sm:p-10">
-              <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_280px]">
-                <header className="min-w-0">
-                  <h2 className="mb-2 text-xs font-semibold uppercase tracking-widest text-input-placeholder">
-                    Intake details
-                  </h2>
-                  <h1 className="break-words text-2xl font-bold leading-tight text-input-text sm:text-4xl">
-                    {intakeTitle}
-                  </h1>
-                  <p className="mt-3 text-sm text-input-placeholder">
-                    Posted {dateLabel}{practiceServiceName ? ` · ${practiceServiceName}` : ''}
-                  </p>
-
-                  {description ? (
-                    <div className="mt-8">
-                      <p className={`whitespace-pre-wrap text-base leading-relaxed text-input-text ${descriptionExpanded ? '' : 'line-clamp-6'}`}>
-                        {description}
-                      </p>
-                      {description.length > 350 ? (
-                        <Button
-                          variant="link"
-                          size="sm"
-                          type="button"
-                          onClick={() => setDescriptionExpanded(!descriptionExpanded)}
-                          className="mt-3 px-0"
-                        >
-                          {descriptionExpanded ? 'Show less' : 'Read more'}
-                        </Button>
-                      ) : null}
-                    </div>
-                  ) : (
-                    <p className="mt-8 text-sm text-input-placeholder">No description yet.</p>
-                  )}
-                </header>
-
-                <aside className="lg:border-l lg:border-line-glass/10 lg:pl-6">
-                  <dl className="divide-y divide-line-glass/10 text-sm">
-                    <SummaryRow label="Status" value={triageLabel(effectiveTriageStatus)} icon={CheckCircleIcon} />
-                    <SummaryRow label="Consultation" value={paymentLabel} icon={CreditCardIcon} />
-                    <SummaryRow label="Location" value={locationLabel} icon={MapPinIcon} />
-                    <SummaryRow label="Urgency" value={intake.urgency ? urgencyLabel(intake.urgency) : null} icon={ExclamationTriangleIcon} />
-                    <SummaryRow label="Court date" value={intake.court_date ? (formatLongDate(intake.court_date) ?? intake.court_date) : null} icon={ClockIcon} />
-                    <SummaryRow label="Documents" value={hasDocs} icon={ClipboardDocumentCheckIcon} />
-                    <SummaryRow label="AI case strength" value={caseStrength} icon={ScaleIcon} />
-                    <SummaryRow label="Household income" value={income} icon={CreditCardIcon} />
-                    <SummaryRow label="Household size" value={householdSize} icon={UserIcon} />
-                  </dl>
-                </aside>
-              </div>
-            </section>
-
-            <section className="glass-card p-6 sm:p-8">
-              <h2 className="mb-6 text-xs font-semibold uppercase tracking-widest text-input-placeholder">
-                Legal details
-              </h2>
-              <dl className="grid grid-cols-1 gap-5 md:grid-cols-3">
-                <StatCell label="On behalf of" value={onBehalfOf} icon={UserIcon} />
-                <StatCell label="Opposing party" value={opposingParty} icon={ScaleIcon} />
-                <StatCell label="Desired outcome" value={intake.desired_outcome} icon={CheckCircleIcon} />
-              </dl>
-              {hasMissingLegalDetails && intake.conversation_id ? (
-                <div className="mt-6 flex flex-col gap-3 border-t border-line-glass/10 pt-5 sm:flex-row sm:items-center sm:justify-between">
-                  <p className="text-sm leading-relaxed text-input-placeholder">
-                    Blawby can ask the client for the missing legal details and add them to this thread.
-                  </p>
+    <SettingsPage
+      title={intake.client_name ?? 'Intake Details'}
+      subtitle={intake.practice_area ?? undefined}
+      showBack
+      onBack={onBack}
+      actions={
+        <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ring-1 ring-inset ${statusChipClass(effectiveTriageStatus || 'pending_review')}`}>
+            {triageLabel(effectiveTriageStatus || 'pending_review')}
+        </span>
+      }
+      contentMaxWidth={null}
+      preview={
+        <div className="space-y-6">
+          {/* Triage actions */}
+          <div className="px-1 space-y-3">
+            {isPendingReview && (
+              <div className="space-y-3">
+                <Button
+                  id="intake-accept-btn"
+                  variant="primary"
+                  className="w-full"
+                  disabled={isSubmitting}
+                  onClick={() => openTriageDialog('accepted')}
+                >
+                  {isSubmitting ? (
+                    <span className="inline-flex items-center">
+                      <LoadingSpinner size="sm" className="mr-2" ariaLabel="Accepting consultation" />
+                      Accepting...
+                    </span>
+                  ) : 'Approve consultation'}
+                </Button>
+                <div className="w-full">
                   <Button
-                    type="button"
+                    id="intake-reject-btn"
                     variant="secondary"
-                    size="sm"
-                    onClick={() => void startGatherDetailsFlow()}
-                    disabled={gatherDetailsSubmitting}
-                    className="shrink-0"
-                  >
-                    {gatherDetailsSubmitting ? 'Starting...' : 'Ask Blawby to gather details'}
-                  </Button>
-                </div>
-              ) : null}
-            </section>
-
-            {/* Conversation History Card */}
-            {intake.conversation_id && (
-              <div className="glass-card flex h-[720px] flex-col overflow-hidden">
-                <header className="shrink-0 px-6 py-5 sm:px-8 sm:py-6">
-                  <div className="min-w-0">
-                    <h3 className="truncate text-lg font-semibold leading-tight text-input-text">
-                      {intakeTitle || 'Messages'}
-                    </h3>
-                  </div>
-                </header>
-
-                <div className="flex min-h-0 flex-1 flex-col bg-surface-overlay/20 touch-pan-y">
-                  {previewLoading && previewMessages.length === 0 ? (
-                    <div className="h-full flex flex-col items-center justify-center p-6 text-center">
-                      <LoadingBlock label="Loading conversation history..." />
-                    </div>
-                  ) : previewMessages.length === 0 ? (
-                    <div className="h-full flex flex-col items-center justify-center p-6 text-center">
-                      <p className="text-sm text-input-placeholder">No conversation history found for this intake.</p>
-                    </div>
-                  ) : (
-                    <VirtualMessageList
-                      messages={previewMessages}
-                      conversationTitle={intakeTitle}
-                      viewerContext="practice"
-                      practiceConfig={{
-                        name: practiceName,
-                        profileImage: practiceLogo,
-                        practiceId: intake.organization_id,
-                      }}
-                      practiceId={intake.organization_id}
-                    />
-                  )}
-                </div>
-
-                {canReplyInIntake ? (
-                  <div className="shrink-0 border-t border-line-glass/10 px-4 py-5">
-                    <MessageComposer
-                      inputValue={composerValue}
-                      setInputValue={setComposerValue}
-                      previewFiles={[]}
-                      uploadingFiles={[]}
-                      removePreviewFile={() => undefined}
-                      handleFileSelect={async () => undefined}
-                      handleCameraCapture={async () => undefined}
-                      cancelUpload={() => undefined}
-                      isRecording={false}
-                      handleMediaCapture={() => undefined}
-                      setIsRecording={() => undefined}
-                      onSubmit={() => void submitConversationReply()}
-                      onKeyDown={(event) => {
-                        if ((event as KeyboardEvent & { isComposing?: boolean }).isComposing || event.repeat) return;
-                        if (event.key === 'Enter' && !event.shiftKey) {
-                          event.preventDefault();
-                          void submitConversationReply();
-                        }
-                      }}
-                      textareaRef={composerTextareaRef}
-                      isReadyToUpload={false}
-                      isSessionReady={!composerSubmitting}
-                      isSocketReady={!composerSubmitting}
-                      disabled={composerSubmitting}
-                      hideAttachmentControls
-                      mentionCandidates={[]}
-                    />
-                  </div>
-                ) : null}
-              </div>
-            )}
-          </div>
-
-          {/* ── Right column: action panel ──────────────────────── */}
-          <div className="space-y-6">
-            {/* Action Section: Inline layout */}
-            <div className="px-1 mb-4">
-              {isPendingReview && (
-                <div className="space-y-3">
-                  <Button
-                    id="intake-accept-btn"
-                    variant="primary"
-                    className="w-full"
-                    disabled={isSubmitting}
-                    onClick={() => openTriageDialog('accepted')}
-                  >
-                    {isSubmitting ? (
-                      <span className="inline-flex items-center">
-                        <LoadingSpinner size="sm" className="mr-2" ariaLabel="Accepting consultation" />
-                        Accept Consultation
-                      </span>
-                    ) : 'Accept Consultation'}
-                  </Button>
-                  <Button
-                    id="intake-decline-btn"
-                    variant="danger"
                     className="w-full"
                     disabled={isSubmitting}
                     onClick={() => openTriageDialog('declined')}
                   >
-                    {isSubmitting ? (
-                      <span className="inline-flex items-center">
-                        <LoadingSpinner size="sm" className="mr-2" ariaLabel="Declining consultation" />
-                        Decline
-                      </span>
-                    ) : 'Decline'}
+                    Reject
                   </Button>
-                  <p className="text-xs text-input-placeholder text-center leading-relaxed">
-                    Accepting will move this conversation into your inbox and notify the client.
-                  </p>
-                </div>
-              )}
-            </div>
-
-            {/* Client Context Section (Standard Rows) */}
-            <div className="space-y-6">
-              {/* About section: Identity and Verification */}
-              <div className="px-1 space-y-6">
-                <div>
-                  <h3 className="text-xs font-semibold uppercase tracking-widest text-input-placeholder mb-3">About</h3>
-                  <div className="space-y-4">
-                    {/* Payment verification text only with solid icon */}
-                    <div className="flex items-center gap-2 text-xs font-bold text-emerald-600 dark:text-emerald-400">
-                      <Icon icon={CheckCircleIconSolid} className="h-4 w-4" />
-                      Payment method verified
-                    </div>
-
-                    <UserCard
-                      name={name}
-                      secondary={null}
-                      className="px-0 py-0"
-                      size="md"
-                    />
-                  </div>
-                </div>
-
-                {/* Contact Information on right side */}
-                <div className="pt-2">
-                  <h3 className="text-xs font-semibold uppercase tracking-widest text-input-placeholder mb-3">Contact Information</h3>
-                  <dl className="space-y-3 text-sm">
-                    <div className="flex flex-col">
-                      <dt className="text-input-placeholder text-xs mb-0.5">Email</dt>
-                      <dd className="text-input-text font-medium truncate">{email || '—'}</dd>
-                    </div>
-                    <div className="flex flex-col">
-                      <dt className="text-input-placeholder text-xs mb-0.5">Phone</dt>
-                      <dd className="text-input-text font-medium">{phone || '—'}</dd>
-                    </div>
-                    {(city || state) && (
-                      <div className="flex flex-col">
-                        <dt className="text-input-placeholder text-xs mb-0.5">Location</dt>
-                        <dd className="text-input-text font-medium truncate capitalize">
-                          {[city, state].filter(Boolean).join(', ')}
-                        </dd>
-                      </div>
-                    )}
-                    {onBehalfOf && (
-                      <div className="flex flex-col">
-                        <dt className="text-input-placeholder text-xs mb-0.5">On behalf of</dt>
-                        <dd className="text-input-text font-medium">{onBehalfOf}</dd>
-                      </div>
-                    )}
-                  </dl>
                 </div>
               </div>
-            </div>
+            )}
+
+            {effectiveTriageStatus === 'accepted' && (
+              <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/20 p-5 text-center">
+                <p className="text-base font-bold text-emerald-700 dark:text-emerald-300">Intake Approved</p>
+                <p className="text-xs text-input-placeholder mt-2">This lead has been converted to a client or matter.</p>
+              </div>
+            )}
+
+            {effectiveTriageStatus === 'declined' && (
+              <div className="rounded-xl bg-rose-500/10 border border-rose-500/20 p-5 text-center">
+                <p className="text-base font-bold text-rose-700 dark:text-rose-300">Intake Rejected</p>
+              </div>
+            )}
           </div>
+
+          <div className="px-1 space-y-6">
+            <div>
+              <h3 className="text-xs font-semibold uppercase tracking-widest text-input-placeholder mb-3">About</h3>
+              <div className="space-y-4">
+                {intake?.paymentVerified && (
+                  <div className="flex items-center gap-2 text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                    <Icon icon={CheckCircleIconSolid} className="h-4 w-4" />
+                    Payment method verified
+                  </div>
+                )}
+                <UserCard
+                  name={name}
+                  secondary={null}
+                  className="px-0 py-0"
+                  size="md"
+                />
+              </div>
+            </div>
+
+            {(email || phone) && (
+              <div>
+                <h3 className="text-xs font-semibold uppercase tracking-widest text-input-placeholder mb-3">Contact Information</h3>
+                <dl className="space-y-3 text-sm">
+                  {email && (
+                    <div className="flex flex-col">
+                      <dt className="text-input-placeholder text-xs mb-0.5">Email</dt>
+                      <dd className="text-input-text font-medium truncate">{email}</dd>
+                    </div>
+                  )}
+                  {phone && (
+                    <div className="flex flex-col">
+                      <dt className="text-input-placeholder text-xs mb-0.5">Phone</dt>
+                      <dd className="text-input-text font-medium">{phone}</dd>
+                    </div>
+                  )}
+                  {locationLabel && (
+                    <div className="flex flex-col">
+                      <dt className="text-input-placeholder text-xs mb-0.5">Location</dt>
+                      <dd className="text-input-text font-medium truncate capitalize">{locationLabel}</dd>
+                    </div>
+                  )}
+                </dl>
+              </div>
+            )}
+          </div>
+
+          {/* Conversation preview */}
+          {intake.conversation_id && (
+            <section className="glass-card flex flex-col h-[600px] overflow-hidden mx-1">
+              <header className="p-4 border-b border-line-glass/10 shrink-0">
+                <h3 className="text-sm font-semibold text-input-text uppercase tracking-widest">
+                  Conversation Preview
+                </h3>
+              </header>
+              <div className="flex-1 min-h-0 overflow-hidden bg-surface-overlay/20 touch-pan-y">
+                {previewLoading && previewMessages.length === 0 ? (
+                  <div className="h-full flex flex-col items-center justify-center p-6 text-center">
+                    <LoadingBlock label="Loading conversation history..." />
+                  </div>
+                ) : previewMessages.length === 0 ? (
+                  <div className="h-full flex flex-col items-center justify-center p-6 text-center">
+                    <p className="text-sm text-input-placeholder">No conversation history found for this intake.</p>
+                  </div>
+                ) : (
+                  <VirtualMessageList
+                    messages={previewMessages}
+                    conversationTitle={intakeTitle}
+                    viewerContext="practice"
+                    practiceConfig={{
+                      name: practiceDetails?.name ?? 'Practice',
+                      profileImage: practiceDetails?.logo ?? null,
+                      practiceId: intake.organization_id,
+                    }}
+                    practiceId={intake.organization_id}
+                  />
+                )}
+              </div>
+              
+              {canReplyInIntake ? (
+                <div className="shrink-0 border-t border-line-glass/10 px-4 py-5">
+                  <MessageComposer
+                    inputValue={composerValue}
+                    setInputValue={setComposerValue}
+                    previewFiles={[]}
+                    uploadingFiles={[]}
+                    removePreviewFile={() => undefined}
+                    handleFileSelect={async () => undefined}
+                    handleCameraCapture={async () => undefined}
+                    cancelUpload={() => undefined}
+                    isRecording={false}
+                    handleMediaCapture={() => undefined}
+                    setIsRecording={() => undefined}
+                    onSubmit={() => void submitConversationReply()}
+                    onKeyDown={(event) => {
+                      if ((event as KeyboardEvent & { isComposing?: boolean }).isComposing || event.repeat) return;
+                      if (event.key === 'Enter' && !event.shiftKey) {
+                        event.preventDefault();
+                        void submitConversationReply();
+                      }
+                    }}
+                    textareaRef={composerTextareaRef}
+                    isReadyToUpload={false}
+                    isSessionReady={!composerSubmitting}
+                    isSocketReady={!composerSubmitting}
+                    disabled={composerSubmitting}
+                    hideAttachmentControls
+                    mentionCandidates={[]}
+                  />
+                </div>
+              ) : null}
+            </section>
+          )}
         </div>
+      }
+    >
+      <div className="space-y-6">
+        {/* Main header card */}
+        <section className="glass-card overflow-hidden p-6 sm:p-10">
+          <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_280px]">
+            <header className="min-w-0">
+              <h2 className="mb-2 text-xs font-semibold uppercase tracking-widest text-input-placeholder">
+                Intake details
+              </h2>
+              <h1 className="break-words text-2xl font-bold leading-tight text-input-text sm:text-4xl">
+                {intakeTitle}
+              </h1>
+              <p className="mt-3 text-sm text-input-placeholder">
+                Posted {dateLabel}{practiceServiceName ? ` · ${practiceServiceName}` : ''}
+              </p>
+
+              {description ? (
+                <div className="mt-8">
+                  <p className={`whitespace-pre-wrap text-base leading-relaxed text-input-text ${descriptionExpanded ? '' : 'line-clamp-6'}`}>
+                    {description}
+                  </p>
+                  {description.length > 350 ? (
+                    <Button
+                      variant="link"
+                      size="sm"
+                      type="button"
+                      onClick={() => setDescriptionExpanded(!descriptionExpanded)}
+                      className="mt-3 px-0"
+                    >
+                      {descriptionExpanded ? 'Show less' : 'Read more'}
+                    </Button>
+                  ) : null}
+                </div>
+              ) : (
+                <p className="mt-8 text-sm text-input-placeholder">No description yet.</p>
+              )}
+            </header>
+
+            <aside className="lg:border-l lg:border-line-glass/10 lg:pl-6">
+              <dl className="divide-y divide-line-glass/10 text-sm">
+                <SummaryRow label="Status" value={triageLabel(effectiveTriageStatus)} icon={CheckCircleIcon} />
+                <SummaryRow label="Consultation" value={paymentLabel} icon={CreditCardIcon} />
+                <SummaryRow label="Location" value={locationLabel} icon={MapPinIcon} />
+                <SummaryRow label="Urgency" value={intake.urgency ? urgencyLabel(intake.urgency) : null} icon={ExclamationTriangleIcon} />
+                <SummaryRow label="Court date" value={intake.court_date ? (formatLongDate(intake.court_date) ?? intake.court_date) : null} icon={ClockIcon} />
+                <SummaryRow label="Documents" value={hasDocs} icon={ClipboardDocumentCheckIcon} />
+                <SummaryRow label="AI case strength" value={caseStrength} icon={ScaleIcon} />
+                <SummaryRow label="Household income" value={income} icon={CreditCardIcon} />
+                <SummaryRow label="Household size" value={householdSize} icon={UserIcon} />
+              </dl>
+            </aside>
+          </div>
+        </section>
+
+        <section className="glass-card p-6 sm:p-8">
+          <h2 className="mb-6 text-xs font-semibold uppercase tracking-widest text-input-placeholder">
+            Legal details
+          </h2>
+          <dl className="grid grid-cols-1 gap-5 md:grid-cols-3">
+            <StatCell label="On behalf of" value={onBehalfOf} icon={UserIcon} />
+            <StatCell label="Opposing party" value={opposingParty} icon={ScaleIcon} />
+            <StatCell label="Desired outcome" value={intake.desired_outcome} icon={CheckCircleIcon} />
+          </dl>
+          {hasMissingLegalDetails && intake.conversation_id ? (
+            <div className="mt-6 flex flex-col gap-3 border-t border-line-glass/10 pt-5 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm leading-relaxed text-input-placeholder">
+                Blawby can ask the client for the missing legal details and add them to this thread.
+              </p>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() => void startGatherDetailsFlow()}
+                disabled={gatherDetailsSubmitting}
+                className="shrink-0"
+              >
+                {gatherDetailsSubmitting ? 'Starting...' : 'Ask Blawby to gather details'}
+              </Button>
+            </div>
+          ) : null}
+        </section>
       </div>
 
       <Dialog
         isOpen={triageDialogAction !== null}
         onClose={closeTriageDialog}
-        title={triageDialogAction === 'accepted' ? 'Accept consultation' : 'Decline consultation'}
+        title={triageDialogAction === 'accepted' ? 'Approve consultation' : 'Reject consultation'}
         description={
           triageDialogAction === 'accepted'
-            ? 'You can include an optional note. If you do, it will be posted into the conversation after you join.'
-            : 'You can include an optional reason to send with this triage decision.'
+            ? "This will approve the lead and prepare for onboarding."
+            : "This will mark the intake as rejected."
         }
         disableBackdropClick={isSubmitting}
       >
         <DialogBody className="space-y-4">
-          <div className="rounded-xl border border-line-glass/10 bg-surface-utility/40 dark:bg-white/[0.03] p-4">
-            <p className="text-sm text-input-placeholder">
-              {triageDialogAction === 'accepted'
-                ? 'Accepting will notify the client and move this conversation into your active inbox.'
-                : 'Declining will notify the client and mark this intake as declined.'}
-            </p>
-          </div>
-
           <Textarea
-            label={triageDialogAction === 'accepted' ? 'Optional note to client' : 'Optional decline reason'}
+            label="Internal note (optional)"
             value={triageReason}
             onChange={setTriageReason}
-            rows={4}
-            maxLength={1000}
-            showCharCount
-            placeholder={
-              triageDialogAction === 'accepted'
-                ? 'Thanks for reaching out. I just joined this conversation and will review your intake shortly.'
-                : 'We are unable to take this consultation at this time.'
-            }
+            rows={3}
+            placeholder="Add reasoning for this triage decision…"
           />
         </DialogBody>
         <DialogFooter>
@@ -888,20 +870,17 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
             Cancel
           </Button>
           <Button
-            variant={triageDialogAction === 'declined' ? 'danger' : 'primary'}
-            disabled={isSubmitting || !triageDialogAction}
+            variant={triageDialogAction === 'accepted' ? 'primary' : 'danger'}
+            disabled={isSubmitting}
             onClick={() => {
-              if (!triageDialogAction) return;
-              void runTriage(triageDialogAction, triageReason);
+              if (triageDialogAction) void runTriage(triageDialogAction, triageReason);
             }}
           >
-            {isSubmitting
-              ? (triageDialogAction === 'accepted' ? 'Accepting…' : 'Declining…')
-              : (triageDialogAction === 'accepted' ? 'Confirm acceptance' : 'Confirm decline')}
+            {isSubmitting ? 'Updating...' : (triageDialogAction === 'accepted' ? 'Confirm approval' : 'Confirm')}
           </Button>
         </DialogFooter>
       </Dialog>
-    </div>
+    </SettingsPage>
   );
 };
 

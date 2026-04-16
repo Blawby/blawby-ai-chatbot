@@ -42,7 +42,6 @@ interface VirtualMessageListProps {
         name: string;
         profileImage: string | null;
         practiceId: string;
-        description?: string | null;
         slug?: string | null;
     };
     isPublicWorkspace?: boolean;

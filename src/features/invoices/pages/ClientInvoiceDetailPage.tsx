@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'preact/hooks';
 import { Button } from '@/shared/ui/Button';
 import { Input, Textarea } from '@/shared/ui/input';
-import { DetailHeader } from '@/shared/ui/layout/DetailHeader';
+import { SettingsPage } from '@/shared/ui/layout';
 import { LoadingBlock } from '@/shared/ui/layout/LoadingBlock';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import { formatLongDate } from '@/shared/utils/dateFormatter';
@@ -86,7 +86,6 @@ export function ClientInvoiceDetailPage({
   const canPay = Boolean(detail && isUnpaidStatus(status) && detail.stripeHostedInvoiceUrl);
   const effectiveShowBack = showBack && Boolean(practiceSlug);
 
-
   const handleBackToList = useCallback(() => {
     if (!practiceSlug) return;
     navigate(`/client/${encodeURIComponent(practiceSlug)}/invoices`);
@@ -156,148 +155,147 @@ export function ClientInvoiceDetailPage({
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-4 p-4 sm:p-6">
-      <DetailHeader
-        title={detail.invoiceNumber}
-        subtitle={`Issued ${renderEventDate(detail.issueDate)} • Due ${renderEventDate(detail.dueDate)}`}
-        showBack={effectiveShowBack}
-        onBack={effectiveShowBack ? handleBackToList : undefined}
-        onInspector={onInspector}
-        inspectorOpen={inspectorOpen}
-        actions={(
-          <div className="flex flex-wrap items-center gap-2">
-            {canPay ? <Button onClick={handleOpenPay}>Pay</Button> : null}
+    <SettingsPage
+      title={detail.invoiceNumber}
+      subtitle={`Issued ${renderEventDate(detail.issueDate)} • Due ${renderEventDate(detail.dueDate)}`}
+      showBack={effectiveShowBack}
+      onBack={handleBackToList}
+      actions={(
+        <div className="flex flex-wrap items-center gap-2">
+          {canPay ? <Button onClick={handleOpenPay}>Pay</Button> : null}
+        </div>
+      )}
+    >
+      <div className="space-y-6">
+        <div className="mt-1">
+          <InvoiceStatusBadge status={detail.status} />
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-3">
+          <div className="glass-panel p-4">
+            <p className="text-xs uppercase tracking-[0.08em] text-input-placeholder">Total</p>
+            <p className="mt-1 text-lg font-semibold text-input-text">{formatCurrency(detail.total)}</p>
           </div>
-        )}
-      />
-      <div className="mt-1">
-        <InvoiceStatusBadge status={detail.status} />
-      </div>
+          <div className="glass-panel p-4">
+            <p className="text-xs uppercase tracking-[0.08em] text-input-placeholder">Amount paid</p>
+            <p className="mt-1 text-lg font-semibold text-input-text">{formatCurrency(detail.amountPaid)}</p>
+          </div>
+          <div className="glass-panel p-4">
+            <p className="text-xs uppercase tracking-[0.08em] text-input-placeholder">Amount due</p>
+            <p className="mt-1 text-lg font-semibold text-input-text">{formatCurrency(detail.amountDue)}</p>
+          </div>
+        </div>
 
-      <div className="grid gap-3 sm:grid-cols-3">
-        <div className="glass-panel p-4">
-          <p className="text-xs uppercase tracking-[0.08em] text-input-placeholder">Total</p>
-          <p className="mt-1 text-lg font-semibold text-input-text">{formatCurrency(detail.total)}</p>
-        </div>
-        <div className="glass-panel p-4">
-          <p className="text-xs uppercase tracking-[0.08em] text-input-placeholder">Amount paid</p>
-          <p className="mt-1 text-lg font-semibold text-input-text">{formatCurrency(detail.amountPaid)}</p>
-        </div>
-        <div className="glass-panel p-4">
-          <p className="text-xs uppercase tracking-[0.08em] text-input-placeholder">Amount due</p>
-          <p className="mt-1 text-lg font-semibold text-input-text">{formatCurrency(detail.amountDue)}</p>
-        </div>
-      </div>
-
-      <div className="glass-panel overflow-hidden">
-        <div className="border-b border-line-glass/30 px-4 py-3">
-          <h2 className="text-base font-semibold text-input-text">Line items</h2>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-sm">
-            <thead className="border-b border-line-glass/30 text-xs uppercase tracking-[0.08em] text-input-placeholder">
-              <tr>
-                <th className="px-4 py-3 text-left">Description</th>
-                <th className="px-4 py-3 text-left">Type</th>
-                <th className="px-4 py-3 text-right">Qty</th>
-                <th className="px-4 py-3 text-right">Unit</th>
-                <th className="px-4 py-3 text-right">Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {detail.lineItems.map((item) => (
-                <tr key={item.id} className="border-b border-line-glass/20 last:border-b-0">
-                  <td className="px-4 py-3 text-input-text">{item.description || '—'}</td>
-                  <td className="px-4 py-3 text-input-text">{item.type}</td>
-                  <td className="px-4 py-3 text-right text-input-text">{item.quantity}</td>
-                  <td className="px-4 py-3 text-right text-input-text">{formatCurrency(getMajorAmountValue(item.unit_price))}</td>
-                  <td className="px-4 py-3 text-right font-semibold text-input-text">{formatCurrency(getMajorAmountValue(item.line_total))}</td>
+        <div className="glass-panel overflow-hidden">
+          <div className="border-b border-line-glass/30 px-4 py-3">
+            <h2 className="text-base font-semibold text-input-text">Line items</h2>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-sm">
+              <thead className="border-b border-line-glass/30 text-xs uppercase tracking-[0.08em] text-input-placeholder">
+                <tr>
+                  <th className="px-4 py-3 text-left">Description</th>
+                  <th className="px-4 py-3 text-left">Type</th>
+                  <th className="px-4 py-3 text-right">Qty</th>
+                  <th className="px-4 py-3 text-right">Unit</th>
+                  <th className="px-4 py-3 text-right">Total</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-3">
-        <div className="glass-panel p-4">
-          <h3 className="text-sm font-semibold text-input-text">Payment history</h3>
-          {detail.payments.length === 0 ? (
-            <p className="mt-2 text-sm text-input-placeholder">No payment history available.</p>
-          ) : (
-            <ul className="mt-2 space-y-2 text-sm">
-              {detail.payments.map((payment) => (
-                <li key={payment.id} className="rounded-lg border border-line-glass/20 px-3 py-2">
-                  <p className="font-medium text-input-text">{formatCurrency(payment.amount)} • {payment.status}</p>
-                  <p className="text-xs text-input-placeholder">{renderEventDate(payment.paidAt)}</p>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-
-        <div className="glass-panel p-4">
-          <h3 className="text-sm font-semibold text-input-text">Refund history</h3>
-          {detail.refunds.length === 0 ? (
-            <p className="mt-2 text-sm text-input-placeholder">No refunds for this invoice.</p>
-          ) : (
-            <ul className="mt-2 space-y-2 text-sm">
-              {detail.refunds.map((refund) => (
-                <li key={refund.id} className="rounded-lg border border-line-glass/20 px-3 py-2">
-                  <p className="font-medium text-input-text">{formatCurrency(refund.amount)} • {refund.status}</p>
-                  <p className="text-xs text-input-placeholder">{renderEventDate(refund.createdAt)}</p>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-
-        <div className="glass-panel p-4">
-          <h3 className="text-sm font-semibold text-input-text">Request refund</h3>
-          <div className="mt-3 space-y-3">
-            <Input
-              type="number"
-              label="Amount (optional)"
-              value={requestAmount}
-              onChange={setRequestAmount}
-              min={0}
-              step={0.01}
-            />
-            <Textarea
-              label="Reason"
-              value={requestReason}
-              onChange={setRequestReason}
-              rows={3}
-            />
-            <Button onClick={() => void handleRequestRefund()} disabled={requesting || !refundRequestSupported}>
-              {requesting ? 'Submitting...' : 'Request refund'}
-            </Button>
+              </thead>
+              <tbody>
+                {detail.lineItems.map((item) => (
+                  <tr key={item.id} className="border-b border-line-glass/20 last:border-b-0">
+                    <td className="px-4 py-3 text-input-text">{item.description || '—'}</td>
+                    <td className="px-4 py-3 text-input-text">{item.type}</td>
+                    <td className="px-4 py-3 text-right text-input-text">{item.quantity}</td>
+                    <td className="px-4 py-3 text-right text-input-text">{formatCurrency(getMajorAmountValue(item.unit_price))}</td>
+                    <td className="px-4 py-3 text-right font-semibold text-input-text">{formatCurrency(getMajorAmountValue(item.line_total))}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-          {!refundRequestSupported ? (
-            <p className="mt-2 text-xs text-input-placeholder">
-              Refund requests are currently unavailable for this workspace.
-            </p>
-          ) : null}
-          {refundRequestError ? (
-            <p className="mt-2 text-xs text-red-300">{refundRequestError}</p>
-          ) : null}
+        </div>
 
-          <h4 className="mt-5 text-xs font-semibold uppercase tracking-[0.08em] text-input-placeholder">Refund request timeline</h4>
-          {detail.refundRequests.length === 0 ? (
-            <p className="mt-2 text-sm text-input-placeholder">No refund requests yet.</p>
-          ) : (
-            <ol className="mt-2 space-y-2 text-sm">
-              {detail.refundRequests.map((request) => (
-                <li key={request.id} className="rounded-lg border border-line-glass/20 px-3 py-2">
-                  <p className="font-medium text-input-text">{request.status}</p>
-                  <p className="text-xs text-input-placeholder">{renderEventDate(request.createdAt)}</p>
-                  {request.reason ? <p className="mt-1 text-xs text-input-placeholder">{request.reason}</p> : null}
-                </li>
-              ))}
-            </ol>
-          )}
+        <div className="grid gap-4 lg:grid-cols-3">
+          <div className="glass-panel p-4">
+            <h3 className="text-sm font-semibold text-input-text">Payment history</h3>
+            {detail.payments.length === 0 ? (
+              <p className="mt-2 text-sm text-input-placeholder">No payment history available.</p>
+            ) : (
+              <ul className="mt-2 space-y-2 text-sm">
+                {detail.payments.map((payment) => (
+                  <li key={payment.id} className="rounded-lg border border-line-glass/20 px-3 py-2">
+                    <p className="font-medium text-input-text">{formatCurrency(payment.amount)} • {payment.status}</p>
+                    <p className="text-xs text-input-placeholder">{renderEventDate(payment.paidAt)}</p>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          <div className="glass-panel p-4">
+            <h3 className="text-sm font-semibold text-input-text">Refund history</h3>
+            {detail.refunds.length === 0 ? (
+              <p className="mt-2 text-sm text-input-placeholder">No refunds for this invoice.</p>
+            ) : (
+              <ul className="mt-2 space-y-2 text-sm">
+                {detail.refunds.map((refund) => (
+                  <li key={refund.id} className="rounded-lg border border-line-glass/20 px-3 py-2">
+                    <p className="font-medium text-input-text">{formatCurrency(refund.amount)} • {refund.status}</p>
+                    <p className="text-xs text-input-placeholder">{renderEventDate(refund.createdAt)}</p>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          <div className="glass-panel p-4">
+            <h3 className="text-sm font-semibold text-input-text">Request refund</h3>
+            <div className="mt-3 space-y-3">
+              <Input
+                type="number"
+                label="Amount (optional)"
+                value={requestAmount}
+                onChange={setRequestAmount}
+                min={0}
+                step={0.01}
+              />
+              <Textarea
+                label="Reason"
+                value={requestReason}
+                onChange={setRequestReason}
+                rows={3}
+              />
+              <Button onClick={() => void handleRequestRefund()} disabled={requesting || !refundRequestSupported}>
+                {requesting ? 'Submitting...' : 'Request refund'}
+              </Button>
+            </div>
+            {!refundRequestSupported ? (
+              <p className="mt-2 text-xs text-input-placeholder">
+                Refund requests are currently unavailable for this workspace.
+              </p>
+            ) : null}
+            {refundRequestError ? (
+              <p className="mt-2 text-xs text-red-300">{refundRequestError}</p>
+            ) : null}
+
+            <h4 className="mt-5 text-xs font-semibold uppercase tracking-[0.08em] text-input-placeholder">Refund request timeline</h4>
+            {detail.refundRequests.length === 0 ? (
+              <p className="mt-2 text-sm text-input-placeholder">No refund requests yet.</p>
+            ) : (
+              <ol className="mt-2 space-y-2 text-sm">
+                {detail.refundRequests.map((request) => (
+                  <li key={request.id} className="rounded-lg border border-line-glass/20 px-3 py-2">
+                    <p className="font-medium text-input-text">{request.status}</p>
+                    <p className="text-xs text-input-placeholder">{renderEventDate(request.createdAt)}</p>
+                    {request.reason ? <p className="mt-1 text-xs text-input-placeholder">{request.reason}</p> : null}
+                  </li>
+                ))}
+              </ol>
+            )}
+          </div>
         </div>
       </div>
-    </div>
+    </SettingsPage>
   );
 }

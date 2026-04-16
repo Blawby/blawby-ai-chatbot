@@ -28,6 +28,8 @@ export interface UIPracticeConfig extends PracticeConfig {
   id?: string; // Optional - comes from Practice object
   slug?: string; // Optional - comes from Practice object
   name?: string; // Optional - comes from Practice object
+  introMessage?: string | null; // Optional - comes from public practice details
+  legalDisclaimer?: string | null; // Optional - comes from public practice details
 }
 
 const buildDefaultPracticeConfig = (overrides: Partial<UIPracticeConfig> = {}): UIPracticeConfig => ({
@@ -36,6 +38,8 @@ const buildDefaultPracticeConfig = (overrides: Partial<UIPracticeConfig> = {}): 
   name: '',
   profileImage: null,
   description: '',
+  introMessage: null,
+  legalDisclaimer: null,
   availableServices: [],
   serviceQuestions: {},
   domain: '',
@@ -158,7 +162,9 @@ export const usePracticeConfig = ({
             slug: publicDetails.slug ?? currentPracticeId,
             name: publicDetails.name ?? '',
             profileImage: publicDetails.logo ?? null,
-            description: details?.description ?? '',
+            description: '',
+            introMessage: details?.introMessage ?? null,
+            legalDisclaimer: details?.legalDisclaimer ?? null,
             accentColor: details?.accentColor ?? 'gold',
             isPublic: details?.isPublic
           });

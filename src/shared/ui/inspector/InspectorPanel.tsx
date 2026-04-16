@@ -965,7 +965,6 @@ export const InspectorPanel = ({
                 <InspectorHeaderHero
                   name={practiceName ?? 'Practice'}
                   avatarUrl={practiceLogo || undefined}
-                  subtitle={practiceDetail?.description}
                   email={practiceDetail?.businessEmail}
                   phone={practiceDetail?.businessPhone}
                   website={practiceDetail?.website}

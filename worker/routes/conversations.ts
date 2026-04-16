@@ -14,6 +14,7 @@ import { handleSubmitIntake } from './submitIntake.js';
 
 const SYSTEM_MESSAGE_ALLOWLIST = new Set([
   'system-intro',
+  'system-disclaimer-accepted',
   'system-ask-question-help',
   'system-intake-decision',
   'system-contact-form',

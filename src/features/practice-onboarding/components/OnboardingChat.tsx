@@ -72,9 +72,8 @@ const OnboardingChat: FunctionComponent<OnboardingChatProps> = ({
     name: practice?.name ?? 'Practice',
     profileImage: practice?.logo ?? null,
     practiceId: practiceId || (practice?.id ?? ''),
-    description: details?.description ?? practice?.description ?? '',
     slug: practice?.slug ?? undefined,
-  }), [details?.description, practice, practiceId]);
+  }), [practice, practiceId]);
 
   const resolvedChatMessages = useMemo(() => {
     if (!chatAdapter?.messagesReady) return [];

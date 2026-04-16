@@ -1,1250 +1,411 @@
-import { useState, useMemo, useCallback, useEffect } from 'preact/hooks';
-import {
-  ChevronRightIcon,
-  GlobeAltIcon,
-  MapPinIcon,
-  PhoneIcon,
-  TrashIcon
-} from '@heroicons/react/24/outline';
-import { Icon } from '@/shared/ui/Icon';
-import { usePracticeManagement, type Practice } from '@/shared/hooks/usePracticeManagement';
-import { usePracticeTeam } from '@/shared/hooks/usePracticeTeam';
+// Add global typing for window.showToast
+declare global {
+  interface Window {
+    showToast?: (opts: { type: string; message: string }) => void;
+  }
+}
+
+
+import { useMemo, useState } from 'preact/hooks';
+import { SettingRow, SettingsHelperText } from '@/features/settings/components';
+import { cn } from '@/shared/utils/cn';
 import { Button } from '@/shared/ui/Button';
-import { FormActions } from '@/shared/ui/form';
-import type { Address } from '@/shared/types/address';
-import { Dialog } from '@/shared/ui/dialog';
-import { Input, LogoUploadInput, Switch } from '@/shared/ui/input';
-import { FormLabel } from '@/shared/ui/form/FormLabel';
-import { AddressExperienceForm } from '@/shared/ui/address/AddressExperienceForm';
-import { useToastContext } from '@/shared/contexts/ToastContext';
-import { formatDate } from '@/shared/utils/dateTime';
-import { useNavigation } from '@/shared/utils/navigation';
-import { useSessionContext } from '@/shared/contexts/SessionContext';
-import { useLocation } from 'preact-iso';
-import { useTranslation } from '@/shared/i18n/hooks';
-import { StackedAvatars } from '@/shared/ui/profile';
+import { Switch } from '@/shared/ui/input/Switch';
 import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
-import type { PracticeDetails } from '@/shared/lib/apiClient';
-import { uploadPracticeLogo } from '@/shared/utils/practiceLogoUpload';
-import { buildPracticeProfilePayloads } from '@/shared/utils/practiceProfile';
-import { usePaymentUpgrade } from '@/shared/hooks/usePaymentUpgrade';
-import { getFrontendHost } from '@/config/urls';
+import { usePracticeTeam } from '@/shared/hooks/usePracticeTeam';
+import { usePracticeManagement, updatePracticeDetails } from '@/shared/hooks/usePracticeManagement';
+import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { normalizePracticeRole } from '@/shared/utils/practiceRoles';
-import { FormGrid, SectionDivider } from '@/shared/ui/layout';
-import { ContentPageLayout } from '@/shared/ui/layout';
-import { LoadingBlock } from '@/shared/ui/layout/LoadingBlock';
-import { SettingsNotice } from '@/features/settings/components/SettingsNotice';
-import { SettingsHelperText } from '@/features/settings/components/SettingsHelperText';
-import { PracticeServicesSummary } from '@/features/settings/components/PracticeServicesSummary';
-import { SettingRow } from '@/features/settings/components/SettingRow';
-import {
-  usePracticeMembersSync,
-  usePracticeSyncParamRefetch,
-  type EditPracticeFormState
-} from '@/features/settings/hooks/usePracticePageEffects';
-import { normalizeAccentColor } from '@/shared/utils/accentColors';
-import { buildSettingsPath, resolveSettingsBasePath } from '@/shared/utils/workspace';
-import { TagInput } from '@/shared/ui/tag';
+import { text } from '@/shared/utils/text';
+import { uniqueStrings } from '@/shared/utils/uniqueStrings';
+import { useLocation } from 'preact-iso';
+import type { PracticeService } from '@/shared/types/practice';
+import type { PracticeOverviewPageProps } from './PracticePage.types';
 
-interface OnboardingDetails {
-  contactPhone?: string;
-  businessEmail?: string;
-  website?: string;
-  address?: Address;
-  description?: string;
-  accentColor?: string;
-  isPublic?: boolean;
-  services?: Array<Record<string, unknown>>;
-}
 
-const resolveOnboardingData = (practice: Practice | null, details: PracticeDetails | null): OnboardingDetails => {
-  if (!practice) return {};
-  const buildAddress = (source: {
-    address?: string | null;
-    apartment?: string | null;
-    city?: string | null;
-    state?: string | null;
-    postalCode?: string | null;
-    country?: string | null;
-  }): Address | undefined => {
-    const address = source.address?.trim() || '';
-    const apartment = source.apartment?.trim() || undefined;
-    const city = source.city?.trim() || '';
-    const state = source.state?.trim() || '';
-    const postalCode = source.postalCode?.trim() || '';
-    const country = source.country?.trim() || '';
-    const hasAny = Boolean(address || apartment || city || state || postalCode || country);
-    if (!hasAny) return undefined;
-    return {
-      address,
-      apartment,
-      city,
-      state,
-      postalCode,
-      country
-    };
-  };
-  const baseFromDetails: OnboardingDetails = {};
-  if (details) {
-    const setIfDefined = <K extends keyof OnboardingDetails>(key: K, value: OnboardingDetails[K]) => {
-      if (value !== undefined) {
-        baseFromDetails[key] = value;
-      }
-    };
-    setIfDefined('website', details.website ?? undefined);
-    setIfDefined('address', buildAddress(details));
-    setIfDefined('description', details.description ?? undefined);
-    setIfDefined('accentColor', details.accentColor ?? undefined);
-    setIfDefined('isPublic', details.isPublic ?? undefined);
-    setIfDefined('services', details.services ?? undefined);
-    setIfDefined('contactPhone', details.businessPhone ?? undefined);
-    setIfDefined('businessEmail', details.businessEmail ?? undefined);
-  }
-  const baseFromPractice: OnboardingDetails = {
-    website: practice.website ?? undefined,
-    address: buildAddress(practice),
-    description: practice.description ?? undefined,
-    accentColor: practice.accentColor ?? undefined,
-    isPublic: practice.isPublic ?? undefined,
-    services: practice.services ?? undefined,
-    contactPhone: practice.businessPhone ?? undefined,
-    businessEmail: practice.businessEmail ?? undefined
-  };
-  return { ...baseFromPractice, ...baseFromDetails };
+const summarizeList = (
+  items: string[],
+  visibleCount = 3,
+  emptyLabel = 'None configured'
+): string => {
+  if (items.length === 0) return emptyLabel;
+  if (items.length <= visibleCount) return items.join(', ');
+  return `${items.slice(0, visibleCount).join(', ')}, +${items.length - visibleCount} more`;
 };
 
-
-const isValidHttpUrl = (value: string): boolean => {
-  try {
-    const url = new URL(value);
-    return url.protocol === 'http:' || url.protocol === 'https:';
-  } catch {
-    return false;
-  }
-};
-
-const US_STATE_CODES = [
-  'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA',
-  'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD',
-  'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ',
-  'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC',
-  'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY', 'DC',
-];
-
-const extractUsStates = (details: PracticeDetails | null): string[] => {
-  return details?.serviceStates ?? [];
-};
-
-const formatAddressSummary = (data: OnboardingDetails) => {
-  const address = data.address?.address?.trim() || '';
-  const apartment = data.address?.apartment?.trim() || '';
-  const city = data.address?.city?.trim() || '';
-  const state = data.address?.state?.trim() || '';
-  const postal = data.address?.postalCode?.trim() || '';
-  const country = data.address?.country?.trim() || '';
-
-  const parts: string[] = [];
-  if (address) parts.push(address);
-  if (apartment) parts.push(apartment);
-  const cityState = [city, state].filter(Boolean).join(', ');
-  if (cityState) parts.push(cityState);
-  const postalCountry = [postal, country].filter(Boolean).join(' ');
-  if (postalCountry) parts.push(postalCountry);
-  return parts.join(' • ');
-};
-
-interface PracticePageProps {
-  className?: string;
-  onNavigate?: (path: string) => void;
-}
-
-export const PracticePage = ({ className = '', onNavigate }: PracticePageProps) => {
-  const { session, isPending: sessionPending, activeMemberRole } = useSessionContext();
-  const { 
-    currentPractice,
-    loading, 
-    error,
-    updatePractice,
-    createPractice,
-    deletePractice,
-    refetch,
-  } = usePracticeManagement({ fetchPracticeDetails: true });
-  const activePracticeId = currentPractice?.id ?? null;
-  const { details: practiceDetails, updateDetails } = usePracticeDetails(activePracticeId, currentPractice?.slug, false);
-  
-  const { showSuccess, showError, showWarning } = useToastContext();
-  const { navigate } = useNavigation();
-  const navigateTo = onNavigate ?? navigate;
-  const location = useLocation();
-  const settingsBasePath = resolveSettingsBasePath(location.path);
-  const toSettingsPath = (subPath?: string) => buildSettingsPath(settingsBasePath, subPath);
-  const { openBillingPortal, submitting } = usePaymentUpgrade();
-  const { t } = useTranslation(['settings']);
-  
-  // Get current user email from session
-  const currentUserEmail = session?.user?.email || '';
-  
-  // Form states
-  const [editPracticeForm, setEditPracticeForm] = useState<EditPracticeFormState>({
-    name: '',
-    slug: '',
-    logo: ''
-  });
-  
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [createForm, setCreateForm] = useState({
-    name: '',
-    description: ''
-  });
-  
-  const [isEditPracticeModalOpen, setIsEditPracticeModalOpen] = useState(false);
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [deleteConfirmText, setDeleteConfirmText] = useState('');
-  const [logoUploadProgress, setLogoUploadProgress] = useState<number | null>(null);
-  const [logoUploading, setLogoUploading] = useState(false);
-
+export const PracticeOverviewPage = ({
+  className,
+  onNavigate,
+}: PracticeOverviewPageProps) => {
+  const { session, activeMemberRole } = useSessionContext();
+  const { currentPractice } = usePracticeManagement({ fetchPracticeDetails: true });
   const practice = currentPractice ?? null;
-  const hasPractice = !!practice;
-  const {
-    members,
-    refetch: refetchTeam,
-  } = usePracticeTeam(
-    practice?.id ?? null,
-    session?.user?.id ?? null,
-    { enabled: Boolean(practice?.id) }
-  );
-  
-  // Better approach - get role directly from current practice context
-  const currentMember = useMemo(() => {
-    if (!practice || !currentUserEmail) return null;
-    return members.find(m => m.email && m.email.toLowerCase() === currentUserEmail.toLowerCase()) || 
-           members.find(m => m.userId === session?.user?.id);
-  }, [practice, currentUserEmail, members, session?.user?.id]);
+  const practiceId = practice?.id ?? null;
+  const currentUserId = session?.user?.id ?? null;
+  const currentUserEmail = session?.user?.email?.toLowerCase() ?? null;
 
-  const roleFromMembers = currentMember?.role ?? null;
-  const currentUserRole = normalizePracticeRole(activeMemberRole) ?? roleFromMembers ?? 'member';
+  const { details: practiceDetails = {} } = usePracticeDetails(practiceId);
+  const { members = [] } = usePracticeTeam(practiceId, currentUserId, {
+    enabled: Boolean(practiceId),
+  });
+
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+
+  const currentMember = useMemo(() => {
+    if (!currentUserEmail && !currentUserId) return null;
+
+    return (
+      members.find((member) => member?.email?.toLowerCase() === currentUserEmail) ??
+      members.find((member) => member?.userId === currentUserId) ??
+      null
+    );
+  }, [members, currentUserEmail, currentUserId]);
+
+  const currentUserRole =
+    normalizePracticeRole(activeMemberRole) ??
+    normalizePracticeRole(currentMember?.role) ??
+    'member';
+
   const isOwner = currentUserRole === 'owner';
+
   const servicesList = useMemo(() => {
-    const source = practiceDetails?.services ?? practice?.services;
+    const source = practiceDetails?.services ?? practice?.services ?? [];
     if (!Array.isArray(source)) return [];
 
-    const seen = new Set<string>();
-    const result: string[] = [];
-    const entries = source as Array<Record<string, unknown> | string>;
-    entries.forEach((entry) => {
-      if (typeof entry === 'string') {
-        const trimmed = entry.trim();
-        if (!trimmed) return;
-        const key = trimmed.toLowerCase();
-        if (seen.has(key)) return;
-        seen.add(key);
-        result.push(trimmed);
-        return;
-      }
-      if (entry && typeof entry === 'object') {
-        const record = entry as Record<string, unknown>;
-        const candidate = typeof record.name === 'string'
-          ? record.name
-          : (typeof record.title === 'string' ? record.title : '');
-        const trimmed = candidate.trim();
-        if (!trimmed) return;
-        const key = trimmed.toLowerCase();
-        if (seen.has(key)) return;
-        seen.add(key);
-        result.push(trimmed);
-      }
-    });
-    return result;
-  }, [practiceDetails?.services, practice?.services]);
-  const onboardingData = useMemo(
-    () => resolveOnboardingData(practice, practiceDetails),
-    [practice, practiceDetails]
-  );
-
-  const websiteValue = typeof onboardingData.website === 'string' ? onboardingData.website.trim() : '';
-  const addressSummary = formatAddressSummary(onboardingData);
-  const phoneValue = (typeof onboardingData.contactPhone === 'string'
-    ? onboardingData.contactPhone
-    : (practice?.businessPhone || '')).trim();
-  const accentColorValue = normalizeAccentColor(onboardingData.accentColor) ?? '#D4AF37';
-  const isPublicValue = typeof onboardingData.isPublic === 'boolean'
-    ? onboardingData.isPublic
-    : false;
-  const practiceHost = useMemo(() => {
-    try {
-      return getFrontendHost();
-    } catch {
-      if (typeof window !== 'undefined' && window.location?.host) {
-        return window.location.host;
-      }
-      return '';
-    }
-  }, []);
-  const practicePath = `/public/${practice?.slug ?? 'your-practice'}`;
-  const practiceUrlValue = practiceHost
-    ? `${practiceHost}${practicePath}`
-    : practicePath;
-  const practiceUrlHref = useMemo(() => {
-    if (!practiceHost) {
-      return practicePath;
-    }
-    const protocol = typeof window !== 'undefined' && window.location?.protocol
-      ? window.location.protocol
-      : 'https:';
-    return `${protocol}//${practiceHost}${practicePath}`;
-  }, [practiceHost, practicePath]);
-  const hasSavedLogo = editPracticeForm.logo.trim().length > 0;
-  const teamAvatars = useMemo(
-    () => members.map((member) => ({
-      id: member.userId,
-      name: member.name || member.email,
-      image: member.image || null
-    })),
-    [members]
-  );
-
-  const [isSettingsSaving, setIsSettingsSaving] = useState(false);
-  const [isContactModalOpen, setIsContactModalOpen] = useState(false);
-  const [contactDraft, setContactDraft] = useState({
-    website: '',
-    businessEmail: '',
-    phone: '',
-    address: undefined,
-  });
-  const [accentColorDraft, setAccentColorDraft] = useState('#D4AF37');
-  const [licensedStatesDraft, setLicensedStatesDraft] = useState<string[]>([]);
-  const [isLicensedStatesEditing, setIsLicensedStatesEditing] = useState(false);
-  const modalContentClassName = 'glass-panel';
-
-  // SSR-safe origin for return URLs
-  const origin = (typeof window !== 'undefined' && window.location)
-    ? window.location.origin
-    : '';
-
-  // Subscription guard for deletion
-  const subStatus = (practice?.subscriptionStatus ?? 'none').toLowerCase();
-  const deletionBlockedBySubscription = !(subStatus === 'canceled' || subStatus === 'none');
-  const deletionBlockedMessage = (() => {
-    if (!deletionBlockedBySubscription) return '';
-    const ts = practice?.subscriptionPeriodEnd;
-    const end = (typeof ts === 'number' && Number.isFinite(ts)) ? new Date(ts * 1000) : null;
-    if (end) {
-      return `Subscription must be canceled before deleting. Access ends on ${formatDate(end)}.`;
-    }
-    return 'Subscription must be canceled in Stripe before deleting this practice.';
-  })();
-
-
-  // Current user email is now derived from session - removed redirect to keep practice settings accessible
-
-  // Initialize form with current practice data. Practice details are hydrated elsewhere.
-  usePracticeMembersSync({
-    practice,
-    setEditPracticeForm
-  });
-
-  // Refetch after return from portal
-  usePracticeSyncParamRefetch({
-    location,
-    practiceId: practice?.id ?? null,
-    refetch: async () => {
-      await Promise.all([refetch(), refetchTeam()]);
-    },
-    showSuccess
-  });
-
-  const handleCreatePractice = async () => {
-    if (isSettingsSaving) return;
-    if (!createForm.name.trim()) {
-      showError('Practice name is required');
-      return;
-    }
-
-    setIsSettingsSaving(true);
-    try {
-      await createPractice({
-        name: createForm.name,
-        description: createForm.description || undefined,
-      });
-      
-      showSuccess('Practice created successfully!');
-      setShowCreateModal(false);
-      setCreateForm({ name: '', description: '' });
-    } catch (err) {
-      showError(err instanceof Error ? err.message : 'Failed to create practice');
-    } finally {
-      setIsSettingsSaving(false);
-    }
-  };
-
-  const openEditPracticeModal = () => {
-    if (!practice) return;
-    setLogoUploadProgress(null);
-    setLogoUploading(false);
-    setEditPracticeForm({
-      name: practice.name,
-      slug: practice.slug || '',
-      logo: practice.logo || ''
-    });
-    setAccentColorDraft(accentColorValue);
-    setIsEditPracticeModalOpen(true);
-  };
-
-  const handleLogoChange = async (files: FileList | File[]) => {
-    if (!practice) return;
-    const [file] = Array.isArray(files) ? files : Array.from(files);
-    if (!file) {
-      return;
-    }
-
-    setLogoUploading(true);
-    setLogoUploadProgress(0);
-    try {
-      const logoUrl = await uploadPracticeLogo(file, practice.id, (percentage) => {
-        setLogoUploadProgress(percentage);
-      });
-      setEditPracticeForm(prev => ({ ...prev, logo: logoUrl }));
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Logo upload failed';
-      showError('Logo upload failed', message);
-    } finally {
-      setLogoUploading(false);
-      setLogoUploadProgress(null);
-    }
-  };
-
-  const handleUpdatePractice = async () => {
-    if (!practice) return;
-    if (!editPracticeForm.name.trim()) {
-      showError('Practice name is required');
-      return;
-    }
-    const trimmedLogo = editPracticeForm.logo.trim();
-    if (trimmedLogo && !isValidHttpUrl(trimmedLogo)) {
-      showError('Logo URL is invalid');
-      return;
-    }
-
-    setIsSettingsSaving(true);
-    try {
-      const normalizedAccentColor = normalizeAccentColor(accentColorDraft);
-      if (!normalizedAccentColor) {
-        throw new Error('Accent color must be a valid hex value (for example #3B82F6).');
-      }
-      const comparison = {
-        name: practice.name,
-        slug: practice.slug ?? null,
-        logo: practice.logo ?? null,
-        accentColor: normalizeAccentColor(practiceDetails?.accentColor ?? practice.accentColor)
-      };
-      const { practicePayload, detailsPayload } = buildPracticeProfilePayloads({
-        name: editPracticeForm.name,
-        logo: trimmedLogo ? trimmedLogo : undefined,
-        accentColor: normalizedAccentColor
-      }, { compareTo: comparison });
-
-      if (Object.keys(practicePayload).length > 0) {
-        await updatePractice(practice.id, practicePayload);
-      }
-
-      try {
-        if (Object.keys(detailsPayload).length > 0) {
-          await updateDetails(detailsPayload);
+    const values = source
+      .map((entry: PracticeService) => {
+        if (typeof entry === 'string') return entry;
+        if (entry && typeof entry === 'object') {
+          if (typeof entry.name === 'string') return entry.name;
+          if (typeof entry.title === 'string') return entry.title;
         }
-        showSuccess('Practice updated successfully!');
-      } catch (detailsError) {
-        console.warn('Practice details update failed after core update:', detailsError);
-        showWarning(
-          'Practice updated with warning',
-          'Core fields were saved, but the description could not be updated. Please try again.'
-        );
-      }
-      setIsEditPracticeModalOpen(false);
-		} catch (err) {
-      showError(err instanceof Error ? err.message : 'Failed to update practice');
-    } finally {
-      setIsSettingsSaving(false);
-    }
-  };
+        return '';
+      })
+      .filter((value: string) => Boolean(value));
 
-  const saveOnboardingSettings = async (
-    updates: Partial<OnboardingDetails>,
-    toastBody: string
-  ): Promise<boolean> => {
-    if (!practice) return false;
-    setIsSettingsSaving(true);
-    try {
-      const { detailsPayload } = buildPracticeProfilePayloads({
-        businessEmail: updates.businessEmail,
-        businessPhone: updates.contactPhone,
-        website: updates.website,
-        address: updates.address?.address || null,
-        apartment: updates.address?.apartment || null,
-        city: updates.address?.city || null,
-        state: updates.address?.state || null,
-        postalCode: updates.address?.postalCode || null,
-        country: updates.address?.country || null,
-        description: updates.description,
-        isPublic: updates.isPublic,
-        services: updates.services
-      });
+    return uniqueStrings(values);
+  }, [practiceDetails?.services, practice?.services]);
 
-      if (Object.keys(detailsPayload).length > 0) {
-        await updateDetails(detailsPayload);
-      }
+  const licensedStates = useMemo(() => {
+    const source = Array.isArray(practiceDetails?.serviceStates)
+      ? practiceDetails.serviceStates
+      : [];
 
-      showSuccess('Practice updated', toastBody);
-      return true;
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to update practice settings';
-      showError('Update failed', message);
-      return false;
-    } finally {
-      setIsSettingsSaving(false);
-    }
-  };
-
-  const openContactModal = useCallback(() => {
-    setContactDraft({
-      website: websiteValue,
-      businessEmail: practiceDetails?.businessEmail ?? practice?.businessEmail ?? '',
-      phone: phoneValue,
-      address: onboardingData.address,
-    });
-    setIsContactModalOpen(true);
-  }, [onboardingData.address, phoneValue, practice?.businessEmail, practiceDetails?.businessEmail, websiteValue]);
-
-  const handleSaveContact = async () => {
-    const success = await saveOnboardingSettings(
-      {
-        website: (contactDraft.website ?? '').trim(),
-        businessEmail: (contactDraft.businessEmail ?? '').trim(),
-        contactPhone: (contactDraft.phone ?? '').trim(),
-        address: contactDraft.address,
-      },
-      'Contact details updated.'
+    return uniqueStrings(
+      source.filter((value: unknown): value is string => typeof value === 'string')
     );
-    if (success) {
-      setIsContactModalOpen(false);
-    }
-  };
+  }, [practiceDetails?.serviceStates]);
 
+  const websiteValue = text(practiceDetails?.website);
+  const phoneValue = text(practice?.businessPhone);
+
+  const addressSummary = useMemo(() => {
+    const address = practiceDetails?.address;
+    if (!address || typeof address !== 'object') return '';
+
+    const parts = [
+      text((address as Record<string, unknown>).address),
+      text((address as Record<string, unknown>).apartment),
+      text((address as Record<string, unknown>).city),
+      text((address as Record<string, unknown>).state),
+      text((address as Record<string, unknown>).postalCode),
+      text((address as Record<string, unknown>).country),
+    ].filter(Boolean);
+
+    return parts.join(', ');
+  }, [practiceDetails?.address]);
+
+  const practiceAreasSummary = summarizeList(servicesList, 3, 'No practice areas');
+  const licensedStatesSummary = summarizeList(licensedStates, 3, 'No licensed states');
+  const teamSummary =
+    members.length > 0
+      ? `${members.length} member${members.length === 1 ? '' : 's'}`
+      : 'No team members';
+
+
+  const publicListingEnabled = typeof practiceDetails?.isPublic === 'boolean' ? practiceDetails.isPublic : false;
+  const [localPublicListing, setLocalPublicListing] = useState<boolean>(!!publicListingEnabled);
+
+  // Sync local state with server value
   useEffect(() => {
-    if (location.query?.setup === 'contact' && !isContactModalOpen) {
-      openContactModal();
-      navigate(buildSettingsPath(settingsBasePath, 'practice'), true);
-    }
-  }, [isContactModalOpen, location.query?.setup, navigate, openContactModal, settingsBasePath]);
+    setLocalPublicListing(!!publicListingEnabled);
+  }, [publicListingEnabled]);
 
-  const handleTogglePublic = async (nextValue: boolean) => {
-    await saveOnboardingSettings(
-      {
-        isPublic: nextValue
-      },
-      nextValue ? 'Practice is now public.' : 'Practice is now private.'
-    );
-  };
+  const workspaceUrlLabel = practice?.slug ? `/public/${practice.slug}` : 'No workspace URL';
+  const workspaceUrlHref = practice?.slug ? `/public/${practice.slug}` : null;
 
-  const savedLicensedStates = useMemo(
-    () => extractUsStates(practiceDetails),
-    [practiceDetails]
-  );
-
-  const openLicensedStatesEdit = useCallback(() => {
-    setLicensedStatesDraft(savedLicensedStates);
-    setIsLicensedStatesEditing(true);
-  }, [savedLicensedStates]);
-
-  const handleSaveLicensedStates = async () => {
-    // TagInput's normalizeTag already uppercases tags; filter here to guard
-    // against any state that slipped through without a valid US code.
-    const validStates = licensedStatesDraft.filter((s) => US_STATE_CODES.includes(s));
-    const { detailsPayload } = buildPracticeProfilePayloads({ serviceStates: validStates });
-    setIsSettingsSaving(true);
-    try {
-      await updateDetails(detailsPayload);
-      setIsLicensedStatesEditing(false);
-      showSuccess('Licensed states updated.');
-    } catch (err) {
-      showError(err instanceof Error ? err.message : 'Failed to update licensed states');
-    } finally {
-      setIsSettingsSaving(false);
-    }
-  };
-
-  const validateStateTag = useCallback((tag: string): boolean | string => {
-    const upper = tag.trim().toUpperCase();
-    if (!US_STATE_CODES.includes(upper)) {
-      return `"${tag}" is not a valid US state code`;
-    }
-    return true;
-  }, []);
-
-  const handleDeletePractice = async () => {
-    if (!practice) return;
-    
-    if (deleteConfirmText.trim() !== practice.name) {
-      showError('Practice name must match exactly');
+  const { route } = useLocation();
+  const nav = (path: string) => {
+    if (onNavigate) {
+      onNavigate(path);
       return;
     }
+    route(path);
+  };
 
-    setIsDeleting(true);
-    try {
-      await deletePractice(practice.id);
-      showSuccess('Practice deleted successfully!');
-      setShowDeleteModal(false);
-      setDeleteConfirmText('');
-      navigate('/');
-    } catch (err) {
-      showError(err instanceof Error ? err.message : 'Failed to delete practice');
-    } finally {
-      setIsDeleting(false);
+  const openHref = (href: string) => {
+    if (typeof window !== 'undefined') {
+      window.open(href, '_blank', 'noopener,noreferrer');
     }
   };
 
-  // Loading state: show loading only when actively fetching
-  // Once loading is complete (loading=false, sessionPending=false), show the result:
-  // - practice data if available
-  // - error state if error
-  // - "no data" state if neither (this prompts user to reload)
-  const shouldShowLoading = loading || sessionPending;
-
-  if (shouldShowLoading) {
-    return <LoadingBlock className={className} label="Loading practice..." />;
-  }
-
-  if (error) {
-    return (
-      <div className={`h-full flex items-center justify-center ${className}`}>
-        <div className="text-center">
-          <p className="text-sm text-red-600 mb-4">{error}</p>
-          <Button size="sm" onClick={refetch}>
-            Try Again
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
-  if (!practice) {
-    return (
-      <div className={`h-full flex items-center justify-center ${className}`}>
-        <div className="text-center space-y-3">
-          <p className="text-sm text-input-placeholder">No practice data is available yet.</p>
-          <div className="flex items-center justify-center gap-2">
-            <Button size="sm" variant="secondary" onClick={refetch}>
-              Reload
-            </Button>
-            <Button size="sm" onClick={() => setShowCreateModal(true)}>
-              Create Practice
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // (removed duplicate toSettingsPath)
+  // Build correct settings path with practice slug
+  const toSettingsPath = (subPath: string) => {
+    if (!practice?.slug) return '/';
+    // Remove leading slashes from subPath
+    const clean = subPath.replace(/^\/+/, '');
+    return `/practice/${encodeURIComponent(practice.slug)}/settings/${clean}`;
+  };
 
   return (
-    <ContentPageLayout title="Practice" className={className}>
-      {hasPractice && (
-        <>
-              <SettingRow
-                label="Practice details"
-                labelNode={(
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-sm font-semibold text-input-text">
-                      {practice.name || 'Practice'}
-                    </h3>
-                    <div className="mt-2 space-y-2" />
-                  </div>
-                )}
-              >
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={openEditPracticeModal}
-                >
-                  Edit
-                </Button>
-              </SettingRow>
-
-              <SectionDivider />
-
-              <SettingRow
-                label="Brand accent"
-                labelNode={(
-                  <div>
-                    <h3 className="text-sm font-semibold text-input-text">Brand accent</h3>
-                    <div className="mt-2 flex items-center gap-3">
-                      <div
-                        className="h-5 w-5 rounded-full"
-                        style={{ backgroundColor: accentColorValue }}
-                        aria-label={`Current accent color ${accentColorValue}`}
-                      />
-                      <SettingsHelperText>{accentColorValue}</SettingsHelperText>
-                    </div>
-                  </div>
-                )}
-              >
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={openEditPracticeModal}
-                >
-                  Edit
-                </Button>
-              </SettingRow>
-
-              <SectionDivider />
-
-              <SettingRow
-                label="Workspace URL"
-                description={practice?.slug ? 'Share with clients to view your public profile.' : 'Slug will be generated automatically after saving.'}
-              >
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => window.open(practiceUrlHref, '_blank', 'noopener,noreferrer')}
-                  className="font-medium text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300"
-                >
-                  {practiceUrlValue}
-                </Button>
-              </SettingRow>
-
-              <SectionDivider />
-
-              <SettingRow
-                label="Contact"
-                labelNode={(
-                  <div>
-                    <h3 className="text-sm font-semibold text-input-text">Contact</h3>
-                    <div className="mt-2 space-y-2">
-                      <div className="flex items-start gap-2">
-                        <Icon icon={GlobeAltIcon} className="w-4 h-4 text-input-placeholder mt-0.5" aria-hidden="true"  />
-                        <SettingsHelperText>{websiteValue || 'Not set'}</SettingsHelperText>
-                      </div>
-                      <div className="flex items-start gap-2">
-                        <Icon icon={PhoneIcon} className="w-4 h-4 text-input-placeholder mt-0.5" aria-hidden="true"  />
-                        <SettingsHelperText>{phoneValue || 'Not set'}</SettingsHelperText>
-                      </div>
-                      <div className="flex items-start gap-2">
-                        <Icon icon={MapPinIcon} className="w-4 h-4 text-input-placeholder mt-0.5" aria-hidden="true"  />
-                        <SettingsHelperText>{addressSummary || 'Not set'}</SettingsHelperText>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              >
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={openContactModal}
-                    className="hidden sm:inline-flex"
-                  >
-                    Manage
-                  </Button>
-                  <Button
-                    variant="icon"
-                    size="icon"
-                    onClick={openContactModal}
-                    className="sm:hidden"
-                    aria-label="Manage contact details"
-                    icon={ChevronRightIcon} iconClassName="w-5 h-5"
-                  />
-                </div>
-              </SettingRow>
-
-              <SectionDivider />
-
-              <SettingRow
-                label={t('settings:practice.services')}
-                labelNode={(
-                  <div>
-                    <h3 className="text-sm font-semibold text-input-text">
-                      {t('settings:practice.services')}
-                    </h3>
-                    <PracticeServicesSummary services={servicesList} />
-                  </div>
-                )}
-              >
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => navigateTo(toSettingsPath('practice/services'))}
-                    className="hidden sm:inline-flex"
-                  >
-                    {t('settings:account.plan.manage')}
-                  </Button>
-                  <Button
-                    variant="icon"
-                    size="icon"
-                    onClick={() => navigateTo(toSettingsPath('practice/services'))}
-                    className="sm:hidden"
-                    aria-label={t('settings:practice.manageServices')}
-                    icon={ChevronRightIcon} iconClassName="w-5 h-5"
-                  />
-                </div>
-              </SettingRow>
-
-              <SectionDivider />
-
-              {/* Licensed States Section */}
-              {isLicensedStatesEditing ? (
-                <div className="py-3 space-y-3">
-                  <div>
-                    <h3 className="text-sm font-semibold text-input-text">Licensed States</h3>
-                    <SettingsHelperText className="mt-1">
-                      Enter US state codes (e.g. NC, SC, VA) where this practice is licensed. Used to help the AI assistant reason about jurisdiction.
-                    </SettingsHelperText>
-                  </div>
-                  <TagInput
-                    value={licensedStatesDraft}
-                    onChange={setLicensedStatesDraft}
-                    suggestions={US_STATE_CODES}
-                    placeholder="Add state code (e.g. NC)"
-                    normalizeTag={(tag) => tag.trim().toUpperCase()}
-                    onValidate={validateStateTag}
-                    maxTagLength={2}
-                    disabled={isSettingsSaving}
-                    aria-label="Licensed states"
-                  />
-                  <div className="flex items-center gap-2 justify-end">
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => setIsLicensedStatesEditing(false)}
-                      disabled={isSettingsSaving}
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      size="sm"
-                      onClick={handleSaveLicensedStates}
-                      disabled={isSettingsSaving}
-                    >
-                      {isSettingsSaving ? 'Saving…' : 'Save'}
-                    </Button>
-                  </div>
-                </div>
+    <div className={cn('space-y-8', className)}>
+      <SettingRow
+        label="Practice overview"
+        labelNode={
+          <div className="flex items-center gap-4">
+            <div className="glass-panel flex h-12 w-12 items-center justify-center overflow-hidden rounded-lg">
+              {practice?.logo ? (
+                <img src={practice.logo} alt="" className="h-full w-full object-cover" />
               ) : (
-                <SettingRow
-                  label="Licensed States"
-                  labelNode={(
-                    <div>
-                      <h3 className="text-sm font-semibold text-input-text">Licensed States</h3>
-                      {savedLicensedStates.length > 0 ? (
-                        <SettingsHelperText className="mt-1">
-                          {savedLicensedStates.join(', ')}
-                        </SettingsHelperText>
-                      ) : (
-                        <SettingsHelperText className="mt-1">
-                          No licensed states configured
-                        </SettingsHelperText>
-                      )}
-                    </div>
-                  )}
-                >
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={openLicensedStatesEdit}
-                  >
-                    Edit
-                  </Button>
-                </SettingRow>
-              )}
-
-              <SectionDivider />
-
-              <SettingRow
-                label="Pricing"
-                labelNode={(
-                  <div>
-                    <h3 className="text-sm font-semibold text-input-text">Pricing &amp; Fees</h3>
-                    <SettingsHelperText className="mt-1">
-                      Configure consultation fees and billing increments.
-                    </SettingsHelperText>
-                  </div>
-                )}
-              >
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => navigateTo(toSettingsPath('practice/pricing'))}
-                    className="hidden sm:inline-flex"
-                  >
-                    Manage
-                  </Button>
-                  <Button
-                    variant="icon"
-                    size="icon"
-                    onClick={() => navigateTo(toSettingsPath('practice/pricing'))}
-                    className="sm:hidden"
-                    aria-label="Manage pricing"
-                    icon={ChevronRightIcon} iconClassName="w-5 h-5"
-                  />
+                <div className="flex h-full w-full items-center justify-center text-base font-semibold text-input-text">
+                  {(practice?.name || 'P').slice(0, 1).toUpperCase()}
                 </div>
-              </SettingRow>
-
-              <SectionDivider />
-
-              <SettingRow
-                label="Team"
-                labelNode={(
-                  <div>
-                    <h3 className="text-sm font-semibold text-input-text">
-                      Team Members
-                    </h3>
-                    {members.length > 0 ? (
-                      <div className="mt-2">
-                        <StackedAvatars users={teamAvatars} size="sm" />
-                      </div>
-                    ) : (
-                      <SettingsHelperText className="mt-1">
-                        No team members yet
-                      </SettingsHelperText>
-                    )}
-                  </div>
-                )}
-              >
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => navigateTo(members.length === 0
-                      ? `${toSettingsPath('practice/team')}?invite=1`
-                      : toSettingsPath('practice/team'))}
-                    className="hidden sm:inline-flex"
-                  >
-                    {members.length === 0 ? 'Invite' : 'Manage'}
-                  </Button>
-                  <Button
-                    variant="icon"
-                    size="icon"
-                    onClick={() => navigateTo(members.length === 0
-                      ? `${toSettingsPath('practice/team')}?invite=1`
-                      : toSettingsPath('practice/team'))}
-                    className="sm:hidden"
-                    aria-label={members.length === 0 ? 'Invite team members' : 'Manage team members'}
-                    icon={ChevronRightIcon} iconClassName="w-5 h-5"
-                  />
-                </div>
-              </SettingRow>
-
-              <SectionDivider />
-
-              {/* Visibility Toggle */}
-              <div className="py-3">
-                <Switch
-                  label="Public listing"
-                  description={isPublicValue
-                    ? 'Your practice appears in public listings.'
-                    : 'Your practice is private and not publicly listed.'}
-                  value={isPublicValue}
-                  onChange={handleTogglePublic}
-                  disabled={isSettingsSaving}
-                />
-              </div>
-
-              <SectionDivider />
-
-              {/* Delete Practice Section (Owner only) */}
-              {isOwner && (
-                <>
-                  <SettingRow
-                    label="Delete Practice"
-                    labelNode={(
-                      <div>
-                        <h3 className="text-sm font-semibold text-input-text">Delete Practice</h3>
-                        <SettingsHelperText className="mt-1">
-                          Permanently delete this practice and all its data
-                        </SettingsHelperText>
-                      </div>
-                    )}
-                    className="py-3"
-                  >
-                    {deletionBlockedBySubscription ? (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          if (!practice?.id) return;
-                          openBillingPortal({ 
-                            practiceId: practice.id, 
-                            returnUrl: origin
-                              ? `${origin}${toSettingsPath('practice')}?sync=1`
-                              : `${toSettingsPath('practice')}?sync=1`
-                          });
-                        }}
-                        disabled={submitting}
-                        data-testid="practice-delete-action"
-                      >
-                        {t('settings:account.plan.manage')}
-                      </Button>
-                    ) : (
-                      <Button
-                        variant="danger-ghost"
-                        size="sm"
-                        onClick={() => setShowDeleteModal(true)}
-                        data-testid="practice-delete-action"
-                      >
-                        <Icon icon={TrashIcon} className="w-4 h-4 mr-2"  />
-                        Delete
-                      </Button>
-                    )}
-                  </SettingRow>
-                  {deletionBlockedBySubscription && deletionBlockedMessage && (
-                    <SettingsNotice variant="warning" className="mt-2" role="status" aria-live="polite">
-                      <p className="text-xs">
-                        {deletionBlockedMessage}
-                      </p>
-                    </SettingsNotice>
-                  )}
-                </>
               )}
-            </>
-          )}
-
-      {/* Edit Practice Modal */}
-      <Dialog
-        isOpen={isEditPracticeModalOpen}
-        onClose={() => setIsEditPracticeModalOpen(false)}
-        title="Edit Practice"
-        contentClassName={modalContentClassName}
-      >
-        <div className="space-y-4">
-          <FormGrid>
-            <div>
-              <FormLabel htmlFor="edit-practice-name">Practice Name *</FormLabel>
-              <Input
-                id="edit-practice-name"
-                value={editPracticeForm.name}
-                onChange={(value) => setEditPracticeForm(prev => ({ ...prev, name: value }))}
-                placeholder="Your Law Firm Name"
-                required
-              />
             </div>
 
-            <div>
-              <FormLabel>Workspace URL</FormLabel>
-              <SettingsHelperText className="mt-1">
-                {practice?.slug ? practiceUrlValue : 'Slug will be generated automatically'}
+            <div className="min-w-0 flex-1">
+              <h3 className="text-base font-medium text-input-text">
+                {practice?.name || 'Practice'}
+              </h3>
+              <SettingsHelperText className="truncate">
+                Public listing, workspace URL, and brand
               </SettingsHelperText>
             </div>
-          </FormGrid>
-
-          <div>
-            <LogoUploadInput
-              imageUrl={hasSavedLogo ? editPracticeForm.logo : null}
-              name={editPracticeForm.name || 'Practice'}
-              label="Upload logo (optional)"
-              description="Upload a square logo. Maximum 5 MB."
-              accept="image/*"
-              multiple={false}
-              onChange={handleLogoChange}
-              disabled={isSettingsSaving || logoUploading}
-              progress={logoUploading ? logoUploadProgress : null}
-            />
           </div>
-
-
-          <div className="space-y-2">
-            <FormLabel htmlFor="practice-accent-color">Accent Color</FormLabel>
-            <div className="flex items-center gap-2">
-              <div
-                className="relative h-10 w-10 min-h-10 min-w-10 max-h-10 max-w-10 shrink-0 overflow-hidden rounded-full aspect-square"
-                style={{ backgroundColor: normalizeAccentColor(accentColorDraft) ?? '#D4AF37' }}
-              >
-                <input
-                  id="practice-accent-color"
-                  type="color"
-                  value={normalizeAccentColor(accentColorDraft) ?? '#D4AF37'}
-                  onChange={(event) => {
-                    const value = (event.target as HTMLInputElement).value;
-                    setAccentColorDraft(normalizeAccentColor(value) ?? '#D4AF37');
-                  }}
-                  className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-                  disabled={isSettingsSaving}
-                />
-              </div>
-              <Input
-                id="practice-accent-color-text"
-                aria-label="Accent color (hex)"
-                value={accentColorDraft}
-                onChange={(value) => setAccentColorDraft(normalizeAccentColor(value) ?? value.toUpperCase())}
-                placeholder="#3B82F6"
-                disabled={isSettingsSaving}
-              />
-            </div>
-          </div>
-
-          <FormActions
-            className="justify-end"
-            onCancel={() => setIsEditPracticeModalOpen(false)}
-            onSubmit={handleUpdatePractice}
-            submitType="button"
-            submitText="Save Changes"
-            submitDisabled={isSettingsSaving || logoUploading}
-            cancelDisabled={isSettingsSaving}
-          />
-        </div>
-      </Dialog>
-
-      {/* Contact Modal */}
-      <Dialog
-        isOpen={isContactModalOpen}
-        onClose={() => setIsContactModalOpen(false)}
-        title="Contact"
-        contentClassName={modalContentClassName}
+        }
       >
-        <div className="space-y-4">
-          {/* Contact Information Fields */}
-          <FormGrid>
-            <Input
-              label="Website"
-              value={contactDraft.website || ''}
-              onChange={(value) => setContactDraft(prev => ({ ...prev, website: value }))}
-              disabled={isSettingsSaving}
-              placeholder="https://example.com"
-            />
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={() => nav(toSettingsPath('apps/blawby-messenger/settings'))}
+        >
+          Manage
+        </Button>
+      </SettingRow>
 
-            <Input
-              label="Business Email"
-              value={contactDraft.businessEmail || ''}
-              onChange={(value) => setContactDraft(prev => ({ ...prev, businessEmail: value }))}
-              disabled={isSettingsSaving}
-              type="email"
-              placeholder="business@example.com"
-            />
+      <SettingRow
+        label="Workspace URL"
+        labelNode={
+          <div>
+            <h3 className="text-sm font-semibold text-input-text">Workspace URL</h3>
+            <SettingsHelperText>{workspaceUrlLabel}</SettingsHelperText>
+          </div>
+        }
+      >
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={() => {
+            if (workspaceUrlHref) openHref(workspaceUrlHref);
+          }}
+          disabled={!workspaceUrlHref}
+        >
+          Open
+        </Button>
+      </SettingRow>
 
-            <Input
-              label="Contact Phone"
-              value={contactDraft.phone || ''}
-              onChange={(value) => setContactDraft(prev => ({ ...prev, phone: value }))}
-              disabled={isSettingsSaving}
-              type="tel"
-              placeholder="+1 (555) 123-4567"
-            />
-          </FormGrid>
+      <SettingRow
+        label="Contact and intake"
+        labelNode={
+          <div>
+            <h3 className="text-sm font-semibold text-input-text">Contact and intake</h3>
+            <SettingsHelperText>
+              {[websiteValue, phoneValue, addressSummary].filter(Boolean).join(' • ') ||
+                'No contact details configured'}
+            </SettingsHelperText>
+          </div>
+        }
+      >
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={() =>
+            nav(
+              `${toSettingsPath('practice/contact')}?returnTo=${encodeURIComponent(
+                toSettingsPath('practice')
+              )}`
+            )
+          }
+        >
+          Manage
+        </Button>
+      </SettingRow>
 
-          {/* Address Fields */}
-          <div className="space-y-4">
-            <h4 className="text-sm font-medium text-input-text">Address</h4>
-            <AddressExperienceForm
-              initialValues={{ address: contactDraft.address }}
-              fields={['address']}
-              required={[]}
-              onValuesChange={(values) => {
-                if (values.address !== undefined) {
-                  setContactDraft(prev => ({
-                    ...prev,
-                    address: values.address as Address,
-                  }));
+      <SettingRow
+        label="Services"
+        labelNode={
+          <div>
+            <h3 className="text-sm font-semibold text-input-text">
+              Practice areas and licensed states
+            </h3>
+            <SettingsHelperText>{practiceAreasSummary}</SettingsHelperText>
+            <SettingsHelperText>{licensedStatesSummary}</SettingsHelperText>
+          </div>
+        }
+      >
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={() => nav(toSettingsPath('practice/coverage'))}
+        >
+          Manage
+        </Button>
+      </SettingRow>
+
+      <SettingRow
+        label="Pricing and fees"
+        labelNode={
+          <div>
+            <h3 className="text-sm font-semibold text-input-text">Pricing and fees</h3>
+            <SettingsHelperText>Consultation pricing and billing rules</SettingsHelperText>
+          </div>
+        }
+      >
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={() => nav(toSettingsPath('practice/pricing'))}
+        >
+          Manage
+        </Button>
+      </SettingRow>
+
+      <SettingRow
+        label="Payouts"
+        labelNode={
+          <div>
+            <h3 className="text-sm font-semibold text-input-text">Payouts</h3>
+            <SettingsHelperText>Banking and payout setup</SettingsHelperText>
+          </div>
+        }
+      >
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={() => nav(toSettingsPath('practice/payouts'))}
+        >
+          Manage
+        </Button>
+      </SettingRow>
+
+      <SettingRow
+        label="Team and access"
+        labelNode={
+          <div>
+            <h3 className="text-sm font-semibold text-input-text">Team and access</h3>
+            <SettingsHelperText>{teamSummary}</SettingsHelperText>
+          </div>
+        }
+      >
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={() => nav(toSettingsPath('practice/team'))}
+        >
+          Manage
+        </Button>
+      </SettingRow>
+
+      <SettingRow
+        label="Apps and integrations"
+        labelNode={
+          <div>
+            <h3 className="text-sm font-semibold text-input-text">Apps and integrations</h3>
+            <SettingsHelperText>Connected tools and messaging</SettingsHelperText>
+          </div>
+        }
+      >
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={() => nav(toSettingsPath('apps'))}
+        >
+          Manage
+        </Button>
+      </SettingRow>
+
+
+
+
+      <SettingRow
+        label="Public listing"
+        labelNode={
+          <div>
+            <h3 className="text-sm font-semibold text-input-text">Public listing</h3>
+            <SettingsHelperText>
+              {publicListingEnabled
+                ? 'Your practice appears in public listings'
+                : 'Your practice is private'}
+            </SettingsHelperText>
+          </div>
+        }
+      >
+        {isOwner ? (
+          <Switch
+            value={localPublicListing}
+            onChange={async (checked) => {
+              if (!practice?.id) return;
+              setLocalPublicListing(checked); // optimistic UI
+              try {
+                await updatePracticeDetails(practice.id, { isPublic: checked });
+              } catch (_err) {
+                if (typeof window !== 'undefined' && window?.showToast) {
+                  window.showToast({
+                    type: 'error',
+                    message: 'Failed to update public listing. Please try again.'
+                  });
                 }
-              }}
-              showSubmitButton={false}
-              variant="plain"
-              disabled={isSettingsSaving}
-            />
-          </div>
-
-          <FormActions
-            className="justify-end"
-            onCancel={() => setIsContactModalOpen(false)}
-            onSubmit={handleSaveContact}
-            submitType="button"
-            submitText="Save"
-            disabled={isSettingsSaving}
+                setLocalPublicListing((prev) => !checked); // revert
+              }
+            }}
+            label={localPublicListing ? 'Public' : 'Private'}
+            disabled={!practice?.id}
+            data-public-listing-switch
           />
-        </div>
-      </Dialog>
+        ) : (
+          <span className="text-input-placeholder">{publicListingEnabled ? 'Public' : 'Private'}</span>
+        )}
+      </SettingRow>
 
-      {/* Create Practice Modal */}
-      <Dialog
-        isOpen={showCreateModal}
-        onClose={() => setShowCreateModal(false)}
-        title="Create Practice"
-        contentClassName={modalContentClassName}
-      >
-        <div className="space-y-4">
-          <FormGrid>
-            <div>
-              <FormLabel htmlFor="practice-name">Practice Name *</FormLabel>
-              <Input
-                id="practice-name"
-                value={createForm.name}
-                onChange={(value) => setCreateForm(prev => ({ ...prev, name: value }))}
-                placeholder="Your Law Firm Name"
-                required
-              />
-            </div>
-
-            <div className="@md:col-span-2">
-              <FormLabel htmlFor="practice-description">Description (optional)</FormLabel>
-              <Input
-                id="practice-description"
-                value={createForm.description}
-                onChange={(value) => setCreateForm(prev => ({ ...prev, description: value }))}
-                placeholder="Brief description of your practice"
-              />
-            </div>
-          </FormGrid>
-          
-          <FormActions
-            className="justify-end"
-            onCancel={() => setShowCreateModal(false)}
-            onSubmit={handleCreatePractice}
-            submitType="button"
-            submitText="Create Practice"
-            isLoading={isSettingsSaving}
-          />
-        </div>
-      </Dialog>
-
-
-      {/* Delete Practice Modal */}
-      <Dialog
-        isOpen={showDeleteModal}
-        onClose={() => setShowDeleteModal(false)}
-        title="Delete Practice"
-        contentClassName={modalContentClassName}
-      >
-        <div className="space-y-4">
-          <SettingsNotice variant="danger" className="p-4">
-            <p className="text-sm">
-              ⚠️ This action cannot be undone. This will permanently delete the practice and all its data.
+      {showDeleteModal && (
+        <div className="glass-panel rounded-xl border border-red-500/30 p-4">
+          <div className="space-y-2">
+            <h4 className="text-sm font-semibold text-red-500">Delete practice</h4>
+            <p className="text-sm text-input-text">
+              Replace this block with your existing delete modal flow.
             </p>
-          </SettingsNotice>
-          
-          <div>
-            <FormLabel htmlFor="delete-confirm">
-              Type the practice name to confirm: <strong>{practice?.name}</strong>
-            </FormLabel>
-            <Input
-              id="delete-confirm"
-              value={deleteConfirmText}
-              onChange={setDeleteConfirmText}
-              placeholder="Enter practice name"
-            />
+            <div className="flex gap-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setShowDeleteModal(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                size="sm"
+                onClick={() => setShowDeleteModal(false)}
+              >
+                Close
+              </Button>
+            </div>
           </div>
-          
-          <FormActions
-            className="justify-end"
-            onCancel={() => !isDeleting && setShowDeleteModal(false)}
-            onSubmit={handleDeletePractice}
-            submitType="button"
-            submitVariant="danger-ghost"
-            submitText="Delete Practice"
-            isLoading={isDeleting}
-            submitDisabled={deleteConfirmText.trim() !== practice?.name}
-          />
         </div>
-      </Dialog>
-
-    </ContentPageLayout>
+      )}
+    </div>
   );
 };
+
+export default PracticeOverviewPage;

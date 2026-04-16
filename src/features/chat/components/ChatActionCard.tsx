@@ -7,11 +7,12 @@ import { ChatDockedAction } from './ChatDockedAction';
 import AuthForm from '@/shared/components/AuthForm';
 import { IntakePaymentForm } from '@/features/intake/components/IntakePaymentForm';
 import { ContactForm, type ContactData } from '@/features/intake/components/ContactForm';
+import { Button } from '@/shared/ui/Button';
 import type { IntakePaymentRequest } from '@/shared/utils/intakePayments';
 import { stripePromise, hasStripeKey } from '@/features/intake/utils/stripe';
 
 interface ChatActionCardProps {
-  type: 'auth' | 'payment' | 'slim-form' | null;
+  type: 'auth' | 'payment' | 'slim-form' | 'disclaimer' | null;
   isOpen: boolean;
   onClose: () => void;
   // Auth props
@@ -32,6 +33,11 @@ interface ChatActionCardProps {
     onContinue: (data: ContactData) => void | Promise<void>;
     initialValues?: ContactData | null;
   };
+  disclaimerProps?: {
+    text: string;
+    onAccept: () => void | Promise<void>;
+    isSubmitting?: boolean;
+  };
 }
 
 export const ChatActionCard: FunctionComponent<ChatActionCardProps> = ({
@@ -40,7 +46,8 @@ export const ChatActionCard: FunctionComponent<ChatActionCardProps> = ({
   onClose,
   authProps,
   paymentProps,
-  slimFormProps
+  slimFormProps,
+  disclaimerProps
 }) => {
   const { t } = useTranslation(['common', 'auth']);
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signup');
@@ -84,6 +91,29 @@ export const ChatActionCard: FunctionComponent<ChatActionCardProps> = ({
   }, [clientSecret, isDarkTheme]);
 
   if (!type || !isOpen) return null;
+
+  if (type === 'disclaimer' && disclaimerProps) {
+    return (
+      <ChatDockedAction
+        isOpen={isOpen}
+        onClose={onClose}
+        title={t('chat.card.disclaimer.title')}
+        description={t('chat.card.disclaimer.description')}
+      >
+        <div className="max-h-[45vh] overflow-y-auto whitespace-pre-wrap text-sm leading-6 text-input-text">
+          {disclaimerProps.text}
+        </div>
+        <Button
+          type="button"
+          onClick={disclaimerProps.onAccept}
+          disabled={disclaimerProps.isSubmitting}
+          className="mt-5 w-full"
+        >
+          {disclaimerProps.isSubmitting ? t('chat.card.disclaimer.starting') : t('chat.card.disclaimer.acceptButton')}
+        </Button>
+      </ChatDockedAction>
+    );
+  }
 
   if (type === 'payment' && paymentProps?.request) {
     const canUseElements = Boolean(clientSecret && elementsOptions && hasStripeKey && stripePromise);

@@ -1236,7 +1236,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     return 0;
   })();
   const strongName = (progressFields.name ?? draftBasics?.name ?? currentPractice?.name ?? '').trim();
-  const strongDescription = (progressFields.description ?? setupDetails?.description ?? currentPractice?.description ?? '').trim();
+  const strongDescription = (progressFields.description ?? '').trim();
   const strongServicesCount = Math.max(
     persistedServiceCount,
     setupStatus.servicesComplete ? 1 : 0
