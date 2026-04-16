@@ -845,6 +845,11 @@ function PublicPracticeRoute({
     ? new URLSearchParams(window.location.search).get('v') === 'widget'
     : (location.query?.v === 'widget'
       || /(?:^|[?&])v=widget(?:[&#]|$)/.test(location.url ?? ''));
+
+  // --- Widget bootstrap and preview state ---
+  const { data, isLoading, error } = useWidgetBootstrap(slug, isWidget);
+  const isPreview = isWidget;
+
   const initialScenario = useMemo<WidgetPreviewScenario>(() => {
     const raw = typeof location.query?.scenario === 'string'
       ? location.query.scenario

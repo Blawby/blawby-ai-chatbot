@@ -338,8 +338,10 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
     [messages, hasIntro]
   );
 
-  // Memoized intro injector
+
+  // Memoized intro injector with messagesReady gate
   const maybeInjectIntro = useCallback(() => {
+    if (!messagesReady) return;
     if (!activeConversationId || !widgetIntroMessage || hasConversationStarted) return;
     if (typeof messageHandling.addMessage === 'function' && !hasIntro) {
       messageHandling.addMessage({
@@ -348,12 +350,14 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
         metadata: { systemMessageKey: 'intro' },
       });
     }
-  }, [activeConversationId, widgetIntroMessage, hasConversationStarted, messageHandling, hasIntro, practiceConfig.profileImage, practiceConfig.name]);
+  }, [messagesReady, activeConversationId, widgetIntroMessage, hasConversationStarted, messageHandling, hasIntro, practiceConfig.profileImage, practiceConfig.name]);
 
-  // Inject intro when conversation becomes active and no intro exists
+  // Inject intro when conversation becomes active and no intro exists, only after messagesReady
   useEffect(() => {
-    maybeInjectIntro();
-  }, [activeConversationId, maybeInjectIntro]);
+    if (messagesReady) {
+      maybeInjectIntro();
+    }
+  }, [messagesReady, activeConversationId, maybeInjectIntro]);
 
   // Persist disclaimer acceptance in conversation metadata if possible
   useEffect(() => {

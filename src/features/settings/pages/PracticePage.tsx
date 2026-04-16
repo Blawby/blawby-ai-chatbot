@@ -1,3 +1,4 @@
+
 import { useMemo, useState } from 'preact/hooks';
 import { SettingRow, SettingsHelperText } from '@/features/settings/components';
 import { cn } from '@/shared/utils/cn';
@@ -5,77 +6,16 @@ import { Button } from '@/shared/ui/Button';
 import { Switch } from '@/shared/ui/input/Switch';
 import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
 import { usePracticeTeam } from '@/shared/hooks/usePracticeTeam';
-import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
+import { usePracticeManagement, updatePracticeDetails } from '@/shared/hooks/usePracticeManagement';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { normalizePracticeRole } from '@/shared/utils/practiceRoles';
+import { text } from '@/shared/utils/text';
+import { uniqueStrings } from '@/shared/utils/uniqueStrings';
+import { useLocation } from 'preact-iso';
+import type { PracticeService } from '@/shared/types/practice';
+import type { PracticeOverviewPageProps } from './PracticePage.types';
 
-      <>
-        <SettingRow
-          label="Practice overview"
-          labelNode={
-            <div className="flex items-center gap-4">
-              <div className="glass-panel flex h-12 w-12 items-center justify-center overflow-hidden rounded-lg">
-                {practice?.logo ? (
-                  <img src={practice.logo} alt="" className="h-full w-full object-cover" />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center text-base font-semibold text-input-text">
-                    {(practice?.name || 'P').slice(0, 1).toUpperCase()}
-                  </div>
-                )}
-              </div>
 
-              <div className="min-w-0 flex-1">
-                <h3 className="text-base font-medium text-input-text">
-                  {practice?.name || 'Practice'}
-                </h3>
-                <SettingsHelperText className="truncate">
-                  Workspace URL and brand
-                </SettingsHelperText>
-              </div>
-            </div>
-          }
-        >
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => nav(toSettingsPath('apps/blawby-messenger/settings'))}
-          >
-            Manage
-          </Button>
-        </SettingRow>
-
-        <SettingRow
-          label="Public listing"
-          labelNode={
-            <div>
-              <h3 className="text-sm font-semibold text-input-text">Public listing</h3>
-              <SettingsHelperText>
-                {publicListingEnabled
-                  ? 'Your practice appears in public listings'
-                  : 'Your practice is private'}
-              </SettingsHelperText>
-            </div>
-          }
-        >
-          {isOwner ? (
-            <Switch
-              value={!!publicListingEnabled}
-              onChange={async (checked) => {
-                if (!practice?.id) return;
-                try {
-                  await updatePracticeDetails(practice.id, { isPublic: checked });
-                } catch (_err) {
-                  // Optionally show error toast
-                }
-              }}
-              label={publicListingEnabled ? 'Public' : 'Private'}
-              disabled={!practice?.id}
-            />
-          ) : (
-            <span className="text-input-placeholder">{publicListingEnabled ? 'Public' : 'Private'}</span>
-          )}
-        </SettingRow>
-      </>
 const summarizeList = (
   items: string[],
   visibleCount = 3,
@@ -181,15 +121,13 @@ export const PracticeOverviewPage = ({
   const workspaceUrlLabel = practice?.slug ? `/public/${practice.slug}` : 'No workspace URL';
   const workspaceUrlHref = practice?.slug ? `/public/${practice.slug}` : null;
 
+  const { route } = useLocation();
   const nav = (path: string) => {
     if (onNavigate) {
       onNavigate(path);
       return;
     }
-
-    if (typeof window !== 'undefined') {
-      window.location.assign(path);
-    }
+    route(path);
   };
 
   const openHref = (href: string) => {
@@ -228,37 +166,6 @@ export const PracticeOverviewPage = ({
                 {practice?.name || 'Practice'}
               </h3>
               <SettingsHelperText className="truncate">
-                <SettingRow
-                  label="Public listing"
-                  labelNode={
-                    <div>
-                      <h3 className="text-sm font-semibold text-input-text">Public listing</h3>
-                      <SettingsHelperText>
-                        {publicListingEnabled
-                          ? 'Your practice appears in public listings'
-                          : 'Your practice is private'}
-                      </SettingsHelperText>
-                    </div>
-                  }
-                >
-                  {isOwner ? (
-                    <Switch
-                      value={!!publicListingEnabled}
-                      onChange={async (checked) => {
-                        if (!practice?.id) return;
-                        try {
-                          await updatePracticeDetails(practice.id, { isPublic: checked });
-                        } catch (_err) {
-                          // Optionally show error toast
-                        }
-                      }}
-                      label={publicListingEnabled ? 'Public' : 'Private'}
-                      disabled={!practice?.id}
-                    />
-                  ) : (
-                    <span className="text-input-placeholder">{publicListingEnabled ? 'Public' : 'Private'}</span>
-                  )}
-                </SettingRow>
                 Public listing, workspace URL, and brand
               </SettingsHelperText>
             </div>
@@ -373,7 +280,7 @@ export const PracticeOverviewPage = ({
         <Button
           variant="secondary"
           size="sm"
-          onClick={() => nav(toSettingsPath('practice-payouts'))}
+          onClick={() => nav(toSettingsPath('practice/payouts'))}
         >
           Manage
         </Button>
@@ -391,7 +298,7 @@ export const PracticeOverviewPage = ({
         <Button
           variant="secondary"
           size="sm"
-          onClick={() => nav(toSettingsPath('practice-team'))}
+          onClick={() => nav(toSettingsPath('practice/team'))}
         >
           Manage
         </Button>
@@ -415,6 +322,9 @@ export const PracticeOverviewPage = ({
         </Button>
       </SettingRow>
 
+
+
+
       <SettingRow
         label="Public listing"
         labelNode={
@@ -428,36 +338,37 @@ export const PracticeOverviewPage = ({
           </div>
         }
       >
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={() => nav(toSettingsPath('apps/blawby-messenger/settings'))}
-        >
-          Manage
-        </Button>
+        {isOwner ? (
+          <Switch
+            value={!!publicListingEnabled}
+            onChange={async (checked) => {
+              if (!practice?.id) return;
+              const prevValue = !!publicListingEnabled;
+              try {
+                await updatePracticeDetails(practice.id, { isPublic: checked });
+              } catch (_err) {
+                // Show error toast/notification and revert toggle
+                if (typeof window !== 'undefined' && window?.showToast) {
+                  window.showToast({
+                    type: 'error',
+                    message: 'Failed to update public listing. Please try again.'
+                  });
+                }
+                // Revert toggle (force UI update)
+                setTimeout(() => {
+                  const el = document.querySelector('[data-public-listing-switch]');
+                  if (el && 'checked' in el) el.checked = prevValue;
+                }, 0);
+              }
+            }}
+            label={publicListingEnabled ? 'Public' : 'Private'}
+            disabled={!practice?.id}
+            data-public-listing-switch
+          />
+        ) : (
+          <span className="text-input-placeholder">{publicListingEnabled ? 'Public' : 'Private'}</span>
+        )}
       </SettingRow>
-
-      {isOwner && (
-        <SettingRow
-          label="Delete practice"
-          labelNode={
-            <div>
-              <h3 className="text-sm font-semibold text-red-600">Delete practice</h3>
-              <SettingsHelperText className="text-red-400">
-                Permanently delete this practice and all its data
-              </SettingsHelperText>
-            </div>
-          }
-        >
-          <Button
-            variant="danger"
-            size="sm"
-            onClick={() => setShowDeleteModal(true)}
-          >
-            Delete
-          </Button>
-        </SettingRow>
-      )}
 
       {showDeleteModal && (
         <div className="glass-panel rounded-xl border border-red-500/30 p-4">

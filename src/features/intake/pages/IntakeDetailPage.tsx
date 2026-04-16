@@ -620,7 +620,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
                     </span>
                   ) : 'Approve consultation'}
                 </Button>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="w-full">
                   <Button
                     id="intake-reject-btn"
                     variant="secondary"
@@ -848,11 +848,11 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
       <Dialog
         isOpen={triageDialogAction !== null}
         onClose={closeTriageDialog}
-        title={triageDialogAction === 'accepted' ? 'Approve consultation' : (triageDialogAction === 'spam' ? 'Mark as spam' : 'Reject consultation')}
+        title={triageDialogAction === 'accepted' ? 'Approve consultation' : 'Reject consultation'}
         description={
           triageDialogAction === 'accepted'
-          ? "This will approve the lead and prepare for onboarding."
-          : (triageDialogAction === 'spam' ? "This will mark the intake as spam and hide it from the queue." : "This will mark the intake as rejected.")
+            ? "This will approve the lead and prepare for onboarding."
+            : "This will mark the intake as rejected."
         }
         disableBackdropClick={isSubmitting}
       >
