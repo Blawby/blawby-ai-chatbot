@@ -1,3 +1,10 @@
+// Add global typing for window.showToast
+declare global {
+  interface Window {
+    showToast?: (opts: { type: string; message: string }) => void;
+  }
+}
+
 
 import { useMemo, useState } from 'preact/hooks';
 import { SettingRow, SettingsHelperText } from '@/features/settings/components';
@@ -115,8 +122,14 @@ export const PracticeOverviewPage = ({
       ? `${members.length} member${members.length === 1 ? '' : 's'}`
       : 'No team members';
 
-  const publicListingEnabled =
-    typeof practiceDetails?.isPublic === 'boolean' ? practiceDetails.isPublic : false;
+
+  const publicListingEnabled = typeof practiceDetails?.isPublic === 'boolean' ? practiceDetails.isPublic : false;
+  const [localPublicListing, setLocalPublicListing] = useState<boolean>(!!publicListingEnabled);
+
+  // Sync local state with server value
+  useEffect(() => {
+    setLocalPublicListing(!!publicListingEnabled);
+  }, [publicListingEnabled]);
 
   const workspaceUrlLabel = practice?.slug ? `/public/${practice.slug}` : 'No workspace URL';
   const workspaceUrlHref = practice?.slug ? `/public/${practice.slug}` : null;
@@ -340,28 +353,23 @@ export const PracticeOverviewPage = ({
       >
         {isOwner ? (
           <Switch
-            value={!!publicListingEnabled}
+            value={localPublicListing}
             onChange={async (checked) => {
               if (!practice?.id) return;
-              const prevValue = !!publicListingEnabled;
+              setLocalPublicListing(checked); // optimistic UI
               try {
                 await updatePracticeDetails(practice.id, { isPublic: checked });
               } catch (_err) {
-                // Show error toast/notification and revert toggle
                 if (typeof window !== 'undefined' && window?.showToast) {
                   window.showToast({
                     type: 'error',
                     message: 'Failed to update public listing. Please try again.'
                   });
                 }
-                // Revert toggle (force UI update)
-                setTimeout(() => {
-                  const el = document.querySelector('[data-public-listing-switch]');
-                  if (el && 'checked' in el) el.checked = prevValue;
-                }, 0);
+                setLocalPublicListing((prev) => !checked); // revert
               }
             }}
-            label={publicListingEnabled ? 'Public' : 'Private'}
+            label={localPublicListing ? 'Public' : 'Private'}
             disabled={!practice?.id}
             data-public-listing-switch
           />
