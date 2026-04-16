@@ -934,7 +934,7 @@ export const PracticeClientsPage = ({
                 "before:absolute before:-inset-3.5 before:content-['']",
                 activeLetter === letter
                   ? 'text-[rgb(var(--accent-foreground))] font-bold bg-accent-500'
-                  : 'text-input-placeholder hover:text-input-text hover:bg-surface-utility/40'
+                  : 'text-input-placeholder hover:text-input-text hover:bg-surface-utility'
               )}
             >
               {letter}

@@ -156,7 +156,7 @@ export default function DebugStylesPage() {
             <p className="font-medium">Correct: accent foreground token</p>
             <p className="text-sm opacity-90">Remains readable across accent theme changes.</p>
           </div>
-          <div className="rounded-xl bg-accent-500 p-4 text-[rgb(var(--accent-foreground))]">
+          <div className="rounded-xl bg-accent-500 p-4 text-white">
             <p className="font-medium">Avoid: hardcoded `text-white`</p>
             <p className="text-sm opacity-90">Can fail contrast on some accent colors.</p>
           </div>

@@ -180,7 +180,7 @@ export const TimeEntriesPanel = ({
             </Button>
           </header>
 
-          <div className="divide-y divide-gray-200 dark:divide-white/10">
+          <div className="divide-y divide-line-default">
             {error ? (
               <div className="px-6 py-6 text-sm text-red-600 dark:text-red-400">{error}</div>
             ) : loading && entries.length === 0 ? (
@@ -191,10 +191,10 @@ export const TimeEntriesPanel = ({
                 key={day.dateKey}
                 type="button"
                 onClick={() => openNewEntry(day.dateKey)}
-                className="w-full text-left px-4 py-3 sm:px-6 hover:bg-white/[0.04] transition-colors"
+                className="w-full text-left px-4 py-3 sm:px-6 hover:bg-surface-utility/10 transition-colors"
               >
                 <div className="grid gap-2 sm:grid-cols-12 sm:items-center">
-                  <div className="text-sm font-medium text-gray-600 dark:text-gray-300 sm:col-span-3">
+                  <div className="text-sm font-medium text-input-placeholder sm:col-span-3">
                     {formatDateLabel(day.date)}
                   </div>
                   <div className="sm:col-span-9">
@@ -209,7 +209,7 @@ export const TimeEntriesPanel = ({
                         {formatDuration(day.totalSeconds)}
                       </div>
                     </div>
-                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    <p className="mt-1 text-xs text-input-placeholder">
                       {day.entries.length === 1 ? '1 entry' : `${day.entries.length} entries`}
                     </p>
                   </div>
@@ -249,7 +249,7 @@ export const TimeEntriesPanel = ({
           contentClassName="max-w-xl"
         >
           <DialogBody className="space-y-4">
-            <p className="text-sm text-gray-600 dark:text-gray-300">
+            <p className="text-sm text-input-placeholder">
               Are you sure you want to delete this time entry? This action cannot be undone.
             </p>
           </DialogBody>

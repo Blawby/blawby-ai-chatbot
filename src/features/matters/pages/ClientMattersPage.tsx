@@ -407,7 +407,7 @@ export const ClientMattersPage = ({
             inspectorOpen={detailInspectorOpen}
           />
           <nav
-            className="relative z-10 flex items-end gap-0 border-b border-white/[0.06] px-4"
+            className="relative z-10 flex items-end gap-0 border-b border-line-glass/20 px-4"
             aria-label="Matter sections"
           >
             {DETAIL_TABS.map((tab) => {
@@ -428,7 +428,7 @@ export const ClientMattersPage = ({
                     'after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:rounded-full after:transition-all after:duration-150',
                     isActive
                       ? 'text-input-text after:bg-accent-500'
-                      : 'text-input-placeholder hover:text-input-text after:bg-transparent hover:after:bg-white/20'
+                      : 'text-input-placeholder hover:text-input-text after:bg-transparent hover:after:bg-line-glass/20'
                   ].join(' ')}
                 >
                   {tab.label}

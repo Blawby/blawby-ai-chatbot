@@ -39,7 +39,7 @@ export function StripeCheckpointCard({
           <p className="text-sm text-input-placeholder">{body}</p>
         </div>
       </div>
-      <div className="flex items-center justify-between gap-3 rounded-2xl border border-line-glass/30 bg-black/10 px-3 py-2">
+      <div className="flex items-center justify-between gap-3 rounded-2xl border border-line-glass/30 bg-surface-utility/10 px-3 py-2">
         <div>
           <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-input-placeholder">Stripe status</div>
           <div className="text-sm font-medium">{statusLabel}</div>

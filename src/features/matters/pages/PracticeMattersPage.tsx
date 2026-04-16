@@ -1898,8 +1898,8 @@ export const PracticeMattersPage = ({
                                   'flex h-10 w-10 items-center justify-center rounded-full transition-colors duration-150 sm:h-11 sm:w-11',
                                   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500',
                                   isActive
-                                    ? 'bg-white/20 text-[rgb(var(--accent-foreground))]'
-                                    : 'bg-white/10 text-[rgb(var(--accent-foreground))]/80 hover:bg-white/15 hover:text-[rgb(var(--accent-foreground))]'
+                                    ? 'bg-surface-workspace/20 text-[rgb(var(--accent-foreground))]'
+                                    : 'bg-surface-workspace/10 text-[rgb(var(--accent-foreground))]/80 hover:bg-surface-workspace/15 hover:text-[rgb(var(--accent-foreground))]'
                                 ].join(' ')}
                               >
                                 <TabIcon className="h-5 w-5" aria-hidden="true" />

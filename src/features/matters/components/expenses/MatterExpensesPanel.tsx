@@ -296,7 +296,7 @@ export const MatterExpensesPanel = ({
           contentClassName="max-w-xl"
         >
           <DialogBody className="space-y-4">
-            <p className="text-sm text-gray-600 dark:text-gray-300">
+            <p className="text-sm text-input-placeholder">
               Are you sure you want to delete this expense? This action cannot be undone.
             </p>
             {deleteError && (
