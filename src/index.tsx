@@ -333,8 +333,8 @@ function AppShell() {
 }
 
 function RouteLoadError({
-  _message,
-  _onRetry
+  message,
+  onRetry
 }: {
   message: string;
   onRetry: () => void;
@@ -827,7 +827,7 @@ function ClientPracticeRoute({
 function PublicPracticeRoute({
   practiceSlug,
   conversationId,
-  _workspaceView = 'home'
+  workspaceView = 'home'
 }: {
   practiceSlug?: string;
   conversationId?: string;

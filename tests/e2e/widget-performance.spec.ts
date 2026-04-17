@@ -163,13 +163,20 @@ test.describe('Public widget performance', () => {
     const slimFormPhone = anonPage.locator('input[type="tel"]').first();
     const slimFormContinue = anonPage.getByRole('button', { name: /continue/i }).first();
     const formOpenStartedAt = Date.now();
-    if (await consultationCta.isVisible({ timeout: 1000 }).catch(() => false)) {
-      await consultationCta.click();
-    }
+    let clickedCta = false;
     await expect.poll(
       async () => {
-        const inputEnabled = await messageInput.isEnabled({ timeout: 300 }).catch(() => false);
-        const formVisible = await slimFormName.isVisible({ timeout: 300 }).catch(() => false);
+        if (!clickedCta && await consultationCta.isVisible({ timeout: 250 }).catch(() => false)) {
+          await consultationCta.click().catch(() => undefined);
+          clickedCta = true;
+        }
+        const disclaimerAccept = anonPage.getByRole('button', { name: /accept/i }).first();
+        if (await disclaimerAccept.isVisible({ timeout: 250 }).catch(() => false)) {
+          await disclaimerAccept.click().catch(() => undefined);
+        }
+
+        const inputEnabled = await messageInput.isEnabled({ timeout: 250 }).catch(() => false);
+        const formVisible = await slimFormName.isVisible({ timeout: 250 }).catch(() => false);
         return inputEnabled || formVisible;
       },
       {
@@ -473,14 +480,20 @@ test.describe('Public widget performance', () => {
     const consultationCta = anonPage.getByRole('button', { name: /request consultation/i }).first();
     const messageInput = anonPage.getByTestId('message-input');
 
-    if (await consultationCta.isVisible({ timeout: 1000 }).catch(() => false)) {
-      await consultationCta.click();
-    }
-
+    let clickedCta = false;
     await expect.poll(
       async () => {
-        const inputEnabled = await messageInput.isEnabled({ timeout: 300 }).catch(() => false);
-        const formVisible = await slimFormName.isVisible({ timeout: 300 }).catch(() => false);
+        if (!clickedCta && await consultationCta.isVisible({ timeout: 250 }).catch(() => false)) {
+          await consultationCta.click().catch(() => undefined);
+          clickedCta = true;
+        }
+        const disclaimerAccept = anonPage.getByRole('button', { name: /accept/i }).first();
+        if (await disclaimerAccept.isVisible({ timeout: 250 }).catch(() => false)) {
+          await disclaimerAccept.click().catch(() => undefined);
+        }
+
+        const inputEnabled = await messageInput.isEnabled({ timeout: 250 }).catch(() => false);
+        const formVisible = await slimFormName.isVisible({ timeout: 250 }).catch(() => false);
         return inputEnabled || formVisible;
       },
       {
@@ -556,14 +569,20 @@ test.describe('Public widget performance', () => {
     const slimFormContinue = anonPage.getByRole('button', { name: /continue/i }).first();
     const messageInput = anonPage.getByTestId('message-input');
 
-    if (await consultationCta.isVisible({ timeout: 1000 }).catch(() => false)) {
-      await consultationCta.click();
-    }
-
+    let clickedCta = false;
     await expect.poll(
       async () => {
-        const inputEnabled = await messageInput.isEnabled({ timeout: 300 }).catch(() => false);
-        const formVisible = await slimFormName.isVisible({ timeout: 300 }).catch(() => false);
+        if (!clickedCta && await consultationCta.isVisible({ timeout: 250 }).catch(() => false)) {
+          await consultationCta.click().catch(() => undefined);
+          clickedCta = true;
+        }
+        const disclaimerAccept = anonPage.getByRole('button', { name: /accept/i }).first();
+        if (await disclaimerAccept.isVisible({ timeout: 250 }).catch(() => false)) {
+          await disclaimerAccept.click().catch(() => undefined);
+        }
+
+        const inputEnabled = await messageInput.isEnabled({ timeout: 250 }).catch(() => false);
+        const formVisible = await slimFormName.isVisible({ timeout: 250 }).catch(() => false);
         return inputEnabled || formVisible;
       },
       {

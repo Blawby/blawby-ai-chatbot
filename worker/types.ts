@@ -276,6 +276,8 @@ export interface ConversationConfig {
   };
   testMode?: boolean;
   metadata?: Record<string, unknown>;
+  consultationFee?: number;
+  billingIncrementMinutes?: number;
   betterAuthOrgId?: string;
   tools?: {
     [toolName: string]: {

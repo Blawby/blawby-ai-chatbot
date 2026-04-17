@@ -70,14 +70,18 @@ const prepareWidgetComposer = async (
     }
 
     if (!clickedCta && await consultationCta.isVisible({ timeout: 500 }).catch(() => false)) {
-      await consultationCta.click({ timeout: 1000 }).catch(() => undefined);
-      clickedCta = true;
-      lastStep = 'cta-clicked';
+      try {
+        await consultationCta.click({ timeout: 1000 });
+        clickedCta = true;
+        lastStep = 'cta-clicked';
+      } catch (err) {
+        // Leave clickedCta false so recovery logic can retry
+      }
     }
 
     if (await disclaimerAccept.isVisible({ timeout: 500 }).catch(() => false)) {
       await disclaimerAccept.click({ timeout: 1000 }).catch(() => undefined);
-      await expect(disclaimerAccept).not.toBeVisible({ timeout: 5000 }).catch(() => undefined);
+      await expect(disclaimerAccept).not.toBeVisible({ timeout: 5000 });
       lastStep = 'disclaimer-accepted';
     }
 
@@ -325,15 +329,17 @@ test.describe('Public widget intake flow', () => {
         }
 
         if (await consultationCta.isVisible({ timeout: 500 }).catch(() => false)) {
-          await consultationCta.click({ timeout: 1000 }).catch(() => undefined);
-          lastStep = 'cta-clicked';
+          try {
+            await consultationCta.click({ timeout: 1000 });
+            lastStep = 'cta-clicked';
+          } catch (err) {}
         }
 
         // Handle disclaimer if it appears
         const disclaimerAccept = anonPage.getByRole('button', { name: /accept/i }).first();
         if (await disclaimerAccept.isVisible({ timeout: 500 }).catch(() => false)) {
           await disclaimerAccept.click({ timeout: 1000 }).catch(() => undefined);
-          await expect(disclaimerAccept).not.toBeVisible({ timeout: 5000 }).catch(() => undefined);
+          await expect(disclaimerAccept).not.toBeVisible({ timeout: 5000 });
           lastStep = 'disclaimer-accepted';
         }
 
@@ -1145,8 +1151,8 @@ test.describe('Public widget intake flow', () => {
 
         // Handle disclaimer
         if (await disclaimerAccept.isVisible({ timeout: 500 }).catch(() => false)) {
-          await disclaimerAccept.click().catch(() => undefined);
-          await expect(disclaimerAccept).not.toBeVisible({ timeout: 5000 }).catch(() => undefined);
+          await disclaimerAccept.click({ timeout: 1000 }).catch(() => undefined);
+          await expect(disclaimerAccept).not.toBeVisible({ timeout: 5000 });
         }
 
         if (await slimFormContinue.isVisible({ timeout: 250 }).catch(() => false)) {

@@ -55,13 +55,6 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
   bootstrapSession
 }) => {
   // Single navigation state (no 'disclaimer' step)
-  // Debug: Log all relevant state on first render
-  const didLogFirstRender = useRef(false);
-  useEffect(() => {
-    if (!didLogFirstRender.current) {
-      didLogFirstRender.current = true;
-    }
-  });
   const [step, setStep] = useState<'home' | 'list' | 'chat'>(routeConversationId ? 'chat' : 'home');
   const [setupConversationId, setConversationId] = useState<string | null>(null);
   const [bootstrapIgnored, setBootstrapIgnored] = useState(false);
@@ -344,6 +337,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
         id: 'system-intro-local',
         role: 'assistant',
         content: widgetIntroMessage,
+        isUser: false,
         timestamp: 1, // Pin to the very top regardless of local clock
         metadata: { systemMessageKey: 'intro' },
       });
@@ -387,14 +381,14 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
     if (
       ((requestedMode === 'REQUEST_CONSULTATION' || requestedMode === 'ASK_QUESTION') && currentStep === 'disclaimer') ||
       currentStep === 'contact_form_slim' ||
-      currentStep === 'chat'
+      (currentStep as string) === 'chat'
     ) {
       setStep('chat');
     }
 
     if (
       (requestedMode === 'REQUEST_CONSULTATION' && currentStep === 'contact_form_slim') ||
-      (requestedMode === 'ASK_QUESTION' && currentStep === 'chat')
+      (requestedMode === 'ASK_QUESTION' && (currentStep as string) === 'chat')
     ) {
       setConversationMode(requestedMode);
       setRequestedMode(null);
@@ -587,12 +581,10 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
       console.warn('[WidgetApp] Cannot accept disclaimer: no effectiveConversationId');
       return;
     }
-    console.log('[WidgetApp] Accepting disclaimer for conversation:', effectiveConversationId);
     try {
       await _updateConversationMetadata({
         disclaimerAcceptedAt: new Date().toISOString(),
       });
-      console.log('[WidgetApp] Disclaimer successfully accepted');
     } catch (err) {
       console.error('[WidgetApp] Failed to accept disclaimer', err);
     }

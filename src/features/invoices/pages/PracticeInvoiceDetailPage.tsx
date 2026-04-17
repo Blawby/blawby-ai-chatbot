@@ -34,10 +34,10 @@ export function PracticeInvoiceDetailPage({
   practiceId,
   practiceSlug,
   invoiceId,
-  _leadingAction,
-  _onInspector,
-  _inspectorOpen = false,
-  _showBack = true,
+  leadingAction,
+  onInspector,
+  inspectorOpen = false,
+  showBack = true,
 }: {
   practiceId: string | null;
   practiceSlug: string | null;

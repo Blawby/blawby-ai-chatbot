@@ -27,8 +27,8 @@ export function ClientInvoiceDetailPage({
   practiceId,
   practiceSlug,
   invoiceId,
-  _onInspector,
-  _inspectorOpen = false,
+  onInspector,
+  inspectorOpen = false,
   showBack = true,
 }: {
   practiceId: string | null;

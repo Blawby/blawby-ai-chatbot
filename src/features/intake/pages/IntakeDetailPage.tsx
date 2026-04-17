@@ -433,7 +433,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
       { mirrorLegacyFields: true }
     );
 
-    const metadata = intake?.metadata ?? {};
+    const metadata = (intake?.metadata ?? {}) as Record<string, unknown>;
     const representedParty = typeof metadata.on_behalf_of === 'string' && metadata.on_behalf_of.trim().length > 0
       ? metadata.on_behalf_of.trim()
       : null;
@@ -590,8 +590,8 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
 
   return (
     <SettingsPage
-      title={intake.client_name ?? 'Intake Details'}
-      subtitle={intake.practice_area ?? undefined}
+      title={intake.client_name ?? name ?? 'Intake Details'}
+      subtitle={intake.practice_area ?? practiceServiceName ?? undefined}
       showBack
       onBack={onBack}
       actions={
@@ -652,7 +652,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
             <div>
               <h3 className="text-xs font-semibold uppercase tracking-widest text-input-placeholder mb-3">About</h3>
               <div className="space-y-4">
-                {intake?.paymentVerified && (
+                {intake.paymentVerified && (
                   <div className="flex items-center gap-2 text-xs font-bold text-emerald-600 dark:text-emerald-400">
                     <Icon icon={CheckCircleIconSolid} className="h-4 w-4" />
                     Payment method verified
@@ -717,8 +717,8 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
                     conversationTitle={intakeTitle}
                     viewerContext="practice"
                     practiceConfig={{
-                      name: practiceDetails?.name ?? 'Practice',
-                      profileImage: practiceDetails?.logo ?? null,
+                      name: practiceDetails?.name ?? practiceName ?? 'Practice',
+                      profileImage: practiceDetails?.logo ?? practiceLogo ?? null,
                       practiceId: intake.organization_id,
                     }}
                     practiceId={intake.organization_id}

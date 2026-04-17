@@ -443,14 +443,7 @@ export const useChatComposer = ({
         }
         let removedEmptyBubble = false;
         setMessages(prev => {
-          console.log('[DEBUG] setMessages(prev) called during done. Current count:', prev.length);
           const currentBubble = prev.find((message) => message.id === bubbleId);
-          if (currentBubble) {
-            console.log('[DEBUG] Found bubble:', currentBubble.id, 'content:', currentBubble.content);
-          } else {
-            console.log('[DEBUG] Bubble NOT found:', bubbleId);
-            console.log('[DEBUG] Available IDs:', prev.map(m => m.id).join(', '));
-          }
 
           if (currentBubble?.content?.trim()) {
             return prev;

@@ -20,6 +20,8 @@ const PracticeSchema = z.object({
   seats: z.number().optional(),
   kind: z.enum(['personal', 'business']).optional(),
   accentColor: z.string().optional(),
+  consultationFee: z.number().nullable().optional(),
+  billingIncrementMinutes: z.number().nullable().optional(),
   subscriptionStatus: z.enum(['none', 'trialing', 'active', 'past_due', 'canceled', 'incomplete', 'incomplete_expired', 'unpaid', 'paused']).optional()
 });
 
@@ -30,6 +32,8 @@ export interface UIPracticeConfig extends PracticeConfig {
   name?: string; // Optional - comes from Practice object
   introMessage?: string | null; // Optional - comes from public practice details
   legalDisclaimer?: string | null; // Optional - comes from public practice details
+  consultationFee?: number;
+  billingIncrementMinutes?: number;
 }
 
 const buildDefaultPracticeConfig = (overrides: Partial<UIPracticeConfig> = {}): UIPracticeConfig => ({
@@ -165,6 +169,8 @@ export const usePracticeConfig = ({
             description: '',
             introMessage: details?.introMessage ?? null,
             legalDisclaimer: details?.legalDisclaimer ?? null,
+            consultationFee: details?.consultationFee ?? undefined,
+            billingIncrementMinutes: details?.billingIncrementMinutes ?? undefined,
             accentColor: details?.accentColor ?? 'gold',
             isPublic: details?.isPublic
           });
@@ -224,6 +230,8 @@ export const usePracticeConfig = ({
           domain: cfg.domain ?? '',
           brandColor: cfg.brandColor ?? '#000000',
           accentColor: practice.accentColor ?? cfg.accentColor ?? 'gold',
+          consultationFee: practice.consultationFee ?? undefined,
+          billingIncrementMinutes: practice.billingIncrementMinutes ?? undefined,
           voice: {
             enabled: typeof cfg.voice?.enabled === 'boolean' ? cfg.voice.enabled : false,
             provider: cfg.voice?.provider ?? 'cloudflare',
