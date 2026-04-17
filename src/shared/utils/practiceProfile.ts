@@ -144,8 +144,8 @@ export const buildPracticeProfilePayloads = (
   }
 
   // Legal disclaimer / Firm description
-  const legalDisclaimer = normalizeOptionalText(input.legalDisclaimer ?? input.description);
-  if (legalDisclaimer !== undefined && shouldInclude(legalDisclaimer, normalizeOptionalText(compareTo.legalDisclaimer ?? compareTo.description))) {
+  const legalDisclaimer = normalizeOptionalText(input.legalDisclaimer !== undefined ? input.legalDisclaimer : input.description);
+  if (legalDisclaimer !== undefined && shouldInclude(legalDisclaimer, normalizeOptionalText(compareTo.legalDisclaimer !== undefined ? compareTo.legalDisclaimer : compareTo.description))) {
     detailsPayload.legalDisclaimer = legalDisclaimer;
   }
 

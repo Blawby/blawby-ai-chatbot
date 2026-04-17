@@ -365,34 +365,30 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
 
     try {
       await createConversationIfNeeded();
+      
+      // If we are already past the disclaimer/form stages, commit immediately
+      const currentStep = intakeStatus?.step;
+      if (currentStep === 'chat' || (mode === 'ASK_QUESTION' && (currentStep as string) === 'chat')) {
+        setConversationMode(mode);
+        setRequestedMode(null);
+      }
     } catch (error) {
       console.error('Failed to create deferred conversation', error);
       const message = error instanceof Error ? error.message : 'Failed to start conversation';
       showErrorRef.current?.(message);
     }
-  }, [practiceId, createConversationIfNeeded]);
-  // Downstream state machine: only advance on explicit backend milestone
+  }, [practiceId, createConversationIfNeeded, intakeStatus?.step]);
+  const derivedStep = useMemo(() => {
+    if (step === 'chat') return 'chat';
+    if (requestedMode && (intakeStatus?.step === 'disclaimer' || intakeStatus?.step === 'contact_form_slim' || (intakeStatus?.step as string) === 'chat')) {
+      return 'chat';
+    }
+    return step;
+  }, [step, requestedMode, intakeStatus?.step]);
+
+  // Downstream state machine: purely side-effectful subscriptions or cleanup
   useEffect(() => {
-    if (!requestedMode) return;
-    if (!effectiveConversationId) return;
-
-    const currentStep = intakeStatus?.step;
-
-    if (
-      ((requestedMode === 'REQUEST_CONSULTATION' || requestedMode === 'ASK_QUESTION') && currentStep === 'disclaimer') ||
-      currentStep === 'contact_form_slim' ||
-      (currentStep as string) === 'chat'
-    ) {
-      setStep('chat');
-    }
-
-    if (
-      (requestedMode === 'REQUEST_CONSULTATION' && currentStep === 'contact_form_slim') ||
-      (requestedMode === 'ASK_QUESTION' && (currentStep as string) === 'chat')
-    ) {
-      setConversationMode(requestedMode);
-      setRequestedMode(null);
-    }
+    // Keep this effect only for logic that must run when requestedMode/step changes non-derivatively
   }, [requestedMode, effectiveConversationId, intakeStatus?.step]);
 
   const attachmentsDisabledMessage = t('chat.attachments.disabled');
@@ -585,13 +581,18 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
       await _updateConversationMetadata({
         disclaimerAcceptedAt: new Date().toISOString(),
       });
+      // Mode commitment: advance the local UI state after backend is updated
+      if (requestedMode) {
+        setConversationMode(requestedMode);
+        setRequestedMode(null);
+      }
     } catch (err) {
       console.error('[WidgetApp] Failed to accept disclaimer', err);
     }
-  }, [effectiveConversationId, _updateConversationMetadata]);
+  }, [effectiveConversationId, _updateConversationMetadata, requestedMode]);
 
   // Show bottom nav except in chat
-  const showWidgetBottomNav = step !== 'chat';
+  const showWidgetBottomNav = derivedStep !== 'chat';
 
   useEffect(() => {
     const isDark = true; // Handle dark mode state if needed
@@ -614,7 +615,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
     <>
       <DragDropOverlay isVisible={isDragging} />
       <div className={`absolute inset-x-0 inset-y-0 h-[100dvh] w-full overflow-hidden flex flex-col supports-[height:100cqh]:h-[100cqh] supports-[height:100svh]:h-[100svh] widget-shell-gradient justify-end`}>
-        {step === 'home' && (
+        {derivedStep === 'home' && (
           <div className="flex h-full flex-col overflow-hidden relative">
             <div className="flex-1 overflow-y-auto">
               <WorkspaceHomeView
@@ -640,7 +641,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
             )}
           </div>
         )}
-        {step === 'list' && (
+        {derivedStep === 'list' && (
           <WidgetConversationListView
             conversations={conversations}
             previews={previews}
@@ -653,7 +654,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
             onSendMessage={() => handleModeSelection('ASK_QUESTION')}
           />
         )}
-        {step === 'chat' && (
+        {derivedStep === 'chat' && (
           <>
             <div className="flex flex-1 min-h-0 overflow-hidden flex-row">
               <ChatContainer

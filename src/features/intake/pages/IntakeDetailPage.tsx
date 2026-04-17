@@ -534,7 +534,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
   }
 
   const meta = (intake.metadata ?? {}) as Record<string, unknown>;
-  const name = typeof meta.name === 'string' ? meta.name : '—';
+  const name = typeof meta.name === 'string' ? meta.name : null;
   const email = typeof meta.email === 'string' ? meta.email : null;
   const phone = typeof meta.phone === 'string' ? meta.phone : null;
   const description = typeof meta.description === 'string' ? meta.description : null;

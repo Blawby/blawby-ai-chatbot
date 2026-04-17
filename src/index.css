@@ -10,6 +10,8 @@
     --surface-collection: 248 249 252;
     --surface-workspace: 255 255 255;
     --surface-utility: 244 246 250;
+    --line-utility: 204 210 221;
+    --accent-utility: var(--accent-500);
 
     /* Legacy surface aliases to minimize breakage while transitioning */
     --surface-base: var(--surface-workspace);
@@ -68,6 +70,8 @@
     --surface-collection: 10 14 22;
     --surface-workspace: 5 9 18;
     --surface-utility: 13 18 26;
+    --line-utility: 40 48 64;
+    --accent-utility: var(--accent-400);
 
     /* Legacy surface aliases */
     --surface-base: var(--surface-app-frame);
