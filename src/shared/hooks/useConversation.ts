@@ -217,6 +217,13 @@ export const useConversation = ({
   const connectChatRoomRef = useRef<(id: string) => void>(() => {});
   const resumeSeqResetAttemptedForRef = useRef<string | null>(null);
 
+  // Mark ready if no conversation exists yet (deferred creation case)
+  useEffect(() => {
+    if (enabled && !conversationId && !messagesReady) {
+      setMessagesReady(true);
+    }
+  }, [enabled, conversationId, messagesReady]);
+
   // Message tracking refs — exposed so useChatComposer can share them
   /** Tracks all message IDs that have been applied to avoid duplicates */
   const messageIdSetRef = useRef(new Set<string>(initialMessages.map(m => m.id)));

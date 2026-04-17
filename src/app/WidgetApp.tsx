@@ -12,6 +12,7 @@ import WidgetConversationListView from '@/features/chat/views/WidgetConversation
 import { useConversations } from '@/shared/hooks/useConversations';
 import { useMessageHandling } from '@/shared/hooks/useMessageHandling';
 import { useConversationSystemMessages } from '@/shared/hooks/useConversationSystemMessages';
+import { ChatActionCard } from '@/features/chat/components/ChatActionCard';
 import { createConversation, fetchLatestConversationMessage } from '@/shared/lib/conversationApi';
 import { postToParentFrame, resolveAllowedParentOrigins } from '@/shared/utils/widgetEvents';
 import { setupGlobalKeyboardListeners } from '@/shared/utils/keyboard';
@@ -20,7 +21,7 @@ import { resolveConversationDisplayTitle } from '@/shared/utils/conversationDisp
 import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
 import { practiceDetailsStore } from '@/shared/stores/practiceDetailsStore';
 import { useStore } from '@nanostores/preact';
-import { NavRail, NavRailItem } from '@/shared/ui/nav/NavRail';
+import { NavRail } from '@/shared/ui/nav/NavRail';
 import type { ConversationMetadata, ConversationMode } from '@/shared/types/conversation';
 import type { UIPracticeConfig } from '@/shared/hooks/usePracticeConfig';
 import DragDropOverlay from '@/shared/ui/DragDropOverlay';
@@ -55,13 +56,18 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
   bootstrapSession
 }) => {
   // Single navigation state (no 'disclaimer' step)
-  const [step, setStep] = useState<'home' | 'list' | 'chat'>(routeConversationId ? 'chat' : 'home');
+  const [view, setView] = useState<'home' | 'list' | 'chat'>(routeConversationId ? 'chat' : 'home');
   const [setupConversationId, setConversationId] = useState<string | null>(null);
   const [bootstrapIgnored, setBootstrapIgnored] = useState(false);
   const creatingConversationRef = useRef<Promise<string> | null>(null);
   const [conversationMode, setConversationMode] = useState<ConversationMode | null>(null);
-  // Store user's intent from home CTA, but do not advance flow yet
-  const [requestedMode, setRequestedMode] = useState<ConversationMode | null>(null);
+  
+  // Disclaimer & Mode tracking
+  const [pendingMode, setPendingMode] = useState<ConversationMode | null>(null);
+  const [isDisclaimerAccepted, setIsDisclaimerAccepted] = useState(() => 
+    typeof window !== 'undefined' && 
+    window.sessionStorage.getItem(`blawby-widget-disclaimer-accepted:${practiceId}`) === 'true'
+  );
   const [isInspectorOpen, setIsInspectorOpen] = useState(false);
   const [isPaymentAuthPromptOpen, setIsPaymentAuthPromptOpen] = useState(false);
   const widgetVisibleRef = useRef(false);
@@ -169,7 +175,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
   }, [practiceId]);
 
   useEffect(() => {
-    if (!practiceId || conversations.length === 0 || step === 'chat') return;
+    if (!practiceId || conversations.length === 0 || view === 'chat') return;
     let isMounted = true;
 
     const loadPreviews = async () => {
@@ -207,7 +213,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [conversations, practiceId, step]);
+  }, [conversations, practiceId, view]);
 
   // Previews for ConversationListView
   const previews = useMemo(() => {
@@ -331,7 +337,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
   // Memoized intro injector with messagesReady gate
   const maybeInjectIntro = useCallback(() => {
     if (!messagesReady) return;
-    if (!activeConversationId || !widgetIntroMessage || hasConversationStarted) return;
+    if (!widgetIntroMessage || hasConversationStarted) return;
     if (typeof messageHandling.addMessage === 'function' && !hasIntro) {
       messageHandling.addMessage({
         id: 'system-intro-local',
@@ -342,7 +348,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
         metadata: { systemMessageKey: 'intro' },
       });
     }
-  }, [messagesReady, activeConversationId, widgetIntroMessage, hasConversationStarted, messageHandling, hasIntro]);
+  }, [messagesReady, widgetIntroMessage, hasConversationStarted, messageHandling, hasIntro]);
 
   // Inject intro when conversation becomes active and no intro exists, only after messagesReady
   useEffect(() => {
@@ -351,45 +357,34 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
     }
   }, [messagesReady, activeConversationId, maybeInjectIntro]);
 
-
-
   // Allow chat container to render if intake/chat flow is active
   const canChat = activeConversationId != null;
   const _isComposerDisabled = false; // Add recording check if needed
 
-  // Mode selection: record user's intent and ensure conversation exists, but do not advance flow yet
+  // Mode selection: record user's intent. If disclaimer is needed, gate it here.
   const handleModeSelection = useCallback(async (mode: ConversationMode) => {
     if (!practiceId) return;
 
-    setRequestedMode(mode);
-
-    try {
-      await createConversationIfNeeded();
-      
-      // If we are already past the disclaimer/form stages, commit immediately
-      const currentStep = intakeStatus?.step;
-      if (currentStep === 'chat' || (mode === 'ASK_QUESTION' && (currentStep as string) === 'chat')) {
-        setConversationMode(mode);
-        setRequestedMode(null);
-      }
-    } catch (error) {
-      console.error('Failed to create deferred conversation', error);
-      const message = error instanceof Error ? error.message : 'Failed to start conversation';
-      showErrorRef.current?.(message);
+    if (widgetLegalDisclaimer && !isDisclaimerAccepted) {
+      setPendingMode(mode);
+      return; // Stop here — show disclaimer on home view
     }
-  }, [practiceId, createConversationIfNeeded, intakeStatus?.step]);
-  const derivedStep = useMemo(() => {
-    if (step === 'chat') return 'chat';
-    if (requestedMode && (intakeStatus?.step === 'disclaimer' || intakeStatus?.step === 'contact_form_slim' || (intakeStatus?.step as string) === 'chat')) {
-      return 'chat';
-    }
-    return step;
-  }, [step, requestedMode, intakeStatus?.step]);
 
-  // Downstream state machine: purely side-effectful subscriptions or cleanup
-  useEffect(() => {
-    // Keep this effect only for logic that must run when requestedMode/step changes non-derivatively
-  }, [requestedMode, effectiveConversationId, intakeStatus?.step]);
+    setConversationMode(mode);
+    setView('chat');
+  }, [practiceId, widgetLegalDisclaimer, isDisclaimerAccepted]);
+
+  const handleAcceptDisclaimer = useCallback(() => {
+    setIsDisclaimerAccepted(true);
+    if (typeof window !== 'undefined') {
+      window.sessionStorage.setItem(`blawby-widget-disclaimer-accepted:${practiceId}`, 'true');
+    }
+    if (pendingMode) {
+      setConversationMode(pendingMode);
+      setPendingMode(null);
+      setView('chat');
+    }
+  }, [practiceId, pendingMode]);
 
   const attachmentsDisabledMessage = t('chat.attachments.disabled');
 
@@ -486,29 +481,6 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
     </Button>
   ), [requestWidgetClose]);
 
-  const navItems = useMemo<NavRailItem[]>(() => [
-    {
-      id: 'home',
-      label: t('nav.home') ?? 'Home',
-      icon: HomeIcon,
-      href: '#home',
-      onClick: () => {
-        setConversationMode(null);
-        setRequestedMode(null);
-        setStep('home');
-      },
-    },
-    {
-      id: 'list',
-      label: t('nav.messages') ?? 'Messages',
-      icon: ChatBubbleLeftRightIcon,
-      href: '#list',
-      onClick: () => setStep('list')
-    }
-  ], [t]);
-  
-  const showConversationBack = step === 'chat';
-
   const filteredMessagesForHeader = useMemo(() => {
     const base = messages.filter((message) => message.metadata?.systemMessageKey !== 'ask_question_help');
     const hasNonSystem = base.some((message) => message.role !== 'system');
@@ -522,6 +494,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
     const relative = formatRelativeTime(new Date(lastTimestamp));
     return relative ? t('workspace.header.activeRelative', { time: relative }) : t('workspace.header.inactive');
   }, [filteredMessagesForHeader, isSocketReady, t]);
+
 
   const isConsultConversation = useMemo(
     () => conversationMode === 'REQUEST_CONSULTATION'
@@ -571,28 +544,6 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
       </>
     );
   }, [closeButton, conversationStrengthAction, isEmbedded]);
-  // Accept disclaimer: not yet wired to backend action
-  const handleAcceptDisclaimer = useCallback(async () => {
-    if (!effectiveConversationId) {
-      console.warn('[WidgetApp] Cannot accept disclaimer: no effectiveConversationId');
-      return;
-    }
-    try {
-      await _updateConversationMetadata({
-        disclaimerAcceptedAt: new Date().toISOString(),
-      });
-      // Mode commitment: advance the local UI state after backend is updated
-      if (requestedMode) {
-        setConversationMode(requestedMode);
-        setRequestedMode(null);
-      }
-    } catch (err) {
-      console.error('[WidgetApp] Failed to accept disclaimer', err);
-    }
-  }, [effectiveConversationId, _updateConversationMetadata, requestedMode]);
-
-  // Show bottom nav except in chat
-  const showWidgetBottomNav = derivedStep !== 'chat';
 
   useEffect(() => {
     const isDark = true; // Handle dark mode state if needed
@@ -603,45 +554,48 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
     }
   }, []);
 
-  // Downstream-state-driven disclaimer gating: show disclaimer only at the correct milestone
-  const shouldShowDisclaimer = Boolean(
-    widgetLegalDisclaimer &&
-    effectiveConversationId &&
-    (requestedMode === 'REQUEST_CONSULTATION' || requestedMode === 'ASK_QUESTION') &&
-    intakeStatus?.step === 'disclaimer'
-  );
-
   return (
     <>
       <DragDropOverlay isVisible={isDragging} />
       <div className={`absolute inset-x-0 inset-y-0 h-[100dvh] w-full overflow-hidden flex flex-col supports-[height:100cqh]:h-[100cqh] supports-[height:100svh]:h-[100svh] widget-shell-gradient justify-end`}>
-        {derivedStep === 'home' && (
+        {view === 'home' && (
           <div className="flex h-full flex-col overflow-hidden relative">
             <div className="flex-1 overflow-y-auto">
               <WorkspaceHomeView
-                practiceName={practiceConfig.name}
+                practiceName={practiceConfig.name || ''}
                 practiceLogo={practiceConfig.profileImage}
-                onSendMessage={() => handleModeSelection('ASK_QUESTION')}
-                onRequestConsultation={() => handleModeSelection('REQUEST_CONSULTATION')}
+                recentMessage={latestConversation ? {
+                  conversationId: latestConversation.id,
+                  preview: recentMessage?.preview || '',
+                  timestampLabel: recentMessage?.timestampLabel || '',
+                  senderLabel: recentMessage?.senderLabel || ''
+                } : null}
                 onOpenRecentMessage={() => {
-                  if (recentMessage?.conversationId) {
-                    setConversationId(recentMessage.conversationId);
-                    setStep('chat');
-                  } else {
-                    handleModeSelection('ASK_QUESTION');
+                  if (latestConversation?.id) {
+                    setConversationId(latestConversation.id);
+                    setView('chat');
                   }
                 }}
-                recentMessage={recentMessage}
+                onSendMessage={() => handleModeSelection('ASK_QUESTION')}
+                onRequestConsultation={() => handleModeSelection('REQUEST_CONSULTATION')}
               />
             </div>
-            {isEmbedded && (
-              <div className="absolute right-4 top-4 z-[60]">
-                {closeButton}
-              </div>
+            
+            {widgetLegalDisclaimer && pendingMode && !isDisclaimerAccepted && (
+              <ChatActionCard
+                type="disclaimer"
+                isOpen={true}
+                onClose={() => setPendingMode(null)}
+                disclaimerProps={{
+                  text: widgetLegalDisclaimer,
+                  onAccept: handleAcceptDisclaimer,
+                  isSubmitting: false
+                }}
+              />
             )}
           </div>
         )}
-        {derivedStep === 'list' && (
+        {view === 'list' && (
           <WidgetConversationListView
             conversations={conversations}
             previews={previews}
@@ -649,12 +603,12 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
             isLoading={isConversationsLoading}
             onSelectConversation={id => {
               setConversationId(id);
-              setStep('chat');
+              setView('chat');
             }}
             onSendMessage={() => handleModeSelection('ASK_QUESTION')}
           />
         )}
-        {derivedStep === 'chat' && (
+        {view === 'chat' && (
           <>
             <div className="flex flex-1 min-h-0 overflow-hidden flex-row">
               <ChatContainer
@@ -665,16 +619,6 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
                 )}
                 onSendMessage={sendMessage}
                 conversationMode={conversationMode}
-                onSelectMode={handleModeSelection}
-                disclaimerProps={shouldShowDisclaimer ? {
-                  text: widgetLegalDisclaimer,
-                  onAccept: handleAcceptDisclaimer,
-                  onClose: () => {
-                    setRequestedMode(null);
-                    setConversationMode(null);
-                    setStep('home');
-                  },
-                } : undefined}
                 onToggleReaction={features.enableMessageReactions ? toggleMessageReaction : undefined}
                 onRequestReactions={requestMessageReactions}
                 composerDisabled={false}
@@ -684,8 +628,8 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
                   <DetailHeader
                     title={practiceConfig.name ?? ''}
                     subtitle={conversationHeaderActiveLabel}
-                    showBack={showConversationBack}
-                    onBack={showConversationBack ? () => setStep('home') : undefined}
+                    showBack={view === 'chat'}
+                    onBack={() => setView('home')}
                     actions={widgetChatHeaderActions}
                     className="workspace-conversation-header"
                   />
@@ -780,14 +724,32 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
             )}
           </>
         )}
+        
         <NavRail
-          items={navItems}
-          activeHref={step === 'home' ? '#home' : step === 'list' ? '#list' : undefined}
           variant="bottom"
-          hidden={!showWidgetBottomNav}
-          className="mt-auto"
+          activeHref={view === 'home' ? '#home' : '#list'}
+          items={[
+            {
+              id: 'home',
+              label: t('nav.home'),
+              icon: HomeIcon,
+              href: '#home',
+              onClick: () => {
+                setConversationMode(null);
+                setView('home');
+              }
+            },
+            {
+              id: 'list',
+              label: t('nav.messages'),
+              icon: ChatBubbleLeftRightIcon,
+              href: '#list',
+              onClick: () => setView('list')
+            }
+          ]}
+          hidden={view === 'chat'}
         />
       </div>
     </>
   );
-}
+};

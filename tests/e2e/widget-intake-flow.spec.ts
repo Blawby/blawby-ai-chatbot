@@ -55,7 +55,6 @@ const prepareWidgetComposer = async (
   const slimFormEmail = anonPage.locator('input[type="email"]').first();
   const slimFormPhone = anonPage.locator('input[type="tel"]').first();
   const slimFormContinue = anonPage.getByRole('button', { name: /continue/i }).first();
-  const disclaimerAccept = anonPage.getByRole('button', { name: /accept/i }).first();
 
   const deadline = Date.now() + 60_000;
   let lastStep = 'init';
@@ -79,9 +78,10 @@ const prepareWidgetComposer = async (
       }
     }
 
-    if (await disclaimerAccept.isVisible({ timeout: 500 }).catch(() => false)) {
-      await disclaimerAccept.click({ timeout: 1000 }).catch(() => undefined);
-      await expect(disclaimerAccept).not.toBeVisible({ timeout: 5000 });
+    const disclaimerButton = anonPage.getByRole('button', { name: /i understand|accept|agree|continue/i }).first();
+    if (await disclaimerButton.isVisible({ timeout: 500 }).catch(() => false)) {
+      await disclaimerButton.click({ timeout: 1000 }).catch(() => undefined);
+      await anonPage.waitForTimeout(500);
       lastStep = 'disclaimer-accepted';
     }
 

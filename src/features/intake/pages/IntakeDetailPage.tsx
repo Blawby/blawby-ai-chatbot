@@ -571,7 +571,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
       title: conversationMetadata?.title ?? meta.title,
       intake_title: conversationMetadata?.intake_title ?? meta.intake_title,
     },
-    name !== '—' ? `${name} intake` : 'Untitled intake'
+    name ? `${name} intake` : 'Untitled intake'
   );
   const locationLabel = [city, state].filter(Boolean).join(', ') || null;
   const paymentLabel = feeAmount ? `${feeAmount} ${intake.stripe_charge_id ? 'paid' : 'consultation'}` : null;
