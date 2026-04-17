@@ -629,7 +629,10 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
                     title={practiceConfig.name ?? ''}
                     subtitle={conversationHeaderActiveLabel}
                     showBack={view === 'chat'}
-                    onBack={() => setView('home')}
+                    onBack={() => {
+                      setConversationMode(null);
+                      setView('home');
+                    }}
                     actions={widgetChatHeaderActions}
                     className="workspace-conversation-header"
                   />
