@@ -5,7 +5,6 @@ import { Button } from '@/shared/ui/Button';
 import { Icon } from '@/shared/ui/Icon';
 import { XMarkIcon, HomeIcon, ChatBubbleLeftRightIcon, InformationCircleIcon } from '@heroicons/react/24/outline';
 import ChatContainer from '@/features/chat/components/ChatContainer';
-import { ChatActionCard } from '@/features/chat/components/ChatActionCard';
 import InspectorPanel from '@/shared/ui/inspector/InspectorPanel';
 import WorkspaceHomeView from '@/features/chat/views/WorkspaceHomeView';
 import { useToastContext } from '@/shared/contexts/ToastContext';
@@ -25,7 +24,6 @@ import { NavRail, NavRailItem } from '@/shared/ui/nav/NavRail';
 import type { ConversationMetadata, ConversationMode } from '@/shared/types/conversation';
 import type { UIPracticeConfig } from '@/shared/hooks/usePracticeConfig';
 import DragDropOverlay from '@/shared/ui/DragDropOverlay';
-import { shouldShowWorkspaceDetailBack } from '@/shared/utils/workspaceDetailNavigation';
 import { resolveStrengthStyle, resolveStrengthTier } from '@/shared/utils/intakeStrength';
 import { DetailHeader } from '@/shared/ui/layout/DetailHeader';
 import { resolveConsultationState } from '@/shared/utils/consultationState';
@@ -56,24 +54,26 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
   bootstrapConversationId,
   bootstrapSession
 }) => {
-  const [view, setView] = useState<'home' | 'list' | 'chat'>(routeConversationId ? 'chat' : 'home');
+  // Single navigation state (no 'disclaimer' step)
+  // Debug: Log all relevant state on first render
+  const didLogFirstRender = useRef(false);
+  useEffect(() => {
+    if (!didLogFirstRender.current) {
+      didLogFirstRender.current = true;
+    }
+  });
+  const [step, setStep] = useState<'home' | 'list' | 'chat'>(routeConversationId ? 'chat' : 'home');
   const [setupConversationId, setConversationId] = useState<string | null>(null);
   const [bootstrapIgnored, setBootstrapIgnored] = useState(false);
   const creatingConversationRef = useRef<Promise<string> | null>(null);
   const [conversationMode, setConversationMode] = useState<ConversationMode | null>(null);
-  const previousViewRef = useRef<'home' | 'list'>('home');
+  // Store user's intent from home CTA, but do not advance flow yet
+  const [requestedMode, setRequestedMode] = useState<ConversationMode | null>(null);
   const [isInspectorOpen, setIsInspectorOpen] = useState(false);
   const [isPaymentAuthPromptOpen, setIsPaymentAuthPromptOpen] = useState(false);
-  const [isWidgetDisclaimerAccepted, setIsWidgetDisclaimerAccepted] = useState(false);
-  const [isWidgetDisclaimerStarting, setIsWidgetDisclaimerStarting] = useState(false);
   const widgetVisibleRef = useRef(false);
-  const pendingDisclaimerAcceptanceIds = useRef(new Set<string>());
 
-  useEffect(() => {
-    if (view === 'home' || view === 'list') {
-      previousViewRef.current = view;
-    }
-  }, [view]);
+  // Remove previousViewRef and view tracking
   const showErrorRef = useRef<((msg: string) => void) | null>(null);
   const locallyCreatedConversationIds = useRef(new Set<string>());
 
@@ -176,7 +176,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
   }, [practiceId]);
 
   useEffect(() => {
-    if (!practiceId || conversations.length === 0 || view === 'chat') return;
+    if (!practiceId || conversations.length === 0 || step === 'chat') return;
     let isMounted = true;
 
     const loadPreviews = async () => {
@@ -214,7 +214,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [conversations, practiceId, view]);
+  }, [conversations, practiceId, step]);
 
   // Previews for ConversationListView
   const previews = useMemo(() => {
@@ -319,11 +319,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
     return typeof source === 'string' ? source.trim() : '';
   }, [cachedPracticeDetails?.legalDisclaimer, practiceConfig.legalDisclaimer]);
 
-  useEffect(() => {
-    setIsWidgetDisclaimerAccepted(false);
-    setIsWidgetDisclaimerStarting(false);
-    pendingDisclaimerAcceptanceIds.current.clear();
-  }, [practiceId, widgetLegalDisclaimer]);
+
 
 
   // Canonical intro detection: only use metadata.systemMessageKey === 'intro'
@@ -345,8 +341,10 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
     if (!activeConversationId || !widgetIntroMessage || hasConversationStarted) return;
     if (typeof messageHandling.addMessage === 'function' && !hasIntro) {
       messageHandling.addMessage({
+        id: 'system-intro-local',
         role: 'assistant',
         content: widgetIntroMessage,
+        timestamp: 1, // Pin to the very top regardless of local clock
         metadata: { systemMessageKey: 'intro' },
       });
     }
@@ -359,59 +357,49 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
     }
   }, [messagesReady, activeConversationId, maybeInjectIntro]);
 
-  // Persist disclaimer acceptance in conversation metadata if possible
-  useEffect(() => {
-    if (!activeConversationId || !messagesReady || !pendingDisclaimerAcceptanceIds.current.has(activeConversationId)) {
-      return;
-    }
 
-    pendingDisclaimerAcceptanceIds.current.delete(activeConversationId);
-    const acceptedAt = new Date().toISOString();
-    void persistSystemMessage(
-      'system-disclaimer-accepted',
-      'Legal disclaimer accepted.',
-      {
-        systemMessageKey: 'disclaimer_accepted',
-        source: 'practice_legal_disclaimer',
-        acceptedAt,
-      }
-    );
-    // Also persist in conversation metadata if updateConversationMetadata exists
-    if (typeof messageHandling.updateConversationMetadata === 'function') {
-      messageHandling.updateConversationMetadata({
-        disclaimerAccepted: true,
-        disclaimerAcceptedAt: acceptedAt,
-      });
-    }
-  }, [activeConversationId, messagesReady, persistSystemMessage, messageHandling]);
 
-  const canChat = activeConversationId != null || conversationMode != null;
+  // Allow chat container to render if intake/chat flow is active
+  const canChat = activeConversationId != null;
   const _isComposerDisabled = false; // Add recording check if needed
 
+  // Mode selection: record user's intent and ensure conversation exists, but do not advance flow yet
   const handleModeSelection = useCallback(async (mode: ConversationMode) => {
     if (!practiceId) return;
-    
+
+    setRequestedMode(mode);
+
     try {
-      // Each mode selection starts a fresh conversation so a new "Ask a Question"
-      // or "Request Consultation" doesn't inherit a previous intake's conversation.
-      // The previous conversation remains accessible via the Messages (list) view.
-      if (setupConversationId) {
-        setConversationId(null);
-        locallyCreatedConversationIds.current.delete(setupConversationId);
-      }
-      setBootstrapIgnored(true);
-      setConversationMode(mode);
-      setIsWidgetDisclaimerAccepted(false);
-      setView('chat');
-      if (!widgetLegalDisclaimer && widgetIntroMessage && !effectiveConversationId) {
-        await createConversationIfNeeded();
-      }
+      await createConversationIfNeeded();
     } catch (error) {
-      console.error('[WidgetApp] Failed to handle mode selection:', error);
+      console.error('Failed to create deferred conversation', error);
       const message = error instanceof Error ? error.message : 'Failed to start conversation';
       showErrorRef.current?.(message);
     }
-  }, [createConversationIfNeeded, effectiveConversationId, practiceId, setupConversationId, widgetIntroMessage, widgetLegalDisclaimer]);
+  }, [practiceId, createConversationIfNeeded]);
+  // Downstream state machine: only advance on explicit backend milestone
+  useEffect(() => {
+    if (!requestedMode) return;
+    if (!effectiveConversationId) return;
+
+    const currentStep = intakeStatus?.step;
+
+    if (
+      ((requestedMode === 'REQUEST_CONSULTATION' || requestedMode === 'ASK_QUESTION') && currentStep === 'disclaimer') ||
+      currentStep === 'contact_form_slim' ||
+      currentStep === 'chat'
+    ) {
+      setStep('chat');
+    }
+
+    if (
+      (requestedMode === 'REQUEST_CONSULTATION' && currentStep === 'contact_form_slim') ||
+      (requestedMode === 'ASK_QUESTION' && currentStep === 'chat')
+    ) {
+      setConversationMode(requestedMode);
+      setRequestedMode(null);
+    }
+  }, [requestedMode, effectiveConversationId, intakeStatus?.step]);
 
   const attachmentsDisabledMessage = t('chat.attachments.disabled');
 
@@ -495,7 +483,6 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
     return () => window.removeEventListener('message', handleParentMessage);
   }, []);
 
-
   const closeButton = useMemo(() => (
     <Button
       type="button"
@@ -516,9 +503,9 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
       icon: HomeIcon,
       href: '#home',
       onClick: () => {
-        // Clear stale mode so the home screen always shows a fresh intake gate.
         setConversationMode(null);
-        setView('home');
+        setRequestedMode(null);
+        setStep('home');
       },
     },
     {
@@ -526,12 +513,11 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
       label: t('nav.messages') ?? 'Messages',
       icon: ChatBubbleLeftRightIcon,
       href: '#list',
-      onClick: () => setView('list')
+      onClick: () => setStep('list')
     }
   ], [t]);
   
-  const widgetBackTarget = previousViewRef.current;
-  const showConversationBack = shouldShowWorkspaceDetailBack('widget', Boolean(widgetBackTarget));
+  const showConversationBack = step === 'chat';
 
   const filteredMessagesForHeader = useMemo(() => {
     const base = messages.filter((message) => message.metadata?.systemMessageKey !== 'ask_question_help');
@@ -595,74 +581,25 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
       </>
     );
   }, [closeButton, conversationStrengthAction, isEmbedded]);
-  const shouldShowWidgetDisclaimer = view === 'chat'
-    && conversationMode !== null
-    && !activeConversationId
-    && Boolean(widgetLegalDisclaimer)
-    && !isWidgetDisclaimerAccepted;
-
-  const acceptWidgetDisclaimer = useCallback(async () => {
-    setIsWidgetDisclaimerStarting(true);
-    try {
-      const conversationId = await createConversationIfNeeded();
-      pendingDisclaimerAcceptanceIds.current.add(conversationId);
-      setIsWidgetDisclaimerAccepted(true);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to start conversation';
-      showErrorRef.current?.(message);
-    } finally {
-      setIsWidgetDisclaimerStarting(false);
+  // Accept disclaimer: not yet wired to backend action
+  const handleAcceptDisclaimer = useCallback(async () => {
+    if (!effectiveConversationId) {
+      console.warn('[WidgetApp] Cannot accept disclaimer: no effectiveConversationId');
+      return;
     }
-  }, [createConversationIfNeeded]);
+    console.log('[WidgetApp] Accepting disclaimer for conversation:', effectiveConversationId);
+    try {
+      await _updateConversationMetadata({
+        disclaimerAcceptedAt: new Date().toISOString(),
+      });
+      console.log('[WidgetApp] Disclaimer successfully accepted');
+    } catch (err) {
+      console.error('[WidgetApp] Failed to accept disclaimer', err);
+    }
+  }, [effectiveConversationId, _updateConversationMetadata]);
 
-  const closeWidgetDisclaimer = useCallback(() => {
-    setConversationMode(null);
-    setIsWidgetDisclaimerAccepted(false);
-    setIsWidgetDisclaimerStarting(false);
-    setView(widgetBackTarget || 'home');
-  }, [widgetBackTarget]);
-
-  const widgetDisclaimerContent = useMemo(() => {
-    if (!shouldShowWidgetDisclaimer) return null;
-
-    return (
-      <div className="flex h-full min-h-0 flex-col">
-        <DetailHeader
-          title={practiceConfig.name ?? ''}
-          subtitle="Please read and accept to continue"
-          showBack={showConversationBack}
-          onBack={showConversationBack ? () => setView(widgetBackTarget) : undefined}
-          actions={isEmbedded ? closeButton : null}
-          className="workspace-conversation-header"
-        />
-        <div className="flex-1 min-h-0" />
-        <div className="sticky bottom-0 z-[1000] w-full">
-          <ChatActionCard
-            isOpen={true}
-            type="disclaimer"
-            onClose={closeWidgetDisclaimer}
-            disclaimerProps={{
-              text: widgetLegalDisclaimer,
-              onAccept: acceptWidgetDisclaimer,
-              isSubmitting: isWidgetDisclaimerStarting
-            }}
-          />
-        </div>
-      </div>
-    );
-  }, [
-    acceptWidgetDisclaimer,
-    closeButton,
-    closeWidgetDisclaimer,
-    isEmbedded,
-    isWidgetDisclaimerStarting,
-    practiceConfig.name,
-    shouldShowWidgetDisclaimer,
-    showConversationBack,
-    widgetBackTarget,
-    widgetLegalDisclaimer
-  ]);
-  const showWidgetBottomNav = view !== 'chat';
+  // Show bottom nav except in chat
+  const showWidgetBottomNav = step !== 'chat';
 
   useEffect(() => {
     const isDark = true; // Handle dark mode state if needed
@@ -673,126 +610,141 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
     }
   }, []);
 
+  // Downstream-state-driven disclaimer gating: show disclaimer only at the correct milestone
+  const shouldShowDisclaimer = Boolean(
+    widgetLegalDisclaimer &&
+    effectiveConversationId &&
+    (requestedMode === 'REQUEST_CONSULTATION' || requestedMode === 'ASK_QUESTION') &&
+    intakeStatus?.step === 'disclaimer'
+  );
+
   return (
     <>
       <DragDropOverlay isVisible={isDragging} />
       <div className={`absolute inset-x-0 inset-y-0 h-[100dvh] w-full overflow-hidden flex flex-col supports-[height:100cqh]:h-[100cqh] supports-[height:100svh]:h-[100svh] widget-shell-gradient justify-end`}>
-        {view === 'home' ? (
+        {step === 'home' && (
           <div className="flex h-full flex-col overflow-hidden relative">
-             <div className="flex-1 overflow-y-auto">
-               <WorkspaceHomeView
-                 practiceName={practiceConfig.name}
-                 practiceLogo={practiceConfig.profileImage}
-                 onSendMessage={() => handleModeSelection('ASK_QUESTION')}
-                 onRequestConsultation={() => handleModeSelection('REQUEST_CONSULTATION')}
-                   onOpenRecentMessage={() => {
-                     if (recentMessage?.conversationId) {
-                       setConversationId(recentMessage.conversationId);
-                       setView('chat');
-                     } else {
-                        handleModeSelection('ASK_QUESTION');
-                     }
-                   }}
-                 recentMessage={recentMessage}
-               />
-             </div>
-             {isEmbedded && (
-                <div className="absolute right-4 top-4 z-[60]">
-                  {closeButton}
-                </div>
-             )}
-          </div>
-        ) : view === 'list' ? (
-            <div className="flex h-full flex-col overflow-hidden relative">
-              <WidgetConversationListView
-                conversations={conversations}
-                previews={previews}
+            <div className="flex-1 overflow-y-auto">
+              <WorkspaceHomeView
                 practiceName={practiceConfig.name}
-                isLoading={isConversationsLoading}
-                onSelectConversation={(id) => {
-                   setConversationId(id);
-                   setView('chat');
-                }}
+                practiceLogo={practiceConfig.profileImage}
                 onSendMessage={() => handleModeSelection('ASK_QUESTION')}
+                onRequestConsultation={() => handleModeSelection('REQUEST_CONSULTATION')}
+                onOpenRecentMessage={() => {
+                  if (recentMessage?.conversationId) {
+                    setConversationId(recentMessage.conversationId);
+                    setStep('chat');
+                  } else {
+                    handleModeSelection('ASK_QUESTION');
+                  }
+                }}
+                recentMessage={recentMessage}
               />
             </div>
-        ) : shouldShowWidgetDisclaimer && widgetDisclaimerContent ? (
-          widgetDisclaimerContent
-        ) : (
+            {isEmbedded && (
+              <div className="absolute right-4 top-4 z-[60]">
+                {closeButton}
+              </div>
+            )}
+          </div>
+        )}
+        {step === 'list' && (
+          <WidgetConversationListView
+            conversations={conversations}
+            previews={previews}
+            practiceName={practiceConfig.name}
+            isLoading={isConversationsLoading}
+            onSelectConversation={id => {
+              setConversationId(id);
+              setStep('chat');
+            }}
+            onSendMessage={() => handleModeSelection('ASK_QUESTION')}
+          />
+        )}
+        {step === 'chat' && (
           <>
             <div className="flex flex-1 min-h-0 overflow-hidden flex-row">
-            <ChatContainer
-              messages={messages}
-              conversationTitle={resolveConversationDisplayTitle(
-                conversationMetadata ?? null,
-                conversationMetadata?.title ?? ''
-              )}
-              onSendMessage={sendMessage}
-              conversationMode={conversationMode}
-              onSelectMode={handleModeSelection}
-              onToggleReaction={features.enableMessageReactions ? toggleMessageReaction : undefined}
-              onRequestReactions={requestMessageReactions}
-              composerDisabled={false}
-              isPublicWorkspace={true}
-              messagesReady={messagesReady}
-              headerContent={
-                <DetailHeader
-                  title={practiceConfig.name ?? ''}
-                  subtitle={conversationHeaderActiveLabel}
-                  showBack={showConversationBack}
-                  onBack={showConversationBack ? () => setView(widgetBackTarget) : undefined}
-                  actions={widgetChatHeaderActions}
-                  className="workspace-conversation-header"
-                />
-              }
-              heightClassName="h-full"
-              useFrame={false}
-              layoutMode="widget"
-              practiceConfig={{
-                ...practiceConfig,
-                name: practiceConfig.name ?? '',
-                profileImage: practiceConfig.profileImage ?? '',
-                practiceId
-              }}
-              onOpenSidebar={() => setIsInspectorOpen(true)}
-              practiceId={practiceId}
-              previewFiles={previewFiles}
-              uploadingFiles={uploadingFiles}
-              removePreviewFile={removePreviewFile}
-              clearPreviewFiles={clearPreviewFiles}
-              handleCameraCapture={handleCameraCapture}
-              handleFileSelect={async (files) => { await handleFileSelect(files); }}
-              handleMediaCapture={handleMediaCapture}
-              cancelUpload={cancelUpload}
-              isRecording={false}
-              setIsRecording={() => {}}
-              isReadyToUpload={isReadyToUpload}
-              isSessionReady={currentUserId !== null}
-              isSocketReady={isSocketReady}
-              intakeStatus={intakeStatus}
-              intakeConversationState={intakeConversationState}
-              onIntakeCtaResponse={handleIntakeCtaResponse}
-              slimContactDraft={slimContactDraft}
-              onSlimFormContinue={handleSlimFormContinue}
-              onSlimFormDismiss={async () => {
-                setConversationMode(null);
-              }}
-              onBuildBrief={handleBuildBrief}
-              onStrengthenCase={handleStrengthenCase}
-              onSubmitNow={handleSubmitNow}
+              <ChatContainer
+                messages={messages}
+                conversationTitle={resolveConversationDisplayTitle(
+                  conversationMetadata ?? null,
+                  conversationMetadata?.title ?? ''
+                )}
+                onSendMessage={sendMessage}
+                conversationMode={conversationMode}
+                onSelectMode={handleModeSelection}
+                disclaimerProps={shouldShowDisclaimer ? {
+                  text: widgetLegalDisclaimer,
+                  onAccept: handleAcceptDisclaimer,
+                  onClose: () => {
+                    setRequestedMode(null);
+                    setConversationMode(null);
+                    setStep('home');
+                  },
+                } : undefined}
+                onToggleReaction={features.enableMessageReactions ? toggleMessageReaction : undefined}
+                onRequestReactions={requestMessageReactions}
+                composerDisabled={false}
+                isPublicWorkspace={true}
+                messagesReady={messagesReady}
+                headerContent={
+                  <DetailHeader
+                    title={practiceConfig.name ?? ''}
+                    subtitle={conversationHeaderActiveLabel}
+                    showBack={showConversationBack}
+                    onBack={showConversationBack ? () => setStep('home') : undefined}
+                    actions={widgetChatHeaderActions}
+                    className="workspace-conversation-header"
+                  />
+                }
+                heightClassName="h-full"
+                useFrame={false}
+                layoutMode="widget"
+                practiceConfig={{
+                  ...practiceConfig,
+                  name: practiceConfig.name ?? '',
+                  profileImage: practiceConfig.profileImage ?? '',
+                  practiceId
+                }}
+                onOpenSidebar={() => setIsInspectorOpen(true)}
+                practiceId={practiceId}
+                previewFiles={previewFiles}
+                uploadingFiles={uploadingFiles}
+                removePreviewFile={removePreviewFile}
+                clearPreviewFiles={clearPreviewFiles}
+                handleCameraCapture={handleCameraCapture}
+                handleFileSelect={async (files) => { await handleFileSelect(files); }}
+                handleMediaCapture={handleMediaCapture}
+                cancelUpload={cancelUpload}
+                isRecording={false}
+                setIsRecording={() => {}}
+                isReadyToUpload={isReadyToUpload}
+                isSessionReady={currentUserId !== null}
+                isSocketReady={isSocketReady}
+                intakeStatus={intakeStatus}
+                intakeConversationState={intakeConversationState}
+                onIntakeCtaResponse={handleIntakeCtaResponse}
+                slimContactDraft={slimContactDraft}
+                onSlimFormContinue={handleSlimFormContinue}
+                onSlimFormDismiss={async () => {
+                  setConversationMode(null);
+                }}
+                onBuildBrief={handleBuildBrief}
+                onStrengthenCase={handleStrengthenCase}
+                onSubmitNow={handleSubmitNow}
 
-              isAnonymousUser={isAnonymous}
-              canChat={canChat}
-              hasMoreMessages={hasMoreMessages}
-              isLoadingMoreMessages={isLoadingMoreMessages}
-              onLoadMoreMessages={loadMoreMessages}
-              showAuthPrompt={shouldShowAuthPrompt}
-              onAuthPromptRequest={isAnonymous ? handlePaymentAuthRequest : undefined}
-              onAuthPromptClose={handleAuthPromptClose}
-              onAuthPromptSuccess={handleAuthPromptSuccess}
-            />
+                isAnonymousUser={isAnonymous}
+                canChat={canChat}
+                hasMoreMessages={hasMoreMessages}
+                isLoadingMoreMessages={isLoadingMoreMessages}
+                onLoadMoreMessages={loadMoreMessages}
+                showAuthPrompt={shouldShowAuthPrompt}
+                onAuthPromptRequest={isAnonymous ? handlePaymentAuthRequest : undefined}
+                onAuthPromptClose={handleAuthPromptClose}
+                onAuthPromptSuccess={handleAuthPromptSuccess}
+              />
 
-            {isInspectorOpen && activeConversationId && (
+              {isInspectorOpen && activeConversationId && (
                 <aside className="hidden w-80 shrink-0 overflow-y-auto bg-surface-inspector shadow-2xl lg:block lg:w-96">
                   <InspectorPanel 
                     entityType="conversation"
@@ -809,7 +761,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
                     intakeSlimContactDraft={slimContactDraft}
                   />
                 </aside>
-            )}
+              )}
             </div>
 
             {isInspectorOpen && activeConversationId && (
@@ -835,10 +787,9 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
             )}
           </>
         )}
-        
         <NavRail
           items={navItems}
-          activeHref={view === 'home' ? '#home' : '#list'}
+          activeHref={step === 'home' ? '#home' : step === 'list' ? '#list' : undefined}
           variant="bottom"
           hidden={!showWidgetBottomNav}
           className="mt-auto"

@@ -1,6 +1,7 @@
 export type IntakeUrgency = 'routine' | 'time_sensitive' | 'emergency';
 export type IntakeStep =
   | 'ready'
+  | 'disclaimer'
   | 'contact_form_slim'
   | 'contact_form_decision'
   | 'ai_brief'

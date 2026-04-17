@@ -55,54 +55,52 @@ const prepareWidgetComposer = async (
   const slimFormEmail = anonPage.locator('input[type="email"]').first();
   const slimFormPhone = anonPage.locator('input[type="tel"]').first();
   const slimFormContinue = anonPage.getByRole('button', { name: /continue/i }).first();
+  const disclaimerAccept = anonPage.getByRole('button', { name: /accept/i }).first();
 
-  await expect
-    .poll(
-      async () => {
-        const inputEnabled = await messageInput.isEnabled({ timeout: 250 }).catch(() => false);
-        const requestConsultationVisible = await consultationCta.isVisible({ timeout: 250 }).catch(() => false);
-        return inputEnabled || requestConsultationVisible;
-      },
-      {
-        timeout: 25_000,
-        message: 'Expected widget bootstrap to render either the composer or request consultation CTA.',
+  const deadline = Date.now() + 60_000;
+  let lastStep = 'init';
+  let isReady = false;
+  let clickedCta = false;
+
+  while (Date.now() < deadline) {
+    if (await messageInput.isEnabled({ timeout: 250 }).catch(() => false)) {
+      lastStep = 'composer-ready';
+      isReady = true;
+      break;
+    }
+
+    if (!clickedCta && await consultationCta.isVisible({ timeout: 500 }).catch(() => false)) {
+      await consultationCta.click({ timeout: 1000 }).catch(() => undefined);
+      clickedCta = true;
+      lastStep = 'cta-clicked';
+    }
+
+    if (await disclaimerAccept.isVisible({ timeout: 500 }).catch(() => false)) {
+      await disclaimerAccept.click({ timeout: 1000 }).catch(() => undefined);
+      await expect(disclaimerAccept).not.toBeVisible({ timeout: 5000 }).catch(() => undefined);
+      lastStep = 'disclaimer-accepted';
+    }
+
+    const continueVisible = await slimFormContinue.isVisible({ timeout: 250 }).catch(() => false);
+    if (continueVisible) {
+      if (await slimFormName.isVisible({ timeout: 250 }).catch(() => false)) {
+        await slimFormName.fill(authName, { timeout: 1000 }).catch(() => undefined);
       }
-    )
-    .toBe(true);
-
-  if (await consultationCta.isVisible({ timeout: 1000 }).catch(() => false)) {
-    await consultationCta.click({ timeout: 1000 }).catch(() => undefined);
+      if (await slimFormEmail.isVisible({ timeout: 250 }).catch(() => false)) {
+        await slimFormEmail.fill(authEmail, { timeout: 1000 }).catch(() => undefined);
+      }
+      if (await slimFormPhone.isVisible({ timeout: 250 }).catch(() => false)) {
+        await slimFormPhone.fill('5555551212', { timeout: 1000 }).catch(() => undefined);
+      }
+      await slimFormContinue.click({ timeout: 1000 }).catch(() => undefined);
+      lastStep = 'slim-form-submitted';
+      
+      // Wait a moment for submission to process
+      await anonPage.waitForTimeout(500);
+    }
   }
 
-  await expect
-    .poll(
-      async () => {
-        const inputEnabled = await messageInput.isEnabled({ timeout: 300 }).catch(() => false);
-        const formVisible = await slimFormName.isVisible({ timeout: 300 }).catch(() => false);
-        return inputEnabled || formVisible;
-      },
-      {
-        timeout: 30_000,
-        message: 'Expected slim form or composer after opening the public widget flow.',
-      }
-    )
-    .toBe(true);
-
-  if (await slimFormName.isVisible({ timeout: 500 }).catch(() => false)) {
-    await expect(slimFormName).toBeEditable({ timeout: 5000 });
-    await slimFormName.fill(authName);
-    if (await slimFormEmail.isVisible({ timeout: 500 }).catch(() => false)) {
-      await slimFormEmail.fill(authEmail);
-    }
-    if (await slimFormPhone.isVisible({ timeout: 500 }).catch(() => false)) {
-      await slimFormPhone.fill('555-555-1212');
-    }
-    await slimFormContinue.click();
-    await expect(messageInput).toBeEnabled({ timeout: 15_000 });
-  } else {
-    await expect(messageInput).toBeEnabled({ timeout: 15_000 });
-  }
-
+  expect(isReady, `Failed to reach compose state in prepareWidgetComposer. Last step: ${lastStep}`).toBe(true);
   return { messageInput };
 };
 
@@ -326,9 +324,17 @@ test.describe('Public widget intake flow', () => {
           break;
         }
 
-        if (await consultationCta.isVisible({ timeout: 250 }).catch(() => false)) {
+        if (await consultationCta.isVisible({ timeout: 500 }).catch(() => false)) {
           await consultationCta.click({ timeout: 1000 }).catch(() => undefined);
           lastStep = 'cta-clicked';
+        }
+
+        // Handle disclaimer if it appears
+        const disclaimerAccept = anonPage.getByRole('button', { name: /accept/i }).first();
+        if (await disclaimerAccept.isVisible({ timeout: 500 }).catch(() => false)) {
+          await disclaimerAccept.click({ timeout: 1000 }).catch(() => undefined);
+          await expect(disclaimerAccept).not.toBeVisible({ timeout: 5000 }).catch(() => undefined);
+          lastStep = 'disclaimer-accepted';
         }
 
         const continueVisible = await slimFormContinue.isVisible({ timeout: 250 }).catch(() => false);
@@ -1131,10 +1137,18 @@ test.describe('Public widget intake flow', () => {
       const slimFormEmail = anonPage.locator('input[type="email"]:visible').first();
       const slimFormPhone = anonPage.locator('input[type="tel"]:visible').first();
       const slimFormContinue = anonPage.locator('button:visible').filter({ hasText: /^continue$/i }).first();
+      const disclaimerAccept = anonPage.getByRole('button', { name: /accept/i }).first();
 
       const deadline = Date.now() + 30_000;
       while (Date.now() < deadline) {
         if (await messageInput.isEnabled({ timeout: 250 }).catch(() => false)) break;
+
+        // Handle disclaimer
+        if (await disclaimerAccept.isVisible({ timeout: 500 }).catch(() => false)) {
+          await disclaimerAccept.click().catch(() => undefined);
+          await expect(disclaimerAccept).not.toBeVisible({ timeout: 5000 }).catch(() => undefined);
+        }
+
         if (await slimFormContinue.isVisible({ timeout: 250 }).catch(() => false)) {
           if (await slimFormName.isVisible({ timeout: 250 }).catch(() => false)) {
             await slimFormName.fill(authName).catch(() => undefined);

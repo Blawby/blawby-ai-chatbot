@@ -437,7 +437,7 @@ export const deriveIntakeStatusFromConsultation = (
   const consultation = resolveConsultationState(metadata);
   if (!consultation) {
     return {
-      step: 'contact_form_slim',
+      step: metadata?.disclaimerAcceptedAt ? 'contact_form_slim' : 'disclaimer',
       decision: metadata?.intakeDecision as string | undefined,
       intakeUuid: metadata?.intakeUuid as string | undefined,
       submittedAt: typeof metadata?.submittedAt === 'string' ? (metadata.submittedAt as string) : undefined,
@@ -449,6 +449,7 @@ export const deriveIntakeStatusFromConsultation = (
   const step = (() => {
     if (consultation.status === 'completed') return 'completed';
     if (consultation.status === 'submitted') return 'pending_review';
+    if (!metadata?.disclaimerAcceptedAt) return 'disclaimer';
     if (consultation.status === 'collecting_contact') return 'contact_form_slim';
     if (consultation.case.ctaResponse === 'ready') return 'ready_to_submit';
     if (consultation.case.ctaShown === true) return 'contact_form_decision';

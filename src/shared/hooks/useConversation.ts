@@ -175,7 +175,7 @@ export const useConversation = ({
       if (!Array.isArray(parsed) || parsed.length === 0) return { initialMessages: [], initialMessagesReady: false };
       const isValid = parsed.every(m => typeof m.id === 'string' && typeof m.content === 'string' && typeof m.timestamp === 'number');
       if (!isValid) { window.localStorage.removeItem(key); return { initialMessages: [], initialMessagesReady: false }; }
-      const filtered = parsed.filter(m => !m.id.startsWith(STREAMING_BUBBLE_PREFIX));
+      const filtered = parsed.filter(m => typeof m.id === 'string' && !m.id.startsWith(STREAMING_BUBBLE_PREFIX));
       return { initialMessages: filtered, initialMessagesReady: true };
     } catch { return { initialMessages: [], initialMessagesReady: false }; }
   }, [enabled, conversationId, practiceId]);
@@ -560,7 +560,7 @@ export const useConversation = ({
 
       if (additions.length > 0) {
         const pendingId = pendingStreamMessageIdRef.current;
-        const streamingBubbles = next.filter(m => m.id.startsWith(STREAMING_BUBBLE_PREFIX));
+        const streamingBubbles = next.filter(m => typeof m.id === 'string' && m.id.startsWith(STREAMING_BUBBLE_PREFIX));
         const streamingBubblesNewestFirst = [...streamingBubbles].sort((a, b) => b.timestamp - a.timestamp);
         if (streamingBubbles.length > 0) {
           const normalizeMessage = (value: string): string => value.trim().replace(/\s+/g, ' ').toLowerCase();
@@ -1184,7 +1184,9 @@ export const useConversation = ({
   useEffect(() => {
     if (!enabled) return;
     if (typeof window === 'undefined' || !conversationId || !practiceId || messages.length === 0) return;
-    const trimmed = messages.filter(m => !m.id.startsWith(STREAMING_BUBBLE_PREFIX)).slice(-MESSAGE_CACHE_LIMIT);
+    const trimmed = messages
+      .filter(m => typeof m.id === 'string' && !m.id.startsWith(STREAMING_BUBBLE_PREFIX))
+      .slice(-MESSAGE_CACHE_LIMIT);
     try { window.localStorage.setItem(getMessageCacheKey(practiceId, conversationId), JSON.stringify(trimmed)); }
     catch (err) { if (import.meta.env.DEV) console.warn('[useConversation] Failed to cache messages', err); }
   }, [conversationId, enabled, messages, practiceId]);

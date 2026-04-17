@@ -848,7 +848,13 @@ function PublicPracticeRoute({
 
   // --- Widget bootstrap and preview state ---
   const { data, isLoading, error } = useWidgetBootstrap(slug, isWidget);
-  const isPreview = isWidget;
+  
+  // isPreview should ONLY be true if we are in widget mode AND the preview flag is explicitly set.
+  // The WidgetPreviewFrame in settings passes preview=1.
+  const isPreview = isWidget && (
+    (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('preview') === '1') ||
+    location.query?.preview === '1'
+  );
 
   const initialScenario = useMemo<WidgetPreviewScenario>(() => {
     const raw = typeof location.query?.scenario === 'string'

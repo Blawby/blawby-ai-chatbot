@@ -20,6 +20,12 @@ import { ChatActionCard } from './ChatActionCard';
 import { features } from '@/config/features';
 
 export interface ChatContainerProps {
+    // Disclaimer gating (like slim form)
+    disclaimerProps?: {
+      text: string;
+      onAccept: () => void | Promise<void>;
+      onClose: () => void;
+    };
   messages: ChatMessageUI[];
   conversationTitle?: string | null;
   viewerContext?: 'practice' | 'client' | 'public';
@@ -107,6 +113,7 @@ export interface ChatContainerProps {
 }
 
 const ChatContainer: FunctionComponent<ChatContainerProps> = ({
+  disclaimerProps,
   messages,
   conversationTitle,
   viewerContext,
@@ -178,6 +185,9 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     conversationMode === 'REQUEST_CONSULTATION' &&
     !intakeStatus?.intakeUuid &&
     typeof onSlimFormContinue === 'function';
+
+  // Show disclaimer if disclaimerProps is present
+  const shouldShowDisclaimer = Boolean(disclaimerProps);
   const [isDismissingSlimDrawer, setIsDismissingSlimDrawer] = useState(false);
 
 
@@ -474,11 +484,12 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
 
             <div ref={composerDockRef} className="sticky bottom-0 z-[1000] w-full">
               <ChatActionCard
-                isOpen={showAuthPrompt || shouldShowSlimForm}
-                type={showAuthPrompt ? 'auth' : shouldShowSlimForm ? 'slim-form' : null}
+                isOpen={showAuthPrompt || shouldShowSlimForm || shouldShowDisclaimer}
+                type={showAuthPrompt ? 'auth' : shouldShowSlimForm ? 'slim-form' : shouldShowDisclaimer ? 'disclaimer' : null}
                 onClose={() => {
                   if (showAuthPrompt) onAuthPromptClose?.();
                   else if (shouldShowSlimForm) dismissSlimForm('manual');
+                  else if (shouldShowDisclaimer && disclaimerProps) disclaimerProps.onClose();
                 }}
                 authProps={{
                   practiceName: practiceConfig?.name,
@@ -491,9 +502,10 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
                   onContinue: onSlimFormContinue as NonNullable<typeof onSlimFormContinue>,
                   initialValues: slimContactDraft
                 }}
+                disclaimerProps={shouldShowDisclaimer && disclaimerProps ? disclaimerProps : undefined}
               />
 
-              {(!showAuthPrompt && !shouldShowSlimForm) && (
+              {(!showAuthPrompt && !shouldShowSlimForm && !shouldShowDisclaimer) && (
                   <MessageComposer
                     inputValue={inputValue}
                     setInputValue={setInputValue}
