@@ -1,5 +1,5 @@
 import type { ComponentChildren } from 'preact';
-import { ChevronLeftIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { ChevronLeftIcon, XMarkIcon, EllipsisVerticalIcon } from '@heroicons/react/24/outline';
 import { Button } from '@/shared/ui/Button';
 import { cn } from '@/shared/utils/cn';
 import { ContentWithPreview } from './ContentWithPreview';
@@ -53,6 +53,14 @@ export interface SettingsPageProps {
   contentMaxWidth?: string | null;
   contentClassName?: string;
   previewClassName?: string;
+  /**
+   * Callback for the inspector toggle.
+   */
+  onInspector?: () => void;
+  /**
+   * Whether the inspector is currently open.
+   */
+  inspectorOpen?: boolean;
 }
 
 export function SettingsPage({
@@ -70,6 +78,8 @@ export function SettingsPage({
   contentMaxWidth = 'max-w-xl',
   contentClassName,
   previewClassName,
+  onInspector,
+  inspectorOpen = false,
 }: SettingsPageProps) {
   const BackIcon = backVariant === 'close' ? XMarkIcon : ChevronLeftIcon;
   const backLabel = backVariant === 'close' ? 'Close' : 'Back';
@@ -100,8 +110,21 @@ export function SettingsPage({
           {subtitle ? <p className="workspace-header__subtitle">{subtitle}</p> : null}
         </div>
         
-        {actions ? (
-          <div className="workspace-header__right">{actions}</div>
+        {actions || onInspector ? (
+          <div className="workspace-header__right flex items-center gap-2">
+            {actions}
+            {onInspector ? (
+              <Button
+                type="button"
+                variant={inspectorOpen ? 'secondary' : 'icon'}
+                size="icon-sm"
+                onClick={onInspector}
+                aria-label={inspectorOpen ? 'Close inspector' : 'Open inspector'}
+                icon={EllipsisVerticalIcon}
+                iconClassName="h-5 w-5"
+              />
+            ) : null}
+          </div>
         ) : null}
       </header>
 

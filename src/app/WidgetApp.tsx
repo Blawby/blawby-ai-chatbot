@@ -296,7 +296,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
   }, [applyIntakeFields, sendMessage]);
 
   // System Messages
-  const { persistSystemMessage } = useConversationSystemMessages({
+  const { persistSystemMessage: _persistSystemMessage } = useConversationSystemMessages({
     conversationId: activeConversationId ?? undefined,
     practiceId,
     ingestServerMessages,

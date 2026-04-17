@@ -29,7 +29,6 @@ import {
   type PracticeIntakeDetail,
 } from '@/features/intake/api/intakesApi';
 import {
-  getConversation,
   fetchConversationMessages,
   postConversationMessage,
   postSystemMessage,
@@ -42,8 +41,7 @@ import type { ChatMessageUI } from '../../../../worker/types';
 import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
 import { resolvePracticeServiceLabel } from '@/features/matters/utils/matterUtils';
 import { resolveIntakeTitle } from '@/features/intake/utils/intakeTitle';
-import type { ConversationMetadata } from '@/shared/types/conversation';
-import { applyConsultationPatchToMetadata, resolveConsultationState } from '@/shared/utils/consultationState';
+import { applyConsultationPatchToMetadata } from '@/shared/utils/consultationState';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -502,9 +500,11 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
     intake?.desired_outcome,
     intake?.metadata,
     intake?.organization_id,
+    intakeConversationState,
     intakeId,
     showError,
     showSuccess,
+    updateConversationMetadataPatch,
   ]);
 
   const [descriptionExpanded, setDescriptionExpanded] = useState(false);

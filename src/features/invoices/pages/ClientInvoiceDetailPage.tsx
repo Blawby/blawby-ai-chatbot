@@ -160,6 +160,8 @@ export function ClientInvoiceDetailPage({
       subtitle={`Issued ${renderEventDate(detail.issueDate)} • Due ${renderEventDate(detail.dueDate)}`}
       showBack={effectiveShowBack}
       onBack={handleBackToList}
+      onInspector={onInspector}
+      inspectorOpen={inspectorOpen}
       actions={(
         <div className="flex flex-wrap items-center gap-2">
           {canPay ? <Button onClick={handleOpenPay}>Pay</Button> : null}

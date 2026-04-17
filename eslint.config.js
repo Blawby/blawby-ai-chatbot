@@ -86,7 +86,7 @@ export default [
           'loading-consistency': loadingConsistency,
           'no-hardcoded-colors': {
             create(context) {
-              const COLORS_REGEX = /text-white|text-black|bg-white|bg-black|gray-|zinc-|neutral-|stone-|blue-|indigo-|purple-|slate-/;
+              const COLORS_REGEX = /text-white|text-black|bg-white|bg-black|\b(gray|zinc|neutral|stone|blue|indigo|purple|slate)-/;
               const MESSAGE = 'Prefer system tokens (surface-*, input-*, or accent-*) over hardcoded colors to ensure proper theme inversion.';
               return {
                 'JSXAttribute[name.name="className"] Literal': (node) => {

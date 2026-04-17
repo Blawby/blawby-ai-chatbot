@@ -32,8 +32,8 @@ export default {
           panel: 'rgb(var(--surface-panel) / <alpha-value>)',
         },
         line: {
-
           glass: 'rgb(var(--line-glass) / <alpha-value>)',
+          utility: 'rgb(var(--line-utility) / <alpha-value>)',
         },
         input: {
 
@@ -70,6 +70,8 @@ export default {
           error: 'rgb(var(--error-foreground) / <alpha-value>)',
           success: 'rgb(var(--success-foreground) / <alpha-value>)',
           warning: 'rgb(var(--warning-foreground) / <alpha-value>)',
+          foreground: 'rgb(var(--accent-foreground) / <alpha-value>)',
+          utility: 'rgb(var(--accent-utility) / <alpha-value>)',
         },
         // Light theme colors
 

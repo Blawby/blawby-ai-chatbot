@@ -215,6 +215,9 @@ export type UpdatePracticeRequest = Omit<Partial<CreatePracticeRequest>, keyof P
 
 export interface PracticeDetails {
   id?: string;
+  name?: string | null;
+  slug?: string | null;
+  logo?: string | null;
   businessPhone?: string | null;
   businessEmail?: string | null;
   consultationFee?: MajorAmount | null;
@@ -1770,6 +1773,9 @@ export function normalizePracticeDetailsResponse(payload: unknown): PracticeDeta
     return null;
   }
   const hasMappedDetailKey = (value: Record<string, unknown>): boolean => ([
+    'name',
+    'logo',
+    'slug',
     'overview',
     'legalDisclaimer',
     'legal_disclaimer',
@@ -1879,6 +1885,9 @@ export function normalizePracticeDetailsResponse(payload: unknown): PracticeDeta
     id: getOptionalNullableString(container, ['id', 'uuid', 'practice_id', 'practiceId', 'organization_id', 'organizationId']) ?? undefined,
     businessPhone: getOptionalNullableString(container, ['business_phone', 'businessPhone']),
     businessEmail: getOptionalNullableString(container, ['business_email', 'businessEmail']),
+    name: getOptionalNullableString(container, ['name', 'practice_name', 'business_name', 'businessName']),
+    logo: normalizePublicFileUrl(getOptionalNullableString(container, ['logo', 'logo_url', 'logoUrl', 'profile_image', 'profileImage'])),
+    slug: getOptionalNullableString(container, ['slug', 'practice_slug']),
     consultationFee: (() => {
       if ('consultation_fee' in container || 'consultationFee' in container) {
         const value = container.consultation_fee ?? container.consultationFee;

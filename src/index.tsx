@@ -332,26 +332,7 @@ function AppShell() {
   );
 }
 
-function RouteLoadError({
-  message,
-  onRetry
-}: {
-  message: string;
-  onRetry: () => void;
-}) {
-  return (
-    <div className="flex h-screen flex-col items-center justify-center gap-3 px-6 text-center">
-      <p className="text-sm text-input-text">Failed to load this page: {message}</p>
-      <button
-        type="button"
-        onClick={onRetry}
-        className="rounded-md border border-input-border px-3 py-1.5 text-sm text-input-text hover:bg-hover-background"
-      >
-        Retry
-      </button>
-    </div>
-  );
-}
+
 
 /**
  * Client engagement review route.
@@ -827,7 +808,7 @@ function ClientPracticeRoute({
 function PublicPracticeRoute({
   practiceSlug,
   conversationId,
-  workspaceView = 'home'
+  workspaceView: _workspaceView = 'home'
 }: {
   practiceSlug?: string;
   conversationId?: string;
