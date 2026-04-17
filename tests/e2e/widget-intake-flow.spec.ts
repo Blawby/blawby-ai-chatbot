@@ -78,7 +78,7 @@ const prepareWidgetComposer = async (
       }
     }
 
-    const disclaimerButton = anonPage.getByRole('button', { name: /i understand|accept|agree|continue/i }).first();
+    const disclaimerButton = anonPage.getByRole('button', { name: /^i understand( and agree)?$|accept|agree|disclaimer/i }).first();
     if (await disclaimerButton.isVisible({ timeout: 500 }).catch(() => false)) {
       await disclaimerButton.click({ timeout: 1000 }).catch(() => undefined);
       await anonPage.waitForTimeout(500);

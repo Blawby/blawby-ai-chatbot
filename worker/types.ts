@@ -276,7 +276,16 @@ export interface ConversationConfig {
   };
   testMode?: boolean;
   metadata?: Record<string, unknown>;
-  consultationFee?: number;
+  /**
+   * The fee charged for an initial consultation.
+   * Represented in minor currency units (e.g., cents for USD).
+   * Must be an integer >= 0. Use MinorAmount to prevent unit confusion.
+   */
+  consultationFee?: MinorAmount;
+  /**
+   * The smallest unit of time (in minutes) used for billing purposes.
+   * Must be a positive integer. Typical increments are 6 (for tenths of an hour), 10, or 15.
+   */
   billingIncrementMinutes?: number;
   betterAuthOrgId?: string;
   tools?: {

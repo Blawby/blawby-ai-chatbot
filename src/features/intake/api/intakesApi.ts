@@ -94,7 +94,7 @@ export interface PracticeIntakeDetail {
   // UI-specific fields / computed
   client_name?: string;
   practice_area?: string;
-  paymentVerified?: boolean;
+  payment_verified?: boolean;
 }
 
 export interface UpdateIntakeTriageStatusResponse {

@@ -81,7 +81,7 @@ export const PracticeOverviewPage = ({
     if (!Array.isArray(source)) return [];
 
     const values = source
-      .map((entry: PracticeService) => {
+      .map((entry: PracticeService | string) => {
         if (typeof entry === 'string') return entry;
         if (entry && typeof entry === 'object') {
           if (typeof entry.name === 'string') return entry.name;

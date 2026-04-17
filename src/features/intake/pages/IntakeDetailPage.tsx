@@ -652,7 +652,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
             <div>
               <h3 className="text-xs font-semibold uppercase tracking-widest text-input-placeholder mb-3">About</h3>
               <div className="space-y-4">
-                {intake.paymentVerified && (
+                {intake.payment_verified && (
                   <div className="flex items-center gap-2 text-xs font-bold text-emerald-600 dark:text-emerald-400">
                     <Icon icon={CheckCircleIconSolid} className="h-4 w-4" />
                     Payment method verified

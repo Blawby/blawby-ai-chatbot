@@ -23,6 +23,7 @@ import { WidgetPreviewApp } from '@/app/WidgetPreviewApp';
 import { useNavigation } from '@/shared/utils/navigation';
 import { usePracticeConfig } from '@/shared/hooks/usePracticeConfig';
 import type { UIPracticeConfig } from '@/shared/hooks/usePracticeConfig';
+import type { MinorAmount } from '../worker/types';
 import { useWidgetBootstrap } from '@/shared/hooks/useWidgetBootstrap';
 import { handleError as _handleError } from '@/shared/utils/errorHandler';
 import { useWorkspaceResolver } from '@/shared/hooks/useWorkspaceResolver';
@@ -934,7 +935,7 @@ function PublicPracticeRoute({
         displayName: null,
         previewUrl: null,
       },
-      consultationFee: resolveNumber(pd.consultation_fee) ?? resolveNumber(detailsRecord?.consultationFee),
+      consultationFee: (resolveNumber(pd.consultation_fee) ?? resolveNumber(detailsRecord?.consultationFee)) as MinorAmount | undefined,
       paymentUrl: resolveString(pd.payment_url) ?? resolveString(detailsRecord?.paymentUrl),
       calendlyUrl: resolveString(pd.calendly_url) ?? resolveString(detailsRecord?.calendlyUrl),
       isPublic: resolveBoolean(pd.is_public) ?? resolveBoolean(detailsRecord?.isPublic),
@@ -966,7 +967,7 @@ function PublicPracticeRoute({
       accentColor: previewConfig.accentColor ?? basePracticeConfig.accentColor,
       introMessage: previewConfig.introMessage !== undefined ? previewConfig.introMessage : basePracticeConfig.introMessage,
       legalDisclaimer: previewConfig.legalDisclaimer !== undefined ? previewConfig.legalDisclaimer : basePracticeConfig.legalDisclaimer,
-      consultationFee: previewConfig.consultationFee !== undefined ? previewConfig.consultationFee ?? undefined : basePracticeConfig.consultationFee,
+      consultationFee: (previewConfig.consultationFee !== undefined ? previewConfig.consultationFee ?? undefined : basePracticeConfig.consultationFee) as MinorAmount | undefined,
       billingIncrementMinutes: previewConfig.billingIncrementMinutes !== undefined ? previewConfig.billingIncrementMinutes : basePracticeConfig.billingIncrementMinutes,
     };
   }, [basePracticeConfig, isPreview, previewConfig]);
