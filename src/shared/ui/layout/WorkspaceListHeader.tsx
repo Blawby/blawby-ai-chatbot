@@ -48,11 +48,11 @@ export const WorkspaceListHeader = ({
         className="workspace-header__icon"
         aria-label={backAriaLabel}
       >
-        <Icon icon={ChevronLeftIcon} className="h-5 w-5 text-[rgb(var(--input-foreground))]" aria-hidden="true" />
+        <Icon icon={ChevronLeftIcon} className="h-5 w-5" aria-hidden="true" />
       </Button>
       ) : null}
       {title ? (
-        <div className={cn('workspace-header__identity', centerTitle && 'absolute left-1/2 -translate-x-1/2 text-center', 'text-[rgb(var(--input-foreground))]')}>
+        <div className={cn('workspace-header__identity', centerTitle && 'absolute left-1/2 -translate-x-1/2 text-center', 'text-input-text')}>
           {title}
         </div>
       ) : null}

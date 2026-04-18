@@ -34,10 +34,10 @@ export function PracticeInvoiceDetailPage({
   practiceId,
   practiceSlug,
   invoiceId,
-  _leadingAction,
-  _onInspector,
-  _inspectorOpen = false,
-  _showBack = true,
+  leadingAction,
+  onInspector,
+  inspectorOpen = false,
+  showBack = true,
 }: {
   practiceId: string | null;
   practiceSlug: string | null;
@@ -190,6 +190,9 @@ export function PracticeInvoiceDetailPage({
       subtitle={`Issued ${renderEventDate(detail.issueDate)} • Due ${renderEventDate(detail.dueDate)}`}
       showBack={showBack}
       onBack={handleBackToList}
+      leadingAction={leadingAction}
+      onInspector={onInspector}
+      inspectorOpen={inspectorOpen}
       actions={(
         <div className="flex flex-wrap items-center gap-2">
           {mode === 'edit' ? (

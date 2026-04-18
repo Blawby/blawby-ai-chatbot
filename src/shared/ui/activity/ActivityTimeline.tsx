@@ -163,7 +163,7 @@ export const ActivityTimeline = ({
             <div className="relative flex w-8 flex-none justify-center pt-0.5 sm:w-10">
               <div
                 className={cn(
-                  'absolute left-1/2 z-0 w-px -translate-x-1/2 bg-[rgb(var(--line-utility))]',
+                  'absolute left-1/2 z-0 w-px -translate-x-1/2 bg-line-utility',
                   isLast ? 'h-6' : '-bottom-6',
                   'top-0'
                 )}

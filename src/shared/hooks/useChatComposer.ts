@@ -444,6 +444,7 @@ export const useChatComposer = ({
         let removedEmptyBubble = false;
         setMessages(prev => {
           const currentBubble = prev.find((message) => message.id === bubbleId);
+
           if (currentBubble?.content?.trim()) {
             return prev;
           }
@@ -541,7 +542,7 @@ export const useChatComposer = ({
       : null;
     const hasMatchingPersistedAssistant = currentMessages.some(message => {
         if (message.id === bubbleIdToHandle) return false;
-        if (message.id.startsWith(STREAMING_BUBBLE_PREFIX)) return false;
+        if (typeof message.id === 'string' && message.id.startsWith(STREAMING_BUBBLE_PREFIX)) return false;
         const isAiMessage = message.role === 'assistant' || (message.role === 'system' && message.metadata?.source === 'ai');
         if (!isAiMessage) return false;
         // Prefer explicit linkage when present, but allow strong text similarity
@@ -746,7 +747,7 @@ export const useChatComposer = ({
         ...preSendMessages
           .filter(msg => msg.role === 'user' || msg.role === 'assistant' || (msg.role === 'system' && msg.metadata?.source === 'ai'))
           .filter(msg => !msg.metadata?.error)
-          .filter(msg => !msg.id.startsWith(STREAMING_BUBBLE_PREFIX))
+          .filter(msg => typeof msg.id === 'string' && !msg.id.startsWith(STREAMING_BUBBLE_PREFIX))
           .map(msg => ({ role: msg.role === 'system' ? 'assistant' : msg.role, content: msg.content })),
         { role: 'user' as const, content: trimmedMessage },
       ];

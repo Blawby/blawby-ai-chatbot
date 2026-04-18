@@ -23,6 +23,7 @@ import { WidgetPreviewApp } from '@/app/WidgetPreviewApp';
 import { useNavigation } from '@/shared/utils/navigation';
 import { usePracticeConfig } from '@/shared/hooks/usePracticeConfig';
 import type { UIPracticeConfig } from '@/shared/hooks/usePracticeConfig';
+import type { MinorAmount } from '../worker/types';
 import { useWidgetBootstrap } from '@/shared/hooks/useWidgetBootstrap';
 import { handleError as _handleError } from '@/shared/utils/errorHandler';
 import { useWorkspaceResolver } from '@/shared/hooks/useWorkspaceResolver';
@@ -332,26 +333,7 @@ function AppShell() {
   );
 }
 
-function RouteLoadError({
-  _message,
-  _onRetry
-}: {
-  message: string;
-  onRetry: () => void;
-}) {
-  return (
-    <div className="flex h-screen flex-col items-center justify-center gap-3 px-6 text-center">
-      <p className="text-sm text-input-text">Failed to load this page: {message}</p>
-      <button
-        type="button"
-        onClick={onRetry}
-        className="rounded-md border border-input-border px-3 py-1.5 text-sm text-input-text hover:bg-hover-background"
-      >
-        Retry
-      </button>
-    </div>
-  );
-}
+
 
 /**
  * Client engagement review route.
@@ -827,7 +809,7 @@ function ClientPracticeRoute({
 function PublicPracticeRoute({
   practiceSlug,
   conversationId,
-  _workspaceView = 'home'
+  workspaceView: _workspaceView = 'home'
 }: {
   practiceSlug?: string;
   conversationId?: string;
@@ -848,7 +830,13 @@ function PublicPracticeRoute({
 
   // --- Widget bootstrap and preview state ---
   const { data, isLoading, error } = useWidgetBootstrap(slug, isWidget);
-  const isPreview = isWidget;
+  
+  // isPreview should ONLY be true if we are in widget mode AND the preview flag is explicitly set.
+  // The WidgetPreviewFrame in settings passes preview=1.
+  const isPreview = isWidget && (
+    (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('preview') === '1') ||
+    location.query?.preview === '1'
+  );
 
   const initialScenario = useMemo<WidgetPreviewScenario>(() => {
     const raw = typeof location.query?.scenario === 'string'
@@ -947,7 +935,7 @@ function PublicPracticeRoute({
         displayName: null,
         previewUrl: null,
       },
-      consultationFee: resolveNumber(pd.consultation_fee) ?? resolveNumber(detailsRecord?.consultationFee),
+      consultationFee: (resolveNumber(pd.consultation_fee) ?? resolveNumber(detailsRecord?.consultationFee)) as MinorAmount | undefined,
       paymentUrl: resolveString(pd.payment_url) ?? resolveString(detailsRecord?.paymentUrl),
       calendlyUrl: resolveString(pd.calendly_url) ?? resolveString(detailsRecord?.calendlyUrl),
       isPublic: resolveBoolean(pd.is_public) ?? resolveBoolean(detailsRecord?.isPublic),
@@ -979,7 +967,7 @@ function PublicPracticeRoute({
       accentColor: previewConfig.accentColor ?? basePracticeConfig.accentColor,
       introMessage: previewConfig.introMessage !== undefined ? previewConfig.introMessage : basePracticeConfig.introMessage,
       legalDisclaimer: previewConfig.legalDisclaimer !== undefined ? previewConfig.legalDisclaimer : basePracticeConfig.legalDisclaimer,
-      consultationFee: previewConfig.consultationFee !== undefined ? previewConfig.consultationFee ?? undefined : basePracticeConfig.consultationFee,
+      consultationFee: (previewConfig.consultationFee !== undefined ? previewConfig.consultationFee ?? undefined : basePracticeConfig.consultationFee) as MinorAmount | undefined,
       billingIncrementMinutes: previewConfig.billingIncrementMinutes !== undefined ? previewConfig.billingIncrementMinutes : basePracticeConfig.billingIncrementMinutes,
     };
   }, [basePracticeConfig, isPreview, previewConfig]);

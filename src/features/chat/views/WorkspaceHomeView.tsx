@@ -1,5 +1,5 @@
 import { FunctionComponent } from 'preact';
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from '@/shared/i18n/hooks';
 import { PaperAirplaneIcon } from '@heroicons/react/24/outline';
 import { Icon } from '@/shared/ui/Icon';
 import { Avatar } from '@/shared/ui/profile/atoms/Avatar';

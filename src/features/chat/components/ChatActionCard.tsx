@@ -37,6 +37,7 @@ interface ChatActionCardProps {
     text: string;
     onAccept: () => void | Promise<void>;
     isSubmitting?: boolean;
+    subtitle?: string;
   };
 }
 
@@ -98,7 +99,7 @@ export const ChatActionCard: FunctionComponent<ChatActionCardProps> = ({
         isOpen={isOpen}
         onClose={onClose}
         title={t('chat.card.disclaimer.title')}
-        description={t('chat.card.disclaimer.description')}
+        description={disclaimerProps.subtitle || t('chat.card.disclaimer.description')}
       >
         <div className="max-h-[45vh] overflow-y-auto whitespace-pre-wrap text-sm leading-6 text-input-text">
           {disclaimerProps.text}

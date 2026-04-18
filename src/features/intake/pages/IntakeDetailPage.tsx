@@ -29,7 +29,6 @@ import {
   type PracticeIntakeDetail,
 } from '@/features/intake/api/intakesApi';
 import {
-  getConversation,
   fetchConversationMessages,
   postConversationMessage,
   postSystemMessage,
@@ -42,8 +41,7 @@ import type { ChatMessageUI } from '../../../../worker/types';
 import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
 import { resolvePracticeServiceLabel } from '@/features/matters/utils/matterUtils';
 import { resolveIntakeTitle } from '@/features/intake/utils/intakeTitle';
-import type { ConversationMetadata } from '@/shared/types/conversation';
-import { applyConsultationPatchToMetadata, resolveConsultationState } from '@/shared/utils/consultationState';
+import { applyConsultationPatchToMetadata } from '@/shared/utils/consultationState';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -433,7 +431,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
       { mirrorLegacyFields: true }
     );
 
-    const metadata = intake?.metadata ?? {};
+    const metadata = (intake?.metadata ?? {}) as Record<string, unknown>;
     const representedParty = typeof metadata.on_behalf_of === 'string' && metadata.on_behalf_of.trim().length > 0
       ? metadata.on_behalf_of.trim()
       : null;
@@ -502,9 +500,11 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
     intake?.desired_outcome,
     intake?.metadata,
     intake?.organization_id,
+    intakeConversationState,
     intakeId,
     showError,
     showSuccess,
+    updateConversationMetadataPatch,
   ]);
 
   const [descriptionExpanded, setDescriptionExpanded] = useState(false);
@@ -534,7 +534,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
   }
 
   const meta = (intake.metadata ?? {}) as Record<string, unknown>;
-  const name = typeof meta.name === 'string' ? meta.name : '—';
+  const name = typeof meta.name === 'string' ? meta.name : null;
   const email = typeof meta.email === 'string' ? meta.email : null;
   const phone = typeof meta.phone === 'string' ? meta.phone : null;
   const description = typeof meta.description === 'string' ? meta.description : null;
@@ -571,7 +571,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
       title: conversationMetadata?.title ?? meta.title,
       intake_title: conversationMetadata?.intake_title ?? meta.intake_title,
     },
-    name !== '—' ? `${name} intake` : 'Untitled intake'
+    name ? `${name} intake` : 'Untitled intake'
   );
   const locationLabel = [city, state].filter(Boolean).join(', ') || null;
   const paymentLabel = feeAmount ? `${feeAmount} ${intake.stripe_charge_id ? 'paid' : 'consultation'}` : null;
@@ -590,8 +590,8 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
 
   return (
     <SettingsPage
-      title={intake.client_name ?? 'Intake Details'}
-      subtitle={intake.practice_area ?? undefined}
+      title={intake.client_name ?? name ?? 'Intake Details'}
+      subtitle={intake.practice_area ?? practiceServiceName ?? undefined}
       showBack
       onBack={onBack}
       actions={
@@ -652,7 +652,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
             <div>
               <h3 className="text-xs font-semibold uppercase tracking-widest text-input-placeholder mb-3">About</h3>
               <div className="space-y-4">
-                {intake?.paymentVerified && (
+                {intake.payment_verified && (
                   <div className="flex items-center gap-2 text-xs font-bold text-emerald-600 dark:text-emerald-400">
                     <Icon icon={CheckCircleIconSolid} className="h-4 w-4" />
                     Payment method verified
@@ -717,8 +717,8 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
                     conversationTitle={intakeTitle}
                     viewerContext="practice"
                     practiceConfig={{
-                      name: practiceDetails?.name ?? 'Practice',
-                      profileImage: practiceDetails?.logo ?? null,
+                      name: practiceDetails?.name ?? practiceName ?? 'Practice',
+                      profileImage: practiceDetails?.logo ?? practiceLogo ?? null,
                       practiceId: intake.organization_id,
                     }}
                     practiceId={intake.organization_id}

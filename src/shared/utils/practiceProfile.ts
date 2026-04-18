@@ -18,6 +18,7 @@ export type PracticeProfileInput = {
   accentColor?: string | null;
   introMessage?: string | null;
   legalDisclaimer?: string | null;
+  description?: string | null;
   isPublic?: boolean;
   services?: Array<Record<string, unknown>> | null;
   serviceStates?: string[] | null;
@@ -142,9 +143,9 @@ export const buildPracticeProfilePayloads = (
     detailsPayload.introMessage = introMessage;
   }
 
-  // Legal disclaimer
-  const legalDisclaimer = normalizeOptionalText(input.legalDisclaimer);
-  if (legalDisclaimer !== undefined && shouldInclude(legalDisclaimer, normalizeOptionalText(compareTo.legalDisclaimer))) {
+  // Legal disclaimer / Firm description
+  const legalDisclaimer = normalizeOptionalText(input.legalDisclaimer !== undefined ? input.legalDisclaimer : input.description);
+  if (legalDisclaimer !== undefined && shouldInclude(legalDisclaimer, normalizeOptionalText(compareTo.legalDisclaimer !== undefined ? compareTo.legalDisclaimer : compareTo.description))) {
     detailsPayload.legalDisclaimer = legalDisclaimer;
   }
 

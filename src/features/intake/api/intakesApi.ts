@@ -91,6 +91,10 @@ export interface PracticeIntakeDetail {
   urgency?: 'routine' | 'time_sensitive' | 'emergency' | null | string;
   succeeded_at?: string | null;
   created_at: string;
+  // UI-specific fields / computed
+  client_name?: string;
+  practice_area?: string;
+  payment_verified?: boolean;
 }
 
 export interface UpdateIntakeTriageStatusResponse {

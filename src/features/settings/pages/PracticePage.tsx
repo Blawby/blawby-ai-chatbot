@@ -6,7 +6,7 @@ declare global {
 }
 
 
-import { useMemo, useState, useEffect } from 'preact/hooks';
+import { useMemo, useState } from 'preact/hooks';
 import { SettingRow, SettingsHelperText } from '@/features/settings/components';
 import { cn } from '@/shared/utils/cn';
 import { Button } from '@/shared/ui/Button';
@@ -17,8 +17,18 @@ import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { normalizePracticeRole } from '@/shared/utils/practiceRoles';
 import { useLocation } from 'preact-iso';
-import type { PracticeService } from '@/shared/types/practice';
-import type { PracticeOverviewPageProps } from './PracticePage.types';
+interface PracticeService {
+  id?: string;
+  name?: string;
+  title?: string;
+  [key: string]: unknown;
+}
+
+interface PracticeOverviewPageProps {
+  className?: string;
+  onNavigate?: (path: string) => void;
+}
+
 
 
 const summarizeList = (
@@ -71,7 +81,7 @@ export const PracticeOverviewPage = ({
     if (!Array.isArray(source)) return [];
 
     const values = source
-      .map((entry: PracticeService) => {
+      .map((entry: PracticeService | string) => {
         if (typeof entry === 'string') return entry;
         if (entry && typeof entry === 'object') {
           if (typeof entry.name === 'string') return entry.name;
@@ -401,4 +411,5 @@ export const PracticeOverviewPage = ({
   );
 };
 
+export const PracticePage = PracticeOverviewPage;
 export default PracticeOverviewPage;

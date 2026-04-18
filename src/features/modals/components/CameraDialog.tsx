@@ -127,7 +127,7 @@ const CameraDialog: FunctionComponent<CameraDialogProps> = ({
             <p>{error}</p>
           </div>
         )}
-        <div className="relative w-full h-full overflow-hidden bg-[rgb(var(--surface-app-frame))] flex-grow border-t border-[rgb(var(--line-utility))]">
+        <div className="relative w-full h-full overflow-hidden bg-surface-app-frame flex-grow border-t border-line-utility">
           <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
           <canvas ref={canvasRef} style={{ display: 'none' }} />
         </div>

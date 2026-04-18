@@ -304,6 +304,14 @@
     },
     "attachments": {
       "disabled": "Chat attachments are currently disabled."
+    },
+    "card": {
+      "disclaimer": {
+        "title": "Legal Disclaimer",
+        "description": "Please acknowledge that this conversation is not legal advice and agree to the terms of use to continue.",
+        "acceptButton": "Accept and Continue",
+        "starting": "Starting..."
+      }
     }
   },
   "contact": {

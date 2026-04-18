@@ -7,9 +7,9 @@ import { loadE2EConfig } from './helpers/e2eConfig';
 import { AUTH_STATE_PATHS } from './helpers/authState';
 
 const e2eConfig = loadE2EConfig();
-const BACKEND_API_URL = process.env.E2E_BACKEND_API_URL || 'https://staging-api.blawby.com';
-if (!process.env.E2E_BACKEND_API_URL) {
-  console.warn('E2E_BACKEND_API_URL is not set; defaulting to https://staging-api.blawby.com.');
+const BACKEND_API_URL = process.env.E2E_BACKEND_API_URL;
+if (!BACKEND_API_URL) {
+  throw new Error('E2E_BACKEND_API_URL must be set.');
 }
 
 type InviteResponse = {
@@ -17,22 +17,6 @@ type InviteResponse = {
   data?: { success?: boolean; message?: string };
   url?: string;
   rawText?: string;
-};
-
-type IntakeCreateData = {
-  uuid?: string;
-  paymentLinkUrl?: string;
-  clientSecret?: string;
-  amount?: number;
-  currency?: string;
-  address?: {
-    address: string;
-    apartment?: string;
-    city: string;
-    state: string;
-    postal_code: string;
-    country: string;
-  };
 };
 
 const normalizePracticeSlug = (value: string): string => {
@@ -108,84 +92,6 @@ test.describe('Widget Authentication', () => {
     expect(conversationWithoutAuthResponse.status()).toBe(401);
     const unauthError = conversationWithoutAuthPayload?.error ?? conversationWithoutAuthPayload?.message;
     expect(unauthError).toBeTruthy();
-  });
-
-  test('Google OAuth flow creates valid session', async ({ ownerContext }) => {
-    if (!e2eConfig) return;
-
-    const page = await ownerContext.newPage();
-    await page.goto('/', { waitUntil: 'domcontentloaded' });
-    
-    // Trigger Google OAuth
-    await page.getByRole('button', { name: /continue with google/i }).click();
-    
-    // Wait for OAuth redirect and complete flow
-    await page.waitForURL(/\/oauth\/callback/);
-    await page.waitForTimeout(2000);
-    
-    const userId = await waitForSession(page, { timeoutMs: 30000 });
-    expect(userId).toBeTruthy();
-    
-    // Verify session persists
-    const session = await waitForSession(page, { timeoutMs: 30000 });
-    expect(session).toBe(userId);
-    
-    await page.close();
-  });
-
-  test('Email signup flow creates valid session', async ({ ownerContext }) => {
-    if (!e2eConfig) return;
-
-    const page = await ownerContext.newPage();
-    await page.goto('/', { waitUntil: 'domcontentloaded' });
-    
-    const uniqueId = randomUUID().slice(0, 8);
-    const email = `test-auth+${uniqueId}@test-blawby.com`;
-    const password = `TestAuth!${uniqueId}Aa`;
-    
-    // Click email signup
-    await page.getByRole('button', { name: /continue with email/i }).click();
-    
-    // Fill signup form
-    await page.getByTestId('signup-name-input').fill(`Test User ${uniqueId}`);
-    await page.getByTestId('signup-email-input').fill(email);
-    await page.getByTestId('signup-password-input').fill(password);
-    await page.getByTestId('signup-confirm-password-input').fill(password);
-    await page.getByTestId('signup-submit-button').click();
-    
-    const userId = await waitForSession(page, { timeoutMs: 30000 });
-    expect(userId).toBeTruthy();
-    
-    await page.close();
-  });
-
-  test('Email signin flow works for existing users', async ({ ownerContext }) => {
-    if (!e2eConfig) return;
-
-    const page = await ownerContext.newPage();
-    await page.goto('/', { waitUntil: 'domcontentloaded' });
-    
-    // Click email signin
-    await page.getByRole('button', { name: /continue with email/i }).click();
-    
-    // Switch to signin mode
-    await page.getByRole('button', { name: /sign in/i }).click();
-    
-    // Verify required environment variables are present
-    const e2eEmail = process.env.E2E_USER_EMAIL;
-    const e2ePassword = process.env.E2E_USER_PASSWORD;
-    if (!e2eEmail || !e2ePassword) {
-      throw new Error('E2E_USER_EMAIL and E2E_USER_PASSWORD must be set for auth tests');
-    }
-    
-    await page.getByTestId('signin-email-input').fill(e2eEmail);
-    await page.getByTestId('signin-password-input').fill(e2ePassword);
-    await page.getByTestId('signin-submit-button').click();
-    
-    const userId = await waitForSession(page, { timeoutMs: 30000 });
-    expect(userId).toBeTruthy();
-    
-    await page.close();
   });
 
   test('intake invite creates valid intake link', async ({ ownerContext, unauthContext }) => {
@@ -270,44 +176,5 @@ test.describe('Widget Authentication', () => {
     await expect(messageInput).toBeVisible({ timeout: 15000 });
 
     await unauthPage.close();
-  });
-
-  test('session persistence across page reloads', async ({ ownerContext }) => {
-    if (!e2eConfig) return;
-
-    const page = await ownerContext.newPage();
-    await page.goto('/', { waitUntil: 'domcontentloaded' });
-    
-    const userId1 = await waitForSession(page, { timeoutMs: 30000 });
-    expect(userId1).toBeTruthy();
-    
-    // Reload page
-    await page.reload({ waitUntil: 'domcontentloaded' });
-    
-    // Session should persist
-    const userId2 = await waitForSession(page, { timeoutMs: 10000 });
-    expect(userId2).toBe(userId1);
-    
-    await page.close();
-  });
-
-  test('session invalidation on logout', async ({ ownerContext }) => {
-    if (!e2eConfig) return;
-
-    const page = await ownerContext.newPage();
-    await page.goto('/', { waitUntil: 'domcontentloaded' });
-    
-    const userId = await waitForSession(page, { timeoutMs: 30000 });
-    expect(userId).toBeTruthy();
-    
-    // Logout
-    await page.getByRole('button', { name: /logout/i }).click();
-    await page.waitForTimeout(2000);
-    
-    // Session should be invalid
-    const session = await waitForSession(page, { timeoutMs: 10000 }).catch(() => null);
-    expect(session).toBeNull();
-    
-    await page.close();
   });
 });

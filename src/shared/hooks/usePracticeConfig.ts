@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'preact/hooks';
 import axios from 'axios';
 import { z } from 'zod';
-import type { PracticeConfig } from '../../../worker/types';
+import type { PracticeConfig, MinorAmount } from '../../../worker/types';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { getPractice, getPublicPracticeDetails } from '@/shared/lib/apiClient';
 import { setPracticeDetailsEntry } from '@/shared/stores/practiceDetailsStore';
@@ -20,6 +20,8 @@ const PracticeSchema = z.object({
   seats: z.number().optional(),
   kind: z.enum(['personal', 'business']).optional(),
   accentColor: z.string().optional(),
+  consultationFee: z.number().int().nonnegative().nullable().optional(),
+  billingIncrementMinutes: z.number().int().positive().nullable().optional(),
   subscriptionStatus: z.enum(['none', 'trialing', 'active', 'past_due', 'canceled', 'incomplete', 'incomplete_expired', 'unpaid', 'paused']).optional()
 });
 
@@ -30,6 +32,8 @@ export interface UIPracticeConfig extends PracticeConfig {
   name?: string; // Optional - comes from Practice object
   introMessage?: string | null; // Optional - comes from public practice details
   legalDisclaimer?: string | null; // Optional - comes from public practice details
+  consultationFee?: MinorAmount;
+  billingIncrementMinutes?: number;
 }
 
 const buildDefaultPracticeConfig = (overrides: Partial<UIPracticeConfig> = {}): UIPracticeConfig => ({
@@ -165,6 +169,8 @@ export const usePracticeConfig = ({
             description: '',
             introMessage: details?.introMessage ?? null,
             legalDisclaimer: details?.legalDisclaimer ?? null,
+            consultationFee: (details?.consultationFee as unknown as MinorAmount) ?? undefined,
+            billingIncrementMinutes: details?.billingIncrementMinutes ?? undefined,
             accentColor: details?.accentColor ?? 'gold',
             isPublic: details?.isPublic
           });
@@ -224,6 +230,8 @@ export const usePracticeConfig = ({
           domain: cfg.domain ?? '',
           brandColor: cfg.brandColor ?? '#000000',
           accentColor: practice.accentColor ?? cfg.accentColor ?? 'gold',
+          consultationFee: (cfg.consultationFee as unknown as MinorAmount) ?? (practice.consultationFee as unknown as MinorAmount) ?? undefined,
+          billingIncrementMinutes: cfg.billingIncrementMinutes ?? practice.billingIncrementMinutes ?? undefined,
           voice: {
             enabled: typeof cfg.voice?.enabled === 'boolean' ? cfg.voice.enabled : false,
             provider: cfg.voice?.provider ?? 'cloudflare',
