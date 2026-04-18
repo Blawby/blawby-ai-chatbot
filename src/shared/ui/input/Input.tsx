@@ -158,7 +158,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({
           id={inputId}
           aria-label={ariaLabel}
           aria-describedby={computedAriaDescribedBy}
-          aria-invalid={externalAriaInvalid !== undefined ? externalAriaInvalid : Boolean(error)}
+          aria-invalid={externalAriaInvalid !== undefined ? externalAriaInvalid : Boolean(displayError)}
           aria-required={externalAriaRequired}
           aria-disabled={externalAriaDisabled}
           {...inputRestProps}

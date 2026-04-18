@@ -26,6 +26,7 @@
     --input-text: 17 24 39;
     --input-placeholder: 55 65 81;
     --accent-foreground: 255 255 255;
+    --info-foreground: 29 78 216;
     --success-foreground: 22 101 52;
     --warning-foreground: 154 52 18;
     --error-foreground: 153 27 27;
@@ -119,6 +120,7 @@
     --success-foreground: 74 222 128;
     --warning-foreground: 249 115 22;
     --error-foreground: 248 113 113;
+    --info-foreground: 147 197 253;
   }
 
   body {
@@ -738,7 +740,7 @@
 
   /* Semantic status surfaces */
   .status-info {
-    @apply border-none bg-accent-500/20 text-[rgb(var(--accent-foreground))] backdrop-blur-xl dark:bg-accent-500/10;
+    @apply border-none bg-accent-500/20 text-[rgb(var(--info-foreground))] backdrop-blur-xl dark:bg-accent-500/10;
 
     box-shadow: var(--glass-rim-medium);
   }
