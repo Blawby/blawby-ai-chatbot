@@ -303,6 +303,7 @@
       rgba(36, 40, 49, 0.68)
     );
     @apply border-none;
+
     box-shadow: var(--panel-shadow), var(--glass-rim-medium);
   }
 
@@ -342,11 +343,32 @@
   .glass-input.isOpen {
     outline: none;
     @apply border-none;
+
     box-shadow:
       var(--input-shadow),
       var(--glass-rim-subtle),
       0 0 0 2px rgb(var(--accent-500) / 0.25),
       0 0 12px rgb(var(--accent-500) / 0.15);
+  }
+
+  .glass-input.isError:focus,
+  .glass-input.isError {
+    @apply ring-0;
+    box-shadow: 
+      var(--input-shadow),
+      var(--glass-rim-subtle),
+      0 0 0 2px rgb(var(--error-500) / 0.4),
+      0 0 12px rgb(var(--error-500) / 0.2);
+  }
+
+  .glass-input.isSuccess:focus,
+  .glass-input.isSuccess {
+    @apply ring-0;
+    box-shadow: 
+      var(--input-shadow),
+      var(--glass-rim-subtle),
+      0 0 0 2px rgb(var(--success-500) / 0.4),
+      0 0 12px rgb(var(--success-500) / 0.2);
   }
 
 
@@ -714,27 +736,32 @@
   /* Semantic status surfaces */
   .status-info {
     @apply border-none bg-accent-500/10 text-[rgb(var(--accent-foreground))] backdrop-blur-xl;
+
     box-shadow: var(--glass-rim-medium);
   }
 
   .status-success {
     @apply border-none bg-green-500/10 text-[rgb(var(--success-foreground))] backdrop-blur-xl;
+
     box-shadow: var(--glass-rim-medium);
   }
 
   .status-warning {
     @apply border-none bg-orange-500/10 text-[rgb(var(--warning-foreground))] backdrop-blur-xl;
+
     box-shadow: var(--glass-rim-medium);
   }
 
   .status-error {
     @apply border-none bg-red-500/10 text-[rgb(var(--error-foreground))] backdrop-blur-xl;
+
     box-shadow: var(--glass-rim-medium);
   }
 
   /* Segmented toggle */
   .segmented-toggle {
     @apply relative inline-flex items-center rounded-full p-1 bg-transparent backdrop-blur-xl;
+
     box-shadow: var(--glass-rim-subtle);
   }
 

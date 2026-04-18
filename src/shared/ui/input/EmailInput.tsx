@@ -79,9 +79,9 @@ export const EmailInput = forwardRef<HTMLInputElement, EmailInputProps>(({
   };
 
   const variantClasses = {
-    default: 'focus:ring-2 ring-inset focus:ring-accent-500/30',
-    error: 'ring-2 ring-inset ring-red-500/40 focus:ring-red-500/60',
-    success: 'ring-2 ring-inset ring-green-500/40'
+    default: '',
+    error: 'isError',
+    success: 'isSuccess'
   };
 
   const inputClasses = cn(

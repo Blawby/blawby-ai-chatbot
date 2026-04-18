@@ -786,7 +786,7 @@ function GalleryCard({ item, previewNonce }: { item: DialogInventoryItem; previe
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-bold text-input-text">{item.name}</h2>
-          <span className="rounded-full bg-accent-500/10 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-accent-600 dark:text-accent-400">
+          <span className="rounded-full bg-accent-500/10 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[rgb(var(--accent-foreground))]">
             {item.section}
           </span>
         </div>

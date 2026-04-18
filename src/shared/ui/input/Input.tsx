@@ -110,8 +110,8 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({
     'glass-input border-none',
     sizeClasses[size],
     icon && iconPaddingClasses[size],
-    variant === 'error' && 'ring-2 ring-inset ring-red-500/40 focus:ring-red-500/60',
-    variant === 'success' && 'ring-2 ring-inset ring-green-500/40',
+    variant === 'error' && 'isError',
+    variant === 'success' && 'isSuccess',
     disabled && 'opacity-50 cursor-not-allowed',
     className
   );

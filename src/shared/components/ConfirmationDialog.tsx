@@ -160,60 +160,65 @@ export default function ConfirmationDialog({
                     placeholder={`Type "${confirmationValue}" to confirm`}
                     className={cn(
                       'glass-input w-full rounded-xl px-3 py-2 text-sm',
-                      error && 'ring-2 ring-red-500/40'
+                      error ? 'isError' : ''
                     )}
+                    aria-invalid={Boolean(error)}
+                    aria-describedby={error ? `${confirmationInputId}-error` : undefined}
                     disabled={isLoading}
                   />
                   {error && (
-                    <p className="text-sm text-red-600 dark:text-red-400">
+                    <p id={`${confirmationInputId}-error`} className="text-sm text-red-600 dark:text-red-400">
                       {error}
                     </p>
                   )}
-
-                  {/* Success Message */}
-                  {showSuccessMessage && successMessage && (
-                    <div className="status-success mt-4 rounded-xl py-2.5 px-3 text-sm">
-                      {successMessage.title && (
-                        <p className="mb-1 text-sm font-semibold">
-                          {successMessage.title}
-                        </p>
-                      )}
-                      <p className="text-sm opacity-90">
-                        {successMessage.body}
-                      </p>
-                    </div>
-                  )}
-
-                  {/* Password Input */}
-                  {requirePassword && (
-                    <div className="space-y-2 pt-4">
-                      <label htmlFor={confirmationPasswordId} className="block text-sm font-medium text-input-text">
-                        {passwordLabel}
-                      </label>
-                      <input
-                        id={confirmationPasswordId}
-                        type="password"
-                        value={passwordValue}
-                        onChange={handlePasswordChange}
-                        onClick={(e) => e.stopPropagation()}
-                        onFocus={(e) => e.stopPropagation()}
-                        onMouseDown={(e) => e.stopPropagation()}
-                        placeholder={passwordPlaceholder}
-                        className={cn(
-                          'glass-input w-full rounded-xl px-3 py-2 text-sm',
-                          passwordError && 'ring-2 ring-red-500/40'
-                        )}
-                        disabled={isLoading}
-                        autoComplete="current-password"
-                      />
-                      {passwordError && (
-                        <p className="text-sm text-red-600 dark:text-red-400">
-                          {passwordError}
-                        </p>
-                      )}
-                    </div>
-                  )}
                 </div>
+
+                {/* Success Message */}
+                {showSuccessMessage && successMessage && (
+                  <div className="status-success rounded-xl py-2.5 px-3 text-sm">
+                    {successMessage.title && (
+                      <p className="mb-1 text-sm font-semibold">
+                        {successMessage.title}
+                      </p>
+                    )}
+                    <p className="text-sm opacity-90">
+                      {successMessage.body}
+                    </p>
+                  </div>
+                )}
+
+                {/* Password Input */}
+                {requirePassword && (
+                  <div className="space-y-2">
+                    <label htmlFor={confirmationPasswordId} className="block text-sm font-medium text-input-text">
+                      {passwordLabel}
+                    </label>
+                    <input
+                      id={confirmationPasswordId}
+                      type="password"
+                      value={passwordValue}
+                      onChange={handlePasswordChange}
+                      onClick={(e) => e.stopPropagation()}
+                      onFocus={(e) => e.stopPropagation()}
+                      onMouseDown={(e) => e.stopPropagation()}
+                      placeholder={passwordPlaceholder}
+                      className={cn(
+                        'glass-input w-full rounded-xl px-3 py-2 text-sm',
+                        passwordError ? 'isError' : ''
+                      )}
+                      aria-invalid={Boolean(passwordError)}
+                      aria-describedby={passwordError ? `${confirmationPasswordId}-error` : undefined}
+                      disabled={isLoading}
+                      autoComplete="current-password"
+                    />
+                    {passwordError && (
+                      <p id={`${confirmationPasswordId}-error`} className="text-sm text-red-600 dark:text-red-400">
+                        {passwordError}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
               </div>
             </div>
           </div>

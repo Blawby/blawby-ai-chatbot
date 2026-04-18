@@ -164,7 +164,7 @@ function DropdownOption({
       className={cn(
         'group relative flex w-full items-center justify-between px-3 py-2.5 text-left text-sm transition-all',
         isSelected || isFocused
-          ? 'bg-accent-500/15 text-input-text'
+          ? 'bg-accent-500/15 text-[rgb(var(--accent-foreground))]'
           : 'text-input-text hover:bg-surface-utility/10 dark:hover:bg-surface-utility/20'
       )}
     >
@@ -564,11 +564,9 @@ export function Combobox({
           onKeyDown={handleKeyDown}
           className={cn(
             'glass-input relative flex w-full gap-2 rounded-xl px-3 py-2.5 transition-all duration-200',
-            'focus:outline-none border-none',
             isOpen && 'isOpen',
             isMultiple ? 'min-h-[3.5rem] items-start' : 'items-center',
-            !disabled && 'cursor-pointer',
-            className
+            !disabled && 'cursor-pointer'
           )}
         >
           {triggerContent}
@@ -632,7 +630,7 @@ export function Combobox({
                 className={cn(
                   'flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm transition-colors',
                   clampedFocus === 0
-                    ? 'bg-accent-500/15 text-input-text'
+                    ? 'bg-accent-500/15 text-[rgb(var(--accent-foreground))]'
                     : 'text-input-text hover:bg-surface-utility/10 focus:bg-surface-utility/20'
                 )}
               >

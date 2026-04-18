@@ -185,7 +185,7 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(({
               onClick={handleIncrement}
               disabled={disabled || !canIncrement}
               className={cn(
-                'flex items-center justify-center border-l border-input-border rounded-r-xl',
+                'flex items-center justify-center border-l border-input-border',
                 'glass-input hover:bg-surface-utility/40 focus:outline-none focus:ring-2 ring-inset focus:ring-accent-500',
                 'disabled:opacity-50 disabled:cursor-not-allowed',
                 controlSizeClasses[size],

@@ -442,7 +442,7 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(({
               aria-haspopup="menu"
               aria-label={`Select country code. Current: ${currentCountry.name} (${currentCountry.code})`}
               className={cn(
-                "inline-flex items-center rounded-l-xl text-input-text hover:bg-surface-utility/40 focus:outline-none focus:ring-2 ring-inset focus:ring-accent-500 transition-colors glass-input border-none border-r border-line-glass/20",
+                "inline-flex items-center rounded-l-xl rounded-r-none text-input-text hover:bg-surface-utility/40 focus:outline-none focus:ring-2 ring-inset focus:ring-accent-500 transition-colors glass-input border-r border-line-glass/20",
                 sizeClasses[size],
                 disabled && 'opacity-50 cursor-not-allowed'
               )}
