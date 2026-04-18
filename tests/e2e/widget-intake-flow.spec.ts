@@ -157,7 +157,6 @@ test.describe('Public widget intake flow', () => {
   test('public intake reaches submit CTA and submit button advances flow', async ({
     anonPage,
   }, testInfo) => {
-    anonPage.on('console', msg => console.log(msg.text()));
     const practiceSlug = normalizePracticeSlug(DEFAULT_PRACTICE_SLUG);
     const consoleErrors: string[] = [];
     const pageErrors: string[] = [];
@@ -447,7 +446,6 @@ test.describe('Public widget intake flow', () => {
           );
         }
       }
-      const visibleAiMessages = aiLocator;
       const visibleAiCount = await aiLocator.count();
       let latestVisibleAiText = visibleAiCount > 0 ? await getLatestMeaningfulAiText() : '';
       if (!contentType.includes('application/json') && /loading markdown/i.test(latestVisibleAiText)) {
@@ -565,7 +563,6 @@ test.describe('Public widget intake flow', () => {
     const MAX_INTAKE_TURNS = 12;
     for (let index = 0; index < MAX_INTAKE_TURNS; index += 1) {
       const submitVisibleBefore = await submitNowButton.isVisible().catch(() => false);
-      const buildVisibleBefore = await buildBriefButton.isVisible().catch(() => false);
       const paymentPromptVisibleBefore = await anonPage
         .locator('button')
         .filter({ hasText: /(pay|continue)/i })
@@ -593,7 +590,6 @@ test.describe('Public widget intake flow', () => {
       }
 
       const submitVisible = await submitNowButton.isVisible().catch(() => false);
-      const buildVisible = await buildBriefButton.isVisible().catch(() => false);
       const paymentPromptVisible = await anonPage
         .locator('button')
         .filter({ hasText: /(pay|continue)/i })
@@ -1027,9 +1023,7 @@ test.describe('Public widget intake flow', () => {
         await anonPage.getByRole('button', { name: /send message/i }).click();
         const response = await responsePromise;
         const responseText = await response.text().catch(() => '');
-        console.log('DEBUG: Raw response text:', responseText);
         const donePayload = parseDonePayloads(responseText).at(-1) ?? null;
-        console.log('DEBUG: Parsed done payload:', JSON.stringify(donePayload, null, 2));
         if (donePayload) {
           latestDonePayload = donePayload;
         }
@@ -1039,9 +1033,6 @@ test.describe('Public widget intake flow', () => {
               aiLocator.evaluateAll((els) => JSON.stringify(els.map((el) => (el.textContent ?? '').trim()))),
               streamingLocator.count(),
             ]);
-            console.log('DEBUG: UI settle check - signature before:', signatureBefore);
-            console.log('DEBUG: UI settle check - signature now:', sig);
-            console.log('DEBUG: UI settle check - stream count:', streamCount);
             return sig !== signatureBefore && streamCount === 0;
           },
           { timeout: LEAD_TURN_TIMEOUT_MS, message: `UI did not settle after sending: "${text}"` }
@@ -1256,6 +1247,9 @@ test.describe('Public widget intake flow', () => {
       if (!reachedTerminalAfterTurn3 && !hasSubmitButton && !hasPaymentButton && hasUrgencyChips) {
         const timeSensitiveChip = anonPage.locator('button:visible').filter({ hasText: /time.sensitive/i }).first();
         if (await timeSensitiveChip.isVisible({ timeout: 2_000 }).catch(() => false)) {
+          const signatureBefore = JSON.stringify(
+            await aiLocator.evaluateAll((els) => els.map((el) => (el.textContent ?? '').trim()))
+          );
           const responsePromise = anonPage.waitForResponse(
             (r) => r.request().method() === 'POST' && r.url().includes('/api/ai/chat') && r.status() === 200,
             { timeout: LEAD_TURN_TIMEOUT_MS }
@@ -1267,7 +1261,17 @@ test.describe('Public widget intake flow', () => {
           if (donePayload) {
             latestDonePayload = donePayload;
           }
-          await anonPage.waitForTimeout(2_000);
+          // Settle the UI (same pattern as sendAndAwait)
+          await expect.poll(
+            async () => {
+              const [sig, streamCount] = await Promise.all([
+                aiLocator.evaluateAll((els) => JSON.stringify(els.map((el) => (el.textContent ?? '').trim()))),
+                streamingLocator.count(),
+              ]);
+              return sig !== signatureBefore && streamCount === 0;
+            },
+            { timeout: LEAD_TURN_TIMEOUT_MS, message: 'UI did not settle after urgency chip click' }
+          ).toBe(true);
         }
       } else if (!reachedTerminalAfterTurn3 && !hasSubmitButton && !hasPaymentButton) {
         await sendAndAwait('Time-sensitive');

@@ -13,10 +13,10 @@ interface ApiRecord {
   failedText: string | null;
 }
 
-const MAX_BOOTSTRAP_MS = Number(process.env.E2E_WIDGET_BOOTSTRAP_BUDGET_MS ?? 6000);
-const MAX_INTERACTIVE_MS = Number(process.env.E2E_WIDGET_INTERACTIVE_BUDGET_MS ?? 32000);
-const MAX_AI_RESPONSE_MS = Number(process.env.E2E_WIDGET_AI_RESPONSE_BUDGET_MS ?? 90000);
-const MAX_FORM_OPEN_MS = Number(process.env.E2E_WIDGET_FORM_OPEN_BUDGET_MS ?? 20000);
+const MAX_BOOTSTRAP_MS = Number(process.env.E2E_WIDGET_BOOTSTRAP_BUDGET_MS ?? 2000);
+const MAX_INTERACTIVE_MS = Number(process.env.E2E_WIDGET_INTERACTIVE_BUDGET_MS ?? 8000);
+const MAX_AI_RESPONSE_MS = Number(process.env.E2E_WIDGET_AI_RESPONSE_BUDGET_MS ?? 45000);
+const MAX_FORM_OPEN_MS = Number(process.env.E2E_WIDGET_FORM_OPEN_BUDGET_MS ?? 5000);
 const MAX_FORM_SUBMIT_FEEDBACK_MS = Number(process.env.E2E_WIDGET_FORM_SUBMIT_BUDGET_MS ?? 15000);
 // NEW: Updated expectations for new architecture
 const MAX_FIRST_TOKEN_MS = Number(process.env.E2E_WIDGET_FIRST_TOKEN_BUDGET_MS ?? 12000);
@@ -55,6 +55,22 @@ const toPath = (rawUrl: string): string => {
 
 test.describe('Public widget performance', () => {
   test.describe.configure({ timeout: 180000 });
+
+  const createdConversationIds = new Set<string>();
+
+  test.afterEach(async ({ anonPage }) => {
+    // Cleanup: mark all created conversations as draft so they don't pollute the practice dashboard
+    for (const id of createdConversationIds) {
+      try {
+        await anonPage.request.patch(`/api/conversations/${id}`, {
+          data: { status: 'draft' }
+        });
+      } catch (e) {
+        console.warn(`Failed to cleanup conversation ${id}:`, e);
+      }
+    }
+    createdConversationIds.clear();
+  });
 
   test('loads widget via real worker/bootstrap route and reports true waterfall timing', async ({ anonPage }, testInfo) => {
     const practiceSlug = normalizePracticeSlug(DEFAULT_WIDGET_SLUG);
@@ -105,8 +121,13 @@ test.describe('Public widget performance', () => {
       inFlight.set(request, record);
     });
 
-    anonPage.on('response', (response) => {
+    anonPage.on('response', async (response) => {
       const request = response.request();
+      const url = response.url();
+      if (url.includes('/api/conversations') && request.method() === 'POST' && response.status() === 200) {
+        const body = await response.json().catch(() => null);
+        if (body?.id) createdConversationIds.add(body.id);
+      }
       const record = inFlight.get(request);
       if (!record) return;
       record.endedAtMs = Date.now() - startedAt;
@@ -460,8 +481,13 @@ test.describe('Public widget performance', () => {
       inFlight.set(request, record);
     });
 
-    anonPage.on('response', (response) => {
+    anonPage.on('response', async (response) => {
       const request = response.request();
+      const url = response.url();
+      if (url.includes('/api/conversations') && request.method() === 'POST' && response.status() === 200) {
+        const body = await response.json().catch(() => null);
+        if (body?.id) createdConversationIds.add(body.id);
+      }
       const record = inFlight.get(request);
       if (!record) return;
       record.endedAtMs = Date.now();
@@ -604,18 +630,22 @@ test.describe('Public widget performance', () => {
     }
 
     const measureTurn = async (label: string, message: string) => {
+      const baselineCount = await anonPage.locator('[data-testid="ai-message"]').count();
       const startTime = Date.now();
-      const responsePromise = anonPage.waitForResponse(
-        resp => resp.url().includes('/api/ai/chat') && resp.status() === 200,
-        { timeout: MAX_AI_RESPONSE_MS }
-      );
       
+      const firstTokenPromise = anonPage.waitForFunction((count) => {
+        const messages = Array.from(document.querySelectorAll('[data-testid="ai-message"]'));
+        if (messages.length > count) {
+          const latest = messages[messages.length - 1];
+          return latest.textContent && latest.textContent.trim().length > 0;
+        }
+        return false;
+      }, baselineCount, { timeout: MAX_AI_RESPONSE_MS });
+
       await messageInput.fill(message);
       await anonPage.getByRole('button', { name: /send message/i }).click();
       
-      const response = await responsePromise;
-      // Wait for the SSE stream to fully close
-      await response.finished();
+      await firstTokenPromise;
       const durationMs = Date.now() - startTime;
       
       turnTimings[label] = {
