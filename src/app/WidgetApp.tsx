@@ -357,8 +357,8 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
     }
   }, [messagesReady, activeConversationId, maybeInjectIntro]);
 
-  // Allow chat container to render if intake/chat flow is active
-  const canChat = activeConversationId != null;
+  // Allow chat container to render if intake/chat flow is active or mode selection is pending
+  const canChat = activeConversationId != null || conversationMode != null;
   const _isComposerDisabled = false; // Add recording check if needed
 
   // Mode selection: record user's intent. If disclaimer is needed, gate it here.
@@ -370,21 +370,33 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
       return; // Stop here — show disclaimer on home view
     }
 
+    // When switching to a new mode, reset conversation state for a clean intake flow
     setConversationMode(mode);
+    setConversationId(null); // Force new conversation for new mode
+    setBootstrapIgnored(true); // Ignore bootstrap conversation
+    clearMessages(); // Clear any previous messages so intro/system prompt is injected
     setView('chat');
-  }, [practiceId, widgetLegalDisclaimer, isDisclaimerAccepted]);
+  }, [practiceId, widgetLegalDisclaimer, isDisclaimerAccepted, clearMessages]);
 
-  const handleAcceptDisclaimer = useCallback(() => {
+  const handleAcceptDisclaimer = useCallback(async () => {
+    // Batch state updates to guarantee disclaimer card unmounts immediately
     setIsDisclaimerAccepted(true);
+    setPendingMode(null);
     if (typeof window !== 'undefined') {
       window.sessionStorage.setItem(`blawby-widget-disclaimer-accepted:${practiceId}`, 'true');
     }
+    // Always transition to chat view and reset conversation state for a clean compose state
     if (pendingMode) {
       setConversationMode(pendingMode);
-      setPendingMode(null);
+      setConversationId(null); // Reset conversation so a new one is created if needed
+      setBootstrapIgnored(true); // Ignore bootstrap conversation after disclaimer
+      clearMessages(); // Clear any previous messages so intro/system prompt is injected (matches handleModeSelection)
+      setView('chat');
+    } else {
+      // Defensive: if no pendingMode, still go to chat
       setView('chat');
     }
-  }, [practiceId, pendingMode]);
+  }, [practiceId, pendingMode, createConversationIfNeeded]);
 
   const attachmentsDisabledMessage = t('chat.attachments.disabled');
 
@@ -617,6 +629,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
                   conversationMetadata ?? null,
                   conversationMetadata?.title ?? ''
                 )}
+                conversationId={activeConversationId}
                 onSendMessage={sendMessage}
                 conversationMode={conversationMode}
                 onToggleReaction={features.enableMessageReactions ? toggleMessageReaction : undefined}
@@ -737,6 +750,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
               label: t('nav.home'),
               icon: HomeIcon,
               href: '#home',
+              isAction: true,
               onClick: () => {
                 setConversationMode(null);
                 setView('home');
@@ -747,6 +761,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
               label: t('nav.messages'),
               icon: ChatBubbleLeftRightIcon,
               href: '#list',
+              isAction: true,
               onClick: () => setView('list')
             }
           ]}

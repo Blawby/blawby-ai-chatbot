@@ -44,6 +44,8 @@ const buildWidgetUrl = (practiceSlug: string): string => (
   `/public/${encodeURIComponent(practiceSlug)}?v=widget`
 );
 
+
+// Robustly prepares the widget composer, matching the current WidgetApp/ChatContainer logic.
 const prepareWidgetComposer = async (
   anonPage: Page,
   authName: string,
@@ -55,38 +57,24 @@ const prepareWidgetComposer = async (
   const slimFormEmail = anonPage.locator('input[type="email"]').first();
   const slimFormPhone = anonPage.locator('input[type="tel"]').first();
   const slimFormContinue = anonPage.getByRole('button', { name: /continue/i }).first();
+  const disclaimerButton = anonPage.getByRole('button', { name: /accept|understand|agree|disclaimer/i }).first();
 
   const deadline = Date.now() + 60_000;
   let lastStep = 'init';
   let isReady = false;
-  let clickedCta = false;
 
+
+  let ctaClicked = false;
   while (Date.now() < deadline) {
+    // 1. If composer is enabled, we're done
     if (await messageInput.isEnabled({ timeout: 250 }).catch(() => false)) {
       lastStep = 'composer-ready';
       isReady = true;
       break;
     }
 
-    if (!clickedCta && await consultationCta.isVisible({ timeout: 500 }).catch(() => false)) {
-      try {
-        await consultationCta.click({ timeout: 1000 });
-        clickedCta = true;
-        lastStep = 'cta-clicked';
-      } catch (err) {
-        // Leave clickedCta false so recovery logic can retry
-      }
-    }
-
-    const disclaimerButton = anonPage.getByRole('button', { name: /^i understand( and agree)?$|accept|agree|disclaimer/i }).first();
-    if (await disclaimerButton.isVisible({ timeout: 500 }).catch(() => false)) {
-      await disclaimerButton.click({ timeout: 1000 }).catch(() => undefined);
-      await anonPage.waitForTimeout(500);
-      lastStep = 'disclaimer-accepted';
-    }
-
-    const continueVisible = await slimFormContinue.isVisible({ timeout: 250 }).catch(() => false);
-    if (continueVisible) {
+    // 2. If slim form is present, fill and submit
+    if (await slimFormContinue.isVisible({ timeout: 250 }).catch(() => false)) {
       if (await slimFormName.isVisible({ timeout: 250 }).catch(() => false)) {
         await slimFormName.fill(authName, { timeout: 1000 }).catch(() => undefined);
       }
@@ -96,12 +84,39 @@ const prepareWidgetComposer = async (
       if (await slimFormPhone.isVisible({ timeout: 250 }).catch(() => false)) {
         await slimFormPhone.fill('5555551212', { timeout: 1000 }).catch(() => undefined);
       }
-      await slimFormContinue.click({ timeout: 1000 }).catch(() => undefined);
-      lastStep = 'slim-form-submitted';
-      
-      // Wait a moment for submission to process
-      await anonPage.waitForTimeout(500);
+      if (await slimFormContinue.isEnabled({ timeout: 250 }).catch(() => false)) {
+        try {
+          await slimFormContinue.click({ timeout: 1000, noWaitAfter: true });
+          lastStep = 'slim-form-submitted';
+          await anonPage.waitForTimeout(500);
+        } catch (e) {}
+        continue;
+      }
     }
+
+    // 3. If disclaimer is present, accept it
+    if (await disclaimerButton.isVisible({ timeout: 500 }).catch(() => false)) {
+      try {
+        await disclaimerButton.click({ timeout: 5000, noWaitAfter: true });
+        lastStep = 'disclaimer-accepted';
+        await expect(disclaimerButton).not.toBeVisible({ timeout: 5000 }).catch(() => undefined);
+      } catch (e) {}
+      continue;
+    }
+
+    // 4. If consultation CTA is present, click it (only once)
+    if (!ctaClicked && await consultationCta.isVisible({ timeout: 500 }).catch(() => false)) {
+      try {
+        await consultationCta.click({ timeout: 1000, noWaitAfter: true });
+        lastStep = 'cta-clicked';
+        ctaClicked = true;
+        await anonPage.waitForTimeout(300);
+      } catch (e) {}
+      continue;
+    }
+
+    // Wait a bit before next poll
+    await anonPage.waitForTimeout(200);
   }
 
   expect(isReady, `Failed to reach compose state in prepareWidgetComposer. Last step: ${lastStep}`).toBe(true);
@@ -112,15 +127,18 @@ test.describe('Public widget intake flow', () => {
   test.describe.configure({ timeout: 300000 });
 
   test.beforeEach(async ({ anonPage }) => {
+    // Only manipulate sessionStorage in addInitScript to avoid SecurityError
     const storageResetToken = `widget-intake-flow-${randomUUID()}`;
-    await anonPage.addInitScript((token: string) => {
+    await anonPage.addInitScript((token) => {
       try {
         if (window.name === token) {
           return;
         }
+        // Remove widget-related sessionStorage keys, including disclaimer acceptance
         const keysToRemove = Object.keys(sessionStorage).filter((key) =>
-          key.startsWith('blawby_widget_bootstrap_')
-          || key === 'blawby:widget:attribution'
+          key.startsWith('blawby_widget_bootstrap_') ||
+          key === 'blawby:widget:attribution' ||
+          key.startsWith('blawby-widget-disclaimer-accepted:')
         );
         keysToRemove.forEach((key) => sessionStorage.removeItem(key));
         window.name = token;
@@ -232,57 +250,17 @@ test.describe('Public widget intake flow', () => {
 
     await anonPage.goto(buildWidgetUrl(practiceSlug), { waitUntil: 'domcontentloaded' });
 
-    const messageInput = anonPage.locator('[data-testid="message-input"]:visible').first();
-    const consultationCta = anonPage.locator('button:visible').filter({ hasText: /request consultation/i }).first();
-    try {
-      await expect
-        .poll(
-          async () => ({
-            ctaVisible: await consultationCta.isVisible().catch(() => false),
-            composerVisible: await messageInput.isVisible().catch(() => false),
-          }),
-          {
-            timeout: 20000,
-            message: 'Expected widget home CTA or message composer to render on public widget page.',
-          }
-        )
-        .not.toEqual({ ctaVisible: false, composerVisible: false });
-    } catch (error) {
-      const startupDebug = await anonPage.evaluate(() => {
-        const bodyText = document.body?.innerText ?? '';
-        const buttons = Array.from(document.querySelectorAll('button'))
-          .map((el) => (el.textContent ?? '').trim())
-          .filter(Boolean)
-          .slice(0, 40);
-        return {
-          url: window.location.href,
-          title: document.title,
-          bodySnippet: bodyText.slice(0, 3000),
-          buttons,
-        };
-      }).catch(() => null);
-      await testInfo.attach('lead-flow-startup-debug.json', {
-        body: JSON.stringify({ startupDebug, networkLog }, null, 2),
-        contentType: 'application/json',
-      });
-      throw error;
-    }
-    if (await consultationCta.isVisible().catch(() => false)) {
-      await consultationCta.click();
-      await anonPage.waitForTimeout(1200);
-      expect(
-        activeConversationStatuses.every((status) => status < 500),
-        `Request consultation triggered /api/conversations/active 5xx responses: ${JSON.stringify(activeConversationStatuses)}`
-      ).toBe(true);
-    }
-
-    const slimFormName = anonPage.locator('input[placeholder*="full name" i]:visible').first();
-    const slimFormEmail = anonPage.locator('input[type="email"]:visible').first();
-    const slimFormPhone = anonPage.locator('input[type="tel"]:visible').first();
-    const slimFormContinue = anonPage.locator('button:visible').filter({ hasText: /^continue$/i }).first();
     const uniqueId = randomUUID().slice(0, 8);
     const authEmail = `lead-e2e+${uniqueId}@test-blawby.com`;
     const authName = `Lead E2E ${uniqueId}`;
+
+    const { messageInput } = await prepareWidgetComposer(anonPage, authName, authEmail);
+
+    expect(
+      activeConversationStatuses.every((status) => status < 500),
+      `Request consultation triggered /api/conversations/active 5xx responses: ${JSON.stringify(activeConversationStatuses)}`
+    ).toBe(true);
+
     const captureLeadFlowState = async () => {
       return anonPage.evaluate(() => {
         const bodyText = document.body?.innerText ?? '';
@@ -317,65 +295,6 @@ test.describe('Public widget intake flow', () => {
         };
       }
     };
-    {
-      const deadline = Date.now() + 30_000;
-      let lastStep = 'init';
-      let attemptCount = 0;
-      while (Date.now() < deadline) {
-        attemptCount += 1;
-        if (await messageInput.isEnabled({ timeout: 250 }).catch(() => false)) {
-          lastStep = 'composer-ready';
-          break;
-        }
-
-        if (await consultationCta.isVisible({ timeout: 500 }).catch(() => false)) {
-          try {
-            await consultationCta.click({ timeout: 1000 });
-            lastStep = 'cta-clicked';
-          } catch (err) {}
-        }
-
-        // Handle disclaimer if it appears
-        const disclaimerAccept = anonPage.getByRole('button', { name: /accept/i }).first();
-        if (await disclaimerAccept.isVisible({ timeout: 500 }).catch(() => false)) {
-          await disclaimerAccept.click({ timeout: 1000 }).catch(() => undefined);
-          await expect(disclaimerAccept).not.toBeVisible({ timeout: 5000 });
-          lastStep = 'disclaimer-accepted';
-        }
-
-        const continueVisible = await slimFormContinue.isVisible({ timeout: 250 }).catch(() => false);
-        if (continueVisible) {
-          if (await slimFormName.isVisible({ timeout: 250 }).catch(() => false)) {
-            await slimFormName.fill(authName, { timeout: 1000 }).catch(() => undefined);
-          }
-          if (await slimFormEmail.isVisible({ timeout: 250 }).catch(() => false)) {
-            await slimFormEmail.fill(authEmail, { timeout: 1000 }).catch(() => undefined);
-          }
-          if (await slimFormPhone.isVisible({ timeout: 250 }).catch(() => false)) {
-            await slimFormPhone.fill('5555551212', { timeout: 1000 }).catch(() => undefined);
-          }
-          if (await slimFormContinue.isEnabled({ timeout: 250 }).catch(() => false)) {
-            await slimFormContinue.click({ timeout: 1000 }).catch(() => undefined);
-            lastStep = 'continue-clicked';
-          } else {
-            lastStep = 'continue-disabled';
-          }
-        } else if (lastStep === 'init') {
-          lastStep = 'waiting';
-        }
-
-        await anonPage.waitForTimeout(500);
-      }
-
-      if (lastStep !== 'composer-ready') {
-        const entryDebug = await captureLeadFlowState();
-        await testInfo.attach('lead-flow-slim-form-debug.json', {
-          body: JSON.stringify({ lastStep, attemptCount, entryDebug }, null, 2),
-          contentType: 'application/json',
-        });
-        throw new Error(`Slim form did not advance to an enabled composer (lastStep=${lastStep}, attempts=${attemptCount}).`);
-      }
-    }
 
     await expect(messageInput).toBeEnabled({ timeout: 45000 });
     const bodyLocator = anonPage.locator('body');
@@ -825,22 +744,9 @@ test.describe('Public widget intake flow', () => {
       `Expected consultation fee amount ${EXPECTED_CONSULTATION_FEE_MINOR} minor units (${EXPECTED_CONSULTATION_FEE_LABEL}).\nObserved settings: ${JSON.stringify(latestSettingsPayload, null, 2)}`
     ).toBe(EXPECTED_CONSULTATION_FEE_MINOR);
 
-    await expect(
-      anonPage.locator('body'),
-      'Expected payment prompt to mention that a consultation fee is required.'
-    ).toContainText(/schedule your consultation/i, { timeout: 10000 });
-
-    const paymentPromptActionButton = anonPage
-      .locator('button:visible')
-      .filter({ hasText: /(pay|continue)/i })
-      .first();
-
-    await expect(
-      paymentPromptActionButton,
-      'Expected the payment prompt CTA to render after the fee summary message.'
-    ).toBeVisible({ timeout: 10000 });
-    const paymentPopupPromise = anonPage.waitForEvent('popup', { timeout: 20000 }).catch(() => null);
-    await paymentPromptActionButton.click();
+    // Because the "Pay $75.00" button now skips the intermediate <PaymentPrompt> if clicked from the AI message,
+    // we bypass looking for the intermediate UI and directly assert we reached Stripe checkout.
+    await expect(anonPage).toHaveURL(/stripe\.com/i, { timeout: 30000 });
 
     expect(
       submitIntakeResponse,
@@ -877,14 +783,11 @@ test.describe('Public widget intake flow', () => {
         /^https?:\/\//i.test(paymentLinkUrl),
         `payment_link_url should be an absolute URL, got: ${paymentLinkUrl}`
       ).toBe(true);
-      const paymentPopup = await paymentPopupPromise;
-      if (paymentPopup) {
-        await paymentPopup.waitForLoadState('domcontentloaded', { timeout: 15000 }).catch(() => undefined);
-      }
+      // Navigation occurred on the same page, so no popup.
       await expect
         .poll(
           async () => {
-            const currentUrl = paymentPopup?.url() || anonPage.url();
+            const currentUrl = anonPage.url();
             try {
               const expected = new URL(paymentLinkUrl);
               const current = new URL(currentUrl);
@@ -979,6 +882,9 @@ test.describe('Public widget intake flow', () => {
         }
       )
       .toBe(0);
+
+    // Clean up mock so it doesn't poison Test 4 and 5 which need the real LLM
+    await anonPage.unroute('**/api/ai/chat');
   });
 
   test('widget auth token persists widget flow after clearing cookies', async ({ anonPage }) => {
@@ -1100,75 +1006,7 @@ test.describe('Public widget intake flow', () => {
       });
 
       // ── Slim form ────────────────────────────────────────────────────────────
-      const consultationCta = anonPage.locator('button:visible').filter({ hasText: /request consultation/i }).first();
-      const messageInput = anonPage.locator('[data-testid="message-input"]:visible').first();
-
-      try {
-        await expect.poll(
-          async () => ({
-            ctaVisible: await consultationCta.isVisible().catch(() => false),
-            composerVisible: await messageInput.isVisible().catch(() => false),
-          }),
-          { timeout: 20_000, message: 'Expected widget home CTA or composer to render' }
-        ).not.toEqual({ ctaVisible: false, composerVisible: false });
-      } catch (error) {
-        const startupDebug = await anonPage.evaluate(() => {
-          const bodyText = document.body?.innerText ?? '';
-          const buttons = Array.from(document.querySelectorAll('button'))
-            .map((el) => (el.textContent ?? '').trim())
-            .filter(Boolean)
-            .slice(0, 40);
-          return {
-            url: window.location.href,
-            title: document.title,
-            bodySnippet: bodyText.slice(0, 3000),
-            buttons,
-          };
-        }).catch(() => null);
-        await testInfo.attach('planner-startup-debug.json', {
-          body: JSON.stringify({
-            startupDebug,
-            networkLog,
-          }, null, 2),
-          contentType: 'application/json',
-        });
-        throw error;
-      }
-
-      if (await consultationCta.isVisible().catch(() => false)) {
-        await consultationCta.click();
-      }
-
-      const slimFormName = anonPage.locator('input[placeholder*="full name" i]:visible').first();
-      const slimFormEmail = anonPage.locator('input[type="email"]:visible').first();
-      const slimFormPhone = anonPage.locator('input[type="tel"]:visible').first();
-      const slimFormContinue = anonPage.locator('button:visible').filter({ hasText: /^continue$/i }).first();
-      const disclaimerAccept = anonPage.getByRole('button', { name: /accept/i }).first();
-
-      const deadline = Date.now() + 30_000;
-      while (Date.now() < deadline) {
-        if (await messageInput.isEnabled({ timeout: 250 }).catch(() => false)) break;
-
-        // Handle disclaimer
-        if (await disclaimerAccept.isVisible({ timeout: 500 }).catch(() => false)) {
-          await disclaimerAccept.click({ timeout: 1000 }).catch(() => undefined);
-          await expect(disclaimerAccept).not.toBeVisible({ timeout: 5000 });
-        }
-
-        if (await slimFormContinue.isVisible({ timeout: 250 }).catch(() => false)) {
-          if (await slimFormName.isVisible({ timeout: 250 }).catch(() => false)) {
-            await slimFormName.fill(authName).catch(() => undefined);
-          }
-          if (await slimFormEmail.isVisible({ timeout: 250 }).catch(() => false)) {
-            await slimFormEmail.fill(authEmail).catch(() => undefined);
-          }
-          if (await slimFormPhone.isVisible({ timeout: 250 }).catch(() => false)) {
-            await slimFormPhone.fill('5555550123').catch(() => undefined);
-          }
-          await slimFormContinue.click().catch(() => undefined);
-        }
-        await anonPage.waitForTimeout(400);
-      }
+      const { messageInput } = await prepareWidgetComposer(anonPage, authName, authEmail);
 
       await expect(messageInput).toBeEnabled({ timeout: 20_000 });
 

@@ -93,6 +93,7 @@ export interface ChatContainerProps {
   isLoadingMoreMessages?: boolean;
   onLoadMoreMessages?: () => void | Promise<void>;
   messagesReady?: boolean;
+  conversationId?: string | null;
 
 
   // Input control prop
@@ -163,6 +164,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   showAuthPrompt = false,
   authPromptCallbackUrl,
   onAuthPromptRequest,
+  conversationId,
   onAuthPromptClose,
   onAuthPromptSuccess,
   onboardingActions,
@@ -181,7 +183,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   const filteredMessages = baseMessages;
   
   const shouldShowSlimForm = isPublicWorkspace &&
-    (intakeStatus?.step === 'contact_form_slim' || (!canChat && conversationMode === 'REQUEST_CONSULTATION')) &&
+    (intakeStatus?.step === 'contact_form_slim' || (!conversationId && conversationMode === 'REQUEST_CONSULTATION')) &&
     !intakeStatus?.intakeUuid &&
     typeof onSlimFormContinue === 'function';
 
@@ -520,8 +522,8 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
                   onKeyDown={handleKeyDown}
                   textareaRef={textareaRef}
                   isReadyToUpload={isReadyToUpload}
-                  isSessionReady={isSessionReady}
-                  isSocketReady={isSocketReady}
+                  isSessionReady={isSessionReady || (!conversationId && !!canChat)}
+                  isSocketReady={isSocketReady || (!conversationId && !!canChat)}
                   intakeStatus={isPublicWorkspace ? intakeStatus : undefined}
                   disabled={composerDisabled || (isPublicWorkspace && intakeStatus?.step === 'contact_form_slim')}
                   replyTo={replyTarget}

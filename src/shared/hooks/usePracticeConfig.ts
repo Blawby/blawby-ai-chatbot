@@ -20,8 +20,8 @@ const PracticeSchema = z.object({
   seats: z.number().optional(),
   kind: z.enum(['personal', 'business']).optional(),
   accentColor: z.string().optional(),
-  consultationFee: z.number().nullable().optional(),
-  billingIncrementMinutes: z.number().nullable().optional(),
+  consultationFee: z.number().int().nonnegative().nullable().optional(),
+  billingIncrementMinutes: z.number().int().positive().nullable().optional(),
   subscriptionStatus: z.enum(['none', 'trialing', 'active', 'past_due', 'canceled', 'incomplete', 'incomplete_expired', 'unpaid', 'paused']).optional()
 });
 
@@ -230,8 +230,8 @@ export const usePracticeConfig = ({
           domain: cfg.domain ?? '',
           brandColor: cfg.brandColor ?? '#000000',
           accentColor: practice.accentColor ?? cfg.accentColor ?? 'gold',
-          consultationFee: (practice.consultationFee as unknown as MinorAmount) ?? undefined,
-          billingIncrementMinutes: practice.billingIncrementMinutes ?? undefined,
+          consultationFee: (cfg.consultationFee as unknown as MinorAmount) ?? (practice.consultationFee as unknown as MinorAmount) ?? undefined,
+          billingIncrementMinutes: cfg.billingIncrementMinutes ?? practice.billingIncrementMinutes ?? undefined,
           voice: {
             enabled: typeof cfg.voice?.enabled === 'boolean' ? cfg.voice.enabled : false,
             provider: cfg.voice?.provider ?? 'cloudflare',
