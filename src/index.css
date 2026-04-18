@@ -26,9 +26,9 @@
     --input-text: 17 24 39;
     --input-placeholder: 55 65 81;
     --accent-foreground: 255 255 255;
-    --success-foreground: 74 222 128;
-    --warning-foreground: 249 115 22;
-    --error-foreground: 248 113 113;
+    --success-foreground: 22 101 52;
+    --warning-foreground: 154 52 18;
+    --error-foreground: 153 27 27;
 
     /* Navigation Tokens - Manage all nav colors here */
     --nav-surface: var(--surface-nav-rail);
@@ -116,6 +116,9 @@
     --input-bg-top: rgba(32, 36, 42, 0.40);
     --input-bg-bottom: rgba(26, 30, 36, 0.32);
     --input-shadow: 0 6px 16px rgba(0, 0, 0, 0.18);
+    --success-foreground: 74 222 128;
+    --warning-foreground: 249 115 22;
+    --error-foreground: 248 113 113;
   }
 
   body {
@@ -735,25 +738,25 @@
 
   /* Semantic status surfaces */
   .status-info {
-    @apply border-none bg-accent-500/10 text-[rgb(var(--accent-foreground))] backdrop-blur-xl;
+    @apply border-none bg-accent-500/20 text-[rgb(var(--accent-foreground))] backdrop-blur-xl dark:bg-accent-500/10;
 
     box-shadow: var(--glass-rim-medium);
   }
 
   .status-success {
-    @apply border-none bg-green-500/10 text-[rgb(var(--success-foreground))] backdrop-blur-xl;
+    @apply border-none bg-green-500/20 text-[rgb(var(--success-foreground))] backdrop-blur-xl dark:bg-green-500/10;
 
     box-shadow: var(--glass-rim-medium);
   }
 
   .status-warning {
-    @apply border-none bg-orange-500/10 text-[rgb(var(--warning-foreground))] backdrop-blur-xl;
+    @apply border-none bg-orange-500/20 text-[rgb(var(--warning-foreground))] backdrop-blur-xl dark:bg-orange-500/10;
 
     box-shadow: var(--glass-rim-medium);
   }
 
   .status-error {
-    @apply border-none bg-red-500/10 text-[rgb(var(--error-foreground))] backdrop-blur-xl;
+    @apply border-none bg-red-500/20 text-[rgb(var(--error-foreground))] backdrop-blur-xl dark:bg-red-500/10;
 
     box-shadow: var(--glass-rim-medium);
   }

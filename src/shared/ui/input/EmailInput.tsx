@@ -91,6 +91,7 @@ export const EmailInput = forwardRef<HTMLInputElement, EmailInputProps>(({
     sizeClasses[size],
     iconPaddingClasses[size],
     variantClasses[variant],
+    isInvalid && 'isError',
     disabled && 'opacity-50 cursor-not-allowed',
     className
   );

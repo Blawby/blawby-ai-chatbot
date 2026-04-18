@@ -96,6 +96,7 @@ export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(({
     sizeClasses[size],
     iconPaddingClasses[size],
     variantClasses[variant],
+    displayError && 'isError',
     disabled && 'opacity-50 cursor-not-allowed',
     className
   );
