@@ -34,6 +34,24 @@ import { features } from '@/config/features';
 import type { FileAttachment } from '../../worker/types';
 import type { UploadingFile } from '@/shared/types/upload';
 
+const safeGetSessionItem = (key: string): string | null => {
+  if (typeof window === 'undefined') return null;
+  try {
+    return window.sessionStorage.getItem(key);
+  } catch {
+    return null;
+  }
+};
+
+const safeSetSessionItem = (key: string, value: string): void => {
+  if (typeof window === 'undefined') return;
+  try {
+    window.sessionStorage.setItem(key, value);
+  } catch {
+    // Ignore storage errors in restricted contexts
+  }
+};
+
 interface WidgetAppProps {
   practiceId: string;
   practiceConfig: UIPracticeConfig;
@@ -65,8 +83,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
   // Disclaimer & Mode tracking
   const [pendingMode, setPendingMode] = useState<ConversationMode | null>(null);
   const [isDisclaimerAccepted, setIsDisclaimerAccepted] = useState(() => 
-    typeof window !== 'undefined' && 
-    window.sessionStorage.getItem(`blawby-widget-disclaimer-accepted:${practiceId}`) === 'true'
+    safeGetSessionItem(`blawby-widget-disclaimer-accepted:${practiceId}`) === 'true'
   );
   const [isInspectorOpen, setIsInspectorOpen] = useState(false);
   const [isPaymentAuthPromptOpen, setIsPaymentAuthPromptOpen] = useState(false);
@@ -382,9 +399,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
     // Batch state updates to guarantee disclaimer card unmounts immediately
     setIsDisclaimerAccepted(true);
     setPendingMode(null);
-    if (typeof window !== 'undefined') {
-      window.sessionStorage.setItem(`blawby-widget-disclaimer-accepted:${practiceId}`, 'true');
-    }
+    safeSetSessionItem(`blawby-widget-disclaimer-accepted:${practiceId}`, 'true');
     // Always transition to chat view and reset conversation state for a clean compose state
     if (pendingMode) {
       setConversationMode(pendingMode);

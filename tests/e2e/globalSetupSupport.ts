@@ -310,15 +310,34 @@ const createAnonymousState = async (options: {
     await page.goto(normalized);
     await page.waitForLoadState('domcontentloaded');
 
-    await page.evaluate(async () => {
+    // Retry anonymous session creation to handle rate limits (429) or transient proxy failures
+    let lastError: any = null;
+    const retryDeadline = Date.now() + 90000;
+    while (Date.now() < retryDeadline) {
       try {
-        await fetch('/api/auth/sign-in/anonymous', { method: 'POST', credentials: 'include' });
-      } catch {
-        // Ignore bootstrap failures; waitForSession will handle retries.
-      }
-    });
+        await page.evaluate(async () => {
+          try {
+            await fetch('/api/auth/sign-in/anonymous', { method: 'POST', credentials: 'include' });
+          } catch (e) {
+            console.warn('Anonymous sign-in fetch failed', e);
+          }
+        });
 
-    await waitForSession(page, { timeoutMs: 60000 });
+        await waitForSession(page, { timeoutMs: 25000 });
+        lastError = null;
+        break;
+      } catch (error) {
+        lastError = error;
+        console.warn(`Anonymous session initialization attempt failed: ${error instanceof Error ? error.message : String(error)}. Retrying...`);
+        await sleep(3000);
+        // Refresh page to clear any potential stale state
+        await page.goto(normalized, { waitUntil: 'domcontentloaded' }).catch(() => {});
+      }
+    }
+    
+    if (lastError) {
+      throw lastError;
+    }
 
     await context.storageState({ path: storagePath });
     console.log(`✅ anonymous storageState saved to ${storagePath}`);
