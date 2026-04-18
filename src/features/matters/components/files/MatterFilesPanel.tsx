@@ -235,7 +235,7 @@ export function MatterFilesPanel({ matterId }: MatterFilesPanelProps) {
                                 }
                               }}
                               title="Download file"
-                              className="p-1.5 surface-hover rounded-lg text-input-placeholder hover:text-input-text"
+                              className="p-1.5 surface-hover rounded-xl text-input-placeholder hover:text-input-text"
                             >
                               <Icon icon={ArrowDownTrayIcon} className="w-3.5 h-3.5" />
                             </Button>
@@ -261,7 +261,7 @@ export function MatterFilesPanel({ matterId }: MatterFilesPanelProps) {
             <img
               src={lightboxUrl}
               alt={lightboxName}
-              className="max-w-full max-h-[80vh] object-contain rounded-lg shadow-2xl cursor-default"
+              className="max-w-full max-h-[80vh] object-contain rounded-xl shadow-2xl cursor-default"
             />
             <div className="text-center">
               <h3 className="text-lg font-semibold mb-1">{lightboxName}</h3>

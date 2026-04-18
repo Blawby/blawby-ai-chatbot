@@ -33,7 +33,7 @@ export const SidebarHeader = ({
           {practiceConfig?.profileImage ? (
             <button
               onClick={() => onToggleCollapse()}
-              className="w-8 h-8 rounded-lg overflow-hidden focus:outline-none focus:ring-2 focus:ring-accent-500"
+              className="w-8 h-8 rounded-xl overflow-hidden focus:outline-none focus:ring-2 focus:ring-accent-500"
               title="Click to expand sidebar"
               aria-label="Expand sidebar"
             >

@@ -19,7 +19,7 @@ const MediaContent: FunctionComponent<MediaContentProps> = ({ media }) => {
     const renderMediaContent = () => {
         if (media.category === 'video') {
             return (
-                <div className="max-w-full max-h-[80vh] rounded-lg overflow-hidden shadow-2xl">
+                <div className="max-w-full max-h-[80vh] rounded-xl overflow-hidden shadow-2xl">
                     {!isVideoPlayIconing ? (
                         <div 
                             className="relative cursor-pointer max-w-full max-h-[80vh]" 
@@ -63,7 +63,7 @@ const MediaContent: FunctionComponent<MediaContentProps> = ({ media }) => {
             <img 
                 src={media.url} 
                 alt={media.name} 
-                className="max-w-full max-h-[80vh] object-contain rounded-lg shadow-2xl cursor-default" 
+                className="max-w-full max-h-[80vh] object-contain rounded-xl shadow-2xl cursor-default" 
             />
         );
     };

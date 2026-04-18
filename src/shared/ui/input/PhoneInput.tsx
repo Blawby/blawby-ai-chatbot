@@ -310,9 +310,9 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(({
 
 
   const variantClasses = {
-    default: 'border-input-border focus:ring-accent-500 focus:border-accent-500',
-    error: 'border-red-300 focus:ring-red-500 focus:border-red-500',
-    success: 'border-green-300 focus:ring-green-500 focus:border-green-500'
+    default: 'focus:ring-2 ring-inset focus:ring-accent-500/30',
+    error: 'ring-2 ring-inset ring-red-500/40 focus:ring-red-500/60',
+    success: 'ring-2 ring-inset ring-green-500/40'
   };
 
   const formatPhoneNumber = useCallback((phone: string) => {
@@ -410,13 +410,13 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(({
   ]);
 
   const inputClasses = cn(
-    'w-full border rounded-lg text-input-text placeholder:text-input-placeholder',
-    'focus:outline-none focus:ring-2 focus:ring-offset-0 transition-colors',
+    'w-full rounded-xl text-input-text placeholder:text-input-placeholder',
+    'focus:outline-none transition-all duration-200',
+    'glass-input border-none',
     sizeClasses[size],
     showCountryCode ? null : iconPaddingClasses[size],
     variantClasses[variant],
     disabled && 'opacity-50 cursor-not-allowed',
-    variant === 'default' ? 'glass-input' : 'bg-input-bg',
     className
   );
 
@@ -442,7 +442,7 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(({
               aria-haspopup="menu"
               aria-label={`Select country code. Current: ${currentCountry.name} (${currentCountry.code})`}
               className={cn(
-                "inline-flex items-center border border-input-border rounded-l-lg text-input-text hover:bg-surface-utility/40 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-accent-500 transition-colors glass-input",
+                "inline-flex items-center rounded-l-xl rounded-r-none text-input-text hover:bg-surface-utility/40 focus:outline-none focus:ring-2 ring-inset focus:ring-accent-500 transition-colors glass-input border-r border-line-glass/20",
                 sizeClasses[size],
                 disabled && 'opacity-50 cursor-not-allowed'
               )}
@@ -453,7 +453,7 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(({
             </button>
             
             {isDropdownOpen && (
-              <div className="absolute z-10 glass-panel border border-line-glass/30 rounded-lg shadow-glass w-52 top-full left-0 mt-1">
+              <div className="absolute z-10 glass-panel border border-line-glass/30 rounded-xl shadow-glass w-52 top-full left-0 mt-1">
                 <div 
                   ref={listRef}
                   role="listbox"
@@ -509,8 +509,8 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(({
             aria-describedby={displayError ? errorId : displayDescription ? descriptionId : undefined}
             className={cn(
               inputClasses,
-              showCountryCode ? 'rounded-l-none border-l-0' : 'rounded-lg',
-              'rounded-r-lg'
+              showCountryCode ? 'rounded-l-none border-l-0' : 'rounded-xl',
+              'rounded-r-xl'
             )}
           />
         </div>

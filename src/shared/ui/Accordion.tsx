@@ -105,7 +105,7 @@ const Accordion: FunctionComponent<AccordionProps> = ({
     <AccordionContext.Provider value={contextValue}>
       <div 
         data-slot="accordion" 
-        className={cn("w-full border border-line-glass/30 rounded-lg", className)}
+        className={cn("w-full border border-line-glass/30 rounded-xl", className)}
       >
         {children}
       </div>
@@ -172,7 +172,7 @@ const AccordionTrigger: FunctionComponent<AccordionTriggerProps> = ({
         aria-expanded={isOpen}
         aria-controls={contentId}
         className={cn(
-          "focus-visible:border-ring focus-visible:ring-ring/50 flex flex-1 items-center justify-between gap-4 px-4 py-3 text-left text-sm font-medium transition-all outline-none focus-visible:ring-[3px] disabled:pointer-events-none disabled:opacity-50 rounded-lg",
+          "focus-visible:border-ring focus-visible:ring-ring/50 flex flex-1 items-center justify-between gap-4 px-4 py-3 text-left text-sm font-medium transition-all outline-none focus-visible:ring-[3px] disabled:pointer-events-none disabled:opacity-50 rounded-xl",
           className
         )}
         onClick={handleClick}

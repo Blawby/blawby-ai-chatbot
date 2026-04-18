@@ -56,7 +56,7 @@ export const InfoCard = ({
 
   return (
     <div className={cn(
-      'rounded-lg border',
+      'rounded-xl border',
       variantClasses[variant],
       sizeClasses[size],
       className

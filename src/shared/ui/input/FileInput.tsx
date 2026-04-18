@@ -159,7 +159,7 @@ export const FileInput = forwardRef<HTMLInputElement, FileInputProps>(({
         aria-label={displayLabel || "File upload area"}
         aria-disabled={disabled}
         className={cn(
-          'relative border-2 border-dashed rounded-lg transition-colors',
+          'relative border-2 border-dashed rounded-xl transition-colors',
           'hover:border-accent-400 dark:hover:border-accent-500',
           isDragOver ? 'border-accent-500 bg-accent-50 dark:bg-accent-900/20' : 'border-input-border',
           variantClasses[variant],

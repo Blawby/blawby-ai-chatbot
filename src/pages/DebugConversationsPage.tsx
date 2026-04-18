@@ -470,17 +470,17 @@ export default function DebugConversationsPage() {
       >
         <DialogBody className="space-y-4 text-sm text-input-text">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div className="glass-panel rounded-lg p-3">
+            <div className="glass-panel rounded-xl p-3">
               <div className="text-xs uppercase tracking-wide text-input-placeholder">Workspace</div>
               <div className="mt-1 font-semibold capitalize">{workspaceKind}</div>
             </div>
-            <div className="glass-panel rounded-lg p-3">
+            <div className="glass-panel rounded-xl p-3">
               <div className="text-xs uppercase tracking-wide text-input-placeholder">Conversation ID</div>
               <div className="mt-1 break-all font-mono text-xs">{activeConversationId}</div>
             </div>
           </div>
           {activeConversation?.user_info?.title ? (
-            <div className="glass-panel rounded-lg p-3">
+            <div className="glass-panel rounded-xl p-3">
               <div className="text-xs uppercase tracking-wide text-input-placeholder">Title</div>
               <div className="mt-1 font-semibold">{String(activeConversation.user_info.title)}</div>
             </div>

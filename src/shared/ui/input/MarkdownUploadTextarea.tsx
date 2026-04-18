@@ -272,7 +272,7 @@ export const MarkdownUploadTextarea = ({
               <button
                 type="button"
                 className={cn(
-                  'rounded-lg px-3 py-2 text-sm font-medium transition-colors @xl:px-3 @xl:py-1.5',
+                  'rounded-xl px-3 py-2 text-sm font-medium transition-colors @xl:px-3 @xl:py-1.5',
                   activeTab === 'write'
                     ? 'text-input-text'
                     : 'text-input-placeholder hover:text-input-text'
@@ -284,7 +284,7 @@ export const MarkdownUploadTextarea = ({
               <button
                 type="button"
                 className={cn(
-                  'rounded-lg px-3 py-2 text-sm font-medium transition-colors @xl:px-3 @xl:py-1.5',
+                  'rounded-xl px-3 py-2 text-sm font-medium transition-colors @xl:px-3 @xl:py-1.5',
                   activeTab === 'preview'
                     ? 'text-input-text'
                     : 'text-input-placeholder hover:text-input-text'
@@ -299,7 +299,7 @@ export const MarkdownUploadTextarea = ({
                 <DropdownMenuTrigger asChild>
                   <button
                     type="button"
-                    className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line-glass/25 bg-surface-overlay/40 text-input-placeholder transition-colors hover:text-input-text"
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-line-glass/25 bg-surface-overlay/40 text-input-placeholder transition-colors hover:text-input-text"
                     aria-label="Formatting options"
                   >
                     <Icon icon={EllipsisVerticalIcon} className="h-4 w-4" aria-hidden="true" />
@@ -308,63 +308,63 @@ export const MarkdownUploadTextarea = ({
                 <DropdownMenuContent align="end" className="w-64 p-1.5">
                   <DropdownMenuItem
                     onSelect={() => prependToLine('# ', 'Heading')}
-                    className="flex items-center gap-2 rounded-lg px-3 py-2"
+                    className="flex items-center gap-2 rounded-xl px-3 py-2"
                   >
                     <span className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-line-glass/20 bg-surface-overlay/50 text-xs font-semibold">H</span>
                     <span>Heading</span>
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onSelect={() => replaceSelection('**', '**', 'bold text')}
-                    className="flex items-center gap-2 rounded-lg px-3 py-2"
+                    className="flex items-center gap-2 rounded-xl px-3 py-2"
                   >
                     <span className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-line-glass/20 bg-surface-overlay/50 text-xs font-semibold">B</span>
                     <span>Bold</span>
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onSelect={() => replaceSelection('*', '*', 'italic text')}
-                    className="flex items-center gap-2 rounded-lg px-3 py-2"
+                    className="flex items-center gap-2 rounded-xl px-3 py-2"
                   >
                     <span className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-line-glass/20 bg-surface-overlay/50 text-xs italic font-semibold">I</span>
                     <span>Italic</span>
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onSelect={() => prependToLine('> ', 'Quoted text')}
-                    className="flex items-center gap-2 rounded-lg px-3 py-2"
+                    className="flex items-center gap-2 rounded-xl px-3 py-2"
                   >
                     <Icon icon={Bars3BottomLeftIcon} className="h-4 w-4" aria-hidden="true" />
                     <span>Quote</span>
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onSelect={() => replaceSelection('```\n', '\n```', 'code')}
-                    className="flex items-center gap-2 rounded-lg px-3 py-2"
+                    className="flex items-center gap-2 rounded-xl px-3 py-2"
                   >
                     <Icon icon={CodeBracketIcon} className="h-4 w-4" aria-hidden="true" />
                     <span>Code</span>
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onSelect={() => replaceSelection('[', '](https://)', 'link text')}
-                    className="flex items-center gap-2 rounded-lg px-3 py-2"
+                    className="flex items-center gap-2 rounded-xl px-3 py-2"
                   >
                     <Icon icon={LinkIcon} className="h-4 w-4" aria-hidden="true" />
                     <span>Link</span>
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onSelect={() => prependToLine('- ', 'List item')}
-                    className="flex items-center gap-2 rounded-lg px-3 py-2"
+                    className="flex items-center gap-2 rounded-xl px-3 py-2"
                   >
                     <Icon icon={ListBulletIcon} className="h-4 w-4" aria-hidden="true" />
                     <span>Bulleted list</span>
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onSelect={() => prependToLine('1. ', 'List item')}
-                    className="flex items-center gap-2 rounded-lg px-3 py-2"
+                    className="flex items-center gap-2 rounded-xl px-3 py-2"
                   >
                     <Icon icon={NumberedListIcon} className="h-4 w-4" aria-hidden="true" />
                     <span>Numbered list</span>
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onSelect={() => prependToLine('- [ ] ', 'Task')}
-                    className="flex items-center gap-2 rounded-lg px-3 py-2"
+                    className="flex items-center gap-2 rounded-xl px-3 py-2"
                   >
                     <Icon icon={DocumentTextIcon} className="h-4 w-4" aria-hidden="true" />
                     <span>Task list</span>

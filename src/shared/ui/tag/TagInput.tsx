@@ -413,7 +413,7 @@ export const TagInput = forwardRef<HTMLInputElement, TagInputProps>(({
         {/* Tags container with input */}
         <div
           className={cn(
-            'flex flex-wrap items-center w-full border rounded-lg',
+            'flex flex-wrap items-center w-full border rounded-xl',
             'bg-input-bg text-input-text',
             'focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-0 transition-colors',
             containerPaddingClasses[size],
@@ -488,7 +488,7 @@ export const TagInput = forwardRef<HTMLInputElement, TagInputProps>(({
             role="listbox"
             className={cn(
               'absolute z-50 w-full mt-1 glass-panel',
-              'border border-line-glass/30 rounded-lg shadow-glass',
+              'border border-line-glass/30 rounded-xl shadow-glass',
               'max-h-60 overflow-y-auto'
             )}
           >

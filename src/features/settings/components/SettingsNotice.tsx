@@ -27,7 +27,7 @@ export const SettingsNotice = ({
 
   return (
     <div
-      className={cn('rounded-lg p-3 text-sm', variantClasses[variant], className)}
+      className={cn('rounded-xl p-3 text-sm', variantClasses[variant], className)}
       role={role}
       aria-live={ariaLive}
     >

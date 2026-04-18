@@ -54,7 +54,7 @@ export const RecentClientsGrid = ({
           ))}
         </div>
       ) : error ? (
-        <div className="mt-6 rounded-lg border border-line-glass/40 bg-surface-glass px-3 py-2 text-sm text-input-text">
+        <div className="mt-6 rounded-xl border border-line-glass/40 bg-surface-glass px-3 py-2 text-sm text-input-text">
           {error}
         </div>
       ) : clients.length === 0 ? (
@@ -71,7 +71,7 @@ export const RecentClientsGrid = ({
                   src={client.avatarUrl} 
                   name={client.name} 
                   size="lg" 
-                  className="h-12 w-12 rounded-lg"
+                  className="h-12 w-12 rounded-xl"
                 />
                 <div className="flex-1">
                   <p className="text-sm font-medium text-input-text">{client.name}</p>

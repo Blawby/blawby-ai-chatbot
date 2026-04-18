@@ -59,7 +59,7 @@ const BillingIncrementPreview = ({ increment }: { increment: number }) => {
             <dt className="text-input-placeholder">Billing increment</dt>
             <dd className="font-semibold text-input-text">{increment} {increment === 1 ? 'minute' : 'minutes'}</dd>
           </div>
-          <div className="flex items-center justify-between gap-4 rounded-lg bg-surface-utility px-3 py-2">
+          <div className="flex items-center justify-between gap-4 rounded-xl bg-surface-utility px-3 py-2">
             <dt className="text-input-placeholder">Invoice quantity</dt>
             <dd className="font-semibold text-input-text">{formatHours(billedMinutes)} hours</dd>
           </div>

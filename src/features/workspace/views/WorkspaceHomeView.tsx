@@ -76,7 +76,7 @@ const WorkspaceHomeView: FunctionComponent<WorkspaceHomeViewProps> = ({
             {quickActions.map((action) => (
               <div key={action.id} className="glass-card p-4 hover:bg-accent-50/50 transition-colors">
                 <div className="flex items-start gap-3">
-                  <div className="p-2 bg-background rounded-lg">
+                  <div className="p-2 bg-background rounded-xl">
                     <action.icon className="w-5 h-5 text-accent-500" />
                   </div>
                   <div className="flex-1">
@@ -102,15 +102,15 @@ const WorkspaceHomeView: FunctionComponent<WorkspaceHomeViewProps> = ({
           <section className="glass-card p-6">
             <h3 className="text-lg font-semibold text-input-text mb-4">Practice Status</h3>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="text-center p-4 bg-background rounded-lg">
+              <div className="text-center p-4 bg-background rounded-xl">
                 <div className="text-2xl font-bold text-accent-500">Active</div>
                 <div className="text-sm text-input-placeholder">Practice Status</div>
               </div>
-              <div className="text-center p-4 bg-background rounded-lg">
+              <div className="text-center p-4 bg-background rounded-xl">
                 <div className="text-2xl font-bold text-accent-500">Ready</div>
                 <div className="text-sm text-input-placeholder">Setup Status</div>
               </div>
-              <div className="text-center p-4 bg-background rounded-lg">
+              <div className="text-center p-4 bg-background rounded-xl">
                 <div className="text-2xl font-bold text-accent-500">0</div>
                 <div className="text-sm text-input-placeholder">Active Matters</div>
               </div>

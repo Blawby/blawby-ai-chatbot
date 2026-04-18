@@ -26,9 +26,10 @@
     --input-text: 17 24 39;
     --input-placeholder: 55 65 81;
     --accent-foreground: 255 255 255;
-    --success-foreground: 74 222 128;
-    --warning-foreground: 249 115 22;
-    --error-foreground: 248 113 113;
+    --info-foreground: 29 78 216;
+    --success-foreground: 22 101 52;
+    --warning-foreground: 154 52 18;
+    --error-foreground: 153 27 27;
 
     /* Navigation Tokens - Manage all nav colors here */
     --nav-surface: var(--surface-nav-rail);
@@ -46,9 +47,9 @@
     --shadow-glass: 0 12px 32px rgb(15 23 42 / 8%), 0 0 1px rgb(15 23 42 / 6%);
 
     /* Glass Material Variables — Light Mode (Luminous direction) */
-    --glass-bg-top: rgba(255, 255, 255, 1.0);
-    --glass-bg-mid: rgba(252, 253, 255, 0.98);
-    --glass-bg-bottom: rgba(250, 252, 255, 0.94);
+    --glass-bg-top: rgba(255, 255, 255, 0.88);
+    --glass-bg-mid: rgba(252, 253, 255, 0.84);
+    --glass-bg-bottom: rgba(250, 252, 255, 0.78);
     --glass-inset-rim: inset 0 1px 0 rgba(255, 255, 255, 0.95), inset 0 -1px 0 rgba(0, 0, 0, 0.01);
     --glass-shadow: 0 32px 80px rgba(15, 23, 42, 0.16), 0 2px 4px rgba(15, 23, 42, 0.04);
 
@@ -116,6 +117,10 @@
     --input-bg-top: rgba(32, 36, 42, 0.40);
     --input-bg-bottom: rgba(26, 30, 36, 0.32);
     --input-shadow: 0 6px 16px rgba(0, 0, 0, 0.18);
+    --success-foreground: 74 222 128;
+    --warning-foreground: 249 115 22;
+    --error-foreground: 248 113 113;
+    --info-foreground: 147 197 253;
   }
 
   body {
@@ -219,9 +224,9 @@
         var(--glass-bg-mid) 22%,
         var(--glass-bg-bottom) 100%
       );
-    backdrop-filter: blur(15px) saturate(104%);
-    -webkit-backdrop-filter: blur(15px) saturate(104%);
-    box-shadow: var(--glass-shadow), var(--glass-inset-rim);
+    backdrop-filter: blur(24px) saturate(106%);
+    -webkit-backdrop-filter: blur(24px) saturate(106%);
+    box-shadow: var(--glass-shadow), var(--glass-rim-medium);
   }
 
   .glass-card::before {
@@ -233,17 +238,18 @@
     background:
       radial-gradient(
         120% 65% at 50% 0%,
-        rgba(255, 255, 255, 0.08) 0%,
-        rgba(255, 255, 255, 0.03) 28%,
+        rgba(255, 255, 255, 0.12) 0%,
+        rgba(255, 255, 255, 0.05) 28%,
         rgba(255, 255, 255, 0.00) 52%
       ),
       linear-gradient(
         to bottom,
-        rgba(255, 255, 255, 0.05) 0%,
-        rgba(255, 255, 255, 0.02) 18%,
+        rgba(255, 255, 255, 0.10) 0%,
+        rgba(255, 255, 255, 0.04) 18%,
         rgba(255, 255, 255, 0.00) 42%
       );
-    opacity: 0.8;
+    opacity: 1;
+    z-index: 10;
   }
 
   .glass-card-hover {
@@ -298,10 +304,12 @@
   .dark .glass-panel {
     background: linear-gradient(
       to bottom,
-      rgba(38, 42, 50, 0.60),
-      rgba(28, 32, 38, 0.52)
+      rgba(43, 48, 58, 0.72),
+      rgba(36, 40, 49, 0.68)
     );
-    @apply border border-white/10;
+    @apply border-none;
+
+    box-shadow: var(--panel-shadow), var(--glass-rim-medium);
   }
 
   .list-panel-card-gradient {
@@ -323,7 +331,7 @@
 
   /* Inputs — tertiary surface, subtle rim */
   .glass-input {
-    @apply text-input-text placeholder:text-input-placeholder/80 border-none;
+    @apply rounded-xl text-input-text placeholder:text-input-placeholder/80 border-none;
 
     background:
       linear-gradient(
@@ -336,10 +344,36 @@
     box-shadow: var(--input-shadow), var(--glass-rim-subtle);
   }
 
-  .glass-input:focus {
+  .glass-input:focus,
+  .glass-input.isOpen {
     outline: none;
     @apply border-none;
-    box-shadow: var(--input-shadow), var(--glass-rim-subtle), 0 0 0 2px rgb(var(--accent-500) / 0.3);
+
+    box-shadow:
+      var(--input-shadow),
+      var(--glass-rim-subtle),
+      0 0 0 2px rgb(var(--accent-500) / 0.25),
+      0 0 12px rgb(var(--accent-500) / 0.15);
+  }
+
+  .glass-input.isError:focus,
+  .glass-input.isError {
+    @apply ring-0;
+    box-shadow: 
+      var(--input-shadow),
+      var(--glass-rim-subtle),
+      0 0 0 2px rgb(var(--error-500) / 0.4),
+      0 0 12px rgb(var(--error-500) / 0.2);
+  }
+
+  .glass-input.isSuccess:focus,
+  .glass-input.isSuccess {
+    @apply ring-0;
+    box-shadow: 
+      var(--input-shadow),
+      var(--glass-rim-subtle),
+      0 0 0 2px rgb(var(--success-500) / 0.4),
+      0 0 12px rgb(var(--success-500) / 0.2);
   }
 
 
@@ -662,7 +696,7 @@
 
   /* Tab — for segmented navigation */
   .btn-tab {
-    @apply bg-transparent text-input-placeholder rounded-lg px-3 py-1.5 text-sm;
+    @apply bg-transparent text-input-placeholder rounded-xl px-3 py-2 text-sm;
     box-shadow: none;
   }
 
@@ -706,28 +740,33 @@
 
   /* Semantic status surfaces */
   .status-info {
-    @apply border border-accent-500/20 bg-accent-500/10 text-[rgb(var(--accent-foreground))] backdrop-blur-xl;
+    @apply border-none bg-accent-500/20 text-[rgb(var(--info-foreground))] backdrop-blur-xl dark:bg-accent-500/10;
+
     box-shadow: var(--glass-rim-medium);
   }
 
   .status-success {
-    @apply border border-green-500/20 bg-green-500/10 text-[rgb(var(--success-foreground))] backdrop-blur-xl;
+    @apply border-none bg-green-500/20 text-[rgb(var(--success-foreground))] backdrop-blur-xl dark:bg-green-500/10;
+
     box-shadow: var(--glass-rim-medium);
   }
 
   .status-warning {
-    @apply border border-orange-500/20 bg-orange-500/10 text-[rgb(var(--warning-foreground))] backdrop-blur-xl;
+    @apply border-none bg-orange-500/20 text-[rgb(var(--warning-foreground))] backdrop-blur-xl dark:bg-orange-500/10;
+
     box-shadow: var(--glass-rim-medium);
   }
 
   .status-error {
-    @apply border border-red-500/20 bg-red-500/10 text-[rgb(var(--error-foreground))] backdrop-blur-xl;
+    @apply border-none bg-red-500/20 text-[rgb(var(--error-foreground))] backdrop-blur-xl dark:bg-red-500/10;
+
     box-shadow: var(--glass-rim-medium);
   }
 
   /* Segmented toggle */
   .segmented-toggle {
     @apply relative inline-flex items-center rounded-full p-1 bg-transparent backdrop-blur-xl;
+
     box-shadow: var(--glass-rim-subtle);
   }
 

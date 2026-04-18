@@ -140,7 +140,7 @@ export default function MediaSidebar({ messages }: MediaSidebarProps) {
                                     size="sm"
                                     onClick={(e) => handleDownload(media, e)}
                                     title="Download file"
-                                    className="p-1.5 surface-hover rounded-lg text-input-placeholder hover:text-input-text"
+                                    className="p-1.5 surface-hover rounded-xl text-input-placeholder hover:text-input-text"
                                   >
                                     <Icon icon={ArrowDownTrayIcon} className="w-3.5 h-3.5"  />
                                   </Button>

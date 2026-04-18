@@ -30,7 +30,7 @@ const PricingTabs: FunctionComponent<PricingTabsProps> = ({ selected, onSelect, 
   };
 
   return (
-    <div className="flex bg-dark-card-bg rounded-lg p-1" role="tablist" aria-label="Pricing tabs">
+    <div className="flex bg-dark-card-bg rounded-xl p-1" role="tablist" aria-label="Pricing tabs">
       <button
         ref={personalRef}
         type="button"

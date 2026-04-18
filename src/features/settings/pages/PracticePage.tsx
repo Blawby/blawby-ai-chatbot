@@ -167,7 +167,7 @@ export const PracticeOverviewPage = ({
         label="Practice overview"
         labelNode={
           <div className="flex items-center gap-4">
-            <div className="glass-panel flex h-12 w-12 items-center justify-center overflow-hidden rounded-lg">
+            <div className="glass-panel flex h-12 w-12 items-center justify-center overflow-hidden rounded-xl">
               {practice?.logo ? (
                 <img src={practice.logo} alt="" className="h-full w-full object-cover" />
               ) : (

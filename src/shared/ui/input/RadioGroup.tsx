@@ -110,7 +110,7 @@ export const RadioGroup = ({
                 required={required}
                 className={cn(
                   'border bg-input-bg text-accent-600',
-                  'focus:outline-none focus:ring-2 focus:ring-offset-0 transition-colors',
+                  'focus:outline-none focus:ring-2 ring-inset focus:ring-offset-0 transition-colors',
                   sizeClasses[size],
                   variantClasses[variant],
                   (disabled || option.disabled) && 'opacity-50 cursor-not-allowed'

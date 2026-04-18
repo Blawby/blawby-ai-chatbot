@@ -313,7 +313,7 @@ export default function AppBlawbyMessengerSettingsPage({
                   onChange={(event) => handleAccentColorChange((event.target as HTMLInputElement).value)}
                   disabled={isSaving}
                   aria-label="Brand color"
-                  className="h-10 w-16 rounded-lg border border-line-glass bg-surface-card p-1"
+                  className="h-10 w-16 rounded-xl border border-line-glass bg-surface-card p-1"
                 />
                 <Input
                   aria-label="Brand color hex"

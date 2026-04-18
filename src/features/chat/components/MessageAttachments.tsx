@@ -75,7 +75,7 @@ export const MessageAttachments: FunctionComponent<MessageAttachmentsProps> = ({
 						src={file.url}
 						type={file.type}
 						alt={file.name}
-						className="max-w-[300px] max-h-[300px] w-auto h-auto block cursor-pointer rounded-lg"
+						className="max-w-[300px] max-h-[300px] w-auto h-auto block cursor-pointer rounded-xl"
 						onClick={() => handleImageClick(file)}
 					/>
 				</div>
@@ -85,7 +85,7 @@ export const MessageAttachments: FunctionComponent<MessageAttachmentsProps> = ({
 			{documentFiles.map((file, index) => (
 				<div 
 					key={`doc-${index}`}
-					className="flex items-center gap-2 p-2 rounded-lg glass-panel cursor-pointer my-2 max-w-[300px]"
+					className="flex items-center gap-2 p-2 rounded-xl glass-panel cursor-pointer my-2 max-w-[300px]"
 					onClick={() => handleDocumentClick(file)}
 					onKeyDown={(e) => handleKeyDown(e, file, handleDocumentClick)}
 					role="button"

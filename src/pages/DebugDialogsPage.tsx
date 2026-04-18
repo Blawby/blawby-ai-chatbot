@@ -131,7 +131,7 @@ const inventory: DialogInventoryItem[] = [
       'src/features/matters/pages/PracticeMattersPage.tsx',
     ],
     previewId: 'shared-modal',
-    frameHeight: 420
+    frameHeight: 460
   },
   {
     name: 'Fullscreen',
@@ -154,7 +154,7 @@ const inventory: DialogInventoryItem[] = [
       'src/pages/DebugDialogsPage.tsx',
     ],
     previewId: 'confirmation',
-    frameHeight: 520
+    frameHeight: 560
   },
   {
     name: 'WelcomeDialog',
@@ -538,8 +538,8 @@ function InspectorPanelPreview() {
   }
 
   return (
-    <div className="relative min-h-[760px] overflow-hidden rounded-2xl border border-line-glass/20 bg-app">
-      <div className="absolute inset-0 bg-surface-app-frame/20 backdrop-blur-sm" />
+    <div className="relative min-h-[760px] overflow-hidden rounded-2xl bg-surface-workspace">
+      <div className="absolute inset-0 bg-black/5 dark:bg-black/20 backdrop-blur-sm" />
       <aside
         role="dialog"
         aria-modal="true"
@@ -626,7 +626,7 @@ function PreviewSurface({
   onReplay?: () => void;
 }) {
   return (
-    <main className="min-h-screen bg-app px-3 py-3">
+    <main className="min-h-screen bg-surface-app-frame px-3 py-3">
       {onReplay ? (
         <div className="mb-3 flex justify-end">
           <Button
@@ -750,7 +750,7 @@ function PreviewRenderer({ previewId }: { previewId: PreviewId }) {
       : 'fullscreen';
 
   const content = type === 'fullscreen' ? (
-    <div className="flex min-h-screen items-center justify-center p-8">
+    <div className="flex flex-1 items-center justify-center p-8">
       <div className="max-w-xl text-center">
         <p className="text-lg font-medium text-input-text">Shared fullscreen shell</p>
         <p className="mt-2 text-sm text-input-placeholder">Used by media and camera flows.</p>
@@ -779,42 +779,67 @@ function PreviewRenderer({ previewId }: { previewId: PreviewId }) {
 }
 
 function GalleryCard({ item, previewNonce }: { item: DialogInventoryItem; previewNonce: number }) {
-  const frameSrc = item.previewId ? `/debug/dialogs/${item.previewId}` : null;
+  const frameSrcBase = item.previewId ? `/debug/dialogs/${item.previewId}` : null;
 
   return (
-    <article className="space-y-3 rounded-2xl border border-line-glass/30 bg-surface-workspace/5 p-4">
+    <article className="space-y-4 rounded-3xl glass-panel p-6">
       <div className="space-y-2">
-        <h2 className="text-base font-semibold text-input-text">{item.name}</h2>
-        <p className="break-all text-xs text-input-placeholder">{item.file}</p>
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-bold text-input-text">{item.name}</h2>
+          <span className="rounded-full bg-accent-500/10 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[rgb(var(--accent-foreground))]">
+            {item.section}
+          </span>
+        </div>
+        <p className="font-mono text-[10px] text-input-placeholder">{item.file}</p>
       </div>
+
       <div className="space-y-2 text-sm">
-        <p className="font-medium text-input-text">Used in</p>
+        <p className="font-semibold text-input-text">Found in</p>
         <ul className="space-y-1 text-input-placeholder">
           {item.usedIn.map((path) => (
-            <li key={path} className="break-all font-mono text-xs">
+            <li key={path} className="break-all font-mono text-[10px]">
               {path}
             </li>
           ))}
         </ul>
       </div>
-      {frameSrc ? (
-        <div className="overflow-hidden rounded-xl border border-line-glass/20 bg-app">
-          <iframe
-            key={`${item.name}-${previewNonce}`}
-            title={`${item.name} preview`}
-            src={frameSrc}
-            className="block w-full border-0 bg-app"
-            style={{ height: `${item.frameHeight ?? 480}px` }}
-          />
+
+      {frameSrcBase ? (
+        <div className="grid gap-4 pt-2 md:grid-cols-2">
+          <div className="space-y-2">
+            <p className="text-[10px] font-bold uppercase text-input-placeholder">Light Mode</p>
+            <div className="widget-shell-gradient relative overflow-hidden rounded-2xl border border-line-glass/10 p-4">
+              <iframe
+                key={`light-${previewNonce}`}
+                src={`${frameSrcBase}?theme=light`}
+                className="w-full rounded-xl"
+                style={{ height: item.frameHeight ?? 400 }}
+                title={`${item.name} Light Mode Preview`}
+              />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <p className="text-[10px] font-bold uppercase text-input-placeholder">Dark Mode</p>
+            <div className="relative overflow-hidden rounded-2xl border border-line-glass/30 bg-surface-workspace p-4">
+              <iframe
+                key={`dark-${previewNonce}`}
+                src={`${frameSrcBase}?theme=dark`}
+                className="w-full rounded-xl"
+                style={{ height: item.frameHeight ?? 400 }}
+                title={`${item.name} Dark Mode Preview`}
+              />
+            </div>
+          </div>
         </div>
       ) : (
-        <div className="rounded-xl border border-dashed border-line-glass/20 px-4 py-6 text-sm text-input-placeholder">
-          No side-by-side preview yet.
+        <div className="flex h-32 items-center justify-center rounded-2xl bg-surface-utility/5 text-xs text-input-placeholder italic">
+          No preview available
         </div>
       )}
     </article>
   );
 }
+
 
 export default function DebugDialogsPage({ previewId }: DebugDialogsPageProps) {
   const { navigate } = useNavigation();
@@ -827,7 +852,7 @@ export default function DebugDialogsPage({ previewId }: DebugDialogsPageProps) {
     return (
       <PreviewSurface onReplay={replayAnimations}>
         <div className="mx-auto flex min-h-screen max-w-2xl items-center justify-center p-8">
-          <div className="w-full rounded-2xl border border-line-glass/30 bg-surface-overlay/80 p-8 text-center shadow-2xl backdrop-blur-xl">
+          <div className="glass-card w-full p-8 text-center">
             <p className="text-lg font-semibold text-input-text">Preview not found</p>
             <p className="mt-2 text-sm text-input-placeholder">
               The requested dialog preview does not exist.
@@ -875,9 +900,9 @@ export default function DebugDialogsPage({ previewId }: DebugDialogsPageProps) {
         </div>
       </header>
 
-      <section className="space-y-4">
+      <section className="space-y-4 mt-12 mb-4">
         <div className="space-y-1">
-          <h2 className="text-lg font-medium text-input-text">Shared Shells</h2>
+          <h2 className="text-xl font-bold text-input-text">Shared Shells</h2>
           <p className="text-sm text-input-placeholder">Core container patterns. Review these first if the goal is consolidation.</p>
         </div>
         <div className="space-y-4">
@@ -885,9 +910,9 @@ export default function DebugDialogsPage({ previewId }: DebugDialogsPageProps) {
         </div>
       </section>
 
-      <section className="space-y-4">
+      <section className="space-y-4 mt-12 mb-4">
         <div className="space-y-1">
-          <h2 className="text-lg font-medium text-input-text">Feature Dialogs</h2>
+          <h2 className="text-xl font-bold text-input-text">Feature Dialogs</h2>
           <p className="text-sm text-input-placeholder">Real feature implementations layered on top of the shared shell.</p>
         </div>
         <div className="space-y-4">
@@ -895,9 +920,9 @@ export default function DebugDialogsPage({ previewId }: DebugDialogsPageProps) {
         </div>
       </section>
 
-      <section className="space-y-4">
+      <section className="space-y-4 mt-12 mb-4">
         <div className="space-y-1">
-          <h2 className="text-lg font-medium text-input-text">Feature Panels</h2>
+          <h2 className="text-xl font-bold text-input-text">Feature Panels</h2>
           <p className="text-sm text-input-placeholder">Right-side panel patterns that are part of the same transient-surface system.</p>
         </div>
         <div className="space-y-4">
@@ -905,9 +930,9 @@ export default function DebugDialogsPage({ previewId }: DebugDialogsPageProps) {
         </div>
       </section>
 
-      <section className="space-y-4">
+      <section className="space-y-4 mt-12 mb-4">
         <div className="space-y-1">
-          <h2 className="text-lg font-medium text-input-text">Launcher Patterns</h2>
+          <h2 className="text-xl font-bold text-input-text">Launcher Patterns</h2>
           <p className="text-sm text-input-placeholder">Inline components that launch dialog experiences rather than being dialog shells themselves.</p>
         </div>
         <div className="space-y-4">
@@ -915,9 +940,9 @@ export default function DebugDialogsPage({ previewId }: DebugDialogsPageProps) {
         </div>
       </section>
 
-      <section className="space-y-4">
+      <section className="space-y-4 mt-12 mb-4">
         <div className="space-y-1">
-          <h2 className="text-lg font-medium text-input-text">Docked Surfaces</h2>
+          <h2 className="text-xl font-bold text-input-text">Docked Surfaces</h2>
           <p className="text-sm text-input-placeholder">Transient UI that is not a portal dialog but should still align with the shared design system.</p>
         </div>
         <div className="space-y-4">

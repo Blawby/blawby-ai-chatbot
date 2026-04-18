@@ -287,7 +287,7 @@ export const PracticeCoveragePage = ({ className, onBack }: PracticeCoveragePage
                 const meta = licensedStatesMeta[state] || { barNumber: '', admissionDate: '' };
                 const stateLabel = STATE_OPTIONS.find(opt => opt.value === state)?.label || state;
                 return (
-                  <div key={state} className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4 border border-line-glass/10 rounded-lg p-3 bg-surface-workspace/40">
+                  <div key={state} className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4 border border-line-glass/10 rounded-xl p-3 bg-surface-workspace/40">
                     <div className="font-medium min-w-[120px]">{stateLabel}</div>
                     <input
                       type="text"

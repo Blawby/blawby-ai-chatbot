@@ -34,7 +34,7 @@ export const RadioGroupWithDescriptions = ({
             className={cn(
               'relative flex cursor-pointer items-start gap-3 px-4 py-3 text-left transition-colors',
               !isFirst && 'border-t border-line-glass/20',
-              'focus-within:outline-none focus-within:ring-2 focus-within:ring-accent-500/50 focus-within:ring-inset',
+              'focus-within:outline-none focus-within:ring-2 ring-inset focus-within:ring-accent-500/50 focus-within:ring-inset',
               isSelected
                 ? 'bg-surface-panel/40 ring-1 ring-inset ring-accent-500/45 text-input-text'
                 : 'text-input-text hover:bg-surface-panel/10'

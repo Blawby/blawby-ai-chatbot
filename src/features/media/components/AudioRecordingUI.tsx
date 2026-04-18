@@ -333,7 +333,7 @@ const AudioRecordingUI: FunctionComponent<AudioRecordingUIProps> = ({
                 <Icon icon={XMarkIcon} className="w-5 h-5" aria-hidden="true"  />
             </Button>
             <div className="flex-1 flex items-center gap-4 h-8 animate-zoom-in bg-transparent" aria-live="polite">
-                <canvas ref={canvasRef} width="300" height="40" aria-hidden="true" className="flex-1 h-8 rounded-lg block image-rendering-crisp-edges image-rendering-webkit-optimize-contrast bg-surface-utility/5" />
+                <canvas ref={canvasRef} width="300" height="40" aria-hidden="true" className="flex-1 h-8 rounded-xl block image-rendering-crisp-edges image-rendering-webkit-optimize-contrast bg-surface-utility/5" />
                 <div className="text-sm text-accent-500 font-tabular-nums min-w-10 text-right" role="timer" aria-label={`Recording time: ${formatTime(recordingTime)}`}>
                     {formatTime(recordingTime)}
                 </div>

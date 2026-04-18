@@ -98,7 +98,7 @@ const ActivityTimeline: FunctionComponent<ActivityTimelineProps> = ({
             <div className="flex flex-col gap-3 pt-2">
               {/* Error state */}
               {error && (
-                <div className="flex items-center justify-between p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
+                <div className="flex items-center justify-between p-3 bg-red-50 dark:bg-red-900/20 rounded-xl">
                   <div className="flex items-center">
                     <div className="text-red-600 dark:text-red-400 text-sm">{error}</div>
                   </div>
