@@ -81,7 +81,7 @@ export const markdownComponents: Components = {
 
   table({ children, ...props }) {
     return (
-      <div className="overflow-x-auto my-4 rounded-lg" style={{ boxShadow: 'var(--glass-rim-subtle)' }}>
+      <div className="overflow-x-auto my-4 rounded-xl" style={{ boxShadow: 'var(--glass-rim-subtle)' }}>
         <table className="min-w-full text-sm border-collapse" {...props}>
           {children}
         </table>
@@ -146,7 +146,7 @@ export const markdownComponents: Components = {
       <div className="group relative my-3 max-w-full min-w-0">
         {copyableText ? <CopyButton text={copyableText} /> : null}
         <pre
-          className="max-w-full min-w-0 overflow-x-auto rounded-lg p-4 bg-[rgb(var(--surface-app-frame))]/40 backdrop-blur-sm text-[rgb(var(--input-foreground))] text-sm leading-relaxed"
+          className="max-w-full min-w-0 overflow-x-auto rounded-xl p-4 bg-[rgb(var(--surface-app-frame))]/40 backdrop-blur-sm text-[rgb(var(--input-foreground))] text-sm leading-relaxed"
           style={{ boxShadow: 'var(--glass-rim-subtle)' }}
           {...props}
         >

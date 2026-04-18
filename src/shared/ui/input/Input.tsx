@@ -103,20 +103,16 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({
     lg: iconPosition === 'left' ? 'pl-12' : 'pr-12'
   };
 
-  const variantClasses = {
-    default: 'border-input-border focus:ring-accent-500 focus:border-accent-500',
-    error: 'border-red-500 dark:border-red-400 focus:ring-red-500 dark:focus:ring-red-400 focus:border-red-500 dark:focus:border-red-400',
-    success: 'border-green-500 dark:border-green-400 focus:ring-green-500 dark:focus:ring-green-400 focus:border-green-500 dark:focus:border-green-400'
-  };
 
   const inputClasses = cn(
-    'w-full rounded-lg text-input-text placeholder:text-input-placeholder',
-    'focus:outline-none focus:ring-2 focus:ring-offset-0 transition-colors',
+    'w-full rounded-xl text-input-text placeholder:text-input-placeholder',
+    'focus:outline-none transition-all duration-200',
+    'glass-input border-none',
     sizeClasses[size],
     icon && iconPaddingClasses[size],
-    variantClasses[variant],
+    variant === 'error' && 'ring-2 ring-inset ring-red-500/40 focus:ring-red-500/60',
+    variant === 'success' && 'ring-2 ring-inset ring-green-500/40',
     disabled && 'opacity-50 cursor-not-allowed',
-    variant === 'default' ? 'glass-input border-none' : 'bg-input-bg border',
     className
   );
 

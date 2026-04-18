@@ -104,7 +104,10 @@ export const Fullscreen: FunctionComponent<FullscreenProps> = ({
         aria-modal="true"
         aria-label={ariaLabel}
         tabIndex={-1}
-        className="ui-surface-enter relative z-10 min-h-full w-full flex flex-col border border-line-glass/30 bg-surface-overlay/95 text-input-text shadow-2xl backdrop-blur-xl"
+        className="ui-surface-enter relative z-10 flex min-h-full w-full flex-col text-input-text backdrop-blur-3xl shadow-2xl"
+        style={{
+          background: 'linear-gradient(to bottom right, var(--glass-bg-top), var(--glass-bg-mid), var(--glass-bg-bottom))'
+        }}
       >
         {showCloseButton && (
           <Button

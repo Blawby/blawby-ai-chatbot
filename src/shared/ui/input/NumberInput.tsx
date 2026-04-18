@@ -83,19 +83,19 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(({
   };
 
   const variantClasses = {
-    default: 'border-input-border focus:ring-accent-500 focus:border-accent-500',
-    error: 'border-red-500 dark:border-red-400 focus:ring-red-500 dark:focus:ring-red-400 focus:border-red-500 dark:focus:border-red-400',
-    success: 'border-green-500 dark:border-green-400 focus:ring-green-500 dark:focus:ring-green-400 focus:border-green-500 dark:focus:border-green-400'
+    default: 'focus:ring-2 ring-inset focus:ring-accent-500/30',
+    error: 'ring-2 ring-inset ring-red-500/40 focus:ring-red-500/60',
+    success: 'ring-2 ring-inset ring-green-500/40'
   };
 
   const inputClasses = cn(
-    'w-full border rounded-lg text-input-text placeholder:text-input-placeholder',
-    'focus:outline-none focus:ring-2 focus:ring-offset-0 transition-colors',
+    'w-full rounded-xl text-input-text placeholder:text-input-placeholder',
+    'focus:outline-none transition-all duration-200',
+    'glass-input border-none',
     sizeClasses[size],
     showControls && 'pr-20',
     variantClasses[variant],
     disabled && 'opacity-50 cursor-not-allowed',
-    variant === 'default' ? 'glass-input' : 'bg-input-bg',
     className
   );
 
@@ -185,11 +185,11 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(({
               onClick={handleIncrement}
               disabled={disabled || !canIncrement}
               className={cn(
-                'flex items-center justify-center border-l border-input-border rounded-r-lg',
-                'glass-input hover:bg-surface-utility/40 focus:outline-none focus:ring-2 focus:ring-accent-500',
+                'flex items-center justify-center border-l border-input-border rounded-r-xl',
+                'glass-input hover:bg-surface-utility/40 focus:outline-none focus:ring-2 ring-inset focus:ring-accent-500',
                 'disabled:opacity-50 disabled:cursor-not-allowed',
                 controlSizeClasses[size],
-                'rounded-tr-lg'
+                'rounded-tr-xl'
               )}
             >
               <Icon icon={PlusIcon} className="w-3 h-3"  />
@@ -200,10 +200,10 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(({
               disabled={disabled || !canDecrement}
               className={cn(
                 'flex items-center justify-center border-l border-t border-input-border',
-                'glass-input hover:bg-surface-utility/40 focus:outline-none focus:ring-2 focus:ring-accent-500',
+                'glass-input hover:bg-surface-utility/40 focus:outline-none focus:ring-2 ring-inset focus:ring-accent-500',
                 'disabled:opacity-50 disabled:cursor-not-allowed',
                 controlSizeClasses[size],
-                'rounded-br-lg'
+                'rounded-br-xl'
               )}
             >
               <Icon icon={MinusIcon} className="w-3 h-3"  />

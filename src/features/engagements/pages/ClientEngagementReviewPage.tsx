@@ -165,7 +165,7 @@ const PartiesSection: FunctionComponent<{ proposal: ProposalData; practiceName: 
         </div>
       )}
       {non_clients && non_clients.length > 0 && (
-        <div className="mt-2 p-3 rounded-lg bg-rose-500/5 border border-rose-500/15">
+        <div className="mt-2 p-3 rounded-xl bg-rose-500/5 border border-rose-500/15">
           <div className="flex items-start gap-2">
             <ExclamationTriangleIcon className="w-4 h-4 text-rose-500 flex-shrink-0 mt-0.5" />
             <div className="text-xs text-rose-400 space-y-0.5">
@@ -191,7 +191,7 @@ const AcknowledgmentsSection: FunctionComponent<{ proposal: ProposalData }> = ({
       <div className="space-y-4 text-sm text-input-placeholder leading-relaxed">
         {ack && <p>{ack}</p>}
         {noGuar && (
-          <div className="p-3 rounded-lg border border-line-glass/20 bg-surface-utility/40 dark:bg-surface-utility/10">
+          <div className="p-3 rounded-xl border border-line-glass/20 bg-surface-utility/40 dark:bg-surface-utility/10">
             <p className="text-xs font-medium uppercase tracking-wide text-input-placeholder mb-1">No guarantee of outcome</p>
             <p>{noGuar}</p>
           </div>

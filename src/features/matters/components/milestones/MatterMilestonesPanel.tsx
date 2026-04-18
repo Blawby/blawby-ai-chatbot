@@ -312,7 +312,7 @@ export const MatterMilestonesPanel = ({
                 value={formState.status}
                 options={statusOptions}
                 onChange={(value) => setFormState((prev) => ({ ...prev, status: value as MilestoneStatus }))}
-                className="w-full justify-between px-3 py-2 text-sm rounded-lg border border-input-border bg-input-bg focus:ring-2 focus:ring-accent-500 focus:border-accent-500"
+                className="w-full"
                 searchable={false}
               />
             </div>

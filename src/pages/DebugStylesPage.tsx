@@ -147,6 +147,31 @@ export default function DebugStylesPage() {
       </section>
 
       <section className="space-y-3">
+        <h2 className="text-lg font-medium text-input-text">Status Utilities</h2>
+        <p className="text-sm text-input-placeholder">
+          Semantic status banners for inline feedback. Uses `rounded-xl`.
+        </p>
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="status-info rounded-xl p-3">
+            <p className="text-sm font-semibold">status-info</p>
+            <p className="text-sm opacity-90">Information or neutral feedback.</p>
+          </div>
+          <div className="status-success rounded-xl p-3">
+            <p className="text-sm font-semibold">status-success</p>
+            <p className="text-sm opacity-90">Operation completed successfully.</p>
+          </div>
+          <div className="status-warning rounded-xl p-3">
+            <p className="text-sm font-semibold">status-warning</p>
+            <p className="text-sm opacity-90">Warning or attention required.</p>
+          </div>
+          <div className="status-error rounded-xl p-3">
+            <p className="text-sm font-semibold">status-error</p>
+            <p className="text-sm opacity-90">Critical failure or invalid input.</p>
+          </div>
+        </div>
+      </section>
+
+      <section className="space-y-3">
         <h2 className="text-lg font-medium text-input-text">Dynamic Foreground</h2>
         <p className="text-sm text-input-placeholder">
           Accent-colored surfaces should use `text-[rgb(var(--accent-foreground))]` for contrast-safe text/icons.
@@ -159,6 +184,48 @@ export default function DebugStylesPage() {
           <div className="rounded-xl bg-accent-500 p-4 text-[rgb(var(--accent-foreground))]">
             <p className="font-medium">Avoid: hardcoded `text-white`</p>
             <p className="text-sm opacity-90">Can fail contrast on some accent colors.</p>
+          </div>
+        </div>
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-lg font-medium text-input-text">Input States</h2>
+        <p className="text-sm text-input-placeholder">
+          Status is communicated through colored rings while preserving the glass material.
+        </p>
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="glass-panel rounded-xl p-4 space-y-4">
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-input-placeholder">Default / Focus</label>
+              <input 
+                className="glass-input w-full rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-accent-500/30" 
+                placeholder="Standard state" 
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-input-placeholder">Error (ring-red)</label>
+              <input 
+                className="glass-input w-full rounded-xl px-3 py-2 text-sm ring-2 ring-red-500/40 focus:ring-red-500/60" 
+                placeholder="Invalid value" 
+              />
+            </div>
+          </div>
+          <div className="glass-panel rounded-xl p-4 space-y-4">
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-input-placeholder">Success (ring-green)</label>
+              <input 
+                className="glass-input w-full rounded-xl px-3 py-2 text-sm ring-2 ring-green-500/40" 
+                placeholder="Valid value" 
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-input-placeholder">Disabled</label>
+              <input 
+                disabled
+                className="glass-input w-full rounded-xl px-3 py-2 text-sm opacity-50 cursor-not-allowed" 
+                placeholder="Locked" 
+              />
+            </div>
           </div>
         </div>
       </section>

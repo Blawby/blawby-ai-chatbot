@@ -28,7 +28,7 @@ export default function PracticeProfile({
 					src={profileImage} 
 					name={name} 
 					size="lg" 
-					className="w-12 h-12 rounded-lg"
+					className="w-12 h-12 rounded-xl"
 				/>
 			</div>
 

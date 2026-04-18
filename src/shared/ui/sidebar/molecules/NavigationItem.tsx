@@ -52,7 +52,7 @@ export const NavigationItem = ({
   showUnreadDot = false,
   className = ''
 }: NavigationItemProps) => {
-  const baseClasses = 'flex items-center w-full rounded-lg text-left transition-colors';
+  const baseClasses = 'flex items-center w-full rounded-xl text-left transition-colors';
   const collapsedClasses = isCollapsed ? 'justify-center py-2' : 'gap-2 px-2 py-2';
   const activeClasses = isActive
     ? 'glass-input text-input-text shadow-sm'

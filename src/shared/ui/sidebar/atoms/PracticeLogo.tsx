@@ -28,7 +28,7 @@ export const PracticeLogo = ({
     <img 
       src={src} 
       alt={alt}
-      className={`${sizeClasses[size]} rounded-lg object-cover ${className}`}
+      className={`${sizeClasses[size]} rounded-xl object-cover ${className}`}
     />
   );
 };

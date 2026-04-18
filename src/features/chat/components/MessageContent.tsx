@@ -68,7 +68,7 @@ export const MessageContent: FunctionComponent<MessageContentProps> = ({
 
   if (isAnalysisMessage) {
     return (
-      <div className={`status-info flex items-center gap-2 px-3 py-2 rounded-lg ${className}`}>
+      <div className={`status-info flex items-center gap-2 px-3 py-2 rounded-xl ${className}`}>
         <LoadingSpinner size="md" ariaLabel={analysisAriaLabel} />
         <ChatMarkdown text={displayContent} isStreaming={isStreaming} variant={variant} size={size} />
       </div>

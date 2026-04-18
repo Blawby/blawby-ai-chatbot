@@ -144,8 +144,8 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(({
   };
 
   const textareaClasses = cn(
-    'w-full border rounded-lg text-input-text placeholder:text-input-placeholder',
-    'focus:outline-none focus:ring-2 focus:ring-offset-0 transition-colors',
+    'w-full border rounded-xl text-input-text placeholder:text-input-placeholder',
+    'focus:outline-none focus:ring-2 ring-inset focus:ring-offset-0 transition-colors',
     sizeClasses[size],
     resizeClasses[resize],
     variantClasses[variant],

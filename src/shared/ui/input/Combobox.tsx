@@ -162,10 +162,10 @@ function DropdownOption({
       onMouseDown={(e) => e.preventDefault()}
       onClick={onSelect}
       className={cn(
-        'group relative flex w-full items-center justify-between px-3 py-2 text-left text-sm transition-colors',
+        'group relative flex w-full items-center justify-between px-3 py-2.5 text-left text-sm transition-all',
         isSelected || isFocused
-          ? 'bg-accent-500/15 text-[rgb(var(--accent-foreground))]'
-          : 'text-input-text hover:bg-surface-utility/10'
+          ? 'bg-accent-500/15 text-input-text'
+          : 'text-input-text hover:bg-surface-utility/10 dark:hover:bg-surface-utility/20'
       )}
     >
       <span className="flex min-w-0 items-center gap-2.5">
@@ -563,11 +563,12 @@ export function Combobox({
           onClick={() => (isOpen ? close() : open())}
           onKeyDown={handleKeyDown}
           className={cn(
-            'glass-input relative flex w-full gap-2 rounded-md px-3 py-2.5 transition-all duration-150',
-            'focus:outline-none focus:ring-2 focus:ring-accent-500/50 focus:ring-offset-0',
-            isOpen && 'ring-2 ring-accent-500/50',
+            'glass-input relative flex w-full gap-2 rounded-xl px-3 py-2.5 transition-all duration-200',
+            'focus:outline-none border-none',
+            isOpen && 'isOpen',
             isMultiple ? 'min-h-[3.5rem] items-start' : 'items-center',
-            !disabled && 'cursor-pointer'
+            !disabled && 'cursor-pointer',
+            className
           )}
         >
           {triggerContent}
@@ -585,13 +586,14 @@ export function Combobox({
           tabIndex={-1}
           onMouseDown={(e) => e.preventDefault()}
           className={cn(
-            'z-50 w-full overflow-hidden rounded-xl bg-surface-workspace border border-black/5 dark:border-white/10 shadow-glass absolute',
+            'z-50 w-full overflow-hidden rounded-xl absolute',
+            'bg-surface-overlay shadow-glass border border-line-glass/20',
             hideTrigger ? 'top-0 mt-1' : (direction === 'up' ? 'bottom-full mb-1 top-auto' : 'top-full mt-1')
           )}
         >
           {/* Search input */}
           {searchable && (
-            <div className="border-b border-black/5 dark:border-white/[0.06] px-2 py-2">
+            <div className="border-b border-line-glass/10 px-2 py-2">
               <input
                 ref={inputRef}
                 type="text"
@@ -603,9 +605,9 @@ export function Combobox({
                 }}
                 onKeyDown={handleKeyDown}
                 className={cn(
-                  'w-full rounded-md bg-surface-input dark:bg-surface-input px-3 py-1.5 text-sm text-input-text',
+                  'w-full rounded-xl bg-surface-utility/10 px-3 py-1.5 text-sm text-input-text',
                   'placeholder:text-input-placeholder/60',
-                  'focus:outline-none focus:ring-1 focus:ring-accent-500/50',
+                  'focus:outline-none focus:ring-2 ring-inset focus:ring-accent-500/30'
                 )}
                 aria-autocomplete="list"
                 aria-controls={listboxId}
@@ -630,7 +632,7 @@ export function Combobox({
                 className={cn(
                   'flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm transition-colors',
                   clampedFocus === 0
-                    ? 'bg-accent-500/15 text-[rgb(var(--accent-foreground))]'
+                    ? 'bg-accent-500/15 text-input-text'
                     : 'text-input-text hover:bg-surface-utility/10 focus:bg-surface-utility/20'
                 )}
               >

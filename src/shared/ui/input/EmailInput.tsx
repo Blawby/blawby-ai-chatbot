@@ -79,19 +79,19 @@ export const EmailInput = forwardRef<HTMLInputElement, EmailInputProps>(({
   };
 
   const variantClasses = {
-    default: 'border-input-border focus:ring-accent-500 focus:border-accent-500',
-    error: 'border-red-300 focus:ring-red-500 focus:border-red-500',
-    success: 'border-green-300 focus:ring-green-500 focus:border-green-500'
+    default: 'focus:ring-2 ring-inset focus:ring-accent-500/30',
+    error: 'ring-2 ring-inset ring-red-500/40 focus:ring-red-500/60',
+    success: 'ring-2 ring-inset ring-green-500/40'
   };
 
   const inputClasses = cn(
-    'w-full border rounded-lg text-input-text placeholder:text-input-placeholder',
-    'focus:outline-none focus:ring-2 focus:ring-offset-0 transition-colors',
+    'w-full rounded-xl text-input-text placeholder:text-input-placeholder',
+    'focus:outline-none transition-all duration-200',
+    'glass-input border-none',
     sizeClasses[size],
     iconPaddingClasses[size],
     variantClasses[variant],
     disabled && 'opacity-50 cursor-not-allowed',
-    variant === 'default' ? 'glass-input' : 'bg-input-bg',
     className
   );
 

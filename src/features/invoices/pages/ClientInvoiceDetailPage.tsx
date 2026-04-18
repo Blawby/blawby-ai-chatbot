@@ -226,7 +226,7 @@ export function ClientInvoiceDetailPage({
             ) : (
               <ul className="mt-2 space-y-2 text-sm">
                 {detail.payments.map((payment) => (
-                  <li key={payment.id} className="rounded-lg border border-line-glass/20 px-3 py-2">
+                  <li key={payment.id} className="rounded-xl border border-line-glass/20 px-3 py-2">
                     <p className="font-medium text-input-text">{formatCurrency(payment.amount)} • {payment.status}</p>
                     <p className="text-xs text-input-placeholder">{renderEventDate(payment.paidAt)}</p>
                   </li>
@@ -242,7 +242,7 @@ export function ClientInvoiceDetailPage({
             ) : (
               <ul className="mt-2 space-y-2 text-sm">
                 {detail.refunds.map((refund) => (
-                  <li key={refund.id} className="rounded-lg border border-line-glass/20 px-3 py-2">
+                  <li key={refund.id} className="rounded-xl border border-line-glass/20 px-3 py-2">
                     <p className="font-medium text-input-text">{formatCurrency(refund.amount)} • {refund.status}</p>
                     <p className="text-xs text-input-placeholder">{renderEventDate(refund.createdAt)}</p>
                   </li>
@@ -287,7 +287,7 @@ export function ClientInvoiceDetailPage({
             ) : (
               <ol className="mt-2 space-y-2 text-sm">
                 {detail.refundRequests.map((request) => (
-                  <li key={request.id} className="rounded-lg border border-line-glass/20 px-3 py-2">
+                  <li key={request.id} className="rounded-xl border border-line-glass/20 px-3 py-2">
                     <p className="font-medium text-input-text">{request.status}</p>
                     <p className="text-xs text-input-placeholder">{renderEventDate(request.createdAt)}</p>
                     {request.reason ? <p className="mt-1 text-xs text-input-placeholder">{request.reason}</p> : null}

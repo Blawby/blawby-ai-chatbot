@@ -123,7 +123,7 @@ const WorkspaceConversationView: FunctionComponent<WorkspaceConversationViewProp
               <input
                 type="text"
                 placeholder="Type a message..."
-                className="flex-1 px-4 py-2 bg-background border border-line-glass/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent-500"
+                className="flex-1 px-4 py-2 bg-background border border-line-glass/30 rounded-xl focus:outline-none focus:ring-2 focus:ring-accent-500"
                 onKeyPress={(e) => {
                   if (e.key === 'Enter' && onSendMessage) {
                     const target = e.target as HTMLInputElement;

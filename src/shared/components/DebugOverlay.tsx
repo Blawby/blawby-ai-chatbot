@@ -182,7 +182,7 @@ export const DebugOverlay: FunctionComponent<DebugOverlayProps> = ({ isVisible =
 
   return (
     <div 
-      className="fixed top-4 left-4 bg-surface-app-frame/90 text-[rgb(var(--accent-foreground))] p-4 rounded-lg text-xs font-mono max-w-sm z-50" 
+      className="fixed top-4 left-4 glass-panel p-4 text-xs font-mono max-w-sm text-input-text z-50" 
       data-testid="debug-overlay"
       role="region"
       aria-label="Debug information overlay"
@@ -192,7 +192,7 @@ export const DebugOverlay: FunctionComponent<DebugOverlayProps> = ({ isVisible =
         <strong>Debug Overlay</strong>
         <button
           onClick={() => setIsExpanded(!isExpanded)}
-          className="text-[rgb(var(--accent-foreground))] hover:text-[rgb(var(--accent-foreground))]/80 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-opacity-50 rounded px-1"
+          className="text-input-placeholder hover:text-input-text focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-opacity-50 rounded px-1"
           aria-label={isExpanded ? 'Collapse debug overlay' : 'Expand debug overlay'}
           aria-expanded={isExpanded}
         >

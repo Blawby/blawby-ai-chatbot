@@ -378,7 +378,7 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 			{/* Display generated PDF */}
 			{generatedPDF && (
 				<div className="my-2">
-					<div className="flex items-center gap-2 p-3 rounded-lg glass-panel">
+					<div className="flex items-center gap-2 p-3 rounded-xl glass-panel">
 						<div className="w-8 h-8 rounded bg-surface-utility/60 dark:bg-surface-utility/10 flex items-center justify-center flex-shrink-0">
 							<Icon icon={DocumentIcon} className="w-4 h-4 text-input-text"  />
 						</div>

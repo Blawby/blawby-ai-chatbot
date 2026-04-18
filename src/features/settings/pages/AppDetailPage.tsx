@@ -275,7 +275,7 @@ export const AppDetailPage = ({ app, onBack, onUpdate }: AppDetailPageProps) => 
               </p>
 
               <div className="relative group">
-                <pre className={`bg-elevation-2 rounded-lg p-4 text-sm font-mono text-accent-100 overflow-x-auto border border-line-glass/30 ${!slug ? 'opacity-50 grayscale' : ''}`}>
+                <pre className={`bg-elevation-2 rounded-xl p-4 text-sm font-mono text-accent-100 overflow-x-auto border border-line-glass/30 ${!slug ? 'opacity-50 grayscale' : ''}`}>
                   {slug ? messengerSnippet : t('settings:apps.messenger.placeholder')}
                 </pre>
                 <Button
@@ -289,7 +289,7 @@ export const AppDetailPage = ({ app, onBack, onUpdate }: AppDetailPageProps) => 
                   {copiedScript ? t('settings:apps.copied') : t('settings:apps.copy')}
                 </Button>
                 {!slug && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-elevation-1/40 backdrop-blur-[1px] rounded-lg">
+                  <div className="absolute inset-0 flex items-center justify-center bg-elevation-1/40 backdrop-blur-[1px] rounded-xl">
                     <span className="text-xs font-medium text-secondary bg-elevation-3 px-3 py-1.5 rounded-full border border-line-glass/20 shadow-xl">
                       {t('settings:apps.messenger.missingSlugWarning')}
                     </span>
@@ -305,7 +305,7 @@ export const AppDetailPage = ({ app, onBack, onUpdate }: AppDetailPageProps) => 
               </p>
 
               <div className="relative group">
-                <pre className="bg-elevation-2 rounded-lg p-4 text-sm font-mono text-accent-100 overflow-x-auto border border-line-glass/30">
+                <pre className="bg-elevation-2 rounded-xl p-4 text-sm font-mono text-accent-100 overflow-x-auto border border-line-glass/30">
                   {trackingSnippet}
                 </pre>
                 <Button

@@ -61,7 +61,7 @@ export const Switch = ({
       <button
         type="button"
         className={cn(
-          'relative inline-flex items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-transparent',
+          'relative inline-flex items-center rounded-full transition-colors focus:outline-none focus:ring-2 ring-inset focus:ring-offset-2 focus:ring-offset-transparent',
           sizeClasses[size],
           value 
             ? 'bg-accent-500 focus:ring-accent-500' 

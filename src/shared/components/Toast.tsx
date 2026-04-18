@@ -70,7 +70,7 @@ const ToastComponent: FunctionComponent<ToastProps> = ({ toast, onRemove }) => {
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, y: -50, scale: 0.95 }}
       transition={{ duration: 0.3, ease: 'easeOut' }}
-      className={`max-w-sm w-full ${getStatusClass()} rounded-lg p-4 relative`}
+      className={`max-w-sm w-full ${getStatusClass()} rounded-xl p-4 relative`}
     >
       <div className="flex items-start">
         <div className="flex-shrink-0">

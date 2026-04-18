@@ -60,7 +60,7 @@ export const RecentIntakesGrid = ({
           ))}
         </div>
       ) : error ? (
-        <div className="mt-6 rounded-lg border border-line-glass/40 bg-surface-glass px-3 py-2 text-sm text-input-text">
+        <div className="mt-6 rounded-xl border border-line-glass/40 bg-surface-glass px-3 py-2 text-sm text-input-text">
           {error}
         </div>
       ) : intakes.length === 0 ? (
@@ -79,7 +79,7 @@ export const RecentIntakesGrid = ({
                 <Avatar 
                   name={contactName}
                   size="lg" 
-                  className="h-12 w-12 rounded-lg"
+                  className="h-12 w-12 rounded-xl"
                 />
                 <div className="flex-1">
                   <p className="text-sm font-medium text-input-text">{title}</p>

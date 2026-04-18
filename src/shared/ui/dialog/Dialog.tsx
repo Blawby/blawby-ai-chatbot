@@ -96,10 +96,11 @@ export const Dialog: FunctionComponent<DialogProps> = ({
       className="fixed inset-0 flex items-center justify-center p-4"
       style={{ zIndex: THEME.zIndex.modal }}
     >
+      {/* Backdrop Scrim */}
       <div
         role="presentation"
-        aria-hidden="true"
-        className="ui-overlay-enter absolute inset-0 bg-surface-overlay/80 backdrop-blur-sm"
+        className="ui-overlay-enter fixed inset-0 bg-surface-workspace/60 backdrop-blur-sm dark:bg-black/80"
+        style={{ zIndex: -1 }}
         onClick={disableBackdropClick ? undefined : () => onCloseRef.current()}
       />
 
@@ -111,7 +112,7 @@ export const Dialog: FunctionComponent<DialogProps> = ({
         aria-describedby={description ? descriptionId : ariaDescribedBy}
         tabIndex={-1}
         className={cn(
-          'ui-surface-enter relative flex max-h-[90dvh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-line-glass/30 bg-surface-overlay/95 text-input-text shadow-2xl backdrop-blur-xl',
+          'ui-surface-enter glass-card relative flex max-h-[90dvh] w-full max-w-lg flex-col rounded-2xl text-input-text',
           contentClassName
         )}
       >
