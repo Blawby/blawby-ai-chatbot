@@ -316,10 +316,12 @@ const createAnonymousState = async (options: {
     while (Date.now() < retryDeadline) {
       try {
         await page.evaluate(async () => {
-          try {
-            await fetch('/api/auth/sign-in/anonymous', { method: 'POST', credentials: 'include' });
-          } catch (e) {
-            console.warn('Anonymous sign-in fetch failed', e);
+          const response = await fetch('/api/auth/sign-in/anonymous', { method: 'POST', credentials: 'include' })
+            .catch((e) => { throw new Error(`Anonymous sign-in fetch network error: ${e.message}`); });
+
+          if (!response.ok) {
+            const body = await response.text().catch(() => 'no-body');
+            throw new Error(`Anonymous sign-in failed with status ${response.status}: ${body.slice(0, 500)}`);
           }
         });
 
