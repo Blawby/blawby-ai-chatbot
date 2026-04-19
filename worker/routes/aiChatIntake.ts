@@ -59,6 +59,11 @@ export function buildSaveCaseDetailsTool(fields: IntakeFieldDefinition[]) {
         type: 'string',
         description: `Date in ISO 8601 format (YYYY-MM-DD) for: ${field.label}. Omit if not explicitly stated.`,
       };
+    } else if (field.type === 'number') {
+      properties[field.key] = {
+        type: 'number',
+        description: field.label,
+      };
     } else {
       // 'text' and any other type
       properties[field.key] = {

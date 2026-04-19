@@ -848,8 +848,22 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
         {(() => {
           const customFields = intakeConversationState?.customFields;
           if (!customFields || typeof customFields !== 'object' || Array.isArray(customFields)) return null;
-          const entries = Object.entries(customFields).filter(([, v]) => v !== null && v !== undefined && v !== '');
+          // Normalize: trim string values, filter out empty after trim
+          const entries = Object.entries(customFields)
+            .filter(([, v]) => {
+              if (typeof v === 'string') {
+                return v.trim() !== '';
+              }
+              return v !== null && v !== undefined && v !== '';
+            });
           if (entries.length === 0) return null;
+          // Humanize label: replace _/- with space, split camel, capitalize
+          const humanize = (key: string) => {
+            return key
+              .replace(/[_-]/g, ' ')
+              .replace(/([a-z])([A-Z])/g, '$1 $2')
+              .replace(/^./, (s) => s.toUpperCase());
+          };
           return (
             <section className="glass-card p-6 sm:p-8">
               <h2 className="mb-6 text-xs font-semibold uppercase tracking-widest text-input-placeholder">
@@ -859,7 +873,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
                 {entries.map(([key, value]) => (
                   <StatCell
                     key={key}
-                    label={key.replace(/([A-Z])/g, ' $1').replace(/^./, (s) => s.toUpperCase())}
+                    label={humanize(key)}
                     value={typeof value === 'boolean' ? (value ? 'Yes' : 'No') : String(value)}
                     icon={ClipboardDocumentCheckIcon}
                   />

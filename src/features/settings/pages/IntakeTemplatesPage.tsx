@@ -30,7 +30,7 @@ function slugify(name: string): string {
 }
 
 function getEmbedSnippet(practiceSlug: string, templateSlug: string): string {
-  return `<script src="https://app.blawby.com/widget.js" data-practice="${practiceSlug}" data-template="${templateSlug}" async></script>`;
+  return `<script src="https://app.blawby.com/widget.js?template=${templateSlug}" data-practice="${practiceSlug}" async></script>`;
 }
 
 function parseTemplatesFromSettings(settings: unknown): IntakeTemplate[] {
@@ -222,12 +222,42 @@ export default function IntakeTemplatesPage({ onBack }: IntakeTemplatesPageProps
     const practiceSlug = currentPractice?.slug ?? '';
     if (!practiceSlug) return;
     const snippet = getEmbedSnippet(practiceSlug, templateSlug);
-    navigator.clipboard.writeText(snippet).then(() => {
-      setCopiedSlug(templateSlug);
-      setTimeout(() => setCopiedSlug(null), 2000);
-    }).catch(() => {
-      showError('Copy failed', 'Could not copy to clipboard.');
-    });
+    // Prefer navigator.clipboard if available and secure
+    if (
+      typeof navigator !== 'undefined' &&
+      navigator.clipboard &&
+      typeof navigator.clipboard.writeText === 'function'
+    ) {
+      navigator.clipboard.writeText(snippet)
+        .then(() => {
+          setCopiedSlug(templateSlug);
+          setTimeout(() => setCopiedSlug(null), 2000);
+        })
+        .catch(() => {
+          showError('Copy failed', 'Could not copy to clipboard.');
+        });
+    } else {
+      // Fallback: DOM-based copy
+      try {
+        const textarea = document.createElement('textarea');
+        textarea.value = snippet;
+        textarea.setAttribute('readonly', '');
+        textarea.style.position = 'absolute';
+        textarea.style.left = '-9999px';
+        document.body.appendChild(textarea);
+        textarea.select();
+        const successful = document.execCommand('copy');
+        document.body.removeChild(textarea);
+        if (successful) {
+          setCopiedSlug(templateSlug);
+          setTimeout(() => setCopiedSlug(null), 2000);
+        } else {
+          showError('Copy failed', 'Clipboard not available');
+        }
+      } catch {
+        showError('Copy failed', 'Clipboard not available');
+      }
+    }
   };
 
   if (!currentPractice) {

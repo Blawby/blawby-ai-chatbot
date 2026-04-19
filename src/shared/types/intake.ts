@@ -19,7 +19,7 @@ export type IntakeStep =
 export interface IntakeFieldDefinition {
   key: string;
   label: string;
-  type: 'text' | 'select' | 'date' | 'boolean';
+  type: 'text' | 'select' | 'date' | 'boolean' | 'number';
   required: boolean;
   /** Only for type === 'select' */
   options?: string[];
@@ -66,7 +66,7 @@ export interface IntakeConversationState {
   notYetCount: number;
   enrichmentMode: boolean | null;
   /** Values for non-standard fields defined by custom IntakeTemplates */
-  customFields?: Record<string, string | boolean>;
+  customFields?: Record<string, string | number | boolean>;
 }
 
 export interface ConsultationSubmissionState {

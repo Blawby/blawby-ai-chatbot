@@ -78,7 +78,7 @@ export const STANDARD_FIELD_DEFINITIONS: IntakeFieldDefinition[] = [
   {
     key: 'householdSize',
     label: 'Household size',
-    type: 'text',
+    type: 'number',
     required: false,
     isStandard: true,
   },

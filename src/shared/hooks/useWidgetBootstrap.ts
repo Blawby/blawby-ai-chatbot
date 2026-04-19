@@ -58,7 +58,12 @@ export function useWidgetBootstrap(slug: string, isWidget: boolean) {
 
         const cacheKey = `blawby_widget_bootstrap_${slug}`;
 
-        const res = await fetch(`/api/widget/bootstrap?slug=${encodeURIComponent(slug)}`, {
+        // Forward ?template= param if present
+        const urlParams = new URLSearchParams(window.location.search);
+        const template = urlParams.get('template');
+        const query = [`slug=${encodeURIComponent(slug)}`];
+        if (template) query.push(`template=${encodeURIComponent(template)}`);
+        const res = await fetch(`/api/widget/bootstrap?${query.join('&')}`, {
           headers: withWidgetAuthHeaders(),
           credentials: 'include',
         });

@@ -24,7 +24,7 @@ export const createConversation = async (
     credentials: 'include',
     body: JSON.stringify({
       participantUserIds: options?.userId ? [options.userId] : [],
-      metadata: { source: 'widget', ...(options?.extraMetadata ?? {}) },
+      metadata: { ...(options?.extraMetadata ?? {}), source: 'widget' },
       practiceId,
       forceNew: options?.forceNew,
       status: options?.status
