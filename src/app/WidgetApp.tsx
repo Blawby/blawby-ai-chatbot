@@ -502,7 +502,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
       size="icon-sm"
       onClick={requestWidgetClose}
       aria-label="Close widget"
-      className="text-input-text/60 hover:text-input-text bg-surface-workspace/40 dark:bg-surface-utility/10 hover:bg-surface-workspace/60 dark:hover:bg-surface-utility/20 backdrop-blur-md border border-line-glass/20 shadow-lg"
+      className="text-input-text/60 hover:text-input-text glass-card backdrop-blur-md border border-line-glass/20 shadow-lg"
     >
       <Icon icon={XMarkIcon} className="h-5 w-5" />
     </Button>
@@ -713,21 +713,23 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
               />
 
               {isInspectorOpen && activeConversationId && (
-                <aside className="hidden w-80 shrink-0 overflow-y-auto bg-surface-inspector shadow-2xl lg:block lg:w-96">
-                  <InspectorPanel 
-                    entityType="conversation"
-                    entityId={activeConversationId}
-                    practiceId={practiceId}
-                    isClientView={true}
-                    practiceName={practiceConfig.name ?? undefined}
-                    practiceLogo={practiceConfig.profileImage || undefined}
-                    onClose={() => setIsInspectorOpen(false)}
-                    intakeConversationState={intakeConversationState}
-                    intakeStatus={intakeStatus}
-                    onIntakeFieldsChange={applyIntakeFields}
-                    practiceDetails={cachedPracticeDetails}
-                    intakeSlimContactDraft={slimContactDraft}
-                  />
+                <aside className="hidden w-80 shrink-0 lg:block lg:w-96 glass-panel overflow-visible shadow-glass ring-1 ring-line-glass/20">
+                  <div className="h-full overflow-y-auto">
+                    <InspectorPanel 
+                      entityType="conversation"
+                      entityId={activeConversationId}
+                      practiceId={practiceId}
+                      isClientView={true}
+                      practiceName={practiceConfig.name ?? undefined}
+                      practiceLogo={practiceConfig.profileImage || undefined}
+                      onClose={() => setIsInspectorOpen(false)}
+                      intakeConversationState={intakeConversationState}
+                      intakeStatus={intakeStatus}
+                      onIntakeFieldsChange={applyIntakeFields}
+                      practiceDetails={cachedPracticeDetails}
+                      intakeSlimContactDraft={slimContactDraft}
+                    />
+                  </div>
                 </aside>
               )}
             </div>

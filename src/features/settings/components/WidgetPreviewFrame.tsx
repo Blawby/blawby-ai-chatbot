@@ -56,7 +56,7 @@ export const WidgetPreviewFrame = ({
   return (
     <div className="w-full">
       <h3 className="mb-3 text-sm font-semibold text-input-text">Preview</h3>
-      <div className="mx-auto w-full max-w-[390px] overflow-hidden rounded-xl border border-line-glass/40 bg-surface-card shadow-xl">
+      <div className="mx-auto w-full max-w-[390px] overflow-hidden rounded-xl border border-line-glass/40 bg-surface-card shadow-glass">
         <iframe
           ref={iframeRef}
           title={title}

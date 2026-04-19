@@ -47,9 +47,9 @@
     --shadow-glass: 0 12px 32px rgb(15 23 42 / 8%), 0 0 1px rgb(15 23 42 / 6%);
 
     /* Glass Material Variables — Light Mode (Luminous direction) */
-    --glass-bg-top: rgba(255, 255, 255, 0.88);
-    --glass-bg-mid: rgba(252, 253, 255, 0.84);
-    --glass-bg-bottom: rgba(250, 252, 255, 0.78);
+    --glass-bg-top: rgba(255, 255, 255, 0.70);
+    --glass-bg-mid: rgba(252, 253, 255, 0.60);
+    --glass-bg-bottom: rgba(250, 252, 255, 0.52);
     --glass-inset-rim: inset 0 1px 0 rgba(255, 255, 255, 0.95), inset 0 -1px 0 rgba(0, 0, 0, 0.01);
     --glass-shadow: 0 32px 80px rgba(15, 23, 42, 0.16), 0 2px 4px rgba(15, 23, 42, 0.04);
 
@@ -209,6 +209,12 @@
      a flat border — creates a directional highlight that reads
      as physical glass thickness catching light from top-left.
      Three tiers of visual weight: card > panel > input/subtle
+
+     CRITICAL RULE: Never apply `overflow: hidden` to a parent 
+     of a glass surface. The `::before` dome highlight and rim 
+     lighting require `overflow: visible` on all ancestors. If 
+     clipping is needed for layout reasons, apply it to an 
+     inner wrapper that does not contain the glass surface.
      ============================================================ */
 
   /* Cards — most prominent surface, heaviest rim */
@@ -224,8 +230,8 @@
         var(--glass-bg-mid) 22%,
         var(--glass-bg-bottom) 100%
       );
-    backdrop-filter: blur(24px) saturate(106%);
-    -webkit-backdrop-filter: blur(24px) saturate(106%);
+    backdrop-filter: blur(15px) saturate(130%);
+    -webkit-backdrop-filter: blur(15px) saturate(130%);
     box-shadow: var(--glass-shadow), var(--glass-rim-medium);
   }
 
@@ -379,7 +385,11 @@
 
 
   .workspace-header {
-    @apply relative flex min-h-[56px] items-center gap-3 px-4 py-3 text-input-text bg-surface-base border-b border-line-glass/15;
+    @apply relative flex min-h-[56px] items-center gap-3 px-4 py-3 text-input-text glass-panel rounded-none border-b border-solid border-line-glass/15;
+  }
+
+  .workspace-header::before {
+    @apply opacity-0;
   }
 
   .workspace-header__icon {

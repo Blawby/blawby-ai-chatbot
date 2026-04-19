@@ -78,6 +78,14 @@ export const EmailInput = forwardRef<HTMLInputElement, EmailInputProps>(({
     lg: 'pl-12'
   };
 
+  const isValidEmail = (email: string) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  const isEmailValid = value ? isValidEmail(value) : false;
+  const isInvalid = displayError || (showValidation && value && !isEmailValid);
+
   const variantClasses = {
     default: '',
     error: 'isError',
@@ -96,16 +104,7 @@ export const EmailInput = forwardRef<HTMLInputElement, EmailInputProps>(({
     className
   );
 
-  const isValidEmail = (email: string) => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
-  };
-
-  const isEmailValid = value ? isValidEmail(value) : false;
   const showValidationIcon = showValidation && (value?.length ?? 0) > 0;
-  
-  // Combined invalid state: displayError OR (showValidation && value && !isEmailValid)
-  const isInvalid = displayError || (showValidation && value && !isEmailValid);
 
   // Build aria-describedby attribute
   const describedByIds = [];

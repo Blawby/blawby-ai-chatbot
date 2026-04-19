@@ -82,8 +82,8 @@ export default function DebugStylesPage() {
       </header>
 
 
-      <section className="space-y-3">
-        <h2 className="text-lg font-medium text-input-text">Surfaces</h2>
+      <section className="space-y-4">
+        <h2 className="text-xs font-semibold uppercase tracking-widest text-input-placeholder">Surfaces</h2>
         <div className="grid gap-4 md:grid-cols-3">
           <div className="glass-card p-4">
             <p className="font-medium text-input-text">glass-card</p>
@@ -100,8 +100,8 @@ export default function DebugStylesPage() {
         </div>
       </section>
 
-      <section className="space-y-3">
-        <h2 className="text-lg font-medium text-input-text">Buttons</h2>
+      <section className="space-y-4 pt-4">
+        <h2 className="text-xs font-semibold uppercase tracking-widest text-input-placeholder">Buttons</h2>
         <p className="text-sm text-input-placeholder">
           `menu-item` and `tab` are intentionally subtle and can look similar; use them by behavior/context, not for visual emphasis.
         </p>
@@ -115,8 +115,8 @@ export default function DebugStylesPage() {
         </div>
       </section>
 
-      <section className="space-y-3">
-        <h2 className="text-lg font-medium text-input-text">Button Sizes</h2>
+      <section className="space-y-4 pt-4">
+        <h2 className="text-xs font-semibold uppercase tracking-widest text-input-placeholder">Button Sizes</h2>
         <div className="glass-panel flex flex-wrap items-center gap-3 rounded-xl p-3">
           {buttonSizes.map((size) => (
             <Button key={size} size={size} variant="secondary">
@@ -134,8 +134,8 @@ export default function DebugStylesPage() {
         </div>
       </section>
 
-      <section className="space-y-3">
-        <h2 className="text-lg font-medium text-input-text">Nav State Tokens</h2>
+      <section className="space-y-4 pt-4">
+        <h2 className="text-xs font-semibold uppercase tracking-widest text-input-placeholder">Nav State Tokens</h2>
         <div className="grid gap-3 md:grid-cols-2">
           <button type="button" className="nav-item-active rounded-xl px-3 py-2 text-left">
             Active nav item (`nav-item-active`)
@@ -146,8 +146,8 @@ export default function DebugStylesPage() {
         </div>
       </section>
 
-      <section className="space-y-3">
-        <h2 className="text-lg font-medium text-input-text">Status Utilities</h2>
+      <section className="space-y-4 pt-4">
+        <h2 className="text-xs font-semibold uppercase tracking-widest text-input-placeholder">Status Utilities</h2>
         <p className="text-sm text-input-placeholder">
           Semantic status banners for inline feedback. Uses `rounded-xl`.
         </p>
@@ -171,8 +171,8 @@ export default function DebugStylesPage() {
         </div>
       </section>
 
-      <section className="space-y-3">
-        <h2 className="text-lg font-medium text-input-text">Dynamic Foreground</h2>
+      <section className="space-y-4 pt-4">
+        <h2 className="text-xs font-semibold uppercase tracking-widest text-input-placeholder">Dynamic Foreground</h2>
         <p className="text-sm text-input-placeholder">
           Accent-colored surfaces should use `text-[rgb(var(--accent-foreground))]` for contrast-safe text/icons.
         </p>
@@ -188,8 +188,8 @@ export default function DebugStylesPage() {
         </div>
       </section>
 
-      <section className="space-y-3">
-        <h2 className="text-lg font-medium text-input-text">Input States</h2>
+      <section className="space-y-4 pt-4">
+        <h2 className="text-xs font-semibold uppercase tracking-widest text-input-placeholder">Input States</h2>
         <p className="text-sm text-input-placeholder">
           Status is communicated through colored rings while preserving the glass material.
         </p>
@@ -234,8 +234,8 @@ export default function DebugStylesPage() {
         </div>
       </section>
 
-      <section className="space-y-3">
-        <h2 className="text-lg font-medium text-input-text">Inputs</h2>
+      <section className="space-y-4 pt-4 text-input-text">
+        <h2 className="text-xs font-semibold uppercase tracking-widest text-input-placeholder">Inputs</h2>
         <p className="text-sm text-input-placeholder">
           Height baseline should align with Combobox for `md` controls.
         </p>
@@ -284,8 +284,8 @@ export default function DebugStylesPage() {
         </div>
       </section>
 
-      <section className="space-y-3">
-        <h2 className="text-lg font-medium text-input-text">Combobox Modes</h2>
+      <section className="space-y-4 pt-4">
+        <h2 className="text-xs font-semibold uppercase tracking-widest text-input-placeholder">Combobox Modes</h2>
         <p className="text-sm text-input-placeholder">
           One component, four modes. `multiple` and `allowCustomValues` toggle behavior; this is not a separate component.
         </p>
@@ -340,8 +340,8 @@ export default function DebugStylesPage() {
       {/* Avatar & User Components                                            */}
       {/* ================================================================== */}
 
-      <section className="space-y-3">
-        <h2 className="text-lg font-medium text-input-text">Avatar Sizes &amp; Status</h2>
+      <section className="space-y-4 pt-4">
+        <h2 className="text-xs font-semibold uppercase tracking-widest text-input-placeholder">Avatar Sizes &amp; Status</h2>
         <p className="text-sm text-input-placeholder">
           Five sizes (<code>xs sm md lg xl</code>) with optional <code>status</code> dot (<code>active</code> = emerald, <code>inactive</code> = amber).
           Image falls back to initials extracted from <code>name</code>.
@@ -368,8 +368,8 @@ export default function DebugStylesPage() {
         </div>
       </section>
 
-      <section className="space-y-3">
-        <h2 className="text-lg font-medium text-input-text">StackedAvatars</h2>
+      <section className="space-y-4 pt-4">
+        <h2 className="text-xs font-semibold uppercase tracking-widest text-input-placeholder">StackedAvatars</h2>
         <p className="text-sm text-input-placeholder">
           Pass a <code>users</code> array and a <code>max</code> cap. Overflow renders a <code>+N</code> badge using the <code>glass-input</code> surface.
         </p>
@@ -393,8 +393,8 @@ export default function DebugStylesPage() {
         </div>
       </section>
 
-      <section className="space-y-3">
-        <h2 className="text-lg font-medium text-input-text">UserCard</h2>
+      <section className="space-y-4 pt-4">
+        <h2 className="text-xs font-semibold uppercase tracking-widest text-input-placeholder">UserCard</h2>
         <p className="text-sm text-input-placeholder">
           Combines Avatar + identity lines + optional <code>badge</code> pill + optional <code>trailing</code> action slot.
           Pass <code>onClick</code> to make it a button (adds hover + focus ring).

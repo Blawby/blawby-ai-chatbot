@@ -34,6 +34,7 @@ export interface InfoListDialogProps {
   actionSize?: 'sm' | 'md' | 'lg';
   actionFullWidth?: boolean;
   contentClassName?: string;
+  showDividers?: boolean;
 }
 
 export const InfoListDialog: FunctionComponent<InfoListDialogProps> = ({
@@ -50,6 +51,7 @@ export const InfoListDialog: FunctionComponent<InfoListDialogProps> = ({
   actionSize = 'lg',
   actionFullWidth = true,
   contentClassName = 'max-w-md',
+  showDividers = true,
 }) => {
   const HeaderIcon = headerIcon;
   const titleId = `info-list-dialog-title-${useId()}`;
@@ -92,7 +94,7 @@ export const InfoListDialog: FunctionComponent<InfoListDialogProps> = ({
                 </div>
               </div>
             </div>
-            {index < items.length - 1 ? <SectionDivider /> : null}
+            {showDividers && index < items.length - 1 ? <SectionDivider /> : null}
           </div>
         ))}
       </DialogBody>

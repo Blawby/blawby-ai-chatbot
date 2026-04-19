@@ -65,7 +65,7 @@ const INVOICE_PREVIEW_TABS = [
 ];
 
 const InvoiceEmailPlaceholder = () => (
-  <div className="rounded-xl border border-line-glass/40 bg-surface-card p-5 text-sm shadow-xl">
+  <div className="rounded-xl border border-line-glass/40 bg-surface-card p-5 text-sm shadow-glass">
     <p className="font-semibold text-input-text">Email preview</p>
     <p className="mt-2 text-input-placeholder">
       Coming soon. This will preview the message your client receives with the invoice payment call to action.
