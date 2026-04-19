@@ -99,7 +99,7 @@ export const Dialog: FunctionComponent<DialogProps> = ({
       {/* Backdrop Scrim */}
       <div
         role="presentation"
-        className="ui-overlay-enter fixed inset-0 bg-input-text/10 backdrop-blur-[2px] dark:bg-black/80"
+        className="ui-overlay-enter fixed inset-0 bg-black/60 backdrop-blur-[2px] dark:bg-black/80"
         style={{ zIndex: -1 }}
         onClick={disableBackdropClick ? undefined : () => onCloseRef.current()}
       />

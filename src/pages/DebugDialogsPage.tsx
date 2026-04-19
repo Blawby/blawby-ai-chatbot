@@ -631,14 +631,27 @@ function PreviewSurface({
 
   useEffect(() => {
     const root = document.documentElement;
+    const prevClassList = Array.from(root.classList);
+    const prevBgColor = root.style.backgroundColor;
+
     root.classList.remove('light', 'dark');
     root.classList.add(theme);
+    
     // Force background to transparent to see the parent's widget-shell-gradient
     if (theme === 'light') {
       root.style.backgroundColor = 'transparent';
     } else {
       root.style.backgroundColor = '';
     }
+
+    return () => {
+      // Restore previous state
+      root.classList.remove('light', 'dark');
+      prevClassList.forEach(cls => {
+        if (cls === 'light' || cls === 'dark') root.classList.add(cls);
+      });
+      root.style.backgroundColor = prevBgColor;
+    };
   }, [theme]);
 
   // If we are in "single preview" mode (not in an iframe), we might want the gradient

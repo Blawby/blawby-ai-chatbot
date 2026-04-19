@@ -76,7 +76,7 @@ export const MobileInspectorOverlay: FunctionComponent<MobileInspectorOverlayPro
         aria-modal="true"
         aria-label="Inspector"
         tabIndex={-1}
-        className="ui-surface-enter-right absolute inset-y-0 right-0 flex w-full max-w-[min(42rem,100vw)] flex-col overflow-visible glass-panel shadow-2xl ring-1 ring-line-glass/20"
+        className="ui-surface-enter-right absolute inset-y-0 right-0 flex w-full max-w-[min(42rem,100vw)] flex-col overflow-visible glass-panel rounded-r-none rounded-l-2xl shadow-glass ring-1 ring-line-glass/20"
       >
         {children}
       </aside>

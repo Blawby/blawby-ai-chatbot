@@ -584,7 +584,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
   return (
     <>
       <DragDropOverlay isVisible={isDragging} />
-      <div className={`absolute inset-x-0 inset-y-0 h-[100dvh] w-full overflow-visible flex flex-col supports-[height:100cqh]:h-[100cqh] supports-[height:100svh]:h-[100svh] widget-shell-gradient justify-end`}>
+      <div className={`absolute inset-x-0 inset-y-0 h-[100dvh] w-full overflow-hidden flex flex-col supports-[height:100cqh]:h-[100cqh] supports-[height:100svh]:h-[100svh] widget-shell-gradient justify-end`}>
         {view === 'home' && (
           <div className="flex h-full flex-col overflow-hidden relative">
             <div className="flex-1 overflow-y-auto">
@@ -713,21 +713,23 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
               />
 
               {isInspectorOpen && activeConversationId && (
-                <aside className="hidden w-80 shrink-0 overflow-y-auto glass-panel shadow-2xl lg:block lg:w-96 ring-1 ring-line-glass/20">
-                  <InspectorPanel 
-                    entityType="conversation"
-                    entityId={activeConversationId}
-                    practiceId={practiceId}
-                    isClientView={true}
-                    practiceName={practiceConfig.name ?? undefined}
-                    practiceLogo={practiceConfig.profileImage || undefined}
-                    onClose={() => setIsInspectorOpen(false)}
-                    intakeConversationState={intakeConversationState}
-                    intakeStatus={intakeStatus}
-                    onIntakeFieldsChange={applyIntakeFields}
-                    practiceDetails={cachedPracticeDetails}
-                    intakeSlimContactDraft={slimContactDraft}
-                  />
+                <aside className="hidden w-80 shrink-0 lg:block lg:w-96 glass-panel overflow-visible shadow-glass ring-1 ring-line-glass/20">
+                  <div className="h-full overflow-y-auto">
+                    <InspectorPanel 
+                      entityType="conversation"
+                      entityId={activeConversationId}
+                      practiceId={practiceId}
+                      isClientView={true}
+                      practiceName={practiceConfig.name ?? undefined}
+                      practiceLogo={practiceConfig.profileImage || undefined}
+                      onClose={() => setIsInspectorOpen(false)}
+                      intakeConversationState={intakeConversationState}
+                      intakeStatus={intakeStatus}
+                      onIntakeFieldsChange={applyIntakeFields}
+                      practiceDetails={cachedPracticeDetails}
+                      intakeSlimContactDraft={slimContactDraft}
+                    />
+                  </div>
                 </aside>
               )}
             </div>
