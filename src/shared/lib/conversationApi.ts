@@ -15,7 +15,7 @@ const toMessageReaction = (reaction: MessageReactionSummary): MessageReaction =>
 
 export const createConversation = async (
   practiceId: string,
-  options?: { userId?: string; forceNew?: boolean; status?: string }
+  options?: { userId?: string; forceNew?: boolean; status?: string; extraMetadata?: Record<string, unknown> }
 ): Promise<string> => {
   const params = buildPracticeParams(practiceId);
   const response = await fetch(`${getConversationsEndpoint()}?${params.toString()}`, {
@@ -24,7 +24,7 @@ export const createConversation = async (
     credentials: 'include',
     body: JSON.stringify({
       participantUserIds: options?.userId ? [options.userId] : [],
-      metadata: { source: 'widget' },
+      metadata: { source: 'widget', ...(options?.extraMetadata ?? {}) },
       practiceId,
       forceNew: options?.forceNew,
       status: options?.status

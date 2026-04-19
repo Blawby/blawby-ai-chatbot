@@ -2,6 +2,7 @@ import { useState, useEffect } from 'preact/hooks';
 import { getClient } from '@/shared/lib/authClient';
 import { rememberAnonymousUserId, rememberAnonymousSessionId } from '@/shared/utils/anonymousIdentity';
 import { clearWidgetAuthToken, persistWidgetAuthToken, withWidgetAuthHeaders } from '@/shared/utils/widgetAuth';
+import type { IntakeTemplate } from '@/shared/types/intake';
 
 export interface WidgetBootstrapData {
   practiceDetails: Record<string, unknown> | null;
@@ -20,6 +21,8 @@ export interface WidgetBootstrapData {
   widgetAuthTokenExpiresAt?: string | null;
   widgetQueryAuthToken?: string | null;
   widgetQueryAuthTokenExpiresAt?: string | null;
+  /** Resolved IntakeTemplate for this widget boot (honours ?template= param) */
+  intakeTemplate?: IntakeTemplate | null;
 }
 
 export function useWidgetBootstrap(slug: string, isWidget: boolean) {

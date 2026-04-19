@@ -36,6 +36,7 @@ import type { DebuggableAiError } from './aiChatShared.js';
 
 import {
   INTAKE_TOOLS,
+  buildIntakeTools,
   buildIntakeSystemPrompt,
   deriveCaseSavedAcknowledgment,
   mergeIntakeState,
@@ -54,8 +55,9 @@ import {
   buildOnboardingSystemPrompt,
   buildOnboardingProfileMetadata,
 } from './aiChatOnboarding.js';
-import type { ChatMessageAction } from '../../src/shared/types/conversation';
-import { normalizeChatActions } from '../../src/shared/utils/chatActions';
+import type { ChatMessageAction } from '../../src/shared/types/conversation.js';
+import { normalizeChatActions } from '../../src/shared/utils/chatActions.js';
+import type { IntakeFieldDefinition } from '../../src/shared/types/intake.js';
 
 const normalizeText = (text: string): string =>
   text.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
@@ -603,9 +605,27 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
   let systemPrompt: string;
 
   if (isIntakeMode) {
+    // Resolve template fields from conversation metadata, falling back to the
+    // default template so existing conversations continue working unchanged.
+    let templateFields: IntakeFieldDefinition[] = [];
+    try {
+      const storedTemplate = conversationMetadata?.intakeTemplate;
+      if (
+        storedTemplate &&
+        typeof storedTemplate === 'object' &&
+        !Array.isArray(storedTemplate) &&
+        Array.isArray((storedTemplate as Record<string, unknown>).fields) &&
+        ((storedTemplate as Record<string, unknown>).fields as unknown[]).length > 0
+      ) {
+        templateFields = (storedTemplate as Record<string, unknown>).fields as IntakeFieldDefinition[];
+      }
+    } catch {
+      // Malformed metadata — use default
+    }
+
     // One unified system prompt — no KNOWN SO FAR injection, no dynamic split
     systemPrompt = [
-      buildIntakeSystemPrompt(servicesForPrompt, aiPromptContext, storedIntakeState, userName),
+      buildIntakeSystemPrompt(servicesForPrompt, aiPromptContext, storedIntakeState, userName, templateFields.length > 0 ? templateFields : undefined),
       `PRACTICE_CONTEXT: ${JSON.stringify(aiPromptContext)}`,
       body.additionalContext ? `SEARCH_CONTEXT: ${body.additionalContext}` : null,
     ].filter(Boolean).join('\n\n');
@@ -614,7 +634,9 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       { role: 'system', content: systemPrompt },
       ...body.messages.map((m) => ({ role: m.role, content: m.content })),
     ];
-    requestPayload.tools = INTAKE_TOOLS;
+    requestPayload.tools = templateFields.length > 0
+      ? buildIntakeTools(templateFields)
+      : INTAKE_TOOLS;
     requestPayload.parallel_tool_calls = false;
   } else if (!isIntakeMode) {
     const nonIntakeSystemPrompt = isOnboardingMode

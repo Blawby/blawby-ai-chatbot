@@ -8,6 +8,8 @@ import {
   issueWidgetAuthToken,
   validateWidgetAuthToken
 } from '../utils/widgetAuthToken.js';
+import type { IntakeTemplate } from '../../src/shared/types/intake.js';
+import { DEFAULT_INTAKE_TEMPLATE } from '../../src/shared/constants/intakeTemplates.js';
 
 const normalizeCrossSiteWidgetCookie = (cookie: string, request: Request): string => {
   const protocol = new URL(request.url).protocol;
@@ -42,6 +44,9 @@ export async function handleWidgetBootstrap(request: Request, env: Env): Promise
   if (!slug) {
     throw HttpErrors.badRequest('slug parameter is required');
   }
+
+  // ?template param — resolved after practice details arrive
+  const templateSlugParam = url.searchParams.get('template')?.trim() || null;
 
   // Define headers for upstream calls
   const incomingCookie = request.headers.get('Cookie');
@@ -245,6 +250,44 @@ export async function handleWidgetBootstrap(request: Request, env: Env): Promise
     }
   }
 
+  // 5. Resolve intake template
+  // ------------------------------------------------------------------
+  // Resolution rules (never hard-fail — always fall back to default):
+  //   - no ?template param → default
+  //   - param present → find slug match in settings.intakeTemplates
+  //   - not found / broken config → default
+  // ------------------------------------------------------------------
+  let intakeTemplate: IntakeTemplate = DEFAULT_INTAKE_TEMPLATE;
+  if (templateSlugParam) {
+    try {
+      const settingsRaw = pd.settings ?? pd.practice_settings;
+      let templates: unknown[] = [];
+      if (typeof settingsRaw === 'string') {
+        const parsed = JSON.parse(settingsRaw) as unknown;
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+          const s = parsed as Record<string, unknown>;
+          if (Array.isArray(s.intakeTemplates)) templates = s.intakeTemplates;
+        }
+      } else if (settingsRaw && typeof settingsRaw === 'object' && !Array.isArray(settingsRaw)) {
+        const s = settingsRaw as Record<string, unknown>;
+        if (Array.isArray(s.intakeTemplates)) templates = s.intakeTemplates;
+      }
+
+      const match = templates.find(
+        (t): t is IntakeTemplate =>
+          !!t && typeof t === 'object' && (t as Record<string, unknown>).slug === templateSlugParam
+          && Array.isArray((t as Record<string, unknown>).fields)
+          && ((t as Record<string, unknown>).fields as unknown[]).length > 0,
+      ) ?? null;
+
+      if (match) {
+        intakeTemplate = match;
+      }
+    } catch {
+      // Malformed settings JSON — fall back to default (already set)
+    }
+  }
+
   // Create the response object
   const bootstrapResponse = {
     practiceId,
@@ -255,7 +298,8 @@ export async function handleWidgetBootstrap(request: Request, env: Env): Promise
     widgetAuthToken: widgetAuth?.token ?? null,
     widgetAuthTokenExpiresAt: widgetAuth?.expiresAt ?? null,
     widgetQueryAuthToken: widgetQueryAuth?.token ?? null,
-    widgetQueryAuthTokenExpiresAt: widgetQueryAuth?.expiresAt ?? null
+    widgetQueryAuthTokenExpiresAt: widgetQueryAuth?.expiresAt ?? null,
+    intakeTemplate,
   };
 
   const responseHeaders = new Headers({

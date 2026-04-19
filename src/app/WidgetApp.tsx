@@ -33,6 +33,8 @@ import { initializeAccentColor } from '@/shared/utils/accentColors';
 import { features } from '@/config/features';
 import type { FileAttachment } from '../../worker/types';
 import type { UploadingFile } from '@/shared/types/upload';
+import type { IntakeTemplate } from '@/shared/types/intake';
+import { DEFAULT_INTAKE_TEMPLATE } from '@/shared/constants/intakeTemplates';
 
 const safeGetSessionItem = (key: string): string | null => {
   if (typeof window === 'undefined') return null;
@@ -64,6 +66,8 @@ interface WidgetAppProps {
       is_anonymous?: boolean;
     } | null;
   } | null;
+  /** Resolved intake template from bootstrap. Falls back to DEFAULT_INTAKE_TEMPLATE if absent. */
+  intakeTemplate?: IntakeTemplate | null;
 }
 
 export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
@@ -71,7 +75,8 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
   practiceConfig,
   routeConversationId,
   bootstrapConversationId,
-  bootstrapSession
+  bootstrapSession,
+  intakeTemplate: intakeTemplateProp,
 }) => {
   // Single navigation state (no 'disclaimer' step)
   const [view, setView] = useState<'home' | 'list' | 'chat'>(routeConversationId ? 'chat' : 'home');
@@ -110,6 +115,9 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
 
   const effectiveConversationId = routeConversationId ?? setupConversationId ?? (bootstrapIgnored ? null : bootstrapConversationId) ?? null;
 
+  const activeIntakeTemplateRef = useRef(intakeTemplateProp ?? DEFAULT_INTAKE_TEMPLATE);
+  const activeIntakeTemplate = activeIntakeTemplateRef.current;
+
   const createConversationIfNeeded = useCallback(async () => {
     if (effectiveConversationId) return effectiveConversationId;
     try {
@@ -121,7 +129,12 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
 
       const createPromise = (async () => {
         try {
-          const newId = await createConversation(practiceId, { status: 'draft' });
+          const newId = await createConversation(practiceId, {
+            status: 'draft',
+            // Embed the resolved template so the worker can read it back on
+            // every subsequent AI turn without a separate lookup.
+            extraMetadata: { intakeTemplate: activeIntakeTemplate },
+          });
           locallyCreatedConversationIds.current.add(newId);
           setBootstrapIgnored(true);
           setConversationId(newId);
@@ -140,7 +153,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
       console.error('Failed to create deferred conversation', error);
       throw error;
     }
-  }, [effectiveConversationId, practiceId, setConversationId]);
+  }, [effectiveConversationId, practiceId, setConversationId, activeIntakeTemplate]);
 
   const { details: practiceDetails } = usePracticeDetails(practiceId, practiceConfig.slug);
   
@@ -411,7 +424,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
       // Defensive: if no pendingMode, still go to chat
       setView('chat');
     }
-  }, [practiceId, pendingMode, createConversationIfNeeded]);
+  }, [practiceId, pendingMode, clearMessages]);
 
   const attachmentsDisabledMessage = t('chat.attachments.disabled');
 

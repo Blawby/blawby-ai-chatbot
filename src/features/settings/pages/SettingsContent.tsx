@@ -15,6 +15,7 @@ import { HelpPage } from './HelpPage';
 import { PracticeOverviewPage } from './PracticePage';
 import { MFAEnrollmentPage } from './MFAEnrollmentPage';
 import AppBlawbyMessengerSettingsPage from './AppBlawbyMessengerSettingsPage';
+import IntakeTemplatesPage from './IntakeTemplatesPage';
 import { PracticeCoveragePage } from './PracticeCoveragePage';
 import { PracticeContactPage } from './PracticeContactPage';
 import { PracticeTeamPage } from './PracticeTeamPage';
@@ -37,6 +38,7 @@ export type SettingsView =
   | 'practice-contact'
   | 'practice-team'
   | 'practice-pricing'
+  | 'intake-templates'
   | 'apps'
   | 'app-detail'
   | 'security'
@@ -100,6 +102,8 @@ const SettingsRouter = ({
         return <PracticeTeamPage onBack={() => navigate(toSettingsPath('practice'))} />;
       case 'practice-pricing':
         return <PracticePricingPage onBack={() => navigate(toSettingsPath('practice'))} />;
+      case 'intake-templates':
+        return <IntakeTemplatesPage onBack={() => navigate(toSettingsPath('practice'))} />;
       case 'apps':
         return (
           <AppsPage
@@ -149,6 +153,7 @@ const SettingsRouter = ({
     || view === 'practice-contact'
     || view === 'practice-team'
     || view === 'practice-pricing'
+    || view === 'intake-templates'
     || view === 'mfa-enrollment'
 
   if (isSelfWrappedView) {
@@ -206,6 +211,7 @@ export const SettingsContent = (props: SettingsContentProps) => {
     || view === 'practice-team'
     || view === 'practice-pricing'
     || view === 'practice-contact'
+    || view === 'intake-templates'
     || view === 'apps'
     || view === 'app-detail'
     || view === 'blawby-messenger-settings'

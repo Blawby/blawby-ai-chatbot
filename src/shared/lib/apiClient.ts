@@ -208,6 +208,8 @@ export interface PracticeDetailsUpdate {
   supportedStates?: SupportedStateEntry[] | null;
   businessOnboardingStatus?: 'not_required' | 'pending' | 'completed' | 'skipped';
   businessOnboardingHasDraft?: boolean;
+  /** Raw JSON string stored in the practice settings column. Passed through as-is. */
+  settings?: string | null;
 }
 
 // Fix: Remove conflicting extension, merge manually if needed
@@ -240,6 +242,8 @@ export interface PracticeDetails {
   services?: Array<Record<string, unknown>> | null;
   serviceStates?: string[] | null;
   supportedStates?: SupportedStateEntry[] | null;
+  /** Raw JSON string stored in the practice settings column. */
+  settings?: string | null;
 }
 
 export interface ConnectedAccountRequest {
@@ -1727,6 +1731,11 @@ function normalizePracticeDetailsPayload(payload: PracticeDetailsUpdate): Record
     normalized.business_onboarding_has_draft = payload.businessOnboardingHasDraft;
   }
 
+  // Pass settings through as-is — it is an opaque JSON string owned by the caller.
+  if ('settings' in payload && payload.settings !== undefined) {
+    normalized.settings = payload.settings;
+  }
+
   if ('serviceStates' in payload && payload.serviceStates !== undefined) {
     normalized.service_states = Array.isArray(payload.serviceStates)
       ? payload.serviceStates
@@ -1962,6 +1971,10 @@ export function normalizePracticeDetailsResponse(payload: unknown): PracticeDeta
          .filter((e): e is SupportedStateEntry => e !== null);
        return result;
      })(),
+     // Pass settings through as an opaque string so the UI can read/write it.
+     settings: 'settings' in container
+       ? (typeof container.settings === 'string' ? container.settings : null)
+       : undefined,
    };
  }
 

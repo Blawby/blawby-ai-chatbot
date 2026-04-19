@@ -843,6 +843,31 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
             </div>
           ) : null}
         </section>
+
+        {/* ── Custom template fields ── */}
+        {(() => {
+          const customFields = intakeConversationState?.customFields;
+          if (!customFields || typeof customFields !== 'object' || Array.isArray(customFields)) return null;
+          const entries = Object.entries(customFields).filter(([, v]) => v !== null && v !== undefined && v !== '');
+          if (entries.length === 0) return null;
+          return (
+            <section className="glass-card p-6 sm:p-8">
+              <h2 className="mb-6 text-xs font-semibold uppercase tracking-widest text-input-placeholder">
+                Custom fields
+              </h2>
+              <dl className="grid grid-cols-1 gap-5 md:grid-cols-3">
+                {entries.map(([key, value]) => (
+                  <StatCell
+                    key={key}
+                    label={key.replace(/([A-Z])/g, ' $1').replace(/^./, (s) => s.toUpperCase())}
+                    value={typeof value === 'boolean' ? (value ? 'Yes' : 'No') : String(value)}
+                    icon={ClipboardDocumentCheckIcon}
+                  />
+                ))}
+              </dl>
+            </section>
+          );
+        })()}
       </div>
 
       <Dialog
