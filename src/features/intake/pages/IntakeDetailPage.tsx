@@ -843,6 +843,45 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
             </div>
           ) : null}
         </section>
+
+        {/* ── Custom template fields ── */}
+        {(() => {
+          const customFields = intakeConversationState?.customFields;
+          if (!customFields || typeof customFields !== 'object' || Array.isArray(customFields)) return null;
+          // Normalize: trim string values, filter out empty after trim
+          const entries = Object.entries(customFields)
+            .filter(([, v]) => {
+              if (typeof v === 'string') {
+                return v.trim() !== '';
+              }
+              return v !== null && v !== undefined && v !== '';
+            });
+          if (entries.length === 0) return null;
+          // Humanize label: replace _/- with space, split camel, capitalize
+          const humanize = (key: string) => {
+            return key
+              .replace(/[_-]/g, ' ')
+              .replace(/([a-z])([A-Z])/g, '$1 $2')
+              .replace(/^./, (s) => s.toUpperCase());
+          };
+          return (
+            <section className="glass-card p-6 sm:p-8">
+              <h2 className="mb-6 text-xs font-semibold uppercase tracking-widest text-input-placeholder">
+                Custom fields
+              </h2>
+              <dl className="grid grid-cols-1 gap-5 md:grid-cols-3">
+                {entries.map(([key, value]) => (
+                  <StatCell
+                    key={key}
+                    label={humanize(key)}
+                    value={typeof value === 'boolean' ? (value ? 'Yes' : 'No') : String(value)}
+                    icon={ClipboardDocumentCheckIcon}
+                  />
+                ))}
+              </dl>
+            </section>
+          );
+        })()}
       </div>
 
       <Dialog

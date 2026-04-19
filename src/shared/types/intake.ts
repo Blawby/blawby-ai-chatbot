@@ -12,6 +12,29 @@ export type IntakeStep =
   | 'rejected'
   | 'completed';
 
+// ---------------------------------------------------------------------------
+// Intake Template system
+// ---------------------------------------------------------------------------
+
+export interface IntakeFieldDefinition {
+  key: string;
+  label: string;
+  type: 'text' | 'select' | 'date' | 'boolean' | 'number';
+  required: boolean;
+  /** Only for type === 'select' */
+  options?: string[];
+  /** true = maps to an existing IntakeConversationState key; false = goes into customFields */
+  isStandard: boolean;
+}
+
+export interface IntakeTemplate {
+  slug: string;
+  name: string;
+  isDefault: boolean;
+  consultationFee?: number;
+  fields: IntakeFieldDefinition[];
+}
+
 export interface SlimContactDraft {
   name: string;
   email: string;
@@ -42,6 +65,8 @@ export interface IntakeConversationState {
   ctaResponse: 'ready' | 'not_yet' | null;
   notYetCount: number;
   enrichmentMode: boolean | null;
+  /** Values for non-standard fields defined by custom IntakeTemplates */
+  customFields?: Record<string, string | number | boolean>;
 }
 
 export interface ConsultationSubmissionState {
@@ -50,6 +75,8 @@ export interface ConsultationSubmissionState {
   paymentRequired: boolean | null;
   paymentReceived: boolean | null;
   checkoutSessionId: string | null;
+  /** Slug of the IntakeTemplate used when this intake was collected */
+  templateSlug?: string | null;
 }
 
 export interface ConsultationState {
@@ -116,4 +143,5 @@ export interface DerivedIntakeStatus {
   submittedAt?: string | null;
   paymentRequired?: boolean;
   paymentReceived?: boolean;
+  templateSlug?: string | null;
 }

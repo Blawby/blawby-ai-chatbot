@@ -283,6 +283,7 @@ function AppShell() {
           <Route path="/client/:practiceSlug/settings/practice/coverage" component={ClientPracticeRoute} workspaceView="settings" settingsView="practice-coverage" />
           <Route path="/client/:practiceSlug/settings/practice/team" component={ClientPracticeRoute} workspaceView="settings" settingsView="practice-team" />
           <Route path="/client/:practiceSlug/settings/practice/pricing" component={ClientPracticeRoute} workspaceView="settings" settingsView="practice-pricing" />
+          <Route path="/client/:practiceSlug/settings/practice/intake-templates" component={ClientPracticeRoute} workspaceView="settings" settingsView="intake-templates" />
           <Route path="/client/:practiceSlug/settings/apps" component={ClientPracticeRoute} workspaceView="settings" settingsView="apps" />
           <Route path="/client/:practiceSlug/settings/apps/:appId" component={ClientPracticeRoute} workspaceView="settings" settingsView="app-detail" />
           <Route path="/client/:practiceSlug/settings/security" component={ClientPracticeRoute} workspaceView="settings" settingsView="security" />
@@ -320,6 +321,7 @@ function AppShell() {
           <Route path="/practice/:practiceSlug/settings/practice/coverage" component={PracticeAppRoute} workspaceView="settings" settingsView="practice-coverage" />
           <Route path="/practice/:practiceSlug/settings/practice/team" component={PracticeAppRoute} workspaceView="settings" settingsView="practice-team" />
           <Route path="/practice/:practiceSlug/settings/practice/pricing" component={PracticeAppRoute} workspaceView="settings" settingsView="practice-pricing" />
+          <Route path="/practice/:practiceSlug/settings/practice/intake-templates" component={PracticeAppRoute} workspaceView="settings" settingsView="intake-templates" />
           <Route path="/practice/:practiceSlug/settings/apps" component={PracticeAppRoute} workspaceView="settings" settingsView="apps" />
           <Route path="/practice/:practiceSlug/settings/apps/:appId" component={PracticeAppRoute} workspaceView="settings" settingsView="app-detail" />
           <Route path="/practice/:practiceSlug/settings/security" component={PracticeAppRoute} workspaceView="settings" settingsView="security" />
@@ -457,7 +459,7 @@ function PracticeAppRoute({
   invoiceId?: string;
   appId?: string;
   workspaceView?: 'home' | 'setup' | 'list' | 'conversation' | 'intakes' | 'intakeDetail' | 'engagements' | 'matters' | 'clients' | 'invoices' | 'invoiceCreate' | 'invoiceEdit' | 'invoiceDetail' | 'reports' | 'settings';
-  settingsView?: 'general' | 'notifications' | 'account' | 'practice' | 'blawby-messenger-settings' | 'practice-contact' | 'practice-payouts' | 'practice-coverage' | 'practice-team' | 'practice-pricing' | 'apps' | 'app-detail' | 'security' | 'help';
+  settingsView?: 'general' | 'notifications' | 'account' | 'practice' | 'blawby-messenger-settings' | 'practice-contact' | 'practice-payouts' | 'practice-coverage' | 'practice-team' | 'practice-pricing' | 'intake-templates' | 'apps' | 'app-detail' | 'security' | 'help';
   practiceSlug?: string;
 }) {
   const { session, isPending, activeMemberRole } = useSessionContext();
@@ -713,7 +715,7 @@ function ClientPracticeRoute({
   invoiceId?: string;
   appId?: string;
   workspaceView?: 'home' | 'list' | 'conversation' | 'matters' | 'invoices' | 'invoiceDetail' | 'settings';
-  settingsView?: 'general' | 'notifications' | 'account' | 'practice' | 'blawby-messenger-settings' | 'practice-contact' | 'practice-payouts' | 'practice-coverage' | 'practice-team' | 'practice-pricing' | 'apps' | 'app-detail' | 'security' | 'help';
+  settingsView?: 'general' | 'notifications' | 'account' | 'practice' | 'blawby-messenger-settings' | 'practice-contact' | 'practice-payouts' | 'practice-coverage' | 'practice-team' | 'practice-pricing' | 'intake-templates' | 'apps' | 'app-detail' | 'security' | 'help';
 }) {
   const location = useLocation();
   const { session, isPending: sessionIsPending, activeMemberRole } = useSessionContext();
@@ -1015,6 +1017,7 @@ function PublicPracticeRoute({
           routeConversationId={conversationId}
           bootstrapConversationId={data.conversationId}
           bootstrapSession={data.session}
+          intakeTemplate={data.intakeTemplate ?? null}
         />
       )}
     </>

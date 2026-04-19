@@ -8,6 +8,8 @@ import {
 } from '../../src/shared/utils/consultationState';
 import type { ChatMessageAction } from '../../src/shared/types/conversation';
 import { createSubmitAction } from '../../src/shared/utils/chatActions';
+import type { IntakeFieldDefinition } from '../../src/shared/types/intake.js';
+import { STANDARD_FIELD_KEYS, DEFAULT_INTAKE_TEMPLATE } from '../../src/shared/constants/intakeTemplates.js';
 
 const MAX_SERVICES_IN_PROMPT = 20;
 const MAX_SERVICES_IN_CONVERSATION_PROMPT = 8;
@@ -31,55 +33,92 @@ const US_STATE_NAME_TO_CODE: Record<string, string> = {
 // Tool definitions — three discrete tools the model calls naturally
 // ---------------------------------------------------------------------------
 
+/**
+ * Builds the save_case_details tool schema dynamically from the resolved
+ * IntakeTemplate fields. Falls back to the default template if fields are empty.
+ */
+export function buildSaveCaseDetailsTool(fields: IntakeFieldDefinition[]) {
+  const activeFields = fields.length > 0 ? fields : DEFAULT_INTAKE_TEMPLATE.fields;
+  const properties: Record<string, object> = {};
+  const required: string[] = [];
 
-export const SAVE_CASE_DETAILS_TOOL = {
-  type: 'function',
-  function: {
-    name: 'save_case_details',
-    description: 'Save case information collected in the conversation. Call when you have description, city, and state at minimum. Can be called incrementally as more information is gathered.',
-    parameters: {
-      type: 'object',
-      properties: {
-        description: {
-          type: 'string',
-          description: 'Plain-English summary of the case situation, max 300 chars',
-        },
-        city: { type: 'string', description: 'City where the legal matter is located' },
-        state: { type: 'string', description: '2-letter US state code, e.g. CA, TX' },
-        opposingParty: {
-          type: 'string',
-          description: 'Name of opposing person, company, or organization explicitly mentioned. Never extract descriptions or circumstances.',
-        },
-        practiceServiceUuid: {
-          type: 'string',
-          description: 'Service UUID from the firm services list provided in context',
-        },
-        urgency: {
-          type: 'string',
-          enum: ['routine', 'time_sensitive', 'emergency'],
-          description: 'How urgent the matter is',
-        },
-        desiredOutcome: {
-          type: 'string',
-          description: 'What the user wants to achieve, max 150 chars',
-        },
-        courtDate: {
-          type: 'string',
-          description: 'Court date or hard deadline in ISO 8601 format (YYYY-MM-DD). Omit if not explicitly stated.',
-        },
-        hasDocuments: {
-          type: 'boolean',
-          description: 'Whether the user has mentioned having relevant documents',
-        },
-        householdSize: {
-          type: 'integer',
-          description: 'Total number of residents in the household',
-        },
+  for (const field of activeFields) {
+    if (field.type === 'select' && Array.isArray(field.options) && field.options.length > 0) {
+      properties[field.key] = {
+        type: 'string',
+        enum: field.options,
+        description: field.label,
+      };
+    } else if (field.type === 'boolean') {
+      properties[field.key] = {
+        type: 'boolean',
+        description: field.label,
+      };
+    } else if (field.type === 'date') {
+      properties[field.key] = {
+        type: 'string',
+        description: `Date in ISO 8601 format (YYYY-MM-DD) for: ${field.label}. Omit if not explicitly stated.`,
+      };
+    } else if (field.type === 'number') {
+      properties[field.key] = {
+        type: 'number',
+        description: field.label,
+      };
+    } else {
+      // 'text' and any other type
+      properties[field.key] = {
+        type: 'string',
+        description: field.label,
+      };
+    }
+
+    if (field.required) {
+      required.push(field.key);
+    }
+  }
+
+  // Always include practiceServiceUuid even if not in a custom template
+  // so the model can still call save with a service UUID.
+  if (!properties.practiceServiceUuid) {
+    properties.practiceServiceUuid = {
+      type: 'string',
+      description: 'Service UUID from the firm services list provided in context',
+    };
+  }
+
+  return {
+    type: 'function',
+    function: {
+      name: 'save_case_details',
+      description: 'Save case information collected in the conversation. Call when you have the required fields at minimum. Can be called incrementally as more information is gathered.',
+      parameters: {
+        type: 'object',
+        properties,
+        required: required.length > 0 ? required : ['description', 'city', 'state'],
       },
-      required: ['description', 'city', 'state'],
     },
-  },
-} as const;
+  } as const;
+}
+
+/** Convenience constant: the default tool schema using the default template. */
+export const SAVE_CASE_DETAILS_TOOL = buildSaveCaseDetailsTool(DEFAULT_INTAKE_TEMPLATE.fields);
+
+/**
+ * Generates the numbered field instruction block injected into the system prompt.
+ * Replaces the previously hardcoded field list.
+ */
+export function buildFieldInstructions(fields: IntakeFieldDefinition[]): string {
+  const activeFields = fields.length > 0 ? fields : DEFAULT_INTAKE_TEMPLATE.fields;
+  return activeFields.map((f) => {
+    const req = f.required ? '(required)' : '(optional)';
+    const opts =
+      f.type === 'select' && Array.isArray(f.options) && f.options.length > 0
+        ? ` Options: ${f.options.join(', ')}.`
+        : '';
+    return `- ${f.label} ${req}${opts}`;
+  }).join('\n');
+}
+
 
 export const REQUEST_PAYMENT_TOOL = {
   type: 'function',
@@ -148,12 +187,18 @@ export const ASK_USER_QUESTION_TOOL = {
   },
 } as const;
 
-export const INTAKE_TOOLS = [
-  SAVE_CASE_DETAILS_TOOL,
-  REQUEST_PAYMENT_TOOL,
-  SUBMIT_INTAKE_TOOL,
-  ASK_USER_QUESTION_TOOL,
-] as const;
+/** Builds the full intake tools array for a given template's field list. */
+export function buildIntakeTools(fields: IntakeFieldDefinition[]) {
+  return [
+    buildSaveCaseDetailsTool(fields),
+    REQUEST_PAYMENT_TOOL,
+    SUBMIT_INTAKE_TOOL,
+    ASK_USER_QUESTION_TOOL,
+  ] as const;
+}
+
+/** Default tools using the default template. */
+export const INTAKE_TOOLS = buildIntakeTools(DEFAULT_INTAKE_TEMPLATE.fields);
 
 // ---------------------------------------------------------------------------
 // Tool result types
@@ -184,6 +229,7 @@ export const handleSaveCaseDetails = (
   submissionGate: IntakeSubmissionGate,
 ): ToolResult => {
   const patch: Record<string, unknown> = {};
+  const customFieldsPatch: Record<string, string | boolean> = {};
 
   const description = typeof args.description === 'string' ? args.description.trim().slice(0, 300) : (typeof storedIntakeState?.description === 'string' ? (storedIntakeState.description as string) : '');
   const city = typeof args.city === 'string' ? args.city.trim() : (typeof storedIntakeState?.city === 'string' ? (storedIntakeState.city as string) : '');
@@ -202,26 +248,41 @@ export const handleSaveCaseDetails = (
   if (typeof args.city === 'string') patch.city = city;
   if (typeof args.state === 'string' && state) patch.state = state;
 
-  if (typeof args.opposingParty === 'string' && args.opposingParty.trim()) {
-    patch.opposingParty = args.opposingParty.trim();
+  // Route each arg to the correct bucket based on whether it is a standard field
+  for (const [key, value] of Object.entries(args)) {
+    if (key === 'description' || key === 'city' || key === 'state') continue; // already handled above
+
+    if (STANDARD_FIELD_KEYS.has(key)) {
+      // Standard field — goes directly onto the intake state patch
+      if (key === 'opposingParty' && typeof value === 'string' && value.trim()) {
+        patch.opposingParty = value.trim();
+      } else if (key === 'practiceServiceUuid' && typeof value === 'string' && value.trim()) {
+        patch.practiceServiceUuid = value.trim();
+      } else if (key === 'urgency' && (value === 'routine' || value === 'time_sensitive' || value === 'emergency')) {
+        patch.urgency = value;
+      } else if (key === 'desiredOutcome' && typeof value === 'string' && value.trim()) {
+        patch.desiredOutcome = value.trim().slice(0, 150);
+      } else if (key === 'courtDate' && typeof value === 'string' && value.trim()) {
+        patch.courtDate = value.trim();
+      } else if (key === 'hasDocuments' && typeof value === 'boolean') {
+        patch.hasDocuments = value;
+      } else if (key === 'householdSize' && Number.isFinite(value)) {
+        patch.householdSize = Math.max(0, Math.floor(value as number));
+      }
+    } else {
+      // Non-standard field — goes into customFields
+      if (typeof value === 'string' && value.trim()) {
+        customFieldsPatch[key] = value.trim();
+      } else if (typeof value === 'boolean') {
+        customFieldsPatch[key] = value;
+      }
+    }
   }
-  if (typeof args.practiceServiceUuid === 'string' && args.practiceServiceUuid.trim()) {
-    patch.practiceServiceUuid = args.practiceServiceUuid.trim();
-  }
-  if (args.urgency === 'routine' || args.urgency === 'time_sensitive' || args.urgency === 'emergency') {
-    patch.urgency = args.urgency;
-  }
-  if (typeof args.desiredOutcome === 'string' && args.desiredOutcome.trim()) {
-    patch.desiredOutcome = args.desiredOutcome.trim().slice(0, 150);
-  }
-  if (typeof args.courtDate === 'string' && args.courtDate.trim()) {
-    patch.courtDate = args.courtDate.trim();
-  }
-  if (typeof args.hasDocuments === 'boolean') {
-    patch.hasDocuments = args.hasDocuments;
-  }
-  if (Number.isFinite(args.householdSize)) {
-    patch.householdSize = Math.max(0, Math.floor(args.householdSize as number));
+
+  // Merge customFields with any existing ones
+  if (Object.keys(customFieldsPatch).length > 0) {
+    const existingCustom = (storedIntakeState?.customFields as Record<string, string | boolean> | undefined) ?? {};
+    patch.customFields = { ...existingCustom, ...customFieldsPatch };
   }
 
   const merged = mergeIntakeState(storedIntakeState, patch);
@@ -462,6 +523,7 @@ export const buildIntakeSystemPrompt = (
   practiceContext: Record<string, unknown> | null,
   storedIntakeState: Record<string, unknown> | null,
   userName?: string | null,
+  fields?: IntakeFieldDefinition[],
 ): string => {
   const cappedServices = services.slice(0, MAX_SERVICES_IN_CONVERSATION_PROMPT);
   const serviceList = cappedServices.length > 0
@@ -485,13 +547,24 @@ export const buildIntakeSystemPrompt = (
 
   const isEnrichmentMode = storedIntakeState?.enrichmentMode === true;
 
+  // Build the field instruction block from the active template.
+  // Falls back to the default field list if no template-specific fields are supplied.
+  const fieldInstructions = buildFieldInstructions(fields ?? []);
+  const requiredFieldLabels = (fields ?? DEFAULT_INTAKE_TEMPLATE.fields)
+    .filter((f) => f.required)
+    .map((f) => f.label)
+    .join(', ') || 'description, city, and state';
+
   return `${userSalutationSnippet}You are a warm, helpful legal intake assistant for ${practiceName}. Your job is to collect case information conversationally and call tools to save it.${licensedStatesSnippet}
 
 This firm handles the following practice areas:
 ${serviceList}
 
+Fields to collect for this intake type:
+${fieldInstructions}
+
 Tool usage rules:
-- Call save_case_details when you have description, city, and state at minimum. You can call it again as more fields are collected.
+- Call save_case_details when you have ${requiredFieldLabels} at minimum. You can call it again as more fields are collected.
 - Call request_payment when all required case details are gathered AND the practice requires payment.
 - Call submit_intake only when the user explicitly says they are ready to submit.
 - Use ask_user_question for known-answer-shape questions (yes/no, fixed choices, state selection).
@@ -509,8 +582,10 @@ Conversation rules:
 - Documents are optional context. Do not block submission on whether the user has documents.
 - ${isEnrichmentMode
     ? 'The user has chosen to strengthen their case. Focus on collecting enrichment fields before submission.'
-    : 'Once description, city, and state are captured, prioritize getting the person to submit instead of asking optional enrichment questions.'}
-${licensedJurisdictions ? `- Licensed jurisdiction guidance: If the user's matter involves a location outside the firm's licensed states (${licensedJurisdictions}), acknowledge the multi-state context warmly without making definitive eligibility judgments. Ask clarifying follow-ups to understand where the legal issue is rooted. Frame the response as a fit question for the attorney to review, not a hard rejection.` : ''}
+    : 'Once required fields are captured, prioritize getting the person to submit instead of asking optional enrichment questions.'}
+${
+licensedJurisdictions ? `- Licensed jurisdiction guidance: If the user's matter involves a location outside the firm's licensed states (${licensedJurisdictions}), acknowledge the multi-state context warmly without making definitive eligibility judgments. Ask clarifying follow-ups to understand where the legal issue is rooted. Frame the response as a fit question for the attorney to review, not a hard rejection.` : ''
+}
 
 - If a consultation fee is required: Acknowledge that you have their details warmly${userNamingInstruction}. Mention the fee softly as the next step to move forward with a review. Max 2 sentences.
 - If no fee is required: Acknowledge that you have their details warmly${userNamingInstruction} and ask if they are ready to send it over for review.
@@ -554,6 +629,18 @@ function buildIntakeContextSummary(
   if (typeof state.hasDocuments === 'boolean') lines.push(`Has documents: ${state.hasDocuments}`);
   if (typeof state.householdSize === 'number') lines.push(`Household size: ${state.householdSize}`);
   if (typeof state.courtDate === 'string' && state.courtDate.trim()) lines.push(`Court date: ${state.courtDate.trim()}`);
+
+  // Include any custom (non-standard) field values so the model sees them in context.
+  const customFields = state.customFields;
+  if (customFields && typeof customFields === 'object' && !Array.isArray(customFields)) {
+    for (const [key, value] of Object.entries(customFields as Record<string, unknown>)) {
+      if (typeof value === 'string' && value.trim()) {
+        lines.push(`${key}: ${value.trim()}`);
+      } else if (typeof value === 'boolean') {
+        lines.push(`${key}: ${value}`);
+      }
+    }
+  }
 
   return lines.length > 0 ? lines.map((l) => `- ${l}`).join('\n') : '';
 };

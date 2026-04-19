@@ -319,6 +319,7 @@ const buildSettingsSecondary = (basePath: string, canAccessPractice: boolean): N
         { id: 'practice-contact', label: 'Contact & Intake', href: `${basePath}/settings/practice/contact` },
         { id: 'practice-coverage', label: 'Services', href: `${basePath}/settings/practice/coverage` },
         { id: 'practice-pricing', label: 'Pricing & Fees', href: `${basePath}/settings/practice/pricing` },
+        { id: 'intake-templates', label: 'Intake Templates', href: `${basePath}/settings/practice/intake-templates` },
         { id: 'practice-payouts', label: 'Payouts', href: `${basePath}/settings/practice/payouts` },
         { id: 'practice-team', label: 'Team & Access', href: `${basePath}/settings/practice/team` },
         { id: 'apps', label: 'Apps & Integrations', href: `${basePath}/settings/apps` },
