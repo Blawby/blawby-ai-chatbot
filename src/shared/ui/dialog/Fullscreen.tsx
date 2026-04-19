@@ -104,7 +104,7 @@ export const Fullscreen: FunctionComponent<FullscreenProps> = ({
         aria-modal="true"
         aria-label={ariaLabel}
         tabIndex={-1}
-        className="ui-surface-enter relative z-10 flex min-h-full w-full flex-col text-input-text bg-surface-overlay/95 backdrop-blur-3xl shadow-2xl"
+        className="ui-surface-enter relative z-10 flex min-h-full w-full flex-col text-input-text backdrop-blur-3xl shadow-2xl"
         style={{
           background: 'linear-gradient(to bottom right, var(--glass-bg-top), var(--glass-bg-mid), var(--glass-bg-bottom))'
         }}

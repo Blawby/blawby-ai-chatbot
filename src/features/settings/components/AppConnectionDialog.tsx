@@ -72,8 +72,8 @@ export const AppConnectionDialog: FunctionComponent<AppConnectionDialogProps> = 
       onClose={onClose}
       title={t(`${connectModalKey}.title`, { app: app.name })}
       description={t(`${connectModalKey}.description`, { app: app.name })}
-      headerIcon={PuzzlePieceIcon}
       items={items}
+      showDividers={false}
       actionLabel={t(`${connectModalKey}.continue`, { app: app.name })}
       onAction={onConnect}
     />

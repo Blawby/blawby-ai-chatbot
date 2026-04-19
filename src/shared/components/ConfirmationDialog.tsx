@@ -145,7 +145,7 @@ export default function ConfirmationDialog({
                 <div className="space-y-2">
                   <label htmlFor={confirmationInputId} className="block text-sm font-medium text-input-text">
                     {confirmationLabel}
-                    <span className="font-mono text-sm bg-surface-utility/10 border border-line-glass/30 px-2 py-1 rounded ml-2">
+                    <span className="font-mono text-xs font-bold bg-surface-utility/40 border border-line-utility/50 dark:border-white/20 px-2 py-0.5 rounded shadow-sm ml-2 text-input-text inline-flex items-center">
                       {confirmationValue}
                     </span>
                   </label>
@@ -218,7 +218,6 @@ export default function ConfirmationDialog({
                     )}
                   </div>
                 )}
-              </div>
               </div>
             </div>
           </div>

@@ -24,6 +24,8 @@ import { Button } from '@/shared/ui/Button';
 import { useNavigation } from '@/shared/utils/navigation';
 import { Dialog, DialogBody, Fullscreen } from '@/shared/ui/dialog';
 import InspectorPanel from '@/shared/ui/inspector/InspectorPanel';
+import { cn } from '@/shared/utils/cn';
+import { SkeletonLoader } from '@/shared/ui/layout/SkeletonLoader';
 
 type PreviewId =
   | 'shared-modal'
@@ -538,13 +540,13 @@ function InspectorPanelPreview() {
   }
 
   return (
-    <div className="relative min-h-[760px] overflow-hidden rounded-2xl bg-surface-workspace">
-      <div className="absolute inset-0 bg-black/5 dark:bg-black/20 backdrop-blur-sm" />
+    <div className="relative min-h-[760px] overflow-hidden rounded-2xl bg-transparent">
+      <div className="absolute inset-0 bg-black/5 dark:bg-black/10 backdrop-blur-sm" />
       <aside
         role="dialog"
         aria-modal="true"
         aria-label="Inspector preview"
-        className="ui-surface-enter-right absolute inset-y-0 right-0 z-10 flex w-full max-w-[min(42rem,100vw)] flex-col overflow-hidden bg-surface-inspector shadow-2xl"
+        className="ui-surface-enter-right absolute inset-y-0 right-0 z-10 flex w-full max-w-[min(42rem,100vw)] flex-col overflow-hidden bg-surface-inspector shadow-glass"
       >
         <InspectorPanel
           entityType="invoice"
@@ -625,21 +627,51 @@ function PreviewSurface({
   children: ComponentChildren;
   onReplay?: () => void;
 }) {
+  const theme = new URLSearchParams(window.location.search).get('theme') || 'light';
+
+  useEffect(() => {
+    const root = document.documentElement;
+    root.classList.remove('light', 'dark');
+    root.classList.add(theme);
+    // Force background to transparent to see the parent's widget-shell-gradient
+    if (theme === 'light') {
+      root.style.backgroundColor = 'transparent';
+    } else {
+      root.style.backgroundColor = '';
+    }
+  }, [theme]);
+
+  // If we are in "single preview" mode (not in an iframe), we might want the gradient
+  const isIframe = window.self !== window.top;
+  const surfaceClasses = cn(
+    'min-h-screen px-3 py-3',
+    !isIframe && theme === 'light' && 'widget-shell-gradient'
+  );
+
   return (
-    <main className="min-h-screen bg-surface-app-frame px-3 py-3">
-      {onReplay ? (
-        <div className="mb-3 flex justify-end">
+    <main 
+      className={surfaceClasses}
+      style={!isIframe && theme === 'light' ? { backgroundAttachment: 'scroll' } : undefined}
+    >
+      {onReplay && (
+        <div className="mb-4 flex justify-between items-center border-b border-line-glass/10 pb-2">
+          <span className={cn(
+            "rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider",
+            theme === 'light' ? "bg-accent-500/10 text-accent-600" : "bg-accent-400/20 text-accent-300"
+          )}>
+            {theme === 'light' ? 'Light Mode' : 'Dark Mode'}
+          </span>
           <Button
-            variant="secondary"
-            size="sm"
+            variant="ghost"
+            size="xs"
             onClick={onReplay}
             icon={ArrowPathIcon}
-            iconClassName="h-4 w-4"
+            iconClassName="h-3.5 w-3.5"
           >
-            Replay animation
+            Replay
           </Button>
         </div>
-      ) : null}
+      )}
       {children}
     </main>
   );
@@ -779,10 +811,29 @@ function PreviewRenderer({ previewId }: { previewId: PreviewId }) {
 }
 
 function GalleryCard({ item, previewNonce }: { item: DialogInventoryItem; previewNonce: number }) {
+  const [isLoaded, setIsLoaded] = useState(false);
   const frameSrcBase = item.previewId ? `/debug/dialogs/${item.previewId}` : null;
 
+  useEffect(() => {
+    // Basic IntersectionObserver to lazy-load iframes
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          setIsLoaded(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: '200px' }
+    );
+
+    const el = document.getElementById(`gall-card-${item.previewId}`);
+    if (el) observer.observe(el);
+
+    return () => observer.disconnect();
+  }, [item.previewId]);
+
   return (
-    <article className="space-y-4 rounded-3xl glass-panel p-6">
+    <article id={`gall-card-${item.previewId}`} className="space-y-4 rounded-3xl glass-panel p-6">
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-bold text-input-text">{item.name}</h2>
@@ -805,29 +856,49 @@ function GalleryCard({ item, previewNonce }: { item: DialogInventoryItem; previe
       </div>
 
       {frameSrcBase ? (
-        <div className="grid gap-4 pt-2 md:grid-cols-2">
-          <div className="space-y-2">
-            <p className="text-[10px] font-bold uppercase text-input-placeholder">Light Mode</p>
-            <div className="widget-shell-gradient relative overflow-hidden rounded-2xl border border-line-glass/10 p-4">
-              <iframe
-                key={`light-${previewNonce}`}
-                src={`${frameSrcBase}?theme=light`}
-                className="w-full rounded-xl"
-                style={{ height: item.frameHeight ?? 400 }}
-                title={`${item.name} Light Mode Preview`}
-              />
+        <div className="grid gap-4 pt-2 md:grid-cols-2 items-start">
+          <div className="space-y-2 min-h-[320px]">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-input-placeholder">Light Mode</p>
+            <div 
+              className="widget-shell-gradient relative overflow-visible rounded-2xl border border-line-glass/10 p-4 shadow-glass" 
+              style={{ backgroundAttachment: 'scroll', isolation: 'isolate' }}
+            >
+              {isLoaded && frameSrcBase ? (
+                <iframe
+                  key={`light-${previewNonce}`}
+                  src={`${frameSrcBase}?theme=light`}
+                  className="w-full rounded-xl bg-transparent"
+                  style={{ height: item.frameHeight ?? 400 }}
+                  title={`${item.name} Light Mode Preview`}
+                  loading="lazy"
+                />
+              ) : (
+                <div className="flex items-center justify-center p-8" style={{ height: item.frameHeight ?? 400 }}>
+                  <SkeletonLoader variant="rect" height="100%" width="100%" className="rounded-xl opacity-20" />
+                </div>
+              )}
             </div>
           </div>
-          <div className="space-y-2">
-            <p className="text-[10px] font-bold uppercase text-input-placeholder">Dark Mode</p>
-            <div className="relative overflow-hidden rounded-2xl border border-line-glass/30 bg-surface-workspace p-4">
-              <iframe
-                key={`dark-${previewNonce}`}
-                src={`${frameSrcBase}?theme=dark`}
-                className="w-full rounded-xl"
-                style={{ height: item.frameHeight ?? 400 }}
-                title={`${item.name} Dark Mode Preview`}
-              />
+          <div className="space-y-2 min-h-[320px]">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-input-placeholder">Dark Mode</p>
+            <div 
+              className="relative overflow-visible rounded-2xl border border-line-glass/30 bg-surface-workspace p-4 shadow-glass dark"
+              style={{ isolation: 'isolate' }}
+            >
+              {isLoaded && frameSrcBase ? (
+                <iframe
+                  key={`dark-${previewNonce}`}
+                  src={`${frameSrcBase}?theme=dark`}
+                  className="w-full rounded-xl bg-transparent"
+                  style={{ height: item.frameHeight ?? 400 }}
+                  title={`${item.name} Dark Mode Preview`}
+                  loading="lazy"
+                />
+              ) : (
+                <div className="flex items-center justify-center p-8" style={{ height: item.frameHeight ?? 400 }}>
+                  <SkeletonLoader variant="rect" height="100%" width="100%" className="rounded-xl opacity-10" />
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -902,7 +973,7 @@ export default function DebugDialogsPage({ previewId }: DebugDialogsPageProps) {
 
       <section className="space-y-4 mt-12 mb-4">
         <div className="space-y-1">
-          <h2 className="text-xl font-bold text-input-text">Shared Shells</h2>
+          <h2 className="text-xs font-semibold uppercase tracking-widest text-input-placeholder mb-3 mt-10">Shared Shells</h2>
           <p className="text-sm text-input-placeholder">Core container patterns. Review these first if the goal is consolidation.</p>
         </div>
         <div className="space-y-4">
@@ -912,7 +983,7 @@ export default function DebugDialogsPage({ previewId }: DebugDialogsPageProps) {
 
       <section className="space-y-4 mt-12 mb-4">
         <div className="space-y-1">
-          <h2 className="text-xl font-bold text-input-text">Feature Dialogs</h2>
+          <h2 className="text-xs font-semibold uppercase tracking-widest text-input-placeholder mb-3 mt-10">Feature Dialogs</h2>
           <p className="text-sm text-input-placeholder">Real feature implementations layered on top of the shared shell.</p>
         </div>
         <div className="space-y-4">
@@ -922,7 +993,7 @@ export default function DebugDialogsPage({ previewId }: DebugDialogsPageProps) {
 
       <section className="space-y-4 mt-12 mb-4">
         <div className="space-y-1">
-          <h2 className="text-xl font-bold text-input-text">Feature Panels</h2>
+          <h2 className="text-xs font-semibold uppercase tracking-widest text-input-placeholder mb-3 mt-10">Feature Panels</h2>
           <p className="text-sm text-input-placeholder">Right-side panel patterns that are part of the same transient-surface system.</p>
         </div>
         <div className="space-y-4">
@@ -932,7 +1003,7 @@ export default function DebugDialogsPage({ previewId }: DebugDialogsPageProps) {
 
       <section className="space-y-4 mt-12 mb-4">
         <div className="space-y-1">
-          <h2 className="text-xl font-bold text-input-text">Launcher Patterns</h2>
+          <h2 className="text-xs font-semibold uppercase tracking-widest text-input-placeholder mb-3 mt-10">Launcher Patterns</h2>
           <p className="text-sm text-input-placeholder">Inline components that launch dialog experiences rather than being dialog shells themselves.</p>
         </div>
         <div className="space-y-4">
@@ -942,7 +1013,7 @@ export default function DebugDialogsPage({ previewId }: DebugDialogsPageProps) {
 
       <section className="space-y-4 mt-12 mb-4">
         <div className="space-y-1">
-          <h2 className="text-xl font-bold text-input-text">Docked Surfaces</h2>
+          <h2 className="text-xs font-semibold uppercase tracking-widest text-input-placeholder mb-3 mt-10">Docked Surfaces</h2>
           <p className="text-sm text-input-placeholder">Transient UI that is not a portal dialog but should still align with the shared design system.</p>
         </div>
         <div className="space-y-4">

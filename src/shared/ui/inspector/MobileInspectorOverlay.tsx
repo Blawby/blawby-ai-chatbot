@@ -66,7 +66,7 @@ export const MobileInspectorOverlay: FunctionComponent<MobileInspectorOverlayPro
     <div className="fixed inset-0 lg:hidden" style={{ zIndex: THEME.zIndex.modal }}>
       <button
         type="button"
-        className="absolute inset-0 bg-surface-overlay/60 backdrop-blur-sm"
+        className="absolute inset-0 bg-input-text/10 backdrop-blur-[2px]"
         onClick={onClose}
         aria-label="Close inspector"
       />
@@ -76,7 +76,7 @@ export const MobileInspectorOverlay: FunctionComponent<MobileInspectorOverlayPro
         aria-modal="true"
         aria-label="Inspector"
         tabIndex={-1}
-        className="ui-surface-enter-right absolute inset-y-0 right-0 flex w-full max-w-[min(42rem,100vw)] flex-col overflow-hidden bg-surface-inspector shadow-2xl"
+        className="ui-surface-enter-right absolute inset-y-0 right-0 flex w-full max-w-[min(42rem,100vw)] flex-col overflow-visible glass-panel shadow-2xl ring-1 ring-line-glass/20"
       >
         {children}
       </aside>

@@ -31,7 +31,7 @@ export class ErrorBoundary extends Component<Props, State> {
     render() {
         if (this.state.hasError) {
             return this.props.fallback || (
-                <div className="p-6 m-4 glass-panel border-accent-error/20 shadow-xl">
+                <div className="p-6 m-4 glass-panel border-accent-error/20 shadow-glass">
                     <h2 className="text-xl font-bold text-accent-error-light mb-4">Something went wrong</h2>
                     <details className="my-4">
                         <summary className="cursor-pointer text-accent-500 font-medium hover:text-accent-400 transition-colors">Error details</summary>

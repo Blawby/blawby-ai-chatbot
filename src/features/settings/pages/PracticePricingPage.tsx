@@ -40,7 +40,7 @@ const BillingIncrementPreview = ({ increment }: { increment: number }) => {
   return (
     <div className="w-full">
       <h3 className="mb-3 text-sm font-semibold text-input-text">Preview</h3>
-      <div className="rounded-xl border border-line-glass/40 bg-surface-card p-5 shadow-xl">
+      <div className="rounded-xl border border-line-glass/40 bg-surface-card p-5 shadow-glass">
         <div className="flex items-start justify-between gap-4 border-b border-line-glass/30 pb-4">
           <div>
             <p className="text-sm font-semibold text-input-text">Time entry</p>

@@ -502,7 +502,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
       size="icon-sm"
       onClick={requestWidgetClose}
       aria-label="Close widget"
-      className="text-input-text/60 hover:text-input-text bg-surface-workspace/40 dark:bg-surface-utility/10 hover:bg-surface-workspace/60 dark:hover:bg-surface-utility/20 backdrop-blur-md border border-line-glass/20 shadow-lg"
+      className="text-input-text/60 hover:text-input-text glass-card backdrop-blur-md border border-line-glass/20 shadow-lg"
     >
       <Icon icon={XMarkIcon} className="h-5 w-5" />
     </Button>
@@ -584,7 +584,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
   return (
     <>
       <DragDropOverlay isVisible={isDragging} />
-      <div className={`absolute inset-x-0 inset-y-0 h-[100dvh] w-full overflow-hidden flex flex-col supports-[height:100cqh]:h-[100cqh] supports-[height:100svh]:h-[100svh] widget-shell-gradient justify-end`}>
+      <div className={`absolute inset-x-0 inset-y-0 h-[100dvh] w-full overflow-visible flex flex-col supports-[height:100cqh]:h-[100cqh] supports-[height:100svh]:h-[100svh] widget-shell-gradient justify-end`}>
         {view === 'home' && (
           <div className="flex h-full flex-col overflow-hidden relative">
             <div className="flex-1 overflow-y-auto">
@@ -713,7 +713,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
               />
 
               {isInspectorOpen && activeConversationId && (
-                <aside className="hidden w-80 shrink-0 overflow-y-auto bg-surface-inspector shadow-2xl lg:block lg:w-96">
+                <aside className="hidden w-80 shrink-0 overflow-y-auto glass-panel shadow-2xl lg:block lg:w-96 ring-1 ring-line-glass/20">
                   <InspectorPanel 
                     entityType="conversation"
                     entityId={activeConversationId}

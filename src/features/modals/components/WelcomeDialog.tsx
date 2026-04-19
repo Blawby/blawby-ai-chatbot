@@ -125,6 +125,7 @@ const WelcomeDialog = ({ isOpen, onClose, onComplete, workspace }: WelcomeDialog
       title={isClient ? t('welcome.client.title') : t('welcome.lawyer.title')}
       description={isClient ? t('welcome.client.subtitle') : t('welcome.lawyer.subtitle')}
       items={items}
+      showDividers={false}
       actionLabel={isSubmitting ? (
         <span className="inline-flex items-center gap-2">
           <LoadingSpinner size="md" ariaLabel={t('common:app.loading', { ns: 'common' })} />

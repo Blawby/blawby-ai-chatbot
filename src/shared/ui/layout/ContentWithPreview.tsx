@@ -58,7 +58,7 @@ export function ContentWithPreview({
       </div>
       <div
         className={cn(
-          'min-h-0 overflow-y-auto border-t border-line-glass/30 bg-surface-utility/30 px-6 py-6 lg:border-l lg:border-t-0',
+          'min-h-0 overflow-y-auto border-t border-line-glass/30 glass-panel px-6 py-6 lg:border-l lg:border-t-0',
           previewClassName
         )}
       >
