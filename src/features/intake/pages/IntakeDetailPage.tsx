@@ -854,7 +854,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
               if (typeof v === 'string') {
                 return v.trim() !== '';
               }
-              return v !== null && v !== undefined && v !== '';
+              return v !== null && v !== undefined;
             });
           if (entries.length === 0) return null;
           // Humanize label: replace _/- with space, split camel, capitalize

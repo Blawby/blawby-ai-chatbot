@@ -46,6 +46,7 @@ import {
   shouldRequireDisclaimer,
   buildCompactPracticeContextForPrompt,
   executeIntakeTool,
+  resolveNextField,
   type IntakeSubmissionGate,
   type ToolResult,
 } from './aiChatIntake.js';
@@ -58,6 +59,7 @@ import {
 import type { ChatMessageAction } from '../../src/shared/types/conversation.js';
 import { normalizeChatActions } from '../../src/shared/utils/chatActions.js';
 import type { IntakeFieldDefinition } from '../../src/shared/types/intake.js';
+import { DEFAULT_INTAKE_TEMPLATE } from '../../src/shared/constants/intakeTemplates.js';
 
 const normalizeText = (text: string): string =>
   text.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
@@ -587,12 +589,54 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
   const onboardingPromptProfile = isOnboardingMode
     ? buildOnboardingProfileMetadata(details, null)
     : null;
+
+  // ---------------------------------------------------------------------------
+  // Orchestration layer: resolve the active template and determine nextField
+  // ---------------------------------------------------------------------------
+  let templateFields: IntakeFieldDefinition[] = [];
+  try {
+    const storedTemplate = conversationMetadata?.intakeTemplate;
+    if (
+      storedTemplate &&
+      typeof storedTemplate === 'object' &&
+      !Array.isArray(storedTemplate) &&
+      Array.isArray((storedTemplate as Record<string, unknown>).fields) &&
+      ((storedTemplate as Record<string, unknown>).fields as unknown[]).length > 0
+    ) {
+      templateFields = (storedTemplate as Record<string, unknown>).fields as IntakeFieldDefinition[];
+    }
+  } catch {
+    // Malformed metadata — use default
+  }
+  // Fall back to default template when none stored
+  const activeTemplate = templateFields.length > 0
+    ? { fields: templateFields }
+    : DEFAULT_INTAKE_TEMPLATE;
+
+  const flatState = (storedIntakeState ?? {}) as Record<string, unknown>;
+  const isEnrichmentMode = flatState.enrichmentMode === true;
+
+  // Resolve what the AI should ask about this turn (deterministic, no AI involved)
+  const nextField = isEnrichmentMode
+    ? null
+    : resolveNextField(activeTemplate, flatState, 'required');
+  const nextEnrichmentField = isEnrichmentMode
+    ? resolveNextField(activeTemplate, flatState, 'enrichment')
+    : null;
+
+  // Submission gate uses the orchestration layer when a template is active
+  const templateRequiredFields = templateFields.length > 0
+    ? templateFields.filter((f) => f.required || f.phase === 'required')
+    : null;
+
   const intakeSubmissionGate: IntakeSubmissionGate = {
     paymentRequiredBeforeSubmit:
       (consultation?.submission?.paymentRequired === true) ||
       resolvePracticeRequiresPaymentBeforeSubmission(details),
     paymentCompleted: consultation?.submission?.paymentReceived === true,
     details,
+    requiredFields: templateRequiredFields,
+    nextEnrichmentField,
   };
 
   const requestPayload: Record<string, unknown> = {
@@ -605,27 +649,16 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
   let systemPrompt: string;
 
   if (isIntakeMode) {
-    // Resolve template fields from conversation metadata, falling back to the
-    // default template so existing conversations continue working unchanged.
-    let templateFields: IntakeFieldDefinition[] = [];
-    try {
-      const storedTemplate = conversationMetadata?.intakeTemplate;
-      if (
-        storedTemplate &&
-        typeof storedTemplate === 'object' &&
-        !Array.isArray(storedTemplate) &&
-        Array.isArray((storedTemplate as Record<string, unknown>).fields) &&
-        ((storedTemplate as Record<string, unknown>).fields as unknown[]).length > 0
-      ) {
-        templateFields = (storedTemplate as Record<string, unknown>).fields as IntakeFieldDefinition[];
-      }
-    } catch {
-      // Malformed metadata — use default
-    }
-
-    // One unified system prompt — no KNOWN SO FAR injection, no dynamic split
+    // Surgical single-field prompt — the AI is told exactly what to ask this turn
     systemPrompt = [
-      buildIntakeSystemPrompt(servicesForPrompt, aiPromptContext, storedIntakeState, userName, templateFields.length > 0 ? templateFields : undefined),
+      buildIntakeSystemPrompt(
+        servicesForPrompt,
+        aiPromptContext,
+        storedIntakeState,
+        userName,
+        nextField,
+        nextEnrichmentField,
+      ),
       `PRACTICE_CONTEXT: ${JSON.stringify(aiPromptContext)}`,
       body.additionalContext ? `SEARCH_CONTEXT: ${body.additionalContext}` : null,
     ].filter(Boolean).join('\n\n');
@@ -638,6 +671,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       ? buildIntakeTools(templateFields)
       : INTAKE_TOOLS;
     requestPayload.parallel_tool_calls = false;
+    requestPayload.temperature = 0.5;
   } else if (!isIntakeMode) {
     const nonIntakeSystemPrompt = isOnboardingMode
       ? buildOnboardingSystemPrompt(onboardingPromptProfile)
@@ -941,6 +975,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
             servicesForPrompt,
             consultationFee,
             userName,
+            intakeSubmissionGate.nextEnrichmentField ?? null,
           );
         } else if (isIntakeMode && finalToolResult?.success && typeof finalToolResult.message === 'string' && finalToolResult.message.trim()) {
           syntheticReply = finalToolResult.message.trim();

@@ -16,6 +16,27 @@ export type IntakeStep =
 // Intake Template system
 // ---------------------------------------------------------------------------
 
+/**
+ * Determines when a field is collected.
+ * - 'required' — collected before submit is available (gates isIntakeReadyForSubmission)
+ * - 'enrichment' — collected after the user opts in to "strengthen my case"
+ * Replaces the boolean `required` flag for new templates; `required: true` maps to 'required'.
+ */
+export type FieldPhase = 'required' | 'enrichment';
+
+/**
+ * Phase 3 — simple dependency expression.
+ * This field is only collected when dependsOn field equals value.
+ * Both the AI prompt and the submission gate skip this field when unmet.
+ * Example: { dependsOn: 'caseType', value: 'personal_injury' }
+ */
+export interface FieldCondition {
+  /** Key of the field this field depends on */
+  dependsOn: string;
+  /** The value that field must equal for this field to be active */
+  value: string | boolean | number;
+}
+
 export interface IntakeFieldDefinition {
   key: string;
   label: string;
@@ -25,6 +46,40 @@ export interface IntakeFieldDefinition {
   options?: string[];
   /** true = maps to an existing IntakeConversationState key; false = goes into customFields */
   isStandard: boolean;
+  /**
+   * Phase 2 — optional AI instruction injected into the system prompt for this
+   * specific field. Gives the model richer guidance than the label alone.
+   * Example: "Ask what type of vehicle was involved. Accept make/model/year."
+   */
+  promptHint?: string;
+  /**
+   * Phase 3 — what counts as a valid answer for this field.
+   * The AI uses this to know when to accept a response and call save_case_details
+   * versus ask a clarifying follow-up.
+   * Example: "Expect a dollar amount." / "Expect a date in any common format."
+   */
+  validationHint?: string;
+  /**
+   * Phase 3 — simple dependency expression.
+   * This field is only collected when the referenced field matches value.
+   * Both the AI prompt and the submission gate skip this field when unmet.
+   */
+  condition?: FieldCondition | null;
+  /**
+   * Canonical phase for this field.
+   * When present, takes precedence over `required: boolean`.
+   * New templates should set this; legacy templates without it fall back to:
+   *   required === true  →  'required'
+   *   required === false →  'enrichment'
+   */
+  phase?: FieldPhase;
+  /**
+   * Optional backend payload destination for this field.
+   * Known values map collected answers to first-class backend intake fields
+   * during submit. Unmapped custom fields stay in conversation metadata until
+   * the backend supports a custom_fields bucket.
+   */
+  mapsTo?: string;
 }
 
 export interface IntakeTemplate {

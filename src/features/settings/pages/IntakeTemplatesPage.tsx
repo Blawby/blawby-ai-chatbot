@@ -56,6 +56,8 @@ type NewTemplateDraft = {
   slug: string;
   slugManuallyEdited: boolean;
   selectedKeys: Set<string>;
+  /** Per-field promptHint overrides keyed by field.key */
+  fieldHints: Record<string, string>;
 };
 
 const emptyDraft = (): NewTemplateDraft => ({
@@ -65,6 +67,7 @@ const emptyDraft = (): NewTemplateDraft => ({
   selectedKeys: new Set(
     STANDARD_FIELD_DEFINITIONS.filter((f) => f.required).map((f) => f.key),
   ),
+  fieldHints: {},
 });
 
 // ---------------------------------------------------------------------------
@@ -182,9 +185,19 @@ export default function IntakeTemplatesPage({ onBack }: IntakeTemplatesPageProps
       return;
     }
 
-    const selectedFields = STANDARD_FIELD_DEFINITIONS.filter((f) =>
-      draft.selectedKeys.has(f.key),
+
+    // Always enforce required fields in saved template
+    const requiredKeys = new Set(
+      STANDARD_FIELD_DEFINITIONS.filter((f) => f.required).map((f) => f.key)
     );
+    const selectedKeys = new Set(draft.selectedKeys);
+    for (const key of requiredKeys) selectedKeys.add(key);
+    const selectedFields = STANDARD_FIELD_DEFINITIONS
+      .filter((f) => selectedKeys.has(f.key))
+      .map((f) => {
+        const hint = draft.fieldHints[f.key]?.trim();
+        return hint ? { ...f, promptHint: hint } : f;
+      });
 
     const newTemplate: IntakeTemplate = {
       slug: draft.slug.trim(),
@@ -394,19 +407,19 @@ export default function IntakeTemplatesPage({ onBack }: IntakeTemplatesPageProps
 
           <div>
             <p className="mb-2 text-sm font-medium text-input-text">Fields to collect</p>
-            <SettingsHelperText className="mb-3">Required fields are always included and cannot be removed.</SettingsHelperText>
+            <SettingsHelperText className="mb-3">Required fields are always included. Add a guidance note to give the AI richer instruction for any field.</SettingsHelperText>
             <ul className="space-y-2">
               {STANDARD_FIELD_DEFINITIONS.map((field) => {
                 const checked = draft.selectedKeys.has(field.key);
                 const locked = field.required;
                 return (
-                  <li key={field.key}>
+                  <li key={field.key} className="rounded-xl border transition-colors overflow-hidden"
+                    style={{ borderColor: checked ? 'rgba(var(--accent), 0.4)' : 'rgba(var(--line-glass), 0.3)' }}
+                  >
                     <label
-                      className={`flex cursor-pointer items-center gap-3 rounded-xl border px-4 py-3 transition-colors ${
-                        checked
-                          ? 'border-accent/40 bg-accent/5'
-                          : 'border-line-glass/30 bg-surface-card'
-                      } ${locked ? 'cursor-not-allowed opacity-60' : ''}`}
+                      className={`flex cursor-pointer items-center gap-3 px-4 py-3 transition-colors ${
+                        checked ? 'bg-accent/5' : 'bg-surface-card'
+                      } ${locked ? 'cursor-not-allowed' : ''}`}
                     >
                       <input
                         type="checkbox"
@@ -415,11 +428,25 @@ export default function IntakeTemplatesPage({ onBack }: IntakeTemplatesPageProps
                         onChange={() => toggleField(field.key)}
                         className="h-4 w-4 rounded border-line-glass accent-[rgb(var(--accent))]"
                       />
-                      <span className="flex-1 text-sm text-input-text">{field.label}</span>
+                      <span className={`flex-1 text-sm text-input-text ${locked ? 'opacity-60' : ''}`}>{field.label}</span>
                       {locked && (
                         <span className="text-xs text-input-placeholder">required</span>
                       )}
+                      {!locked && field.type === 'select' && field.options && (
+                        <span className="text-xs text-input-placeholder">{field.options.join(' / ')}</span>
+                      )}
                     </label>
+                    {checked && (
+                      <div className="border-t border-line-glass/20 bg-surface-card/50 px-4 pb-3 pt-2">
+                        <Input
+                          label="Guidance note (optional)"
+                          placeholder={`e.g. ${field.type === 'boolean' ? 'Ask yes/no. If unsure, treat as null.' : field.type === 'select' ? `Accept ${(field.options ?? []).slice(0, 2).join(' or ')}.` : 'Any additional context for the AI.'}`}
+                          value={draft.fieldHints[field.key] ?? ''}
+                          onChange={(v: string) => setDraft((prev) => ({ ...prev, fieldHints: { ...prev.fieldHints, [field.key]: v } }))}
+                          disabled={isSaving}
+                        />
+                      </div>
+                    )}
                   </li>
                 );
               })}

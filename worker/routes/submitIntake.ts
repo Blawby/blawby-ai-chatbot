@@ -20,6 +20,7 @@ import type { Env } from '../types.js';
 import { isIntakeReadyForSubmission, resolveConsultationState } from '../../src/shared/utils/consultationState';
 import { fetchPracticeDetailsWithCache } from '../utils/practiceDetailsCache.js';
 import { createAiClient } from '../utils/aiClient.js';
+import type { IntakeFieldDefinition, IntakeTemplate } from '../../src/shared/types/intake.js';
 
 // ------------------------------------------------------------------
 // Types
@@ -47,12 +48,14 @@ interface IntakeConversationState {
   income?: string | null;
   householdSize?: number | null;
   practiceServiceUuid?: string | null;
+  customFields?: Record<string, string | number | boolean>;
 }
 
 interface ConversationUserInfo {
   practiceSlug?: string;
   intakeSlimContactDraft?: SlimContactDraft | null;
   intakeConversationState?: IntakeConversationState | null;
+  intakeTemplate?: IntakeTemplate | null;
   intakeUuid?: string | null;
   title?: string | null;
   intake_title?: string | null;
@@ -76,7 +79,7 @@ interface BackendIntakeCreatePayload {
   court_date?: string;
   case_strength?: number;
   has_documents?: boolean;
-  // income is intentionally omitted — free-text string incompatible with backend number type
+  income?: number;
   household_size?: number;
   practice_service_uuid?: string;
   address?: {
@@ -151,6 +154,19 @@ const sanitizeMergedIntakeState = (value: unknown): IntakeConversationState | nu
     householdSize: typeof raw.householdSize === 'number' ? raw.householdSize : null,
     practiceServiceUuid: parseStr(raw.practiceServiceUuid),
   };
+
+  if (raw.customFields && typeof raw.customFields === 'object' && !Array.isArray(raw.customFields)) {
+    const customFields: Record<string, string | number | boolean> = {};
+    for (const [key, val] of Object.entries(raw.customFields as Record<string, unknown>)) {
+      if (!key.trim()) continue;
+      if (typeof val === 'string' && val.trim()) customFields[key] = val.trim();
+      if (typeof val === 'number' && Number.isFinite(val)) customFields[key] = val;
+      if (typeof val === 'boolean') customFields[key] = val;
+    }
+    if (Object.keys(customFields).length > 0) {
+      state.customFields = customFields;
+    }
+  }
 
   for (const key of Object.keys(state) as Array<keyof IntakeConversationState>) {
     if (state[key] === null || state[key] === undefined) {
@@ -396,6 +412,114 @@ const persistConversationIntakeTitle = async (
   ).run();
 };
 
+const getMappedIntakeFieldValue = (
+  field: IntakeFieldDefinition,
+  intake: IntakeConversationState | null | undefined
+): unknown => {
+  if (!intake) return undefined;
+  if (field.isStandard) {
+    return (intake as Record<string, unknown>)[field.key];
+  }
+  const customFields = intake.customFields;
+  if (!customFields || typeof customFields !== 'object' || Array.isArray(customFields)) {
+    return undefined;
+  }
+  return customFields[field.key];
+};
+
+const isMeaningfulMappedValue = (value: unknown): boolean => {
+  if (value === null || value === undefined) return false;
+  if (typeof value === 'string') return value.trim().length > 0;
+  if (typeof value === 'number') return Number.isFinite(value);
+  if (typeof value === 'boolean') return true;
+  return false;
+};
+
+const toTrimmedString = (value: unknown): string | null => {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+};
+
+const toFiniteNumber = (value: unknown): number | null => {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = Number(value.trim().replace(/[$,]/g, ''));
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return null;
+};
+
+const applyMappedIntakeField = (
+  payload: BackendIntakeCreatePayload,
+  mapsTo: string,
+  value: unknown,
+  isIsoDateString: (value: string) => boolean,
+): void => {
+  if (!isMeaningfulMappedValue(value)) return;
+
+  if (mapsTo === 'address.city' || mapsTo === 'address.state') {
+    const text = toTrimmedString(value);
+    if (!text) return;
+    payload.address = {
+      ...(payload.address ?? {}),
+      ...(mapsTo === 'address.city' ? { city: text } : { state: text }),
+    };
+    return;
+  }
+
+  if (
+    mapsTo === 'description' ||
+    mapsTo === 'opposing_party' ||
+    mapsTo === 'desired_outcome' ||
+    mapsTo === 'practice_service_uuid'
+  ) {
+    const text = toTrimmedString(value);
+    if (text) {
+      payload[mapsTo] = text;
+    }
+    return;
+  }
+
+  if (mapsTo === 'urgency') {
+    const text = toTrimmedString(value);
+    if (text === 'routine' || text === 'time_sensitive' || text === 'emergency') {
+      payload.urgency = text;
+    }
+    return;
+  }
+
+  if (mapsTo === 'court_date') {
+    const text = toTrimmedString(value);
+    if (text && isIsoDateString(text)) {
+      payload.court_date = text;
+    }
+    return;
+  }
+
+  if (mapsTo === 'has_documents') {
+    if (typeof value === 'boolean') {
+      payload.has_documents = value;
+    }
+    return;
+  }
+
+  if (mapsTo === 'household_size' || mapsTo === 'income') {
+    const numberValue = toFiniteNumber(value);
+    if (numberValue !== null) {
+      payload[mapsTo] = Math.round(numberValue);
+    }
+    return;
+  }
+
+  if (mapsTo === 'case_strength') {
+    const numberValue = toFiniteNumber(value);
+    if (numberValue !== null && numberValue >= 0 && numberValue <= 1) {
+      payload.case_strength = numberValue;
+    }
+  }
+};
+
 const buildIntakePayload = (
   conversationId: string,
   slug: string,
@@ -404,6 +528,7 @@ const buildIntakePayload = (
   options?: {
     amountMinor?: number;
     userId?: string;
+    template?: IntakeTemplate | null;
   }
 ): BackendIntakeCreatePayload => {
   const normalizeAmount = (value: number | undefined): number => {
@@ -456,6 +581,17 @@ const buildIntakePayload = (
   // if sliding-scale eligibility is needed, handle it in a separate dedicated flow.
   if (typeof intake?.householdSize === 'number') payload.household_size = intake.householdSize;
   if (intake?.practiceServiceUuid) payload.practice_service_uuid = intake.practiceServiceUuid;
+
+  const templateFields = Array.isArray(options?.template?.fields) ? options.template.fields : [];
+  for (const field of templateFields) {
+    if (!field.mapsTo) continue;
+    applyMappedIntakeField(
+      payload,
+      field.mapsTo,
+      getMappedIntakeFieldValue(field, intake),
+      isIsoDateString,
+    );
+  }
 
   return payload;
 };
@@ -622,7 +758,18 @@ export async function handleSubmitIntake(
     ?? userInfo.intakeConversationState as IntakeConversationState | null | undefined;
 
   if (clientMergedIntakeState) {
-    intake = { ...(intake ?? {}), ...clientMergedIntakeState };
+    intake = {
+      ...(intake ?? {}),
+      ...clientMergedIntakeState,
+      ...(clientMergedIntakeState.customFields
+        ? {
+            customFields: {
+              ...((intake?.customFields && typeof intake.customFields === 'object') ? intake.customFields : {}),
+              ...clientMergedIntakeState.customFields,
+            },
+          }
+        : {}),
+    };
     Logger.info('[submitIntake] Merged client-provided mergedIntakeState into case to avoid stale reads', {
       conversationId,
       practiceId,
@@ -678,6 +825,7 @@ export async function handleSubmitIntake(
   const intakePayload = buildIntakePayload(conversationId, slug, draft, intake, {
     amountMinor: resolvedAmountMinor,
     userId,
+    template: userInfo.intakeTemplate ?? null,
   });
 
   Logger.info('[submitIntake] Calling backend intake create', {
