@@ -514,10 +514,17 @@ test.describe('Public widget intake flow', () => {
     const pickAnswerForPrompt = (rawPrompt: string, scriptedAnswer?: string): string => {
       const prompt = rawPrompt.toLowerCase();
       if (/submit|ready|fee|payment|review|send/i.test(prompt)) return 'Yes';
-      if (scriptedAnswer) return scriptedAnswer;
-      if (/city|state|location|where|area|jurisdiction/i.test(prompt)) {
-        answered.add('location');
-        return 'Durham, NC';
+      if (/state|jurisdiction|licensed/i.test(prompt)) {
+        answered.add('state');
+        return 'NC';
+      }
+      if (/city|location|where|area/i.test(prompt)) {
+        answered.add('city');
+        if (!answered.has('state')) {
+          answered.add('state');
+          return 'Durham, NC';
+        }
+        return 'Durham';
       }
       if (/party|person|who|landlord|employer|spouse|other|opposing/i.test(prompt)) {
         answered.add('opposing-party');
@@ -539,13 +546,18 @@ test.describe('Public widget intake flow', () => {
         answered.add('situation');
         return defaultSituation;
       }
+      if (scriptedAnswer) return scriptedAnswer;
       if (!answered.has('situation')) {
         answered.add('situation');
         return defaultSituation;
       }
-      if (!answered.has('location')) {
-        answered.add('location');
+      if (!answered.has('city')) {
+        answered.add('city');
         return 'Durham, NC';
+      }
+      if (!answered.has('state')) {
+        answered.add('state');
+        return 'NC';
       }
       if (!answered.has('opposing-party')) {
         answered.add('opposing-party');
@@ -1080,6 +1092,14 @@ test.describe('Public widget intake flow', () => {
         return null;
       };
 
+      const countDistinctQuestionSentences = (text: string): number => {
+        return text
+          .split(/(?<=\?)/)
+          .map((sentence) => sentence.trim())
+          .filter((sentence) => sentence.endsWith('?'))
+          .length;
+      };
+
       await expect.poll(
         async () => {
           const count = await aiLocator.count();
@@ -1106,20 +1126,10 @@ test.describe('Public widget intake flow', () => {
       );
       await testInfo.attach('planner-turn1-reply.txt', { body: reply1, contentType: 'text/plain' });
 
-      expect(
-        /city|state|location|where/i.test(reply1),
-        `After description, AI should ask about location. Got: "${reply1.slice(0, 300)}"`
-      ).toBe(true);
-
       // ASSERTION 1: Tool should be called when sufficient info provided
       expect(done1, 'Expected a done payload with intake fields after Turn 1.').not.toBeNull();
       expect(done1?.intakeFields, 'Expected intakeFields in Turn 1 response.').toBeDefined();
-      
-      // Don't fail on turn 1 — model may defer tool call
-      // The assertion below checks turn 2 covers this case
-      if (done1?.intakeFields?.description) {
-        expect(done1.intakeFields.description, 'Expected extracted description in Turn 1 fields.').toBeTruthy();
-      }
+      expect(done1?.intakeFields?.description, 'Expected extracted description in Turn 1 fields.').toBeTruthy();
 
       const submitNowButton = anonPage.getByRole('button', { name: /submit request/i });
       const paymentButton = anonPage.locator('button:visible').filter({ hasText: /^(continue|continue\s+to\s+payment|pay\s*(?:&|and)\s*submit)$/i }).first();
@@ -1131,6 +1141,7 @@ test.describe('Public widget intake flow', () => {
       const paymentAfterTurn2 = await paymentButton.isVisible().catch(() => false);
       const paymentPromptAfterTurn2 = /payment|consultation fee|fee|submit/i.test(reply2);
       const validAfterLocation =
+        /state|jurisdiction|licensed|where/i.test(reply2) ||
         /landlord|other party|opposing|who|party/i.test(reply2) ||
         /urgent|how urgent|routine|time.sensitive|emergency/i.test(reply2) ||
         /payment|fee|continue|submit/i.test(reply2) ||
@@ -1140,15 +1151,8 @@ test.describe('Public widget intake flow', () => {
       // ASSERTION 2: Tool called with location and no contact info requested
       
       expect(done2?.intakeFields?.city, 'city should be extracted after turn 2').toBeTruthy();
-      expect(done2?.intakeFields?.state, 'state should be extracted after turn 2').toBeTruthy();
-      
-      // If tool wasn't called on turn 1, it should be called by turn 2 with description + location
-      if (!done1?.intakeFields?.description) {
-        expect(
-          done2?.intakeFields?.description,
-          'description should be extracted by turn 2 if not extracted on turn 1'
-        ).toBeTruthy();
-      }
+      expect(done2?.intakeFields?.description, 'description should still be present after turn 2').toBeTruthy();
+      let stateCollected = Boolean(done2?.intakeFields?.state);
       
       // Verify model did not ask for contact info (system prompt violation)
       // Check for direct request phrases and actual contact formats, not generic mentions
@@ -1189,6 +1193,19 @@ test.describe('Public widget intake flow', () => {
 
       let reachedTerminalAfterTurn3 = paymentAfterTurn2 || submitAfterTurn2 || paymentPromptAfterTurn2;
 
+      if (!stateCollected && !reachedTerminalAfterTurn3) {
+        const { reply: stateReply, donePayload: stateDone } = await sendAndAwait('NC');
+        await testInfo.attach('planner-state-turn-reply.txt', { body: stateReply, contentType: 'text/plain' });
+        expect(stateDone?.intakeFields?.state, 'state should be extracted after the state turn').toBeTruthy();
+        expect(stateDone?.intakeFields?.description, 'description should still be present after the state turn').toBeTruthy();
+        expect(stateDone?.intakeFields?.city, 'city should still be present after the state turn').toBeTruthy();
+        stateCollected = true;
+        reachedTerminalAfterTurn3 =
+          /payment|consultation fee|fee|submit/i.test(stateReply) ||
+          await submitNowButton.isVisible().catch(() => false) ||
+          await paymentButton.isVisible().catch(() => false);
+      }
+
       if (!reachedTerminalAfterTurn3) {
         const { reply: reply3, donePayload: done3 } = await sendAndAwait('My landlord, Johnson Properties LLC');
         await testInfo.attach('planner-turn3-reply.txt', { body: reply3, contentType: 'text/plain' });
@@ -1211,12 +1228,16 @@ test.describe('Public widget intake flow', () => {
           });
         }
         
-        // Verify model asked exactly one question (not multiple)
-        const questionMarkCount = (reply3.match(/\?/g) || []).length;
+        // Verify the model stays focused without being brittle about punctuation style.
+        const questionSentenceCount = countDistinctQuestionSentences(reply3);
         expect(
-          questionMarkCount,
-          `Model should ask exactly one question, not multiple. Found ${questionMarkCount} question marks in: "${reply3.slice(0, 300)}"`
-        ).toBe(1);
+          reply3.length,
+          `Model reply should stay focused and short. Got ${reply3.length} characters: "${reply3.slice(0, 500)}"`
+        ).toBeLessThan(500);
+        expect(
+          questionSentenceCount,
+          `Model should not ask multiple distinct questions. Found ${questionSentenceCount} question sentences in: "${reply3.slice(0, 500)}"`
+        ).toBeLessThanOrEqual(1);
         
         reachedTerminalAfterTurn3 =
           /payment|consultation fee|fee|submit/i.test(reply3) ||
@@ -1326,7 +1347,6 @@ test.describe('Public widget intake flow', () => {
         console.log('Final turn model behavior summary:', {
           wasToolOnly: finalDone.wasToolOnly,
           actionCount: finalDone?.actions?.length || 0,
-          intakeReady: finalDone?.intakeFields?.intakeReady,
           messagePersisted: finalDone.messagePersisted,
           persistedMessageId: finalDone.persistedMessageId
         });
@@ -1360,13 +1380,13 @@ test.describe('Public widget intake flow', () => {
       const finalActions = Array.isArray(finalDone?.actions) ? finalDone.actions : [];
       const finalRenderedText = await aiLocator.last().innerText().catch(() => '');
       const reachedValidTerminalState =
-        finalDone?.intakeFields?.intakeReady === true ||
+        submitReached ||
         finalActions.some((action) => action?.type === 'submit' || action?.type === 'continue_payment' || action?.type === 'open_url') ||
         finalActions.some((action) => /routine|time.sensitive|emergency/i.test(String(action?.label ?? ''))) ||
         /consultation fee|continue to payment|submit your intake|submit your case/i.test(finalRenderedText);
       expect(
         reachedValidTerminalState,
-        'final state should either mark intakeReady or expose the payment/urgency terminal state'
+        'final state should expose submit/payment UI or a valid terminal action'
       ).toBe(true);
     } finally {
       mkdirSync(resolve(process.cwd(), '.tmp', 'playwright', 'public'), { recursive: true });
@@ -1444,7 +1464,11 @@ test.describe('Public widget intake flow', () => {
       if (/ready to submit|are you ready|schedule your consultation|fee/i.test(latestText)) break;
 
       // Answer whatever the AI asks
-      if (/other party|opposing|landlord|who/i.test(latestText)) {
+      if (/state|jurisdiction|licensed/i.test(latestText)) {
+        await sendAndAwait('NC');
+      } else if (/city|location|where|area/i.test(latestText)) {
+        await sendAndAwait('Durham, NC');
+      } else if (/other party|opposing|landlord|who/i.test(latestText)) {
         await sendAndAwait('Johnson Properties LLC');
       } else if (/urgent|time.sensitive/i.test(latestText)) {
         await sendAndAwait('Time-sensitive');

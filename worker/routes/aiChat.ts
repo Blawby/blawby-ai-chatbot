@@ -968,6 +968,9 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
           syntheticReply = lastQuestionResult.message.trim();
         } else if (isIntakeMode && finalToolResult?.success && patchToMerge) {
           const consultationFee = readFiniteNumberField(details, ['consultationFee', 'consultation_fee']);
+          const nextRequiredFieldAfterPatch = mergedIntakeState
+            ? resolveNextField(activeTemplate, mergedIntakeState as Record<string, unknown>, 'required')
+            : null;
           syntheticReply = deriveCaseSavedAcknowledgment(
             finalToolResult,
             intakeSubmissionGate,
@@ -975,6 +978,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
             servicesForPrompt,
             consultationFee,
             userName,
+            nextRequiredFieldAfterPatch,
             intakeSubmissionGate.nextEnrichmentField ?? null,
           );
         } else if (isIntakeMode && finalToolResult?.success && typeof finalToolResult.message === 'string' && finalToolResult.message.trim()) {

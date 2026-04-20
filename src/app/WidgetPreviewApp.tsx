@@ -44,6 +44,7 @@ export const WidgetPreviewApp: FunctionComponent<WidgetPreviewAppProps> = ({
   const introMessage = previewConfig.introMessage?.trim() || practiceConfig.introMessage?.trim() || '';
   const legalDisclaimer = previewConfig.legalDisclaimer?.trim() || practiceConfig.legalDisclaimer?.trim() || '';
   const services = useMemo(() => previewConfig.services ?? [], [previewConfig.services]);
+  const intakeTemplate = previewConfig.intakeTemplate ?? null;
   const consultationFee = typeof previewConfig.consultationFee === 'number'
     ? previewConfig.consultationFee
     : typeof practiceConfig.consultationFee === 'number'
@@ -115,6 +116,36 @@ export const WidgetPreviewApp: FunctionComponent<WidgetPreviewAppProps> = ({
       ];
     }
 
+    if (scenario === 'intake-template') {
+      const fields = Array.isArray(intakeTemplate?.fields) ? intakeTemplate.fields : [];
+      const requiredFields = fields.filter((field) => (field.phase ?? (field.required ? 'required' : 'enrichment')) === 'required');
+      const firstField = requiredFields[0] ?? fields[0] ?? null;
+      const question = firstField?.promptHint?.trim()
+        || (firstField ? `First, can you tell me about ${firstField.label.toLowerCase()}?` : 'Add questions to preview this intake flow.');
+      const summary = fields.length > 0
+        ? `${requiredFields.length} required question${requiredFields.length === 1 ? '' : 's'} and ${Math.max(fields.length - requiredFields.length, 0)} enrichment question${fields.length - requiredFields.length === 1 ? '' : 's'} are configured.`
+        : 'No intake questions are configured yet.';
+      return [
+        assistantMessage(
+          'preview-intake-template-intro',
+          `This preview uses the ${intakeTemplate?.name?.trim() || 'draft intake'} flow. ${summary}`
+        ),
+        assistantMessage(
+          'preview-intake-template-question',
+          question,
+          firstField ? {
+            source: 'preview',
+            question: {
+              text: question,
+              fieldKey: firstField.key,
+              fieldType: firstField.type,
+              options: firstField.options,
+            },
+          } : { source: 'preview' }
+        ),
+      ];
+    }
+
     return introMessage
       ? [assistantMessage('preview-intro', introMessage, { source: 'practice_intro', systemMessageKey: 'intro' })]
       : [
@@ -127,6 +158,7 @@ export const WidgetPreviewApp: FunctionComponent<WidgetPreviewAppProps> = ({
     consultationFee,
     currency,
     introMessage,
+    intakeTemplate,
     paymentLinkEnabled,
     practiceId,
     practiceLogo,
@@ -185,7 +217,9 @@ export const WidgetPreviewApp: FunctionComponent<WidgetPreviewAppProps> = ({
             ? 'Consultation request'
             : scenario === 'service-routing'
               ? 'Service routing'
-              : 'Opening message'
+              : scenario === 'intake-template'
+                ? 'Intake flow preview'
+                : 'Opening message'
         )}
         heightClassName="h-full"
         useFrame={false}

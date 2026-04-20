@@ -718,6 +718,8 @@ const deriveCaseSavedAcknowledgment = (
   _services: IntakePromptService[] = [],
   consultationFee?: number | null,
   userName?: string | null,
+  /** Next required field after the tool patch has been merged. */
+  nextRequiredField?: IntakeFieldDefinition | null,
   /** Next enrichment field from the orchestration layer — replaces resolveNextEnrichmentField */
   nextEnrichmentField?: IntakeFieldDefinition | null,
 ): string => {
@@ -754,6 +756,13 @@ const deriveCaseSavedAcknowledgment = (
       return `I've got your case details${userPart}. To move forward with a formal review and schedule your consultation, there is ${feePart} fee.`;
     }
     return `I've got your details${userPart}. Our team is ready to review these details. Ready to send?`;
+  }
+
+  if (nextRequiredField) {
+    const hint = nextRequiredField.promptHint
+      ? nextRequiredField.promptHint
+      : `Can you tell me the ${nextRequiredField.label.toLowerCase()}?`;
+    return `Got it${userPart}. ${hint}`;
   }
 
   return `Got it${userPart}. Is there anything else you'd like to add?`;
