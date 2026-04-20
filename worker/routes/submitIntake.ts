@@ -88,6 +88,8 @@ interface BackendIntakeCreatePayload {
   };
   /** Plain-text digest of the intake conversation; max 4000 chars. Used by backend to bootstrap proposal_data. */
   transcript_summary?: string;
+  /** Unmapped custom template answers stored in backend intake metadata. */
+  custom_fields?: Record<string, string | number | boolean>;
 }
 
 interface BackendIntakeCreateResponse {
@@ -520,6 +522,41 @@ const applyMappedIntakeField = (
   }
 };
 
+const buildCustomFieldsPayload = (
+  intake: IntakeConversationState | null | undefined,
+  template: IntakeTemplate | null | undefined,
+): Record<string, string | number | boolean> | undefined => {
+  const customFields = intake?.customFields;
+  if (!customFields || typeof customFields !== 'object' || Array.isArray(customFields)) {
+    return undefined;
+  }
+
+  const mappedCustomFieldKeys = new Set(
+    (Array.isArray(template?.fields) ? template.fields : [])
+      .filter((field) => !field.isStandard && Boolean(field.mapsTo))
+      .map((field) => field.key)
+  );
+
+  const payloadCustomFields: Record<string, string | number | boolean> = {};
+  for (const [key, value] of Object.entries(customFields)) {
+    if (mappedCustomFieldKeys.has(key)) continue;
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (trimmed) payloadCustomFields[key] = trimmed;
+      continue;
+    }
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      payloadCustomFields[key] = value;
+      continue;
+    }
+    if (typeof value === 'boolean') {
+      payloadCustomFields[key] = value;
+    }
+  }
+
+  return Object.keys(payloadCustomFields).length > 0 ? payloadCustomFields : undefined;
+};
+
 const buildIntakePayload = (
   conversationId: string,
   slug: string,
@@ -591,6 +628,11 @@ const buildIntakePayload = (
       getMappedIntakeFieldValue(field, intake),
       isIsoDateString,
     );
+  }
+
+  const customFields = buildCustomFieldsPayload(intake, options?.template);
+  if (customFields) {
+    payload.custom_fields = customFields;
   }
 
   return payload;

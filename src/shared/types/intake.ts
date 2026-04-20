@@ -76,8 +76,8 @@ export interface IntakeFieldDefinition {
   /**
    * Optional backend payload destination for this field.
    * Known values map collected answers to first-class backend intake fields
-   * during submit. Unmapped custom fields stay in conversation metadata until
-   * the backend supports a custom_fields bucket.
+   * during submit. Unmapped custom fields are sent to backend intake metadata
+   * under `custom_fields`.
    */
   mapsTo?: string;
 }
