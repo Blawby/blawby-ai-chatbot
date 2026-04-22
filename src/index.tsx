@@ -561,17 +561,18 @@ function PracticeAppRoute({
     }
   }, [resolvedPracticeId, session?.user, isPending, practicesLoading, backendActiveOrgId]);
 
+  if (isPending || practicesLoading || shouldDelayPracticeConfig) {
+    return <LoadingScreen />;
+  }
+
   // If the user is a client and cannot access practice workspaces, show
-  // the access-denied UI early so clients don't see a generic loading state.
+  // the access-denied UI after initial loading guards so we don't incorrectly
+  // render access-denied while required data is still loading.
   if (activeRole === 'client' && !canAccessPractice) {
     return renderWorkspaceFailureState(
       'Practice access denied',
       'Practice routes are unavailable to client members.'
     );
-  }
-
-  if (isPending || practicesLoading || shouldDelayPracticeConfig) {
-    return <LoadingScreen />;
   }
 
   if (!hasPracticeSlug) {

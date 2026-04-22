@@ -601,7 +601,7 @@ function BuilderNavRow({
       <div
         className={`flex items-center gap-1 rounded-2xl px-2 py-2 transition-all ${
           selected
-            ? 'bg-accent-500/20 text-input-text ring-1 ring-accent-500/45 shadow-[inset_0_0_0_1px_rgba(var(--accent),0.12)]'
+            ? 'bg-accent-500/20 text-[rgb(var(--accent-foreground))] ring-1 ring-accent-500/45 shadow-[inset_0_0_0_1px_rgba(var(--accent),0.12)]'
             : 'bg-transparent text-input-text hover:bg-surface-utility/10'
         }`}
       >
@@ -624,11 +624,11 @@ function BuilderNavRow({
             aria-hidden="true"
           >
             {icon ? icon : locked ? (
-              <LockClosedIcon className="h-3.5 w-3.5 text-input-text/75" />
+              <LockClosedIcon className="h-3.5 w-3.5 text-[rgb(var(--accent-foreground))]" />
             ) : canDrag ? (
-              <ArrowsUpDownIcon className="h-3.5 w-3.5 text-input-text/75" />
+              <ArrowsUpDownIcon className="h-3.5 w-3.5 text-[rgb(var(--accent-foreground))]" />
             ) : (
-              <PencilSquareIcon className="h-3.5 w-3.5 text-input-text/75" />
+              <PencilSquareIcon className="h-3.5 w-3.5 text-[rgb(var(--accent-foreground))]" />
             )}
           </span>
           <span className="min-w-0 flex-1 pr-0.5">
@@ -645,7 +645,7 @@ function BuilderNavRow({
                   aria-label={`Open actions for ${displayLabel}`}
                   className={`flex h-8 w-8 items-center justify-center rounded-xl transition-colors ${
                     selected
-                      ? 'bg-accent-500/18 text-input-text'
+                      ? 'bg-accent-500/18 text-[rgb(var(--accent-foreground))]'
                       : 'bg-surface-utility/14 text-input-text/80 hover:bg-surface-utility/22 hover:text-input-text'
                   }`}
                 >
@@ -977,11 +977,21 @@ function TemplateCard({
 
   return (
     <article className="glass-card flex min-h-[230px] flex-col justify-between overflow-hidden rounded-2xl">
-      <button
-        type="button"
-        onClick={() => onOpen?.(template)}
-        disabled={!onOpen || isSaving}
-        className="block w-full flex-1 p-5 text-left transition-colors hover:bg-surface-utility/10 disabled:cursor-default disabled:hover:bg-transparent"
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={() => {
+          if (onOpen && !isSaving) onOpen(template);
+        }}
+        onKeyDown={(e) => {
+          if ((e.key === 'Enter' || e.key === ' ') && onOpen && !isSaving) {
+            e.preventDefault();
+            onOpen(template);
+          }
+        }}
+        className={`block w-full flex-1 p-5 text-left transition-colors ${
+          !onOpen || isSaving ? 'cursor-default' : 'hover:bg-surface-utility/10 cursor-pointer'
+        }`}
       >
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
@@ -1068,7 +1078,7 @@ function TemplateCard({
             {responseCount} response{responseCount === 1 ? '' : 's'}
           </Button>
         </div>
-      </button>
+      </div>
     </article>
   );
 }
@@ -1432,12 +1442,30 @@ function TemplateEditor({
       return false;
     }
     if (!validateSlug(currentState.slug)) return false;
-    if (
-      currentState.paymentLinkEnabled
-      && (typeof currentState.consultationFee !== 'number' || !Number.isFinite(currentState.consultationFee) || currentState.consultationFee < 0.5)
-    ) {
-      showError('Payment amount required', 'Payment requirements must be at least $0.50.');
-      return false;
+
+    const allFields = [...currentState.requiredFields, ...currentState.enrichmentFields];
+    for (const field of allFields) {
+      if (!field.isStandard) {
+        if (!field.previewQuestion?.trim()) {
+          showError('Question prompt required', `The question for "${field.label}" cannot be empty.`);
+          return false;
+        }
+        if (!field.promptHint?.trim()) {
+          showError('AI instruction required', `The AI instruction for "${field.label}" cannot be empty.`);
+          return false;
+        }
+      }
+    }
+
+    if (currentState.paymentLinkEnabled) {
+      if (typeof currentState.consultationFee !== 'number' || !Number.isFinite(currentState.consultationFee) || currentState.consultationFee < 0.5) {
+        showError('Payment amount required', 'Payment requirements must be at least $0.50.');
+        return false;
+      }
+      if (!stripeStatus?.details_submitted) {
+        showError('Stripe not ready', 'Your Stripe account must be fully set up before enabling payments.');
+        return false;
+      }
     }
     return true;
   };

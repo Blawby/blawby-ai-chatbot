@@ -95,7 +95,15 @@ const resolveContactDraft = (
         website: details.website ?? undefined,
         businessEmail: details.businessEmail ?? undefined,
         contactPhone: details.businessPhone ?? undefined,
-        address: buildAddress(mapAddressSource(details.address)),
+        address: buildAddress(mapAddressSource(typeof details.address === 'object' && details.address !== null
+          ? {
+              ...details.address,
+              city: details.city ?? (details.address as Record<string, unknown>).city,
+              state: details.state ?? (details.address as Record<string, unknown>).state,
+              postalCode: details.postalCode ?? (details.address as Record<string, unknown>).postalCode ?? (details.address as Record<string, unknown>).postal_code,
+              country: details.country ?? (details.address as Record<string, unknown>).country,
+            }
+          : details.address)),
       }
     : {};
 

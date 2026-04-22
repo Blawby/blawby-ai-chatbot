@@ -312,9 +312,10 @@ export const PracticeCoveragePage = ({ className, onBack }: PracticeCoveragePage
                   step={1}
                   value={displayedBillingIncrement === '' ? '' : String(displayedBillingIncrement)}
                   onChange={(value) => {
-                    const nextValue = value.trim() === '' ? '' : Number(value);
+                    const trimmed = value.trim();
+                    const parsed = trimmed === '' ? '' : Number.parseInt(trimmed, 10);
                     setBillingTouched(true);
-                    setBillingIncrementDraft(Number.isFinite(nextValue as number) ? nextValue : '');
+                    setBillingIncrementDraft(Number.isFinite(parsed as number) ? (parsed as number) : '');
                   }}
                   disabled={isSavingBilling}
                   placeholder="6"

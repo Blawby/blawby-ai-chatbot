@@ -54,13 +54,20 @@ export function SetupInspectorContent({
     if (typeof src === 'string') return { address: src };
     if (typeof src === 'object' && !Array.isArray(src)) {
       const s = src as Record<string, unknown>;
+      const getString = (...vals: unknown[]) => {
+        for (const val of vals) {
+          if (typeof val === 'string') return val;
+          if (typeof val === 'number' || typeof val === 'boolean') return String(val);
+        }
+        return '';
+      };
       return {
-        address: (s.address ?? s.line1 ?? s.address_line ?? '') as string,
-        apartment: (s.apartment ?? s.unit ?? '') as string,
-        city: (s.city ?? '') as string,
-        state: (s.state ?? '') as string,
-        postalCode: (s.postalCode ?? s.postal_code ?? '') as string,
-        country: (s.country ?? '') as string,
+        address: getString(s.address, s.line1, s.address_line),
+        apartment: getString(s.apartment, s.unit),
+        city: getString(s.city),
+        state: getString(s.state),
+        postalCode: getString(s.postalCode, s.postal_code),
+        country: getString(s.country),
       };
     }
     return {};

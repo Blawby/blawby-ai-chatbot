@@ -165,12 +165,13 @@ export const useWorkspaceData = ({
                 const trimmed = val.trim();
                 return trimmed.length > 0 ? trimmed : null;
               };
-              out.address = trimOrNull(a.address ?? a.line1 ?? a.address_line);
-              out.apartment = trimOrNull(a.apartment ?? a.unit);
-              out.city = trimOrNull(a.city);
-              out.state = trimOrNull(a.state);
-              out.postalCode = trimOrNull(a.postalCode ?? a.postal_code);
-              out.country = trimOrNull(a.country);
+              const hasKey = (k: string) => k in a;
+              if (hasKey('address') || hasKey('line1') || hasKey('address_line')) out.address = trimOrNull(a.address ?? a.line1 ?? a.address_line);
+              if (hasKey('apartment') || hasKey('unit')) out.apartment = trimOrNull(a.apartment ?? a.unit);
+              if (hasKey('city')) out.city = trimOrNull(a.city);
+              if (hasKey('state')) out.state = trimOrNull(a.state);
+              if (hasKey('postalCode') || hasKey('postal_code')) out.postalCode = trimOrNull(a.postalCode ?? a.postal_code);
+              if (hasKey('country')) out.country = trimOrNull(a.country);
             }
           }
           if (u.primaryColor !== undefined) out.primaryColor = u.primaryColor ?? null;

@@ -245,7 +245,11 @@ function normalizePracticeRecord(raw: Record<string, unknown>): Practice {
   const metadataRecord = (() => {
     const direct = (raw as Record<string, unknown>).metadata;
     if (typeof direct === 'string') {
-      try { return JSON.parse(direct) as Record<string, unknown>; }
+      try {
+        const parsed = JSON.parse(direct);
+        if (isPlainObject(parsed)) return parsed;
+        return null;
+      }
       catch { return null; }
     }
     if (isPlainObject(direct)) {

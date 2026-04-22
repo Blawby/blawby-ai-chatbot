@@ -1744,7 +1744,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       controls={(
         <div className="flex items-center gap-3">
           {invoiceDraftSavedAt ? <div className="text-sm text-input-placeholder">Draft saved at {invoiceDraftSavedAt}</div> : null}
-          <Button type="button" variant="secondary" size="sm" onClick={() => window.dispatchEvent(new CustomEvent('invoice:hide-preview'))}>
+          <Button type="button" variant="secondary" size="sm" onClick={() => window.dispatchEvent(new CustomEvent('invoice:hide-preview', { detail: { force: 'hide' } }))}>
             Hide preview
           </Button>
           {primaryCreateAction ? (

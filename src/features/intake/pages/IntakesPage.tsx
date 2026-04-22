@@ -23,6 +23,8 @@ import { resolveIntakeTitle } from '@/features/intake/utils/intakeTitle';
 import { DEFAULT_INTAKE_TEMPLATE } from '@/shared/constants/intakeTemplates';
 
 const PAGE_SIZE = 20;
+// Limit additional backend pages fetched in client-side template filtering to avoid unbounded sequential fetches
+const MAX_ADDITIONAL_PAGES = 10;
 
 // Internal type that satisfies usePaginatedList's { id: string } constraint
 interface PaginatedIntake extends IntakeListItem {
@@ -158,11 +160,19 @@ export const IntakesPage: FunctionComponent<IntakesPageProps> = ({
       const itemsNeeded = page * PAGE_SIZE;
 
       // Keep fetching backend pages until we have enough filtered items for the
-      // requested page or we've exhausted all backend results.
+      // requested page or we've exhausted all backend results. Guard with
+      // MAX_ADDITIONAL_PAGES to avoid unbounded sequential fetches when
+      // client-side filtering (templateFilter) is enabled.
+      let pagesFetched = 0;
       while (
         accumulatedFilteredRef.current.length < itemsNeeded &&
         lastBackendPageRef.current < totalBackendPagesRef.current
       ) {
+        if (pagesFetched >= MAX_ADDITIONAL_PAGES) {
+          // stop fetching more pages to avoid long blocking loops; backend
+          // should handle templateFilter server-side (TODO: move filter to API)
+          break;
+        }
         lastBackendPageRef.current++;
         const limit = templateFilter ? 100 : PAGE_SIZE;
         const result = await listIntakes(practiceId, {
@@ -173,6 +183,7 @@ export const IntakesPage: FunctionComponent<IntakesPageProps> = ({
 
         totalBackendPagesRef.current = result.total_pages;
 
+        pagesFetched++;
         const filtered = templateFilter
           ? result.intakes.filter((item) => {
             const metadata = item.metadata as Record<string, unknown> | null | undefined;

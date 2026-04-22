@@ -242,10 +242,18 @@ export const WorkspaceSetupSection: FunctionComponent<WorkspaceSetupSectionProps
       const accentColor = normalizeAccentColor(extracted.accentColor ?? priorAccent) ?? priorAccent;
       failingStep = 'basics';
       await onSaveBasics({ name: extracted.name ?? practice.name ?? '', slug: extracted.slug ?? practice.slug ?? '', accentColor }, { suppressSuccessToast: true });
-      const mergedAddress = {
-        ...normalizeAddress(details?.address ?? practice?.address ?? ''),
-        ...normalizeAddress(extracted.address ?? {}),
-      };
+      const existingAddress = normalizeAddress(details?.address ?? practice?.address ?? '');
+      const extractedAddress = extracted.address ? normalizeAddress(extracted.address) : null;
+      const mergedAddress = extractedAddress === null
+        ? existingAddress
+        : {
+          address: extractedAddress.address || existingAddress.address || '',
+          apartment: extractedAddress.apartment || existingAddress.apartment || '',
+          city: extractedAddress.city || existingAddress.city || '',
+          state: extractedAddress.state || existingAddress.state || '',
+          postalCode: extractedAddress.postalCode || existingAddress.postalCode || '',
+          country: extractedAddress.country || existingAddress.country || '',
+        };
       failingStep = 'contact';
       await onSaveContact({
         website: extracted.website ?? details?.website ?? practice?.website ?? '',

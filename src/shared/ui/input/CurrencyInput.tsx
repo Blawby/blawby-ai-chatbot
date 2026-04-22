@@ -64,6 +64,23 @@ export const CurrencyInput = forwardRef<HTMLInputElement, CurrencyInputProps>(({
     lg: 'px-4 py-3 text-base pl-12',
   };
 
+  const precisionForStep = (stepNum: number) => {
+    try {
+      if (!Number.isFinite(stepNum) || stepNum <= 0) return 2;
+      // Prefer a non-exponential fixed representation for counting decimals
+      const raw = String(stepNum).includes('e') ? stepNum.toFixed(20) : String(stepNum);
+      // Strip trailing zeros and possible trailing dot
+      const cleaned = raw.replace(/(?:\.0+|0+)$/u, '');
+      const parts = cleaned.split('.');
+      if (parts.length === 2) {
+        return Math.min(parts[1].length, 10);
+      }
+      return 0;
+    } catch {
+      return 2;
+    }
+  };
+
   const inputClasses = cn(
     'w-full rounded-xl text-input-text placeholder:text-input-placeholder',
     'focus:outline-none transition-all duration-200',
@@ -113,14 +130,8 @@ export const CurrencyInput = forwardRef<HTMLInputElement, CurrencyInputProps>(({
             }
             let parsed = parseFloat(trimmed);
             if (!Number.isFinite(parsed)) parsed = 0;
-            // Determine precision from step
             const stepNum = typeof step === 'number' && Number.isFinite(step) && step > 0 ? step : 0.01;
-            let precision = 0;
-            let s = stepNum;
-            while (s < 1 && precision < 10) {
-              s *= 10;
-              precision++;
-            }
+            const precision = precisionForStep(stepNum) || 2;
             // Enforce min
             if (typeof min === 'number' && Number.isFinite(min) && parsed < min) parsed = min;
             // Snap to nearest step multiple
@@ -150,12 +161,7 @@ export const CurrencyInput = forwardRef<HTMLInputElement, CurrencyInputProps>(({
             const parsed = parseFloat(trimmed);
             if (!Number.isFinite(parsed)) return;
             const stepNum = typeof step === 'number' && Number.isFinite(step) && step > 0 ? step : 0.01;
-            let precision = 0;
-            let s = stepNum;
-            while (s < 1 && precision < 10) {
-              s *= 10;
-              precision++;
-            }
+            const precision = precisionForStep(stepNum) || 2;
             let normalized = Math.round(parsed / stepNum) * stepNum;
             normalized = Number(normalized.toFixed(precision));
             // Don't force display reformat while editing; emit normalized numeric

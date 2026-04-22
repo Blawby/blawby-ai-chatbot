@@ -79,7 +79,6 @@ export const WidgetPreviewApp: FunctionComponent<WidgetPreviewAppProps> = ({
         ? () => {
           setIntakePreviewView('home');
           setShowIntakeDisclaimer(false);
-          setIntakePreviewStep('contact');
         }
         : undefined}
       actions={scenario === 'intake-template' ? undefined : (
@@ -322,7 +321,6 @@ export const WidgetPreviewApp: FunctionComponent<WidgetPreviewAppProps> = ({
             type="disclaimer"
             onClose={() => {
               setShowIntakeDisclaimer(false);
-              setIntakePreviewStep('conversation');
             }}
             disclaimerProps={{
               text: legalDisclaimer,

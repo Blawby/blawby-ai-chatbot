@@ -160,10 +160,11 @@ const sanitizeMergedIntakeState = (value: unknown): IntakeConversationState | nu
   if (raw.customFields && typeof raw.customFields === 'object' && !Array.isArray(raw.customFields)) {
     const customFields: Record<string, string | number | boolean> = {};
     for (const [key, val] of Object.entries(raw.customFields as Record<string, unknown>)) {
-      if (!key.trim()) continue;
-      if (typeof val === 'string' && val.trim()) customFields[key] = val.trim();
-      if (typeof val === 'number' && Number.isFinite(val)) customFields[key] = val;
-      if (typeof val === 'boolean') customFields[key] = val;
+      const trimmedKey = key.trim();
+      if (!trimmedKey) continue;
+      if (typeof val === 'string' && val.trim()) customFields[trimmedKey] = val.trim();
+      if (typeof val === 'number' && Number.isFinite(val)) customFields[trimmedKey] = val;
+      if (typeof val === 'boolean') customFields[trimmedKey] = val;
     }
     if (Object.keys(customFields).length > 0) {
       state.customFields = customFields;
