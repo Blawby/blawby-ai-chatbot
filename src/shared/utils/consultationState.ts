@@ -69,6 +69,12 @@ const mergeIntakeState = (
   source: IntakeConversationState | null | undefined
 ): IntakeConversationState => {
   const fallback = source ?? initialIntakeState;
+  const normalizedCustomFields = normalized.customFields ?? {};
+  const fallbackCustomFields = fallback.customFields ?? {};
+  const customFields = {
+    ...fallbackCustomFields,
+    ...normalizedCustomFields,
+  };
   return {
     practiceServiceUuid: normalized.practiceServiceUuid ?? fallback.practiceServiceUuid,
     description: normalized.description ?? fallback.description,
@@ -85,6 +91,7 @@ const mergeIntakeState = (
     ctaShown: normalized.ctaShown || fallback.ctaShown || false,
     ctaResponse: normalized.ctaResponse ?? fallback.ctaResponse,
     notYetCount: normalized.notYetCount > 0 ? normalized.notYetCount : fallback.notYetCount,
+    ...(Object.keys(customFields).length > 0 ? { customFields } : {}),
   };
 };
 
@@ -136,10 +143,47 @@ export const hasConsultationContact = (value: SlimContactDraft | null | undefine
   value && (trimString(value.name) || trimString(value.email) || trimString(value.phone))
 );
 
-export const isIntakeReadyForSubmission = (
-  state: IntakeConversationState | Partial<IntakeConversationState> | null | undefined
+/**
+ * Resolve whether a field's condition is satisfied given the current intake state.
+ * A field with no condition is always active.
+ */
+const isFieldConditionMet = (
+  field: { condition?: { dependsOn: string; value: string | boolean | number } | null },
+  flatState: Record<string, unknown>,
+  customFields: Record<string, unknown>,
 ): boolean => {
-  return hasCoreIntakeFields(state);
+  if (!field.condition) return true;
+  const { dependsOn, value } = field.condition;
+  // Check standard state first, then customFields bucket
+  const current = dependsOn in flatState ? flatState[dependsOn] : customFields[dependsOn];
+  // Loose string comparison so "true" === true and "1" === 1 are handled
+  return String(current ?? '') === String(value);
+};
+
+export const isIntakeReadyForSubmission = (
+  state: IntakeConversationState | Partial<IntakeConversationState> | null | undefined,
+  requiredFields?: ReadonlyArray<{ key: string; isStandard: boolean; condition?: { dependsOn: string; value: string | boolean | number } | null }> | null
+): boolean => {
+  // No template — fall back to the hardcoded core fields check so existing
+  // conversations without a template continue to work.
+  if (!requiredFields || requiredFields.length === 0) {
+    return hasCoreIntakeFields(state);
+  }
+  if (!state) return false;
+  const flatState = state as Record<string, unknown>;
+  const customFields = (flatState.customFields && typeof flatState.customFields === 'object' && !Array.isArray(flatState.customFields))
+    ? flatState.customFields as Record<string, unknown>
+    : {};
+  return requiredFields.every((f) => {
+    // Phase 3: required fields whose condition isn't met don't block submission
+    if (!isFieldConditionMet(f, flatState, customFields)) return true;
+    if (f.isStandard) {
+      const value = flatState[f.key];
+      return typeof value === 'string' ? value.trim().length > 0 : (value !== null && value !== undefined);
+    }
+    const value = customFields[f.key];
+    return typeof value === 'string' ? value.trim().length > 0 : (value !== null && value !== undefined);
+  });
 };
 
 export const isIntakeSubmittable = (
@@ -147,9 +191,10 @@ export const isIntakeSubmittable = (
   submission?: {
     paymentRequired?: boolean | null;
     paymentReceived?: boolean | null;
-  } | null
+  } | null,
+  requiredFields?: ReadonlyArray<{ key: string; isStandard: boolean; condition?: { dependsOn: string; value: string | boolean | number } | null }> | null
 ): boolean => {
-  if (!isIntakeReadyForSubmission(state)) return false;
+  if (!isIntakeReadyForSubmission(state, requiredFields)) return false;
   const paymentRequired = submission?.paymentRequired === true;
   const paymentReceived = submission?.paymentReceived === true;
   return !paymentRequired || paymentReceived;
@@ -161,6 +206,19 @@ export const normalizeIntakeConversationState = (value: unknown): IntakeConversa
   }
   const record = value as Record<string, unknown>;
   const urgency = trimString(record.urgency);
+  const customFields = (() => {
+    if (!record.customFields || typeof record.customFields !== 'object' || Array.isArray(record.customFields)) {
+      return undefined;
+    }
+    const normalized: NonNullable<IntakeConversationState['customFields']> = {};
+    for (const [key, value] of Object.entries(record.customFields as Record<string, unknown>)) {
+      if (!key.trim()) continue;
+      if (typeof value === 'string' && value.trim()) normalized[key] = value.trim();
+      if (typeof value === 'number' && Number.isFinite(value)) normalized[key] = value;
+      if (typeof value === 'boolean') normalized[key] = value;
+    }
+    return Object.keys(normalized).length > 0 ? normalized : undefined;
+  })();
   const nextState: IntakeConversationState = {
     practiceServiceUuid: trimString(record.practiceServiceUuid) || null,
     description: trimString(record.description) || null,
@@ -180,6 +238,7 @@ export const normalizeIntakeConversationState = (value: unknown): IntakeConversa
         ? record.ctaResponse
         : null,
     notYetCount: normalizeNumberOrNull(record.notYetCount) ?? 0,
+    ...(customFields ? { customFields } : {}),
   };
   return nextState;
 };

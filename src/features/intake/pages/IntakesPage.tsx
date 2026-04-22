@@ -1,7 +1,14 @@
 import { FunctionComponent } from 'preact';
-import { useCallback, useState } from 'preact/hooks';
+import { useCallback, useState, useRef, useMemo } from 'preact/hooks';
 import { useLocation } from 'preact-iso';
 import { InboxStackIcon } from '@heroicons/react/24/outline';
+import type { IconComponent } from '@/shared/ui/Icon';
+
+const InboxIcon: IconComponent = (props) => (
+  // Heroicons types are incompatible with our IconComponent; adapt here
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  <InboxStackIcon {...(props as any)} />
+);
 import { Panel } from '@/shared/ui/layout/Panel';
 import { WorkspacePlaceholderState } from '@/shared/ui/layout/WorkspacePlaceholderState';
 import { Avatar } from '@/shared/ui/profile';
@@ -11,9 +18,13 @@ import { EntityList } from '@/shared/ui/list/EntityList';
 import { usePaginatedList } from '@/shared/hooks/usePaginatedList';
 import { listIntakes, type IntakeListItem } from '../api/intakesApi';
 import IntakeDetailPage from './IntakeDetailPage';
+import IntakeTemplatesPage from './IntakeTemplatesPage';
 import { resolveIntakeTitle } from '@/features/intake/utils/intakeTitle';
+import { DEFAULT_INTAKE_TEMPLATE } from '@/shared/constants/intakeTemplates';
 
 const PAGE_SIZE = 20;
+// Limit additional backend pages fetched in client-side template filtering to avoid unbounded sequential fetches
+const MAX_ADDITIONAL_PAGES = 10;
 
 // Internal type that satisfies usePaginatedList's { id: string } constraint
 interface PaginatedIntake extends IntakeListItem {
@@ -97,9 +108,35 @@ export const IntakesPage: FunctionComponent<IntakesPageProps> = ({
   // ── Routing ──────────────────────────────────────────────────────────────
   const pathSuffix = location.path.startsWith(basePath) ? location.path.slice(basePath.length) : '';
   const pathSegments = pathSuffix.replace(/^\/+/, '').split('/').filter(Boolean);
-  const selectedIntakeId = pathSegments[0] && pathSegments[0] !== 'new'
-    ? decodeURIComponent(pathSegments[0])
+  const isResponsesRoute = pathSegments[0] === 'responses';
+  const isTemplateEditorRoute = !isResponsesRoute && (pathSegments[0] === 'new' || pathSegments[1] === 'edit');
+  const safeDecode = (value: string | undefined | null): string | null => {
+    if (typeof value !== 'string') return null;
+    try { return decodeURIComponent(value); } catch { return value; }
+  };
+
+  const routeTemplateSlug = !isResponsesRoute && pathSegments[0] && pathSegments[0] !== 'new'
+    ? safeDecode(pathSegments[0])
     : null;
+  const selectedIntakeId = isResponsesRoute && pathSegments[1]
+    ? safeDecode(pathSegments[1])
+    : null;
+  const templateFilter = typeof location.query?.template === 'string' && location.query.template.trim()
+    ? safeDecode(location.query.template)
+    : null;
+  // Template slugs now open the builder directly; there is no intermediate
+  // template detail route between /intakes and /intakes/:slug/edit.
+  const templateRouteMode = isTemplateEditorRoute || routeTemplateSlug ? 'editor' : 'list';
+
+  const paginationSessionIdRef = useRef(0);
+  const paginationSessionId = useMemo(() => {
+    paginationSessionIdRef.current++;
+    return paginationSessionIdRef.current;
+  }, [practiceId, isResponsesRoute, activeTriageFilter, templateFilter]);
+
+  const accumulatedFilteredRef = useRef<PaginatedIntake[]>([]);
+  const lastBackendPageRef = useRef(0);
+  const totalBackendPagesRef = useRef(1);
 
   const {
     items: intakes,
@@ -110,7 +147,8 @@ export const IntakesPage: FunctionComponent<IntakesPageProps> = ({
     loadMoreRef,
   } = usePaginatedList<PaginatedIntake>({
     fetchPage: async (page, signal) => {
-      if (!practiceId) return { items: [], hasMore: false };
+      const currentSessionId = paginationSessionId;
+      if (!practiceId || !isResponsesRoute) return { items: [], hasMore: false };
 
       const validTriageFilters = ['pending_review', 'accepted', 'declined'] as const;
       type ValidTriageFilter = typeof validTriageFilters[number];
@@ -119,26 +157,94 @@ export const IntakesPage: FunctionComponent<IntakesPageProps> = ({
           ? (activeTriageFilter as ValidTriageFilter)
           : undefined;
 
-      const result = await listIntakes(practiceId, {
-        page,
-        limit: PAGE_SIZE,
-        triage_status: triageFilter,
-      }, { signal });
+      // When page is 1, reset our local accumulator and backend progress.
+      if (page === 1) {
+        accumulatedFilteredRef.current = [];
+        lastBackendPageRef.current = 0;
+        totalBackendPagesRef.current = 1;
+      }
+
+      const itemsNeeded = page * PAGE_SIZE;
+
+      // Keep fetching backend pages until we have enough filtered items for the
+      // requested page or we've exhausted all backend results. Guard with
+      // MAX_ADDITIONAL_PAGES to avoid unbounded sequential fetches when
+      // client-side filtering (templateFilter) is enabled.
+      let pagesFetched = 0;
+      while (
+        accumulatedFilteredRef.current.length < itemsNeeded &&
+        lastBackendPageRef.current < totalBackendPagesRef.current
+      ) {
+        if (pagesFetched >= MAX_ADDITIONAL_PAGES) {
+          // stop fetching more pages to avoid long blocking loops; backend
+          // should handle templateFilter server-side (TODO: move filter to API)
+          break;
+        }
+        lastBackendPageRef.current++;
+        const limit = templateFilter ? 100 : PAGE_SIZE;
+        const result = await listIntakes(practiceId, {
+          page: lastBackendPageRef.current,
+          limit,
+          triage_status: triageFilter,
+        }, { signal });
+
+        if (currentSessionId !== paginationSessionIdRef.current) {
+          return { items: [], hasMore: false };
+        }
+
+        totalBackendPagesRef.current = result.total_pages;
+
+        pagesFetched++;
+        const filtered = templateFilter
+          ? result.intakes.filter((item) => {
+            const metadata = item.metadata as Record<string, unknown> | null | undefined;
+            const directSlug = metadata?.intake_template_slug ?? metadata?.template_slug;
+            if (typeof directSlug === 'string' && directSlug.trim()) return directSlug.trim() === templateFilter;
+            const customFields = metadata?.custom_fields ?? metadata?.customFields;
+            if (customFields && typeof customFields === 'object' && !Array.isArray(customFields)) {
+              const storedSlug = (customFields as Record<string, unknown>)._intake_template_slug;
+              if (typeof storedSlug === 'string' && storedSlug.trim()) return storedSlug.trim() === templateFilter;
+            }
+            return templateFilter === DEFAULT_INTAKE_TEMPLATE.slug;
+          })
+          : result.intakes;
+
+        accumulatedFilteredRef.current.push(
+          ...filtered.map(item => ({ ...item, id: item.uuid }))
+        );
+
+        // If we got fewer results than requested, we've hit the end of the backend.
+        if (result.intakes.length < limit) {
+          totalBackendPagesRef.current = lastBackendPageRef.current;
+          break;
+        }
+      }
+
+      const start = (page - 1) * PAGE_SIZE;
+      const pageItems = accumulatedFilteredRef.current.slice(start, start + PAGE_SIZE);
+
       return {
-        items: result.intakes.map(item => ({ ...item, id: item.uuid })),
-        hasMore: result.intakes.length === PAGE_SIZE,
+        items: pageItems,
+        // hasMore is true if we either already have more items cached or there are 
+        // more pages left in the backend.
+        hasMore: 
+          accumulatedFilteredRef.current.length > itemsNeeded || 
+          lastBackendPageRef.current < totalBackendPagesRef.current,
       };
     },
-    deps: [practiceId, activeTriageFilter, refreshCounter],
+    deps: [practiceId, activeTriageFilter, refreshCounter, isResponsesRoute, templateFilter],
   });
 
   const handleSelectIntake = useCallback((intake: PaginatedIntake) => {
-    location.route(`${basePath}/${encodeURIComponent(intake.uuid)}`);
+    location.route(`${basePath}/responses/${encodeURIComponent(intake.uuid)}`);
   }, [basePath, location]);
 
   const handleBack = useCallback(() => {
-    location.route(basePath);
-  }, [basePath, location]);
+    const target = templateFilter
+      ? `${basePath}/responses?template=${encodeURIComponent(templateFilter)}`
+      : `${basePath}/responses`;
+    location.route(target);
+  }, [basePath, location, templateFilter]);
 
   const handleTriageComplete = useCallback(() => {
     setRefreshCounter(c => c + 1);
@@ -147,6 +253,18 @@ export const IntakesPage: FunctionComponent<IntakesPageProps> = ({
   }, [handleBack, onRefetchList]);
 
   // ── Rendering ────────────────────────────────────────────────────────────
+
+  if (!isResponsesRoute) {
+    return (
+      <IntakeTemplatesPage
+        basePath={basePath}
+        practiceId={practiceId}
+        routeTemplateSlug={routeTemplateSlug}
+        routeMode={templateRouteMode}
+        onBack={routeTemplateSlug ? () => location.route(basePath) : undefined}
+      />
+    );
+  }
 
   if (selectedIntakeId && renderMode !== 'listOnly') {
     return (
@@ -192,11 +310,13 @@ export const IntakesPage: FunctionComponent<IntakesPageProps> = ({
           loadMoreRef={hasMore ? loadMoreRef : undefined}
           emptyState={
             <WorkspacePlaceholderState
-              icon={InboxStackIcon}
+              icon={InboxIcon}
               title="No leads yet"
-              description={activeTriageFilter === 'pending_review'
-                ? "You've caught up on all pending reviews! New consultation inquiries will appear here."
-                : "No leads match this filter."
+              description={templateFilter
+                ? `No responses have been submitted for ?template=${templateFilter} yet.`
+                : activeTriageFilter === 'pending_review'
+                  ? "You've caught up on all pending reviews! New consultation inquiries will appear here."
+                  : "No leads match this filter."
               }
               className="p-8"
             />

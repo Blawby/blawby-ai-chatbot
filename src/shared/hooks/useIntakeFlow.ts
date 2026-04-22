@@ -541,37 +541,70 @@ export function useIntakeFlow({
       }
 
       // ── Payment gate ──────────────────────────────────────────────────────
-      // Fetch intake settings to determine whether a consultation fee is required
-      // BEFORE creating the intake record. The API call (finalizeRef.current) must
-      // only happen after payment is confirmed.
+      // Template-level payment config wins when present. Fall back to the
+      // practice-level intake settings only when the conversation has no
+      // embedded template payment settings.
       let consultationFee = 0;
-      try {
-        const settingsUrl = getPracticeClientIntakeSettingsEndpoint(effectivePracticeSlug);
-        const settingsRes = await fetch(settingsUrl, {
-          method: 'GET',
-          credentials: 'include',
-        });
-        if (settingsRes.ok) {
-          const settingsPayload = await settingsRes.json() as {
-            success?: boolean;
-            data?: {
-              settings?: { consultationFee?: number; consultation_fee?: number };
-            };
-          };
-          const settings = settingsPayload.data?.settings;
-          consultationFee =
-            (typeof settings?.consultationFee === 'number' ? settings.consultationFee : 0) ||
-            (typeof settings?.consultation_fee === 'number' ? settings.consultation_fee : 0);
-        }
-      } catch (settingsError) {
-        // Fail open: if we can't fetch settings, proceed without payment gate.
-        // This prevents a settings API outage from blocking intake submissions entirely.
-        console.warn('[handleConfirmSubmit] Failed to fetch intake settings, proceeding without payment gate', settingsError);
-        consultationFee = 0;
+      const rawTemplate = conversationMetadataRef.current?.intakeTemplate;
+      const isPlainObject = rawTemplate && typeof rawTemplate === 'object' && !Array.isArray(rawTemplate);
+      const storedTemplate = isPlainObject
+        ? (rawTemplate as { paymentLinkEnabled?: boolean; consultationFee?: number })
+        : undefined;
+      const templateHasPaymentConfig = Boolean(
+        storedTemplate &&
+        (typeof storedTemplate.paymentLinkEnabled === 'boolean' || typeof storedTemplate.consultationFee === 'number')
+      );
+      if (templateHasPaymentConfig) {
+        consultationFee = typeof storedTemplate?.consultationFee === 'number' ? storedTemplate.consultationFee : 0;
       }
 
-      const paymentRequired = consultationFee > 0;
-      quickActionDebugLog('payment gate evaluated', { consultationFee, paymentRequired, effectivePracticeSlug });
+      try {
+        if (!templateHasPaymentConfig) {
+          const settingsUrl = getPracticeClientIntakeSettingsEndpoint(effectivePracticeSlug);
+          const settingsRes = await fetch(settingsUrl, {
+            method: 'GET',
+            credentials: 'include',
+          });
+          if (settingsRes.ok) {
+            const settingsPayload = await settingsRes.json() as {
+              success?: boolean;
+              data?: {
+                settings?: { consultationFee?: number; consultation_fee?: number };
+              };
+            };
+            const settings = settingsPayload.data?.settings;
+            consultationFee =
+              (typeof settings?.consultationFee === 'number' ? settings.consultationFee : 0) ||
+              (typeof settings?.consultation_fee === 'number' ? settings.consultation_fee : 0);
+          }
+        }
+      } catch (settingsError) {
+        // If fetching practice-level settings fails, we default to zero
+        // consultation fee when there is no template-level payment config.
+        // Notes: `storedTemplate` (from conversation metadata) and
+        // `templateHasPaymentConfig` were evaluated above; if a template
+        // includes payment settings we preserve those values and do not
+        // override them here. When no template config exists a failed
+        // settings fetch results in `consultationFee = 0` (no payment
+        // required) to avoid blocking submissions due to transient
+        // settings API errors.
+        console.warn('[handleConfirmSubmit] Failed to fetch intake settings; using default consultation fee', settingsError, {
+          storedTemplate, templateHasPaymentConfig, consultationFee
+        });
+        if (!templateHasPaymentConfig) {
+          consultationFee = 0;
+        }
+      }
+
+      const paymentRequired = templateHasPaymentConfig
+        ? storedTemplate?.paymentLinkEnabled === true && consultationFee > 0
+        : consultationFee > 0;
+      quickActionDebugLog('payment gate evaluated', {
+        consultationFee,
+        paymentRequired,
+        effectivePracticeSlug,
+        source: templateHasPaymentConfig ? 'template' : 'practice_settings',
+      });
 
       if (paymentRequired) {
         // ── Direct payment handoff ──────────────────────────────────────────

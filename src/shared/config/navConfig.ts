@@ -316,9 +316,8 @@ const buildSettingsSecondary = (basePath: string, canAccessPractice: boolean): N
       label: 'Practice',
       items: [
         { id: 'practice', label: 'Overview', href: `${basePath}/settings/practice` },
-        { id: 'practice-contact', label: 'Contact & Intake', href: `${basePath}/settings/practice/contact` },
+        { id: 'practice-contact', label: 'Contact', href: `${basePath}/settings/practice/contact` },
         { id: 'practice-coverage', label: 'Services', href: `${basePath}/settings/practice/coverage` },
-        { id: 'practice-pricing', label: 'Pricing & Fees', href: `${basePath}/settings/practice/pricing` },
         { id: 'practice-payouts', label: 'Payouts', href: `${basePath}/settings/practice/payouts` },
         { id: 'practice-team', label: 'Team & Access', href: `${basePath}/settings/practice/team` },
         { id: 'apps', label: 'Apps & Integrations', href: `${basePath}/settings/apps` },
@@ -346,12 +345,13 @@ const buildSettingsSecondary = (basePath: string, canAccessPractice: boolean): N
 };
 
 const buildIntakesSecondary = (basePath: string): NavSection[] => [{
-  label: 'Queue',
+  label: 'Intakes',
   items: [
-    { id: 'all', label: 'All', href: `${basePath}/intakes` },
-    { id: 'pending_review', label: 'Pending', href: `${basePath}/intakes` },
-    { id: 'accepted', label: 'Accepted', href: `${basePath}/intakes` },
-    { id: 'declined', label: 'Declined', href: `${basePath}/intakes` },
+    { id: 'forms', label: 'Forms', href: `${basePath}/intakes` },
+    { id: 'all', label: 'All responses', href: `${basePath}/intakes/responses` },
+    { id: 'pending_review', label: 'Pending', href: `${basePath}/intakes/responses` },
+    { id: 'accepted', label: 'Accepted', href: `${basePath}/intakes/responses` },
+    { id: 'declined', label: 'Declined', href: `${basePath}/intakes/responses` },
   ],
 }];
 

@@ -6,6 +6,7 @@ export interface PracticeSetupStatus {
   contactComplete: boolean;
   servicesComplete: boolean;
   payoutsComplete: boolean;
+  addressComplete: boolean;
   needsSetup: boolean;
 }
 
@@ -13,26 +14,48 @@ export const resolvePracticeSetupStatus = (
   practice: Practice | null,
   details: PracticeDetails | null
 ): PracticeSetupStatus => {
-  const basicsComplete = Boolean(practice?.name?.trim() && practice?.slug?.trim());
-  const contactComplete = Boolean(
-    details &&
+  const detailAddress: unknown = details?.address;
+  const hasStructuredDetailAddress = Boolean(
+    detailAddress &&
+    typeof detailAddress === 'object' &&
     (
-      (details.businessEmail && details.businessEmail.trim().length > 0) ||
-      (details.businessPhone && details.businessPhone.trim().length > 0) ||
-      (details.address && details.address.trim().length > 0)
+      ('line1' in detailAddress && typeof detailAddress.line1 === 'string' && detailAddress.line1.trim().length > 0) ||
+      ('address' in detailAddress && typeof detailAddress.address === 'string' && detailAddress.address.trim().length > 0)
     )
   );
-  const servicesComplete = Boolean(details?.services && details.services.length > 0);
+  // Require either a structured address object with a line, or a
+  // practice-level address that includes address + city + state.
+  const hasAddress = Boolean(
+    hasStructuredDetailAddress || (
+      practice?.address?.trim() &&
+      practice?.city?.trim() &&
+      practice?.state?.trim()
+    )
+  );
+  const basicsComplete = Boolean(practice?.name?.trim() && practice?.slug?.trim());
+  // Contact is considered complete when an email or phone number is present.
+  const contactComplete = Boolean(
+    (details?.businessEmail && details.businessEmail.trim().length > 0) ||
+    (details?.businessPhone && details.businessPhone.trim().length > 0) ||
+    (practice?.businessEmail && practice.businessEmail.trim().length > 0) ||
+    (practice?.businessPhone && practice.businessPhone.trim().length > 0)
+  );
+  const servicesComplete = Boolean(
+    (details?.services && details.services.length > 0) ||
+    (practice?.services && practice.services.length > 0)
+  );
   const stripeStatus = practice?.businessOnboardingStatus;
   const payoutsComplete = stripeStatus === 'completed'
     || stripeStatus === 'not_required'
     || stripeStatus === 'skipped';
-  const needsSetup = !(basicsComplete && contactComplete && servicesComplete && payoutsComplete);
+  const addressComplete = hasAddress;
+  const needsSetup = !(basicsComplete && contactComplete && servicesComplete && payoutsComplete && addressComplete);
   return {
     basicsComplete,
     contactComplete,
     servicesComplete,
     payoutsComplete,
+    addressComplete,
     needsSetup
   };
 };

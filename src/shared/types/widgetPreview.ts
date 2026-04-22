@@ -1,7 +1,10 @@
+import type { IntakeTemplate } from './intake';
+
 export type WidgetPreviewScenario =
   | 'messenger-start'
   | 'consultation-payment'
-  | 'service-routing';
+  | 'service-routing'
+  | 'intake-template';
 
 export type WidgetPreviewService = {
   id: string;
@@ -19,6 +22,7 @@ export type WidgetPreviewConfig = {
   currency?: string | null;
   billingIncrementMinutes?: number | null;
   services?: WidgetPreviewService[];
+  intakeTemplate?: IntakeTemplate | null;
 };
 
 export type WidgetPreviewMessage = {

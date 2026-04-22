@@ -19,8 +19,9 @@ export { WorkspacePlaceholderState } from './WorkspacePlaceholderState';
 export { PanelSectionHeader } from './PanelSectionHeader';
 export { PanelEmptyState } from './PanelEmptyState';
 export { InteractiveListItem } from './InteractiveListItem';
-// New canonical layout primitives
-export { SettingsPage } from './SettingsPage';
+// Canonical layout primitives
+export { EditorShell } from './EditorShell';
+export { ContentWithBuilder } from './ContentWithBuilder';
 export { ContentWithPreview } from './ContentWithPreview';
 
 export type { IconContainerProps } from './IconContainer';
@@ -34,5 +35,6 @@ export type { DetailHeaderProps } from './DetailHeader';
 export type { ContentHeaderProps } from './ContentHeader';
 export type { WorkspaceListHeaderProps } from './WorkspaceListHeader';
 export type { WorkspacePlaceholderAction } from './WorkspacePlaceholderState';
-export type { SettingsPageProps } from './SettingsPage';
+export type { EditorShellProps } from './EditorShell';
+export type { ContentWithBuilderProps } from './ContentWithBuilder';
 export type { ContentWithPreviewProps } from './ContentWithPreview';

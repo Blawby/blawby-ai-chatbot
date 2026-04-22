@@ -128,7 +128,6 @@ const inventory: DialogInventoryItem[] = [
     usedIn: [
       'src/features/settings/pages/PracticePage.tsx',
       'src/features/settings/pages/AccountPage.tsx',
-      'src/features/settings/pages/PracticePricingPage.tsx',
       'src/features/invoices/pages/PracticeInvoiceDetailPage.tsx',
       'src/features/matters/pages/PracticeMattersPage.tsx',
     ],

@@ -2,12 +2,11 @@ import type { ComponentChildren } from 'preact';
 import { ChevronLeftIcon, XMarkIcon, EllipsisVerticalIcon } from '@heroicons/react/24/outline';
 import { Button } from '@/shared/ui/Button';
 import { cn } from '@/shared/utils/cn';
+import { ContentWithBuilder } from './ContentWithBuilder';
 import { ContentWithPreview } from './ContentWithPreview';
 
 /**
- * Canonical layout for all settings and config surfaces.
- *
- * Replaces the older per-page settings wrappers.
+ * Canonical layout for full-screen editor and detail surfaces.
  *
  * Mobile:   Single column, sticky header at top, preview stacks below content.
  * Desktop:  Sticky header full-width; content/preview in ContentWithPreview grid.
@@ -15,9 +14,10 @@ import { ContentWithPreview } from './ContentWithPreview';
  * Header uses the shared `workspace-header` CSS class — same visual language
  * as DetailHeader so all chrome in the app is consistent.
  */
-export interface SettingsPageProps {
-  title: string;
+export interface EditorShellProps {
+  title: ComponentChildren;
   subtitle?: string;
+  layout?: 'default' | 'builder';
   /**
    * If true, renders a back button in the leading slot.
    */
@@ -38,6 +38,8 @@ export interface SettingsPageProps {
   leadingAction?: ComponentChildren;
   /** Trailing slot — Save button, badge, etc. Rendered right of the title. */
   actions?: ComponentChildren;
+  sidebar?: ComponentChildren;
+  inspector?: ComponentChildren;
   /**
    * Optional right-column pane (widget preview, invoice preview, etc.).
    * When omitted the layout is single-column.
@@ -53,6 +55,8 @@ export interface SettingsPageProps {
   contentMaxWidth?: string | null;
   contentClassName?: string;
   previewClassName?: string;
+  sidebarClassName?: string;
+  inspectorClassName?: string;
   /**
    * Callback for the inspector toggle.
    */
@@ -63,14 +67,17 @@ export interface SettingsPageProps {
   inspectorOpen?: boolean;
 }
 
-export function SettingsPage({
+export function EditorShell({
   title,
   subtitle,
+  layout = 'default',
   showBack,
   backVariant = 'back',
   onBack,
   leadingAction,
   actions,
+  sidebar,
+  inspector,
   preview,
   previewVariant = 'default',
   children,
@@ -78,9 +85,11 @@ export function SettingsPage({
   contentMaxWidth = 'max-w-xl',
   contentClassName,
   previewClassName,
+  sidebarClassName,
+  inspectorClassName,
   onInspector,
   inspectorOpen = false,
-}: SettingsPageProps) {
+}: EditorShellProps) {
   const BackIcon = backVariant === 'close' ? XMarkIcon : ChevronLeftIcon;
   const backLabel = backVariant === 'close' ? 'Close' : 'Back';
 
@@ -130,22 +139,31 @@ export function SettingsPage({
 
       {/* Scrollable content area */}
       <div className="flex min-h-0 flex-1 overflow-hidden">
-        <ContentWithPreview
-          preview={preview}
-          previewVariant={previewVariant}
-          className="flex-1"
-          contentClassName={cn(
-            'px-6 py-6',
-            contentMaxWidth ?? undefined,
-            contentClassName
-          )}
-          previewClassName={cn(
-            'flex items-start justify-center',
-            previewClassName
-          )}
-        >
-          {children}
-        </ContentWithPreview>
+        {layout === 'builder' ? (
+          <ContentWithBuilder
+            className="flex-1"
+            sidebar={sidebar}
+            inspector={inspector}
+            contentClassName={cn(contentMaxWidth ?? undefined, contentClassName)}
+            sidebarClassName={sidebarClassName}
+            inspectorClassName={inspectorClassName}
+          >
+            {children}
+          </ContentWithBuilder>
+        ) : (
+          <ContentWithPreview
+            preview={preview}
+            previewVariant={previewVariant}
+            className="flex-1"
+            contentClassName={cn('px-6 py-6', contentMaxWidth ?? undefined, contentClassName)}
+            previewClassName={cn(
+              'flex items-start justify-center bg-gray-50 p-6',
+              previewClassName
+            )}
+          >
+            {children}
+          </ContentWithPreview>
+        )}
       </div>
     </div>
   );

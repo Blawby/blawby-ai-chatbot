@@ -109,6 +109,7 @@ export interface ConversationMetadata {
   consultation?: import('./intake').ConsultationState | null;
   intakeConversationState?: import('./intake').IntakeConversationState;
   intakeSlimContactDraft?: import('./intake').SlimContactDraft | null;
+  intakeTemplate?: import('./intake').IntakeTemplate | null;
   intakeAiBriefActive?: boolean;
   intakeUuid?: string | null;
   intakePaymentRequired?: boolean;

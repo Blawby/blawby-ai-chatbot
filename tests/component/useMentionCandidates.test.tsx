@@ -30,7 +30,6 @@ const createSessionContext = (overrides: Partial<SessionContextValue> = {}): Ses
   activePracticeId: 'practice-1',
   activeMemberRole: null,
   activeMemberRoleLoading: false,
-  routingClaims: null,
   ...overrides,
 });
 
@@ -41,7 +40,6 @@ const renderHarness = (contextValue: SessionContextValue, props: { practiceId: s
     </SessionContext.Provider>
   )
 );
-
 describe('useMentionCandidates', () => {
   beforeEach(() => {
     mocks.getParticipantsMock.mockReset();

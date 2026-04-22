@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'preact/hooks';
 import { Button } from '@/shared/ui/Button';
 import { Input } from '@/shared/ui/input';
-import { SectionDivider, SettingsPage } from '@/shared/ui/layout';
+import { SectionDivider, EditorShell } from '@/shared/ui/layout';
 import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
 import { SettingsNotice } from '@/features/settings/components/SettingsNotice';
 import { SettingsHelperText } from '@/features/settings/components/SettingsHelperText';
@@ -185,7 +185,7 @@ export const MFAEnrollmentPage = ({
   };
 
   return (
-    <SettingsPage
+    <EditorShell
       title={t('settings:mfa.title')}
       showBack={Boolean(onBack)}
       onBack={onBack}
@@ -337,6 +337,6 @@ export const MFAEnrollmentPage = ({
             </div>
           </div>
       </div>
-    </SettingsPage>
+    </EditorShell>
   );
 };

@@ -42,8 +42,8 @@ export const IntakePaymentCard: FunctionComponent<IntakePaymentCardProps> = ({ p
           type="button"
           disabled
           aria-disabled="true"
-          className="btn btn-primary w-full text-center no-underline inline-flex items-center justify-center h-10 px-4 rounded-xl font-semibold opacity-50 cursor-not-allowed"
-          title="Payment link is currently unavailable"
+          className="inline-flex h-10 w-full cursor-not-allowed items-center justify-center rounded-xl bg-accent-500 px-4 text-center font-semibold text-[rgb(var(--accent-foreground))] opacity-70"
+          title="Preview only"
         >
           {buttonLabel}
         </button>

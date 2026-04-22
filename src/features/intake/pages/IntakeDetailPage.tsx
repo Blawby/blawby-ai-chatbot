@@ -15,7 +15,7 @@ import { CheckCircleIcon as CheckCircleIconSolid } from '@heroicons/react/24/sol
 import { Icon } from '@/shared/ui/Icon';
 import { Button } from '@/shared/ui/Button';
 import { UserCard } from '@/shared/ui/profile';
-import { SettingsPage, DetailHeader } from '@/shared/ui/layout';
+import { EditorShell, DetailHeader } from '@/shared/ui/layout';
 import { Page } from '@/shared/ui/layout/Page';
 import { LoadingBlock } from '@/shared/ui/layout/LoadingBlock';
 import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
@@ -442,6 +442,9 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
       ? intake.desired_outcome.trim()
       : null;
 
+    // These are intentionally static follow-up prompts so the intake detail
+    // screen can gather a few missing fields deterministically without
+    // invoking the full AI planning flow again.
     const missingPrompts = [
       {
         missing: !representedParty,
@@ -589,7 +592,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
   };
 
   return (
-    <SettingsPage
+    <EditorShell
       title={intake.client_name ?? name ?? 'Intake Details'}
       subtitle={intake.practice_area ?? practiceServiceName ?? undefined}
       showBack
@@ -843,6 +846,46 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
             </div>
           ) : null}
         </section>
+
+        {/* ── Custom template fields ── */}
+        {(() => {
+          const customFields = intakeConversationState?.customFields;
+          if (!customFields || typeof customFields !== 'object' || Array.isArray(customFields)) return null;
+          // Normalize: trim string values, filter out empty after trim
+          const entries = Object.entries(customFields)
+            .filter(([key, v]) => {
+              if (key.startsWith('_')) return false;
+              if (typeof v === 'string') {
+                return v.trim() !== '';
+              }
+              return v !== null && v !== undefined;
+            });
+          if (entries.length === 0) return null;
+          // Humanize label: replace _/- with space, split camel, capitalize
+          const humanize = (key: string) => {
+            return key
+              .replace(/[_-]/g, ' ')
+              .replace(/([a-z])([A-Z])/g, '$1 $2')
+              .replace(/^./, (s) => s.toUpperCase());
+          };
+          return (
+            <section className="glass-card p-6 sm:p-8">
+              <h2 className="mb-6 text-xs font-semibold uppercase tracking-widest text-input-placeholder">
+                Custom fields
+              </h2>
+              <dl className="grid grid-cols-1 gap-5 md:grid-cols-3">
+                {entries.map(([key, value]) => (
+                  <StatCell
+                    key={key}
+                    label={humanize(key)}
+                    value={typeof value === 'boolean' ? (value ? 'Yes' : 'No') : String(value)}
+                    icon={ClipboardDocumentCheckIcon}
+                  />
+                ))}
+              </dl>
+            </section>
+          );
+        })()}
       </div>
 
       <Dialog
@@ -880,7 +923,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
           </Button>
         </DialogFooter>
       </Dialog>
-    </SettingsPage>
+    </EditorShell>
   );
 };
 

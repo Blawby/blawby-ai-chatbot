@@ -143,7 +143,52 @@ export const useWorkspaceData = ({
 
     updatePracticeDetails: async (updates) => {
       try {
-        await practiceDetails.updateDetails(updates);
+        const normalizeToUpdate = (u: Partial<PracticeDetails>): import('@/shared/lib/apiClient').PracticeDetailsUpdate => {
+          const out: import('@/shared/lib/apiClient').PracticeDetailsUpdate = {};
+          if (u.businessPhone !== undefined) out.businessPhone = u.businessPhone ?? null;
+          if (u.businessEmail !== undefined) out.businessEmail = u.businessEmail ?? null;
+          if (u.consultationFee !== undefined) out.consultationFee = u.consultationFee ?? null;
+          if (u.paymentLinkEnabled !== undefined) out.paymentLinkEnabled = u.paymentLinkEnabled ?? null;
+          if (u.paymentUrl !== undefined) out.paymentUrl = u.paymentUrl ?? null;
+          if (u.calendlyUrl !== undefined) out.calendlyUrl = u.calendlyUrl ?? null;
+          if (u.billingIncrementMinutes !== undefined) out.billingIncrementMinutes = u.billingIncrementMinutes ?? null;
+          if (u.website !== undefined) out.website = u.website ?? null;
+          // Normalize address which may be string or object
+          if (u.address !== undefined) {
+            const addr = u.address as (string | Record<string, unknown> | null | undefined);
+            if (typeof addr === 'string' || addr == null) {
+              out.address = typeof addr === 'string' ? addr : null;
+            } else if (typeof addr === 'object') {
+              const a = addr as Record<string, unknown>;
+              const trimOrNull = (val: unknown) => {
+                if (typeof val !== 'string') return null;
+                const trimmed = val.trim();
+                return trimmed.length > 0 ? trimmed : null;
+              };
+              const hasKey = (k: string) => k in a;
+              if (hasKey('address') || hasKey('line1') || hasKey('address_line')) out.address = trimOrNull(a.address ?? a.line1 ?? a.address_line);
+              if (hasKey('apartment') || hasKey('unit')) out.apartment = trimOrNull(a.apartment ?? a.unit);
+              if (hasKey('city')) out.city = trimOrNull(a.city);
+              if (hasKey('state')) out.state = trimOrNull(a.state);
+              if (hasKey('postalCode') || hasKey('postal_code')) out.postalCode = trimOrNull(a.postalCode ?? a.postal_code);
+              if (hasKey('country')) out.country = trimOrNull(a.country);
+            }
+          }
+          if (u.primaryColor !== undefined) out.primaryColor = u.primaryColor ?? null;
+          if (u.accentColor !== undefined) out.accentColor = u.accentColor ?? null;
+          if (u.introMessage !== undefined) out.introMessage = u.introMessage ?? null;
+          if (u.legalDisclaimer !== undefined) out.legalDisclaimer = u.legalDisclaimer ?? null;
+          if (u.isPublic !== undefined) out.isPublic = u.isPublic ?? null;
+          if (u.services !== undefined) out.services = u.services ?? null;
+          if (u.serviceStates !== undefined) out.serviceStates = u.serviceStates ?? null;
+          if (u.supportedStates !== undefined) out.supportedStates = u.supportedStates ?? null;
+          if (u.settings !== undefined) out.settings = u.settings ?? null;
+          if (u.metadata !== undefined) out.metadata = u.metadata ?? null;
+          return out;
+        };
+
+        const normalized = normalizeToUpdate(updates);
+        await practiceDetails.updateDetails(normalized);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to update practice details');
       }

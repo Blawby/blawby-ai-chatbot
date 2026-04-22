@@ -2,6 +2,7 @@ import { useState, useEffect } from 'preact/hooks';
 import { getClient } from '@/shared/lib/authClient';
 import { rememberAnonymousUserId, rememberAnonymousSessionId } from '@/shared/utils/anonymousIdentity';
 import { clearWidgetAuthToken, persistWidgetAuthToken, withWidgetAuthHeaders } from '@/shared/utils/widgetAuth';
+import type { IntakeTemplate } from '@/shared/types/intake';
 
 export interface WidgetBootstrapData {
   practiceDetails: Record<string, unknown> | null;
@@ -20,6 +21,8 @@ export interface WidgetBootstrapData {
   widgetAuthTokenExpiresAt?: string | null;
   widgetQueryAuthToken?: string | null;
   widgetQueryAuthTokenExpiresAt?: string | null;
+  /** Resolved IntakeTemplate for this widget boot (honours ?template= param) */
+  intakeTemplate?: IntakeTemplate | null;
 }
 
 export function useWidgetBootstrap(slug: string, isWidget: boolean) {
@@ -55,7 +58,12 @@ export function useWidgetBootstrap(slug: string, isWidget: boolean) {
 
         const cacheKey = `blawby_widget_bootstrap_${slug}`;
 
-        const res = await fetch(`/api/widget/bootstrap?slug=${encodeURIComponent(slug)}`, {
+        // Forward ?template= param if present
+        const urlParams = new URLSearchParams(window.location.search);
+        const template = urlParams.get('template');
+        const query = [`slug=${encodeURIComponent(slug)}`];
+        if (template) query.push(`template=${encodeURIComponent(template)}`);
+        const res = await fetch(`/api/widget/bootstrap?${query.join('&')}`, {
           headers: withWidgetAuthHeaders(),
           credentials: 'include',
         });

@@ -127,7 +127,7 @@ export function MainApp({
   });
 
   // ── workspace routing — single source of truth ────────────────────────────
-  const { session, isPending: sessionIsPending, isAnonymous, activeMemberRole, routingClaims } = useSessionContext();
+  const { session, isPending: sessionIsPending, isAnonymous, activeMemberRole } = useSessionContext();
 
   // ── practice details (accent color) ───────────────────────────────────────
   // For the public workspace, prefer practiceConfig.id (UUID) as the store key.
@@ -193,7 +193,6 @@ export function MainApp({
     practiceDetails,
     activeMemberRole,
     session,
-    routing: routingClaims,
   });
   const clientMattersPath = useMemo(() => {
     if (!isClientWorkspace) return null;
@@ -1042,7 +1041,7 @@ export function MainApp({
             }
           : (resolvedWorkspaceView === 'invoiceCreate' || resolvedWorkspaceView === 'invoiceEdit') && isPracticeWorkspace
             ? {
-                label: 'Send Invoice',
+                label: 'Review Invoice',
                 onClick: () => window.dispatchEvent(new CustomEvent(INVOICE_CREATE_SEND_EVENT)),
                 icon: PaperAirplaneIcon,
               }

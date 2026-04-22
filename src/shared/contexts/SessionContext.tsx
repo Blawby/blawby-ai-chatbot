@@ -1,7 +1,6 @@
-import { createContext, useContext, useEffect, useRef, useMemo } from 'preact/compat';
+import { createContext, useContext, useEffect, useRef, useMemo, useState } from 'preact/compat';
 import { ComponentChildren } from 'preact';
-import { useTypedSession } from '@/shared/lib/authClient';
-import { parseRoutingClaims, type RoutingClaims } from '@/shared/types/routing';
+import { useTypedSession, useActiveMemberRole } from '@/shared/lib/authClient';
 import { RoutePracticeContext } from '@/shared/contexts/RoutePracticeContext';
 import { rememberAnonymousUserId, rememberAnonymousSessionId } from '@/shared/utils/anonymousIdentity';
 import type { BetterAuthSessionUser } from '@/shared/types/user';
@@ -15,18 +14,17 @@ export interface SessionContextValue {
   activePracticeId: string | null;
   activeMemberRole: string | null;
   activeMemberRoleLoading: boolean;
-  /**
-   * Backend-computed routing claims from GET /auth/get-session.
-   * Present when the backend routing PR #101 is deployed.
-   * Falls back to null — callers should use useWorkspaceResolver which
-   * handles both the claims path and the legacy fallback path.
-   */
-  routingClaims: RoutingClaims | null;
 }
 
 export const SessionContext = createContext<SessionContextValue | undefined>(undefined);
 
 type SessionData = ReturnType<typeof useTypedSession>['data'];
+type ActiveMemberRoleState = {
+  role: string | null;
+  loading: boolean;
+  resolved: boolean;
+  error?: unknown;
+};
 
 const getActivePracticeId = (sessionData: SessionData | null | undefined): string | null => {
   const sessionRecord = sessionData?.session as Record<string, unknown> | undefined;
@@ -43,10 +41,14 @@ const buildSessionContextValue = ({
   sessionData,
   isPending,
   error,
+  activeMemberRole,
+  activeMemberRoleLoading,
 }: {
   sessionData: SessionData | null | undefined;
   isPending: boolean;
   error: unknown;
+  activeMemberRole: string | null;
+  activeMemberRoleLoading: boolean;
 }): SessionContextValue => {
   // Safely narrow to fully-typed user, checking the new transformError discriminator
   const isTransformError = sessionData && 'transformError' in sessionData && sessionData.transformError === true;
@@ -65,14 +67,6 @@ const buildSessionContextValue = ({
         : null) ?? null;
   const activePracticeId = getActivePracticeId(sessionData);
 
-  // Parse backend routing claims if present (PR #101)
-  const routingClaims = parseRoutingClaims(sessionData);
-
-  // Trust backend claims for role if available, otherwise fallback to null.
-  // This eliminates the need for useActiveMemberRole() which triggered an extra API call.
-  const activeMemberRole = routingClaims?.active_membership_role ?? null;
-  const activeMemberRoleLoading = false;
-
   return {
     session: sessionData ?? null,
     isPending,
@@ -82,17 +76,56 @@ const buildSessionContextValue = ({
     activePracticeId,
     activeMemberRole,
     activeMemberRoleLoading,
-    routingClaims,
   };
 };
 
+function ActiveMemberRoleBridge({
+  onChange,
+}: {
+  onChange: (next: ActiveMemberRoleState) => void;
+}) {
+  const activeMemberRoleResult = useActiveMemberRole() as {
+    data?: string | { role?: string | null } | null;
+    isPending?: boolean;
+    error?: unknown;
+  };
+  const activeRoleData = activeMemberRoleResult?.data;
+  const resolvedActiveMemberRole = typeof activeRoleData === 'string'
+    ? activeRoleData
+    : activeRoleData && typeof activeRoleData === 'object' && typeof activeRoleData.role === 'string'
+      ? activeRoleData.role
+      : null;
+  const activeMemberRoleLoading = activeMemberRoleResult?.isPending === true;
+
+  useEffect(() => {
+    onChange({
+      role: resolvedActiveMemberRole,
+      loading: activeMemberRoleLoading,
+      resolved: !activeMemberRoleLoading,
+      error: activeMemberRoleResult?.error,
+    });
+  }, [activeMemberRoleLoading, onChange, resolvedActiveMemberRole, activeMemberRoleResult?.error]);
+
+  return null;
+}
+
 export function SessionProvider({ children }: { children: ComponentChildren }) {
   const { data: sessionData, isPending, error } = useTypedSession();
+  const [activeMemberRoleState, setActiveMemberRoleState] = useState<ActiveMemberRoleState>({
+    role: null,
+    loading: false,
+    resolved: false,
+  });
 
   const isTransformError = sessionData && 'transformError' in sessionData && sessionData.transformError === true;
   const typedUser = (isTransformError ? null : sessionData?.user) as BetterAuthSessionUser | null | undefined;
   const rawUserRecord1 = isTransformError ? (sessionData?.user as unknown as Record<string, unknown> | undefined) : undefined;
   const currentUserId1 = isTransformError ? (rawUserRecord1?.id as string | undefined) : typedUser?.id;
+  const sessionIsAnonymous = isTransformError
+    ? (rawUserRecord1?.isAnonymous as boolean | undefined ?? !sessionData?.user)
+    : (typedUser?.isAnonymous ?? !sessionData?.user);
+  const sessionActivePracticeId = getActivePracticeId(sessionData);
+  const shouldResolveActiveMemberRole = Boolean(currentUserId1 && !sessionIsAnonymous && sessionActivePracticeId);
 
   const sessionKey =
     currentUserId1 ??
@@ -121,7 +154,36 @@ export function SessionProvider({ children }: { children: ComponentChildren }) {
     }
   }, [sessionKey]);
 
-  const value = useMemo(() => buildSessionContextValue({ sessionData, isPending, error }), [sessionData, isPending, error]);
+  useEffect(() => {
+    if (shouldResolveActiveMemberRole) {
+      setActiveMemberRoleState((current) => (
+        current.loading && !current.resolved
+          ? current
+          : {
+              role: current.role,
+              loading: true,
+              resolved: false,
+            }
+      ));
+      return;
+    }
+
+    setActiveMemberRoleState({ role: null, loading: false, resolved: false });
+  }, [shouldResolveActiveMemberRole, sessionActivePracticeId, currentUserId1]);
+
+  const effectiveActiveMemberRoleLoading = shouldResolveActiveMemberRole
+    && (!activeMemberRoleState.resolved || activeMemberRoleState.loading);
+
+  const value = useMemo(
+    () => buildSessionContextValue({
+      sessionData,
+      isPending,
+      error: error || activeMemberRoleState.error,
+      activeMemberRole: activeMemberRoleState.role,
+      activeMemberRoleLoading: effectiveActiveMemberRoleLoading,
+    }),
+    [activeMemberRoleState.role, activeMemberRoleState.error, effectiveActiveMemberRoleLoading, error, isPending, sessionData]
+  );
 
   const valueIsTransformError = value.session && 'transformError' in value.session && value.session.transformError === true;
   const valueTypedUser = (valueIsTransformError ? null : value.session?.user) as BetterAuthSessionUser | null | undefined;
@@ -143,6 +205,9 @@ export function SessionProvider({ children }: { children: ComponentChildren }) {
 
   return (
     <SessionContext.Provider value={value}>
+      {shouldResolveActiveMemberRole ? (
+        <ActiveMemberRoleBridge onChange={setActiveMemberRoleState} />
+      ) : null}
       {children}
     </SessionContext.Provider>
   );

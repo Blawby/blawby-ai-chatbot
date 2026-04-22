@@ -8,6 +8,14 @@ import {
 } from '../../src/shared/utils/consultationState';
 import type { ChatMessageAction } from '../../src/shared/types/conversation';
 import { createSubmitAction } from '../../src/shared/utils/chatActions';
+import type { IntakeFieldDefinition } from '../../src/shared/types/intake.js';
+import { STANDARD_FIELD_KEYS, DEFAULT_INTAKE_TEMPLATE } from '../../src/shared/constants/intakeTemplates.js';
+import {
+  resolveNextField,
+  isFieldCollected,
+  isIntakeCompleteForTemplate,
+  getRequiredFieldProgress,
+} from '../../src/shared/utils/intakeOrchestration.js';
 
 const MAX_SERVICES_IN_PROMPT = 20;
 const MAX_SERVICES_IN_CONVERSATION_PROMPT = 8;
@@ -31,55 +39,98 @@ const US_STATE_NAME_TO_CODE: Record<string, string> = {
 // Tool definitions — three discrete tools the model calls naturally
 // ---------------------------------------------------------------------------
 
+/**
+ * Builds the save_case_details tool schema dynamically from the resolved
+ * IntakeTemplate fields. Falls back to the default template if fields are empty.
+ */
+export function buildSaveCaseDetailsTool(fields: IntakeFieldDefinition[]) {
+  const activeFields = fields.length > 0 ? fields : DEFAULT_INTAKE_TEMPLATE.fields;
+  const properties: Record<string, object> = {};
+  const required: string[] = [];
 
-export const SAVE_CASE_DETAILS_TOOL = {
-  type: 'function',
-  function: {
-    name: 'save_case_details',
-    description: 'Save case information collected in the conversation. Call when you have description, city, and state at minimum. Can be called incrementally as more information is gathered.',
-    parameters: {
-      type: 'object',
-      properties: {
-        description: {
-          type: 'string',
-          description: 'Plain-English summary of the case situation, max 300 chars',
-        },
-        city: { type: 'string', description: 'City where the legal matter is located' },
-        state: { type: 'string', description: '2-letter US state code, e.g. CA, TX' },
-        opposingParty: {
-          type: 'string',
-          description: 'Name of opposing person, company, or organization explicitly mentioned. Never extract descriptions or circumstances.',
-        },
-        practiceServiceUuid: {
-          type: 'string',
-          description: 'Service UUID from the firm services list provided in context',
-        },
-        urgency: {
-          type: 'string',
-          enum: ['routine', 'time_sensitive', 'emergency'],
-          description: 'How urgent the matter is',
-        },
-        desiredOutcome: {
-          type: 'string',
-          description: 'What the user wants to achieve, max 150 chars',
-        },
-        courtDate: {
-          type: 'string',
-          description: 'Court date or hard deadline in ISO 8601 format (YYYY-MM-DD). Omit if not explicitly stated.',
-        },
-        hasDocuments: {
-          type: 'boolean',
-          description: 'Whether the user has mentioned having relevant documents',
-        },
-        householdSize: {
-          type: 'integer',
-          description: 'Total number of residents in the household',
-        },
+  for (const field of activeFields) {
+    if (field.type === 'select' && Array.isArray(field.options) && field.options.length > 0) {
+      properties[field.key] = {
+        type: 'string',
+        enum: field.options,
+        description: field.label,
+      };
+    } else if (field.type === 'boolean') {
+      properties[field.key] = {
+        type: 'boolean',
+        description: field.label,
+      };
+    } else if (field.type === 'date') {
+      properties[field.key] = {
+        type: 'string',
+        description: `Date in ISO 8601 format (YYYY-MM-DD) for: ${field.label}. Omit if not explicitly stated.`,
+      };
+    } else if (field.type === 'number') {
+      properties[field.key] = {
+        type: 'number',
+        description: field.label,
+      };
+    } else {
+      // 'text' and any other type
+      properties[field.key] = {
+        type: 'string',
+        description: field.label,
+      };
+    }
+
+    if (field.required) {
+      required.push(field.key);
+    }
+  }
+
+  // Always include practiceServiceUuid even if not in a custom template
+  // so the model can still call save with a service UUID.
+  if (!properties.practiceServiceUuid) {
+    properties.practiceServiceUuid = {
+      type: 'string',
+      description: 'Service UUID from the firm services list provided in context',
+    };
+  }
+
+  return {
+    type: 'function',
+    function: {
+      name: 'save_case_details',
+      description: 'Save case information collected in the conversation. Call when you have the required fields at minimum. Can be called incrementally as more information is gathered.',
+      parameters: {
+        type: 'object',
+        properties,
+        required: required.length > 0 ? required : ['description', 'city', 'state'],
       },
-      required: ['description', 'city', 'state'],
     },
-  },
-} as const;
+  } as const;
+}
+
+/** Convenience constant: the default tool schema using the default template. */
+export const SAVE_CASE_DETAILS_TOOL = buildSaveCaseDetailsTool(DEFAULT_INTAKE_TEMPLATE.fields);
+
+/**
+ * Generates the field instruction block injected into the system prompt.
+ * Incorporates Phase 2 (promptHint) and Phase 3 (validationHint, condition).
+ */
+export function buildFieldInstructions(fields: IntakeFieldDefinition[]): string {
+  const activeFields = fields.length > 0 ? fields : DEFAULT_INTAKE_TEMPLATE.fields;
+  return activeFields.map((f) => {
+    const req = f.required ? '(required)' : '(optional)';
+    const questionText = f.isStandard ? (f.previewQuestion?.trim() || f.label) : f.label;
+    const opts =
+      f.type === 'select' && Array.isArray(f.options) && f.options.length > 0
+        ? ` Options: ${f.options.join(', ')}.`
+        : '';
+    const hint = f.promptHint ? ` Guidance: ${f.promptHint}` : '';
+    const validation = f.validationHint ? ` Valid answer: ${f.validationHint}` : '';
+    const cond = f.condition
+      ? ` Only ask if ${f.condition.dependsOn} is "${f.condition.value}".`
+      : '';
+    return `- ${questionText} ${req}${opts}${hint}${validation}${cond}`;
+  }).join('\n');
+}
+
 
 export const REQUEST_PAYMENT_TOOL = {
   type: 'function',
@@ -148,12 +199,18 @@ export const ASK_USER_QUESTION_TOOL = {
   },
 } as const;
 
-export const INTAKE_TOOLS = [
-  SAVE_CASE_DETAILS_TOOL,
-  REQUEST_PAYMENT_TOOL,
-  SUBMIT_INTAKE_TOOL,
-  ASK_USER_QUESTION_TOOL,
-] as const;
+/** Builds the full intake tools array for a given template's field list. */
+export function buildIntakeTools(fields: IntakeFieldDefinition[]) {
+  return [
+    buildSaveCaseDetailsTool(fields),
+    REQUEST_PAYMENT_TOOL,
+    SUBMIT_INTAKE_TOOL,
+    ASK_USER_QUESTION_TOOL,
+  ] as const;
+}
+
+/** Default tools using the default template. */
+export const INTAKE_TOOLS = buildIntakeTools(DEFAULT_INTAKE_TEMPLATE.fields);
 
 // ---------------------------------------------------------------------------
 // Tool result types
@@ -172,8 +229,6 @@ export interface ToolResult {
   triggerSubmit?: boolean;
 }
 
-type EnrichmentField = 'opposingParty' | 'hasDocuments' | 'householdSize';
-
 // ---------------------------------------------------------------------------
 // Tool handlers — persist to DB, return structured results
 // ---------------------------------------------------------------------------
@@ -184,65 +239,77 @@ export const handleSaveCaseDetails = (
   submissionGate: IntakeSubmissionGate,
 ): ToolResult => {
   const patch: Record<string, unknown> = {};
+  const customFieldsPatch: Record<string, string | boolean | number> = {};
 
   const description = typeof args.description === 'string' ? args.description.trim().slice(0, 300) : (typeof storedIntakeState?.description === 'string' ? (storedIntakeState.description as string) : '');
   const city = typeof args.city === 'string' ? args.city.trim() : (typeof storedIntakeState?.city === 'string' ? (storedIntakeState.city as string) : '');
   const rawState = typeof args.state === 'string' ? args.state.trim() : (typeof storedIntakeState?.state === 'string' ? (storedIntakeState.state as string) : '');
   const state = normalizeStateCode(rawState);
 
-  if (!description || !city || !state) {
-    return {
-      success: false,
-      message: 'Case details incomplete — description, city, and state are required at minimum.',
-    };
-  }
+  // Field routing: description/city/state are normalized separately for backward compat.
+  // The save handler accepts any partial save — the orchestration layer owns "what's required".
 
   // Only include fields in the patch if they were provided in this specific tool call (delta)
   if (typeof args.description === 'string') patch.description = description;
   if (typeof args.city === 'string') patch.city = city;
   if (typeof args.state === 'string' && state) patch.state = state;
 
-  if (typeof args.opposingParty === 'string' && args.opposingParty.trim()) {
-    patch.opposingParty = args.opposingParty.trim();
+  // Route each arg to the correct bucket based on whether it is a standard field
+  for (const [key, value] of Object.entries(args)) {
+    if (key === 'description' || key === 'city' || key === 'state') continue; // already handled above
+
+    if (STANDARD_FIELD_KEYS.has(key)) {
+      // Standard field — goes directly onto the intake state patch
+      if (key === 'opposingParty' && typeof value === 'string' && value.trim()) {
+        patch.opposingParty = value.trim();
+      } else if (key === 'practiceServiceUuid' && typeof value === 'string' && value.trim()) {
+        patch.practiceServiceUuid = value.trim();
+      } else if (key === 'urgency' && (value === 'routine' || value === 'time_sensitive' || value === 'emergency')) {
+        patch.urgency = value;
+      } else if (key === 'desiredOutcome' && typeof value === 'string' && value.trim()) {
+        patch.desiredOutcome = value.trim().slice(0, 150);
+      } else if (key === 'courtDate' && typeof value === 'string' && value.trim()) {
+        patch.courtDate = value.trim();
+      } else if (key === 'hasDocuments' && typeof value === 'boolean') {
+        patch.hasDocuments = value;
+      } else if (key === 'householdSize' && Number.isFinite(value)) {
+        patch.householdSize = Math.max(0, Math.floor(value as number));
+      }
+    } else {
+      // Non-standard field — goes into customFields
+      if (typeof value === 'string' && value.trim()) {
+        customFieldsPatch[key] = value.trim();
+      } else if (typeof value === 'boolean') {
+        customFieldsPatch[key] = value;
+      } else if (typeof value === 'number' && Number.isFinite(value)) {
+        customFieldsPatch[key] = value;
+      }
+    }
   }
-  if (typeof args.practiceServiceUuid === 'string' && args.practiceServiceUuid.trim()) {
-    patch.practiceServiceUuid = args.practiceServiceUuid.trim();
-  }
-  if (args.urgency === 'routine' || args.urgency === 'time_sensitive' || args.urgency === 'emergency') {
-    patch.urgency = args.urgency;
-  }
-  if (typeof args.desiredOutcome === 'string' && args.desiredOutcome.trim()) {
-    patch.desiredOutcome = args.desiredOutcome.trim().slice(0, 150);
-  }
-  if (typeof args.courtDate === 'string' && args.courtDate.trim()) {
-    patch.courtDate = args.courtDate.trim();
-  }
-  if (typeof args.hasDocuments === 'boolean') {
-    patch.hasDocuments = args.hasDocuments;
-  }
-  if (Number.isFinite(args.householdSize)) {
-    patch.householdSize = Math.max(0, Math.floor(args.householdSize as number));
+
+  // Merge customFields with any existing ones
+  if (Object.keys(customFieldsPatch).length > 0) {
+    const existingCustom = (storedIntakeState?.customFields as Record<string, string | boolean | number> | undefined) ?? {};
+    patch.customFields = { ...existingCustom, ...customFieldsPatch };
   }
 
   const merged = mergeIntakeState(storedIntakeState, patch);
-  const isEnrichmentMode = merged?.enrichmentMode === true;
-  const nextEnrichmentField = isEnrichmentMode ? resolveNextEnrichmentField(merged, normalizeServicesForPrompt(submissionGate.details)) : null;
   const isSubmittable = isIntakeSubmittable(merged, submissionGate);
 
-  // Derive suggested replies for the next open field
+  // Derive suggested replies — nextEnrichmentField is now passed from caller via gate
+  // (null here because handleSaveCaseDetails does not have template context; aiChat.ts
+  //  has it and handles tool-only synthetic replies via deriveCaseSavedAcknowledgment)
   const consultationFee = readFiniteNumberField(submissionGate.details, ['consultationFee', 'consultation_fee']);
-  const actions = deriveNextActions(merged, submissionGate, consultationFee);
+  const actions = deriveNextActions(merged, submissionGate, consultationFee, submissionGate.nextEnrichmentField ?? null);
   if (actions.length > 0) {
     patch.ctaShown = true;
   }
 
   return {
     success: true,
-    message: isEnrichmentMode && nextEnrichmentField === null
-      ? 'Enrichment complete. All optional fields collected. Summarize what you have and invite the user to submit.'
-      : isSubmittable
-        ? 'Case details saved. All required fields collected.'
-        : 'Case details saved. Continue collecting remaining fields.',
+    message: isSubmittable
+      ? 'Case details saved. All required fields collected.'
+      : 'Case details saved. Continue collecting remaining fields.',
     intakeFields: patch,
     actions: actions.length > 0 ? actions : undefined,
   };
@@ -358,6 +425,8 @@ const deriveNextActions = (
   mergedState: Record<string, unknown> | null,
   submissionGate: IntakeSubmissionGate,
   consultationFee?: number | null,
+  /** Next enrichment field from the orchestration layer — replaces resolveNextEnrichmentField */
+  nextEnrichmentField?: IntakeFieldDefinition | null,
 ): ChatMessageAction[] => {
   if (!mergedState) return [];
 
@@ -366,18 +435,16 @@ const deriveNextActions = (
   const isEnrichmentMode = mergedState.enrichmentMode === true;
 
   if (isEnrichmentMode) {
+    // During enrichment, do not show the Submit button until enrichment is complete.
+    // If there is an outstanding enrichment field, return no actions (hide submit/quick-replies).
+    if (nextEnrichmentField) {
+      return [];
+    }
     const submitAction = createSubmitAction(
       submissionGate.paymentRequiredBeforeSubmit && !submissionGate.paymentCompleted
         ? payLabel
         : 'Submit request'
     );
-    const nextField = resolveNextEnrichmentField(mergedState, normalizeServicesForPrompt(submissionGate.details));
-    if (nextField) {
-      return [
-        ...deriveEnrichmentActions(nextField),
-        submitAction,
-      ];
-    }
     return [submitAction];
   }
 
@@ -404,64 +471,52 @@ const deriveNextActions = (
   return [];
 };
 
-const deriveEnrichmentActions = (nextField: EnrichmentField): ChatMessageAction[] => {
-  if (nextField === 'hasDocuments') {
+/**
+ * Derives quick-reply action suggestions for a field based on its type.
+ * Works for any field — boolean gets yes/no, select gets its options,
+ * others get no quick replies (free text).
+ */
+const deriveFieldQuickReplies = (field: IntakeFieldDefinition): ChatMessageAction[] => {
+  if (field.type === 'boolean') {
     return [
-      { type: 'reply', label: 'Yes, I have documents', value: 'Yes, I have relevant documents.' },
-      { type: 'reply', label: 'No documents', value: 'No, I do not have documents yet.' },
+      { type: 'reply', label: 'Yes', value: `Yes, regarding ${field.label.toLowerCase()}.` },
+      { type: 'reply', label: 'No', value: `No, regarding ${field.label.toLowerCase()}.` },
     ];
   }
-
-  if (nextField === 'householdSize') {
-    return [
-      { type: 'reply', label: '1', value: '1 person.' },
-      { type: 'reply', label: '2', value: '2 people.' },
-      { type: 'reply', label: '3', value: '3 people.' },
-      { type: 'reply', label: '4+', value: '4 or more people.' },
-    ];
+  if (field.type === 'select' && Array.isArray(field.options) && field.options.length > 0) {
+    return field.options.map((opt) => ({ type: 'reply' as const, label: opt, value: opt }));
   }
-
   return [];
 };
 
-const resolveNextEnrichmentField = (
-  state: Record<string, unknown> | null,
-  services: IntakePromptService[] = []
-): EnrichmentField | null => {
-  if (!state) return 'opposingParty';
-
-  const opposingParty = typeof state.opposingParty === 'string' ? state.opposingParty.trim() : '';
-  if (!opposingParty) return 'opposingParty';
-
-  if (typeof state.hasDocuments !== 'boolean') return 'hasDocuments';
-
-  if (isBusinessMatter(state, services)) return null;
-
-  const householdSize = state.householdSize;
-  if (!(typeof householdSize === 'number' && Number.isFinite(householdSize) && householdSize > 0)) {
-    return 'householdSize';
-  }
-
-  return null;
-};
-
-const isBusinessMatter = (state: Record<string, unknown>, services: IntakePromptService[]): boolean => {
-  const practiceServiceUuid = typeof state.practiceServiceUuid === 'string' ? state.practiceServiceUuid.trim() : '';
-  const serviceName = practiceServiceUuid
-    ? services.find((service) => service.uuid === practiceServiceUuid)?.name ?? ''
-    : '';
-  return /business|corporate|commercial|enterprise|company|llc|inc|startup/i.test(serviceName);
-};
+// ---------------------------------------------------------------------------
+// Orchestration helpers re-exported for use in aiChat.ts
+// ---------------------------------------------------------------------------
+export { resolveNextField, isFieldCollected, isIntakeCompleteForTemplate, getRequiredFieldProgress };
 
 // ---------------------------------------------------------------------------
-// The unified system prompt — one prompt, no KNOWN SO FAR injection
+// The unified system prompt — surgical single-field focus per turn
 // ---------------------------------------------------------------------------
 
+/**
+ * Builds the system prompt for a single intake turn.
+ *
+ * With the orchestration layer in place, the AI is told EXACTLY which field
+ * to ask about this turn (`nextField`). It does not decide what comes next.
+ * When `nextField` is null, all required fields are done — the prompt shifts
+ * to asking the user if they're ready to submit or want enrichment.
+ *
+ * For enrichment turns, pass `nextEnrichmentField` alongside `nextField: null`.
+ */
 export const buildIntakeSystemPrompt = (
   services: IntakePromptService[],
   practiceContext: Record<string, unknown> | null,
   storedIntakeState: Record<string, unknown> | null,
   userName?: string | null,
+  /** The single field to collect this turn (required phase), or null if done */
+  nextField?: IntakeFieldDefinition | null,
+  /** The single enrichment field to collect this turn, or null */
+  nextEnrichmentField?: IntakeFieldDefinition | null,
 ): string => {
   const cappedServices = services.slice(0, MAX_SERVICES_IN_CONVERSATION_PROMPT);
   const serviceList = cappedServices.length > 0
@@ -474,7 +529,7 @@ export const buildIntakeSystemPrompt = (
   const intakeContext = buildIntakeContextSummary(storedIntakeState, services);
   const firstName = userName ? getFirstName(userName) : null;
   const userSalutationSnippet = firstName ? `The user's first name is ${firstName}. ` : '';
-  const userNamingInstruction = firstName ? ' (use their name)' : '';
+  const userNamingInstruction = firstName ? ` Address them as ${firstName}.` : '';
 
   const licensedJurisdictions = typeof practiceContext?.licensedJurisdictions === 'string' && practiceContext.licensedJurisdictions.trim()
     ? practiceContext.licensedJurisdictions.trim()
@@ -485,49 +540,78 @@ export const buildIntakeSystemPrompt = (
 
   const isEnrichmentMode = storedIntakeState?.enrichmentMode === true;
 
-  return `${userSalutationSnippet}You are a warm, helpful legal intake assistant for ${practiceName}. Your job is to collect case information conversationally and call tools to save it.${licensedStatesSnippet}
+  // --- Build the per-field instruction block ---
+  // Determine which field the AI should focus on this turn.
+  const activeField = isEnrichmentMode ? nextEnrichmentField : nextField;
+
+  const fieldBlock = activeField ? (() => {
+    const typeHint = activeField.type === 'select' && activeField.options?.length
+      ? `\n  Accepted values: ${activeField.options.join(', ')}`
+      : activeField.type === 'date'
+        ? '\n  Accept any common date format (month/day/year, natural language, etc.)'
+        : activeField.type === 'boolean'
+          ? '\n  Accept yes/no. Ask a simple yes/no question.'
+          : activeField.type === 'number'
+            ? '\n  Expect a numeric answer.'
+            : '';
+    const guidance = activeField.promptHint ? `\n  Guidance: ${activeField.promptHint}` : '';
+    const validation = activeField.validationHint ? `\n  Valid answer: ${activeField.validationHint}` : '';
+    const condNote = activeField.condition
+      ? `\n  Context: only relevant when ${activeField.condition.dependsOn} is "${activeField.condition.value}"` 
+      : '';
+    return `Your ONLY job this turn is to ask about ONE field:
+  Field: ${activeField.label}
+  Key: ${activeField.key}
+  Type: ${activeField.type}${typeHint}${guidance}${validation}${condNote}
+
+Ask about this field naturally in one or two sentences.${userNamingInstruction}
+When the user answers, call save_case_details with { ${activeField.key}: <answer> }.
+If the answer is unclear or invalid, ask exactly ONE clarifying follow-up.
+Never ask about any other field this turn.`;
+  })() : isEnrichmentMode
+    ? `All enrichment questions have been answered. Thank the user and confirm their case is as strong as possible. The submit action is available.`
+    : `All required information has been collected.${userNamingInstruction}
+${storedIntakeState ? `Warmly acknowledge what you have:` : ''}
+${intakeContext ? intakeContext : ''}
+
+Ask if they are ready to submit, or if they would like to add more detail to strengthen their case.
+Do NOT ask any more intake questions.`;
+
+  // --- Tool usage rules (always included) ---
+  const toolRules = `Tool usage rules:
+- Call save_case_details to persist any field value the user provides.
+- Call request_payment when all required case details are gathered AND the practice requires payment.
+- Call submit_intake only when the user explicitly says they are ready to submit.
+- Use ask_user_question for known-answer-shape questions (yes/no, fixed choices, state selection).
+- Never call a tool without also writing a conversational response.`;
+
+  // --- Conversation rules (always included) ---
+  const convRules = `Conversation rules:
+- Be warm and human — like a knowledgeable friend, not a form
+- Never give legal advice
+- Never ask for contact info (name, email, phone) — already collected
+- Never output raw JSON, field keys, or tool names in your reply text${licensedJurisdictions ? `\n- Licensed jurisdiction guidance: If the user's matter involves a location outside (${licensedJurisdictions}), acknowledge warmly without hard rejection — frame as a fit question for the attorney.` : ''}`;
+
+  const consultationFeeNote = `- If a consultation fee is required: Mention the fee softly as the next step. Max 2 sentences.
+- If no fee is required: Ask if they are ready to send it over for review.`;
+
+  const contextBlock = intakeContext && activeField
+    ? `What has been collected so far:\n${intakeContext}`
+    : '';
+
+  return `${userSalutationSnippet}You are a warm, helpful legal intake assistant for ${practiceName}.${licensedStatesSnippet}
 
 This firm handles the following practice areas:
 ${serviceList}
 
-Tool usage rules:
-- Call save_case_details when you have description, city, and state at minimum. You can call it again as more fields are collected.
-- Call request_payment when all required case details are gathered AND the practice requires payment.
-- Call submit_intake only when the user explicitly says they are ready to submit.
-- Use ask_user_question for known-answer-shape questions (yes/no, fixed choices, state selection).
-- Never call a tool mid-sentence. Finish your message, then call the tool, or call first then continue.
+${fieldBlock}
 
-Conversation rules:
-- Be warm and human — like a knowledgeable friend, not a form
-- Never give legal advice
-- Never ask for contact info (name, email, phone) — it is already collected via the intake form
-- Ask exactly ONE focused question per message about the most important missing piece
-- Never output raw JSON, tool names, or structured data in your reply text
-- You MUST always write a conversational response. Never call a tool without also writing text.
-- Infer urgency from the facts when you reasonably can. Do not ask about urgency unless it is genuinely unclear and important for routing.
-- Infer desiredOutcome from the facts when you reasonably can. Do not ask unless genuinely unclear.
-- Documents are optional context. Do not block submission on whether the user has documents.
-- ${isEnrichmentMode
-    ? 'The user has chosen to strengthen their case. Focus on collecting enrichment fields before submission.'
-    : 'Once description, city, and state are captured, prioritize getting the person to submit instead of asking optional enrichment questions.'}
-${licensedJurisdictions ? `- Licensed jurisdiction guidance: If the user's matter involves a location outside the firm's licensed states (${licensedJurisdictions}), acknowledge the multi-state context warmly without making definitive eligibility judgments. Ask clarifying follow-ups to understand where the legal issue is rooted. Frame the response as a fit question for the attorney to review, not a hard rejection.` : ''}
+${toolRules}
 
-- If a consultation fee is required: Acknowledge that you have their details warmly${userNamingInstruction}. Mention the fee softly as the next step to move forward with a review. Max 2 sentences.
-- If no fee is required: Acknowledge that you have their details warmly${userNamingInstruction} and ask if they are ready to send it over for review.
-${isEnrichmentMode ? `
-The user has chosen to strengthen their case. You are in enrichment mode.
-Ask about EXACTLY ONE field per message — the next uncollected field in this priority order:
-1. opposingParty — ask if a specific person or entity is involved (skip if already known)
-2. hasDocuments — do they have any relevant documents
-3. householdSize — only if relevant (skip for business matters)
+${convRules}
 
-After the user answers, call save_case_details with that field, then ask the next one.
-Do NOT list multiple questions. Do NOT summarize what you still need. Ask one thing, then wait.
-For known-answer-shape questions in enrichment (especially hasDocuments and householdSize), prefer ask_user_question with answer options.
-For desiredOutcome: infer it from what has already been said and save it via save_case_details without asking. Only ask if it is genuinely impossible to infer.
-The submit action remains available at any time — never tell the user they must answer more questions.
-` : ''}
-${intakeContext ? `Current intake state:\n${intakeContext}` : 'No case details collected yet. Start by asking about the situation.'}`;
+${consultationFeeNote}
+${contextBlock ? `\n${contextBlock}` : ''}`.trim();
 };
 
 
@@ -555,6 +639,20 @@ function buildIntakeContextSummary(
   if (typeof state.householdSize === 'number') lines.push(`Household size: ${state.householdSize}`);
   if (typeof state.courtDate === 'string' && state.courtDate.trim()) lines.push(`Court date: ${state.courtDate.trim()}`);
 
+  // Include any custom (non-standard) field values so the model sees them in context.
+  const customFields = state.customFields;
+  if (customFields && typeof customFields === 'object' && !Array.isArray(customFields)) {
+    for (const [key, value] of Object.entries(customFields as Record<string, unknown>)) {
+      if (typeof value === 'string' && value.trim()) {
+        lines.push(`${key}: ${value.trim()}`);
+      } else if (typeof value === 'boolean') {
+        lines.push(`${key}: ${value}`);
+      } else if (typeof value === 'number' && Number.isFinite(value)) {
+        lines.push(`${key}: ${String(value)}`);
+      }
+    }
+  }
+
   return lines.length > 0 ? lines.map((l) => `- ${l}`).join('\n') : '';
 };
 
@@ -574,24 +672,44 @@ const mergeIntakeState = (
 // Submission gate
 // ---------------------------------------------------------------------------
 
+/** Shape of a required field as passed to the submission gate */
+type GateField = { key: string; isStandard: boolean; condition?: { dependsOn: string; value: string | boolean | number } | null };
+
 export interface IntakeSubmissionGate {
   paymentRequiredBeforeSubmit: boolean;
   paymentCompleted: boolean;
   details?: Record<string, unknown> | null;
+  /**
+   * Required fields from the active template — gates the submit_intake tool call.
+   * Phase 3: fields carry an optional condition; unmet conditions are not required.
+   */
+  requiredFields?: ReadonlyArray<GateField> | null;
+  /** Next optional field selected by the orchestration layer during enrichment mode. */
+  nextEnrichmentField?: IntakeFieldDefinition | null;
 }
 
-function isIntakeReadyForSubmission(state: Record<string, unknown> | null): boolean {
-  return isSharedIntakeReadyForSubmission(state as Parameters<typeof isSharedIntakeReadyForSubmission>[0]);
+function isIntakeReadyForSubmission(
+  state: Record<string, unknown> | null,
+  requiredFields?: IntakeSubmissionGate['requiredFields'],
+): boolean {
+  return isSharedIntakeReadyForSubmission(
+    state as Parameters<typeof isSharedIntakeReadyForSubmission>[0],
+    requiredFields,
+  );
 }
 
 function isIntakeSubmittable(
   state: Record<string, unknown> | null,
   submissionGate?: IntakeSubmissionGate | null,
 ): boolean {
-  return isSharedIntakeSubmittable(state as Parameters<typeof isSharedIntakeSubmittable>[0], {
-    paymentRequired: submissionGate?.paymentRequiredBeforeSubmit === true,
-    paymentReceived: submissionGate?.paymentCompleted === true,
-  });
+  return isSharedIntakeSubmittable(
+    state as Parameters<typeof isSharedIntakeSubmittable>[0],
+    {
+      paymentRequired: submissionGate?.paymentRequiredBeforeSubmit === true,
+      paymentReceived: submissionGate?.paymentCompleted === true,
+    },
+    submissionGate?.requiredFields,
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -602,36 +720,32 @@ const deriveCaseSavedAcknowledgment = (
   toolResult: ToolResult | null,
   submissionGate: IntakeSubmissionGate,
   mergedState: Record<string, unknown> | null,
-  services: IntakePromptService[] = [],
+  _services: IntakePromptService[] = [],
   consultationFee?: number | null,
   userName?: string | null,
+  /** Next required field after the tool patch has been merged. */
+  nextRequiredField?: IntakeFieldDefinition | null,
+  /** Next enrichment field from the orchestration layer — replaces resolveNextEnrichmentField */
+  nextEnrichmentField?: IntakeFieldDefinition | null,
 ): string => {
   if (!toolResult?.success || !mergedState) return '';
 
-  const description = typeof mergedState.description === 'string' ? mergedState.description.trim() : '';
-  const city = typeof mergedState.city === 'string' ? mergedState.city.trim() : '';
-  const state = typeof mergedState.state === 'string' ? mergedState.state.trim() : '';
-
   const needsPayment = submissionGate.paymentRequiredBeforeSubmit && !submissionGate.paymentCompleted;
-  const isReady = isIntakeReadyForSubmission(mergedState);
+  const isReady = isIntakeReadyForSubmission(mergedState, submissionGate.requiredFields);
   const isEnrichmentMode = mergedState.enrichmentMode === true;
-  const nextEnrichmentField = isEnrichmentMode ? resolveNextEnrichmentField(mergedState, services) : null;
 
   const userPart = userName ? `, ${getFirstName(userName)}` : '';
 
+  // Enrichment mode — prompt hint from the field definition beats generic phrasing.
+  // Only used when the turn was tool-only (no model text); usually the AI handles this.
   if (isEnrichmentMode && nextEnrichmentField) {
-    if (nextEnrichmentField === 'opposingParty') {
-      return `Thanks${userPart}. Is there a specific person or entity involved on the other side?`;
-    }
-    if (nextEnrichmentField === 'hasDocuments') {
-      return `Thanks${userPart}. Do you have any documents related to this matter?`;
-    }
-    if (nextEnrichmentField === 'householdSize') {
-      return `Thanks${userPart}. How many people are in your household?`;
-    }
+    const hint = nextEnrichmentField.promptHint
+      ? nextEnrichmentField.promptHint
+      : `Can you tell me about ${nextEnrichmentField.label.toLowerCase()}?`;
+    return `Thanks${userPart}. ${hint}`;
   }
 
-  if (isEnrichmentMode && nextEnrichmentField === null && isReady) {
+  if (isEnrichmentMode && !nextEnrichmentField && isReady) {
     if (needsPayment) {
       const formattedFee = typeof consultationFee === 'number' && consultationFee > 0 ? formatCurrency(consultationFee / 100) : null;
       const feePart = formattedFee ? `a ${formattedFee}` : 'a';
@@ -644,21 +758,19 @@ const deriveCaseSavedAcknowledgment = (
     if (needsPayment) {
       const formattedFee = typeof consultationFee === 'number' && consultationFee > 0 ? formatCurrency(consultationFee / 100) : null;
       const feePart = formattedFee ? `a ${formattedFee}` : 'a';
-
-      return `I’ve got your case details${userPart}. To move forward with a formal review and schedule your consultation, there is ${feePart} fee.`;
+      return `I've got your case details${userPart}. To move forward with a formal review and schedule your consultation, there is ${feePart} fee.`;
     }
-    return `I’ve got your details${userPart}. Our team is ready to review these details. Ready to send?`;
+    return `I've got your details${userPart}. Our team is ready to review these details. Ready to send?`;
   }
 
-  if (!description) {
-    return 'Thanks for that detail. Can you tell me a bit more about your situation?';
+  if (nextRequiredField) {
+    const hint = nextRequiredField.promptHint
+      ? nextRequiredField.promptHint
+      : `Can you tell me the ${nextRequiredField.label.toLowerCase()}?`;
+    return `Got it${userPart}. ${hint}`;
   }
 
-  if (!city || !state) {
-    return 'Got it. Which city and state is this matter located in?';
-  }
-
-  return 'Got it. Is there anything else you\'d like to add before we connect you with the practice?';
+  return `Got it${userPart}. Is there anything else you'd like to add?`;
 };
 
 function formatCurrency(amount: number): string {

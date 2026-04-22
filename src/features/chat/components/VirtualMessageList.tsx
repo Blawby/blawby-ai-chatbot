@@ -77,6 +77,7 @@ interface VirtualMessageListProps {
     compactLayout?: boolean;
     onboardingActions?: OnboardingActions;
     bottomInsetPx?: number;
+    hideMessageActions?: boolean;
 }
 
 const BATCH_SIZE = 20;
@@ -111,7 +112,8 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
     showSkeleton = false,
     compactLayout = false,
     onboardingActions,
-    bottomInsetPx
+    bottomInsetPx,
+    hideMessageActions = false,
 }) => {
     useEffect(() => {
         if (DEBUG_PAGINATION) {
@@ -804,6 +806,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                                 onboardingProfile={onboardingProfile}
                                 isLast={isLast && !isStreamingMessage}
                                 isSystemEvent={isSystemEvent}
+                                hideMessageActions={hideMessageActions}
                             />
                         );
                     })}

@@ -35,6 +35,8 @@ export interface IntakeListItem {
     opposing_party?: string;
     description?: string;
     practice_service_uuid?: string;
+    custom_fields?: Record<string, unknown>;
+    customFields?: Record<string, unknown>;
     [key: string]: unknown;
   };
   succeeded_at?: string | null;
@@ -77,6 +79,8 @@ export interface PracticeIntakeDetail {
     description?: string;
     user_id?: string;
     practice_service_uuid?: string;
+    custom_fields?: Record<string, unknown>;
+    customFields?: Record<string, unknown>;
     address?: {
       line1?: string;
       line2?: string;

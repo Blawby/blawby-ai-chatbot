@@ -32,8 +32,10 @@ export type ComboboxOption = {
   value: string;
   label: string;
   meta?: string;
+  description?: string;
   icon?: ComponentChildren;
   isCustom?: boolean;
+  disabled?: boolean;
 };
 
 type BaseProps = {
@@ -46,6 +48,7 @@ type BaseProps = {
   optionLeading?: ComponentChildren | ((option: ComboboxOption) => ComponentChildren);
   /** Optional custom right-side meta content for each dropdown option */
   optionMeta?: (option: ComboboxOption) => ComponentChildren;
+  footer?: ComponentChildren;
   className?: string;
   disabled?: boolean;
   /** Show clear icon for single-select values. Default: true */
@@ -56,6 +59,8 @@ type BaseProps = {
   allowCustomValues?: boolean;
   /** Label for the "Add …" row. Default: "Add" */
   addNewLabel?: string;
+  /** Hide the default helper text shown for free-text comboboxes. */
+  hideCustomHint?: boolean;
   /** Dropdown direction. Default: "down" */
   direction?: 'up' | 'down';
   description?: string;
@@ -161,21 +166,31 @@ function DropdownOption({
       tabIndex={-1}
       onMouseDown={(e) => e.preventDefault()}
       onClick={onSelect}
+      disabled={option.disabled}
       className={cn(
         'group relative flex w-full items-center justify-between px-3 py-2.5 text-left text-sm transition-all',
+        option.disabled && 'cursor-not-allowed opacity-45',
         isSelected || isFocused
           ? 'bg-accent-500/15 text-[rgb(var(--accent-foreground))]'
-          : 'text-input-text hover:bg-surface-utility/10 dark:hover:bg-surface-utility/20'
+          : 'text-input-text hover:bg-surface-utility/10 dark:hover:bg-surface-utility/20',
+        option.disabled && 'hover:bg-transparent dark:hover:bg-transparent'
       )}
     >
-      <span className="flex min-w-0 items-center gap-2.5">
+      <span className="flex min-w-0 items-start gap-2.5">
         {resolvedOptionLeading && (
-          <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center text-input-placeholder group-hover:text-input-text">
+          <span className="mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center text-input-placeholder group-hover:text-input-text">
             {resolvedOptionLeading}
           </span>
         )}
-        <span className={cn('truncate', isSelected && 'font-medium')}>
-          {option.label}
+        <span className="min-w-0">
+          <span className={cn('block truncate', isSelected && 'font-medium')}>
+            {option.label}
+          </span>
+          {option.description ? (
+            <span className="mt-0.5 block truncate text-xs text-input-placeholder">
+              {option.description}
+            </span>
+          ) : null}
         </span>
       </span>
       <span className="flex flex-shrink-0 items-center gap-2">
@@ -202,6 +217,7 @@ export function Combobox({
   leading,
   optionLeading,
   optionMeta,
+  footer,
   onChange,
   multiple,
   className,
@@ -210,6 +226,7 @@ export function Combobox({
   searchable = true,
   allowCustomValues = false,
   addNewLabel = 'Add',
+  hideCustomHint = false,
   direction = 'down',
   description,
   'aria-labelledby': ariaLabelledBy,
@@ -284,8 +301,8 @@ export function Combobox({
     allowCustomValues &&
     isOpen &&
     trimmedQuery.length > 0 &&
-    !queryMatchesExisting &&
-    !queryAlreadySelected;
+    !queryAlreadySelected &&
+    (!queryMatchesExisting || filteredOptions.length === 0);
 
   const totalRows = filteredOptions.length + (showAddRow ? 1 : 0);
   const clampedFocus = focusedIndex >= 0 && focusedIndex < totalRows ? focusedIndex : -1;
@@ -659,8 +676,9 @@ export function Combobox({
                   isFocused={rowIndex === clampedFocus}
                   optionLeading={optionLeading}
                   optionMeta={optionMeta}
-                  onSelect={() =>
-                    isMultiple ? toggle(option.value) : commit(option.value)
+                  onSelect={option.disabled
+                    ? () => {}
+                    : () => isMultiple ? toggle(option.value) : commit(option.value)
                   }
                 />
               );
@@ -672,6 +690,12 @@ export function Combobox({
               </p>
             )}
           </div>
+
+          {footer ? (
+            <div className="border-t border-line-glass/10 px-2 py-2">
+              {footer}
+            </div>
+          ) : null}
         </div>
       )}
 
@@ -679,7 +703,7 @@ export function Combobox({
       {description && (
         <p className="mt-1 pl-1 text-xs text-input-placeholder">{description}</p>
       )}
-      {allowCustomValues && !isOpen && !description && (
+      {allowCustomValues && !hideCustomHint && !isOpen && !description && (
         <p className="mt-1 pl-1 text-xs text-input-placeholder">
           Select an option or type to add your own.
         </p>

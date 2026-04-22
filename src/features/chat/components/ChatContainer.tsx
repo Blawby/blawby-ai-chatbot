@@ -105,6 +105,8 @@ export interface ChatContainerProps {
   onAuthPromptRequest?: () => void;
   onAuthPromptClose?: () => void;
   onAuthPromptSuccess?: () => void;
+  hideComposer?: boolean;
+  hideMessageActions?: boolean;
   onboardingActions?: OnboardingActions;
   mentionCandidates?: Array<{
     userId: string;
@@ -167,6 +169,8 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   conversationId,
   onAuthPromptClose,
   onAuthPromptSuccess,
+  hideComposer = false,
+  hideMessageActions = false,
   onboardingActions,
   mentionCandidates = [],
 }) => {
@@ -233,6 +237,10 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     if (!element) return;
 
     const updateInset = () => {
+      if (hideComposer) {
+        setComposerInsetPx(24);
+        return;
+      }
       const nextInset = Math.max(80, Math.ceil(element.getBoundingClientRect().height) + 12);
       setComposerInsetPx(nextInset);
     };
@@ -247,7 +255,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
 
     const fallback = window.setInterval(updateInset, 200);
     return () => window.clearInterval(fallback);
-  }, []);
+  }, [hideComposer]);
 
   // Return focus to chat input when slim form is dismissed
   const prevShouldShowSlimFormRef = useRef(shouldShowSlimForm);
@@ -477,6 +485,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
                 compactLayout={false}
                 onboardingActions={onboardingActions}
                 bottomInsetPx={composerInsetPx}
+                hideMessageActions={hideMessageActions}
               />
             </div>
 
@@ -505,7 +514,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
               disclaimerProps={shouldShowDisclaimer && disclaimerProps ? disclaimerProps : undefined}
             />
 
-            {(!showAuthPrompt && !shouldShowSlimForm && !shouldShowDisclaimer) && (
+            {(!showAuthPrompt && !shouldShowSlimForm && !shouldShowDisclaimer && !hideComposer) && (
                 <MessageComposer
                   inputValue={inputValue}
                   setInputValue={setInputValue}

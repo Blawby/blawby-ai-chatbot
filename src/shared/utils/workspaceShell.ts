@@ -18,6 +18,9 @@ type WorkspaceView =
   | 'settings';
 
 type WorkspaceRouteState = {
+  isIntakeTemplateRoute: boolean;
+  isIntakeTemplateEditorRoute: boolean;
+  isIntakeResponsesRoute: boolean;
   selectedMatterIdFromPath: string | null;
   isMatterNonListRoute: boolean;
   selectedClientIdFromPath: string | null;
@@ -64,6 +67,17 @@ export const getWorkspaceRouteState = ({
   isClientWorkspace: boolean;
 }): WorkspaceRouteState => {
   const isWorkspaceWithMattersRouting = isPracticeWorkspace || isClientWorkspace;
+  const intakesPath = `${normalizedBase}/intakes`;
+  const intakeResponsesPath = `${intakesPath}/responses`;
+  const isIntakeResponsesRoute = view === 'intakes'
+    && isPracticeWorkspace
+    && (path === intakeResponsesPath || path.startsWith(`${intakeResponsesPath}/`));
+  const isIntakeTemplateRoute = view === 'intakes'
+    && isPracticeWorkspace
+    && path.startsWith(intakesPath)
+    && !isIntakeResponsesRoute;
+  const isIntakeTemplateEditorRoute = isIntakeTemplateRoute
+    && path !== intakesPath;
 
   let selectedMatterIdFromPath: string | null = null;
   let isMatterNonListRoute = false;
@@ -137,8 +151,11 @@ export const getWorkspaceRouteState = ({
   }
 
   return {
+    isIntakeTemplateRoute,
+    isIntakeTemplateEditorRoute,
     selectedMatterIdFromPath,
     isMatterNonListRoute,
+    isIntakeResponsesRoute,
     selectedClientIdFromPath,
     peopleRouteKind,
     reportSectionFromPath,
@@ -151,6 +168,8 @@ export const getWorkspaceDefaultSecondaryFilter = ({
   view,
   peopleRouteKind,
   reportSectionFromPath,
+  isIntakeTemplateRoute,
+  isIntakeResponsesRoute,
   navSecondary,
 }: {
   workspaceSection: WorkspaceSection;
@@ -158,6 +177,8 @@ export const getWorkspaceDefaultSecondaryFilter = ({
   view: WorkspaceView;
   peopleRouteKind: WorkspaceRouteState['peopleRouteKind'];
   reportSectionFromPath: string;
+  isIntakeTemplateRoute: boolean;
+  isIntakeResponsesRoute: boolean;
   navSecondary?: Array<{ items: Array<{ id: string }> }>;
 }) => {
   if (workspaceSection === 'conversations' && isPracticeWorkspace) {
@@ -173,6 +194,12 @@ export const getWorkspaceDefaultSecondaryFilter = ({
   if (workspaceSection === 'reports' && isPracticeWorkspace) {
     return reportSectionFromPath;
   }
+  if (workspaceSection === 'intakes' && isPracticeWorkspace && isIntakeTemplateRoute) {
+    return 'forms';
+  }
+  if (workspaceSection === 'intakes' && isPracticeWorkspace && isIntakeResponsesRoute) {
+    return 'all';
+  }
   return navSecondary?.[0]?.items[0]?.id ?? null;
 };
 
@@ -182,6 +209,8 @@ export const getWorkspaceActiveSecondaryFilter = ({
   view,
   peopleRouteKind,
   reportSectionFromPath,
+  isIntakeTemplateRoute,
+  isIntakeResponsesRoute,
   secondaryFilterBySection,
   defaultSecondaryFilterId,
 }: {
@@ -190,6 +219,8 @@ export const getWorkspaceActiveSecondaryFilter = ({
   view: WorkspaceView;
   peopleRouteKind: WorkspaceRouteState['peopleRouteKind'];
   reportSectionFromPath: string;
+  isIntakeTemplateRoute: boolean;
+  isIntakeResponsesRoute: boolean;
   secondaryFilterBySection: Partial<Record<WorkspaceSection, string>>;
   defaultSecondaryFilterId: string | null;
 }) => {
@@ -203,6 +234,17 @@ export const getWorkspaceActiveSecondaryFilter = ({
   }
   if (workspaceSection === 'reports' && isPracticeWorkspace) {
     return reportSectionFromPath;
+  }
+  if (workspaceSection === 'intakes' && isPracticeWorkspace && isIntakeTemplateRoute) {
+    return 'forms';
+  }
+  if (
+    workspaceSection === 'intakes'
+    && isPracticeWorkspace
+    && isIntakeResponsesRoute
+    && secondaryFilterBySection.intakes === 'forms'
+  ) {
+    return defaultSecondaryFilterId;
   }
   return secondaryFilterBySection[workspaceSection] ?? defaultSecondaryFilterId;
 };

@@ -36,6 +36,7 @@ import type { DebuggableAiError } from './aiChatShared.js';
 
 import {
   INTAKE_TOOLS,
+  buildIntakeTools,
   buildIntakeSystemPrompt,
   deriveCaseSavedAcknowledgment,
   mergeIntakeState,
@@ -45,6 +46,7 @@ import {
   shouldRequireDisclaimer,
   buildCompactPracticeContextForPrompt,
   executeIntakeTool,
+  resolveNextField,
   type IntakeSubmissionGate,
   type ToolResult,
 } from './aiChatIntake.js';
@@ -54,8 +56,11 @@ import {
   buildOnboardingSystemPrompt,
   buildOnboardingProfileMetadata,
 } from './aiChatOnboarding.js';
-import type { ChatMessageAction } from '../../src/shared/types/conversation';
-import { normalizeChatActions } from '../../src/shared/utils/chatActions';
+import type { ChatMessageAction } from '../../src/shared/types/conversation.js';
+import { normalizeChatActions } from '../../src/shared/utils/chatActions.js';
+import type { IntakeFieldDefinition } from '../../src/shared/types/intake.js';
+import type { IntakeTemplate } from '../../src/shared/types/intake.js';
+import { DEFAULT_INTAKE_TEMPLATE } from '../../src/shared/constants/intakeTemplates.js';
 
 const normalizeText = (text: string): string =>
   text.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
@@ -90,6 +95,25 @@ const resolvePracticeRequiresPaymentBeforeSubmission = (details: Record<string, 
     'payment_link_enabled',
   ]);
   return paymentLinkEnabled === true;
+};
+
+const resolveTemplatePaymentConfig = (template: IntakeTemplate | null): {
+  hasConfig: boolean;
+  paymentRequiredBeforeSubmit: boolean;
+  consultationFee: number | null;
+} => {
+  const hasConfig = Boolean(
+    template &&
+    (typeof template.paymentLinkEnabled === 'boolean' || typeof template.consultationFee === 'number')
+  );
+  const consultationFee = typeof template?.consultationFee === 'number' && Number.isFinite(template.consultationFee)
+    ? template.consultationFee
+    : null;
+  return {
+    hasConfig,
+    paymentRequiredBeforeSubmit: hasConfig ? template?.paymentLinkEnabled === true && (consultationFee ?? 0) > 0 : false,
+    consultationFee,
+  };
 };
 
 const unwrapToolCallJsonArgs = (rawArgs: string): string => {
@@ -585,12 +609,74 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
   const onboardingPromptProfile = isOnboardingMode
     ? buildOnboardingProfileMetadata(details, null)
     : null;
+
+  // ---------------------------------------------------------------------------
+  // Orchestration layer: resolve the active template and determine nextField
+  // ---------------------------------------------------------------------------
+  let templateFields: IntakeFieldDefinition[] = [];
+  const storedTemplate = conversationMetadata?.intakeTemplate;
+  try {
+    if (
+      storedTemplate &&
+      typeof storedTemplate === 'object' &&
+      !Array.isArray(storedTemplate) &&
+      Array.isArray((storedTemplate as Record<string, unknown>).fields) &&
+      ((storedTemplate as Record<string, unknown>).fields as unknown[]).length > 0
+    ) {
+      templateFields = (storedTemplate as Record<string, unknown>).fields as IntakeFieldDefinition[];
+    }
+  } catch {
+    // Malformed metadata — use default
+  }
+  // Fall back to default template when none stored.
+  // If we have template fields from conversation metadata, prefer a full
+  // IntakeTemplate when possible; otherwise construct a minimal template
+  // object that satisfies the `IntakeTemplate` shape so downstream callers
+  // (e.g. `resolveNextField`) receive the correct type.
+  let activeTemplate: IntakeTemplate;
+  if (templateFields.length > 0) {
+    if (storedTemplate && typeof (storedTemplate as Record<string, unknown>).slug === 'string' && typeof (storedTemplate as Record<string, unknown>).name === 'string') {
+      activeTemplate = storedTemplate as IntakeTemplate;
+    } else {
+      activeTemplate = {
+        slug: 'custom',
+        name: 'Custom',
+        isDefault: false,
+        fields: templateFields,
+      };
+    }
+  } else {
+    activeTemplate = DEFAULT_INTAKE_TEMPLATE;
+  }
+
+  const flatState = (storedIntakeState ?? {}) as Record<string, unknown>;
+  const isEnrichmentMode = flatState.enrichmentMode === true;
+
+  // Resolve what the AI should ask about this turn (deterministic, no AI involved)
+  const nextField = isEnrichmentMode
+    ? null
+    : resolveNextField(activeTemplate, flatState, 'required');
+  const nextEnrichmentField = isEnrichmentMode
+    ? resolveNextField(activeTemplate, flatState, 'enrichment')
+    : null;
+
+  // Submission gate uses the orchestration layer when a template is active
+  const templateRequiredFields = templateFields.length > 0
+    ? templateFields.filter((f) => f.required || f.phase === 'required')
+    : null;
+
+  const templatePaymentConfig = resolveTemplatePaymentConfig(activeTemplate);
+
   const intakeSubmissionGate: IntakeSubmissionGate = {
     paymentRequiredBeforeSubmit:
       (consultation?.submission?.paymentRequired === true) ||
-      resolvePracticeRequiresPaymentBeforeSubmission(details),
+      (templatePaymentConfig.hasConfig
+        ? templatePaymentConfig.paymentRequiredBeforeSubmit
+        : resolvePracticeRequiresPaymentBeforeSubmission(details)),
     paymentCompleted: consultation?.submission?.paymentReceived === true,
     details,
+    requiredFields: templateRequiredFields,
+    nextEnrichmentField,
   };
 
   const requestPayload: Record<string, unknown> = {
@@ -603,9 +689,16 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
   let systemPrompt: string;
 
   if (isIntakeMode) {
-    // One unified system prompt — no KNOWN SO FAR injection, no dynamic split
+    // Surgical single-field prompt — the AI is told exactly what to ask this turn
     systemPrompt = [
-      buildIntakeSystemPrompt(servicesForPrompt, aiPromptContext, storedIntakeState, userName),
+      buildIntakeSystemPrompt(
+        servicesForPrompt,
+        aiPromptContext,
+        storedIntakeState,
+        userName,
+        nextField,
+        nextEnrichmentField,
+      ),
       `PRACTICE_CONTEXT: ${JSON.stringify(aiPromptContext)}`,
       body.additionalContext ? `SEARCH_CONTEXT: ${body.additionalContext}` : null,
     ].filter(Boolean).join('\n\n');
@@ -614,8 +707,11 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       { role: 'system', content: systemPrompt },
       ...body.messages.map((m) => ({ role: m.role, content: m.content })),
     ];
-    requestPayload.tools = INTAKE_TOOLS;
+    requestPayload.tools = templateFields.length > 0
+      ? buildIntakeTools(templateFields)
+      : INTAKE_TOOLS;
     requestPayload.parallel_tool_calls = false;
+    requestPayload.temperature = 0.5;
   } else if (!isIntakeMode) {
     const nonIntakeSystemPrompt = isOnboardingMode
       ? buildOnboardingSystemPrompt(onboardingPromptProfile)
@@ -911,7 +1007,12 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         if (isIntakeMode && lastQuestionResult?.success && typeof lastQuestionResult.message === 'string' && lastQuestionResult.message.trim()) {
           syntheticReply = lastQuestionResult.message.trim();
         } else if (isIntakeMode && finalToolResult?.success && patchToMerge) {
-          const consultationFee = readFiniteNumberField(details, ['consultationFee', 'consultation_fee']);
+          const consultationFee = templatePaymentConfig.hasConfig
+            ? templatePaymentConfig.consultationFee
+            : readFiniteNumberField(details, ['consultationFee', 'consultation_fee']);
+          const nextRequiredFieldAfterPatch = mergedIntakeState
+            ? resolveNextField(activeTemplate, mergedIntakeState as Record<string, unknown>, 'required')
+            : null;
           syntheticReply = deriveCaseSavedAcknowledgment(
             finalToolResult,
             intakeSubmissionGate,
@@ -919,6 +1020,8 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
             servicesForPrompt,
             consultationFee,
             userName,
+            nextRequiredFieldAfterPatch,
+            intakeSubmissionGate.nextEnrichmentField ?? null,
           );
         } else if (isIntakeMode && finalToolResult?.success && typeof finalToolResult.message === 'string' && finalToolResult.message.trim()) {
           syntheticReply = finalToolResult.message.trim();

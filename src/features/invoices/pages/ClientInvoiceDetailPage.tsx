@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'preact/hooks';
 import { Button } from '@/shared/ui/Button';
 import { Input, Textarea } from '@/shared/ui/input';
-import { SettingsPage } from '@/shared/ui/layout';
+import { EditorShell } from '@/shared/ui/layout';
 import { LoadingBlock } from '@/shared/ui/layout/LoadingBlock';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import { formatLongDate } from '@/shared/utils/dateFormatter';
@@ -155,7 +155,7 @@ export function ClientInvoiceDetailPage({
   }
 
   return (
-    <SettingsPage
+    <EditorShell
       title={detail.invoiceNumber}
       subtitle={`Issued ${renderEventDate(detail.issueDate)} • Due ${renderEventDate(detail.dueDate)}`}
       showBack={effectiveShowBack}
@@ -298,6 +298,6 @@ export function ClientInvoiceDetailPage({
           </div>
         </div>
       </div>
-    </SettingsPage>
+    </EditorShell>
   );
 }

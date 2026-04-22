@@ -206,8 +206,12 @@ export interface PracticeDetailsUpdate {
   services?: Array<Record<string, unknown>> | null;
   serviceStates?: string[] | null;
   supportedStates?: SupportedStateEntry[] | null;
-  businessOnboardingStatus?: 'not_required' | 'pending' | 'completed' | 'skipped';
   businessOnboardingHasDraft?: boolean;
+  businessOnboardingStatus?: 'not_required' | 'pending' | 'completed' | 'skipped';
+  /** Raw JSON string stored in the practice settings column. Passed through as-is. */
+  settings?: string | null;
+  /** Arbitrary practice metadata. */
+  metadata?: Record<string, unknown> | null;
 }
 
 // Fix: Remove conflicting extension, merge manually if needed
@@ -226,7 +230,7 @@ export interface PracticeDetails {
   calendlyUrl?: string | null;
   billingIncrementMinutes?: number | null;
   website?: string | null;
-  address?: string | null;
+  address?: string | Record<string, unknown> | null;
   apartment?: string | null;
   city?: string | null;
   state?: string | null;
@@ -240,6 +244,10 @@ export interface PracticeDetails {
   services?: Array<Record<string, unknown>> | null;
   serviceStates?: string[] | null;
   supportedStates?: SupportedStateEntry[] | null;
+  /** Raw JSON string stored in the practice settings column. */
+  settings?: string | null;
+  /** Arbitrary practice metadata. */
+  metadata?: Record<string, unknown> | null;
 }
 
 export interface ConnectedAccountRequest {
@@ -598,7 +606,16 @@ function normalizePracticePayload(payload: unknown): Practice {
     name,
     slug,
     logo: toNullableString(record.logo),
-    metadata: isRecord(record.metadata) ? record.metadata : undefined,
+    metadata: (() => {
+      if (isRecord(record.metadata)) return record.metadata;
+      if (typeof record.metadata === 'string') {
+        try {
+          const parsed = JSON.parse(record.metadata);
+          return isRecord(parsed) ? parsed : undefined;
+        } catch { return undefined; }
+      }
+      return undefined;
+    })(),
     businessPhone: toNullableString(record.businessPhone ?? record.business_phone),
     businessEmail: toNullableString(record.businessEmail ?? record.business_email),
     consultationFee: (() => {
@@ -1503,7 +1520,9 @@ function normalizePracticeUpdatePayload(payload: UpdatePracticeRequest): Record<
   if ('name' in payload && payload.name !== undefined) normalized.name = payload.name;
   if ('slug' in payload && payload.slug !== undefined) normalized.slug = payload.slug;
   if ('logo' in payload && payload.logo !== undefined) normalized.logo = payload.logo;
-  if ('metadata' in payload && payload.metadata !== undefined) normalized.metadata = payload.metadata;
+  if ('metadata' in payload && payload.metadata !== undefined) {
+    normalized.metadata = payload.metadata;
+  }
 
   return normalized;
 }
@@ -1727,6 +1746,14 @@ function normalizePracticeDetailsPayload(payload: PracticeDetailsUpdate): Record
     normalized.business_onboarding_has_draft = payload.businessOnboardingHasDraft;
   }
 
+  // Pass settings through as-is — it is an opaque JSON string owned by the caller.
+  if ('settings' in payload && payload.settings !== undefined) {
+    normalized.settings = payload.settings;
+  }
+  if ('metadata' in payload && payload.metadata !== undefined) {
+    normalized.metadata = payload.metadata;
+  }
+
   if ('serviceStates' in payload && payload.serviceStates !== undefined) {
     normalized.service_states = Array.isArray(payload.serviceStates)
       ? payload.serviceStates
@@ -1808,6 +1835,7 @@ export function normalizePracticeDetailsResponse(payload: unknown): PracticeDeta
     'serviceStates',
     'supported_states',
     'supportedStates',
+    'settings',
   ].some((key) => key in value));
   const resolveCandidate = (value: unknown): Record<string, unknown> | null =>
     isRecord(value) && hasMappedDetailKey(value) ? value : null;
@@ -1962,6 +1990,21 @@ export function normalizePracticeDetailsResponse(payload: unknown): PracticeDeta
          .filter((e): e is SupportedStateEntry => e !== null);
        return result;
      })(),
+     // Pass settings through as an opaque string so the UI can read/write it.
+     settings: 'settings' in container
+       ? (typeof container.settings === 'string' ? container.settings : null)
+       : undefined,
+     // Pass metadata through, parsing if it's a string
+    metadata: 'metadata' in container
+      ? (typeof container.metadata === 'string'
+          ? (() => {
+              try {
+                const parsed = JSON.parse(container.metadata);
+                return isRecord(parsed) ? parsed : undefined;
+              } catch { return undefined; }
+            })()
+          : isRecord(container.metadata) ? container.metadata : undefined)
+      : undefined,
    };
  }
 
