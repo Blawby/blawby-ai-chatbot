@@ -325,6 +325,7 @@ export const InvoiceForm = forwardRef<InvoiceFormHandle, InvoiceFormProps>(({
         invoiceId = updated?.id ?? existingInvoiceId;
         setCreatedInvoiceId(invoiceId);
         setLastPersistedSnapshot(currentUpdateSnapshot);
+        setLastSavedAt(new Date());
       } else if (!invoiceId) {
         const payload = buildCreatePayload(connectedAccountId);
         logInvoiceAction('create-before-send', {
@@ -337,6 +338,7 @@ export const InvoiceForm = forwardRef<InvoiceFormHandle, InvoiceFormProps>(({
         if (!invoiceId) throw new Error('Invoice ID missing in create response.');
         setCreatedInvoiceId(invoiceId);
         setLastPersistedSnapshot(currentUpdateSnapshot);
+        setLastSavedAt(new Date());
       } else if (lastPersistedSnapshot !== currentUpdateSnapshot) {
         const payload = currentUpdatePayload;
         logInvoiceAction('update-retry-before-send', {
@@ -347,6 +349,7 @@ export const InvoiceForm = forwardRef<InvoiceFormHandle, InvoiceFormProps>(({
         invoiceId = updated?.id ?? invoiceId;
         setCreatedInvoiceId(invoiceId);
         setLastPersistedSnapshot(currentUpdateSnapshot);
+        setLastSavedAt(new Date());
       }
 
       if (!invoiceId) {
@@ -372,11 +375,7 @@ export const InvoiceForm = forwardRef<InvoiceFormHandle, InvoiceFormProps>(({
     requestSend: openSendDialog,
   }), [openSendDialog]);
 
-  // Update lastSavedAt when the persisted snapshot changes (approximate save time)
-  useMemo(() => {
-    if (lastPersistedSnapshot) setLastSavedAt(new Date());
-    return null;
-  }, [lastPersistedSnapshot]);
+  // lastSavedAt is now set at the exact save call-sites (create/update/send)
 
   // Notify global shell about draft saves so the global header can show the timestamp
   useEffect(() => {

@@ -40,8 +40,8 @@ const getIntakePreviewQuestion = (field: NonNullable<WidgetPreviewConfig['intake
   const hint = field.promptHint?.trim();
   if (hint?.endsWith('?')) return hint;
 
-  const label = field.label.trim();
-  if (label.endsWith('?')) return label;
+  const label = field.label?.trim() ?? '';
+  if (label && label.endsWith('?')) return label;
   return label ? `Can you tell me about ${label.toLowerCase()}?` : 'Add a question to preview this intake flow.';
 };
 
@@ -303,6 +303,7 @@ export const WidgetPreviewApp: FunctionComponent<WidgetPreviewAppProps> = ({
                 setIntakePreviewStep('contact');
                 setIntakePreviewView('chat');
               }}
+              onOpenRecentMessage={noop}
             />
           </div>
         </div>
@@ -319,7 +320,10 @@ export const WidgetPreviewApp: FunctionComponent<WidgetPreviewAppProps> = ({
           <ChatActionCard
             isOpen={true}
             type="disclaimer"
-            onClose={() => setShowIntakeDisclaimer(false)}
+            onClose={() => {
+              setShowIntakeDisclaimer(false);
+              setIntakePreviewStep('conversation');
+            }}
             disclaimerProps={{
               text: legalDisclaimer,
               onAccept: async () => {

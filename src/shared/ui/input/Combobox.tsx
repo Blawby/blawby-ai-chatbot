@@ -152,7 +152,6 @@ function DropdownOption({
   id: string;
   optionLeading?: ComponentChildren | ((option: ComboboxOption) => ComponentChildren);
   optionMeta?: (option: ComboboxOption) => ComponentChildren;
-  footer?: ComponentChildren;
 }) {
   const resolvedOptionLeading =
     typeof optionLeading === 'function' ? optionLeading(option) : optionLeading ?? option.icon;
@@ -677,10 +676,9 @@ export function Combobox({
                   isFocused={rowIndex === clampedFocus}
                   optionLeading={optionLeading}
                   optionMeta={optionMeta}
-                  onSelect={() =>
-                    option.disabled
-                      ? undefined
-                      : isMultiple ? toggle(option.value) : commit(option.value)
+                  onSelect={option.disabled
+                    ? () => {}
+                    : () => isMultiple ? toggle(option.value) : commit(option.value)
                   }
                 />
               );

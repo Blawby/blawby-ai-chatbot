@@ -33,13 +33,13 @@ const createSessionContext = (overrides: Partial<SessionContextValue> = {}): Ses
   ...overrides,
 });
 
-  const renderHarness = (contextValue: SessionContextValue, props: { practiceId: string | null; conversationId: string | null }) => (
-    render(
-      <SessionContext.Provider value={contextValue}>
-        <Harness {...props} />
-      </SessionContext.Provider>
-    )
-  );
+const renderHarness = (contextValue: SessionContextValue, props: { practiceId: string | null; conversationId: string | null }) => (
+  render(
+    <SessionContext.Provider value={contextValue}>
+      <Harness {...props} />
+    </SessionContext.Provider>
+  )
+);
 describe('useMentionCandidates', () => {
   beforeEach(() => {
     mocks.getParticipantsMock.mockReset();

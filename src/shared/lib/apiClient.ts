@@ -230,7 +230,7 @@ export interface PracticeDetails {
   calendlyUrl?: string | null;
   billingIncrementMinutes?: number | null;
   website?: string | null;
-  address?: string | null;
+  address?: string | Record<string, unknown> | null;
   apartment?: string | null;
   city?: string | null;
   state?: string | null;
@@ -609,8 +609,10 @@ function normalizePracticePayload(payload: unknown): Practice {
     metadata: (() => {
       if (isRecord(record.metadata)) return record.metadata;
       if (typeof record.metadata === 'string') {
-        try { return JSON.parse(record.metadata) as Record<string, unknown>; }
-        catch { return undefined; }
+        try {
+          const parsed = JSON.parse(record.metadata);
+          return isRecord(parsed) ? parsed : undefined;
+        } catch { return undefined; }
       }
       return undefined;
     })(),
@@ -1993,14 +1995,16 @@ export function normalizePracticeDetailsResponse(payload: unknown): PracticeDeta
        ? (typeof container.settings === 'string' ? container.settings : null)
        : undefined,
      // Pass metadata through, parsing if it's a string
-     metadata: 'metadata' in container
-       ? (typeof container.metadata === 'string'
-           ? (() => {
-               try { return JSON.parse(container.metadata); }
-               catch { return {}; }
-             })()
-           : isRecord(container.metadata) ? container.metadata : undefined)
-       : undefined,
+    metadata: 'metadata' in container
+      ? (typeof container.metadata === 'string'
+          ? (() => {
+              try {
+                const parsed = JSON.parse(container.metadata);
+                return isRecord(parsed) ? parsed : undefined;
+              } catch { return undefined; }
+            })()
+          : isRecord(container.metadata) ? container.metadata : undefined)
+      : undefined,
    };
  }
 

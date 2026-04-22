@@ -120,9 +120,9 @@ export const InvoicePreview = ({
   return (
       <div className="w-full h-full flex items-start justify-center">
         {/* Render centered "paper" inside the preview panel. The panel keeps its
-            background; the invoice itself is presented as a white sheet centered
-            with a subtle shadow and spacing to emulate Stripe's preview look. */}
-        <div className="w-full max-w-[760px] bg-white shadow-md" style={{ ...root }}>
+          background; the invoice itself is presented as a white sheet centered
+          with a subtle shadow and spacing to emulate Stripe's preview look. */}
+        <div className="w-full max-w-[760px] h-[min(720px,calc(100svh-12rem))] min-h-[560px] max-h-[720px] bg-white shadow-md" style={{ ...root }}>
         <div className="relative flex h-full flex-col overflow-hidden">
           {/* ── Scrollable body ── */}
           <div className="flex-1 overflow-y-auto" style={{ padding: '2rem 2rem 3rem' }}>

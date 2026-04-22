@@ -75,7 +75,12 @@ export const AppDetailPage = ({ app, onBack, onUpdate }: AppDetailPageProps) => 
   };
 
   const handleOpenSettings = () => {
-    window.open(app.website, '_blank', 'noopener,noreferrer');
+    if (!app.website) return;
+    try {
+      window.open(app.website, '_blank', 'noopener,noreferrer');
+    } catch (err) {
+      // ignore - defensive in case window.open is unavailable
+    }
   };
 
   return (
@@ -141,7 +146,7 @@ export const AppDetailPage = ({ app, onBack, onUpdate }: AppDetailPageProps) => 
                 />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onSelect={handleOpenSettings}>
+                <DropdownMenuItem onSelect={handleOpenSettings} disabled={!app.website}>
                   <div className="flex items-center gap-2">
                     <Icon icon={Cog6ToothIcon} className="w-4 h-4" aria-hidden="true"  />
                     <span>{t('settings:apps.clio.settings')}</span>

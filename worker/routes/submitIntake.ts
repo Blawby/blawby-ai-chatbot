@@ -615,8 +615,8 @@ const buildIntakePayload = (
   }
 
   if (draft.phone) payload.phone = draft.phone;
-  const city = intake?.city?.trim() || draft.city;
-  const state = intake?.state?.trim() || draft.state;
+  const city = toTrimmedString(intake?.city) || toTrimmedString(draft.city);
+  const state = toTrimmedString(intake?.state) || toTrimmedString(draft.state);
   if (city || state) {
     payload.address = {
       ...(city ? { city } : {}),

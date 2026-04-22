@@ -35,6 +35,13 @@ import { App404 } from '@/features/practice/components/404';
 import { normalizePracticeRole } from '@/shared/utils/practiceRoles';
 import { LoadingScreen } from '@/shared/ui/layout/LoadingScreen';
 import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
+import type { IconComponent } from '@/shared/ui/Icon';
+
+const ExclamationIcon: IconComponent = (props) => (
+  // Adapt heroicon to IconComponent signature
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  <ExclamationTriangleIcon {...(props as any)} />
+);
 import { WorkspacePlaceholderState } from '@/shared/ui/layout/WorkspacePlaceholderState';
 import './index.css';
 import { i18n, initI18n } from '@/shared/i18n';
@@ -59,7 +66,7 @@ const buildRetryAction = () => ({
 
 const renderWorkspaceFailureState = (title: string, description: string) => (
   <WorkspacePlaceholderState
-    icon={ExclamationTriangleIcon}
+    icon={ExclamationIcon}
     title={title}
     description={description}
     primaryAction={buildRetryAction()}
@@ -539,7 +546,7 @@ function PracticeAppRoute({
       let cancelled = false;
 
       void setActivePractice(resolvedPracticeId)
-        .then(() => getSession().catch(() => undefined))
+        .then(() => getSession())
         .then(() => {
           if (cancelled || typeof window === 'undefined') return;
           window.dispatchEvent(new CustomEvent('auth:session-updated'));
@@ -553,6 +560,15 @@ function PracticeAppRoute({
       };
     }
   }, [resolvedPracticeId, session?.user, isPending, practicesLoading, backendActiveOrgId]);
+
+  // If the user is a client and cannot access practice workspaces, show
+  // the access-denied UI early so clients don't see a generic loading state.
+  if (activeRole === 'client' && !canAccessPractice) {
+    return renderWorkspaceFailureState(
+      'Practice access denied',
+      'Practice routes are unavailable to client members.'
+    );
+  }
 
   if (isPending || practicesLoading || shouldDelayPracticeConfig) {
     return <LoadingScreen />;
@@ -570,12 +586,7 @@ function PracticeAppRoute({
     return <LoadingScreen />;
   }
 
-  if (activeRole === 'client') {
-    return renderWorkspaceFailureState(
-      'Practice access denied',
-      'Practice routes are unavailable to client members.'
-    );
-  }
+
 
   if (hasPracticeSlug && !targetPractice && !practicesLoading) {
     return (
@@ -689,6 +700,9 @@ function ClientPracticeRoute({
   }
 
   if (!canAccessClientWorkspace) {
+    if (accessFailureMessage) {
+      return renderWorkspaceFailureState('Practice access denied', accessFailureMessage);
+    }
     return <LoadingScreen />;
   }
 
@@ -845,7 +859,7 @@ function PublicPracticeRoute({
       id: practiceId ?? '',
       slug: resolveString(pd.slug) ?? practiceSlug,
       name: resolveString(pd.name) ?? '',
-      profileImage: resolveString(pd.logo) ?? null,
+      profileImage: resolveString(pd.logo) ?? undefined,
       description: description ?? '',
       availableServices: [],
       serviceQuestions: {},
@@ -855,14 +869,15 @@ function PublicPracticeRoute({
       voice: {
         enabled: false,
         provider: 'cloudflare',
-        voiceId: null,
-        displayName: null,
-        previewUrl: null,
+        voiceId: undefined,
+        displayName: undefined,
+        previewUrl: undefined,
       },
       consultationFee: (resolveNumber(pd.consultation_fee) ?? resolveNumber(detailsRecord?.consultationFee)) as MinorAmount | undefined,
       paymentUrl: resolveString(pd.payment_url) ?? resolveString(detailsRecord?.paymentUrl),
       calendlyUrl: resolveString(pd.calendly_url) ?? resolveString(detailsRecord?.calendlyUrl),
       isPublic: resolveBoolean(pd.is_public) ?? resolveBoolean(detailsRecord?.isPublic),
+      billingIncrementMinutes: resolveNumber(pd.billing_increment_minutes) ?? resolveNumber(detailsRecord?.billingIncrementMinutes) ?? undefined,
       introMessage: resolveString(pd.introMessage)
         ?? resolveString(pd.intro_message)
         ?? resolveString(detailsRecord?.introMessage)
@@ -887,12 +902,12 @@ function PublicPracticeRoute({
     return {
       ...basePracticeConfig,
       name: previewConfig.name ?? basePracticeConfig.name,
-      profileImage: previewConfig.profileImage !== undefined ? previewConfig.profileImage : basePracticeConfig.profileImage,
+      profileImage: previewConfig.profileImage !== undefined ? (previewConfig.profileImage ?? undefined) : basePracticeConfig.profileImage,
       accentColor: previewConfig.accentColor ?? basePracticeConfig.accentColor,
-      introMessage: previewConfig.introMessage !== undefined ? previewConfig.introMessage : basePracticeConfig.introMessage,
-      legalDisclaimer: previewConfig.legalDisclaimer !== undefined ? previewConfig.legalDisclaimer : basePracticeConfig.legalDisclaimer,
-      consultationFee: (previewConfig.consultationFee !== undefined ? previewConfig.consultationFee ?? undefined : basePracticeConfig.consultationFee) as MinorAmount | undefined,
-      billingIncrementMinutes: previewConfig.billingIncrementMinutes !== undefined ? previewConfig.billingIncrementMinutes : basePracticeConfig.billingIncrementMinutes,
+      introMessage: previewConfig.introMessage !== undefined ? (previewConfig.introMessage ?? undefined) : basePracticeConfig.introMessage,
+      legalDisclaimer: previewConfig.legalDisclaimer !== undefined ? (previewConfig.legalDisclaimer ?? undefined) : basePracticeConfig.legalDisclaimer,
+      consultationFee: (previewConfig.consultationFee !== undefined ? (previewConfig.consultationFee ?? undefined) : basePracticeConfig.consultationFee) as MinorAmount | undefined,
+      billingIncrementMinutes: previewConfig.billingIncrementMinutes !== undefined ? (previewConfig.billingIncrementMinutes ?? undefined) : basePracticeConfig.billingIncrementMinutes,
     };
   }, [basePracticeConfig, isPreview, previewConfig]);
 
@@ -978,11 +993,17 @@ async function mountClientApp() {
 
   initI18n()
     .then(() => {
-      hydrate(<AppWithProviders />, document.getElementById('app'));
+      {
+        const mountEl = document.getElementById('app');
+        if (mountEl) hydrate(<AppWithProviders />, mountEl);
+      }
     })
     .catch((_error) => {
       console.error('Failed to initialize i18n:', _error);
-      hydrate(<AppWithProviders />, document.getElementById('app'));
+      {
+        const mountEl = document.getElementById('app');
+        if (mountEl) hydrate(<AppWithProviders />, mountEl);
+      }
     });
 }
 

@@ -82,6 +82,8 @@ export function isFieldCollected(
   if (typeof raw === 'string') return raw.trim().length > 0;
   if (typeof raw === 'boolean') return true; // false is a valid answer
   if (typeof raw === 'number') return Number.isFinite(raw);
+  if (Array.isArray(raw)) return raw.length > 0;
+  if (typeof raw === 'object' && raw !== null) return Object.keys(raw).length > 0;
   return false;
 }
 

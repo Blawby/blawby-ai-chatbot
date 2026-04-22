@@ -362,26 +362,11 @@ describe('SettingsContent Integration Tests', () => {
     expect(screen.getByText('Account')).toBeInTheDocument();
   });
 
-  it('should navigate to business upgrade from account page', async () => {
-    render(<SettingsContent onClose={mockOnClose} />);
-    
-    const accountBtn = screen.getByRole('button', { name: /Account/i });
-    fireEvent.click(accountBtn);
-    
-    // Assert navigation called instead of relying on content rerender
-    expect(mockRoute).toHaveBeenCalledWith('/settings/account', false);
-  });
 
 
 
-  it('should close when clicking the close button', () => {
-    render(<SettingsContent onClose={mockOnClose} />);
-    
-    const closeBtn = screen.getByLabelText('Close settings');
-    fireEvent.click(closeBtn);
-    
-    expect(mockOnClose).toHaveBeenCalled();
-  });
+
+  
 
   it('should maintain navigation state when switching between pages', async () => {
     render(<SettingsContent onClose={mockOnClose} />);

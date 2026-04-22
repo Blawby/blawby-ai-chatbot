@@ -115,8 +115,8 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
 
   const effectiveConversationId = routeConversationId ?? setupConversationId ?? (bootstrapIgnored ? null : bootstrapConversationId) ?? null;
 
-  const activeIntakeTemplateRef = useRef(intakeTemplateProp ?? DEFAULT_INTAKE_TEMPLATE);
-  const activeIntakeTemplate = activeIntakeTemplateRef.current;
+  // Derive active template from prop on every render so updates propagate
+  const activeIntakeTemplate = intakeTemplateProp ?? DEFAULT_INTAKE_TEMPLATE;
 
   const createConversationIfNeeded = useCallback(async () => {
     if (effectiveConversationId) return effectiveConversationId;

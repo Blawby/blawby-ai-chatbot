@@ -482,14 +482,14 @@ export async function handleBackendProxy(request: Request, env: Env): Promise<Re
         });
       }
 
-      resolveInflight?.();
+      (resolveInflight as unknown as (() => void) | undefined)?.();
       return new Response(body, {
         status: response.status,
         statusText: response.statusText,
         headers: proxyHeaders
       });
     } catch (error) {
-      rejectInflight?.(error);
+      (rejectInflight as unknown as ((reason?: unknown) => void) | undefined)?.(error);
       throw error;
     } finally {
       subscriptionsPlansInflight.delete(plansCacheKey);

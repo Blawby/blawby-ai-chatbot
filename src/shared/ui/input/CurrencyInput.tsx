@@ -1,5 +1,5 @@
 import { forwardRef } from 'preact/compat';
-import { useEffect, useImperativeHandle, useRef } from 'preact/hooks';
+import { useEffect, useImperativeHandle, useRef, useState } from 'preact/hooks';
 import { cn } from '@/shared/utils/cn';
 import { useUniqueId } from '@/shared/hooks/useUniqueId';
 
@@ -46,6 +46,7 @@ export const CurrencyInput = forwardRef<HTMLInputElement, CurrencyInputProps>(({
   const inputId = id || generatedId;
   const inputRef = useRef<HTMLInputElement>(null);
   const isEditingRef = useRef(false);
+  const [displayValue, setDisplayValue] = useState<string>(() => formatCurrencyDisplay(value));
   const descriptionId = description ? `${inputId}-description` : undefined;
   const errorId = error ? `${inputId}-error` : undefined;
   const ariaDescribedBy = [descriptionId, errorId].filter(Boolean).join(' ') || undefined;
@@ -53,8 +54,8 @@ export const CurrencyInput = forwardRef<HTMLInputElement, CurrencyInputProps>(({
   useImperativeHandle(ref, () => inputRef.current as HTMLInputElement, []);
 
   useEffect(() => {
-    if (!inputRef.current || isEditingRef.current) return;
-    inputRef.current.value = formatCurrencyDisplay(value);
+    if (isEditingRef.current) return;
+    setDisplayValue(formatCurrencyDisplay(value));
   }, [value]);
 
   const sizeClasses = {
@@ -92,52 +93,73 @@ export const CurrencyInput = forwardRef<HTMLInputElement, CurrencyInputProps>(({
           ref={inputRef}
           id={inputId}
           type="text"
-          defaultValue={formatCurrencyDisplay(value)}
+          value={displayValue}
           placeholder={placeholder}
           disabled={disabled}
           required={required}
           className={inputClasses}
-          min={min}
-          step={step}
           inputMode="decimal"
           onFocus={(event) => {
             isEditingRef.current = true;
-            event.currentTarget.value = formatRawDisplay(value);
+            setDisplayValue(formatRawDisplay(value));
           }}
           onBlur={(event) => {
             const trimmed = event.currentTarget.value.trim();
             isEditingRef.current = false;
             if (!trimmed) {
-              event.currentTarget.value = '';
+              setDisplayValue('');
               onChange?.(undefined);
               return;
             }
-            const parsed = Number(trimmed);
-            if (!Number.isFinite(parsed)) {
-              event.currentTarget.value = formatCurrencyDisplay(value);
-              return;
+            let parsed = parseFloat(trimmed);
+            if (!Number.isFinite(parsed)) parsed = 0;
+            // Determine precision from step
+            const stepNum = typeof step === 'number' && Number.isFinite(step) && step > 0 ? step : 0.01;
+            let precision = 0;
+            let s = stepNum;
+            while (s < 1 && precision < 10) {
+              s *= 10;
+              precision++;
             }
-            event.currentTarget.value = formatCurrencyDisplay(parsed);
-            onChange?.(parsed);
+            // Enforce min
+            if (typeof min === 'number' && Number.isFinite(min) && parsed < min) parsed = min;
+            // Snap to nearest step multiple
+            const normalized = Math.round(parsed / stepNum) * stepNum;
+            const rounded = Number(normalized.toFixed(precision));
+            setDisplayValue(formatCurrencyDisplay(rounded));
+            onChange?.(rounded);
           }}
           onInput={(event) => {
             const nextValue = event.currentTarget.value;
             const trimmed = nextValue.trim();
+            // Allow only digits and at most one decimal point while editing
             if (trimmed && !/^\d*\.?\d*$/.test(trimmed)) {
-              event.currentTarget.value = formatRawDisplay(value);
+              // ignore invalid chars
               return;
             }
+            setDisplayValue(nextValue);
             if (!trimmed) {
-              onChange?.(undefined);
+              // empty input
               return;
             }
             if (trimmed.endsWith('.')) {
+              // leave user in editing mode
               return;
             }
-            const parsed = Number(trimmed);
-            if (Number.isFinite(parsed)) {
-              onChange?.(parsed);
+            // Parse and emit a normalized value matching the blur behavior
+            const parsed = parseFloat(trimmed);
+            if (!Number.isFinite(parsed)) return;
+            const stepNum = typeof step === 'number' && Number.isFinite(step) && step > 0 ? step : 0.01;
+            let precision = 0;
+            let s = stepNum;
+            while (s < 1 && precision < 10) {
+              s *= 10;
+              precision++;
             }
+            let normalized = Math.round(parsed / stepNum) * stepNum;
+            normalized = Number(normalized.toFixed(precision));
+            // Don't force display reformat while editing; emit normalized numeric
+            onChange?.(normalized);
           }}
           aria-invalid={error ? 'true' : undefined}
           aria-describedby={ariaDescribedBy}

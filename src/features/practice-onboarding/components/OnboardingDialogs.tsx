@@ -53,7 +53,7 @@ interface ContactFormValues {
   website: string;
   businessEmail: string;
   businessPhone: string;
-  address?: Address;
+  address?: Partial<Address>;
 }
 
 const getBasicsDraft = (practice: Practice | null, details: PracticeDetails | null): BasicsFormValues => ({
@@ -62,15 +62,36 @@ const getBasicsDraft = (practice: Practice | null, details: PracticeDetails | nu
   accentColor: normalizeAccentColor(details?.accentColor ?? practice?.accentColor) ?? '#D4AF37',
 });
 
+const toPartialAddress = (value: unknown): Partial<Address> | undefined => {
+  if (!value) return undefined;
+  if (typeof value === 'string') return { address: value };
+  if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+    const s = value as Record<string, unknown>;
+    const getString = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
+    const address = getString(s.address ?? s.line1 ?? s.address_line ?? '');
+    const apartment = getString(s.apartment ?? s.unit ?? '') || undefined;
+    const city = getString(s.city ?? '');
+    const state = getString(s.state ?? '');
+    const postalCode = getString(s.postalCode ?? s.postal_code ?? '');
+    const country = getString(s.country ?? '');
+    const result: Partial<Address> = {
+      ...(address ? { address } : {}),
+      ...(apartment ? { apartment } : {}),
+      ...(city ? { city } : {}),
+      ...(state ? { state } : {}),
+      ...(postalCode ? { postalCode } : {}),
+      ...(country ? { country } : {}),
+    };
+    return Object.keys(result).length > 0 ? result : undefined;
+  }
+  return undefined;
+};
+
 const getContactDraft = (practice: Practice | null, details: PracticeDetails | null): ContactFormValues => ({
   website: details?.website ?? practice?.website ?? '',
   businessEmail: details?.businessEmail ?? practice?.businessEmail ?? '',
   businessPhone: details?.businessPhone ?? practice?.businessPhone ?? '',
-  address: details?.address && typeof details.address === 'object'
-    ? details.address
-    : practice?.address && typeof practice.address === 'object'
-      ? practice.address
-      : undefined,
+  address: toPartialAddress(details?.address ?? practice?.address ?? undefined),
 });
 
 const OnboardingDialogs = forwardRef<OnboardingDialogsRef, OnboardingDialogsProps>(({
@@ -120,7 +141,22 @@ const OnboardingDialogs = forwardRef<OnboardingDialogsRef, OnboardingDialogsProp
     
     onSetModalSaving(true);
     try {
-      await onSaveContact(contactDraft);
+      const isFullAddress = (a: Partial<Address> | undefined): a is Address => {
+        return !!a && typeof a.address === 'string' && a.address.trim() !== ''
+          && typeof a.city === 'string' && a.city.trim() !== ''
+          && typeof a.state === 'string' && a.state.trim() !== ''
+          && typeof a.postalCode === 'string' && a.postalCode.trim() !== ''
+          && typeof a.country === 'string' && a.country.trim() !== '';
+      };
+
+      const payload = {
+        website: contactDraft.website,
+        businessEmail: contactDraft.businessEmail,
+        businessPhone: contactDraft.businessPhone,
+        address: isFullAddress(contactDraft.address) ? contactDraft.address : undefined,
+      };
+
+      await onSaveContact(payload);
       setContactModalOpen(false);
     } finally {
       onSetModalSaving(false);
@@ -245,10 +281,9 @@ const OnboardingDialogs = forwardRef<OnboardingDialogsRef, OnboardingDialogsProp
             required={[]}
             onValuesChange={values => {
               if (values.address !== undefined) {
-                setContactDraft(p => ({ 
-                  ...p, 
-                  address: values.address.address || values.address.city || values.address.state ? 
-                    values.address as Address : undefined 
+                setContactDraft(p => ({
+                  ...p,
+                  address: values.address as Partial<Address> | undefined,
                 }));
               }
             }}

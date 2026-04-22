@@ -23,6 +23,7 @@ type ActiveMemberRoleState = {
   role: string | null;
   loading: boolean;
   resolved: boolean;
+  error?: unknown;
 };
 
 const getActivePracticeId = (sessionData: SessionData | null | undefined): string | null => {
@@ -101,8 +102,9 @@ function ActiveMemberRoleBridge({
       role: resolvedActiveMemberRole,
       loading: activeMemberRoleLoading,
       resolved: !activeMemberRoleLoading,
+      error: activeMemberRoleResult?.error,
     });
-  }, [activeMemberRoleLoading, onChange, resolvedActiveMemberRole]);
+  }, [activeMemberRoleLoading, onChange, resolvedActiveMemberRole, activeMemberRoleResult?.error]);
 
   return null;
 }
@@ -176,11 +178,11 @@ export function SessionProvider({ children }: { children: ComponentChildren }) {
     () => buildSessionContextValue({
       sessionData,
       isPending,
-      error,
+      error: error || activeMemberRoleState.error,
       activeMemberRole: activeMemberRoleState.role,
       activeMemberRoleLoading: effectiveActiveMemberRoleLoading,
     }),
-    [activeMemberRoleState.role, effectiveActiveMemberRoleLoading, error, isPending, sessionData]
+    [activeMemberRoleState.role, activeMemberRoleState.error, effectiveActiveMemberRoleLoading, error, isPending, sessionData]
   );
 
   const valueIsTransformError = value.session && 'transformError' in value.session && value.session.transformError === true;

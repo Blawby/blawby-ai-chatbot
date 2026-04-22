@@ -206,9 +206,9 @@ export const PracticeCoveragePage = ({ className, onBack }: PracticeCoveragePage
         }
         return next;
       });
-      showSuccess('Licensed states updated.');
+      showSuccess(t('settings:practice.licensedStatesUpdated') || 'Licensed states updated.');
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to update licensed states';
+      const message = err instanceof Error ? err.message : (t('settings:practice.licensedStatesUpdateFailed') || 'Failed to update licensed states');
       setStatesError(message);
       showError(message);
     } finally {
@@ -220,7 +220,7 @@ export const PracticeCoveragePage = ({ className, onBack }: PracticeCoveragePage
     if (!currentPractice) return;
     const nextValue = typeof displayedBillingIncrement === 'number' ? displayedBillingIncrement : Number(displayedBillingIncrement);
     if (!Number.isInteger(nextValue) || nextValue < 1 || nextValue > 60) {
-      showError('Billing increment must be a whole number between 1 and 60 minutes.');
+      showError(t('settings:billing.invalidIncrement') || 'Billing increment must be a whole number between 1 and 60 minutes.');
       return;
     }
 
@@ -236,9 +236,9 @@ export const PracticeCoveragePage = ({ className, onBack }: PracticeCoveragePage
       if (savedDetails !== undefined) setDetails(savedDetails);
       setBillingTouched(false);
       setBillingIncrementDraft(nextValue);
-      showSuccess('Billing increment updated.');
+      showSuccess(t('settings:billing.updated') || 'Billing increment updated.');
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to update billing increment';
+      const message = err instanceof Error ? err.message : (t('settings:billing.updateFailed') || 'Failed to update billing increment');
       showError(message);
     } finally {
       setIsSavingBilling(false);
@@ -312,9 +312,9 @@ export const PracticeCoveragePage = ({ className, onBack }: PracticeCoveragePage
                   step={1}
                   value={displayedBillingIncrement === '' ? '' : String(displayedBillingIncrement)}
                   onChange={(value) => {
-                    const nextValue = value.trim() === '' ? '' : Number.parseInt(value, 10);
+                    const nextValue = value.trim() === '' ? '' : Number(value);
                     setBillingTouched(true);
-                    setBillingIncrementDraft(Number.isFinite(nextValue) ? nextValue : '');
+                    setBillingIncrementDraft(Number.isFinite(nextValue as number) ? nextValue : '');
                   }}
                   disabled={isSavingBilling}
                   placeholder="6"

@@ -49,6 +49,22 @@ export function SetupInspectorContent({
   onStartStripeOnboarding,
   isStripeSubmitting = false,
 }: SetupInspectorContentProps) {
+  const normalizeAddrSource = (src: unknown): SetupAddressPayload => {
+    if (!src) return {};
+    if (typeof src === 'string') return { address: src };
+    if (typeof src === 'object' && !Array.isArray(src)) {
+      const s = src as Record<string, unknown>;
+      return {
+        address: (s.address ?? s.line1 ?? s.address_line ?? '') as string,
+        apartment: (s.apartment ?? s.unit ?? '') as string,
+        city: (s.city ?? '') as string,
+        state: (s.state ?? '') as string,
+        postalCode: (s.postalCode ?? s.postal_code ?? '') as string,
+        country: (s.country ?? '') as string,
+      };
+    }
+    return {};
+  };
   const [activeEditor, setActiveEditor] = useState<EditorKey>(null);
   const [draftValue, setDraftValue] = useState<string | null>(null);
   const [addressDraft, setAddressDraft] = useState<SetupAddressPayload>({});
@@ -63,7 +79,10 @@ export function SetupInspectorContent({
     slug: (setupFields.slug ?? practiceSlug ?? '').trim(),
     businessEmail: (setupFields.businessEmail ?? practiceDetails?.businessEmail ?? '').trim(),
     businessPhone: (setupFields.businessPhone ?? practiceDetails?.businessPhone ?? '').trim(),
-    address: (setupFields.address?.address ?? practiceDetails?.address ?? '').trim(),
+    address: (typeof setupFields.address?.address === 'string'
+      ? setupFields.address.address
+      : (typeof practiceDetails?.address === 'string' ? practiceDetails.address : '')
+    ).trim(),
     services: services.map((service) => service.name).filter(Boolean),
   };
 
@@ -72,13 +91,15 @@ export function SetupInspectorContent({
     setSaveError(null);
     setDraftValue(initialValue);
     if (key === 'address') {
+      const fromFields = normalizeAddrSource(setupFields.address ?? {});
+      const fromDetails = normalizeAddrSource(practiceDetails?.address ?? {});
       setAddressDraft({
-        address: setupFields.address?.address ?? practiceDetails?.address ?? '',
-        city: setupFields.address?.city ?? practiceDetails?.city ?? '',
-        state: setupFields.address?.state ?? practiceDetails?.state ?? '',
-        postalCode: setupFields.address?.postalCode ?? practiceDetails?.postalCode ?? '',
-        apartment: setupFields.address?.apartment ?? practiceDetails?.apartment ?? '',
-        country: setupFields.address?.country ?? practiceDetails?.country ?? '',
+        address: fromFields.address ?? fromDetails.address ?? '',
+        city: fromFields.city ?? fromDetails.city ?? '',
+        state: fromFields.state ?? fromDetails.state ?? '',
+        postalCode: fromFields.postalCode ?? fromDetails.postalCode ?? '',
+        apartment: fromFields.apartment ?? fromDetails.apartment ?? '',
+        country: fromFields.country ?? fromDetails.country ?? '',
       });
     }
     setActiveEditor((prev) => (prev === key ? null : key));

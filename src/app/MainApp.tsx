@@ -1041,7 +1041,7 @@ export function MainApp({
             }
           : (resolvedWorkspaceView === 'invoiceCreate' || resolvedWorkspaceView === 'invoiceEdit') && isPracticeWorkspace
             ? {
-                label: 'Review invoice',
+                label: 'Review Invoice',
                 onClick: () => window.dispatchEvent(new CustomEvent(INVOICE_CREATE_SEND_EVENT)),
                 icon: PaperAirplaneIcon,
               }

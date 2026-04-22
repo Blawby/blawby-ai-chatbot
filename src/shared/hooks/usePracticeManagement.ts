@@ -474,7 +474,7 @@ function mergePracticeDetails(practice: Practice, details: PracticeDetails | nul
   setIfDefined('legalDisclaimer', details.legalDisclaimer as Practice['legalDisclaimer'] | undefined);
   setIfDefined('isPublic', details.isPublic as Practice['isPublic'] | undefined);
   setIfDefined('services', details.services as Practice['services'] | undefined);
-  setIfDefined('metadata', details.metadata as Practice['metadata'] | undefined);
+  setIfNonNull('metadata', details.metadata as Practice['metadata'] | undefined | null);
   return {
     ...practice,
     ...patch

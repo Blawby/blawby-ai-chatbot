@@ -126,6 +126,24 @@ export const WorkspaceSetupSection: FunctionComponent<WorkspaceSetupSectionProps
   const saveExtractedRef = useRef<() => Promise<void>>(async () => {});
   const extracted = setupFields ?? EMPTY_SETUP_FIELDS;
 
+  const getString = (v: unknown) => (typeof v === 'string' ? v : '');
+  const normalizeAddress = (src: unknown) => {
+    if (!src) return { address: '', apartment: '', city: '', state: '', postalCode: '', country: '' };
+    if (typeof src === 'string') return { address: src, apartment: '', city: '', state: '', postalCode: '', country: '' };
+    if (typeof src === 'object' && !Array.isArray(src)) {
+      const s = src as Record<string, unknown>;
+      return {
+        address: getString(s.address ?? s.line1 ?? s.address_line ?? ''),
+        apartment: getString(s.apartment ?? s.unit ?? ''),
+        city: getString(s.city ?? ''),
+        state: getString(s.state ?? ''),
+        postalCode: getString(s.postalCode ?? s.postal_code ?? ''),
+        country: getString(s.country ?? ''),
+      };
+    }
+    return { address: '', apartment: '', city: '', state: '', postalCode: '', country: '' };
+  };
+
   const notifyBasicsDraftChange = useCallback((fields: Partial<SetupFieldsPayload>) => {
     onBasicsDraftChange?.({
       name: fields.name ?? practice?.name ?? '',
@@ -150,11 +168,15 @@ export const WorkspaceSetupSection: FunctionComponent<WorkspaceSetupSectionProps
       ? extracted.services
       : (details?.services != null ? detailServices : practiceServices);
     const hasServices = setupStatus.servicesComplete || services.some((service) => service.name.trim().length > 0);
+
     const addressSource = extracted.address;
+    const addrExtracted = normalizeAddress(addressSource);
+    const addrDetails = normalizeAddress(details?.address);
+    const addrPractice = normalizeAddress(practice?.address);
     const hasAddress = Boolean(
-      (addressSource?.address ?? details?.address ?? practice?.address ?? '').trim() &&
-      (addressSource?.city ?? details?.city ?? practice?.city ?? '').trim() &&
-      (addressSource?.state ?? details?.state ?? practice?.state ?? '').trim()
+      (addrExtracted.address || addrDetails.address || addrPractice.address).trim() &&
+      (addrExtracted.city || addrDetails.city || addrPractice.city).trim() &&
+      (addrExtracted.state || addrDetails.state || addrPractice.state).trim()
     );
     const accentColor = normalizeAccentColor(extracted.accentColor ?? details?.accentColor ?? practice?.accentColor);
     const hasLogo = Boolean(practice?.logo);
@@ -180,14 +202,7 @@ export const WorkspaceSetupSection: FunctionComponent<WorkspaceSetupSectionProps
     const currentWebsite = (details?.website ?? practice?.website ?? '').trim();
     const currentBusinessEmail = (details?.businessEmail ?? practice?.businessEmail ?? '').trim();
     const currentBusinessPhone = (details?.businessPhone ?? practice?.businessPhone ?? '').trim();
-    const currentAddress = {
-      address: (details?.address ?? practice?.address ?? '').trim(),
-      apartment: (details?.apartment ?? practice?.apartment ?? '').trim(),
-      city: (details?.city ?? practice?.city ?? '').trim(),
-      state: (details?.state ?? practice?.state ?? '').trim(),
-      postalCode: (details?.postalCode ?? practice?.postalCode ?? '').trim(),
-      country: (details?.country ?? practice?.country ?? '').trim(),
-    };
+    const currentAddress = normalizeAddress(details?.address ?? practice?.address ?? '');
     const currentServices = normalizeServiceRecords(details?.services != null ? details.services : practice?.services);
     if (typeof extracted.name === 'string' && extracted.name.trim() !== currentName) return true;
     if (typeof extracted.slug === 'string' && extracted.slug.trim() !== currentSlug) return true;
@@ -199,14 +214,7 @@ export const WorkspaceSetupSection: FunctionComponent<WorkspaceSetupSectionProps
     if (typeof extracted.businessEmail === 'string' && extracted.businessEmail.trim() !== currentBusinessEmail) return true;
     if (typeof extracted.businessPhone === 'string' && extracted.businessPhone.trim() !== currentBusinessPhone) return true;
     if (extracted.address) {
-      const nextAddress = {
-        address: (extracted.address.address ?? '').trim(),
-        apartment: (extracted.address.apartment ?? '').trim(),
-        city: (extracted.address.city ?? '').trim(),
-        state: (extracted.address.state ?? '').trim(),
-        postalCode: (extracted.address.postalCode ?? '').trim(),
-        country: (extracted.address.country ?? '').trim(),
-      };
+      const nextAddress = normalizeAddress(extracted.address);
       if (JSON.stringify(nextAddress) !== JSON.stringify(currentAddress)) return true;
     }
     if (Array.isArray(extracted.services) && !sameServices(extracted.services, currentServices)) return true;
@@ -227,14 +235,7 @@ export const WorkspaceSetupSection: FunctionComponent<WorkspaceSetupSectionProps
       website: details?.website ?? practice?.website ?? '',
       businessEmail: details?.businessEmail ?? practice?.businessEmail ?? '',
       businessPhone: details?.businessPhone ?? practice?.businessPhone ?? '',
-      address: {
-        address: details?.address ?? practice?.address ?? '',
-        apartment: details?.apartment ?? practice?.apartment ?? '',
-        city: details?.city ?? practice?.city ?? '',
-        state: details?.state ?? practice?.state ?? '',
-        postalCode: details?.postalCode ?? practice?.postalCode ?? '',
-        country: details?.country ?? practice?.country ?? '',
-      },
+      address: normalizeAddress(details?.address ?? practice?.address ?? ''),
     };
     let failingStep: string | null = null;
     try {
@@ -242,13 +243,8 @@ export const WorkspaceSetupSection: FunctionComponent<WorkspaceSetupSectionProps
       failingStep = 'basics';
       await onSaveBasics({ name: extracted.name ?? practice.name ?? '', slug: extracted.slug ?? practice.slug ?? '', accentColor }, { suppressSuccessToast: true });
       const mergedAddress = {
-        address: details?.address ?? practice?.address ?? '',
-        apartment: details?.apartment ?? practice?.apartment ?? '',
-        city: details?.city ?? practice?.city ?? '',
-        state: details?.state ?? practice?.state ?? '',
-        postalCode: details?.postalCode ?? practice?.postalCode ?? '',
-        country: details?.country ?? practice?.country ?? '',
-        ...(extracted.address ?? {}),
+        ...normalizeAddress(details?.address ?? practice?.address ?? ''),
+        ...normalizeAddress(extracted.address ?? {}),
       };
       failingStep = 'contact';
       await onSaveContact({

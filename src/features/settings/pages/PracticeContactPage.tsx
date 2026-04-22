@@ -23,9 +23,23 @@ type ContactDraft = {
   website?: string;
   businessEmail?: string;
   contactPhone?: string;
-  address?: Address;
+  address?: Partial<Address>;
   logo?: string;
   accentColor?: string;
+};
+
+const mapAddressSource = (src: string | Record<string, unknown> | null | undefined) => {
+  if (typeof src === 'string') return { address: src };
+  if (!src || typeof src !== 'object') return {};
+  const s = src as Record<string, unknown>;
+  return {
+    address: (s.address ?? s.line1 ?? s.address_line ?? '') as string | null,
+    apartment: (s.apartment ?? s.unit ?? '') as string | null,
+    city: (s.city ?? '') as string | null,
+    state: (s.state ?? '') as string | null,
+    postalCode: (s.postalCode ?? s.postal_code ?? '') as string | null,
+    country: (s.country ?? '') as string | null,
+  };
 };
 
 const buildAddress = (source: {
@@ -73,7 +87,7 @@ const resolveContactDraft = (
         website: practice.website ?? undefined,
         businessEmail: practice.businessEmail ?? undefined,
         contactPhone: practice.businessPhone ?? undefined,
-        address: buildAddress(practice),
+        address: buildAddress(mapAddressSource(practice)),
       }
     : {};
   const baseDetails = details
@@ -81,7 +95,7 @@ const resolveContactDraft = (
         website: details.website ?? undefined,
         businessEmail: details.businessEmail ?? undefined,
         contactPhone: details.businessPhone ?? undefined,
-        address: buildAddress(details),
+        address: buildAddress(mapAddressSource(details.address)),
       }
     : {};
 
@@ -250,6 +264,7 @@ export const PracticeContactPage = ({ className, onBack }: PracticeContactPagePr
                 <h3 className="text-sm font-semibold text-input-text">Brand color</h3>
                 <div className="mt-2 flex items-center gap-3">
                   <div
+                    role="img"
                     className="h-5 w-5 rounded-full"
                     style={{ backgroundColor: normalizeAccentColor(contactValues.accentColor) ?? currentAccentColor }}
                     aria-label={`Current brand color ${contactValues.accentColor}`}
@@ -333,7 +348,7 @@ export const PracticeContactPage = ({ className, onBack }: PracticeContactPagePr
               if (values.address !== undefined) {
                 setDraft((prev) => ({
                   ...prev,
-                  address: values.address as Address,
+                  address: values.address as Partial<Address> | undefined,
                 }));
               }
             }}

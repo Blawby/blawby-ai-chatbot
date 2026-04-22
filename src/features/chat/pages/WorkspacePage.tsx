@@ -1702,7 +1702,11 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       const ce = ev as CustomEvent;
       try {
         const ts = ce?.detail?.timestamp;
-        if (ts) setInvoiceDraftSavedAt(new Date(ts).toLocaleString());
+        if (!ts) return;
+        const d = new Date(ts);
+        if (!isNaN(d.getTime())) {
+          setInvoiceDraftSavedAt(d.toLocaleString());
+        }
       } catch (_e) {
         // ignore malformed events
       }

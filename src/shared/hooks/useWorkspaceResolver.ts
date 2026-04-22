@@ -44,11 +44,11 @@ export function useWorkspaceResolver(options: UseWorkspaceResolverOptions = {}):
     return map;
   }, [practices]);
 
-  const activeRole = normalizePracticeRole(activeMemberRole);
-  const isClientMember = activeRole === 'client';
+  const activeRole = activeMemberRoleLoading ? null : normalizePracticeRole(activeMemberRole);
+  const isClientMember = !activeMemberRoleLoading && activeRole === 'client';
   const hasPracticeMembership = Boolean(currentPractice?.id || practices.length > 0);
-  const canAccessPracticeWorkspace = hasPracticeMembership && !isClientMember;
-  const canAccessClientWorkspace = Boolean(
+  const canAccessPracticeWorkspace = !activeMemberRoleLoading && hasPracticeMembership && !isClientMember;
+  const canAccessClientWorkspace = !activeMemberRoleLoading && Boolean(
     session?.user &&
     !session.user.isAnonymous &&
     isClientMember

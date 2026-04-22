@@ -545,10 +545,11 @@ export function useIntakeFlow({
       // practice-level intake settings only when the conversation has no
       // embedded template payment settings.
       let consultationFee = 0;
-      const storedTemplate = conversationMetadataRef.current?.intakeTemplate as {
-        paymentLinkEnabled?: boolean;
-        consultationFee?: number;
-      } | null | undefined;
+      const rawTemplate = conversationMetadataRef.current?.intakeTemplate;
+      const isPlainObject = rawTemplate && typeof rawTemplate === 'object' && !Array.isArray(rawTemplate);
+      const storedTemplate = isPlainObject
+        ? (rawTemplate as { paymentLinkEnabled?: boolean; consultationFee?: number })
+        : undefined;
       const templateHasPaymentConfig = Boolean(
         storedTemplate &&
         (typeof storedTemplate.paymentLinkEnabled === 'boolean' || typeof storedTemplate.consultationFee === 'number')
@@ -578,9 +579,18 @@ export function useIntakeFlow({
           }
         }
       } catch (settingsError) {
-        // Fail open: if we can't fetch settings, proceed without payment gate.
-        // This prevents a settings API outage from blocking intake submissions entirely.
-        console.warn('[handleConfirmSubmit] Failed to fetch intake settings, proceeding without payment gate', settingsError);
+        // If fetching practice-level settings fails, we default to zero
+        // consultation fee when there is no template-level payment config.
+        // Notes: `storedTemplate` (from conversation metadata) and
+        // `templateHasPaymentConfig` were evaluated above; if a template
+        // includes payment settings we preserve those values and do not
+        // override them here. When no template config exists a failed
+        // settings fetch results in `consultationFee = 0` (no payment
+        // required) to avoid blocking submissions due to transient
+        // settings API errors.
+        console.warn('[handleConfirmSubmit] Failed to fetch intake settings; using default consultation fee', settingsError, {
+          storedTemplate, templateHasPaymentConfig, consultationFee
+        });
         if (!templateHasPaymentConfig) {
           consultationFee = 0;
         }

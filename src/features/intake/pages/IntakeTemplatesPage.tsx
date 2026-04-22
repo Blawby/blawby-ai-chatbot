@@ -4,13 +4,12 @@ import {
   ArrowsUpDownIcon,
   EllipsisVerticalIcon,
   InformationCircleIcon,
-  InboxStackIcon,
   LockClosedIcon,
   PencilSquareIcon,
   PlusIcon,
   UserGroupIcon,
 } from '@heroicons/react/24/outline';
-import { Checkbox, Combobox, CurrencyInput, Input, Textarea } from '@/shared/ui/input';
+import { Checkbox, Combobox, CurrencyInput, Input } from '@/shared/ui/input';
 import type { ComboboxOption } from '@/shared/ui/input';
 import { Button } from '@/shared/ui/Button';
 import { EditorShell } from '@/shared/ui/layout';
@@ -118,7 +117,7 @@ function getFieldPhase(field: IntakeFieldDefinition): FieldPhase {
   return field.phase ?? (field.required ? 'required' : 'enrichment');
 }
 
-function getTemplateCounts(template: Pick<IntakeTemplate, 'fields'>) {
+function _getTemplateCounts(template: Pick<IntakeTemplate, 'fields'>) {
   let required = 0;
   let enrichment = 0;
   let custom = 0;
@@ -132,7 +131,7 @@ function getTemplateCounts(template: Pick<IntakeTemplate, 'fields'>) {
   return { required, enrichment, custom, total: template.fields.length };
 }
 
-function getPhaseLabel(phase: FieldPhase): string {
+function _getPhaseLabel(phase: FieldPhase): string {
   return phase === 'required' ? 'Core' : 'AI follow-up';
 }
 
@@ -227,8 +226,8 @@ function editorStateToTemplate(state: EditorState): IntakeTemplate {
     introMessage: state.introMessage.trim() || undefined,
     legalDisclaimer: state.legalDisclaimer.trim() || undefined,
     paymentLinkEnabled: state.paymentLinkEnabled,
-    consultationFee: state.paymentLinkEnabled && typeof state.consultationFee === 'number' && Number.isFinite(state.consultationFee)
-      ? toMinorUnitsValue(state.consultationFee)
+    consultationFee: (state.paymentLinkEnabled && typeof state.consultationFee === 'number' && Number.isFinite(state.consultationFee))
+      ? (toMinorUnitsValue(state.consultationFee) ?? undefined)
       : undefined,
     fields: [
       ...state.requiredFields.map((field) => stripEditorId(field, 'required')),
@@ -259,14 +258,22 @@ function serializeTemplate(template: IntakeTemplate): string {
 }
 
 function moveItem<T>(items: T[], fromIndex: number, toIndex: number): T[] {
-  if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0 || fromIndex >= items.length || toIndex >= items.length) {
+  if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0 || fromIndex >= items.length) {
     return items;
   }
+
+  // Adjust insertion index when moving forward because removing the item
+  // shifts subsequent indices left by one. When moving from a lower index to
+  // a higher index we should insert at toIndex - 1 to achieve the expected
+  // visual placement.
+  const targetIndex = toIndex > fromIndex ? toIndex - 1 : toIndex;
 
   const next = [...items];
   const moved = next.splice(fromIndex, 1)[0];
   if (!moved) return items;
-  next.splice(toIndex, 0, moved);
+  // Clamp insertion index to valid bounds
+  const insertAt = Math.max(0, Math.min(next.length, targetIndex));
+  next.splice(insertAt, 0, moved);
   return next;
 }
 
@@ -325,10 +332,14 @@ function useDragReorder<T>(items: T[], onReorder: (next: T[]) => void) {
     dragIndexRef.current = null;
     if (fromIndex === null || fromIndex === targetIndex) return;
 
+    // Use the same corrected insert logic as moveItem to avoid off-by-one
+    // when moving an item forward.
     const next = [...items];
     const moved = next.splice(fromIndex, 1)[0];
     if (!moved) return;
-    next.splice(targetIndex, 0, moved);
+    const insertAt = targetIndex > fromIndex ? targetIndex - 1 : targetIndex;
+    const clamped = Math.max(0, Math.min(next.length, insertAt));
+    next.splice(clamped, 0, moved);
     onReorder(next);
   }, [items, onReorder]);
 
@@ -397,7 +408,7 @@ type EmbedCodeBlockProps = {
   templateSlug: string;
 };
 
-function EmbedCodeBlock({ practiceSlug, templateSlug }: EmbedCodeBlockProps) {
+export function EmbedCodeBlock({ practiceSlug, templateSlug }: EmbedCodeBlockProps) {
   const { showSuccess, showError } = useToastContext();
   const [copied, setCopied] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
@@ -482,7 +493,7 @@ type StatPillProps = {
   value: number;
 };
 
-function StatPill({ label, value }: StatPillProps) {
+function _StatPill({ label, value }: StatPillProps) {
   return (
     <div className="rounded-xl border border-line-glass/30 bg-surface-card px-3 py-2">
       <p className="text-lg font-semibold text-input-text">{value}</p>
@@ -1974,10 +1985,15 @@ function TemplateListView({
           </Button>
           <Button
             variant="primary"
-            onClick={() => {
+            onClick={async () => {
               if (!deleteTarget) return;
-              void onDelete(deleteTarget);
-              setDeleteTarget(null);
+              try {
+                await onDelete(deleteTarget);
+                setDeleteTarget(null);
+              } catch (err) {
+                // Keep dialog open so the user can retry; errors are surfaced by onDelete's caller.
+                console.warn('[TemplateListView] Archive failed:', err);
+              }
             }}
             disabled={isSaving}
           >
@@ -1990,7 +2006,7 @@ function TemplateListView({
 }
 
 export default function IntakeTemplatesPage({
-  onBack,
+  onBack: _onBack,
   practiceId = null,
   basePath = '/practice/intakes',
   routeTemplateSlug = null,
@@ -2080,12 +2096,55 @@ export default function IntakeTemplatesPage({
   const handleSave = async (template: IntakeTemplate) => {
     setIsSaving(true);
     try {
-      const hasExistingMatch = existingTemplates.some((existing) => existing.slug === template.slug);
-      const nextTemplates = editTarget
-        ? hasExistingMatch
-          ? existingTemplates.map((existing) => existing.slug === editTarget.slug ? template : existing)
-          : [...existingTemplates, template]
-        : [...existingTemplates, template];
+      // Prevent renaming if there are existing intake responses tied to the
+      // current edit target's slug, since renaming would orphan those links.
+      if (editTarget && template.slug !== editTarget.slug && currentPractice) {
+        // Fetch a bounded set of intakes and check for any that reference the
+        // editTarget.slug. This avoids breaking existing links.
+        try {
+          let hasResponses = false;
+          let page = 1;
+          while (true) {
+            const result = await listIntakes(currentPractice.id, { page, limit: 100 });
+            if (result.intakes.some((i) => getResponseTemplateSlug(i) === editTarget.slug)) {
+              hasResponses = true;
+              break;
+            }
+            if (page >= result.total_pages || result.intakes.length === 0) {
+              break;
+            }
+            page++;
+          }
+
+          if (hasResponses) {
+            showError('Rename not allowed', 'This form has existing responses and cannot be renamed.');
+            setIsSaving(false);
+            return;
+          }
+        } catch (_err) {
+          // If the check fails, be conservative and prevent rename to avoid
+          // accidental orphaning.
+          showError('Rename check failed', 'Unable to verify whether this form has existing responses. Rename aborted.');
+          setIsSaving(false);
+          return;
+        }
+      }
+
+      // Prevent slug collision with another template (except when it's the same
+      // template being edited).
+      if (existingTemplates.some((e) => e.slug === template.slug && e.slug !== (editTarget?.slug ?? ''))) {
+        showError('Slug conflict', 'Another form already uses this slug. Choose a different slug.');
+        setIsSaving(false);
+        return;
+      }
+
+      // Build the next templates list by removing any existing entries with the
+      // old or new slug, then inserting the updated template. This preserves
+      // ordering while ensuring the old slug is removed during a rename.
+      const nextTemplates = [
+        ...existingTemplates.filter((existing) => existing.slug !== (editTarget?.slug ?? template.slug) && existing.slug !== template.slug),
+        template,
+      ];
       await persistTemplates(nextTemplates);
       showSuccess(editTarget ? 'Form updated' : 'Form created', `"${template.name}" saved.`);
       navigate(`${basePath}/${encodeURIComponent(template.slug)}`);
@@ -2146,8 +2205,8 @@ export default function IntakeTemplatesPage({
         currencyCode={currentPractice.currency ?? 'USD'}
         practicePreviewConfig={{
           name: currentPractice.name,
-          profileImage: currentPractice.logo ?? null,
-          accentColor: practiceDetails?.accentColor ?? currentPractice.accentColor,
+          profileImage: currentPractice.logo ?? undefined,
+          accentColor: practiceDetails?.accentColor ?? currentPractice.accentColor ?? undefined,
         }}
         onCancel={handleCancel}
         onSave={handleSave}

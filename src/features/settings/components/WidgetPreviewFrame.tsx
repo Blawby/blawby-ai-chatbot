@@ -1,4 +1,5 @@
 import { useMemo } from 'preact/hooks';
+import { toMinorUnitsValue } from '@/shared/utils/money';
 import { WidgetPreviewApp } from '@/app/WidgetPreviewApp';
 import type { UIPracticeConfig } from '@/shared/hooks/usePracticeConfig';
 import type { WidgetPreviewConfig, WidgetPreviewScenario } from '@/shared/types/widgetPreview';
@@ -20,17 +21,17 @@ const buildPreviewPracticeConfig = (
   id: `preview-${practiceSlug?.trim() || 'practice'}`,
   slug: practiceSlug?.trim() || 'preview-practice',
   name: config.name?.trim() || 'Blawby Messenger',
-  profileImage: config.profileImage ?? null,
+  profileImage: config.profileImage ?? undefined,
   description: '',
-  introMessage: config.introMessage ?? null,
-  legalDisclaimer: config.legalDisclaimer ?? null,
+  introMessage: config.introMessage ?? undefined,
+  legalDisclaimer: config.legalDisclaimer ?? undefined,
   availableServices: [],
   serviceQuestions: {},
   domain: '',
   brandColor: '#000000',
   accentColor: config.accentColor ?? 'gold',
   consultationFee: typeof config.consultationFee === 'number' && Number.isFinite(config.consultationFee)
-    ? (config.consultationFee as unknown as UIPracticeConfig['consultationFee'])
+    ? (toMinorUnitsValue(config.consultationFee) as unknown as UIPracticeConfig['consultationFee'])
     : undefined,
   billingIncrementMinutes: config.billingIncrementMinutes ?? undefined,
   voice: {
@@ -55,9 +56,10 @@ export const WidgetPreviewFrame = ({
     [config, practiceSlug],
   );
   const previewPracticeId = practiceConfig.id || `preview-${practiceConfig.slug || 'practice'}`;
+  // Only key on scenario + practice + accentColor to avoid unnecessary remounts
   const previewKey = useMemo(
-    () => `${scenario}:${practiceSlug ?? 'preview'}:${JSON.stringify(config)}`,
-    [config, practiceSlug, scenario],
+    () => `${scenario}:${practiceSlug ?? 'preview'}:${config.accentColor ?? ''}`,
+    [scenario, practiceSlug, config.accentColor],
   );
 
   return (

@@ -239,7 +239,7 @@ export const handleSaveCaseDetails = (
   submissionGate: IntakeSubmissionGate,
 ): ToolResult => {
   const patch: Record<string, unknown> = {};
-  const customFieldsPatch: Record<string, string | boolean> = {};
+  const customFieldsPatch: Record<string, string | boolean | number> = {};
 
   const description = typeof args.description === 'string' ? args.description.trim().slice(0, 300) : (typeof storedIntakeState?.description === 'string' ? (storedIntakeState.description as string) : '');
   const city = typeof args.city === 'string' ? args.city.trim() : (typeof storedIntakeState?.city === 'string' ? (storedIntakeState.city as string) : '');
@@ -281,13 +281,15 @@ export const handleSaveCaseDetails = (
         customFieldsPatch[key] = value.trim();
       } else if (typeof value === 'boolean') {
         customFieldsPatch[key] = value;
+      } else if (typeof value === 'number' && Number.isFinite(value)) {
+        customFieldsPatch[key] = value;
       }
     }
   }
 
   // Merge customFields with any existing ones
   if (Object.keys(customFieldsPatch).length > 0) {
-    const existingCustom = (storedIntakeState?.customFields as Record<string, string | boolean> | undefined) ?? {};
+    const existingCustom = (storedIntakeState?.customFields as Record<string, string | boolean | number> | undefined) ?? {};
     patch.customFields = { ...existingCustom, ...customFieldsPatch };
   }
 
@@ -645,6 +647,8 @@ function buildIntakeContextSummary(
         lines.push(`${key}: ${value.trim()}`);
       } else if (typeof value === 'boolean') {
         lines.push(`${key}: ${value}`);
+      } else if (typeof value === 'number' && Number.isFinite(value)) {
+        lines.push(`${key}: ${String(value)}`);
       }
     }
   }

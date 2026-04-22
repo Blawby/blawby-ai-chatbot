@@ -6,6 +6,7 @@ export interface PracticeSetupStatus {
   contactComplete: boolean;
   servicesComplete: boolean;
   payoutsComplete: boolean;
+  addressComplete: boolean;
   needsSetup: boolean;
 }
 
@@ -22,22 +23,22 @@ export const resolvePracticeSetupStatus = (
       ('address' in detailAddress && typeof detailAddress.address === 'string' && detailAddress.address.trim().length > 0)
     )
   );
+  // Require either a structured address object with a line, or a
+  // practice-level address that includes address + city + state.
   const hasAddress = Boolean(
-    (typeof detailAddress === 'string' && detailAddress.trim().length > 0)
-    || hasStructuredDetailAddress
-    || practice?.address?.trim()
-    || practice?.city?.trim()
-    || practice?.state?.trim()
-    || practice?.postalCode?.trim()
-    || practice?.country?.trim()
+    hasStructuredDetailAddress || (
+      practice?.address?.trim() &&
+      practice?.city?.trim() &&
+      practice?.state?.trim()
+    )
   );
   const basicsComplete = Boolean(practice?.name?.trim() && practice?.slug?.trim());
+  // Contact is considered complete when an email or phone number is present.
   const contactComplete = Boolean(
     (details?.businessEmail && details.businessEmail.trim().length > 0) ||
     (details?.businessPhone && details.businessPhone.trim().length > 0) ||
     (practice?.businessEmail && practice.businessEmail.trim().length > 0) ||
-    (practice?.businessPhone && practice.businessPhone.trim().length > 0) ||
-    hasAddress
+    (practice?.businessPhone && practice.businessPhone.trim().length > 0)
   );
   const servicesComplete = Boolean(
     (details?.services && details.services.length > 0) ||
@@ -47,12 +48,14 @@ export const resolvePracticeSetupStatus = (
   const payoutsComplete = stripeStatus === 'completed'
     || stripeStatus === 'not_required'
     || stripeStatus === 'skipped';
-  const needsSetup = !(basicsComplete && contactComplete && servicesComplete && payoutsComplete);
+  const addressComplete = hasAddress;
+  const needsSetup = !(basicsComplete && contactComplete && servicesComplete && payoutsComplete && addressComplete);
   return {
     basicsComplete,
     contactComplete,
     servicesComplete,
     payoutsComplete,
+    addressComplete,
     needsSetup
   };
 };
