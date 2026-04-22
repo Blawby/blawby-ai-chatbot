@@ -8,7 +8,7 @@ import {
 } from '../../src/shared/utils/consultationState';
 import type { ChatMessageAction } from '../../src/shared/types/conversation';
 import { createSubmitAction } from '../../src/shared/utils/chatActions';
-import type { IntakeFieldDefinition } from '../../src/shared/types/intake.js';
+import type { IntakeFieldDefinition, IntakeTemplate } from '../../src/shared/types/intake.js';
 import { STANDARD_FIELD_KEYS, DEFAULT_INTAKE_TEMPLATE } from '../../src/shared/constants/intakeTemplates.js';
 import {
   resolveNextField,
@@ -295,21 +295,28 @@ export const handleSaveCaseDetails = (
 
   const merged = mergeIntakeState(storedIntakeState, patch);
   const isSubmittable = isIntakeSubmittable(merged, submissionGate);
+  const isEnrichmentMode = merged?.enrichmentMode === true;
 
-  // Derive suggested replies — nextEnrichmentField is now passed from caller via gate
-  // (null here because handleSaveCaseDetails does not have template context; aiChat.ts
-  //  has it and handles tool-only synthetic replies via deriveCaseSavedAcknowledgment)
+  // Recompute nextEnrichmentField from the POST-merge state so that
+  // the field that was just answered is correctly skipped. The pre-save
+  // value on the gate is stale by the time we get here.
+  const postSaveNextEnrichmentField = isEnrichmentMode && submissionGate.activeTemplate
+    ? resolveNextField(submissionGate.activeTemplate, merged as Record<string, unknown>, 'enrichment')
+    : null;
+
   const consultationFee = readFiniteNumberField(submissionGate.details, ['consultationFee', 'consultation_fee']);
-  const actions = deriveNextActions(merged, submissionGate, consultationFee, submissionGate.nextEnrichmentField ?? null);
+  const actions = deriveNextActions(merged, submissionGate, consultationFee, postSaveNextEnrichmentField);
   if (actions.length > 0) {
     patch.ctaShown = true;
   }
 
   return {
     success: true,
-    message: isSubmittable
-      ? 'Case details saved. All required fields collected.'
-      : 'Case details saved. Continue collecting remaining fields.',
+    message: isEnrichmentMode && postSaveNextEnrichmentField === null
+      ? 'Enrichment complete. All optional fields collected. Summarize what you have and invite the user to submit.'
+      : isSubmittable
+        ? 'Case details saved. All required fields collected.'
+        : 'Case details saved. Continue collecting remaining fields.',
     intakeFields: patch,
     actions: actions.length > 0 ? actions : undefined,
   };
@@ -684,7 +691,16 @@ export interface IntakeSubmissionGate {
    * Phase 3: fields carry an optional condition; unmet conditions are not required.
    */
   requiredFields?: ReadonlyArray<GateField> | null;
-  /** Next optional field selected by the orchestration layer during enrichment mode. */
+  /**
+   * The full active template, threaded down so handleSaveCaseDetails can
+   * recompute nextEnrichmentField from the POST-merge state. The pre-save
+   * value on nextEnrichmentField becomes stale the moment a field is answered.
+   */
+  activeTemplate?: IntakeTemplate | null;
+  /**
+   * Pre-computed next enrichment field (pre-save turn state).
+   * Use activeTemplate + merged state to get the post-save value.
+   */
   nextEnrichmentField?: IntakeFieldDefinition | null;
 }
 
