@@ -1,5 +1,5 @@
 import { FunctionComponent } from 'preact';
-import { useCallback, useState, useRef } from 'preact/hooks';
+import { useCallback, useState, useRef, useMemo } from 'preact/hooks';
 import { useLocation } from 'preact-iso';
 import { InboxStackIcon } from '@heroicons/react/24/outline';
 import type { IconComponent } from '@/shared/ui/Icon';
@@ -128,6 +128,12 @@ export const IntakesPage: FunctionComponent<IntakesPageProps> = ({
   // template detail route between /intakes and /intakes/:slug/edit.
   const templateRouteMode = isTemplateEditorRoute || routeTemplateSlug ? 'editor' : 'list';
 
+  const paginationSessionIdRef = useRef(0);
+  const paginationSessionId = useMemo(() => {
+    paginationSessionIdRef.current++;
+    return paginationSessionIdRef.current;
+  }, [practiceId, isResponsesRoute, activeTriageFilter, templateFilter]);
+
   const accumulatedFilteredRef = useRef<PaginatedIntake[]>([]);
   const lastBackendPageRef = useRef(0);
   const totalBackendPagesRef = useRef(1);
@@ -141,6 +147,7 @@ export const IntakesPage: FunctionComponent<IntakesPageProps> = ({
     loadMoreRef,
   } = usePaginatedList<PaginatedIntake>({
     fetchPage: async (page, signal) => {
+      const currentSessionId = paginationSessionId;
       if (!practiceId || !isResponsesRoute) return { items: [], hasMore: false };
 
       const validTriageFilters = ['pending_review', 'accepted', 'declined'] as const;
@@ -180,6 +187,10 @@ export const IntakesPage: FunctionComponent<IntakesPageProps> = ({
           limit,
           triage_status: triageFilter,
         }, { signal });
+
+        if (currentSessionId !== paginationSessionIdRef.current) {
+          return { items: [], hasMore: false };
+        }
 
         totalBackendPagesRef.current = result.total_pages;
 

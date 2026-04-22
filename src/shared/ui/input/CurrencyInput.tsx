@@ -131,7 +131,7 @@ export const CurrencyInput = forwardRef<HTMLInputElement, CurrencyInputProps>(({
             let parsed = parseFloat(trimmed);
             if (!Number.isFinite(parsed)) parsed = 0;
             const stepNum = typeof step === 'number' && Number.isFinite(step) && step > 0 ? step : 0.01;
-            const precision = precisionForStep(stepNum) || 2;
+            const precision = precisionForStep(stepNum);
             // Enforce min
             if (typeof min === 'number' && Number.isFinite(min) && parsed < min) parsed = min;
             // Snap to nearest step multiple
@@ -161,7 +161,7 @@ export const CurrencyInput = forwardRef<HTMLInputElement, CurrencyInputProps>(({
             const parsed = parseFloat(trimmed);
             if (!Number.isFinite(parsed)) return;
             const stepNum = typeof step === 'number' && Number.isFinite(step) && step > 0 ? step : 0.01;
-            const precision = precisionForStep(stepNum) || 2;
+            const precision = precisionForStep(stepNum);
             let normalized = Math.round(parsed / stepNum) * stepNum;
             normalized = Number(normalized.toFixed(precision));
             // Don't force display reformat while editing; emit normalized numeric
