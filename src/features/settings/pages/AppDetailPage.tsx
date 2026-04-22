@@ -78,7 +78,7 @@ export const AppDetailPage = ({ app, onBack, onUpdate }: AppDetailPageProps) => 
     if (!app.website) return;
     try {
       window.open(app.website, '_blank', 'noopener,noreferrer');
-    } catch (err) {
+    } catch (_err) {
       // ignore - defensive in case window.open is unavailable
     }
   };

@@ -32,7 +32,7 @@ import {
 } from '@/shared/utils/workspace';
 import { AppGuard } from '@/app/AppGuard';
 import { App404 } from '@/features/practice/components/404';
-import { normalizePracticeRole } from '@/shared/utils/practiceRoles';
+// `normalizePracticeRole` is not needed in this module; remove import.
 import { LoadingScreen } from '@/shared/ui/layout/LoadingScreen';
 import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 import type { IconComponent } from '@/shared/ui/Icon';
@@ -203,7 +203,7 @@ function AppShell() {
       fallbackSlug,
       hasPracticeMembership,
     });
-  }, [currentPractice?.id, currentPractice?.slug, defaultWorkspace, hasPracticeMembership, practices]);
+  }, [currentPractice?.slug, defaultWorkspace, hasPracticeMembership, practices]);
 
   useEffect(() => {
     if (sessionPending) return;
@@ -471,7 +471,7 @@ function RootRoute() {
       fallbackSlug,
       hasPracticeMembership,
     });
-  }, [currentPractice?.id, currentPractice?.slug, defaultWorkspace, hasPracticeMembership, practices]);
+  }, [currentPractice?.slug, defaultWorkspace, hasPracticeMembership, practices]);
 
   useEffect(() => {
     return () => {
@@ -535,7 +535,7 @@ function PracticeAppRoute({
   settingsView?: 'general' | 'notifications' | 'account' | 'practice' | 'practice-contact' | 'practice-payouts' | 'practice-coverage' | 'practice-team' | 'apps' | 'app-detail' | 'security' | 'help';
   practiceSlug?: string;
 }) {
-  const { session, isPending, activeMemberRole } = useSessionContext();
+  const { session, isPending, activeMemberRole: _activeMemberRole } = useSessionContext();
   const normalizedPracticeSlug = (practiceSlug ?? '').trim();
   const hasPracticeSlug = normalizedPracticeSlug.length > 0;
   const {
@@ -546,7 +546,6 @@ function PracticeAppRoute({
   } = useWorkspaceResolver({
     practiceSlug: practiceSlug ?? null,
   });
-  const { navigate } = useNavigation();
   const targetPractice = currentPractice;
   const practiceLookupKey = currentPractice?.id ?? '';
   const practiceRefreshKey = useMemo(() => {

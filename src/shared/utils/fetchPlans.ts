@@ -9,11 +9,11 @@ export interface SubscriptionPlan {
   imageUrl?: string | null;
   description: string;
   stripeProductId: string;
-  stripeMonthlyPriceId: string;
+  stripeMonthlyPriceId: string | null;
   stripeYearlyPriceId: string | null;
-  monthlyPrice: string;
+  monthlyPrice: string | null;
   yearlyPrice: string | null;
-  currency: string;
+  currency: string | null;
   features: string[];
   limits: {
     users?: number;
@@ -23,10 +23,12 @@ export interface SubscriptionPlan {
   meteredItems?: Array<{
     priceId: string;
     meterName: string;
-    type: string;
+    type: string | null;
   }>;
   isActive: boolean;
   isPublic: boolean;
+  sortOrder?: number | null;
+  metadata?: Record<string, unknown> | null;
 }
 
 type PlanAmountUnit = 'cents' | 'dollars';
@@ -52,12 +54,14 @@ const normalizePlanAmount = (value: unknown, unit: unknown, label: string): stri
 
   const resolveUnit = (rawValue: number | string): PlanAmountUnit | null => {
     if (normalizedUnit) return normalizedUnit;
-    void rawValue;
-    return null;
-  };
-
-  const requireUnit = () => {
-    throw new Error(`[fetchPlans] Missing or invalid price unit for ${label}`);
+    if (typeof rawValue === 'number') {
+      return Number.isInteger(rawValue) ? 'cents' : 'dollars';
+    }
+    const trimmed = rawValue.trim();
+    if (trimmed.includes('.')) {
+      return 'dollars';
+    }
+    return 'cents';
   };
 
   const shouldTreatAsMinor = (amount: number, amountUnit: PlanAmountUnit | null): boolean => {
@@ -68,9 +72,6 @@ const normalizePlanAmount = (value: unknown, unit: unknown, label: string): stri
 
   if (typeof value === 'number' && Number.isFinite(value)) {
     const effectiveUnit = resolveUnit(value);
-    if (!effectiveUnit) {
-      requireUnit();
-    }
     if (effectiveUnit === 'cents' && !Number.isInteger(value)) {
       throw new Error(`[fetchPlans] Expected integer cents amount for ${label}`);
     }
@@ -90,9 +91,6 @@ const normalizePlanAmount = (value: unknown, unit: unknown, label: string): stri
     const parsed = Number(trimmed);
     if (Number.isFinite(parsed)) {
       const effectiveUnit = resolveUnit(trimmed);
-      if (!effectiveUnit) {
-        requireUnit();
-      }
       return shouldTreatAsMinor(parsed, effectiveUnit) ? normalizeMinor(parsed) : normalizeMajor(parsed);
     }
   }
@@ -117,8 +115,12 @@ function normalizePlans(plans: unknown[]): SubscriptionPlan[] {
           : typeof record.meterName === 'string'
             ? record.meterName
             : '';
-        const type = typeof record.type === 'string' ? record.type : '';
-        if (!priceId || !meterName || !type) return null;
+        const type = typeof record.type === 'string'
+          ? record.type
+          : record.type === null
+            ? null
+            : null;
+        if (!priceId || !meterName) return null;
         return { priceId, meterName, type };
       })
       .filter((item): item is MeteredItem => item !== null);
@@ -157,20 +159,24 @@ function normalizePlans(plans: unknown[]): SubscriptionPlan[] {
       ),
       description: (record.description ?? '') as string,
       stripeProductId: record.stripe_product_id as string,
-      stripeMonthlyPriceId: record.stripe_monthly_price_id as string,
+      stripeMonthlyPriceId: (record.stripe_monthly_price_id ?? null) as string | null,
       stripeYearlyPriceId: (record.stripe_yearly_price_id ?? null) as string | null,
-      monthlyPrice: normalizePlanAmount(
-        record.monthly_price,
-        monthlyUnit,
-        'monthly'
-      ),
+      monthlyPrice: (() => {
+        const rawMonthly = record.monthly_price;
+        if (rawMonthly === null || rawMonthly === undefined) return null;
+        const normalized = normalizePlanAmount(rawMonthly, monthlyUnit, 'monthly');
+        return normalized || null;
+      })(),
       yearlyPrice: (() => {
         const rawYearly = record.yearly_price;
         if (rawYearly === null || rawYearly === undefined) return null;
         const normalized = normalizePlanAmount(rawYearly, yearlyUnit, 'yearly');
         return normalized || null;
       })(),
-      currency: record.currency as string,
+      currency:
+        typeof record.currency === 'string' && record.currency.trim().length > 0
+          ? record.currency
+          : null,
       features: (record.features ?? []) as string[],
       limits: {
         users: limits?.users as number | undefined,
@@ -180,6 +186,14 @@ function normalizePlans(plans: unknown[]): SubscriptionPlan[] {
       meteredItems: normalizeMeteredItems(record.metered_items),
       isActive: record.is_active as boolean,
       isPublic: record.is_public as boolean,
+      sortOrder:
+        typeof record.sort_order === 'number' && Number.isFinite(record.sort_order)
+          ? record.sort_order
+          : null,
+      metadata:
+        typeof record.metadata === 'object' && record.metadata !== null && !Array.isArray(record.metadata)
+          ? record.metadata as Record<string, unknown>
+          : null,
     };
   });
 }
@@ -202,11 +216,8 @@ export const fetchPlans = async (
 
   const normalized = normalizePlans(plans as unknown[]);
   for (const plan of normalized) {
-    if (!plan.id || !plan.name || !plan.displayName || !plan.stripeProductId || !plan.stripeMonthlyPriceId || !plan.currency) {
-      throw new Error('Invalid /api/subscriptions/plans payload: missing required plan fields.');
-    }
-    if (!plan.monthlyPrice) {
-      throw new Error(`Invalid /api/subscriptions/plans payload: missing monthly_price for plan ${plan.id}.`);
+    if (!plan.id || !plan.name || !plan.displayName || !plan.stripeProductId) {
+      throw new Error('Invalid /api/subscriptions/plans payload: missing required plan identity fields.');
     }
     if (typeof plan.isActive !== 'boolean' || typeof plan.isPublic !== 'boolean') {
       throw new Error(`Invalid /api/subscriptions/plans payload: invalid visibility flags for plan ${plan.id}.`);

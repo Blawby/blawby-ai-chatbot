@@ -1,3 +1,4 @@
+/* eslint-disable custom/no-hardcoded-colors -- dialog intentionally uses black scrim for backdrop */
 import type { ComponentChildren, FunctionComponent } from 'preact';
 import { createPortal } from 'preact/compat';
 import { useEffect, useId, useRef } from 'preact/hooks';

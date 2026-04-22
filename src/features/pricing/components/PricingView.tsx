@@ -10,7 +10,6 @@ import { fetchPlans, type SubscriptionPlan } from '@/shared/utils/fetchPlans';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import { i18n } from '@/shared/i18n';
 import { usePaymentUpgrade } from '@/shared/hooks/usePaymentUpgrade';
-import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 
 type BillingPeriod = 'monthly' | 'yearly';
 
@@ -19,11 +18,12 @@ interface PricingViewProps {
   className?: string;
 }
 
+const DISPLAY_PLAN_NAME = 'blawby_practice';
+
 const PricingView: FunctionComponent<PricingViewProps> = ({ className, onUpgrade }) => {
   const { t } = useTranslation(['pricing', 'common']);
   const { showError } = useToastContext();
   const { submitUpgrade, submitting } = usePaymentUpgrade();
-  const { currentPractice } = usePracticeManagement({ autoFetchPractices: false });
 
   const [plan, setPlan] = useState<SubscriptionPlan | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -40,14 +40,15 @@ const PricingView: FunctionComponent<PricingViewProps> = ({ className, onUpgrade
         if (!mounted) return;
 
         const visiblePlans = availablePlans.filter((plan) => plan.isActive && plan.isPublic);
-        if (visiblePlans.length === 0) {
-          throw new Error('No active public subscription plans were returned by /api/subscriptions/plans.');
-        }
-        if (visiblePlans.length !== 1) {
-          throw new Error(`Expected exactly 1 active public plan but received ${visiblePlans.length}.`);
+        const displayPlan = visiblePlans.find((candidate) => candidate.name === DISPLAY_PLAN_NAME);
+
+        if (!displayPlan) {
+          throw new Error(
+            `Pricing page requires public plan "${DISPLAY_PLAN_NAME}" but received: ${visiblePlans.map((candidate) => candidate.name).join(', ')}.`
+          );
         }
 
-        setPlan(visiblePlans[0]);
+        setPlan(displayPlan);
         setLoadError(null);
       } catch (error) {
         if (controller.signal.aborted || !mounted) return;
@@ -96,7 +97,6 @@ const PricingView: FunctionComponent<PricingViewProps> = ({ className, onUpgrade
         }
       }
       await submitUpgrade({
-        practiceId: currentPractice?.id || undefined,
         plan: selectedPlanName,
         annual: isYearly && hasYearly
       });
@@ -112,12 +112,13 @@ const PricingView: FunctionComponent<PricingViewProps> = ({ className, onUpgrade
   const features = Array.isArray(plan.features)
     ? plan.features.filter((feature): feature is string => typeof feature === 'string' && feature.trim().length > 0)
     : [];
-  const monthlyPriceValue = Number.parseFloat(plan.monthlyPrice);
+  const hasMonthlyPrice = Boolean(plan.monthlyPrice);
+  const monthlyPriceValue = plan.monthlyPrice ? Number.parseFloat(plan.monthlyPrice) : NaN;
   const yearlyPriceValue = plan.yearlyPrice ? Number.parseFloat(plan.yearlyPrice) : NaN;
   const selectedPriceValue = isYearly && hasYearly
     ? yearlyPriceValue
     : monthlyPriceValue;
-  const resolvedPriceValue = Number.isFinite(selectedPriceValue) ? selectedPriceValue : 0;
+  const hasDisplayPrice = Number.isFinite(selectedPriceValue);
   const periodLabel = isYearly && hasYearly
     ? t('pricing:billing.yearly')
     : t('pricing:billing.monthly');
@@ -143,23 +144,26 @@ const PricingView: FunctionComponent<PricingViewProps> = ({ className, onUpgrade
   const annuallyLabelWithDiscount = yearlyDiscountPercent
     ? `${annuallyLabel} -${yearlyDiscountPercent}%`
     : annuallyLabel;
+  const showBillingSelector = hasMonthlyPrice || hasYearly;
   const billingOptions: Array<{ value: BillingPeriod; label: string; disabled?: boolean }> = [
-    { value: 'monthly', label: monthlyLabel },
+    { value: 'monthly', label: monthlyLabel, disabled: !hasMonthlyPrice },
     { value: 'yearly', label: annuallyLabelWithDiscount, disabled: !hasYearly }
   ];
   return (
     <div className={`w-full text-input-text ${className ?? ''}`}>
       <div className="mx-auto w-full max-w-xl px-2 pt-2 pb-2 md:px-3 md:pt-3 md:pb-3">
-        <div className="flex justify-center pb-1">
-          <SegmentedToggle<BillingPeriod>
-            className="w-full max-w-[420px]"
-            value={billingPeriod}
-            options={billingOptions}
-            onChange={setBillingPeriod}
-            ariaLabel="Payment frequency"
-            disabled={submitting}
-          />
-        </div>
+        {showBillingSelector ? (
+          <div className="flex justify-center pb-1">
+            <SegmentedToggle<BillingPeriod>
+              className="w-full max-w-[420px]"
+              value={billingPeriod}
+              options={billingOptions}
+              onChange={setBillingPeriod}
+              ariaLabel="Payment frequency"
+              disabled={submitting}
+            />
+          </div>
+        ) : null}
 
         <div className="mt-6 glass-card px-5 py-6 md:px-7 md:py-8">
           <div className="flex flex-col items-start text-left">
@@ -171,12 +175,14 @@ const PricingView: FunctionComponent<PricingViewProps> = ({ className, onUpgrade
                 {plan.description}
               </p>
             ) : null}
-            <div className="mt-7 flex items-end gap-1.5">
-              <span className="text-5xl font-semibold tracking-tight text-input-text md:text-6xl">
-                {formatCurrency(resolvedPriceValue, plan.currency, i18n.language)}
-              </span>
-              <span className="pb-1 text-xl font-semibold text-input-placeholder md:pb-2 md:text-2xl">/{periodLabel}</span>
-            </div>
+            {hasDisplayPrice && plan.currency ? (
+              <div className="mt-7 flex items-end gap-1.5">
+                <span className="text-5xl font-semibold tracking-tight text-input-text md:text-6xl">
+                  {formatCurrency(selectedPriceValue, plan.currency, i18n.language)}
+                </span>
+                <span className="pb-1 text-xl font-semibold text-input-placeholder md:pb-2 md:text-2xl">/{periodLabel}</span>
+              </div>
+            ) : null}
           </div>
 
           <div className="mt-8">
@@ -204,17 +210,21 @@ const PricingView: FunctionComponent<PricingViewProps> = ({ className, onUpgrade
             >
               {submitting
                 ? t('pricing:modal.openingBilling')
-                : t('pricing:upgradeButton', {
-                    price: formatCurrency(
-                      resolvedPriceValue,
-                      plan.currency,
-                      i18n.language
-                    )
-                  })}
+                : hasDisplayPrice && plan.currency
+                  ? t('pricing:upgradeButton', {
+                      price: formatCurrency(
+                        selectedPriceValue,
+                        plan.currency,
+                        i18n.language
+                      )
+                    })
+                  : plan.displayName || plan.name}
             </Button>
-            <p className="mt-4 text-center text-sm text-input-placeholder">
-              {billingDescription}
-            </p>
+            {hasDisplayPrice ? (
+              <p className="mt-4 text-center text-sm text-input-placeholder">
+                {billingDescription}
+              </p>
+            ) : null}
           </div>
         </div>
       </div>

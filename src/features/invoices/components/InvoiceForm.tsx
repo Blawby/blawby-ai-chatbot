@@ -383,7 +383,7 @@ export const InvoiceForm = forwardRef<InvoiceFormHandle, InvoiceFormProps>(({
     try {
       const detail = { timestamp: lastSavedAt.toISOString() };
       window.dispatchEvent(new CustomEvent('invoice:draft-saved', { detail }));
-    } catch (err) {
+    } catch (_err) {
       // ignore (server-side rendering or unavailable window)
     }
   }, [lastSavedAt]);

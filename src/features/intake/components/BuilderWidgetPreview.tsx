@@ -13,7 +13,7 @@ type BuilderWidgetShellProps = {
 
 export function BuilderWidgetShell({
   practiceName,
-  practiceLogo,
+  practiceLogo: _practiceLogo,
   children,
   docked,
 }: BuilderWidgetShellProps) {

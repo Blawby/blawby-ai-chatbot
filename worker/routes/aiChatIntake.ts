@@ -16,6 +16,7 @@ import {
   isIntakeCompleteForTemplate,
   getRequiredFieldProgress,
 } from '../../src/shared/utils/intakeOrchestration.js';
+import { Logger } from '../utils/logger.js';
 
 const MAX_SERVICES_IN_PROMPT = 20;
 const MAX_SERVICES_IN_CONVERSATION_PROMPT = 8;
@@ -299,10 +300,25 @@ export const handleSaveCaseDetails = (
 
   // Recompute nextEnrichmentField from the POST-merge state so that
   // the field that was just answered is correctly skipped. The pre-save
-  // value on the gate is stale by the time we get here.
-  const postSaveNextEnrichmentField = isEnrichmentMode && submissionGate.activeTemplate
-    ? resolveNextField(submissionGate.activeTemplate, merged as Record<string, unknown>, 'enrichment')
-    : null;
+  // value on the gate is stale the moment a field is answered.
+  // Only call resolveNextField when we are in enrichment mode AND
+  // an active template is available AND the merged state is non-null.
+  // If the template is missing or merged is null, set `undefined` to
+  // indicate a template/missing-state sentinel and log a warning.
+  let postSaveNextEnrichmentField: IntakeFieldDefinition | null | undefined;
+  if (isEnrichmentMode) {
+    if (!submissionGate.activeTemplate) {
+      postSaveNextEnrichmentField = undefined;
+      Logger.warn('[aiChatIntake] Enrichment mode active but submissionGate.activeTemplate is missing', { submissionGate });
+    } else if (!merged) {
+      postSaveNextEnrichmentField = undefined;
+      Logger.warn('[aiChatIntake] Enrichment mode active but merged intake state is null', { submissionGate });
+    } else {
+      postSaveNextEnrichmentField = resolveNextField(submissionGate.activeTemplate, merged as Record<string, unknown>, 'enrichment');
+    }
+  } else {
+    postSaveNextEnrichmentField = null;
+  }
 
   const consultationFee = readFiniteNumberField(submissionGate.details, ['consultationFee', 'consultation_fee']);
   const actions = deriveNextActions(merged, submissionGate, consultationFee, postSaveNextEnrichmentField);
@@ -478,23 +494,8 @@ const deriveNextActions = (
   return [];
 };
 
-/**
- * Derives quick-reply action suggestions for a field based on its type.
- * Works for any field — boolean gets yes/no, select gets its options,
- * others get no quick replies (free text).
- */
-const deriveFieldQuickReplies = (field: IntakeFieldDefinition): ChatMessageAction[] => {
-  if (field.type === 'boolean') {
-    return [
-      { type: 'reply', label: 'Yes', value: `Yes, regarding ${field.label.toLowerCase()}.` },
-      { type: 'reply', label: 'No', value: `No, regarding ${field.label.toLowerCase()}.` },
-    ];
-  }
-  if (field.type === 'select' && Array.isArray(field.options) && field.options.length > 0) {
-    return field.options.map((opt) => ({ type: 'reply' as const, label: opt, value: opt }));
-  }
-  return [];
-};
+// deriveFieldQuickReplies removed — not currently used. Reintroduce
+// and export if quick-reply suggestions are needed in the future.
 
 // ---------------------------------------------------------------------------
 // Orchestration helpers re-exported for use in aiChat.ts

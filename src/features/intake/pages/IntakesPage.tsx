@@ -1,5 +1,5 @@
 import { FunctionComponent } from 'preact';
-import { useCallback, useState, useRef, useMemo } from 'preact/hooks';
+import { useCallback, useEffect, useState, useRef } from 'preact/hooks';
 import { useLocation } from 'preact-iso';
 import { InboxStackIcon } from '@heroicons/react/24/outline';
 import type { IconComponent } from '@/shared/ui/Icon';
@@ -129,10 +129,17 @@ export const IntakesPage: FunctionComponent<IntakesPageProps> = ({
   const templateRouteMode = isTemplateEditorRoute || routeTemplateSlug ? 'editor' : 'list';
 
   const paginationSessionIdRef = useRef(0);
-  const paginationSessionId = useMemo(() => {
-    paginationSessionIdRef.current++;
+  // Recompute a numeric session id when routing/filter inputs change so
+  // downstream hooks can reset their state. Use state so updates trigger
+  // a re-render (refs alone would not).
+  const [paginationSessionId, setPaginationSessionId] = useState(() => {
+    paginationSessionIdRef.current = 0;
     return paginationSessionIdRef.current;
-  }, [practiceId, isResponsesRoute, activeTriageFilter, templateFilter]);
+  });
+  useEffect(() => {
+    paginationSessionIdRef.current++;
+    setPaginationSessionId(paginationSessionIdRef.current);
+  }, [practiceId, isResponsesRoute, activeTriageFilter, templateFilter, refreshCounter]);
 
   const accumulatedFilteredRef = useRef<PaginatedIntake[]>([]);
   const lastBackendPageRef = useRef(0);
@@ -232,7 +239,7 @@ export const IntakesPage: FunctionComponent<IntakesPageProps> = ({
           lastBackendPageRef.current < totalBackendPagesRef.current,
       };
     },
-    deps: [practiceId, activeTriageFilter, refreshCounter, isResponsesRoute, templateFilter],
+    deps: [paginationSessionId],
   });
 
   const handleSelectIntake = useCallback((intake: PaginatedIntake) => {

@@ -11,8 +11,6 @@ const SUBSCRIPTIONS_PLANS_PATH = '/api/subscriptions/plans';
 const DOMAIN_PATTERN = /;\s*domain=[^;]+/i;
 const SUBSCRIPTIONS_PLANS_CACHE_TTL_MS = 60 * 1000;
 
-const isRecord = (val: unknown): val is Record<string, unknown> =>
-  typeof val === 'object' && val !== null && !Array.isArray(val);
 
 type CachedProxyResponse = {
   status: number;

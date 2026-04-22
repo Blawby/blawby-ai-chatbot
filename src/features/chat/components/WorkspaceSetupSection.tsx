@@ -126,8 +126,9 @@ export const WorkspaceSetupSection: FunctionComponent<WorkspaceSetupSectionProps
   const saveExtractedRef = useRef<() => Promise<void>>(async () => {});
   const extracted = setupFields ?? EMPTY_SETUP_FIELDS;
 
-  const getString = (v: unknown) => (typeof v === 'string' ? v : '');
-  const normalizeAddress = (src: unknown) => {
+  const normalizeAddress = useCallback((src: unknown) => {
+    const getString = (v: unknown) => (typeof v === 'string' ? v : '');
+
     if (!src) return { address: '', apartment: '', city: '', state: '', postalCode: '', country: '' };
     if (typeof src === 'string') return { address: src, apartment: '', city: '', state: '', postalCode: '', country: '' };
     if (typeof src === 'object' && !Array.isArray(src)) {
@@ -141,8 +142,11 @@ export const WorkspaceSetupSection: FunctionComponent<WorkspaceSetupSectionProps
         country: getString(s.country ?? ''),
       };
     }
+
     return { address: '', apartment: '', city: '', state: '', postalCode: '', country: '' };
-  };
+  }, []);
+
+  
 
   const notifyBasicsDraftChange = useCallback((fields: Partial<SetupFieldsPayload>) => {
     onBasicsDraftChange?.({
@@ -178,6 +182,7 @@ export const WorkspaceSetupSection: FunctionComponent<WorkspaceSetupSectionProps
       (addrExtracted.city || addrDetails.city || addrPractice.city).trim() &&
       (addrExtracted.state || addrDetails.state || addrPractice.state).trim()
     );
+
     const accentColor = normalizeAccentColor(extracted.accentColor ?? details?.accentColor ?? practice?.accentColor);
     const hasLogo = Boolean(practice?.logo);
     const hasPayouts = setupStatus.payoutsComplete || payoutsCompleteOverride;
@@ -193,7 +198,7 @@ export const WorkspaceSetupSection: FunctionComponent<WorkspaceSetupSectionProps
       hasLogo,
       hasPayouts,
     });
-  }, [details, extracted, practice, payoutsCompleteOverride, setupStatus.payoutsComplete, setupStatus.servicesComplete]);
+  }, [details, extracted, normalizeAddress, practice, payoutsCompleteOverride, setupStatus.payoutsComplete, setupStatus.servicesComplete]);
 
   const hasPending = useMemo(() => {
     const currentName = (practice?.name ?? '').trim();
@@ -219,7 +224,7 @@ export const WorkspaceSetupSection: FunctionComponent<WorkspaceSetupSectionProps
     }
     if (Array.isArray(extracted.services) && !sameServices(extracted.services, currentServices)) return true;
     return false;
-  }, [details, extracted, practice]);
+  }, [details, extracted, normalizeAddress, practice]);
 
   const saveExtracted = useCallback(async () => {
     if (!practice) return;
@@ -280,7 +285,7 @@ export const WorkspaceSetupSection: FunctionComponent<WorkspaceSetupSectionProps
     } finally {
       setIsSaving(false);
     }
-  }, [details, extracted, onSaveBasics, onSaveContact, onSaveServices, practice]);
+  }, [details, extracted, normalizeAddress, onSaveBasics, onSaveContact, onSaveServices, practice]);
 
   saveExtractedRef.current = saveExtracted;
   const triggerSaveAll = useCallback(() => { void saveExtractedRef.current(); }, []);
