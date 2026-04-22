@@ -1,6 +1,6 @@
 import { FunctionComponent } from 'preact';
 import { InfoListDialog, type InfoListDialogItem } from '@/shared/ui/dialog';
-import { ShieldCheckIcon, LockClosedIcon, ExclamationTriangleIcon, PuzzlePieceIcon } from '@heroicons/react/24/outline';
+import { ShieldCheckIcon, LockClosedIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 import { useTranslation } from '@/shared/i18n/hooks';
 import type { App } from '../pages/appsData';
 

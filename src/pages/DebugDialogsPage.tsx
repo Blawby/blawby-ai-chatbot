@@ -540,6 +540,7 @@ function InspectorPanelPreview() {
 
   return (
     <div className="relative min-h-[760px] overflow-hidden rounded-2xl bg-transparent">
+      {/* eslint-disable-next-line custom/no-hardcoded-colors -- intentional debug preview backdrop */}
       <div className="absolute inset-0 bg-black/5 dark:bg-black/10 backdrop-blur-sm" />
       <aside
         role="dialog"

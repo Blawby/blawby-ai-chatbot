@@ -116,7 +116,7 @@ export const CurrencyInput = forwardRef<HTMLInputElement, CurrencyInputProps>(({
           required={required}
           className={inputClasses}
           inputMode="decimal"
-          onFocus={(event) => {
+          onFocus={() => {
             isEditingRef.current = true;
             setDisplayValue(formatRawDisplay(value));
           }}

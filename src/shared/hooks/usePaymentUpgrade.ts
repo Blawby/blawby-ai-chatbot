@@ -345,13 +345,13 @@ export const usePaymentUpgrade = () => {
         // Step 2: Create subscription using Better Auth Stripe subscription.upgrade endpoint
         try {
           const createPayload = {
-            planId: planId || undefined, // UUID of the subscription plan (optional)
             plan, // Plan name (required by Better Auth Stripe plugin)
-            referenceId: resolvedPracticeId,
-            annual: typeof annual === 'boolean' ? annual : undefined,
             successUrl: validatedSuccessUrl,
             cancelUrl: validatedCancelUrl,
-            disableRedirect: false // Auto-redirect to Stripe Checkout
+            disableRedirect: false, // Auto-redirect to Stripe Checkout
+            ...(typeof annual === 'boolean' ? { annual } : {}),
+            ...(planId ? { planId } : {}),
+            ...(resolvedPracticeId ? { referenceId: resolvedPracticeId } : {})
           };
 
           // Use Better Auth session cookies (not axios)

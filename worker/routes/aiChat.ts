@@ -509,6 +509,16 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
     isIntakeMode,
     isOnboardingMode,
     isGeneralQaMode,
+    // Problem 1 diagnostic: log field values already present at turn start.
+    // If city/state appear here before the user provided them, the state is
+    // contaminated from a prior session via getOrCreateCurrentConversation.
+    turnStartState: storedIntakeState ? {
+      city: storedIntakeState.city ?? null,
+      state: storedIntakeState.state ?? null,
+      description: storedIntakeState.description ? '[present]' : null,
+      enrichmentMode: storedIntakeState.enrichmentMode ?? null,
+      stateSource: consultation?.case ? 'consultation.case' : 'intakeConversationState',
+    } : null,
   });
 
   if (!details) {
@@ -676,6 +686,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
     paymentCompleted: consultation?.submission?.paymentReceived === true,
     details,
     requiredFields: templateRequiredFields,
+    activeTemplate,
     nextEnrichmentField,
   };
 
