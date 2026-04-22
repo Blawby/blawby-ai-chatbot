@@ -1,70 +1,78 @@
-import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
-import type { WidgetPreviewConfig, WidgetPreviewMessage, WidgetPreviewScenario } from '@/shared/types/widgetPreview';
+import { useMemo } from 'preact/hooks';
+import { WidgetPreviewApp } from '@/app/WidgetPreviewApp';
+import type { UIPracticeConfig } from '@/shared/hooks/usePracticeConfig';
+import type { WidgetPreviewConfig, WidgetPreviewScenario } from '@/shared/types/widgetPreview';
+import { cn } from '@/shared/utils/cn';
 
 type WidgetPreviewFrameProps = {
   practiceSlug?: string | null;
   scenario: WidgetPreviewScenario;
   config: WidgetPreviewConfig;
   title?: string;
+  showTitle?: boolean;
+  viewportClassName?: string;
 };
+
+const buildPreviewPracticeConfig = (
+  practiceSlug: string | null | undefined,
+  config: WidgetPreviewConfig,
+): UIPracticeConfig => ({
+  id: `preview-${practiceSlug?.trim() || 'practice'}`,
+  slug: practiceSlug?.trim() || 'preview-practice',
+  name: config.name?.trim() || 'Blawby Messenger',
+  profileImage: config.profileImage ?? null,
+  description: '',
+  introMessage: config.introMessage ?? null,
+  legalDisclaimer: config.legalDisclaimer ?? null,
+  availableServices: [],
+  serviceQuestions: {},
+  domain: '',
+  brandColor: '#000000',
+  accentColor: config.accentColor ?? 'gold',
+  consultationFee: typeof config.consultationFee === 'number' && Number.isFinite(config.consultationFee)
+    ? (config.consultationFee as unknown as UIPracticeConfig['consultationFee'])
+    : undefined,
+  billingIncrementMinutes: config.billingIncrementMinutes ?? undefined,
+  voice: {
+    enabled: false,
+    provider: 'cloudflare',
+    voiceId: null,
+    displayName: null,
+    previewUrl: null,
+  },
+});
 
 export const WidgetPreviewFrame = ({
   practiceSlug,
   scenario,
   config,
   title = 'Widget preview',
+  showTitle = true,
+  viewportClassName = 'h-[min(720px,calc(100svh-12rem))] min-h-[560px] max-h-[720px]',
 }: WidgetPreviewFrameProps) => {
-  const iframeRef = useRef<HTMLIFrameElement | null>(null);
-  const [loadedSrc, setLoadedSrc] = useState<string | null>(null);
-
-
-  const src = useMemo(() => {
-    if (!practiceSlug) return null;
-    const params = new URLSearchParams({
-      v: 'widget',
-      preview: '1',
-      scenario,
-    });
-    return `/public/${encodeURIComponent(practiceSlug)}?${params.toString()}`;
-  }, [practiceSlug, scenario]);
-
-  const message = useMemo<WidgetPreviewMessage>(() => ({
-    type: 'blawby:widget-preview-config',
-    scenario,
-    payload: config,
-  }), [config, scenario]);
-
-  useEffect(() => {
-    if (loadedSrc !== src) return;
-    const target = iframeRef.current?.contentWindow;
-    if (!target) return;
-    const sendMessage = () => target.postMessage(message, window.location.origin);
-    sendMessage();
-    const retryDelays = [100, 500];
-    const timers = retryDelays.map((delay) => window.setTimeout(sendMessage, delay));
-    return () => timers.forEach((timer) => window.clearTimeout(timer));
-  }, [loadedSrc, message, src]);
-
-  if (!src) {
-    return (
-      <div className="rounded-xl border border-line-glass/40 bg-surface-card p-4 text-sm text-input-placeholder">
-        Select a practice to preview the widget.
-      </div>
-    );
-  }
+  const practiceConfig = useMemo(
+    () => buildPreviewPracticeConfig(practiceSlug, config),
+    [config, practiceSlug],
+  );
+  const previewPracticeId = practiceConfig.id || `preview-${practiceConfig.slug || 'practice'}`;
+  const previewKey = useMemo(
+    () => `${scenario}:${practiceSlug ?? 'preview'}:${JSON.stringify(config)}`,
+    [config, practiceSlug, scenario],
+  );
 
   return (
     <div className="w-full">
-      <h3 className="mb-3 text-sm font-semibold text-input-text">Preview</h3>
+      {showTitle ? <h3 className="mb-3 text-sm font-semibold text-input-text">{title}</h3> : null}
       <div className="mx-auto w-full max-w-[390px] overflow-hidden rounded-xl border border-line-glass/40 bg-surface-card shadow-glass">
-        <iframe
-          ref={iframeRef}
-          title={title}
-          src={src}
-          className="h-[640px] w-full bg-surface-ground"
-          onLoad={() => setLoadedSrc(src)}
-          sandbox="allow-scripts allow-same-origin allow-forms"
-        />
+        <div className={cn('relative w-full overflow-hidden bg-surface-ground', viewportClassName)}>
+          <WidgetPreviewApp
+            key={previewKey}
+            practiceId={previewPracticeId}
+            practiceConfig={practiceConfig}
+            scenario={scenario}
+            previewConfig={config}
+          />
+        </div>
       </div>
     </div>
   );

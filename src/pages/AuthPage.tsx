@@ -6,6 +6,7 @@ import { handleError } from '@/shared/utils/errorHandler';
 import AuthForm from '@/shared/components/AuthForm';
 import { useTranslation } from '@/shared/i18n/hooks';
 import { useNavigation } from '@/shared/utils/navigation';
+import { getSession } from '@/shared/lib/authClient';
 import { SetupShell } from '@/shared/ui/layout/SetupShell';
 
 interface AuthPageProps {
@@ -72,6 +73,11 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
 
   // Helper function to handle redirect with proper onSuccess awaiting
   const handleRedirect = async () => {
+    await getSession().catch(() => undefined);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('auth:session-updated'));
+    }
+
     if (onSuccess) {
       try {
         await onSuccess();

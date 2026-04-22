@@ -258,34 +258,44 @@ export async function handleWidgetBootstrap(request: Request, env: Env): Promise
   //   - not found / broken config → default
   // ------------------------------------------------------------------
   let intakeTemplate: IntakeTemplate = DEFAULT_INTAKE_TEMPLATE;
-  if (templateSlugParam) {
-    try {
-      const settingsRaw = pd.settings ?? pd.practice_settings;
-      let templates: unknown[] = [];
-      if (typeof settingsRaw === 'string') {
-        const parsed = JSON.parse(settingsRaw) as unknown;
-        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-          const s = parsed as Record<string, unknown>;
-          if (Array.isArray(s.intakeTemplates)) templates = s.intakeTemplates;
+  try {
+    const dataSource = pd.metadata ?? pd.settings ?? pd.practice_settings;
+    let templates: unknown[] = [];
+    
+    if (typeof dataSource === 'string') {
+      const parsed = JSON.parse(dataSource) as unknown;
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        const s = parsed as Record<string, unknown>;
+        const rawTemplates = s.intakeTemplates;
+        if (typeof rawTemplates === 'string') {
+          try { templates = JSON.parse(rawTemplates) as unknown[]; } catch { /* ignore */ }
+        } else if (Array.isArray(rawTemplates)) {
+          templates = rawTemplates;
         }
-      } else if (settingsRaw && typeof settingsRaw === 'object' && !Array.isArray(settingsRaw)) {
-        const s = settingsRaw as Record<string, unknown>;
-        if (Array.isArray(s.intakeTemplates)) templates = s.intakeTemplates;
       }
-
-      const match = templates.find(
-        (t): t is IntakeTemplate =>
-          !!t && typeof t === 'object' && (t as Record<string, unknown>).slug === templateSlugParam
-          && Array.isArray((t as Record<string, unknown>).fields)
-          && ((t as Record<string, unknown>).fields as unknown[]).length > 0,
-      ) ?? null;
-
-      if (match) {
-        intakeTemplate = match;
+    } else if (dataSource && typeof dataSource === 'object' && !Array.isArray(dataSource)) {
+      const s = dataSource as Record<string, unknown>;
+      const rawTemplates = s.intakeTemplates;
+      if (typeof rawTemplates === 'string') {
+        try { templates = JSON.parse(rawTemplates) as unknown[]; } catch { /* ignore */ }
+      } else if (Array.isArray(rawTemplates)) {
+        templates = rawTemplates;
       }
-    } catch {
-      // Malformed settings JSON — fall back to default (already set)
     }
+
+    const resolvedSlug = templateSlugParam ?? DEFAULT_INTAKE_TEMPLATE.slug;
+    const match = templates.find(
+      (t): t is IntakeTemplate =>
+        !!t && typeof t === 'object' && (t as Record<string, unknown>).slug === resolvedSlug
+        && Array.isArray((t as Record<string, unknown>).fields)
+        && ((t as Record<string, unknown>).fields as unknown[]).length > 0,
+    ) ?? null;
+
+    if (match) {
+      intakeTemplate = match;
+    }
+  } catch {
+    // Malformed settings JSON — fall back to default (already set)
   }
 
   // Create the response object

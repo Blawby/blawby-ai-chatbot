@@ -24,8 +24,6 @@ import { ensurePracticeTeamCacheUserId, invalidatePracticeTeamForPractice, reset
 import { asMajor, type MajorAmount } from '@/shared/utils/money';
 import { type PracticeRole } from '@/shared/utils/practiceRoles';
 
-const ENABLE_PAYOUT_STATUS = import.meta.env.VITE_ENABLE_PAYOUTS === 'true';
-
 const isPlainObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
@@ -246,6 +244,10 @@ function normalizePracticeRecord(raw: Record<string, unknown>): Practice {
   })();
   const metadataRecord = (() => {
     const direct = (raw as Record<string, unknown>).metadata;
+    if (typeof direct === 'string') {
+      try { return JSON.parse(direct) as Record<string, unknown>; }
+      catch { return null; }
+    }
     if (isPlainObject(direct)) {
       return direct as Record<string, unknown>;
     }
@@ -472,6 +474,7 @@ function mergePracticeDetails(practice: Practice, details: PracticeDetails | nul
   setIfDefined('legalDisclaimer', details.legalDisclaimer as Practice['legalDisclaimer'] | undefined);
   setIfDefined('isPublic', details.isPublic as Practice['isPublic'] | undefined);
   setIfDefined('services', details.services as Practice['services'] | undefined);
+  setIfDefined('metadata', details.metadata as Practice['metadata'] | undefined);
   return {
     ...practice,
     ...patch
@@ -810,7 +813,7 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
           currentPracticeNext = normalizedList[0] || null;
         }
         let details: PracticeDetails | null = null;
-        const shouldFetchStripeStatus = ENABLE_PAYOUT_STATUS && fetchOnboardingStatus;
+        const shouldFetchStripeStatus = fetchOnboardingStatus;
         let stripeDetailsSubmitted: boolean | null = shouldFetchStripeStatus ? null : false;
         if (currentPracticeNext) {
           if (fetchPracticeDetails) {
@@ -968,9 +971,8 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
       payload.businessEmail = data.businessEmail.trim();
     }
 
-    if (data.businessOnboardingStatus) {
-      payload.businessOnboardingStatus = data.businessOnboardingStatus;
-    }
+      // businessOnboardingStatus is not part of the API update shape (use the
+      // details payload fields instead). Only send the draft flag when present.
     
     if (data.businessOnboardingHasDraft !== undefined) {
       payload.businessOnboardingHasDraft = data.businessOnboardingHasDraft;
@@ -1042,9 +1044,9 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
     }
     const updatedPractice = normalizePracticeRecord(mergedResponse);
 
-    if (payload.businessOnboardingStatus !== undefined) {
-      updatedPractice.businessOnboardingStatus = payload.businessOnboardingStatus;
-    }
+    // Don't copy businessOnboardingStatus from payload — the API does not
+    // accept a canonical status update via this endpoint. The server will
+    // return any updated status in the response which will be merged below.
     if (payload.businessOnboardingHasDraft !== undefined) {
       updatedPractice.businessOnboardingHasDraft = payload.businessOnboardingHasDraft;
     }

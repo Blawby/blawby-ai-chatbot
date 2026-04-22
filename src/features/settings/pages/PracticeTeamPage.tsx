@@ -17,7 +17,7 @@ import { formatDate } from '@/shared/utils/dateTime';
 import { getPracticeRoleLabel, PRACTICE_ROLE_OPTIONS, normalizePracticeRole } from '@/shared/utils/practiceRoles';
 import { FormGrid, SectionDivider } from '@/shared/ui/layout';
 import { FormActions } from '@/shared/ui/form';
-import { SettingsPage } from '@/shared/ui/layout';
+import { EditorShell } from '@/shared/ui/layout';
 import { LoadingBlock } from '@/shared/ui/layout/LoadingBlock';
 import { SettingsNotice } from '@/features/settings/components/SettingsNotice';
 import { SettingsHelperText } from '@/features/settings/components/SettingsHelperText';
@@ -231,7 +231,7 @@ export const PracticeTeamPage = ({ className, onBack }: PracticeTeamPageProps) =
   }
 
   return (
-    <SettingsPage
+    <EditorShell
       title="Team"
       showBack={Boolean(onBack)}
       onBack={onBack}
@@ -471,6 +471,6 @@ export const PracticeTeamPage = ({ className, onBack }: PracticeTeamPageProps) =
           )}
         </div>
       </div>
-    </SettingsPage>
+    </EditorShell>
   );
 };

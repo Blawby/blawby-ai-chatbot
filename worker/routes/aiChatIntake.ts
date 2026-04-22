@@ -117,6 +117,7 @@ export function buildFieldInstructions(fields: IntakeFieldDefinition[]): string 
   const activeFields = fields.length > 0 ? fields : DEFAULT_INTAKE_TEMPLATE.fields;
   return activeFields.map((f) => {
     const req = f.required ? '(required)' : '(optional)';
+    const questionText = f.isStandard ? (f.previewQuestion?.trim() || f.label) : f.label;
     const opts =
       f.type === 'select' && Array.isArray(f.options) && f.options.length > 0
         ? ` Options: ${f.options.join(', ')}.`
@@ -126,7 +127,7 @@ export function buildFieldInstructions(fields: IntakeFieldDefinition[]): string 
     const cond = f.condition
       ? ` Only ask if ${f.condition.dependsOn} is "${f.condition.value}".`
       : '';
-    return `- ${f.label} ${req}${opts}${hint}${validation}${cond}`;
+    return `- ${questionText} ${req}${opts}${hint}${validation}${cond}`;
   }).join('\n');
 }
 
@@ -432,16 +433,16 @@ const deriveNextActions = (
   const isEnrichmentMode = mergedState.enrichmentMode === true;
 
   if (isEnrichmentMode) {
+    // During enrichment, do not show the Submit button until enrichment is complete.
+    // If there is an outstanding enrichment field, return no actions (hide submit/quick-replies).
+    if (nextEnrichmentField) {
+      return [];
+    }
     const submitAction = createSubmitAction(
       submissionGate.paymentRequiredBeforeSubmit && !submissionGate.paymentCompleted
         ? payLabel
         : 'Submit request'
     );
-    if (nextEnrichmentField) {
-      // Generate quick-reply options for boolean/select enrichment fields
-      const quickReplies = deriveFieldQuickReplies(nextEnrichmentField);
-      return [...quickReplies, submitAction];
-    }
     return [submitAction];
   }
 

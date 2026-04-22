@@ -125,6 +125,7 @@ interface MessageProps {
 	};
 	isLast?: boolean;
 	isSystemEvent?: boolean;
+	hideMessageActions?: boolean;
 	// Styling
 	className?: string;
 }
@@ -169,6 +170,7 @@ const Message: FunctionComponent<MessageProps> = memo(({
 	onboardingProfile,
 	isLast,
 	isSystemEvent = false,
+	hideMessageActions = false,
 }) => {
 	if (isSystemEvent) {
 		return (
@@ -198,7 +200,7 @@ const Message: FunctionComponent<MessageProps> = memo(({
 	// Avatar size based on message size
 	const avatarSize = size === 'sm' ? 'sm' : 'lg';
 	const quickReactions = ['👍', '👀', '😂', '❤️'];
-	const showActions = Boolean(onReply || (onToggleReaction && features.enableMessageReactions));
+	const showActions = !hideMessageActions && Boolean(onReply || (onToggleReaction && features.enableMessageReactions));
 	const hasReactions = reactions.length > 0 && features.enableMessageReactions;
 	const hasReplyPreview = Boolean(replyPreview);
 	const wrapperClassName = [

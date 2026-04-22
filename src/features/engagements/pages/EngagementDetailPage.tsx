@@ -16,7 +16,7 @@ import {
 import { Icon } from '@/shared/ui/Icon';
 import { Button } from '@/shared/ui/Button';
 import { UserCard } from '@/shared/ui/profile';
-import { SettingsPage, DetailHeader } from '@/shared/ui/layout';
+import { EditorShell, DetailHeader } from '@/shared/ui/layout';
 import { LoadingBlock } from '@/shared/ui/layout/LoadingBlock';
 import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
 import { Dialog, DialogBody, DialogFooter } from '@/shared/ui/dialog';
@@ -481,7 +481,7 @@ export const EngagementDetailPage: FunctionComponent<EngagementDetailPageProps> 
   const isAccepted = effectiveStatus === 'engagement_accepted' || effectiveStatus === 'active';
 
   return (
-    <SettingsPage
+    <EditorShell
       title="Engagement"
       subtitle={engagement.client_name ?? undefined}
       showBack
@@ -732,7 +732,7 @@ export const EngagementDetailPage: FunctionComponent<EngagementDetailPageProps> 
           </Button>
         </DialogFooter>
       </Dialog>
-    </SettingsPage>
+    </EditorShell>
   );
 };
 

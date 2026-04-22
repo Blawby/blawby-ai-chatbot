@@ -38,7 +38,7 @@ export const Tabs = ({ items, activeId, onChange, className = '', actions }: Tab
             >
               {item.label}
               {typeof item.count === 'number' && (
-                <span className="ml-2 text-xs text-input-placeholder/80">{item.count}</span>
+                <span className="ml-2 text-xs text-input-placeholder">{item.count}</span>
               )}
             </button>
           );

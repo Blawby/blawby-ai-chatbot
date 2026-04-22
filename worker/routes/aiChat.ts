@@ -59,6 +59,7 @@ import {
 import type { ChatMessageAction } from '../../src/shared/types/conversation.js';
 import { normalizeChatActions } from '../../src/shared/utils/chatActions.js';
 import type { IntakeFieldDefinition } from '../../src/shared/types/intake.js';
+import type { IntakeTemplate } from '../../src/shared/types/intake.js';
 import { DEFAULT_INTAKE_TEMPLATE } from '../../src/shared/constants/intakeTemplates.js';
 
 const normalizeText = (text: string): string =>
@@ -94,6 +95,25 @@ const resolvePracticeRequiresPaymentBeforeSubmission = (details: Record<string, 
     'payment_link_enabled',
   ]);
   return paymentLinkEnabled === true;
+};
+
+const resolveTemplatePaymentConfig = (template: IntakeTemplate | null): {
+  hasConfig: boolean;
+  paymentRequiredBeforeSubmit: boolean;
+  consultationFee: number | null;
+} => {
+  const hasConfig = Boolean(
+    template &&
+    (typeof template.paymentLinkEnabled === 'boolean' || typeof template.consultationFee === 'number')
+  );
+  const consultationFee = typeof template?.consultationFee === 'number' && Number.isFinite(template.consultationFee)
+    ? template.consultationFee
+    : null;
+  return {
+    hasConfig,
+    paymentRequiredBeforeSubmit: hasConfig ? template?.paymentLinkEnabled === true && (consultationFee ?? 0) > 0 : false,
+    consultationFee,
+  };
 };
 
 const unwrapToolCallJsonArgs = (rawArgs: string): string => {
@@ -594,8 +614,8 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
   // Orchestration layer: resolve the active template and determine nextField
   // ---------------------------------------------------------------------------
   let templateFields: IntakeFieldDefinition[] = [];
+  const storedTemplate = conversationMetadata?.intakeTemplate;
   try {
-    const storedTemplate = conversationMetadata?.intakeTemplate;
     if (
       storedTemplate &&
       typeof storedTemplate === 'object' &&
@@ -608,10 +628,26 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
   } catch {
     // Malformed metadata — use default
   }
-  // Fall back to default template when none stored
-  const activeTemplate = templateFields.length > 0
-    ? { fields: templateFields }
-    : DEFAULT_INTAKE_TEMPLATE;
+  // Fall back to default template when none stored.
+  // If we have template fields from conversation metadata, prefer a full
+  // IntakeTemplate when possible; otherwise construct a minimal template
+  // object that satisfies the `IntakeTemplate` shape so downstream callers
+  // (e.g. `resolveNextField`) receive the correct type.
+  let activeTemplate: IntakeTemplate;
+  if (templateFields.length > 0) {
+    if (storedTemplate && typeof (storedTemplate as Record<string, unknown>).slug === 'string' && typeof (storedTemplate as Record<string, unknown>).name === 'string') {
+      activeTemplate = storedTemplate as IntakeTemplate;
+    } else {
+      activeTemplate = {
+        slug: 'custom',
+        name: 'Custom',
+        isDefault: false,
+        fields: templateFields,
+      };
+    }
+  } else {
+    activeTemplate = DEFAULT_INTAKE_TEMPLATE;
+  }
 
   const flatState = (storedIntakeState ?? {}) as Record<string, unknown>;
   const isEnrichmentMode = flatState.enrichmentMode === true;
@@ -629,10 +665,14 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
     ? templateFields.filter((f) => f.required || f.phase === 'required')
     : null;
 
+  const templatePaymentConfig = resolveTemplatePaymentConfig(activeTemplate);
+
   const intakeSubmissionGate: IntakeSubmissionGate = {
     paymentRequiredBeforeSubmit:
       (consultation?.submission?.paymentRequired === true) ||
-      resolvePracticeRequiresPaymentBeforeSubmission(details),
+      (templatePaymentConfig.hasConfig
+        ? templatePaymentConfig.paymentRequiredBeforeSubmit
+        : resolvePracticeRequiresPaymentBeforeSubmission(details)),
     paymentCompleted: consultation?.submission?.paymentReceived === true,
     details,
     requiredFields: templateRequiredFields,
@@ -967,7 +1007,9 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         if (isIntakeMode && lastQuestionResult?.success && typeof lastQuestionResult.message === 'string' && lastQuestionResult.message.trim()) {
           syntheticReply = lastQuestionResult.message.trim();
         } else if (isIntakeMode && finalToolResult?.success && patchToMerge) {
-          const consultationFee = readFiniteNumberField(details, ['consultationFee', 'consultation_fee']);
+          const consultationFee = templatePaymentConfig.hasConfig
+            ? templatePaymentConfig.consultationFee
+            : readFiniteNumberField(details, ['consultationFee', 'consultation_fee']);
           const nextRequiredFieldAfterPatch = mergedIntakeState
             ? resolveNextField(activeTemplate, mergedIntakeState as Record<string, unknown>, 'required')
             : null;

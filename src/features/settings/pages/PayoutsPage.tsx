@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { Button } from '@/shared/ui/Button';
-import { SectionDivider, SettingsPage } from '@/shared/ui';
+import { SectionDivider, EditorShell } from '@/shared/ui';
 import { SettingsHelperText } from '@/features/settings/components/SettingsHelperText';
 import { SettingsNotice } from '@/features/settings/components/SettingsNotice';
 import { SettingSection } from '@/features/settings/components/SettingSection';
@@ -208,7 +208,7 @@ export const PayoutsPage = ({
       : 'Start Stripe setup';
 
   return (
-    <SettingsPage
+    <EditorShell
       title="Payouts"
       showBack={Boolean(onBack)}
       onBack={onBack}
@@ -366,6 +366,6 @@ export const PayoutsPage = ({
         )}
       </SettingSection>
     </div>
-    </SettingsPage>
+    </EditorShell>
   );
 };

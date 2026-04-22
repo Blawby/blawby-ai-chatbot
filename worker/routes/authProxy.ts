@@ -10,6 +10,10 @@ const SUBSCRIPTIONS_CURRENT_PATH = '/api/subscriptions/current';
 const SUBSCRIPTIONS_PLANS_PATH = '/api/subscriptions/plans';
 const DOMAIN_PATTERN = /;\s*domain=[^;]+/i;
 const SUBSCRIPTIONS_PLANS_CACHE_TTL_MS = 60 * 1000;
+
+const isRecord = (val: unknown): val is Record<string, unknown> =>
+  typeof val === 'object' && val !== null && !Array.isArray(val);
+
 type CachedProxyResponse = {
   status: number;
   statusText: string;
@@ -360,16 +364,17 @@ export async function handleBackendProxy(request: Request, env: Env): Promise<Re
         if (bodyObj && typeof bodyObj === 'object') {
           // Recursively redact sensitive fields (deep clone)
           const SENSITIVE_KEYS = ['token', 'access_token', 'refresh_token', 'user_id', 'email', 'password'];
-          function redactDeep(obj) {
+          function redactDeep(obj: unknown): unknown {
             if (Array.isArray(obj)) {
-              return obj.map(redactDeep);
+              return obj.map((item) => redactDeep(item));
             } else if (obj && typeof obj === 'object') {
-              const clone = {};
-              for (const key in obj) {
+              const clone: Record<string, unknown> = {};
+              const record = obj as Record<string, unknown>;
+              for (const key in record) {
                 if (SENSITIVE_KEYS.includes(key)) {
                   clone[key] = '[REDACTED]';
                 } else {
-                  clone[key] = redactDeep(obj[key]);
+                  clone[key] = redactDeep(record[key]);
                 }
               }
               return clone;
@@ -499,6 +504,7 @@ export async function handleBackendProxy(request: Request, env: Env): Promise<Re
     }
   }
   const { headers: proxyHeaders } = buildProxyHeaders(response, requestHost);
+
   return new Response(response.body, {
     status: response.status,
     statusText: response.statusText,

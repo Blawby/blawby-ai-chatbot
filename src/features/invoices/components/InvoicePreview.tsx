@@ -118,17 +118,14 @@ export const InvoicePreview = ({
   };
 
   return (
-    <div className="mx-auto w-full max-w-[680px]" style={{ aspectRatio: '210 / 297' }}>
-      <div
-        className="relative flex h-full flex-col overflow-hidden"
-        style={{
-          ...root,
-          borderRadius: 8,
-          boxShadow: '0 1px 3px rgba(0,0,0,0.08), 0 0 0 1px rgba(0,0,0,0.07)',
-        }}
-      >
-        {/* ── Scrollable body ── */}
-        <div className="flex-1 overflow-y-auto" style={{ padding: '2rem 2rem 3rem' }}>
+      <div className="w-full h-full flex items-start justify-center">
+        {/* Render centered "paper" inside the preview panel. The panel keeps its
+            background; the invoice itself is presented as a white sheet centered
+            with a subtle shadow and spacing to emulate Stripe's preview look. */}
+        <div className="w-full max-w-[760px] bg-white shadow-md" style={{ ...root }}>
+        <div className="relative flex h-full flex-col overflow-hidden">
+          {/* ── Scrollable body ── */}
+          <div className="flex-1 overflow-y-auto" style={{ padding: '2rem 2rem 3rem' }}>
 
           {/* ── Header: "Invoice" title + logo ── */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.25rem' }}>
@@ -320,6 +317,7 @@ export const InvoicePreview = ({
               </span>
             </>
           )}
+        </div>
         </div>
       </div>
     </div>

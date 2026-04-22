@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'preact/hooks';
 import { Dialog } from '@/shared/ui/dialog';
 import { Button } from '@/shared/ui/Button';
 import { Input, Textarea } from '@/shared/ui/input';
-import { SettingsPage } from '@/shared/ui/layout';
+import { EditorShell } from '@/shared/ui/layout';
 import { LoadingBlock } from '@/shared/ui/layout/LoadingBlock';
 import { formatLongDate } from '@/shared/utils/dateFormatter';
 import { useToastContext } from '@/shared/contexts/ToastContext';
@@ -185,7 +185,7 @@ export function PracticeInvoiceDetailPage({
   }
 
   return (
-    <SettingsPage
+    <EditorShell
       title={detail.invoiceNumber}
       subtitle={`Issued ${renderEventDate(detail.issueDate)} • Due ${renderEventDate(detail.dueDate)}`}
       showBack={showBack}
@@ -279,6 +279,6 @@ export function PracticeInvoiceDetailPage({
           </div>
         </Dialog>
       </div>
-    </SettingsPage>
+    </EditorShell>
   );
 }

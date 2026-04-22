@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'preact/hooks';
 import { Button } from '@/shared/ui/Button';
-import { Input } from '@/shared/ui/input';
+import { Input, LogoUploadInput } from '@/shared/ui/input';
 import { AddressExperienceForm } from '@/shared/ui/address/AddressExperienceForm';
-import { FormGrid, SectionDivider, SettingsPage } from '@/shared/ui/layout';
+import { FormGrid, SectionDivider, EditorShell } from '@/shared/ui/layout';
 import { SettingSection } from '@/features/settings/components/SettingSection';
 import { SettingsHelperText } from '@/features/settings/components/SettingsHelperText';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
@@ -11,6 +11,8 @@ import { useToastContext } from '@/shared/contexts/ToastContext';
 import type { PracticeDetails } from '@/shared/lib/apiClient';
 import type { Address } from '@/shared/types/address';
 import { buildPracticeProfilePayloads } from '@/shared/utils/practiceProfile';
+import { normalizeAccentColor } from '@/shared/utils/accentColors';
+import { uploadPracticeLogo } from '@/shared/utils/practiceLogoUpload';
 
 interface PracticeContactPageProps {
   className?: string;
@@ -22,6 +24,8 @@ type ContactDraft = {
   businessEmail?: string;
   contactPhone?: string;
   address?: Address;
+  logo?: string;
+  accentColor?: string;
 };
 
 const buildAddress = (source: {
@@ -85,18 +89,23 @@ const resolveContactDraft = (
 };
 
 export const PracticeContactPage = ({ className, onBack }: PracticeContactPageProps) => {
-  const { currentPractice } = usePracticeManagement({ fetchPracticeDetails: true });
+  const { currentPractice, updatePractice } = usePracticeManagement({ fetchPracticeDetails: true });
   const { details, updateDetails } = usePracticeDetails(currentPractice?.id, currentPractice?.slug, false);
   const { showSuccess, showError } = useToastContext();
   const [draft, setDraft] = useState<Partial<ContactDraft>>({});
   const [isSaving, setIsSaving] = useState(false);
+  const [logoUploading, setLogoUploading] = useState(false);
+  const [logoUploadProgress, setLogoUploadProgress] = useState<number | null>(null);
+  const currentAccentColor = normalizeAccentColor(details?.accentColor ?? currentPractice?.accentColor) ?? '#D4AF37';
 
   const contactValues = useMemo(
     () => ({
       ...resolveContactDraft(currentPractice, details),
+      logo: draft.logo ?? currentPractice?.logo ?? '',
+      accentColor: draft.accentColor ?? currentAccentColor,
       ...draft,
     }),
-    [currentPractice, details, draft]
+    [currentAccentColor, currentPractice, details, draft]
   );
 
   const hasChanges = useMemo(() => {
@@ -104,14 +113,41 @@ export const PracticeContactPage = ({ className, onBack }: PracticeContactPagePr
     return contactValues.website?.trim() !== baseline.website?.trim()
       || contactValues.businessEmail?.trim() !== baseline.businessEmail?.trim()
       || contactValues.contactPhone?.trim() !== baseline.contactPhone?.trim()
-      || JSON.stringify(contactValues.address ?? null) !== JSON.stringify(baseline.address ?? null);
-  }, [contactValues, currentPractice, details]);
+      || JSON.stringify(contactValues.address ?? null) !== JSON.stringify(baseline.address ?? null)
+      || (contactValues.logo ?? '').trim() !== (currentPractice?.logo ?? '').trim()
+      || normalizeAccentColor(contactValues.accentColor) !== currentAccentColor;
+  }, [contactValues, currentAccentColor, currentPractice, details]);
+
+  const handleLogoChange = async (files: FileList | File[]) => {
+    if (!currentPractice) return;
+    const [file] = Array.isArray(files) ? files : Array.from(files);
+    if (!file) return;
+
+    setLogoUploading(true);
+    setLogoUploadProgress(0);
+    try {
+      const logoUrl = await uploadPracticeLogo(file, currentPractice.id, setLogoUploadProgress);
+      setDraft((prev) => ({ ...prev, logo: logoUrl }));
+    } catch (error) {
+      showError('Logo upload failed', error instanceof Error ? error.message : 'Unable to upload logo.');
+    } finally {
+      setLogoUploading(false);
+      setLogoUploadProgress(null);
+    }
+  };
 
   const handleSave = async () => {
     if (!currentPractice) return;
+    const normalizedAccentColor = normalizeAccentColor(contactValues.accentColor);
+    if (!normalizedAccentColor) {
+      showError('Brand color', 'Brand color must be a valid hex value.');
+      return;
+    }
     setIsSaving(true);
     try {
-      const { detailsPayload } = buildPracticeProfilePayloads({
+      const { practicePayload, detailsPayload } = buildPracticeProfilePayloads({
+        logo: contactValues.logo ?? null,
+        accentColor: normalizedAccentColor,
         website: contactValues.website ?? null,
         businessEmail: contactValues.businessEmail ?? null,
         businessPhone: contactValues.contactPhone ?? null,
@@ -123,6 +159,8 @@ export const PracticeContactPage = ({ className, onBack }: PracticeContactPagePr
         country: contactValues.address?.country ?? null,
       }, {
         compareTo: {
+          logo: currentPractice.logo ?? null,
+          accentColor: currentAccentColor,
           website: details?.website ?? currentPractice.website ?? null,
           businessEmail: details?.businessEmail ?? currentPractice.businessEmail ?? null,
           businessPhone: details?.businessPhone ?? currentPractice.businessPhone ?? null,
@@ -135,6 +173,9 @@ export const PracticeContactPage = ({ className, onBack }: PracticeContactPagePr
         },
       });
 
+      if (Object.keys(practicePayload).length > 0) {
+        await updatePractice(currentPractice.id, practicePayload);
+      }
       if (Object.keys(detailsPayload).length > 0) {
         await updateDetails(detailsPayload);
       }
@@ -149,16 +190,16 @@ export const PracticeContactPage = ({ className, onBack }: PracticeContactPagePr
 
   if (!currentPractice) {
     return (
-      <SettingsPage title="Contact" showBack={Boolean(onBack)} onBack={onBack}>
+      <EditorShell title="Contact" showBack={Boolean(onBack)} onBack={onBack}>
         <p className="text-sm text-input-placeholder">No practice selected.</p>
-      </SettingsPage>
+      </EditorShell>
     );
   }
 
   return (
-    <SettingsPage
+    <EditorShell
       title="Contact"
-      subtitle="Website, business email, phone, and address"
+      subtitle="Brand, website, business email, phone, and address"
       showBack={Boolean(onBack)}
       backVariant="close"
       onBack={onBack}
@@ -171,7 +212,7 @@ export const PracticeContactPage = ({ className, onBack }: PracticeContactPagePr
             variant="secondary"
             size="sm"
             onClick={() => setDraft({})}
-            disabled={!hasChanges || isSaving}
+            disabled={!hasChanges || isSaving || logoUploading}
           >
             Reset
           </Button>
@@ -179,7 +220,7 @@ export const PracticeContactPage = ({ className, onBack }: PracticeContactPagePr
             type="button"
             size="sm"
             onClick={handleSave}
-            disabled={!hasChanges || isSaving}
+            disabled={!hasChanges || isSaving || logoUploading}
           >
             {isSaving ? 'Saving...' : 'Save'}
           </Button>
@@ -187,6 +228,66 @@ export const PracticeContactPage = ({ className, onBack }: PracticeContactPagePr
       )}
     >
       <div className="space-y-6">
+        <SettingSection
+          title="Brand"
+          description="Avatar and accent color used throughout the widget experience."
+        >
+          <div className="space-y-6">
+            <LogoUploadInput
+              imageUrl={contactValues.logo?.trim() ? contactValues.logo : null}
+              name={currentPractice.name || 'Practice'}
+              label="Upload brand avatar"
+              description="Upload a square image. Maximum 5 MB."
+              accept="image/*"
+              multiple={false}
+              onChange={handleLogoChange}
+              disabled={isSaving || logoUploading}
+              progress={logoUploading ? logoUploadProgress : null}
+            />
+
+            <div className="space-y-3">
+              <div>
+                <h3 className="text-sm font-semibold text-input-text">Brand color</h3>
+                <div className="mt-2 flex items-center gap-3">
+                  <div
+                    className="h-5 w-5 rounded-full"
+                    style={{ backgroundColor: normalizeAccentColor(contactValues.accentColor) ?? currentAccentColor }}
+                    aria-label={`Current brand color ${contactValues.accentColor}`}
+                  />
+                  <SettingsHelperText>{contactValues.accentColor}</SettingsHelperText>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <input
+                  type="color"
+                  value={normalizeAccentColor(contactValues.accentColor) ?? currentAccentColor}
+                  onChange={(event) => setDraft((prev) => ({
+                    ...prev,
+                    accentColor: normalizeAccentColor((event.target as HTMLInputElement).value) ?? (event.target as HTMLInputElement).value.toUpperCase(),
+                  }))}
+                  disabled={isSaving}
+                  aria-label="Brand color"
+                  className="h-10 w-16 rounded-xl border border-line-glass bg-surface-card p-1"
+                />
+                <Input
+                  aria-label="Brand color hex"
+                  value={contactValues.accentColor ?? ''}
+                  onChange={(value) => setDraft((prev) => ({
+                    ...prev,
+                    accentColor: normalizeAccentColor(value) ?? value.toUpperCase(),
+                  }))}
+                  placeholder="#D4AF37"
+                  maxLength={7}
+                  disabled={isSaving}
+                  className="w-32"
+                />
+              </div>
+            </div>
+          </div>
+        </SettingSection>
+
+        <SectionDivider />
+
         <SettingSection
           title="Contact details"
           description="Website, business email, and phone number for this practice."
@@ -245,7 +346,7 @@ export const PracticeContactPage = ({ className, onBack }: PracticeContactPagePr
           </SettingsHelperText>
         </SettingSection>
       </div>
-    </SettingsPage>
+    </EditorShell>
   );
 };
 

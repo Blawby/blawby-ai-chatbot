@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'preact/hooks';
+import { useCallback, useEffect, useMemo, useState } from 'preact/hooks';
 import { forwardRef, useImperativeHandle } from 'preact/compat';
 import { Button } from '@/shared/ui/Button';
 import { Combobox, Input, Textarea } from '@/shared/ui/input';
@@ -252,6 +252,10 @@ export const InvoiceForm = forwardRef<InvoiceFormHandle, InvoiceFormProps>(({
   );
   const previewIssueDate = useMemo(() => new Date(), []);
 
+  // Preview toggle and last-saved timestamp
+  const [showPreview, setShowPreview] = useState(true);
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
+
   const isValidConnectedAccount = useMemo(
     () => Boolean(connectedAccountId && UUID_REGEX.test(connectedAccountId)),
     [connectedAccountId]
@@ -368,14 +372,52 @@ export const InvoiceForm = forwardRef<InvoiceFormHandle, InvoiceFormProps>(({
     requestSend: openSendDialog,
   }), [openSendDialog]);
 
+  // Update lastSavedAt when the persisted snapshot changes (approximate save time)
+  useMemo(() => {
+    if (lastPersistedSnapshot) setLastSavedAt(new Date());
+    return null;
+  }, [lastPersistedSnapshot]);
+
+  // Notify global shell about draft saves so the global header can show the timestamp
+  useEffect(() => {
+    if (!lastSavedAt) return;
+    try {
+      const detail = { timestamp: lastSavedAt.toISOString() };
+      window.dispatchEvent(new CustomEvent('invoice:draft-saved', { detail }));
+    } catch (err) {
+      // ignore (server-side rendering or unavailable window)
+    }
+  }, [lastSavedAt]);
+
+  // Listen for global hide-preview events so the header button can toggle the preview
+  useEffect(() => {
+    const handler = (ev: Event) => {
+      const ce = ev as CustomEvent;
+      // If detail.force === 'show' we show it; if 'hide' we hide; otherwise toggle
+      const force = ce?.detail?.force as string | undefined;
+      if (force === 'show') setShowPreview(true);
+      else if (force === 'hide') setShowPreview(false);
+      else setShowPreview((v) => !v);
+    };
+    window.addEventListener('invoice:hide-preview', handler as EventListener);
+    return () => window.removeEventListener('invoice:hide-preview', handler as EventListener);
+  }, []);
+
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col">
       <ContentWithPreview
         className="flex-1"
         contentClassName="space-y-5"
-        preview={
+        /* Let the parent shell/header render the page-level header. */
+        preview={ showPreview ? (
           <>
-            <h3 className="mb-3 text-sm font-semibold text-input-text">Preview</h3>
+            <div className="mb-3">
+              <Tabs
+                items={INVOICE_PREVIEW_TABS}
+                activeId={activePreviewTab}
+                onChange={(id) => setActivePreviewTab(id as InvoicePreviewTab)}
+              />
+            </div>
             {activePreviewTab === 'pdf' ? (
               <InvoicePreview
                 title={previewTitle}
@@ -395,13 +437,8 @@ export const InvoiceForm = forwardRef<InvoiceFormHandle, InvoiceFormProps>(({
               <InvoiceEmailPlaceholder />
             )}
           </>
-        }
+        ) : null }
       >
-        <Tabs
-          items={INVOICE_PREVIEW_TABS}
-          activeId={activePreviewTab}
-          onChange={(id) => setActivePreviewTab(id as InvoicePreviewTab)}
-        />
         {activePreviewTab === 'email' ? (
           <section className="space-y-3">
             <h3 className="text-sm font-semibold text-input-text">Email delivery</h3>

@@ -1,5 +1,4 @@
 import { useMemo, useState, useEffect } from 'preact/hooks';
-import { useLocation } from 'preact-iso';
 import { useNavigation } from '@/shared/utils/navigation';
 import { cn } from '@/shared/utils/cn';
 import { type App, mockApps } from './appsData';
@@ -14,31 +13,24 @@ import { SecurityPage } from './SecurityPage';
 import { HelpPage } from './HelpPage';
 import { PracticeOverviewPage } from './PracticePage';
 import { MFAEnrollmentPage } from './MFAEnrollmentPage';
-import AppBlawbyMessengerSettingsPage from './AppBlawbyMessengerSettingsPage';
-import IntakeTemplatesPage from './IntakeTemplatesPage';
 import { PracticeCoveragePage } from './PracticeCoveragePage';
 import { PracticeContactPage } from './PracticeContactPage';
 import { PracticeTeamPage } from './PracticeTeamPage';
-import { PracticePricingPage } from './PracticePricingPage';
 import { AppsPage } from './AppsPage';
 import { AppDetailPage } from './AppDetailPage';
-import { SettingsPage } from '@/shared/ui/layout/SettingsPage';
+import { EditorShell } from '@/shared/ui/layout';
 import { getSettingsNavConfig } from '@/shared/config/navConfig';
 import { useTranslation } from '@/shared/i18n/hooks';
-import { getValidatedSettingsReturnPath } from '@/shared/utils/workspace';
 
 export type SettingsView =
   | 'general'
   | 'notifications'
   | 'account'
   | 'practice'
-  | 'blawby-messenger-settings'
   | 'practice-payouts'
   | 'practice-coverage'
   | 'practice-contact'
   | 'practice-team'
-  | 'practice-pricing'
-  | 'intake-templates'
   | 'apps'
   | 'app-detail'
   | 'security'
@@ -64,7 +56,6 @@ const SettingsRouter = ({
   handleAppUpdate,
   toSettingsPath,
   viewLabel,
-  messengerReturnPath,
 }: {
   view: SettingsView;
   appId?: string;
@@ -72,7 +63,6 @@ const SettingsRouter = ({
   handleAppUpdate: (targetAppId: string, updates: Partial<App>) => void;
   toSettingsPath: (subPath?: string) => string;
   viewLabel: string;
-  messengerReturnPath: string | null;
 }) => {
   const { navigate } = useNavigation();
 
@@ -86,12 +76,6 @@ const SettingsRouter = ({
         return <AccountPage />;
       case 'practice':
         return <PracticeOverviewPage />;
-      case 'blawby-messenger-settings':
-        return (
-          <AppBlawbyMessengerSettingsPage
-            onBack={() => navigate(messengerReturnPath ?? toSettingsPath('apps/blawby-messenger'))}
-          />
-        );
       case 'practice-payouts':
         return <PayoutsPage onBack={() => navigate(toSettingsPath('practice'))} />;
       case 'practice-coverage':
@@ -100,10 +84,6 @@ const SettingsRouter = ({
         return <PracticeContactPage onBack={() => navigate(toSettingsPath('practice'))} />;
       case 'practice-team':
         return <PracticeTeamPage onBack={() => navigate(toSettingsPath('practice'))} />;
-      case 'practice-pricing':
-        return <PracticePricingPage onBack={() => navigate(toSettingsPath('practice'))} />;
-      case 'intake-templates':
-        return <IntakeTemplatesPage onBack={() => navigate(toSettingsPath('practice'))} />;
       case 'apps':
         return (
           <AppsPage
@@ -114,17 +94,17 @@ const SettingsRouter = ({
       case 'app-detail': {
         if (!appId) {
           return (
-            <SettingsPage title="Apps" showBack onBack={() => navigate(toSettingsPath('apps'))} contentMaxWidth={null}>
+            <EditorShell title="Apps" showBack onBack={() => navigate(toSettingsPath('apps'))} contentMaxWidth={null}>
               <AppsPage apps={apps} onSelect={(id) => navigate(toSettingsPath(`apps/${id}`))} />
-            </SettingsPage>
+            </EditorShell>
           );
         }
         const currentApp = apps.find((app) => app.id === appId);
         if (!currentApp) {
           return (
-            <SettingsPage title="Apps" showBack onBack={() => navigate(toSettingsPath('apps'))} contentMaxWidth={null}>
+            <EditorShell title="Apps" showBack onBack={() => navigate(toSettingsPath('apps'))} contentMaxWidth={null}>
               <AppsPage apps={apps} onSelect={(id) => navigate(toSettingsPath(`apps/${id}`))} />
-            </SettingsPage>
+            </EditorShell>
           );
         }
         return (
@@ -147,13 +127,10 @@ const SettingsRouter = ({
   };
 
   const isSelfWrappedView = view === 'app-detail'
-    || view === 'blawby-messenger-settings'
     || view === 'practice-payouts'
     || view === 'practice-coverage'
     || view === 'practice-contact'
     || view === 'practice-team'
-    || view === 'practice-pricing'
-    || view === 'intake-templates'
     || view === 'mfa-enrollment'
 
   if (isSelfWrappedView) {
@@ -161,12 +138,12 @@ const SettingsRouter = ({
   }
 
   return (
-    <SettingsPage
+    <EditorShell
       title={viewLabel}
       contentMaxWidth={null}
     >
       {renderViewContent()}
-    </SettingsPage>
+    </EditorShell>
   );
 };
 
@@ -174,7 +151,7 @@ const SettingsRouter = ({
  * Controller for all settings views.
  *
  * Provides settings routing while keeping list pages and detail/editor pages explicit.
- * Top-level views are wrapped here. Detail/editor views render their own SettingsPage
+ * Top-level views are wrapped here. Detail/editor views render their own EditorShell
  * so header actions, back behavior, and previews stay local to the editor state.
  */
 export const SettingsContent = (props: SettingsContentProps) => {
@@ -187,7 +164,6 @@ export const SettingsContent = (props: SettingsContentProps) => {
     apps: initialApps,
   } = props;
 
-  const location = useLocation();
   const { navigate } = useNavigation();
   const { t } = useTranslation(['settings']);
   const [appUpdates, setAppUpdates] = useState<Record<string, Partial<App>>>({});
@@ -196,10 +172,6 @@ export const SettingsContent = (props: SettingsContentProps) => {
   const { canAccessPractice } = useWorkspace();
 
   const settingsBasePath = `/${workspace}/${encodeURIComponent(practiceSlug)}/settings`;
-  const messengerReturnPath = useMemo(() => {
-    const rawReturnTo = typeof location.query?.returnTo === 'string' ? location.query.returnTo : null;
-    return getValidatedSettingsReturnPath(rawReturnTo, workspace, practiceSlug);
-  }, [location.query?.returnTo, practiceSlug, workspace]);
   const toSettingsPath = (subPath?: string) => {
     if (!subPath) return settingsBasePath;
     return `${settingsBasePath}/${subPath.replace(/^\/+/, '')}`;
@@ -209,12 +181,9 @@ export const SettingsContent = (props: SettingsContentProps) => {
     || view === 'practice-payouts'
     || view === 'practice-coverage'
     || view === 'practice-team'
-    || view === 'practice-pricing'
     || view === 'practice-contact'
-    || view === 'intake-templates'
     || view === 'apps'
     || view === 'app-detail'
-    || view === 'blawby-messenger-settings'
 
   useEffect(() => {
     if (sessionPending) return;
@@ -260,7 +229,6 @@ export const SettingsContent = (props: SettingsContentProps) => {
       const item = section.items.find((i) => i.id === view);
       if (item) return item.label;
     }
-    if (view === 'blawby-messenger-settings') return t('settings:apps.messenger.title');
     if (view === 'practice-coverage') return 'Coverage';
     if (view === 'practice-contact') return 'Contact';
     if (view === 'mfa-enrollment') return t('settings:mfa.title');
@@ -276,7 +244,6 @@ export const SettingsContent = (props: SettingsContentProps) => {
         handleAppUpdate={handleAppUpdate}
         toSettingsPath={toSettingsPath}
         viewLabel={viewLabel}
-        messengerReturnPath={messengerReturnPath}
       />
     </div>
   );

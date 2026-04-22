@@ -15,7 +15,7 @@ import { CheckCircleIcon as CheckCircleIconSolid } from '@heroicons/react/24/sol
 import { Icon } from '@/shared/ui/Icon';
 import { Button } from '@/shared/ui/Button';
 import { UserCard } from '@/shared/ui/profile';
-import { SettingsPage, DetailHeader } from '@/shared/ui/layout';
+import { EditorShell, DetailHeader } from '@/shared/ui/layout';
 import { Page } from '@/shared/ui/layout/Page';
 import { LoadingBlock } from '@/shared/ui/layout/LoadingBlock';
 import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
@@ -442,6 +442,9 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
       ? intake.desired_outcome.trim()
       : null;
 
+    // These are intentionally static follow-up prompts so the intake detail
+    // screen can gather a few missing fields deterministically without
+    // invoking the full AI planning flow again.
     const missingPrompts = [
       {
         missing: !representedParty,
@@ -589,7 +592,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
   };
 
   return (
-    <SettingsPage
+    <EditorShell
       title={intake.client_name ?? name ?? 'Intake Details'}
       subtitle={intake.practice_area ?? practiceServiceName ?? undefined}
       showBack
@@ -850,7 +853,8 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
           if (!customFields || typeof customFields !== 'object' || Array.isArray(customFields)) return null;
           // Normalize: trim string values, filter out empty after trim
           const entries = Object.entries(customFields)
-            .filter(([, v]) => {
+            .filter(([key, v]) => {
+              if (key.startsWith('_')) return false;
               if (typeof v === 'string') {
                 return v.trim() !== '';
               }
@@ -919,7 +923,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
           </Button>
         </DialogFooter>
       </Dialog>
-    </SettingsPage>
+    </EditorShell>
   );
 };
 

@@ -11,7 +11,9 @@ import { EntityList } from '@/shared/ui/list/EntityList';
 import { usePaginatedList } from '@/shared/hooks/usePaginatedList';
 import { listIntakes, type IntakeListItem } from '../api/intakesApi';
 import IntakeDetailPage from './IntakeDetailPage';
+import IntakeTemplatesPage from './IntakeTemplatesPage';
 import { resolveIntakeTitle } from '@/features/intake/utils/intakeTitle';
+import { DEFAULT_INTAKE_TEMPLATE } from '@/shared/constants/intakeTemplates';
 
 const PAGE_SIZE = 20;
 
@@ -97,9 +99,20 @@ export const IntakesPage: FunctionComponent<IntakesPageProps> = ({
   // ── Routing ──────────────────────────────────────────────────────────────
   const pathSuffix = location.path.startsWith(basePath) ? location.path.slice(basePath.length) : '';
   const pathSegments = pathSuffix.replace(/^\/+/, '').split('/').filter(Boolean);
-  const selectedIntakeId = pathSegments[0] && pathSegments[0] !== 'new'
+  const isResponsesRoute = pathSegments[0] === 'responses';
+  const isTemplateEditorRoute = !isResponsesRoute && (pathSegments[0] === 'new' || pathSegments[1] === 'edit');
+  const routeTemplateSlug = !isResponsesRoute && pathSegments[0]
     ? decodeURIComponent(pathSegments[0])
     : null;
+  const selectedIntakeId = isResponsesRoute && pathSegments[1]
+    ? decodeURIComponent(pathSegments[1])
+    : null;
+  const templateFilter = typeof location.query?.template === 'string' && location.query.template.trim()
+    ? decodeURIComponent(location.query.template)
+    : null;
+  // Template slugs now open the builder directly; there is no intermediate
+  // template detail route between /intakes and /intakes/:slug/edit.
+  const templateRouteMode = isTemplateEditorRoute || routeTemplateSlug ? 'editor' : 'list';
 
   const {
     items: intakes,
@@ -110,7 +123,7 @@ export const IntakesPage: FunctionComponent<IntakesPageProps> = ({
     loadMoreRef,
   } = usePaginatedList<PaginatedIntake>({
     fetchPage: async (page, signal) => {
-      if (!practiceId) return { items: [], hasMore: false };
+      if (!practiceId || !isResponsesRoute) return { items: [], hasMore: false };
 
       const validTriageFilters = ['pending_review', 'accepted', 'declined'] as const;
       type ValidTriageFilter = typeof validTriageFilters[number];
@@ -124,21 +137,44 @@ export const IntakesPage: FunctionComponent<IntakesPageProps> = ({
         limit: PAGE_SIZE,
         triage_status: triageFilter,
       }, { signal });
+      const filteredIntakes = templateFilter
+        ? result.intakes.filter((item) => {
+          const metadata = item.metadata as Record<string, unknown> | null | undefined;
+          const directSlug = metadata?.intake_template_slug ?? metadata?.template_slug;
+          if (typeof directSlug === 'string' && directSlug.trim()) {
+            return directSlug.trim() === templateFilter;
+          }
+
+          const customFields = metadata?.custom_fields ?? metadata?.customFields;
+          if (customFields && typeof customFields === 'object' && !Array.isArray(customFields)) {
+            const storedSlug = (customFields as Record<string, unknown>)._intake_template_slug;
+            if (typeof storedSlug === 'string' && storedSlug.trim()) {
+              return storedSlug.trim() === templateFilter;
+            }
+          }
+
+          return templateFilter === DEFAULT_INTAKE_TEMPLATE.slug;
+        })
+        : result.intakes;
+
       return {
-        items: result.intakes.map(item => ({ ...item, id: item.uuid })),
-        hasMore: result.intakes.length === PAGE_SIZE,
+        items: filteredIntakes.map(item => ({ ...item, id: item.uuid })),
+        hasMore: !templateFilter && result.intakes.length === PAGE_SIZE,
       };
     },
-    deps: [practiceId, activeTriageFilter, refreshCounter],
+    deps: [practiceId, activeTriageFilter, refreshCounter, isResponsesRoute, templateFilter],
   });
 
   const handleSelectIntake = useCallback((intake: PaginatedIntake) => {
-    location.route(`${basePath}/${encodeURIComponent(intake.uuid)}`);
+    location.route(`${basePath}/responses/${encodeURIComponent(intake.uuid)}`);
   }, [basePath, location]);
 
   const handleBack = useCallback(() => {
-    location.route(basePath);
-  }, [basePath, location]);
+    const target = templateFilter
+      ? `${basePath}/responses?template=${encodeURIComponent(templateFilter)}`
+      : `${basePath}/responses`;
+    location.route(target);
+  }, [basePath, location, templateFilter]);
 
   const handleTriageComplete = useCallback(() => {
     setRefreshCounter(c => c + 1);
@@ -147,6 +183,18 @@ export const IntakesPage: FunctionComponent<IntakesPageProps> = ({
   }, [handleBack, onRefetchList]);
 
   // ── Rendering ────────────────────────────────────────────────────────────
+
+  if (!isResponsesRoute) {
+    return (
+      <IntakeTemplatesPage
+        basePath={basePath}
+        practiceId={practiceId}
+        routeTemplateSlug={routeTemplateSlug}
+        routeMode={templateRouteMode}
+        onBack={routeTemplateSlug ? () => location.route(basePath) : undefined}
+      />
+    );
+  }
 
   if (selectedIntakeId && renderMode !== 'listOnly') {
     return (
@@ -194,9 +242,11 @@ export const IntakesPage: FunctionComponent<IntakesPageProps> = ({
             <WorkspacePlaceholderState
               icon={InboxStackIcon}
               title="No leads yet"
-              description={activeTriageFilter === 'pending_review'
-                ? "You've caught up on all pending reviews! New consultation inquiries will appear here."
-                : "No leads match this filter."
+              description={templateFilter
+                ? `No responses have been submitted for ?template=${templateFilter} yet.`
+                : activeTriageFilter === 'pending_review'
+                  ? "You've caught up on all pending reviews! New consultation inquiries will appear here."
+                  : "No leads match this filter."
               }
               className="p-8"
             />

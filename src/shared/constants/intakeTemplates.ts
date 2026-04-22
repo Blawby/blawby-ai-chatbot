@@ -19,6 +19,8 @@ export const STANDARD_FIELD_DEFINITIONS: IntakeFieldDefinition[] = [
     phase: 'required',
     isStandard: true,
     mapsTo: 'description',
+    description: 'A short summary of what happened.',
+    previewQuestion: 'Can you tell me what happened in your own words?',
   },
   {
     key: 'city',
@@ -28,6 +30,8 @@ export const STANDARD_FIELD_DEFINITIONS: IntakeFieldDefinition[] = [
     phase: 'required',
     isStandard: true,
     mapsTo: 'address.city',
+    description: 'The city where the legal issue happened.',
+    previewQuestion: 'What city did this happen in?',
   },
   {
     key: 'state',
@@ -37,6 +41,8 @@ export const STANDARD_FIELD_DEFINITIONS: IntakeFieldDefinition[] = [
     phase: 'required',
     isStandard: true,
     mapsTo: 'address.state',
+    description: 'The state or jurisdiction for the issue.',
+    previewQuestion: 'What state did this happen in?',
   },
   {
     key: 'urgency',
@@ -47,6 +53,8 @@ export const STANDARD_FIELD_DEFINITIONS: IntakeFieldDefinition[] = [
     options: ['routine', 'time_sensitive', 'emergency'],
     isStandard: true,
     mapsTo: 'urgency',
+    description: 'Routine, time-sensitive, or emergency.',
+    previewQuestion: 'How urgent does this feel: routine, time-sensitive, or emergency?',
   },
   {
     key: 'practiceServiceUuid',
@@ -56,6 +64,8 @@ export const STANDARD_FIELD_DEFINITIONS: IntakeFieldDefinition[] = [
     phase: 'enrichment',
     isStandard: true,
     mapsTo: 'practice_service_uuid',
+    description: 'The practice service or matter type.',
+    previewQuestion: 'Which type of legal help are you looking for?',
   },
   {
     key: 'opposingParty',
@@ -65,6 +75,8 @@ export const STANDARD_FIELD_DEFINITIONS: IntakeFieldDefinition[] = [
     phase: 'enrichment',
     isStandard: true,
     mapsTo: 'opposing_party',
+    description: 'The person, company, or organization on the other side.',
+    previewQuestion: 'Who is on the other side of this issue?',
   },
   {
     key: 'desiredOutcome',
@@ -74,6 +86,8 @@ export const STANDARD_FIELD_DEFINITIONS: IntakeFieldDefinition[] = [
     phase: 'enrichment',
     isStandard: true,
     mapsTo: 'desired_outcome',
+    description: 'What the client hopes the practice can help achieve.',
+    previewQuestion: 'What outcome are you hoping for?',
   },
   {
     key: 'courtDate',
@@ -83,6 +97,8 @@ export const STANDARD_FIELD_DEFINITIONS: IntakeFieldDefinition[] = [
     phase: 'enrichment',
     isStandard: true,
     mapsTo: 'court_date',
+    description: 'Any court date, hearing, or deadline.',
+    previewQuestion: 'Is there a court date, hearing, or deadline coming up?',
   },
   {
     key: 'hasDocuments',
@@ -92,6 +108,8 @@ export const STANDARD_FIELD_DEFINITIONS: IntakeFieldDefinition[] = [
     phase: 'enrichment',
     isStandard: true,
     mapsTo: 'has_documents',
+    description: 'Whether the client has documents to share.',
+    previewQuestion: 'Do you have any documents related to this?',
   },
   {
     key: 'householdSize',
@@ -101,6 +119,8 @@ export const STANDARD_FIELD_DEFINITIONS: IntakeFieldDefinition[] = [
     phase: 'enrichment',
     isStandard: true,
     mapsTo: 'household_size',
+    description: 'Household size for eligibility review.',
+    previewQuestion: 'How many people are in your household?',
   },
 ];
 

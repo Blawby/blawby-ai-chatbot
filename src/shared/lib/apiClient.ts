@@ -206,10 +206,12 @@ export interface PracticeDetailsUpdate {
   services?: Array<Record<string, unknown>> | null;
   serviceStates?: string[] | null;
   supportedStates?: SupportedStateEntry[] | null;
-  businessOnboardingStatus?: 'not_required' | 'pending' | 'completed' | 'skipped';
   businessOnboardingHasDraft?: boolean;
+  businessOnboardingStatus?: 'not_required' | 'pending' | 'completed' | 'skipped';
   /** Raw JSON string stored in the practice settings column. Passed through as-is. */
   settings?: string | null;
+  /** Arbitrary practice metadata. */
+  metadata?: Record<string, unknown> | null;
 }
 
 // Fix: Remove conflicting extension, merge manually if needed
@@ -244,6 +246,8 @@ export interface PracticeDetails {
   supportedStates?: SupportedStateEntry[] | null;
   /** Raw JSON string stored in the practice settings column. */
   settings?: string | null;
+  /** Arbitrary practice metadata. */
+  metadata?: Record<string, unknown> | null;
 }
 
 export interface ConnectedAccountRequest {
@@ -602,7 +606,14 @@ function normalizePracticePayload(payload: unknown): Practice {
     name,
     slug,
     logo: toNullableString(record.logo),
-    metadata: isRecord(record.metadata) ? record.metadata : undefined,
+    metadata: (() => {
+      if (isRecord(record.metadata)) return record.metadata;
+      if (typeof record.metadata === 'string') {
+        try { return JSON.parse(record.metadata) as Record<string, unknown>; }
+        catch { return undefined; }
+      }
+      return undefined;
+    })(),
     businessPhone: toNullableString(record.businessPhone ?? record.business_phone),
     businessEmail: toNullableString(record.businessEmail ?? record.business_email),
     consultationFee: (() => {
@@ -1507,7 +1518,9 @@ function normalizePracticeUpdatePayload(payload: UpdatePracticeRequest): Record<
   if ('name' in payload && payload.name !== undefined) normalized.name = payload.name;
   if ('slug' in payload && payload.slug !== undefined) normalized.slug = payload.slug;
   if ('logo' in payload && payload.logo !== undefined) normalized.logo = payload.logo;
-  if ('metadata' in payload && payload.metadata !== undefined) normalized.metadata = payload.metadata;
+  if ('metadata' in payload && payload.metadata !== undefined) {
+    normalized.metadata = payload.metadata;
+  }
 
   return normalized;
 }
@@ -1735,6 +1748,9 @@ function normalizePracticeDetailsPayload(payload: PracticeDetailsUpdate): Record
   if ('settings' in payload && payload.settings !== undefined) {
     normalized.settings = payload.settings;
   }
+  if ('metadata' in payload && payload.metadata !== undefined) {
+    normalized.metadata = payload.metadata;
+  }
 
   if ('serviceStates' in payload && payload.serviceStates !== undefined) {
     normalized.service_states = Array.isArray(payload.serviceStates)
@@ -1817,6 +1833,7 @@ export function normalizePracticeDetailsResponse(payload: unknown): PracticeDeta
     'serviceStates',
     'supported_states',
     'supportedStates',
+    'settings',
   ].some((key) => key in value));
   const resolveCandidate = (value: unknown): Record<string, unknown> | null =>
     isRecord(value) && hasMappedDetailKey(value) ? value : null;
@@ -1974,6 +1991,15 @@ export function normalizePracticeDetailsResponse(payload: unknown): PracticeDeta
      // Pass settings through as an opaque string so the UI can read/write it.
      settings: 'settings' in container
        ? (typeof container.settings === 'string' ? container.settings : null)
+       : undefined,
+     // Pass metadata through, parsing if it's a string
+     metadata: 'metadata' in container
+       ? (typeof container.metadata === 'string'
+           ? (() => {
+               try { return JSON.parse(container.metadata); }
+               catch { return {}; }
+             })()
+           : isRecord(container.metadata) ? container.metadata : undefined)
        : undefined,
    };
  }

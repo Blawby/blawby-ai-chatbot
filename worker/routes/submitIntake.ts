@@ -88,7 +88,7 @@ interface BackendIntakeCreatePayload {
   };
   /** Plain-text digest of the intake conversation; max 4000 chars. Used by backend to bootstrap proposal_data. */
   transcript_summary?: string;
-  /** Unmapped custom template answers stored in backend intake metadata. */
+  /** Template attribution and unmapped custom answers stored in backend intake metadata. */
   custom_fields?: Record<string, string | number | boolean>;
 }
 
@@ -256,12 +256,26 @@ async function buildTranscriptSummary(
 }
 
 const getResolvedAmountMinor = ({
+  template,
   intakeSettings,
   fallbackConsultationFeeMinor,
 }: {
+  template: IntakeTemplate | null;
   intakeSettings: IntakeSettings | null;
   fallbackConsultationFeeMinor: number | null;
 }): number => {
+  const templateHasPaymentConfig = Boolean(
+    template &&
+    (typeof template.paymentLinkEnabled === 'boolean' || typeof template.consultationFee === 'number')
+  );
+  if (templateHasPaymentConfig) {
+    const templatePaymentEnabled = template?.paymentLinkEnabled === true;
+    const templateConsultationFee = typeof template?.consultationFee === 'number' && Number.isFinite(template.consultationFee)
+      ? template.consultationFee
+      : 0;
+    return templatePaymentEnabled && templateConsultationFee > 0 ? templateConsultationFee : 0;
+  }
+
   const consultationFee = typeof intakeSettings?.consultationFee === 'number' && Number.isFinite(intakeSettings.consultationFee)
     ? intakeSettings.consultationFee
     : null;
@@ -526,9 +540,17 @@ const buildCustomFieldsPayload = (
   intake: IntakeConversationState | null | undefined,
   template: IntakeTemplate | null | undefined,
 ): Record<string, string | number | boolean> | undefined => {
+  const payloadCustomFields: Record<string, string | number | boolean> = {};
+  if (template?.slug) {
+    payloadCustomFields._intake_template_slug = template.slug;
+  }
+  if (template?.name) {
+    payloadCustomFields._intake_template_name = template.name;
+  }
+
   const customFields = intake?.customFields;
   if (!customFields || typeof customFields !== 'object' || Array.isArray(customFields)) {
-    return undefined;
+    return Object.keys(payloadCustomFields).length > 0 ? payloadCustomFields : undefined;
   }
 
   const mappedCustomFieldKeys = new Set(
@@ -537,7 +559,6 @@ const buildCustomFieldsPayload = (
       .map((field) => field.key)
   );
 
-  const payloadCustomFields: Record<string, string | number | boolean> = {};
   for (const [key, value] of Object.entries(customFields)) {
     if (mappedCustomFieldKeys.has(key)) continue;
     if (typeof value === 'string') {
@@ -826,11 +847,19 @@ export async function handleSubmitIntake(
     'consultation_fee',
   ]);
   const settingsPaymentLinkEnabled = intakeSettings?.paymentLinkEnabled === true;
+  const templatePaymentConfig = userInfo.intakeTemplate ?? null;
+  const templateHasPaymentConfig = Boolean(
+    templatePaymentConfig &&
+    (typeof templatePaymentConfig.paymentLinkEnabled === 'boolean' || typeof templatePaymentConfig.consultationFee === 'number')
+  );
   let resolvedAmountMinor = getResolvedAmountMinor({
+    template: templatePaymentConfig,
     intakeSettings,
     fallbackConsultationFeeMinor,
   });
-  const paymentRequiredBeforeSubmit = settingsPaymentLinkEnabled || resolvedAmountMinor > 0;
+  const paymentRequiredBeforeSubmit = templateHasPaymentConfig
+    ? templatePaymentConfig?.paymentLinkEnabled === true && resolvedAmountMinor > 0
+    : settingsPaymentLinkEnabled || resolvedAmountMinor > 0;
   const paymentReceived = consultation?.submission?.paymentReceived === true;
   const generatePaymentLinkOnly = new URL(request.url).searchParams.get('generatePaymentLinkOnly') === 'true';
   const caseInfoComplete = isCaseInfoComplete(intake, draft);
@@ -867,7 +896,7 @@ export async function handleSubmitIntake(
   const intakePayload = buildIntakePayload(conversationId, slug, draft, intake, {
     amountMinor: resolvedAmountMinor,
     userId,
-    template: userInfo.intakeTemplate ?? null,
+    template: templatePaymentConfig,
   });
 
   Logger.info('[submitIntake] Calling backend intake create', {

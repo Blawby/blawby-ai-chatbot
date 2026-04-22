@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, mockNavigate, resetMockPath, mockRoute } from '../../../__tests__/test-utils';
-import { SettingsContent as SettingsPage } from '../pages/SettingsContent';
+import { SettingsContent } from '../pages/SettingsContent';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
 import { i18n } from '@/shared/i18n';
@@ -188,7 +188,7 @@ vi.mock('@/shared/lib/authClient', async () => {
 
 
 
-describe('SettingsPage Integration Tests', () => {
+describe('SettingsContent Integration Tests', () => {
   const mockOnClose = vi.fn();
 
   beforeEach(() => {
@@ -254,7 +254,7 @@ describe('SettingsPage Integration Tests', () => {
   });
 
   it('should render settings page with all navigation items', () => {
-    render(<SettingsPage onClose={mockOnClose} />);
+    render(<SettingsContent onClose={mockOnClose} />);
     
     expect(screen.getByText('General')).toBeInTheDocument();
     expect(screen.getByText('Notifications')).toBeInTheDocument();
@@ -267,14 +267,14 @@ describe('SettingsPage Integration Tests', () => {
   });
 
   it('should show general page by default', () => {
-    render(<SettingsPage onClose={mockOnClose} />);
+    render(<SettingsContent onClose={mockOnClose} />);
     
     expect(screen.getByText('General Settings')).toBeInTheDocument();
   });
 
 
   it('should navigate to notifications page when notifications is clicked', async () => {
-    render(<SettingsPage onClose={mockOnClose} />);
+    render(<SettingsContent onClose={mockOnClose} />);
     
     const notificationsBtn = screen.getByRole('button', { name: /Notifications/i });
     fireEvent.click(notificationsBtn);
@@ -283,7 +283,7 @@ describe('SettingsPage Integration Tests', () => {
   });
 
   it('should navigate to account page when account is clicked', async () => {
-    render(<SettingsPage onClose={mockOnClose} />);
+    render(<SettingsContent onClose={mockOnClose} />);
     
     const accountBtn = screen.getByRole('button', { name: /Account/i });
     fireEvent.click(accountBtn);
@@ -292,7 +292,7 @@ describe('SettingsPage Integration Tests', () => {
   });
 
   it('should navigate to security page when security is clicked', async () => {
-    render(<SettingsPage onClose={mockOnClose} />);
+    render(<SettingsContent onClose={mockOnClose} />);
     
     const securityBtn = screen.getByRole('button', { name: /Security/i });
     fireEvent.click(securityBtn);
@@ -301,7 +301,7 @@ describe('SettingsPage Integration Tests', () => {
   });
 
   it('should navigate to help page when help is clicked', async () => {
-    render(<SettingsPage onClose={mockOnClose} />);
+    render(<SettingsContent onClose={mockOnClose} />);
     
     const helpBtn = screen.getByRole('button', { name: /Help/i });
     fireEvent.click(helpBtn);
@@ -319,7 +319,7 @@ describe('SettingsPage Integration Tests', () => {
     });
 
     try {
-      render(<SettingsPage onClose={mockOnClose} />);
+      render(<SettingsContent onClose={mockOnClose} />);
       
       const signOutNav = screen.getByText('Sign Out');
       fireEvent.click(signOutNav);
@@ -337,7 +337,7 @@ describe('SettingsPage Integration Tests', () => {
   });
 
   it('should close settings modal when close button is clicked', () => {
-    render(<SettingsPage onClose={mockOnClose} />);
+    render(<SettingsContent onClose={mockOnClose} />);
     
     const closeButton = screen.getByLabelText('Close settings');
     fireEvent.click(closeButton);
@@ -347,7 +347,7 @@ describe('SettingsPage Integration Tests', () => {
 
 
   it('should handle mobile view correctly', () => {
-    render(<SettingsPage onClose={mockOnClose} isMobile={true} />);
+    render(<SettingsContent onClose={mockOnClose} isMobile={true} />);
     
     // Should show mobile header with close button
     expect(screen.getByLabelText('Close settings')).toBeInTheDocument();
@@ -355,7 +355,7 @@ describe('SettingsPage Integration Tests', () => {
   });
 
   it('should handle desktop view correctly', () => {
-    render(<SettingsPage onClose={mockOnClose} />);
+    render(<SettingsContent onClose={mockOnClose} />);
     
     // Should show sidebar navigation
     expect(screen.getByText('General')).toBeInTheDocument();
@@ -363,7 +363,7 @@ describe('SettingsPage Integration Tests', () => {
   });
 
   it('should navigate to business upgrade from account page', async () => {
-    render(<SettingsPage onClose={mockOnClose} />);
+    render(<SettingsContent onClose={mockOnClose} />);
     
     const accountBtn = screen.getByRole('button', { name: /Account/i });
     fireEvent.click(accountBtn);
@@ -375,7 +375,7 @@ describe('SettingsPage Integration Tests', () => {
 
 
   it('should close when clicking the close button', () => {
-    render(<SettingsPage onClose={mockOnClose} />);
+    render(<SettingsContent onClose={mockOnClose} />);
     
     const closeBtn = screen.getByLabelText('Close settings');
     fireEvent.click(closeBtn);
@@ -384,7 +384,7 @@ describe('SettingsPage Integration Tests', () => {
   });
 
   it('should maintain navigation state when switching between pages', async () => {
-    render(<SettingsPage onClose={mockOnClose} />);
+    render(<SettingsContent onClose={mockOnClose} />);
     
     // Go to account page
     const accountBtn = screen.getByRole('button', { name: /Account/i });

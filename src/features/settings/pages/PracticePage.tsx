@@ -182,7 +182,7 @@ export const PracticeOverviewPage = ({
                 {practice?.name || 'Practice'}
               </h3>
               <SettingsHelperText className="truncate">
-                Public listing, workspace URL, and brand
+                Public listing and workspace URL
               </SettingsHelperText>
             </div>
           </div>
@@ -191,7 +191,7 @@ export const PracticeOverviewPage = ({
         <Button
           variant="secondary"
           size="sm"
-          onClick={() => nav(toSettingsPath('apps/blawby-messenger/settings'))}
+          onClick={() => nav(toSettingsPath('practice/contact'))}
         >
           Manage
         </Button>
@@ -219,10 +219,10 @@ export const PracticeOverviewPage = ({
       </SettingRow>
 
       <SettingRow
-        label="Contact and intake"
+        label="Contact"
         labelNode={
           <div>
-            <h3 className="text-sm font-semibold text-input-text">Contact and intake</h3>
+            <h3 className="text-sm font-semibold text-input-text">Contact</h3>
             <SettingsHelperText>
               {[websiteValue, phoneValue, addressSummary].filter(Boolean).join(' • ') ||
                 'No contact details configured'}
@@ -261,24 +261,6 @@ export const PracticeOverviewPage = ({
           variant="secondary"
           size="sm"
           onClick={() => nav(toSettingsPath('practice/coverage'))}
-        >
-          Manage
-        </Button>
-      </SettingRow>
-
-      <SettingRow
-        label="Pricing and fees"
-        labelNode={
-          <div>
-            <h3 className="text-sm font-semibold text-input-text">Pricing and fees</h3>
-            <SettingsHelperText>Consultation pricing and billing rules</SettingsHelperText>
-          </div>
-        }
-      >
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={() => nav(toSettingsPath('practice/pricing'))}
         >
           Manage
         </Button>

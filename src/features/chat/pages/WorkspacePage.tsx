@@ -275,6 +275,9 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     return path.includes('?') ? `${path}&v=widget` : `${path}?v=widget`;
   }, [layoutMode, workspace]);
   const {
+    isIntakeTemplateRoute,
+    isIntakeTemplateEditorRoute,
+    isIntakeResponsesRoute,
     selectedMatterIdFromPath,
     isMatterNonListRoute,
     selectedClientIdFromPath,
@@ -349,17 +352,21 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     view,
     peopleRouteKind,
     reportSectionFromPath,
+    isIntakeTemplateRoute,
+    isIntakeResponsesRoute,
     navSecondary: navConfig.secondary,
-  }), [workspaceSection, isPracticeWorkspace, view, peopleRouteKind, reportSectionFromPath, navConfig.secondary]);
+  }), [workspaceSection, isPracticeWorkspace, view, peopleRouteKind, reportSectionFromPath, isIntakeTemplateRoute, isIntakeResponsesRoute, navConfig.secondary]);
   const activeSecondaryFilter = useMemo(() => getWorkspaceActiveSecondaryFilter({
     workspaceSection,
     isPracticeWorkspace,
     view,
     peopleRouteKind,
     reportSectionFromPath,
+    isIntakeTemplateRoute,
+    isIntakeResponsesRoute,
     secondaryFilterBySection,
     defaultSecondaryFilterId,
-  }), [workspaceSection, isPracticeWorkspace, view, peopleRouteKind, reportSectionFromPath, secondaryFilterBySection, defaultSecondaryFilterId]);
+  }), [workspaceSection, isPracticeWorkspace, view, peopleRouteKind, reportSectionFromPath, isIntakeTemplateRoute, isIntakeResponsesRoute, secondaryFilterBySection, defaultSecondaryFilterId]);
   const handleSecondaryFilterSelect = useCallback((id: string) => {
     if (workspaceSection === 'settings') return;
     const basePath = normalizedBase || '/';
@@ -386,6 +393,11 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
         'stale-matters': `${basePath}/reports/stale-matters`,
       };
       navigate(reportPathById[id] ?? `${basePath}/reports`);
+      setSecondaryFilterBySection((prev) => ({ ...prev, [workspaceSection]: id }));
+      return;
+    }
+    if (workspaceSection === 'intakes') {
+      navigate(id === 'forms' ? `${basePath}/intakes` : `${basePath}/intakes/responses`);
       setSecondaryFilterBySection((prev) => ({ ...prev, [workspaceSection]: id }));
       return;
     }
@@ -1387,11 +1399,11 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       onDashboardWindowChange={setDashboardWindow}
       onCreateInvoice={handleDashboardCreateInvoice}
       onOpenInvoice={(invoiceId) => navigate(`${normalizedBase}/invoices/${encodeURIComponent(invoiceId)}`)}
-      onViewAllIntakes={() => navigate(`${normalizedBase}/intakes`)}
-      onViewIntake={(intakeId) => navigate(`${normalizedBase}/intakes/${encodeURIComponent(intakeId)}`)}
+      onViewAllIntakes={() => navigate(`${normalizedBase}/intakes/responses`)}
+      onViewIntake={(intakeId) => navigate(`${normalizedBase}/intakes/responses/${encodeURIComponent(intakeId)}`)}
     />
   );
-  const showBottomNav = shouldShowWorkspaceBottomNav({
+  const showBottomNav = !isIntakeTemplateEditorRoute && shouldShowWorkspaceBottomNav({
     isMobileLayout,
     workspace,
     view,
@@ -1415,7 +1427,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     />
   ) : undefined;
 
-  const sidebarNav = layoutMode === 'desktop' && navConfig.rail.length > 0 ? (
+  const sidebarNav = layoutMode === 'desktop' && navConfig.rail.length > 0 && !isIntakeTemplateEditorRoute ? (
     <NavRail
       variant="rail"
       items={navConfig.rail}
@@ -1423,7 +1435,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       onItemActivate={handleNavActivate}
     />
   ) : undefined;
-  const secondaryPanel = navConfig.secondary && navConfig.secondary.length > 0 ? (
+  const secondaryPanel = navConfig.secondary && navConfig.secondary.length > 0 && !isIntakeTemplateEditorRoute ? (
     <SecondaryPanel
       sections={navConfig.secondary}
       activeHref={activeHref}
@@ -1672,7 +1684,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
         return null;
     }
   })();
-  const mobileSectionTopBar = layoutMode !== 'desktop' && view !== 'conversation' && (mobileMenuButton || mobileCreateButton || mobileSectionTitle)
+  const mobileSectionTopBar = layoutMode !== 'desktop' && view !== 'conversation' && !isIntakeTemplateEditorRoute && (mobileMenuButton || mobileCreateButton || mobileSectionTitle)
     ? (
       <WorkspaceListHeader
         leftControls={mobileMenuButton ?? undefined}
@@ -1683,6 +1695,21 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       />
     )
     : undefined;
+  // Global invoice draft timestamp shown in the top bar for invoice builder routes.
+  const [invoiceDraftSavedAt, setInvoiceDraftSavedAt] = useState<string | null>(null);
+  useEffect(() => {
+    const handler = (ev: Event) => {
+      const ce = ev as CustomEvent;
+      try {
+        const ts = ce?.detail?.timestamp;
+        if (ts) setInvoiceDraftSavedAt(new Date(ts).toLocaleString());
+      } catch (_e) {
+        // ignore malformed events
+      }
+    };
+    window.addEventListener('invoice:draft-saved', handler as EventListener);
+    return () => window.removeEventListener('invoice:draft-saved', handler as EventListener);
+  }, []);
   const invoiceBuilderTopBar = (view === 'invoiceCreate' || view === 'invoiceEdit') ? (
     <WorkspaceListHeader
       leftControls={(
@@ -1710,15 +1737,23 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
         </div>
       )}
       title={<h1 className="workspace-header__title">{view === 'invoiceEdit' ? 'Edit Invoice' : 'Create Invoice'}</h1>}
-      controls={primaryCreateAction ? (
-        <Button
-          type="button"
-          size="sm"
-          onClick={primaryCreateAction.onClick}
-        >
-          {primaryCreateAction.label}
-        </Button>
-      ) : undefined}
+      controls={(
+        <div className="flex items-center gap-3">
+          {invoiceDraftSavedAt ? <div className="text-sm text-input-placeholder">Draft saved at {invoiceDraftSavedAt}</div> : null}
+          <Button type="button" variant="secondary" size="sm" onClick={() => window.dispatchEvent(new CustomEvent('invoice:hide-preview'))}>
+            Hide preview
+          </Button>
+          {primaryCreateAction ? (
+            <Button
+              type="button"
+              size="sm"
+              onClick={primaryCreateAction.onClick}
+            >
+              {primaryCreateAction.label}
+            </Button>
+          ) : null}
+        </div>
+      )}
       className={layoutMode === 'desktop' ? 'px-4 py-2' : 'px-1 py-1'}
     />
   ) : undefined;

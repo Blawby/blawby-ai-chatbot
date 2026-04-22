@@ -339,14 +339,14 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
   });
 
   const widgetIntroMessage = useMemo(() => {
-    const source = cachedPracticeDetails?.introMessage ?? practiceConfig.introMessage;
+    const source = activeIntakeTemplate?.introMessage ?? cachedPracticeDetails?.introMessage ?? practiceConfig.introMessage;
     return typeof source === 'string' ? source.trim() : '';
-  }, [cachedPracticeDetails?.introMessage, practiceConfig.introMessage]);
+  }, [activeIntakeTemplate, cachedPracticeDetails?.introMessage, practiceConfig.introMessage]);
 
   const widgetLegalDisclaimer = useMemo(() => {
-    const source = cachedPracticeDetails?.legalDisclaimer ?? practiceConfig.legalDisclaimer;
+    const source = activeIntakeTemplate?.legalDisclaimer ?? cachedPracticeDetails?.legalDisclaimer ?? practiceConfig.legalDisclaimer;
     return typeof source === 'string' ? source.trim() : '';
-  }, [cachedPracticeDetails?.legalDisclaimer, practiceConfig.legalDisclaimer]);
+  }, [activeIntakeTemplate, cachedPracticeDetails?.legalDisclaimer, practiceConfig.legalDisclaimer]);
 
 
 

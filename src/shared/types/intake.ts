@@ -46,6 +46,10 @@ export interface IntakeFieldDefinition {
   options?: string[];
   /** true = maps to an existing IntakeConversationState key; false = goes into customFields */
   isStandard: boolean;
+  /** Short practice-facing description for template builder field pickers. */
+  description?: string;
+  /** Deterministic client-facing question used by previews and template demos. */
+  previewQuestion?: string;
   /**
    * Phase 2 — optional AI instruction injected into the system prompt for this
    * specific field. Gives the model richer guidance than the label alone.
@@ -86,6 +90,9 @@ export interface IntakeTemplate {
   slug: string;
   name: string;
   isDefault: boolean;
+  introMessage?: string;
+  legalDisclaimer?: string;
+  paymentLinkEnabled?: boolean;
   consultationFee?: number;
   fields: IntakeFieldDefinition[];
 }

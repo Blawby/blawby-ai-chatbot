@@ -25,7 +25,8 @@ export function useWorkspace(): UseWorkspaceResult {
   const {
     hasPracticeAccess,
     defaultWorkspace,
-    practicesLoading
+    practicesLoading,
+    rolePending
   } = useWorkspaceResolver();
 
   const workspaceFromPath = useMemo(
@@ -33,7 +34,7 @@ export function useWorkspace(): UseWorkspaceResult {
     [location.path]
   );
 
-  const isPracticeLoading = isPending || practicesLoading;
+  const isPracticeLoading = isPending || rolePending || practicesLoading;
   const canAccessPractice = isPracticeLoading ? true : hasPracticeAccess;
   const isPracticeEnabled = hasPracticeAccess;
 

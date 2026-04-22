@@ -18,10 +18,9 @@ interface AppGuardProps {
  *   - Onboarding enforcement: moved to per-route checks in AppShell/RootRoute so that
  *     public workspace routes never redirect anonymous users to /onboarding.
  *
- * Planned (post backend PR #101):
- *   - Once routing claims land in the session, workspace derivation logic currently
- *     scattered across RootRoute / LegacySettingsRoute / PublicPracticeRoute will
- *     consolidate here or in a useRoutingClaims() hook.
+ * Planned:
+ *   - Keep AppGuard limited to app-wide side effects. Route access and workspace
+ *     selection should stay in the dedicated routing/resolver hooks.
  */
 export function AppGuard({ children }: AppGuardProps) {
   const { refetch: refetchPractices } = usePracticeManagement({

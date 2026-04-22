@@ -2,35 +2,38 @@ import { useMemo, useCallback } from 'preact/hooks';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { usePracticeManagement, type Practice } from '@/shared/hooks/usePracticeManagement';
 import type { WorkspacePreference } from '@/shared/types/workspace';
-import type { RoutingClaims } from '@/shared/types/routing';
+import { normalizePracticeRole, type PracticeRole } from '@/shared/utils/practiceRoles';
 
 interface UseWorkspaceResolverResult {
   isPending: boolean;
+  rolePending: boolean;
   practicesLoading: boolean;
   practices: Practice[];
   currentPractice: Practice | null;
+  activeRole: PracticeRole | null;
+  isClientMember: boolean;
+  hasPracticeMembership: boolean;
+  canAccessPracticeWorkspace: boolean;
+  canAccessClientWorkspace: boolean;
   hasPracticeAccess: boolean;
   defaultWorkspace: WorkspacePreference;
   resolvePracticeBySlug: (slug?: string | null) => Practice | null;
-  /**
-   * Backend routing claims when available (backend PR #101).
-   * Null when the backend is running a pre-#101 build.
-   */
-  routingClaims: RoutingClaims | null;
 }
 
 interface UseWorkspaceResolverOptions {
   autoFetchPractices?: boolean;
+  fetchOnboardingStatus?: boolean;
+  practiceSlug?: string | null;
 }
 
 export function useWorkspaceResolver(options: UseWorkspaceResolverOptions = {}): UseWorkspaceResolverResult {
-  const { autoFetchPractices = true } = options;
-  const { isPending, routingClaims } = useSessionContext();
+  const { autoFetchPractices = true, fetchOnboardingStatus = false, practiceSlug = null } = options;
+  const { isPending, session, activeMemberRole, activeMemberRoleLoading } = useSessionContext();
   const {
     practices,
     currentPractice,
     loading: practicesLoading
-  } = usePracticeManagement({ autoFetchPractices });
+  } = usePracticeManagement({ autoFetchPractices, fetchOnboardingStatus, practiceSlug });
 
   const practiceBySlug = useMemo(() => {
     const map = new Map<string, Practice>();
@@ -41,17 +44,30 @@ export function useWorkspaceResolver(options: UseWorkspaceResolverOptions = {}):
     return map;
   }, [practices]);
 
-  /**
-   * Prefer the backend routing claim when available.
-   * Fall back to local practice-list heuristic (legacy path).
-   */
-  const hasPracticeAccess = routingClaims
-    ? routingClaims.workspace_access.practice
-    : Boolean(currentPractice?.id || practices.length > 0);
+  const activeRole = normalizePracticeRole(activeMemberRole);
+  const isClientMember = activeRole === 'client';
+  const hasPracticeMembership = Boolean(currentPractice?.id || practices.length > 0);
+  const canAccessPracticeWorkspace = hasPracticeMembership && !isClientMember;
+  const canAccessClientWorkspace = Boolean(
+    session?.user &&
+    !session.user.isAnonymous &&
+    isClientMember
+  );
+  const hasPracticeAccess = canAccessPracticeWorkspace;
 
-  const defaultWorkspace: WorkspacePreference = routingClaims
-    ? (routingClaims.default_workspace === 'public' ? 'client' : routingClaims.default_workspace)
-    : hasPracticeAccess ? 'practice' : 'client';
+  const userPrimaryWorkspace = session?.user?.primaryWorkspace;
+  const preferredWorkspace: WorkspacePreference =
+    userPrimaryWorkspace === 'client' || userPrimaryWorkspace === 'public'
+      ? 'client'
+      : 'practice';
+  const defaultWorkspace: WorkspacePreference =
+    preferredWorkspace === 'client' && canAccessClientWorkspace
+      ? 'client'
+      : canAccessPracticeWorkspace
+        ? 'practice'
+        : canAccessClientWorkspace
+          ? 'client'
+          : preferredWorkspace;
 
   const resolvePracticeBySlug = useCallback((slug?: string | null): Practice | null => {
     const normalized = typeof slug === 'string' ? slug.trim() : '';
@@ -61,12 +77,17 @@ export function useWorkspaceResolver(options: UseWorkspaceResolverOptions = {}):
 
   return {
     isPending,
+    rolePending: activeMemberRoleLoading,
     practicesLoading,
     practices,
     currentPractice,
+    activeRole,
+    isClientMember,
+    hasPracticeMembership,
+    canAccessPracticeWorkspace,
+    canAccessClientWorkspace,
     hasPracticeAccess,
     defaultWorkspace,
     resolvePracticeBySlug,
-    routingClaims,
   };
 }

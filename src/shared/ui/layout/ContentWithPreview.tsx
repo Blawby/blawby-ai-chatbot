@@ -10,7 +10,7 @@ import { cn } from '@/shared/utils/cn';
  * With `preview`: invoice-style previews default to a wider right pane, while
  * widget previews use a narrower portrait pane so forms keep more horizontal room.
  *
- * Used by: InvoiceForm, SettingsPage (when preview prop is provided).
+ * Used by: InvoiceForm, EditorShell (when preview prop is provided).
  */
 export interface ContentWithPreviewProps {
   children: ComponentChildren;
@@ -58,7 +58,10 @@ export function ContentWithPreview({
       </div>
       <div
         className={cn(
-          'min-h-0 overflow-y-auto border-t border-line-glass/30 glass-panel px-6 py-6 lg:border-l lg:border-t-0',
+          // Use the shared glass-panel visual treatment but remove rounded corners
+          // so the preview content can fill the full panel area while keeping
+          // the backdrop / glass appearance present.
+          'glass-panel rounded-none p-0 min-h-0 overflow-y-auto border-t border-line-glass/30 lg:border-l lg:border-t-0',
           previewClassName
         )}
       >
