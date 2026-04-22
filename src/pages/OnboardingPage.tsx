@@ -36,8 +36,8 @@ const OnboardingPage = () => {
     }
   }
   // A new user has no org yet — do not call usePracticeManagement here.
-  // AppShell always encodes a returnTo when redirecting to /onboarding. Fall
-  // back to '/' only if the param is absent or invalid (e.g. direct navigation).
+  // RootRoute owns the post-onboarding destination decision. Returning to `/`
+  // is safe now because root routing fails fast and sends no-practice users to pricing.
   const fallbackPath: string = isSafeRedirectPath(rawReturnTo) ? rawReturnTo : '/';
 
   const userId = session?.user?.id;

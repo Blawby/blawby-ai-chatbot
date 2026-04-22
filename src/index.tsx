@@ -73,6 +73,26 @@ const renderWorkspaceFailureState = (title: string, description: string) => (
   />
 );
 
+const resolveAuthenticatedHomePath = ({
+  defaultWorkspace,
+  fallbackSlug,
+  hasPracticeMembership,
+}: {
+  defaultWorkspace: 'practice' | 'client' | 'public';
+  fallbackSlug: string | null;
+  hasPracticeMembership: boolean;
+}): string | null => {
+  if (!hasPracticeMembership) {
+    return '/pricing';
+  }
+
+  if (!fallbackSlug) {
+    return null;
+  }
+
+  return getWorkspaceHomePath(defaultWorkspace, fallbackSlug);
+};
+
 const DevDebugStylesRoute = () => {
   if (!import.meta.env.DEV) return <App404 />;
   return <DebugStylesPage />;
@@ -160,6 +180,10 @@ function AppShell() {
   const location = useLocation();
   const { navigate } = useNavigation();
   const { session, isPending: sessionPending } = useSessionContext();
+  const onboardingIncomplete =
+    Boolean(session?.user) &&
+    !session.user.isAnonymous &&
+    session.user.onboardingComplete !== true;
   const shouldFetchWorkspacePractices =
     !location.path.startsWith('/public/') &&
     !location.path.startsWith('/auth') &&
@@ -167,10 +191,19 @@ function AppShell() {
     // Pre-subscription users on the onboarding flow have no org yet — fetching
     // practices would produce a guaranteed 403. AppShell redirects back here
     // until onboardingComplete is true, so this guard is safe.
-    !location.path.startsWith('/onboarding');
+    !(location.path.startsWith('/onboarding') && onboardingIncomplete);
   const { defaultWorkspace, currentPractice, practices } = useWorkspaceResolver({
     autoFetchPractices: shouldFetchWorkspacePractices
   });
+  const hasPracticeMembership = practices.length > 0 || Boolean(currentPractice?.id);
+  const authenticatedHomePath = useMemo(() => {
+    const fallbackSlug = currentPractice?.slug ?? practices[0]?.slug ?? null;
+    return resolveAuthenticatedHomePath({
+      defaultWorkspace,
+      fallbackSlug,
+      hasPracticeMembership,
+    });
+  }, [currentPractice?.id, currentPractice?.slug, defaultWorkspace, hasPracticeMembership, practices]);
 
   useEffect(() => {
     if (sessionPending) return;
@@ -255,17 +288,16 @@ function AppShell() {
     }
 
     if (!requiresOnboarding && location.path.startsWith('/onboarding')) {
-      const fallbackSlug = currentPractice?.slug ?? practices[0]?.slug ?? null;
-      const fallback = getWorkspaceHomePath(defaultWorkspace, fallbackSlug, '/');
-      navigate(fallback, true);
+      if (!authenticatedHomePath) {
+        return;
+      }
+      navigate(authenticatedHomePath, true);
     }
   }, [
-    currentPractice,
-    defaultWorkspace,
+    authenticatedHomePath,
     location.path,
     location.url,
     navigate,
-    practices,
     session?.user,
     sessionPending
   ]);
@@ -427,10 +459,19 @@ function RootRoute() {
     defaultWorkspace,
     practicesLoading,
     currentPractice,
-    practices
+    practices,
+    hasPracticeMembership,
   } = useWorkspaceResolver();
   const { navigate } = useNavigation();
   const isMountedRef = useRef(true);
+  const authenticatedHomePath = useMemo(() => {
+    const fallbackSlug = currentPractice?.slug ?? practices[0]?.slug ?? null;
+    return resolveAuthenticatedHomePath({
+      defaultWorkspace,
+      fallbackSlug,
+      hasPracticeMembership,
+    });
+  }, [currentPractice?.id, currentPractice?.slug, defaultWorkspace, hasPracticeMembership, practices]);
 
   useEffect(() => {
     return () => {
@@ -450,20 +491,30 @@ function RootRoute() {
       return;
     }
 
-    if (isMountedRef.current) {
-      const fallbackSlug = currentPractice?.slug ?? practices[0]?.slug ?? null;
-      const destination = getWorkspaceHomePath(defaultWorkspace, fallbackSlug, '/');
-      navigate(destination, true);
+    if (isMountedRef.current && authenticatedHomePath) {
+      navigate(authenticatedHomePath, true);
     }
   }, [
-    defaultWorkspace,
+    authenticatedHomePath,
     practicesLoading,
     isPending,
     navigate,
     session?.user,
-    currentPractice,
-    practices,
   ]);
+
+  if (
+    !isPending &&
+    !practicesLoading &&
+    session?.user &&
+    !session.user.isAnonymous &&
+    session.user.onboardingComplete === true &&
+    !authenticatedHomePath
+  ) {
+    return renderWorkspaceFailureState(
+      'Workspace routing failed',
+      'Authenticated workspace routing could not be resolved because no practice slug was available.'
+    );
+  }
 
   return <LoadingScreen />;
 }

@@ -23,7 +23,7 @@ const PricingView: FunctionComponent<PricingViewProps> = ({ className, onUpgrade
   const { t } = useTranslation(['pricing', 'common']);
   const { showError } = useToastContext();
   const { submitUpgrade, submitting } = usePaymentUpgrade();
-  const { currentPractice } = usePracticeManagement();
+  const { currentPractice } = usePracticeManagement({ autoFetchPractices: false });
 
   const [plan, setPlan] = useState<SubscriptionPlan | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
