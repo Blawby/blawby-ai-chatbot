@@ -42,7 +42,13 @@ describe('submitContactForm', () => {
               settings: { paymentLinkEnabled: true, consultationFee: 75.6 }
             }
           }),
-          text: async () => JSON.stringify({ error: 'Not Found' })
+          text: async () => JSON.stringify({
+            success: true,
+            data: {
+              organization: { name: 'Acme Law', logo: 'logo.png' },
+              settings: { paymentLinkEnabled: true, consultationFee: 75.6 }
+            }
+          })
         });
       }
       if (url.includes('/api/practice-client-intakes/create')) {
@@ -60,7 +66,17 @@ describe('submitContactForm', () => {
               organization: { name: 'Acme Law', logo: 'logo.png' }
             }
           }),
-          text: async () => JSON.stringify({ error: 'Not Found' })
+          text: async () => JSON.stringify({
+            success: true,
+            data: {
+              uuid: 'uuid-123',
+              client_secret: 'cs_test_123',
+              amount: 76,
+              currency: 'usd',
+              status: 'pending',
+              organization: { name: 'Acme Law', logo: 'logo.png' }
+            }
+          })
         });
       }
       return Promise.resolve({
@@ -110,7 +126,13 @@ describe('submitContactForm', () => {
               settings: { paymentLinkEnabled: false, consultationFee: 50 }
             }
           }),
-          text: async () => JSON.stringify({ error: 'Not Found' })
+          text: async () => JSON.stringify({
+            success: true,
+            data: {
+              organization: { name: 'Acme Law', logo: 'logo.png' },
+              settings: { paymentLinkEnabled: false, consultationFee: 50 }
+            }
+          })
         });
       }
       if (url.includes('/api/practice-client-intakes/create')) {
@@ -124,7 +146,13 @@ describe('submitContactForm', () => {
             status: 'open',
             organization: { name: 'Acme Law', logo: 'logo.png' }
           }),
-          text: async () => JSON.stringify({ error: 'Not Found' })
+          text: async () => JSON.stringify({
+            uuid: 'uuid-456',
+            amount: 50,
+            currency: 'usd',
+            status: 'open',
+            organization: { name: 'Acme Law', logo: 'logo.png' }
+          })
         });
       }
       return Promise.resolve({

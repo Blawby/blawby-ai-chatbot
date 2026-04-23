@@ -49,6 +49,7 @@ export function useIntakesData(
   const { enabled = true, limit } = options;
   const [filter, setFilterState] = useState<IntakesFilter>(options.filter ?? 'all');
   const [page, setPageState] = useState(options.page ?? 1);
+  const effectivePage = options.page ?? page;
   const effectiveFilter = options.filter ?? filter;
   const [items, setItems] = useState<IntakeListItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -87,7 +88,7 @@ export function useIntakesData(
       return undefined;
     })();
 
-    listIntakes(practiceId, { page, limit, triage_status: triageStatus }, { signal: controller.signal })
+    listIntakes(practiceId, { page: effectivePage, limit, triage_status: triageStatus }, { signal: controller.signal })
       .then((result) => {
         if (!isMountedRef.current || controller.signal.aborted) return;
         setItems(result.intakes);
@@ -107,7 +108,7 @@ export function useIntakesData(
       });
 
     return () => controller.abort();
-  }, [practiceId, effectiveFilter, page, limit, enabled, retryTick]);
+  }, [practiceId, effectiveFilter, effectivePage, limit, enabled, retryTick]);
 
   const setFilter = useCallback((f: IntakesFilter) => {
     if (options.filter !== undefined) return;
@@ -129,7 +130,7 @@ export function useIntakesData(
     isLoading,
     isLoaded,
     error,
-    page,
+    page: effectivePage,
     totalPages,
     total,
     filter: effectiveFilter,

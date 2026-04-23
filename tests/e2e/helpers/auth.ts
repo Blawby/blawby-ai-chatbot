@@ -47,15 +47,8 @@ export const waitForSession = async (
         body: rawText.slice(0, 300)
       };
       
-      // For anonymous users, we accept either a valid session with userId OR
-      // a session that indicates anonymous user status
       if (lastResult.ok && lastResult.hasSession && lastResult.userId) {
         return lastResult.userId;
-      }
-      // If anonymous session arrives without explicit id, accept presence of is_anonymous
-      if (lastResult.ok && lastResult.hasSession && !lastResult.userId) {
-        const isAnon = data?.user?.is_anonymous === true;
-        if (isAnon) return '';
       }
     } catch (error) {
       lastResult = {

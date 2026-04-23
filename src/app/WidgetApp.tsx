@@ -34,6 +34,7 @@ import { features } from '@/config/features';
 import type { FileAttachment } from '../../worker/types';
 import type { UploadingFile } from '@/shared/types/upload';
 import type { IntakeTemplate } from '@/shared/types/intake';
+import type { AuthSessionPayload } from '@/shared/types/user';
 import { DEFAULT_INTAKE_TEMPLATE } from '@/shared/constants/intakeTemplates';
 
 const safeGetSessionItem = (key: string): string | null => {
@@ -59,12 +60,7 @@ interface WidgetAppProps {
   practiceConfig: UIPracticeConfig;
   routeConversationId?: string;
   bootstrapConversationId?: string | null;
-  bootstrapSession?: {
-    user?: {
-      id: string;
-      is_anonymous?: boolean;
-    } | null;
-  } | null;
+  bootstrapSession?: AuthSessionPayload;
   /** Resolved intake template from bootstrap. Falls back to DEFAULT_INTAKE_TEMPLATE if absent. */
   intakeTemplate?: IntakeTemplate | null;
 }
@@ -109,7 +105,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
 
   const currentUserId = bootstrapSession?.user?.id ?? null;
   // Rely on backend field name only
-  const isAnonymous = bootstrapSession?.user?.is_anonymous ?? true;
+  const isAnonymous = bootstrapSession?.user?.is_anonymous === true;
 
   const isEmbedded = typeof window !== 'undefined' && window.parent !== window;
 

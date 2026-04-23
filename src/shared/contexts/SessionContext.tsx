@@ -49,7 +49,7 @@ const buildSessionContextValue = ({
 }): SessionContextValue => {
   const userRecord = sessionData?.user as BackendSessionUser | undefined;
   // Rely on backend field names only
-  const isAnonymous = Boolean(userRecord?.is_anonymous ?? !sessionData?.user);
+  const isAnonymous = userRecord?.is_anonymous === true;
   const stripeCustomerId = typeof userRecord?.stripe_customer_id === 'string'
     ? userRecord.stripe_customer_id
     : null;
@@ -105,7 +105,7 @@ export function SessionProvider({ children }: { children: ComponentChildren }) {
     resolved: false,
   });
   const currentUserId1 = sessionData?.user?.id ?? null;
-  const sessionIsAnonymous = Boolean(sessionData?.user?.is_anonymous ?? !sessionData?.user);
+  const sessionIsAnonymous = sessionData?.user?.is_anonymous === true;
   const sessionActivePracticeId = getActivePracticeId(sessionData);
   const shouldResolveActiveMemberRole = Boolean(currentUserId1 && !sessionIsAnonymous && sessionActivePracticeId);
 
@@ -168,7 +168,7 @@ export function SessionProvider({ children }: { children: ComponentChildren }) {
   );
 
   const valueUserId = value.session?.user?.id ?? null;
-  const valueIsAnon = Boolean(value.session?.user?.is_anonymous ?? !value.session?.user);
+  const valueIsAnon = value.session?.user?.is_anonymous === true;
 
   useEffect(() => {
     if (!valueUserId) return;

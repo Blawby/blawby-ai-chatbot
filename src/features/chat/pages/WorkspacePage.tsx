@@ -330,7 +330,8 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
 
   const workspaceSection: WorkspaceSection = getWorkspaceSection(view);
 
-  const { session, isPending: isSessionPending, activeMemberRole } = useSessionContext();
+  const { session, isPending: isSessionPending, isAnonymous, activeMemberRole } = useSessionContext();
+  const sessionUserId = session?.user?.id ?? null;
   const normalizedRole = normalizePracticeRole(activeMemberRole);
   const navConfig = useMemo(() => {
     const slug = (practiceSlug ?? '').trim();
@@ -432,6 +433,12 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   const resolvedConversationsLoading = mockConversations ? false : isConversationsLoading;
   const resolvedConversationsError = mockConversations ? null : conversationsError;
   const [acceptedIntakeConversations, setAcceptedIntakeConversations] = useState<Conversation[]>([]);
+  const acceptedIntakeConversationsRef = useRef<Conversation[]>(acceptedIntakeConversations);
+  useEffect(() => {
+    acceptedIntakeConversationsRef.current = acceptedIntakeConversations;
+  }, [acceptedIntakeConversations]);
+  const isInitialConversationCheckRef = useRef(true);
+  const [activeConversationMissingNotification, setActiveConversationMissingNotification] = useState<string | null>(null);
   const conversationFilterId = workspaceSection === 'conversations' && activeSecondaryFilter
     ? activeSecondaryFilter
     : 'all';
@@ -471,7 +478,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
 
     const knownConversationIds = new Set([
       ...resolvedConversations.map((conversation) => conversation.id),
-      ...acceptedIntakeConversations.map((conversation) => conversation.id),
+      ...acceptedIntakeConversationsRef.current.map((conversation) => conversation.id),
     ]);
     const missingConversationIds = acceptedIntakeConversationIds.filter((conversationId) => !knownConversationIds.has(conversationId));
     if (missingConversationIds.length === 0) {
@@ -526,7 +533,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     return () => controller.abort();
   }, [
     acceptedIntakeConversationIds,
-    acceptedIntakeConversations,
     intakeLookupLoaded,
     isPracticeWorkspace,
     practiceId,
@@ -556,7 +562,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
           requireAcceptedIntakeRecord: true,
         });
       });
-    const sessionUserId = session?.user?.id ?? null;
     if (isPracticeWorkspace) {
       if (conversationFilterId === 'your-inbox') {
         if (!sessionUserId) return activeConversations;
@@ -590,7 +595,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     conversationsForInbox,
     isClientWorkspace,
     isPracticeWorkspace,
-    session?.user?.id,
+    sessionUserId,
   ]);
   const selectedConversation = useMemo(
     () => resolvedConversations.find((conversation) => conversation.id === activeConversationId) ?? null,
@@ -660,7 +665,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   const clientsData = useClientsData(
     practiceId,
     clientsStatusFilter,
-    session?.user?.id ?? null,
+    sessionUserId,
     { enabled: isPracticeWorkspace && (view === 'clients' || view === 'matters') }
   );
   const selectedMatter = useMemo(
@@ -820,8 +825,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
 
   const createOnboardingConversation = useCallback(async (): Promise<string> => {
     if (!practiceId) throw new Error('Practice context is required');
-    const userId = session?.user?.id;
-    if (!userId) throw new SessionNotReadyError();
+    if (!sessionUserId || isAnonymous) throw new SessionNotReadyError();
 
     const params = new URLSearchParams({ practiceId });
     const response = await fetch(`/api/conversations?${params.toString()}`, {
@@ -829,7 +833,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
       body: JSON.stringify({
-        participantUserIds: [userId],
+        participantUserIds: [sessionUserId],
         metadata: { source: 'chat', mode: 'PRACTICE_ONBOARDING', title: 'Practice setup' },
         practiceId,
       }),
@@ -852,12 +856,12 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       source: 'chat',
     });
     return conversationId;
-  }, [practiceId, session?.user?.id]);
+  }, [isAnonymous, practiceId, sessionUserId]);
 
   useEffect(() => {
     if (!isPracticeWorkspace || view !== 'setup' || !practiceId) return;
     if (isSessionPending) return;
-    if (!session?.user?.id) return;
+    if (!sessionUserId || isAnonymous) return;
     if (isConversationsLoading) return;
     if (onboardingConversationId) return;
     if (onboardingConversationFromList) {
@@ -888,7 +892,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
         }
       }
     })();
-  }, [createOnboardingConversation, isConversationsLoading, isPracticeWorkspace, isSessionPending, onboardingConversationFromList, onboardingConversationId, onboardingConversationRetryTick, practiceId, refreshConversations, session?.user?.id, view]);
+  }, [createOnboardingConversation, isAnonymous, isConversationsLoading, isPracticeWorkspace, isSessionPending, onboardingConversationFromList, onboardingConversationId, onboardingConversationRetryTick, practiceId, refreshConversations, sessionUserId, view]);
 
   const [conversationPreviews, setConversationPreviews] = useState<Record<string, {
     content: string;
@@ -911,7 +915,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     if (!shouldLoadConversationPreviews || filteredConversations.length === 0 || !practiceId) {
       return;
     }
-    if (workspace === 'practice' && (isSessionPending || !session?.user?.id)) {
+    if (workspace === 'practice' && (isSessionPending || isAnonymous || !sessionUserId)) {
       return;
     }
     let isMounted = true;
@@ -949,7 +953,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [mockConversationPreviews, mockConversations, practiceId, filteredConversations, isSessionPending, session?.user?.id, shouldLoadConversationPreviews, workspace]);
+  }, [filteredConversations, isAnonymous, isSessionPending, mockConversationPreviews, mockConversations, practiceId, sessionUserId, shouldLoadConversationPreviews, workspace]);
 
   const handleSelectConversation = useCallback((conversationId: string) => {
     hasAutoNavigatedRef.current = true;
@@ -964,33 +968,66 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     if (!isPracticeWorkspace || workspaceSection !== 'conversations' || view !== 'conversation') {
       return;
     }
+    // Only perform the auto-navigation on the initial check for this view to
+    // avoid background refreshes or later filter changes forcing navigation.
+    if (!isInitialConversationCheckRef.current) return;
+
     if (!activeConversationId || resolvedConversationsLoading || !intakeLookupLoaded || acceptedIntakeConversationsLoading) {
+      // Still loading data — defer the initial check until data is ready.
       return;
     }
+
     if (filteredConversations.some((conversation) => conversation.id === activeConversationId)) {
+      isInitialConversationCheckRef.current = false;
+      return;
+    }
+
+    // Verify whether the conversation truly no longer exists anywhere before
+    // navigating. If it still exists in the full resolved list or intake lookup
+    // (but is just hidden by filters), surface a non-disruptive notification
+    // instead of forcing navigation.
+    const existsInResolved = resolvedConversations.some((c) => c.id === activeConversationId);
+    const existsInAcceptedIntakes = intakeTriageStatusLookup.byConversationId.has(activeConversationId)
+      || acceptedIntakeConversationIds.includes(activeConversationId)
+      || acceptedIntakeConversationsRef.current.some((c) => c.id === activeConversationId);
+
+    if (existsInResolved || existsInAcceptedIntakes || resolvedConversationsLoading || !intakeLookupLoaded) {
+      setActiveConversationMissingNotification('The selected conversation is currently hidden by filters or still loading.');
+      isInitialConversationCheckRef.current = false;
       return;
     }
 
     const firstConversationId = filteredConversations[0]?.id;
     if (!firstConversationId) {
       navigate(withWidgetQuery(conversationsPath));
+      isInitialConversationCheckRef.current = false;
       return;
     }
     handleSelectConversation(firstConversationId);
+    isInitialConversationCheckRef.current = false;
   }, [
     activeConversationId,
+    acceptedIntakeConversationIds,
     acceptedIntakeConversationsLoading,
     conversationsPath,
     filteredConversations,
     handleSelectConversation,
+    intakeTriageStatusLookup.byConversationId,
     intakeLookupLoaded,
     isPracticeWorkspace,
     navigate,
+    resolvedConversations,
     resolvedConversationsLoading,
     view,
     withWidgetQuery,
     workspaceSection,
   ]);
+
+  // Reset the initial-check ref when the view or workspace section changes so
+  // the next entry into this view will re-run the initial conversation check.
+  useEffect(() => {
+    isInitialConversationCheckRef.current = true;
+  }, [view, workspaceSection]);
 
   useEffect(() => {
     if (!isClientWorkspace || layoutMode !== 'desktop') {
@@ -1075,6 +1112,11 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
 
   const { currentPractice, updatePractice } = usePracticeManagement({ fetchOnboardingStatus: false });
   const { showSuccess, showError } = useToastContext();
+  useEffect(() => {
+    if (!activeConversationMissingNotification) return;
+    showError('Conversation', activeConversationMissingNotification);
+    setActiveConversationMissingNotification(null);
+  }, [activeConversationMissingNotification, showError]);
   const handleOnboardingMessageError = useCallback((error: unknown) => {
     const message = error instanceof Error ? error.message : 'Onboarding chat error';
     showError('Onboarding', message);
