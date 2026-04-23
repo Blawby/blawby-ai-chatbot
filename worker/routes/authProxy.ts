@@ -128,8 +128,8 @@ const appendDebugHeaders = (proxyHeaders: Headers, response: Response, request: 
       || String(env.DEBUG) === '1'
       || String(env.ALLOW_DEBUG).toLowerCase() === 'true';
     const environment = (
-      typeof (env as Record<string, unknown>).ENVIRONMENT === 'string'
-        ? (env as Record<string, unknown>).ENVIRONMENT
+      typeof (env as unknown as Record<string, unknown>).ENVIRONMENT === 'string'
+        ? (env as unknown as Record<string, unknown>).ENVIRONMENT
         : env.NODE_ENV
     )?.toString().toLowerCase();
     const isProductionEnvironment = environment === 'production' || String(env.IS_PRODUCTION).toLowerCase() === 'true';

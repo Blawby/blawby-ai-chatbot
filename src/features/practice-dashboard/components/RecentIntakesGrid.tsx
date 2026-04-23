@@ -74,13 +74,14 @@ export const RecentIntakesGrid = ({
                 key={intake.uuid}
                 className="glass-card flex flex-col overflow-hidden"
               >
-                <div
+                <button
                   className={
-                    `flex items-center gap-x-4 border-b border-line-glass/20 p-6 ${actionable ? 'cursor-pointer focus-visible:ring-2 focus-visible:ring-accent-400 focus:outline-none' : ''}`
+                    `flex w-full items-center gap-x-4 border-b border-line-glass/20 p-6 text-left ${actionable ? 'cursor-pointer focus-visible:ring-2 focus-visible:ring-accent-400 focus:outline-none' : ''}`
                   }
                   role={actionable ? 'button' : undefined}
                   tabIndex={actionable ? 0 : -1}
                   aria-disabled={actionable ? undefined : true}
+                  type="button"
                   onClick={actionable ? () => onViewIntake?.(intake.uuid) : undefined}
                   onKeyDown={actionable ? (e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
@@ -89,32 +90,32 @@ export const RecentIntakesGrid = ({
                     }
                   } : undefined}
                 >
-                <Avatar 
-                  name={contactName}
-                  size="lg" 
-                  className="h-12 w-12 rounded-xl"
-                />
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-input-text">{title}</p>
-                </div>
-                {/* actions removed — whole card is clickable */}
-              </div>
-              <dl className="-my-3 divide-y divide-line-glass/20 px-6 py-4 text-sm">
-                <div className="flex justify-between gap-x-4 py-3">
-                  <dt className="text-input-placeholder">Date Submitted</dt>
-                  <dd className="text-input-text">
-                    {(() => {
-                      if (!intake.created_at) return '-';
-                      const display = formatDate(intake.created_at, {
-                        month: 'short',
-                        day: 'numeric',
-                        year: 'numeric'
-                      });
-                      if (!display) return '-';
-                      return <time dateTime={intake.created_at}>{display}</time>;
-                    })()}
-                  </dd>
-                </div>
+                  <Avatar 
+                    name={contactName}
+                    size="lg" 
+                    className="h-12 w-12 rounded-xl"
+                  />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-input-text">{title}</p>
+                  </div>
+                  {/* actions removed — whole card is clickable */}
+                </button>
+                <dl className="-my-3 divide-y divide-line-glass/20 px-6 py-4 text-sm">
+                  <div className="flex justify-between gap-x-4 py-3">
+                    <dt className="text-input-placeholder">Date Submitted</dt>
+                    <dd className="text-input-text">
+                      {(() => {
+                        if (!intake.created_at) return '-';
+                        const display = formatDate(intake.created_at, {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric'
+                        });
+                        if (!display) return '-';
+                        return <time dateTime={intake.created_at}>{display}</time>;
+                      })()}
+                    </dd>
+                  </div>
                 <div className="flex justify-between gap-x-4 py-3">
                   <dt className="text-input-placeholder">Amount</dt>
                   <dd className="flex items-start gap-x-2">

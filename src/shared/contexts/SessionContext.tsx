@@ -180,7 +180,7 @@ export function SessionProvider({ children }: { children: ComponentChildren }) {
     if (anonSessionId) {
       rememberAnonymousSessionId(anonSessionId);
     }
-  }, [value.session?.session, valueUserId, valueIsAnon]);
+  }, [value.session, valueUserId, valueIsAnon]);
 
   return (
     <SessionContext.Provider value={value}>

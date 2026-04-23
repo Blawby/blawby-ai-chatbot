@@ -315,7 +315,6 @@ export const usePracticeBillingData = ({
         // Wait for this batch to settle before launching the next batch.
         // If the parent signal has been aborted, stop processing further.
         // This keeps ordering consistent with matterSubset indices.
-        // eslint-disable-next-line no-await-in-loop
         const settled = await Promise.allSettled(batchPromises);
         unbilledSnapshots.push(...settled);
         if (signal?.aborted) break;

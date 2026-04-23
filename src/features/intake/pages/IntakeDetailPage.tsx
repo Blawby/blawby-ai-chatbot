@@ -572,8 +572,6 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
     activeTemplate,
     conversationMetadata,
     gatherDetailsSubmitting,
-    intake?.conversation_id,
-    intake?.organization_id,
     intake,
     intakeConversationState,
     intakeId,

@@ -118,7 +118,7 @@ export function useIntakesData(
     if (options.page === undefined) {
       setPageState(1);
     }
-  }, [options.filter]);
+  }, [options.filter, options.page]);
 
   const setFilter = useCallback((f: IntakesFilter) => {
     if (options.filter !== undefined) return;

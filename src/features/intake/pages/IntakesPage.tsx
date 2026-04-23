@@ -148,6 +148,96 @@ export const IntakesPage: FunctionComponent<IntakesPageProps> = ({
   const lastBackendPageRef = useRef(0);
   const totalBackendPagesRef = useRef(1);
 
+  const fetchIntakePage = useCallback(async (page: number, signal: AbortSignal) => {
+    const currentSessionId = paginationSessionId;
+    if (!practiceId || !isResponsesRoute) return { items: [], hasMore: false };
+
+    const validTriageFilters = ['pending_review', 'accepted', 'declined'] as const;
+    type ValidTriageFilter = typeof validTriageFilters[number];
+    const triageFilter: ValidTriageFilter | undefined =
+      validTriageFilters.includes(activeTriageFilter as ValidTriageFilter)
+        ? (activeTriageFilter as ValidTriageFilter)
+        : undefined;
+
+    // When page is 1, reset our local accumulator and backend progress.
+    if (page === 1) {
+      accumulatedFilteredRef.current = [];
+      lastBackendPageRef.current = 0;
+      totalBackendPagesRef.current = 1;
+    }
+
+    const itemsNeeded = page * PAGE_SIZE;
+
+    // Keep fetching backend pages until we have enough filtered items for the
+    // requested page or we've exhausted all backend results. Guard with
+    // MAX_ADDITIONAL_PAGES to avoid unbounded sequential fetches when
+    // client-side filtering (templateFilter) is enabled.
+    let pagesFetched = 0;
+    while (
+      accumulatedFilteredRef.current.length < itemsNeeded &&
+      lastBackendPageRef.current < totalBackendPagesRef.current
+    ) {
+      if (pagesFetched >= MAX_ADDITIONAL_PAGES) {
+        // stop fetching more pages to avoid long blocking loops; backend
+        // should handle templateFilter server-side (TODO: move filter to API)
+        break;
+      }
+      lastBackendPageRef.current++;
+      const limit = templateFilter || triageFilter ? 100 : PAGE_SIZE;
+      const result = await listIntakes(practiceId, {
+        page: lastBackendPageRef.current,
+        limit,
+        triage_status: triageFilter,
+      }, { signal });
+
+      if (currentSessionId !== paginationSessionIdRef.current) {
+        return { items: [], hasMore: false };
+      }
+
+      totalBackendPagesRef.current = result.total_pages;
+
+      pagesFetched++;
+      const triageFiltered = triageFilter
+        ? result.intakes.filter((item) => normalizeTriageStatus(item.triage_status) === triageFilter)
+        : result.intakes;
+      const filtered = templateFilter
+        ? triageFiltered.filter((item) => {
+          const metadata = item.metadata as Record<string, unknown> | null | undefined;
+          const directSlug = metadata?.intake_template_slug ?? metadata?.template_slug;
+          if (typeof directSlug === 'string' && directSlug.trim()) return directSlug.trim() === templateFilter;
+          const customFields = metadata?.custom_fields ?? metadata?.customFields;
+          if (customFields && typeof customFields === 'object' && !Array.isArray(customFields)) {
+            const storedSlug = (customFields as Record<string, unknown>)._intake_template_slug;
+            if (typeof storedSlug === 'string' && storedSlug.trim()) return storedSlug.trim() === templateFilter;
+          }
+          return templateFilter === DEFAULT_INTAKE_TEMPLATE.slug;
+        })
+        : triageFiltered;
+
+      accumulatedFilteredRef.current.push(
+        ...filtered.map(item => ({ ...item, id: item.uuid }))
+      );
+
+      // If we got fewer results than requested, we've hit the end of the backend.
+      if (result.intakes.length < limit) {
+        totalBackendPagesRef.current = lastBackendPageRef.current;
+        break;
+      }
+    }
+
+    const start = (page - 1) * PAGE_SIZE;
+    const pageItems = accumulatedFilteredRef.current.slice(start, start + PAGE_SIZE);
+
+    return {
+      items: pageItems,
+      // hasMore is true if we either already have more items cached or there are 
+      // more pages left in the backend.
+      hasMore: 
+        accumulatedFilteredRef.current.length > itemsNeeded || 
+        lastBackendPageRef.current < totalBackendPagesRef.current,
+    };
+  }, [paginationSessionId, practiceId, isResponsesRoute, activeTriageFilter, templateFilter]);
+
   const {
     items: intakes,
     isLoading,
@@ -156,95 +246,7 @@ export const IntakesPage: FunctionComponent<IntakesPageProps> = ({
     hasMore,
     loadMoreRef,
   } = usePaginatedList<PaginatedIntake>({
-    fetchPage: async (page, signal) => {
-      const currentSessionId = paginationSessionId;
-      if (!practiceId || !isResponsesRoute) return { items: [], hasMore: false };
-
-      const validTriageFilters = ['pending_review', 'accepted', 'declined'] as const;
-      type ValidTriageFilter = typeof validTriageFilters[number];
-      const triageFilter: ValidTriageFilter | undefined =
-        validTriageFilters.includes(activeTriageFilter as ValidTriageFilter)
-          ? (activeTriageFilter as ValidTriageFilter)
-          : undefined;
-
-      // When page is 1, reset our local accumulator and backend progress.
-      if (page === 1) {
-        accumulatedFilteredRef.current = [];
-        lastBackendPageRef.current = 0;
-        totalBackendPagesRef.current = 1;
-      }
-
-      const itemsNeeded = page * PAGE_SIZE;
-
-      // Keep fetching backend pages until we have enough filtered items for the
-      // requested page or we've exhausted all backend results. Guard with
-      // MAX_ADDITIONAL_PAGES to avoid unbounded sequential fetches when
-      // client-side filtering (templateFilter) is enabled.
-      let pagesFetched = 0;
-      while (
-        accumulatedFilteredRef.current.length < itemsNeeded &&
-        lastBackendPageRef.current < totalBackendPagesRef.current
-      ) {
-        if (pagesFetched >= MAX_ADDITIONAL_PAGES) {
-          // stop fetching more pages to avoid long blocking loops; backend
-          // should handle templateFilter server-side (TODO: move filter to API)
-          break;
-        }
-        lastBackendPageRef.current++;
-        const limit = templateFilter || triageFilter ? 100 : PAGE_SIZE;
-        const result = await listIntakes(practiceId, {
-          page: lastBackendPageRef.current,
-          limit,
-          triage_status: triageFilter,
-        }, { signal });
-
-        if (currentSessionId !== paginationSessionIdRef.current) {
-          return { items: [], hasMore: false };
-        }
-
-        totalBackendPagesRef.current = result.total_pages;
-
-        pagesFetched++;
-        const triageFiltered = triageFilter
-          ? result.intakes.filter((item) => normalizeTriageStatus(item.triage_status) === triageFilter)
-          : result.intakes;
-        const filtered = templateFilter
-          ? triageFiltered.filter((item) => {
-            const metadata = item.metadata as Record<string, unknown> | null | undefined;
-            const directSlug = metadata?.intake_template_slug ?? metadata?.template_slug;
-            if (typeof directSlug === 'string' && directSlug.trim()) return directSlug.trim() === templateFilter;
-            const customFields = metadata?.custom_fields ?? metadata?.customFields;
-            if (customFields && typeof customFields === 'object' && !Array.isArray(customFields)) {
-              const storedSlug = (customFields as Record<string, unknown>)._intake_template_slug;
-              if (typeof storedSlug === 'string' && storedSlug.trim()) return storedSlug.trim() === templateFilter;
-            }
-            return templateFilter === DEFAULT_INTAKE_TEMPLATE.slug;
-          })
-          : triageFiltered;
-
-        accumulatedFilteredRef.current.push(
-          ...filtered.map(item => ({ ...item, id: item.uuid }))
-        );
-
-        // If we got fewer results than requested, we've hit the end of the backend.
-        if (result.intakes.length < limit) {
-          totalBackendPagesRef.current = lastBackendPageRef.current;
-          break;
-        }
-      }
-
-      const start = (page - 1) * PAGE_SIZE;
-      const pageItems = accumulatedFilteredRef.current.slice(start, start + PAGE_SIZE);
-
-      return {
-        items: pageItems,
-        // hasMore is true if we either already have more items cached or there are 
-        // more pages left in the backend.
-        hasMore: 
-          accumulatedFilteredRef.current.length > itemsNeeded || 
-          lastBackendPageRef.current < totalBackendPagesRef.current,
-      };
-    },
+    fetchPage: fetchIntakePage,
     deps: [paginationSessionId],
   });
 

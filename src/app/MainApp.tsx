@@ -16,8 +16,6 @@ import type { UploadingFile } from '@/shared/types/upload';
 import { useNavigation } from '@/shared/utils/navigation';
 import WelcomeDialog from '@/features/modals/components/WelcomeDialog';
 import { useWelcomeDialog } from '@/features/modals/hooks/useWelcomeDialog';
-import { getPreferencesCategory, updatePreferencesCategory } from '@/shared/lib/preferencesApi';
-import type { OnboardingPreferences } from '@/shared/types/preferences';
 import { SessionNotReadyError } from '@/shared/types/errors';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { clearPendingPracticeInviteLink, readPendingPracticeInviteLink } from '@/shared/utils/practiceInvites';

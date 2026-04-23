@@ -18,8 +18,6 @@ export default defineConfig({
     /.*notifications\.spec\.ts/,
   ],
   fullyParallel: true,
-  // Default to Chromium when no project is provided on the CLI
-  defaultProject: 'chromium',
   retries: 0,
   workers: resolveWorkers(),
   outputDir: './.tmp/playwright/auth/results',

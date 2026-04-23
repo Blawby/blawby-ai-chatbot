@@ -51,7 +51,7 @@ export const CurrencyInput = forwardRef<HTMLInputElement, CurrencyInputProps>(({
   const errorId = error ? `${inputId}-error` : undefined;
   const ariaDescribedBy = [descriptionId, errorId].filter(Boolean).join(' ') || undefined;
 
-  useImperativeHandle(ref, () => inputRef.current as HTMLInputElement, []);
+  useImperativeHandle(ref, () => inputRef.current as HTMLInputElement, [inputRef]);
 
   useEffect(() => {
     if (isEditingRef.current) return;
