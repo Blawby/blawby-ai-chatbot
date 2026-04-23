@@ -85,22 +85,46 @@ function resolveActiveTemplate(
 function resolveFieldValue(
   field: IntakeFieldDefinition,
   intakeState: Record<string, unknown> | null,
+  intake?: PracticeIntakeDetail | null,
 ): string | null {
-  if (!intakeState) return null;
-  // Standard fields map to top-level keys on the state
-  if (field.isStandard) {
-    const v = intakeState[field.key];
+  // Helper to normalize boolean/string/null handling
+  const normalize = (v: unknown): string | null => {
     if (v === null || v === undefined || v === '') return null;
     if (typeof v === 'boolean') return v ? 'Yes' : 'No';
     return String(v);
+  };
+
+  // Check the provided intakeState first (conversation-submitted answers)
+  if (intakeState) {
+    if (field.isStandard) {
+      const v = intakeState[field.key];
+      return normalize(v);
+    }
+    const cf = (intakeState as Record<string, unknown>).customFields;
+    if (cf && typeof cf === 'object' && !Array.isArray(cf)) {
+      const v = (cf as Record<string, unknown>)[field.key];
+      const nv = normalize(v);
+      if (nv !== null) return nv;
+    }
   }
-  // Custom fields live under customFields
-  const cf = intakeState.customFields;
-  if (!cf || typeof cf !== 'object' || Array.isArray(cf)) return null;
-  const v = (cf as Record<string, unknown>)[field.key];
-  if (v === null || v === undefined || v === '') return null;
-  if (typeof v === 'boolean') return v ? 'Yes' : 'No';
-  return String(v);
+
+  // Fallback: inspect intake.metadata (template-submitted answers or stored metadata)
+  if (intake && typeof intake === 'object') {
+    const meta = (intake.metadata ?? {}) as Record<string, unknown>;
+    if (field.isStandard) {
+      const v = meta[field.key] ?? meta[field.key as string];
+      const nv = normalize(v);
+      if (nv !== null) return nv;
+    }
+    const cf = meta.customFields ?? meta.custom_fields;
+    if (cf && typeof cf === 'object' && !Array.isArray(cf)) {
+      const v = (cf as Record<string, unknown>)[field.key];
+      const nv = normalize(v);
+      if (nv !== null) return nv;
+    }
+  }
+
+  return null;
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -504,7 +528,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
     const templateFields = (activeTemplate?.fields ?? DEFAULT_INTAKE_TEMPLATE.fields)
       .filter((f) => f.phase === 'enrichment');
     const nextMissingField = templateFields.find(
-      (f) => !resolveFieldValue(f, intakeConversationState as unknown as Record<string, unknown> | null)
+      (f) => !resolveFieldValue(f, intakeConversationState as unknown as Record<string, unknown> | null, intake)
     );
     const prompt = nextMissingField
       ? `I can gather a little more detail for the attorney. ${nextMissingField.previewQuestion ?? `Can you tell me about your ${nextMissingField.label.toLowerCase()}?`}`
@@ -644,7 +668,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
 
   // hasMissingLegalDetails: true if any enrichment field is unanswered
   const unansweredEnrichmentFields = enrichmentFields.filter(
-    (f) => !resolveFieldValue(f, intakeStateRecord),
+    (f) => !resolveFieldValue(f, intakeStateRecord, intake),
   );
   const hasMissingLegalDetails = unansweredEnrichmentFields.length > 0 && Boolean(intake.conversation_id);
 
@@ -885,12 +909,12 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
                 </span>
               ) : null}
             </div>
-            {activeTemplate && practiceId ? (
+            {activeTemplate && (practiceDetails as { slug?: string })?.slug ? (
               <Button
                 type="button"
                 variant="link"
                 size="sm"
-                onClick={() => route(`/practice/${encodeURIComponent((practiceDetails as { slug?: string })?.slug ?? practiceId)}/intakes/${encodeURIComponent(activeTemplate.slug)}/edit`)}
+                onClick={() => route(`/practice/${encodeURIComponent((practiceDetails as { slug?: string }).slug)}/intakes/${encodeURIComponent(activeTemplate.slug)}/edit`)}
                 className="h-auto p-0 text-xs text-accent hover:text-accent-hover"
               >
                 View form setup
@@ -903,7 +927,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
                 <StatCell
                   key={field.key}
                   label={field.label}
-                  value={resolveFieldValue(field, intakeStateRecord)}
+                  value={resolveFieldValue(field, intakeStateRecord, intake)}
                   icon={ClipboardDocumentCheckIcon}
                 />
               ))}

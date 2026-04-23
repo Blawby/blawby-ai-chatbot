@@ -162,94 +162,63 @@ function unwrapSessionData(d: unknown): AuthSessionPayload | null {
     const sessionRecord = record.session as BetterAuthRawSessionRecord;
     const userRecord = record.user as BetterAuthRawSessionUser;
 
-    const normalizedSession: Record<string, unknown> = {
-      ...sessionRecord,
-    };
-    if (
-      typeof normalizedSession.active_organization_id !== 'string'
-      && typeof sessionRecord.activeOrganizationId === 'string'
-    ) {
+    const normalizedSession: Record<string, unknown> = {};
+    if (typeof sessionRecord.active_organization_id === 'string') {
+      normalizedSession.active_organization_id = sessionRecord.active_organization_id;
+    } else if (typeof sessionRecord.activeOrganizationId === 'string') {
       normalizedSession.active_organization_id = sessionRecord.activeOrganizationId;
     }
 
-    const normalizedUser: Record<string, unknown> = {
-      ...userRecord,
-    };
-    if (
-      typeof normalizedUser.is_anonymous !== 'boolean'
-      && typeof userRecord.isAnonymous === 'boolean'
-    ) {
-      normalizedUser.is_anonymous = userRecord.isAnonymous;
-    }
-    if (typeof normalizedUser.is_anonymous !== 'boolean') {
-      normalizedUser.is_anonymous = false;
-    }
-    if (
-      typeof normalizedUser.onboarding_complete !== 'boolean'
-      && typeof userRecord.onboardingComplete === 'boolean'
-    ) {
-      normalizedUser.onboarding_complete = userRecord.onboardingComplete;
-    }
-    if (
-      typeof normalizedUser.primary_workspace !== 'string'
-      && typeof userRecord.primaryWorkspace === 'string'
-    ) {
-      normalizedUser.primary_workspace = userRecord.primaryWorkspace;
-    }
-    if (
-      typeof normalizedUser.practice_id !== 'string'
-      && typeof userRecord.practiceId === 'string'
-    ) {
-      normalizedUser.practice_id = userRecord.practiceId;
-    }
-    if (
-      typeof normalizedUser.active_practice_id !== 'string'
-      && typeof userRecord.activePracticeId === 'string'
-    ) {
-      normalizedUser.active_practice_id = userRecord.activePracticeId;
-    }
-    if (
-      typeof normalizedUser.active_organization_id !== 'string'
-      && typeof userRecord.activeOrganizationId === 'string'
-    ) {
-      normalizedUser.active_organization_id = userRecord.activeOrganizationId;
-    }
-    if (
-      typeof normalizedUser.stripe_customer_id !== 'string'
-      && typeof userRecord.stripeCustomerId === 'string'
-    ) {
-      normalizedUser.stripe_customer_id = userRecord.stripeCustomerId;
-    }
-    if (
-      typeof normalizedUser.email_verified !== 'boolean'
-      && typeof userRecord.emailVerified === 'boolean'
-    ) {
-      normalizedUser.email_verified = userRecord.emailVerified;
-    }
-    if (
-      typeof normalizedUser.last_login_method !== 'string'
-      && typeof userRecord.lastLoginMethod === 'string'
-    ) {
-      normalizedUser.last_login_method = userRecord.lastLoginMethod;
-    }
+    const normalizedUser: Record<string, unknown> = {};
+    if (typeof userRecord.id === 'string') normalizedUser.id = userRecord.id;
+    if (typeof userRecord.email === 'string') normalizedUser.email = userRecord.email;
+    if (typeof userRecord.name === 'string') normalizedUser.name = userRecord.name;
+    // Map anonymity flags explicitly
+    if (typeof userRecord.is_anonymous === 'boolean') normalizedUser.is_anonymous = userRecord.is_anonymous;
+    else if (typeof (userRecord as any).isAnonymous === 'boolean') normalizedUser.is_anonymous = (userRecord as any).isAnonymous;
+    // Onboarding, workspace, practice/organization ids
+    if (typeof userRecord.onboarding_complete === 'boolean') normalizedUser.onboarding_complete = userRecord.onboarding_complete;
+    else if (typeof (userRecord as any).onboardingComplete === 'boolean') normalizedUser.onboarding_complete = (userRecord as any).onboardingComplete;
+    if (typeof userRecord.primary_workspace === 'string') normalizedUser.primary_workspace = userRecord.primary_workspace;
+    else if (typeof (userRecord as any).primaryWorkspace === 'string') normalizedUser.primary_workspace = (userRecord as any).primaryWorkspace;
+    if (typeof userRecord.practice_id === 'string') normalizedUser.practice_id = userRecord.practice_id;
+    else if (typeof (userRecord as any).practiceId === 'string') normalizedUser.practice_id = (userRecord as any).practiceId;
+    if (typeof userRecord.active_practice_id === 'string') normalizedUser.active_practice_id = userRecord.active_practice_id;
+    else if (typeof (userRecord as any).activePracticeId === 'string') normalizedUser.active_practice_id = (userRecord as any).activePracticeId;
+    if (typeof userRecord.active_organization_id === 'string') normalizedUser.active_organization_id = userRecord.active_organization_id;
+    else if (typeof (userRecord as any).activeOrganizationId === 'string') normalizedUser.active_organization_id = (userRecord as any).activeOrganizationId;
+    if (typeof userRecord.stripe_customer_id === 'string') normalizedUser.stripe_customer_id = userRecord.stripe_customer_id;
+    else if (typeof (userRecord as any).stripeCustomerId === 'string') normalizedUser.stripe_customer_id = (userRecord as any).stripeCustomerId;
+    if (typeof userRecord.email_verified === 'boolean') normalizedUser.email_verified = userRecord.email_verified;
+    else if (typeof (userRecord as any).emailVerified === 'boolean') normalizedUser.email_verified = (userRecord as any).emailVerified;
+    if (typeof userRecord.last_login_method === 'string') normalizedUser.last_login_method = userRecord.last_login_method;
+    else if (typeof (userRecord as any).lastLoginMethod === 'string') normalizedUser.last_login_method = (userRecord as any).lastLoginMethod;
+
     // Runtime validation: ensure required fields exist and timestamps are converted
     try {
       // Basic required fields (id, email) - throws if missing
       validateRequiredFields(normalizedUser);
     } catch (err) {
-      console.warn('[authClient] Invalid session user received; rejecting session payload', err, { raw: userRecord });
+      console.warn('[authClient] Invalid session user; rejecting session payload', {
+        id: normalizedUser.id ?? 'no-id',
+        hasEmail: typeof normalizedUser.email === 'string',
+        error: err instanceof Error ? err.message : String(err),
+      });
       return null;
     }
 
     // Ensure name exists (must be a string)
     if (typeof normalizedUser.name !== 'string' || normalizedUser.name.trim() === '') {
-      console.warn('[authClient] Session user missing `name` field; rejecting session payload', { raw: userRecord });
+      console.warn('[authClient] Session user missing `name` field; rejecting session payload', {
+        id: normalizedUser.id ?? 'no-id',
+        namePresent: typeof normalizedUser.name === 'string',
+      });
       return null;
     }
 
-    // Ensure is_anonymous exists and is boolean
+    // Ensure is_anonymous exists and is boolean (default false)
     if (typeof normalizedUser.is_anonymous !== 'boolean') {
-      normalizedUser.is_anonymous = Boolean(userRecord.isAnonymous ?? false);
+      normalizedUser.is_anonymous = Boolean((userRecord as Record<string, unknown>).is_anonymous ?? (userRecord as Record<string, unknown>).isAnonymous ?? false);
     }
 
     // Convert timestamps to Date|null

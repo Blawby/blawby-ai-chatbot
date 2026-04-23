@@ -28,7 +28,6 @@ export async function handlePracticeTeam(request: Request, env: Env): Promise<Re
   return createSuccessResponse({
     members: team.members.map((member) => ({
       user_id: member.userId,
-      email: member.email,
       name: member.name ?? null,
       image: member.image,
       role: member.role,

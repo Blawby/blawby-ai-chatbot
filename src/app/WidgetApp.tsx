@@ -104,8 +104,10 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
   }, [practiceConfig.accentColor]);
 
   const currentUserId = bootstrapSession?.user?.id ?? null;
-  // Rely on backend field name only
-  const isAnonymous = bootstrapSession?.user?.is_anonymous ?? true;
+  // If there's no bootstrap user, default to anonymous=true. If a user exists,
+  // prefer the explicit backend field (coerced to boolean) so a missing
+  // `is_anonymous` does not incorrectly mark an authenticated user anonymous.
+  const isAnonymous = bootstrapSession?.user ? Boolean(bootstrapSession.user.is_anonymous) : true;
 
   const isEmbedded = typeof window !== 'undefined' && window.parent !== window;
 

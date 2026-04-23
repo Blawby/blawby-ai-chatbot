@@ -18,7 +18,11 @@ describe('save_case_details tool', () => {
     
     // Save handlers accept partial updates; they return success:true even for empty fields
     expect(result.success).toBe(true);
+    // But an empty required field should not be considered submittable
+    expect(result.submittable).toBe(false);
     expect(result.message).toContain('Case details saved');
+    // Ensure the message does not claim all required fields collected
+    expect(result.message).not.toContain('All required fields collected');
   });
 
   test('should normalize state codes', () => {

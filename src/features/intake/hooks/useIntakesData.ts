@@ -110,6 +110,16 @@ export function useIntakesData(
     return () => controller.abort();
   }, [practiceId, effectiveFilter, effectivePage, limit, enabled, retryTick]);
 
+  // If the caller controls the filter (options.filter provided) but does not
+  // control the page (options.page undefined), reset the internal page state
+  // to 1 whenever the controlled filter value changes so pagination doesn't
+  // remain stale across filter switches.
+  useEffect(() => {
+    if (options.page === undefined) {
+      setPageState(1);
+    }
+  }, [options.filter]);
+
   const setFilter = useCallback((f: IntakesFilter) => {
     if (options.filter !== undefined) return;
     setFilterState(f);

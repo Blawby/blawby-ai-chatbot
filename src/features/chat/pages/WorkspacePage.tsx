@@ -454,8 +454,10 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   const intakeTriageStatusLookup = useMemo(() => {
     const byConversationId = new Map<string, string>();
     for (const intake of allIntakes) {
-      const conversationId = typeof intake.conversation_id === 'string' ? intake.conversation_id.trim() : '';
-      const triageStatus = typeof intake.triage_status === 'string' ? intake.triage_status.trim() : '';
+      const rawConversationId = intake.conversation_id ?? (intake as any).conversationId;
+      const conversationId = typeof rawConversationId === 'string' ? rawConversationId.trim() : '';
+      const rawTriageStatus = intake.triage_status ?? (intake as any).triageStatus;
+      const triageStatus = typeof rawTriageStatus === 'string' ? rawTriageStatus.trim() : '';
       if (conversationId && triageStatus) {
         byConversationId.set(conversationId, triageStatus);
       }
@@ -964,6 +966,13 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     navigate(withWidgetQuery(`${conversationsPath}/${encodeURIComponent(conversationId)}`));
   }, [conversationsPath, navigate, onSelectConversationOverride, withWidgetQuery]);
 
+  // Reset the initial-check ref as we enter the conversations view or when the
+  // active conversation changes. This must run before the auto-navigation
+  // effect so that the navigation logic sees the reset on view entry / id changes.
+  useEffect(() => {
+    isInitialConversationCheckRef.current = true;
+  }, [view, workspaceSection, activeConversationId]);
+
   useEffect(() => {
     if (!isPracticeWorkspace || workspaceSection !== 'conversations' || view !== 'conversation') {
       return;
@@ -1023,11 +1032,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     workspaceSection,
   ]);
 
-  // Reset the initial-check ref when the view or workspace section changes so
-  // the next entry into this view will re-run the initial conversation check.
-  useEffect(() => {
-    isInitialConversationCheckRef.current = true;
-  }, [view, workspaceSection]);
+  
 
   useEffect(() => {
     if (!isClientWorkspace || layoutMode !== 'desktop') {

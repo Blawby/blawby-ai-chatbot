@@ -1,6 +1,4 @@
-import { EllipsisHorizontalIcon } from '@heroicons/react/24/outline';
-import { Icon } from '@/shared/ui/Icon';
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/shared/ui/dropdown';
+// Removed per-Card action menu: cards are now clickable
 import { Avatar } from '@/shared/ui/profile';
 import { SkeletonLoader } from '@/shared/ui/layout/SkeletonLoader';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
@@ -75,7 +73,18 @@ export const RecentIntakesGrid = ({
                 key={intake.uuid}
                 className="glass-card flex flex-col overflow-hidden"
               >
-              <div className="flex items-center gap-x-4 border-b border-line-glass/20 p-6">
+                <div
+                  className="flex items-center gap-x-4 border-b border-line-glass/20 p-6"
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => onViewIntake?.(intake.uuid)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      onViewIntake?.(intake.uuid);
+                    }
+                  }}
+                >
                 <Avatar 
                   name={contactName}
                   size="lg" 
@@ -84,23 +93,7 @@ export const RecentIntakesGrid = ({
                 <div className="flex-1">
                   <p className="text-sm font-medium text-input-text">{title}</p>
                 </div>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button
-                      type="button"
-                      className="relative block text-input-placeholder hover:text-input-text"
-                      aria-label={`Intake actions for ${title}`}
-                    >
-                      <span className="absolute -inset-2.5" />
-                      <Icon icon={EllipsisHorizontalIcon} className="h-5 w-5"  />
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="min-w-[140px]">
-                    <DropdownMenuItem onSelect={() => onViewIntake?.(intake.uuid)}>
-                      View intake
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                {/* actions removed — whole card is clickable */}
               </div>
               <dl className="-my-3 divide-y divide-line-glass/20 px-6 py-4 text-sm">
                 <div className="flex justify-between gap-x-4 py-3">

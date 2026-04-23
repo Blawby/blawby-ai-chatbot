@@ -123,14 +123,23 @@ const buildProxyHeaders = (
 
 const appendDebugHeaders = (proxyHeaders: Headers, response: Response, request: Request, env: Env) => {
   try {
-    const enabled = String(env.DEBUG).toLowerCase() === 'true' || String(env.DEBUG) === '1' || String(env.ALLOW_DEBUG).toLowerCase() === 'true';
-    if (!enabled) return;
+    const debugEnabled =
+      String(env.DEBUG).toLowerCase() === 'true'
+      || String(env.DEBUG) === '1'
+      || String(env.ALLOW_DEBUG).toLowerCase() === 'true';
+    const environment = (
+      typeof (env as Record<string, unknown>).ENVIRONMENT === 'string'
+        ? (env as Record<string, unknown>).ENVIRONMENT
+        : env.NODE_ENV
+    )?.toString().toLowerCase();
+    const isProductionEnvironment = environment === 'production' || String(env.IS_PRODUCTION).toLowerCase() === 'true';
+    if (!debugEnabled || isProductionEnvironment) return;
 
-    const rawSetCookie = (response.headers as Headers & { getSetCookie?: () => string[] }).getSetCookie?.() ?? [];
-    if (rawSetCookie.length === 0) {
-      const sc = response.headers.get('Set-Cookie');
-      if (sc) rawSetCookie.push(...sc.split(/,(?=\s*[^=]+=)/));
+    const headersWithSetCookie = response.headers as Headers & { getSetCookie?: () => string[] };
+    if (typeof headersWithSetCookie.getSetCookie !== 'function') {
+      return;
     }
+    const rawSetCookie = headersWithSetCookie.getSetCookie();
 
     const setCookieMeta: Array<Record<string, unknown>> = rawSetCookie.map((cookieStr) => {
       const parts = cookieStr.split(';').map((p) => p.trim());
