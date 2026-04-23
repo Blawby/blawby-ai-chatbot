@@ -1012,10 +1012,6 @@ test.describe('Public widget intake flow', () => {
       'planner-network-log.json'
     );
 
-    const _envVal = typeof (process.env as unknown as Record<string, unknown>).ENVIRONMENT === 'string'
-      ? (process.env as unknown as Record<string, unknown>).ENVIRONMENT
-      : process.env.NODE_ENV;
-    const environment = _envVal && _envVal.toString ? _envVal.toString().toLowerCase() : undefined;
 
 
     const networkLog: Array<{ time: string; method: string; url: string; status?: number }> = [];
