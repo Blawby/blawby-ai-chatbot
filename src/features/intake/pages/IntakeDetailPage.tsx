@@ -596,6 +596,156 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
     return 'bg-accent/10 text-accent ring-accent/20';
   };
 
+  const conversationSection = intake.conversation_id ? (
+    <section className="glass-card flex min-h-[620px] flex-col overflow-hidden">
+      <header className="shrink-0 border-b border-line-glass/10 p-5">
+        <h2 className="text-xs font-semibold uppercase tracking-widest text-input-placeholder">
+          Conversation
+        </h2>
+        <p className="mt-2 text-sm text-input-placeholder">
+          Continue the client thread from this intake.
+        </p>
+      </header>
+      <div className="min-h-0 flex-1 overflow-hidden bg-surface-overlay/20 touch-pan-y">
+        {previewLoading && previewMessages.length === 0 ? (
+          <div className="flex h-full flex-col items-center justify-center p-6 text-center">
+            <LoadingBlock label="Loading conversation history..." />
+          </div>
+        ) : previewMessages.length === 0 ? (
+          <div className="flex h-full flex-col items-center justify-center p-6 text-center">
+            <p className="text-sm text-input-placeholder">No conversation history found for this intake.</p>
+          </div>
+        ) : (
+          <VirtualMessageList
+            messages={previewMessages}
+            conversationTitle={intakeTitle}
+            conversationContactName={name}
+            viewerContext="practice"
+            practiceConfig={{
+              name: practiceDetails?.name ?? practiceName ?? 'Practice',
+              profileImage: practiceDetails?.logo ?? practiceLogo ?? null,
+              practiceId: intake.organization_id,
+            }}
+            practiceId={intake.organization_id}
+          />
+        )}
+      </div>
+
+      {canReplyInIntake ? (
+        <div className="shrink-0 border-t border-line-glass/10 px-4 py-5">
+          <MessageComposer
+            inputValue={composerValue}
+            setInputValue={setComposerValue}
+            previewFiles={[]}
+            uploadingFiles={[]}
+            removePreviewFile={() => undefined}
+            handleFileSelect={async () => undefined}
+            handleCameraCapture={async () => undefined}
+            cancelUpload={() => undefined}
+            isRecording={false}
+            handleMediaCapture={() => undefined}
+            setIsRecording={() => undefined}
+            onSubmit={() => void submitConversationReply()}
+            onKeyDown={(event) => {
+              if ((event as KeyboardEvent & { isComposing?: boolean }).isComposing || event.repeat) return;
+              if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                void submitConversationReply();
+              }
+            }}
+            textareaRef={composerTextareaRef}
+            isReadyToUpload={false}
+            isSessionReady={!composerSubmitting}
+            isSocketReady={!composerSubmitting}
+            disabled={composerSubmitting}
+            hideAttachmentControls
+            mentionCandidates={[]}
+          />
+        </div>
+      ) : null}
+    </section>
+  ) : null;
+
+  const intakeSidebar = (
+    <aside className="min-w-0 space-y-6 xl:sticky xl:top-6 xl:self-start">
+      {isPendingReview && (
+        <section className="glass-card p-5 sm:p-6">
+          <div className="space-y-3">
+            <Button
+              id="intake-accept-btn"
+              variant="primary"
+              className="w-full"
+              disabled={isSubmitting}
+              onClick={() => openTriageDialog('accepted')}
+            >
+              {isSubmitting ? (
+                <span className="inline-flex items-center">
+                  <LoadingSpinner size="sm" className="mr-2" ariaLabel="Accepting consultation" />
+                  Accepting...
+                </span>
+              ) : 'Approve consultation'}
+            </Button>
+            <Button
+              id="intake-reject-btn"
+              variant="secondary"
+              className="w-full"
+              disabled={isSubmitting}
+              onClick={() => openTriageDialog('declined')}
+            >
+              Reject
+            </Button>
+          </div>
+        </section>
+      )}
+
+      <section className="glass-card space-y-6 p-5 sm:p-6">
+        <div>
+          <h3 className="mb-3 text-xs font-semibold uppercase tracking-widest text-input-placeholder">About</h3>
+          <div className="space-y-4">
+            {intake.payment_verified && (
+              <div className="flex items-center gap-2 text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                <Icon icon={CheckCircleIconSolid} className="h-4 w-4" />
+                Payment method verified
+              </div>
+            )}
+            <UserCard
+              name={name}
+              secondary={null}
+              className="px-0 py-0"
+              size="md"
+            />
+          </div>
+        </div>
+
+        {(email || phone || locationLabel) && (
+          <div>
+            <h3 className="mb-3 text-xs font-semibold uppercase tracking-widest text-input-placeholder">Contact Information</h3>
+            <dl className="space-y-3 text-sm">
+              {email && (
+                <div className="flex flex-col">
+                  <dt className="mb-0.5 text-xs text-input-placeholder">Email</dt>
+                  <dd className="truncate font-medium text-input-text">{email}</dd>
+                </div>
+              )}
+              {phone && (
+                <div className="flex flex-col">
+                  <dt className="mb-0.5 text-xs text-input-placeholder">Phone</dt>
+                  <dd className="font-medium text-input-text">{phone}</dd>
+                </div>
+              )}
+              {locationLabel && (
+                <div className="flex flex-col">
+                  <dt className="mb-0.5 text-xs text-input-placeholder">Location</dt>
+                  <dd className="truncate font-medium capitalize text-input-text">{locationLabel}</dd>
+                </div>
+              )}
+            </dl>
+          </div>
+        )}
+      </section>
+    </aside>
+  );
+
   return (
     <EditorShell
       title={intake.client_name ?? name ?? 'Intake Details'}
@@ -608,172 +758,12 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
         </span>
       }
       contentMaxWidth={null}
-      preview={
-        <div className="space-y-6">
-          {/* Triage actions */}
-          <div className="px-1 space-y-3">
-            {isPendingReview && (
-              <div className="space-y-3">
-                <Button
-                  id="intake-accept-btn"
-                  variant="primary"
-                  className="w-full"
-                  disabled={isSubmitting}
-                  onClick={() => openTriageDialog('accepted')}
-                >
-                  {isSubmitting ? (
-                    <span className="inline-flex items-center">
-                      <LoadingSpinner size="sm" className="mr-2" ariaLabel="Accepting consultation" />
-                      Accepting...
-                    </span>
-                  ) : 'Approve consultation'}
-                </Button>
-                <div className="w-full">
-                  <Button
-                    id="intake-reject-btn"
-                    variant="secondary"
-                    className="w-full"
-                    disabled={isSubmitting}
-                    onClick={() => openTriageDialog('declined')}
-                  >
-                    Reject
-                  </Button>
-                </div>
-              </div>
-            )}
-
-            {effectiveTriageStatus === 'accepted' && (
-              <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/20 p-5 text-center">
-                <p className="text-base font-bold text-emerald-700 dark:text-emerald-300">Intake Approved</p>
-                <p className="text-xs text-input-placeholder mt-2">This lead has been converted to a client or matter.</p>
-              </div>
-            )}
-
-            {effectiveTriageStatus === 'declined' && (
-              <div className="rounded-xl bg-rose-500/10 border border-rose-500/20 p-5 text-center">
-                <p className="text-base font-bold text-rose-700 dark:text-rose-300">Intake Rejected</p>
-              </div>
-            )}
-          </div>
-
-          <div className="px-1 space-y-6">
-            <div>
-              <h3 className="text-xs font-semibold uppercase tracking-widest text-input-placeholder mb-3">About</h3>
-              <div className="space-y-4">
-                {intake.payment_verified && (
-                  <div className="flex items-center gap-2 text-xs font-bold text-emerald-600 dark:text-emerald-400">
-                    <Icon icon={CheckCircleIconSolid} className="h-4 w-4" />
-                    Payment method verified
-                  </div>
-                )}
-                <UserCard
-                  name={name}
-                  secondary={null}
-                  className="px-0 py-0"
-                  size="md"
-                />
-              </div>
-            </div>
-
-            {(email || phone) && (
-              <div>
-                <h3 className="text-xs font-semibold uppercase tracking-widest text-input-placeholder mb-3">Contact Information</h3>
-                <dl className="space-y-3 text-sm">
-                  {email && (
-                    <div className="flex flex-col">
-                      <dt className="text-input-placeholder text-xs mb-0.5">Email</dt>
-                      <dd className="text-input-text font-medium truncate">{email}</dd>
-                    </div>
-                  )}
-                  {phone && (
-                    <div className="flex flex-col">
-                      <dt className="text-input-placeholder text-xs mb-0.5">Phone</dt>
-                      <dd className="text-input-text font-medium">{phone}</dd>
-                    </div>
-                  )}
-                  {locationLabel && (
-                    <div className="flex flex-col">
-                      <dt className="text-input-placeholder text-xs mb-0.5">Location</dt>
-                      <dd className="text-input-text font-medium truncate capitalize">{locationLabel}</dd>
-                    </div>
-                  )}
-                </dl>
-              </div>
-            )}
-          </div>
-
-          {/* Conversation preview */}
-          {intake.conversation_id && (
-            <section className="glass-card flex flex-col h-[600px] overflow-hidden mx-1">
-              <header className="p-4 border-b border-line-glass/10 shrink-0">
-                <h3 className="text-sm font-semibold text-input-text uppercase tracking-widest">
-                  Conversation Preview
-                </h3>
-              </header>
-              <div className="flex-1 min-h-0 overflow-hidden bg-surface-overlay/20 touch-pan-y">
-                {previewLoading && previewMessages.length === 0 ? (
-                  <div className="h-full flex flex-col items-center justify-center p-6 text-center">
-                    <LoadingBlock label="Loading conversation history..." />
-                  </div>
-                ) : previewMessages.length === 0 ? (
-                  <div className="h-full flex flex-col items-center justify-center p-6 text-center">
-                    <p className="text-sm text-input-placeholder">No conversation history found for this intake.</p>
-                  </div>
-                ) : (
-                  <VirtualMessageList
-                    messages={previewMessages}
-                    conversationTitle={intakeTitle}
-                    viewerContext="practice"
-                    practiceConfig={{
-                      name: practiceDetails?.name ?? practiceName ?? 'Practice',
-                      profileImage: practiceDetails?.logo ?? practiceLogo ?? null,
-                      practiceId: intake.organization_id,
-                    }}
-                    practiceId={intake.organization_id}
-                  />
-                )}
-              </div>
-              
-              {canReplyInIntake ? (
-                <div className="shrink-0 border-t border-line-glass/10 px-4 py-5">
-                  <MessageComposer
-                    inputValue={composerValue}
-                    setInputValue={setComposerValue}
-                    previewFiles={[]}
-                    uploadingFiles={[]}
-                    removePreviewFile={() => undefined}
-                    handleFileSelect={async () => undefined}
-                    handleCameraCapture={async () => undefined}
-                    cancelUpload={() => undefined}
-                    isRecording={false}
-                    handleMediaCapture={() => undefined}
-                    setIsRecording={() => undefined}
-                    onSubmit={() => void submitConversationReply()}
-                    onKeyDown={(event) => {
-                      if ((event as KeyboardEvent & { isComposing?: boolean }).isComposing || event.repeat) return;
-                      if (event.key === 'Enter' && !event.shiftKey) {
-                        event.preventDefault();
-                        void submitConversationReply();
-                      }
-                    }}
-                    textareaRef={composerTextareaRef}
-                    isReadyToUpload={false}
-                    isSessionReady={!composerSubmitting}
-                    isSocketReady={!composerSubmitting}
-                    disabled={composerSubmitting}
-                    hideAttachmentControls
-                    mentionCandidates={[]}
-                  />
-                </div>
-              ) : null}
-            </section>
-          )}
-        </div>
-      }
+      contentClassName="px-4 py-6 sm:px-6 lg:px-8"
     >
-      <div className="space-y-6">
-        {/* Main header card */}
-        <section className="glass-card overflow-hidden p-6 sm:p-10">
+      <div className="mx-auto grid w-full max-w-7xl grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="min-w-0 space-y-6">
+          {/* Main header card */}
+          <section className="glass-card overflow-hidden p-6 sm:p-10">
           <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_280px]">
             <header className="min-w-0">
               <h2 className="mb-2 text-xs font-semibold uppercase tracking-widest text-input-placeholder">
@@ -891,6 +881,11 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
             </section>
           );
         })()}
+
+          {conversationSection}
+        </div>
+
+        {intakeSidebar}
       </div>
 
       <Dialog
