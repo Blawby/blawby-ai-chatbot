@@ -166,6 +166,9 @@ const persistMergedIntakeState = async (
       conversationId: params.conversationId,
       error: metadataError instanceof Error ? metadataError.message : String(metadataError),
     });
+    // Propagate the error so callers awaiting this function do not proceed
+    // as-if persistence succeeded. This prevents emitting `done` when D1 writes fail.
+    throw metadataError;
   }
 };
 
@@ -687,6 +690,9 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
     details,
     requiredFields: templateRequiredFields,
     activeTemplate,
+    // Template fee takes precedence over practice-level details fee.
+    // Mirrors the precedence in resolveTemplatePaymentConfig / deriveCaseSavedAcknowledgment.
+    templateConsultationFee: templatePaymentConfig.hasConfig ? templatePaymentConfig.consultationFee : null,
     nextEnrichmentField,
   };
 
@@ -1102,7 +1108,21 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         });
       }
 
-      // Emit done — client acts on fields immediately after persistence is confirmed
+      // Persist intake state to D1 BEFORE emitting done.
+      // The post-stream path creates a race: the user's next message can arrive
+      // before the D1 write completes, causing the next turn to read stale state
+      // (e.g. description missing → AI re-asks). Streaming text is already
+      // complete at this point so this adds no perceived latency.
+      if (isIntakeMode && mergedIntakeState) {
+        await persistMergedIntakeState(conversationService, {
+          conversationId: body.conversationId,
+          practiceId: conversation.practice_id,
+          consultationStatus: consultation?.status,
+          mergedIntakeState,
+        });
+      }
+
+      // Emit done — D1 is now consistent before the client acts on fields
       write({
         done: true,
         reply: finalReply,
@@ -1120,18 +1140,6 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       responseClosed = true;
 
       const postStreamTasks: Promise<unknown>[] = [];
-
-      // Persist intake metadata off the stream-critical path
-      if (isIntakeMode && mergedIntakeState) {
-        postStreamTasks.push(
-          persistMergedIntakeState(conversationService, {
-            conversationId: body.conversationId,
-            practiceId: conversation.practice_id,
-            consultationStatus: consultation?.status,
-            mergedIntakeState,
-          })
-        );
-      }
 
       postStreamTasks.push(auditService.createEvent({
         conversationId: body.conversationId,

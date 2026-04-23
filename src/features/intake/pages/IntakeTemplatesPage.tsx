@@ -9,7 +9,7 @@ import {
   PlusIcon,
   UserGroupIcon,
 } from '@heroicons/react/24/outline';
-import { Checkbox, Combobox, CurrencyInput, Input } from '@/shared/ui/input';
+import { Checkbox, Combobox, CurrencyInput, Input, Textarea } from '@/shared/ui/input';
 import type { ComboboxOption } from '@/shared/ui/input';
 import { Button } from '@/shared/ui/Button';
 import { EditorShell } from '@/shared/ui/layout';
@@ -60,6 +60,9 @@ type EditorState = {
 type BuilderSelectionId = 'contact' | 'opening' | 'disclaimer' | 'payment' | `required:${string}` | `enrichment:${string}`;
 
 const SLUG_RE = /^[a-z0-9-]+$/;
+// Structurally locked: these fields cannot be removed, moved, or replaced —
+// they are always present and always required. Practice owners CAN edit their
+// label and promptHint (wording) so the AI asks the question in their voice.
 const LOCKED_REQUIRED_KEYS = new Set(['description', 'city', 'state']);
 
 function slugify(name: string): string {
@@ -507,7 +510,7 @@ function QuestionDivider() {
 
   return (
     <div className="relative flex items-center gap-3 py-4">
-      <span className="h-px flex-1 bg-line-glass/30" aria-hidden="true" />
+      <span className="h-px flex-1 bg-line-utility/60 dark:bg-line-glass/20" aria-hidden="true" />
       <div className="relative">
         <button
           type="button"
@@ -529,7 +532,7 @@ function QuestionDivider() {
           </div>
         ) : null}
       </div>
-      <span className="h-px flex-1 bg-line-glass/30" aria-hidden="true" />
+      <span className="h-px flex-1 bg-line-utility/60 dark:bg-line-glass/20" aria-hidden="true" />
     </div>
   );
 }
@@ -546,7 +549,7 @@ function AddQuestionButton({ children, disabled = false, onClick }: AddQuestionB
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-dashed border-line-glass/50 bg-transparent px-4 py-3 text-sm font-medium text-input-placeholder transition-colors hover:border-line-glass/80 hover:bg-surface-utility/10 hover:text-input-text disabled:cursor-not-allowed disabled:opacity-50"
+      className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-dashed border-line-utility/70 bg-transparent px-4 py-3 text-sm font-semibold text-input-placeholder transition-colors hover:border-line-utility hover:bg-surface-utility/50 hover:text-input-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/45 disabled:cursor-not-allowed disabled:opacity-50 dark:border-line-glass/35 dark:hover:border-line-glass/60 dark:hover:bg-surface-utility/40"
     >
       <PlusIcon className="h-4 w-4" aria-hidden="true" />
       {children}
@@ -586,6 +589,10 @@ function BuilderNavRow({
   const canDrag = !locked && Boolean(dragHandlers);
   const hasMenu = !locked && Boolean(onRemove || onMoveUp || onMoveDown);
   const displayLabel = label.trim() || 'Untitled question';
+  const iconWrapClassName = selected
+    ? 'bg-surface-workspace/70 text-accent-utility ring-1 ring-accent-500/25 dark:bg-surface-workspace/15 dark:text-accent-utility dark:ring-accent-500/20'
+    : 'bg-surface-utility/70 text-input-placeholder group-hover:bg-surface-utility group-hover:text-input-text dark:bg-surface-utility/45 dark:group-hover:bg-surface-utility/70';
+  const iconClassName = selected ? 'text-accent-utility' : 'text-input-placeholder';
 
   return (
     <div
@@ -599,36 +606,37 @@ function BuilderNavRow({
       onDragOver={dragHandlers?.onDragOver}
     >
       <div
-        className={`flex items-center gap-1 rounded-2xl px-2 py-2 transition-all ${
+        className={`relative flex items-center gap-1 rounded-2xl px-2 py-2 transition-all ${
           selected
-            ? 'bg-accent-500/20 text-[rgb(var(--accent-foreground))] ring-1 ring-accent-500/45 shadow-[inset_0_0_0_1px_rgba(var(--accent),0.12)]'
-            : 'bg-transparent text-input-text hover:bg-surface-utility/10'
+            ? 'nav-item-active'
+            : 'nav-item-inactive'
         }`}
       >
+        {selected ? (
+          <span className="absolute left-0 top-2 bottom-2 w-0.5 rounded-full bg-accent-500" aria-hidden="true" />
+        ) : null}
         <button
           type="button"
           onClick={onSelect}
-          className="flex min-w-0 flex-1 items-center gap-1 text-left"
+          className="flex min-w-0 flex-1 items-center gap-1 text-left focus-visible:outline-none"
         >
           {typeof index === 'number' ? (
-            <span className="w-4 shrink-0 text-center font-mono text-[11px] text-input-placeholder">
+            <span className={`w-4 shrink-0 text-center font-mono text-[11px] ${selected ? 'text-accent-utility' : 'text-input-placeholder'}`}>
               {String(index)}
             </span>
           ) : (
             <span className="w-4 shrink-0" aria-hidden="true" />
           )}
           <span
-            className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-xl ${
-              selected ? 'bg-accent-500/24' : 'bg-accent-500/14'
-            }`}
+            className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-xl transition-colors ${iconWrapClassName}`}
             aria-hidden="true"
           >
             {icon ? icon : locked ? (
-              <LockClosedIcon className="h-3.5 w-3.5 text-[rgb(var(--accent-foreground))]" />
+              <LockClosedIcon className={`h-3.5 w-3.5 ${iconClassName}`} />
             ) : canDrag ? (
-              <ArrowsUpDownIcon className="h-3.5 w-3.5 text-[rgb(var(--accent-foreground))]" />
+              <ArrowsUpDownIcon className={`h-3.5 w-3.5 ${iconClassName}`} />
             ) : (
-              <PencilSquareIcon className="h-3.5 w-3.5 text-[rgb(var(--accent-foreground))]" />
+              <PencilSquareIcon className={`h-3.5 w-3.5 ${iconClassName}`} />
             )}
           </span>
           <span className="min-w-0 flex-1 pr-0.5">
@@ -645,7 +653,7 @@ function BuilderNavRow({
                   aria-label={`Open actions for ${displayLabel}`}
                   className={`flex h-8 w-8 items-center justify-center rounded-xl transition-colors ${
                     selected
-                      ? 'bg-accent-500/18 text-[rgb(var(--accent-foreground))]'
+                      ? 'bg-surface-workspace/70 text-accent-utility hover:bg-surface-workspace dark:bg-surface-workspace/15 dark:hover:bg-surface-workspace/25'
                       : 'bg-surface-utility/14 text-input-text/80 hover:bg-surface-utility/22 hover:text-input-text'
                   }`}
                 >
@@ -1246,8 +1254,12 @@ function TemplateEditor({
   const updateFieldLabel = (key: string, phase: FieldPhase, value: string) => {
     updateField(key, phase, (field) => {
       if (field.isStandard) {
+        // Standard fields: store value as-is. Do NOT auto-append '?' on every
+        // keystroke — it re-injects into the canvas value each render, causing
+        // the '?f?s?d?' cascade. The user can write whatever phrasing they want.
         return {
           ...field,
+          label: value,
           previewQuestion: value,
         };
       }
@@ -1258,6 +1270,10 @@ function TemplateEditor({
         previewQuestion: getDefaultPreviewQuestion(value),
       };
     });
+  };
+
+  const updateFieldHint = (key: string, phase: FieldPhase, value: string) => {
+    updateField(key, phase, (field) => ({ ...field, promptHint: value || undefined }));
   };
 
   const finalizeFieldLabel = (key: string, phase: FieldPhase) => {
@@ -1457,6 +1473,22 @@ function TemplateEditor({
       }
     }
 
+    // Ensure that required standard fields display a non-empty label and previewQuestion
+    const invalidStandardRequired: string[] = [];
+    for (const field of currentState.requiredFields) {
+      if (field.isStandard) {
+        const trimmedLabel = field.label.trim();
+        const trimmedPreview = (field.previewQuestion ?? '').trim().replace(/\?$/, '');
+        if (!trimmedLabel || !trimmedPreview) {
+          invalidStandardRequired.push(trimmedLabel || field.key);
+        }
+      }
+    }
+    if (invalidStandardRequired.length > 0) {
+      showError('Required questions incomplete', `Please fill the following required questions: ${invalidStandardRequired.join(', ')}.`);
+      return false;
+    }
+
     if (currentState.paymentLinkEnabled) {
       if (typeof currentState.consultationFee !== 'number' || !Number.isFinite(currentState.consultationFee) || currentState.consultationFee < 0.5) {
         showError('Payment amount required', 'Payment requirements must be at least $0.50.');
@@ -1574,7 +1606,7 @@ function TemplateEditor({
           index={1}
           label="Contact"
           locked
-          icon={<UserGroupIcon className="h-4 w-4 text-input-placeholder" />}
+          icon={<UserGroupIcon className="h-4 w-4" />}
           selected={effectiveSelectedItemId === 'contact'}
           onSelect={() => selectBuilderItem('contact')}
         />
@@ -1584,7 +1616,6 @@ function TemplateEditor({
             key={field.key}
             index={staticFlowStepCount + index + 1}
             label={field.label}
-            locked
             selected={effectiveSelectedItemId === `required:${field.key}`}
             onSelect={() => selectBuilderItem(`required:${field.key}`)}
           />
@@ -1684,7 +1715,7 @@ function TemplateEditor({
   const builderCanvas = selectedFieldContext ? (
     <BuilderQuestionCanvas
       field={selectedFieldContext.field}
-      readOnly={LOCKED_REQUIRED_KEYS.has(selectedFieldContext.field.key)}
+      readOnly={false}
       practiceName={practiceCanvasName}
       practiceLogo={practiceCanvasLogo}
       onLabelChange={(label) => updateFieldLabel(selectedFieldContext.field.key, selectedFieldContext.phase, label)}
@@ -1770,6 +1801,20 @@ function TemplateEditor({
                 placeholder="Option 1, Option 2"
               />
             ) : null}
+
+            <Textarea
+              label={selectedFieldContext.field.isStandard ? 'AI question phrasing' : 'AI instruction'}
+              description={selectedFieldContext.field.isStandard
+                ? 'How the AI asks this question. Leave blank to use the default.'
+                : 'How the AI should ask and handle this question.'}
+              value={selectedFieldContext.field.promptHint ?? ''}
+              onChange={(value) => updateFieldHint(selectedFieldContext.field.key, selectedFieldContext.phase, value)}
+              placeholder={selectedFieldContext.field.isStandard
+                ? `e.g. "Ask for the client's ${selectedFieldContext.field.label.toLowerCase()} in a warm, conversational tone."`
+                : 'Describe how the AI should ask and what counts as a valid answer.'}
+              rows={4}
+              resize="vertical"
+            />
           </div>
         </SettingSection>
       ) : effectiveSelectedItemId === 'payment' ? (

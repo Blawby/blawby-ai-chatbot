@@ -319,7 +319,8 @@ export function MainApp({
 
   const handleStrengthenCase = useCallback(async () => {
     try {
-      await applyIntakeFields({ enrichmentMode: true });
+      // Clear ctaShown so the submit button disappears during enrichment.
+      await applyIntakeFields({ enrichmentMode: true, ctaShown: false });
       await sendMessage('I want to provide more details to strengthen my case.', []);
     } catch (err) {
       console.error('Failed to start strengthen case flow', err);

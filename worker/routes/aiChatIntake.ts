@@ -320,7 +320,11 @@ export const handleSaveCaseDetails = (
     postSaveNextEnrichmentField = null;
   }
 
-  const consultationFee = readFiniteNumberField(submissionGate.details, ['consultationFee', 'consultation_fee']);
+  // Template fee presence takes precedence over practice details — allow zero values.
+  const templatePaymentConfigured = typeof submissionGate.templateConsultationFee === 'number';
+  const consultationFee = templatePaymentConfigured
+    ? submissionGate.templateConsultationFee
+    : readFiniteNumberField(submissionGate.details, ['consultationFee', 'consultation_fee']);
   const actions = deriveNextActions(merged, submissionGate, consultationFee, postSaveNextEnrichmentField);
   if (actions.length > 0) {
     patch.ctaShown = true;
@@ -562,7 +566,10 @@ export const buildIntakeSystemPrompt = (
           : activeField.type === 'number'
             ? '\n  Expect a numeric answer.'
             : '';
-    const guidance = activeField.promptHint ? `\n  Guidance: ${activeField.promptHint}` : '';
+    // Use practice-defined hint if provided; fall back to a contextual default
+    // so the AI has direction even when no custom hint is set.
+    const defaultHint = `Ask for the client's ${activeField.label.toLowerCase()} in a warm, natural way. Keep it to one sentence.`;
+    const guidance = `\n  Guidance: ${activeField.promptHint?.trim() || defaultHint}`;
     const validation = activeField.validationHint ? `\n  Valid answer: ${activeField.validationHint}` : '';
     const condNote = activeField.condition
       ? `\n  Context: only relevant when ${activeField.condition.dependsOn} is "${activeField.condition.value}"` 
@@ -698,6 +705,12 @@ export interface IntakeSubmissionGate {
    * value on nextEnrichmentField becomes stale the moment a field is answered.
    */
   activeTemplate?: IntakeTemplate | null;
+  /**
+   * Consultation fee from the template (minor units / cents), if configured.
+   * Takes precedence over the practice-level fee in submissionGate.details.
+   * Mirrors the same precedence used in aiChat.ts for deriveCaseSavedAcknowledgment.
+   */
+  templateConsultationFee?: number | null;
   /**
    * Pre-computed next enrichment field (pre-save turn state).
    * Use activeTemplate + merged state to get the post-save value.

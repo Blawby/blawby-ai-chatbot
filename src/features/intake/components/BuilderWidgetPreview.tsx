@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef } from 'preact/hooks';
 import { PaperAirplaneIcon } from '@heroicons/react/24/outline';
 import { DetailHeader } from '@/shared/ui/layout/DetailHeader';
 import { Avatar } from '@/shared/ui/profile';
+import { cn } from '@/shared/utils/cn';
 
 type BuilderWidgetShellProps = {
   practiceName?: string | null;
@@ -116,7 +117,7 @@ export function BuilderAssistantPreviewMessage({
             <span className="text-xs font-semibold text-input-text">{practiceName?.trim() || 'Assistant'}</span>
             <span className="text-xs text-input-placeholder">just now</span>
           </div>
-          <div className={`mt-1 rounded-2xl px-4 py-3 ${bubbleClassName}`.trim()}>
+          <div className={cn('mt-1 rounded-2xl', bubbleClassName)}>
             <textarea
               ref={textareaRef}
               value={value}
