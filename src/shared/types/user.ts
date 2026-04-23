@@ -1,3 +1,20 @@
+/**
+ * Auth Session Type Boundary (Two-Layer Model)
+ *
+ * Layer 1 (canonical app contract):
+ * - `BetterAuthSessionUser` is the app-facing session user type.
+ * - It is snake_case and matches `AuthSessionPayload` after normalization.
+ * - App code should read session fields from this contract only.
+ *
+ * Layer 2 (SDK-facing/raw input):
+ * - `ExtendedUser` represents Better Auth SDK/raw user shapes (camelCase allowed).
+ * - It is not the canonical session contract consumed by app session reads.
+ *
+ * Normalization rule:
+ * - camelCase -> snake_case normalization happens exactly once in
+ *   `src/shared/lib/authClient.ts` (`unwrapSessionData`).
+ * - Do not duplicate session field normalization in hooks/components/services.
+ */
 // TypeScript types for user data that match Better Auth schema
 // These types are derived from the additionalFields defined in worker/auth/index.ts
 
