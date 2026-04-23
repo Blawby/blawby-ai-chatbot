@@ -1,4 +1,3 @@
-import axios from 'axios';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { Button } from '@/shared/ui/Button';
 import { SectionDivider, EditorShell } from '@/shared/ui';
@@ -80,10 +79,6 @@ export const PayoutsPage = ({
         return;
       }
       if ((error as { name?: string }).name === 'AbortError') {
-        return;
-      }
-      if (axios.isAxiosError(error) && error.response?.status === 404) {
-        setStripeStatus(null);
         return;
       }
       console.warn('[PAYOUTS] Failed to load Stripe status:', error);

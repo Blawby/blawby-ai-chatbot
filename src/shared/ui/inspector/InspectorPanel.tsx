@@ -282,7 +282,7 @@ export const InspectorPanel = ({
     return conversationMembers.find((entry) => entry.userId === assignedTo) ?? null;
   }, [conversation?.assigned_to, conversationMembers]);
 
-  const currentUserId = session?.transformError ? undefined : session?.user?.id;
+  const currentUserId = session?.user?.id ?? undefined;
 
   const currentAssignedLabel = assignedMemberLabel ?? (
     <span className="flex items-center gap-1">

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'preact/hooks';
-import { getClient } from '@/shared/lib/authClient';
+import { getSession } from '@/shared/lib/authClient';
 import { rememberAnonymousUserId, rememberAnonymousSessionId } from '@/shared/utils/anonymousIdentity';
 import { clearWidgetAuthToken, persistWidgetAuthToken, withWidgetAuthHeaders } from '@/shared/utils/widgetAuth';
 import type { IntakeTemplate } from '@/shared/types/intake';
@@ -10,7 +10,6 @@ export interface WidgetBootstrapData {
     id?: string | null;
     user?: {
       id: string;
-      isAnonymous?: boolean;
       is_anonymous?: boolean;
       [key: string]: unknown;
     } | null;
@@ -104,12 +103,11 @@ export function useWidgetBootstrap(slug: string, isWidget: boolean) {
         // If we dispatch auth:session-updated before the fetch completes, those
         // hooks will read the old (null) session and block or error.
         const bootstrapUser = freshData.session?.user;
+        // Rely on backend field names only
         const isAnonymousUser = bootstrapUser
-          ? (typeof bootstrapUser.isAnonymous === 'boolean'
-              ? bootstrapUser.isAnonymous
-              : typeof (bootstrapUser as Record<string, unknown>).is_anonymous === 'boolean'
-                ? Boolean((bootstrapUser as Record<string, unknown>).is_anonymous)
-                : false)
+          ? typeof (bootstrapUser as Record<string, unknown>).is_anonymous === 'boolean'
+            ? Boolean((bootstrapUser as Record<string, unknown>).is_anonymous)
+            : false
           : false;
 
         const bootstrapSessionId = typeof freshData.session?.id === 'string'
@@ -129,7 +127,7 @@ export function useWidgetBootstrap(slug: string, isWidget: boolean) {
             rememberAnonymousSessionId(bootstrapSessionId);
           }
           try {
-            await getClient().getSession();
+            await getSession();
           } catch (sessionError) {
             // Non-fatal: the cookie was still set by the worker.
             // The next call that requires auth will pick it up automatically.

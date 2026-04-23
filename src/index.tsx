@@ -182,8 +182,8 @@ function AppShell() {
   const { session, isPending: sessionPending } = useSessionContext();
   const onboardingIncomplete =
     Boolean(session?.user) &&
-    !session.user.isAnonymous &&
-    session.user.onboardingComplete !== true;
+    !session.user.is_anonymous &&
+    session.user.onboarding_complete !== true;
   const shouldFetchWorkspacePractices =
     !location.path.startsWith('/public/') &&
     !location.path.startsWith('/auth') &&
@@ -207,7 +207,7 @@ function AppShell() {
 
   useEffect(() => {
     if (sessionPending) return;
-    if (session?.user && !session.user.isAnonymous) {
+    if (session?.user && !session.user.is_anonymous) {
       const pendingConversation = consumePostAuthConversationContext();
       if (
         pendingConversation?.workspace === 'public' &&
@@ -269,8 +269,8 @@ function AppShell() {
     const user = session?.user;
     const requiresOnboarding =
       Boolean(user) &&
-      !user?.isAnonymous &&
-      user?.onboardingComplete !== true &&
+      !user?.is_anonymous &&
+      user?.onboarding_complete !== true &&
       !bypassOnboardingForRoute;
 
     if (requiresOnboarding) {
@@ -487,7 +487,7 @@ function RootRoute() {
       return;
     }
 
-    if (session.user.onboardingComplete !== true && !session.user.isAnonymous) {
+    if (session.user.onboarding_complete !== true && !session.user.is_anonymous) {
       return;
     }
 
@@ -506,8 +506,8 @@ function RootRoute() {
     !isPending &&
     !practicesLoading &&
     session?.user &&
-    !session.user.isAnonymous &&
-    session.user.onboardingComplete === true &&
+    !session.user.is_anonymous &&
+    session.user.onboarding_complete === true &&
     !authenticatedHomePath
   ) {
     return renderWorkspaceFailureState(
@@ -580,12 +580,10 @@ function PracticeAppRoute({
   const resolvedPracticeIdFromConfig = typeof practiceConfig.id === 'string' ? practiceConfig.id : '';
   const resolvedPracticeId = resolvedPracticeIdFromConfig || practiceLookupKey;
   const sessionRecord = session?.session as Record<string, unknown> | undefined;
-  const backendActiveOrgId =
-    (typeof sessionRecord?.activeOrganizationId === 'string'
-      ? sessionRecord.activeOrganizationId
-      : typeof sessionRecord?.active_organization_id === 'string'
-        ? sessionRecord.active_organization_id
-        : null);
+  // Use backend canonical field `active_organization_id` only
+  const backendActiveOrgId = typeof sessionRecord?.active_organization_id === 'string'
+    ? sessionRecord.active_organization_id
+    : null;
 
   useEffect(() => {
     if (isPending || practicesLoading || !session?.user || !resolvedPracticeId) return;

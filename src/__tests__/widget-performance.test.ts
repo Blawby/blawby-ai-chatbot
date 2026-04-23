@@ -244,7 +244,7 @@ const MOCK_RESPONSES: Record<string, { status: number; body: unknown; delayMs?: 
   '\\/api\\/auth\\/sign-in\\/anonymous': {
     delayMs: 150,
     status: 200,
-    body: { user: { id: 'anon-uuid', isAnonymous: true }, session: { id: 'sess-uuid' } }
+    body: { user: { id: 'anon-uuid', is_anonymous: true }, session: { id: 'sess-uuid' } }
   },
   '\\/api\\/practice\\/.*\\/conversations': {
     delayMs: 100,
@@ -268,7 +268,9 @@ const MOCK_RESPONSES: Record<string, { status: number; body: unknown; delayMs?: 
       practiceId: 'uuid-practice',
       slug: 'paul-yahoo',
       name: 'Paul Yahoo Law',
-      session: { user: { id: 'anon-uuid', isAnonymous: true } },
+      // Return canonical backend-shaped session + user
+      session: { id: 'sess-uuid' },
+      user: { id: 'anon-uuid', is_anonymous: true },
       conversationId: 'uuid-conv',
       messages: []
     }

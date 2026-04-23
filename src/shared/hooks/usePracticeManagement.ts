@@ -836,11 +836,7 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
               );
               stripeDetailsSubmitted = resolveStripeDetailsSubmitted(payload);
             } catch (stripeError) {
-              if (axios.isAxiosError(stripeError) && stripeError.response?.status === 404) {
-                stripeDetailsSubmitted = false;
-              } else {
-                console.warn('Failed to fetch onboarding status:', stripeError);
-              }
+              console.warn('Failed to fetch onboarding status:', stripeError);
             }
           }
         }

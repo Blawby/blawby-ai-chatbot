@@ -1,12 +1,12 @@
 import { createContext, useContext, useEffect, useRef, useMemo, useState } from 'preact/compat';
 import { ComponentChildren } from 'preact';
-import { useTypedSession, useActiveMemberRole } from '@/shared/lib/authClient';
+import { useSession, useActiveMemberRole } from '@/shared/lib/authClient';
 import { RoutePracticeContext } from '@/shared/contexts/RoutePracticeContext';
 import { rememberAnonymousUserId, rememberAnonymousSessionId } from '@/shared/utils/anonymousIdentity';
-import type { BetterAuthSessionUser } from '@/shared/types/user';
+import type { AuthSessionPayload, BackendSession, BackendSessionUser } from '@/shared/types/user';
 
 export interface SessionContextValue {
-  session: ReturnType<typeof useTypedSession>['data'];
+  session: AuthSessionPayload;
   isPending: boolean;
   error: unknown;
   isAnonymous: boolean;
@@ -18,7 +18,7 @@ export interface SessionContextValue {
 
 export const SessionContext = createContext<SessionContextValue | undefined>(undefined);
 
-type SessionData = ReturnType<typeof useTypedSession>['data'];
+type SessionData = AuthSessionPayload | null | undefined;
 type ActiveMemberRoleState = {
   role: string | null;
   loading: boolean;
@@ -27,14 +27,11 @@ type ActiveMemberRoleState = {
 };
 
 const getActivePracticeId = (sessionData: SessionData | null | undefined): string | null => {
-  const sessionRecord = sessionData?.session as Record<string, unknown> | undefined;
-  const activeOrgId =
-    (typeof sessionRecord?.activeOrganizationId === 'string'
-      ? sessionRecord.activeOrganizationId
-      : typeof sessionRecord?.active_organization_id === 'string'
-        ? sessionRecord.active_organization_id
-        : null);
-  return activeOrgId ?? null;
+  const sessionRecord = sessionData?.session as BackendSession | undefined;
+  // Use backend field name only (greenfield decision)
+  return typeof sessionRecord?.active_organization_id === 'string'
+    ? sessionRecord.active_organization_id
+    : null;
 };
 
 const buildSessionContextValue = ({
@@ -50,21 +47,12 @@ const buildSessionContextValue = ({
   activeMemberRole: string | null;
   activeMemberRoleLoading: boolean;
 }): SessionContextValue => {
-  // Safely narrow to fully-typed user, checking the new transformError discriminator
-  const isTransformError = sessionData && 'transformError' in sessionData && sessionData.transformError === true;
-  const typedUser = (isTransformError ? null : sessionData?.user) as BetterAuthSessionUser | null | undefined;
-  const rawUserRecord = isTransformError ? (sessionData?.user as unknown as Record<string, unknown> | undefined) : undefined;
-
-  const userRecord = (typedUser as unknown as Record<string, unknown> | undefined) ?? undefined;
-  const isAnonymous = isTransformError
-    ? (rawUserRecord?.isAnonymous as boolean | undefined ?? !sessionData?.user)
-    : (typedUser?.isAnonymous ?? !sessionData?.user);
-  const stripeCustomerId =
-    (typeof userRecord?.stripeCustomerId === 'string'
-      ? userRecord.stripeCustomerId
-      : typeof userRecord?.stripe_customer_id === 'string'
-        ? userRecord.stripe_customer_id
-        : null) ?? null;
+  const userRecord = sessionData?.user as BackendSessionUser | undefined;
+  // Rely on backend field names only
+  const isAnonymous = Boolean(userRecord?.is_anonymous ?? !sessionData?.user);
+  const stripeCustomerId = typeof userRecord?.stripe_customer_id === 'string'
+    ? userRecord.stripe_customer_id
+    : null;
   const activePracticeId = getActivePracticeId(sessionData);
 
   return {
@@ -110,26 +98,20 @@ function ActiveMemberRoleBridge({
 }
 
 export function SessionProvider({ children }: { children: ComponentChildren }) {
-  const { data: sessionData, isPending, error } = useTypedSession();
+  const { session: sessionData, isPending, error } = useSession();
   const [activeMemberRoleState, setActiveMemberRoleState] = useState<ActiveMemberRoleState>({
     role: null,
     loading: false,
     resolved: false,
   });
-
-  const isTransformError = sessionData && 'transformError' in sessionData && sessionData.transformError === true;
-  const typedUser = (isTransformError ? null : sessionData?.user) as BetterAuthSessionUser | null | undefined;
-  const rawUserRecord1 = isTransformError ? (sessionData?.user as unknown as Record<string, unknown> | undefined) : undefined;
-  const currentUserId1 = isTransformError ? (rawUserRecord1?.id as string | undefined) : typedUser?.id;
-  const sessionIsAnonymous = isTransformError
-    ? (rawUserRecord1?.isAnonymous as boolean | undefined ?? !sessionData?.user)
-    : (typedUser?.isAnonymous ?? !sessionData?.user);
+  const currentUserId1 = sessionData?.user?.id ?? null;
+  const sessionIsAnonymous = Boolean(sessionData?.user?.is_anonymous ?? !sessionData?.user);
   const sessionActivePracticeId = getActivePracticeId(sessionData);
   const shouldResolveActiveMemberRole = Boolean(currentUserId1 && !sessionIsAnonymous && sessionActivePracticeId);
 
   const sessionKey =
     currentUserId1 ??
-    (sessionData?.session as { id?: string } | undefined)?.id ??
+    (sessionData?.session as BackendSession | undefined)?.id ??
     null;
 
   const previousSessionKeyRef = useRef<string | null | undefined>(undefined);
@@ -185,23 +167,20 @@ export function SessionProvider({ children }: { children: ComponentChildren }) {
     [activeMemberRoleState.role, activeMemberRoleState.error, effectiveActiveMemberRoleLoading, error, isPending, sessionData]
   );
 
-  const valueIsTransformError = value.session && 'transformError' in value.session && value.session.transformError === true;
-  const valueTypedUser = (valueIsTransformError ? null : value.session?.user) as BetterAuthSessionUser | null | undefined;
-  const rawUserRecord2 = valueIsTransformError ? (value.session?.user as unknown as Record<string, unknown> | undefined) : undefined;
-  const currentUserId2 = valueIsTransformError ? (rawUserRecord2?.id as string | undefined) : valueTypedUser?.id;
-  const isAnon2 = valueIsTransformError ? (rawUserRecord2?.isAnonymous as boolean | undefined ?? !value.session?.user) : valueTypedUser?.isAnonymous;
+  const valueUserId = value.session?.user?.id ?? null;
+  const valueIsAnon = Boolean(value.session?.user?.is_anonymous ?? !value.session?.user);
 
   useEffect(() => {
-    if (!currentUserId2) return;
-    if (!isAnon2) return;
-    rememberAnonymousUserId(currentUserId2);
-    const anonSessionId = typeof (value.session.session as { id?: string } | null | undefined)?.id === 'string'
-      ? (value.session.session as { id: string }).id
+    if (!valueUserId) return;
+    if (!valueIsAnon) return;
+    rememberAnonymousUserId(valueUserId);
+    const anonSessionId = typeof (value.session?.session as BackendSession | undefined)?.id === 'string'
+      ? (value.session?.session as BackendSession).id
       : null;
     if (anonSessionId) {
       rememberAnonymousSessionId(anonSessionId);
     }
-  }, [value.session?.session, currentUserId2, isAnon2]);
+  }, [value.session?.session, valueUserId, valueIsAnon]);
 
   return (
     <SessionContext.Provider value={value}>

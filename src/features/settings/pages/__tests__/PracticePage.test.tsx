@@ -2,8 +2,9 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 // Mock authClient BEFORE importing anything that uses it
 const mockUseSession = vi.fn(() => ({
-  data: { user: { id: 'user-1', email: 'test@test-blawby.com' } },
+  session: { user: { id: 'user-1', email: 'test@test-blawby.com' }, session: { id: 'session-1' } },
   isPending: false,
+  error: null,
 }));
 
 vi.mock('@/shared/lib/authClient', () => ({
@@ -11,7 +12,6 @@ vi.mock('@/shared/lib/authClient', () => ({
     useSession: mockUseSession,
   },
   useSession: mockUseSession,
-  useTypedSession: mockUseSession,
   useActiveMemberRole: () => ({
     data: { role: 'owner' },
     isPending: false,

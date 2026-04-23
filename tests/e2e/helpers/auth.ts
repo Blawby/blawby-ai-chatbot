@@ -36,12 +36,9 @@ export const waitForSession = async (
           data = null;
         }
       }
-      const hasSession = Boolean(data?.session || data?.user || data?.data?.session || data?.data?.user);
-      const userId = data?.user?.id
-        ?? data?.data?.user?.id
-        ?? data?.session?.user?.id
-        ?? data?.data?.session?.user?.id
-        ?? null;
+      // Canonical shape: { session, user } | null
+      const hasSession = Boolean(data?.session || data?.user);
+      const userId = data?.user?.id ?? data?.session?.user?.id ?? null;
       lastResult = {
         ok: response.ok(),
         status: response.status(),
@@ -55,14 +52,10 @@ export const waitForSession = async (
       if (lastResult.ok && lastResult.hasSession && lastResult.userId) {
         return lastResult.userId;
       }
-      
-      // Check if anonymous sign-in has completed (even if userId is null/empty)
-      if (lastResult.ok && lastResult.hasSession && rawText.includes('anonymous')) {
-        // Extract userId for anonymous users - reuse the same validation as above
-        const anonUserId = data?.user?.id ?? data?.data?.user?.id ?? data?.session?.user?.id ?? data?.data?.session?.user?.id;
-        if (typeof anonUserId === 'string' && anonUserId) {
-          return anonUserId;
-        }
+      // If anonymous session arrives without explicit id, accept presence of is_anonymous
+      if (lastResult.ok && lastResult.hasSession && !lastResult.userId) {
+        const isAnon = Boolean(data?.user?.is_anonymous || data?.session?.user?.is_anonymous);
+        if (isAnon) return '';
       }
     } catch (error) {
       lastResult = {

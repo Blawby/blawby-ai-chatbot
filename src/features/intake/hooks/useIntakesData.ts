@@ -110,13 +110,15 @@ export function useIntakesData(
   }, [practiceId, effectiveFilter, page, limit, enabled, retryTick]);
 
   const setFilter = useCallback((f: IntakesFilter) => {
+    if (options.filter !== undefined) return;
     setFilterState(f);
     setPageState(1);
-  }, []);
+  }, [options.filter]);
 
   const setPage = useCallback((p: number) => {
+    if (options.page !== undefined) return;
     setPageState(p);
-  }, []);
+  }, [options.page]);
 
   const refetch = useCallback(() => {
     setRetryTick((t) => t + 1);

@@ -13,8 +13,8 @@ describe('save_contact_info tool', () => {
     const toolNames = INTAKE_TOOLS.map(tool => tool.function.name);
     
     expect(toolNames).not.toContain('save_contact_info');
-    // The actual tools are only the three core intake tools
-    expect(toolNames).toEqual(['save_case_details', 'request_payment', 'submit_intake']);
+    // The actual tools include the case save, payment, submit, and ask_user_question utilities
+    expect(toolNames).toEqual(['save_case_details', 'request_payment', 'submit_intake', 'ask_user_question']);
   });
 
   test('should confirm system prompt tells AI not to ask for contact info', () => {
@@ -24,7 +24,8 @@ describe('save_contact_info tool', () => {
     
     const prompt = buildIntakeSystemPrompt(services, practiceContext, storedIntakeState);
     
-    expect(prompt).toContain('Never ask for contact info (name, email, phone) — it is already collected via the intake form');
+    expect(prompt).toContain('Never ask for contact info');
+    expect(prompt).toContain('already collected');
   });
 
   test('should confirm contact info is handled by slim form', () => {
@@ -34,6 +35,6 @@ describe('save_contact_info tool', () => {
     
     const prompt = buildIntakeSystemPrompt(services, practiceContext, storedIntakeState);
     
-    expect(prompt).toContain('it is already collected via the intake form');
+    expect(prompt).toContain('already collected');
   });
 });

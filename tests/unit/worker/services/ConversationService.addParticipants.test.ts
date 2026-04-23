@@ -9,7 +9,7 @@ const createMockEnv = () => {
   const prepare = vi.fn().mockReturnValue({ bind });
 
   const env = {
-    DB: { prepare } as unknown as Env['DB'],
+    DB: { prepare, batch: vi.fn().mockResolvedValue({}) } as unknown as Env['DB'],
     CHAT_SESSIONS: {} as Env['CHAT_SESSIONS'],
     ONESIGNAL_APP_ID: 'test-app',
     ONESIGNAL_REST_API_KEY: 'test-key',
@@ -52,7 +52,8 @@ describe('ConversationService.addParticipants', () => {
     const result = await service.addParticipants('conv-1', 'practice-1', ['user-2']);
 
     expect(getConversationSpy).toHaveBeenCalledTimes(2);
-    expect(prepare).toHaveBeenCalledTimes(1);
+    // One prepare for the UPDATE and one for INSERT OR IGNORE per new participant
+    expect(prepare).toHaveBeenCalledTimes(2);
     expect(bind).toHaveBeenCalledWith(
       JSON.stringify(['owner', 'user-2']),
       expect.any(String),

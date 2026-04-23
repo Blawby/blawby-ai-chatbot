@@ -51,8 +51,6 @@ export interface UserProfile {
   
   // Profile Information
   bio?: string | null;
-  // TODO: These PII fields should be encrypted using PIIEncryptionService
-  // TODO: Frontend should handle encryption/decryption transparently
   secondaryPhone?: string | null;
   addressStreet?: string | null;
   addressCity?: string | null;
@@ -93,12 +91,25 @@ export interface UserProfile {
   linkedinUrl?: string | null;
   githubUrl?: string | null;
   
-  // Onboarding
-  
   // Timestamps
   createdAt: Date | null;
   updatedAt: Date | null;
 }
+
+// Alias for clarity: backend-shaped session user
+export type BackendSessionUser = BetterAuthSessionUser;
+
+// Minimal backend session record shape (extendable by backend)
+export interface BackendSession {
+  id?: string | null;
+  created_at?: string | null;
+  expires_at?: string | null;
+  // allow additional backend-provided fields
+  [key: string]: unknown;
+}
+
+// Canonical auth session payload returned by `getSession()` and `useSession()`
+export type AuthSessionPayload = { session: BackendSession; user: BackendSessionUser } | null;
 
 // NotificationSettings mirrors the notifications preferences category shape.
 export interface NotificationSettings {
@@ -257,6 +268,16 @@ export interface BetterAuthSessionUser {
   linkedinUrl?: string | null;
   githubUrl?: string | null;
   customDomains?: string | null; // JSON string of custom domains array
+
+  // Backend (snake_case) aliases — the server returns snake_case names.
+  // These are included to help transition and to type payloads returned
+  // directly from the backend without frontend-side remapping.
+  is_anonymous?: boolean;
+  onboarding_complete?: boolean | null;
+  practice_id?: string | null;
+  active_practice_id?: string | null;
+  active_organization_id?: string | null;
+  stripe_customer_id?: string | null;
   
   // PII Compliance & Consent
   piiConsentGiven?: boolean;
@@ -280,7 +301,7 @@ export interface BetterAuthSessionUser {
  * @param value - The value to convert (number, string, Date, or null/undefined)
  * @returns Date object or null if conversion fails or value is null/undefined
  */
-function safeConvertToDate(value: unknown): Date | null {
+export function safeConvertToDate(value: unknown): Date | null {
   if (value === null || value === undefined) {
     return null;
   }
@@ -313,7 +334,7 @@ function safeConvertToDate(value: unknown): Date | null {
  * @param rawUser - The raw user data to validate
  * @throws Error if required fields are missing
  */
-function validateRequiredFields(rawUser: Record<string, unknown>): void {
+export function validateRequiredFields(rawUser: Record<string, unknown>): void {
   const requiredFields = ['id', 'email'] as const;
   const missingFields: string[] = [];
 
@@ -338,110 +359,4 @@ function validateRequiredFields(rawUser: Record<string, unknown>): void {
  * @returns The transformed user data with properly typed fields
  * @throws Error if required fields (id, name, email) are missing
  */
-export function transformSessionUser(rawUser: Record<string, unknown>): BetterAuthSessionUser {
-  // Validate required fields first
-  validateRequiredFields(rawUser);
-  
-  // Build the transformed user object with explicit field mapping
-  const transformedUser: BetterAuthSessionUser = {
-    // Required fields (already validated)
-    id: rawUser.id as string,
-    name: (rawUser.name as string) || 
-          (rawUser.email as string).split('@')[0] || 
-          `User-${rawUser.id}`,
-    email: rawUser.email as string,
-    
-    // Optional primitive fields
-    emailVerified: rawUser.emailVerified as boolean | undefined,
-    image: rawUser.image as string | null | undefined,
-    isAnonymous:
-      typeof rawUser.isAnonymous === 'boolean'
-        ? rawUser.isAnonymous
-        : typeof rawUser.is_anonymous === 'boolean'
-          ? rawUser.is_anonymous
-          : undefined,
-    lastLoginMethod: rawUser.lastLoginMethod as string | undefined,
-    practiceId: rawUser.practiceId as string | null | undefined,
-    activePracticeId: rawUser.activePracticeId as string | null | undefined,
-    role: rawUser.role as string | null | undefined,
-    stripeCustomerId:
-      typeof rawUser.stripeCustomerId === 'string'
-        ? rawUser.stripeCustomerId
-        : typeof rawUser.stripe_customer_id === 'string'
-          ? rawUser.stripe_customer_id
-          : null,
-    phone: rawUser.phone as string | null | undefined,
-    practiceCount: typeof rawUser.practiceCount === 'number' ? rawUser.practiceCount : undefined,
-    onboardingComplete:
-      typeof rawUser.onboardingComplete === 'boolean'
-        ? rawUser.onboardingComplete
-        : typeof rawUser.onboarding_complete === 'boolean'
-          ? rawUser.onboarding_complete
-          : undefined,
-    primaryWorkspace:
-      (rawUser.primaryWorkspace as 'public' | 'client' | 'practice' | undefined) ??
-      (rawUser.primary_workspace as 'public' | 'client' | 'practice' | undefined),
-    
-    // Profile fields
-    bio: rawUser.bio as string | null | undefined,
-    secondaryPhone: rawUser.secondaryPhone as string | null | undefined,
-    addressStreet: rawUser.addressStreet as string | null | undefined,
-    addressCity: rawUser.addressCity as string | null | undefined,
-    addressState: rawUser.addressState as string | null | undefined,
-    addressZip: rawUser.addressZip as string | null | undefined,
-    addressCountry: rawUser.addressCountry as string | null | undefined,
-    preferredContactMethod: rawUser.preferredContactMethod as string | null | undefined,
-    
-    // App preferences
-    theme: rawUser.theme as string | undefined,
-    accentColor: rawUser.accentColor as string | undefined,
-    fontSize: rawUser.fontSize as string | undefined,
-    language: rawUser.language as string | undefined,
-    spokenLanguage: rawUser.spokenLanguage as string | undefined,
-    country: rawUser.country as string | undefined,
-    timezone: rawUser.timezone as string | undefined,
-    dateFormat: rawUser.dateFormat as string | undefined,
-    timeFormat: rawUser.timeFormat as string | undefined,
-    
-    // Chat preferences
-    autoSaveConversations: rawUser.autoSaveConversations as boolean | undefined,
-    typingIndicators: rawUser.typingIndicators as boolean | undefined,
-    
-    // Email settings
-    receiveFeedbackEmails: rawUser.receiveFeedbackEmails as boolean | undefined,
-    marketingEmails: rawUser.marketingEmails as boolean | undefined,
-    securityAlerts: rawUser.securityAlerts as boolean | undefined,
-    
-    // Security settings
-    twoFactorEnabled: rawUser.twoFactorEnabled as boolean | undefined,
-    emailNotifications: rawUser.emailNotifications as boolean | undefined,
-    loginAlerts: rawUser.loginAlerts as boolean | undefined,
-    sessionTimeout: convertSessionTimeoutToSeconds(rawUser.sessionTimeout as string | number),
-    
-    // Links
-    selectedDomain: rawUser.selectedDomain as string | null | undefined,
-    linkedinUrl: rawUser.linkedinUrl as string | null | undefined,
-    githubUrl: rawUser.githubUrl as string | null | undefined,
-    customDomains: rawUser.customDomains as string | null | undefined,
-    
-    // PII Compliance & Consent
-    piiConsentGiven: rawUser.piiConsentGiven as boolean | undefined,
-    dataRetentionConsent: rawUser.dataRetentionConsent as boolean | undefined,
-    marketingConsent: rawUser.marketingConsent as boolean | undefined,
-    dataProcessingConsent: rawUser.dataProcessingConsent as boolean | undefined,
-    
-    // Data Retention & Deletion
-    dataDeletionRequested: rawUser.dataDeletionRequested as boolean | undefined,
-    
-    // Convert timestamp fields to Date objects
-    piiConsentDate: safeConvertToDate(rawUser.piiConsentDate),
-    dataRetentionExpiry: safeConvertToDate(rawUser.dataRetentionExpiry),
-    lastDataAccess: safeConvertToDate(rawUser.lastDataAccess),
-    dataDeletionDate: safeConvertToDate(rawUser.dataDeletionDate),
-    createdAt: safeConvertToDate(rawUser.createdAt),
-    updatedAt: safeConvertToDate(rawUser.updatedAt),
-    lastPasswordChange: safeConvertToDate(rawUser.lastPasswordChange),
-  };
-  
-  return transformedUser;
-}
+// transformSessionUser removed: frontend will use backend session/user shape directly.

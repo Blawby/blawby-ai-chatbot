@@ -59,8 +59,8 @@ vi.mock('@/shared/lib/authClient', () => ({
     }),
     signOut: vi.fn().mockResolvedValue(undefined),
   },
-  useTypedSession: () => ({
-    data: { user: { id: 'test-user-id', email: 'test@test-blawby.com' }, session: { id: 'session-1' } },
+  useSession: () => ({
+    session: { user: { id: 'test-user-id', email: 'test@test-blawby.com' }, session: { id: 'session-1' } },
     isPending: false,
     error: null,
   }),

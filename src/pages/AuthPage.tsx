@@ -7,6 +7,7 @@ import AuthForm from '@/shared/components/AuthForm';
 import { useTranslation } from '@/shared/i18n/hooks';
 import { useNavigation } from '@/shared/utils/navigation';
 import { getSession } from '@/shared/lib/authClient';
+import type { BackendSessionUser } from '@/shared/types/user';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { SetupShell } from '@/shared/ui/layout/SetupShell';
 
@@ -77,16 +78,14 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
   const handleRedirect = async () => {
     const session = await getSession().catch((err) => {
       console.warn('[AuthPage] getSession() failed after sign-in', err);
-      return null as unknown as null;
+      return null;
     });
 
-    // Normalize possible session shapes returned by the auth client
-    const sess = session as Record<string, unknown> | null;
-    const detectedUser =
-      sess?.user ||
-      (sess?.data as Record<string, unknown> | undefined)?.user ||
-      (sess?.session as Record<string, unknown> | undefined)?.user ||
-      null;
+    // Canonical session shape: { session, user } | null
+    let detectedUser: BackendSessionUser | null = null;
+    if (session && typeof session === 'object' && 'user' in session && session.user && typeof session.user === 'object') {
+      detectedUser = session.user as BackendSessionUser;
+    }
 
     // Minimal diagnostics for debugging without leaking tokens
     try {

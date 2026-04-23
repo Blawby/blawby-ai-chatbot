@@ -491,11 +491,20 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
 
     const controller = new AbortController();
     setAcceptedIntakeConversationsLoading(true);
-    void Promise.all(
-      missingConversationIds.map((conversationId) =>
-        getConversation(conversationId, practiceId, { signal: controller.signal }).catch(() => null)
-      )
-    ).then((loadedConversations) => {
+    void (async () => {
+      const loadedConversations: (Conversation | null)[] = [];
+      const chunkSize = 8;
+      for (let i = 0; i < missingConversationIds.length; i += chunkSize) {
+        if (controller.signal.aborted) break;
+        const chunk = missingConversationIds.slice(i, i + chunkSize);
+        const results = await Promise.all(
+          chunk.map((conversationId) =>
+            getConversation(conversationId, practiceId, { signal: controller.signal }).catch(() => null)
+          )
+        );
+        loadedConversations.push(...results);
+      }
+
       if (controller.signal.aborted) return;
       setAcceptedIntakeConversations((prev) => {
         const merged = new Map<string, Conversation>();
@@ -511,11 +520,8 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
         }
         return Array.from(merged.values());
       });
-    }).finally(() => {
-      if (!controller.signal.aborted) {
-        setAcceptedIntakeConversationsLoading(false);
-      }
-    });
+      setAcceptedIntakeConversationsLoading(false);
+    })();
 
     return () => controller.abort();
   }, [

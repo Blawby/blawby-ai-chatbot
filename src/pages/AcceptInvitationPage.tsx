@@ -182,7 +182,7 @@ export const AcceptInvitationPage = () => {
   const dataParam = useMemo(() => resolveQueryValue(location.query?.data), [location.query?.data]);
   const payloadResult = useMemo(() => parsePrefillPayload(dataParam), [dataParam]);
 
-  const isAuthenticated = Boolean(session?.user && !session.user.isAnonymous);
+  const isAuthenticated = Boolean(session?.user && !session.user.is_anonymous);
   const redirectTarget = useMemo(() => buildRedirectTarget(invitationId, dataParam), [dataParam, invitationId]);
 
   const flowType = invitationId ? 'invite' : dataParam ? 'intake' : 'invalid';

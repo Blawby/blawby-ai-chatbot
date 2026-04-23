@@ -41,8 +41,8 @@ const OnboardingPage = () => {
   const fallbackPath: string = isSafeRedirectPath(rawReturnTo) ? rawReturnTo : '/';
 
   const userId = session?.user?.id;
-  const userIsAnonymous = session?.user?.isAnonymous;
-  const userOnboardingComplete = session?.user?.onboardingComplete;
+  const userIsAnonymous = session?.user?.is_anonymous;
+  const userOnboardingComplete = session?.user?.onboarding_complete;
 
   useEffect(() => {
     if (isPending) return;
@@ -69,11 +69,11 @@ const OnboardingPage = () => {
   }
 
   const user = sessionUser;
-  if (!user || user.isAnonymous) {
+  if (!user || user.is_anonymous) {
     return <LoadingScreen />;
   }
 
-  if (user.onboardingComplete) {
+  if (user.onboarding_complete) {
     return <LoadingScreen />;
   }
 

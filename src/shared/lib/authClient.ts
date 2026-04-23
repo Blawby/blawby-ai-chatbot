@@ -2,28 +2,14 @@ import { createAuthClient } from 'better-auth/react';
 import { organizationClient } from 'better-auth/client/plugins';
 import { anonymousClient } from 'better-auth/client/plugins';
 import { stripeClient } from '@better-auth/stripe/client';
-import { useMemo } from 'preact/hooks';
-import { transformSessionUser, type BetterAuthSessionUser } from '@/shared/types/user';
+import type { BackendSessionUser, AuthSessionPayload } from '@/shared/types/user';
 import { getWorkerApiUrl } from '@/config/urls';
 
 // Type for the auth client (inferred from createAuthClient return type)
 type AuthClientType = ReturnType<typeof createAuthClient>;
-type AuthSession = ReturnType<AuthClientType['useSession']>;
-type AuthSessionData = AuthSession['data'];
-type UntrustedSessionUser = {
-  id: string;
-  email?: string;
-  name?: string;
-  image?: string;
-  isAnonymous?: boolean;
-  onboardingComplete?: boolean;
-} & Record<string, unknown>;
-type TypedSessionData = NonNullable<AuthSessionData> extends { user: unknown; session: infer S }
-  ? (
-    { user: BetterAuthSessionUser; session: S; transformError?: false }
-    | { user: UntrustedSessionUser; session: S; transformError: true }
-  ) | Extract<AuthSessionData, null | undefined>
-  : AuthSessionData;
+// We intentionally avoid exposing any "transformError" union here.
+// The hook and `getSession()` unwrap any SDK envelopes and return
+// the canonical `AuthSessionPayload` to callers.
 
 // Auth requests are proxied through the Worker to keep session cookies same-origin.
 function getAuthBaseUrl(): string | undefined {
@@ -120,49 +106,34 @@ export const signOut = (...args: Parameters<AuthClientType['signOut']>) => getAu
 // useSession is a React hook - must be called directly, not wrapped
 export const useSession = () => {
   const client = getAuthClient();
-  return client.useSession();
-};
+  const hook = client.useSession();
 
-export const useTypedSession = (): Omit<AuthSession, 'data'> & { data: TypedSessionData | undefined } => {
-  const client = getAuthClient();
-  const session = client.useSession();
-
-  const data = useMemo(() => {
-    if (!session.data?.user) return undefined;
-    
-    try {
-      const typedUser = transformSessionUser(session.data.user as Record<string, unknown>);
-      return {
-        ...session.data,
-        user: typedUser
-      } as TypedSessionData;
-    } catch (error) {
-      console.error('[Auth] Failed to transform session user', {
-        error,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        userId: (session.data.user as any)?.id
-      });
-      return {
-        ...session.data,
-        user: (() => {
-          const raw = session.data.user;
-          const userRecord = (raw && typeof raw === 'object')
-            ? raw as Record<string, unknown>
-            : {};
-          return {
-            ...userRecord,
-            id: typeof userRecord.id === 'string' ? userRecord.id : '',
-          } as UntrustedSessionUser;
-        })(),
-        transformError: true
-      } as TypedSessionData;
+  // Normalize the hook return so consumers only see the backend shape.
+  const unwrapData = (d: unknown): AuthSessionPayload => {
+    if (d === null || d === undefined) return null;
+    if (typeof d === 'object' && d !== null) {
+      const asRecord = d as Record<string, unknown>;
+      if ('data' in asRecord && typeof asRecord.data === 'object' && asRecord.data !== null) {
+        const inner = asRecord.data as Record<string, unknown>;
+        if ('session' in inner || 'user' in inner) {
+          return inner as AuthSessionPayload;
+        }
+      }
+      if ('session' in asRecord || 'user' in asRecord) {
+        return asRecord as AuthSessionPayload;
+      }
     }
-  }, [session.data]);
+    return null;
+  };
+
+  const sessionPayload = unwrapData(hook.data);
+  const hookState = hook as unknown as { isPending?: boolean; isLoading?: boolean; error?: unknown };
 
   return {
-    ...session,
-    data
-  };
+    session: sessionPayload,
+    isPending: hookState.isPending ?? hookState.isLoading ?? false,
+    error: hookState.error ?? null,
+  } as { session: AuthSessionPayload; isPending: boolean; error: unknown };
 };
 
 export const useActiveMemberRole = () => {
@@ -170,9 +141,24 @@ export const useActiveMemberRole = () => {
   return client.useActiveMemberRole();
 };
 
-export const getSession = (...args: Parameters<AuthClientType['getSession']>) => getAuthClient().getSession(...args);
+export const getSession = async (...args: Parameters<AuthClientType['getSession']>): Promise<AuthSessionPayload> => {
+  const result = await getAuthClient().getSession(...args);
+  // If the SDK returns an envelope `{ data: { session, user } }`, unwrap it once.
+  // Otherwise assume it already returned the backend shape or `null`.
+  // Cast via unknown first to avoid accidental structural conversion warnings
+  const resUnknown = result as unknown;
+  if (resUnknown && typeof resUnknown === 'object') {
+    const resObj = resUnknown as Record<string, unknown>;
+    if ('data' in resObj && typeof resObj.data === 'object' && resObj.data !== null) {
+      const inner = resObj.data as Record<string, unknown>;
+      if ('session' in inner || 'user' in inner) return inner as AuthSessionPayload | null;
+    }
+  }
+
+  return result as unknown as AuthSessionPayload | null;
+};
 type UpdateUserArgs = Parameters<AuthClientType['updateUser']>;
-type UpdateUserInput = Partial<BetterAuthSessionUser> & Record<string, unknown>;
+type UpdateUserInput = Partial<BackendSessionUser> & Record<string, unknown>;
 type UpdateUserFn = (data: UpdateUserInput, options?: UpdateUserArgs[1]) => ReturnType<AuthClientType['updateUser']>;
 
 export const updateUser: UpdateUserFn = (data, options) =>

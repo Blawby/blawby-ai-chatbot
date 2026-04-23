@@ -62,7 +62,6 @@ interface WidgetAppProps {
   bootstrapSession?: {
     user?: {
       id: string;
-      isAnonymous?: boolean;
       is_anonymous?: boolean;
     } | null;
   } | null;
@@ -109,7 +108,8 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
   }, [practiceConfig.accentColor]);
 
   const currentUserId = bootstrapSession?.user?.id ?? null;
-  const isAnonymous = bootstrapSession?.user?.isAnonymous ?? bootstrapSession?.user?.is_anonymous ?? true;
+  // Rely on backend field name only
+  const isAnonymous = bootstrapSession?.user?.is_anonymous ?? true;
 
   const isEmbedded = typeof window !== 'undefined' && window.parent !== window;
 

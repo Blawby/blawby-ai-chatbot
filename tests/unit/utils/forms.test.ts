@@ -32,7 +32,7 @@ describe('submitContactForm', () => {
         : input instanceof URL
           ? input.toString()
           : String(input);
-      if (url.includes('/api/practice/client-intakes/') && url.includes('/intake')) {
+      if (url.includes('/api/practice-client-intakes/') && url.includes('/intake')) {
         return Promise.resolve({
           ok: true,
           json: async () => ({
@@ -41,10 +41,11 @@ describe('submitContactForm', () => {
               organization: { name: 'Acme Law', logo: 'logo.png' },
               settings: { paymentLinkEnabled: true, consultationFee: 75.6 }
             }
-          })
+          }),
+          text: async () => JSON.stringify({ error: 'Not Found' })
         });
       }
-      if (url.includes('/api/practice/client-intakes/create')) {
+      if (url.includes('/api/practice-client-intakes/create')) {
         return Promise.resolve({
           ok: true,
           status: 201,
@@ -58,13 +59,15 @@ describe('submitContactForm', () => {
               status: 'pending',
               organization: { name: 'Acme Law', logo: 'logo.png' }
             }
-          })
+          }),
+          text: async () => JSON.stringify({ error: 'Not Found' })
         });
       }
       return Promise.resolve({
         ok: false,
         status: 404,
-        json: async () => ({ error: 'Not Found' })
+        json: async () => ({ error: 'Not Found' }),
+        text: async () => JSON.stringify({ error: 'Not Found' })
       });
     });
 
@@ -74,12 +77,12 @@ describe('submitContactForm', () => {
     );
 
     const createCall = fetchMock.mock.calls.find(([url]) =>
-      String(url).includes('/api/practice/client-intakes/create')
+      String(url).includes('/api/practice-client-intakes/create')
     );
 
     expect(createCall).toBeTruthy();
-    expect(String(createCall?.[0])).toContain('/api/practice/client-intakes/create');
-    expect(String(createCall?.[0])).not.toContain('/api/practice-client-intakes/create');
+    expect(String(createCall?.[0])).toContain('/api/practice-client-intakes/create');
+    expect(String(createCall?.[0])).not.toContain('/api/practice/client-intakes/create');
 
     const body = JSON.parse(String(createCall?.[1]?.body ?? '{}')) as { amount?: number };
     expect(body.amount).toBe(76);
@@ -97,7 +100,7 @@ describe('submitContactForm', () => {
         : input instanceof URL
           ? input.toString()
           : String(input);
-      if (url.includes('/api/practice/client-intakes/') && url.includes('/intake')) {
+      if (url.includes('/api/practice-client-intakes/') && url.includes('/intake')) {
         return Promise.resolve({
           ok: true,
           json: async () => ({
@@ -106,10 +109,11 @@ describe('submitContactForm', () => {
               organization: { name: 'Acme Law', logo: 'logo.png' },
               settings: { paymentLinkEnabled: false, consultationFee: 50 }
             }
-          })
+          }),
+          text: async () => JSON.stringify({ error: 'Not Found' })
         });
       }
-      if (url.includes('/api/practice/client-intakes/create')) {
+      if (url.includes('/api/practice-client-intakes/create')) {
         return Promise.resolve({
           ok: true,
           status: 201,
@@ -119,13 +123,15 @@ describe('submitContactForm', () => {
             currency: 'usd',
             status: 'open',
             organization: { name: 'Acme Law', logo: 'logo.png' }
-          })
+          }),
+          text: async () => JSON.stringify({ error: 'Not Found' })
         });
       }
       return Promise.resolve({
         ok: false,
         status: 404,
-        json: async () => ({ error: 'Not Found' })
+        json: async () => ({ error: 'Not Found' }),
+        text: async () => JSON.stringify({ error: 'Not Found' })
       });
     });
 

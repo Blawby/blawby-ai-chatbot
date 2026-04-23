@@ -79,11 +79,7 @@ vi.mock('@/shared/lib/apiClient', () => ({
 
 vi.mock('@/shared/lib/authClient', () => ({
   useSession: () => ({
-    data: { user: { id: 'user-1', email: 'test@test-blawby.com' } },
-    isPending: false,
-  }),
-  useTypedSession: () => ({
-    data: { user: { id: 'user-1', email: 'test@test-blawby.com' }, session: { id: 'session-1' } },
+    session: { user: { id: 'user-1', email: 'test@test-blawby.com' }, session: { id: 'session-1' } },
     isPending: false,
     error: null,
   }),

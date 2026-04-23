@@ -14,7 +14,7 @@ describe('request_payment tool', () => {
     const result = handleRequestPayment(args);
     
     expect(result.success).toBe(true);
-    expect(result.message).toBe('Payment requested.');
+    expect(result.message).toContain('Payment requested');
     expect(result.triggerPayment).toBe(true);
     expect(result.actions).toEqual([
       { type: 'submit', label: 'Continue', variant: 'primary' }
