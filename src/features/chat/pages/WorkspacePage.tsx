@@ -26,6 +26,7 @@ import { useConversations } from '@/shared/hooks/useConversations';
 import {
   addConversationTag,
   fetchLatestConversationMessage,
+  getConversation,
   removeConversationTag,
   updateConversationMetadata,
   updateConversationTriage,
@@ -36,7 +37,10 @@ import {
   updateConversationMatter 
 } from '@/shared/lib/apiClient';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
-import { resolveConversationDisplayTitle } from '@/shared/utils/conversationDisplay';
+import {
+  resolveConversationDisplayTitle,
+  shouldShowConversationInPracticeInbox,
+} from '@/shared/utils/conversationDisplay';
 import { resolveConsultationState } from '@/shared/utils/consultationState';
 import { formatLongDate } from '@/shared/utils/dateFormatter';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
@@ -421,17 +425,131 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     enabled: shouldListConversations && Boolean(practiceId) && !mockConversations,
     allowAnonymous: workspace === 'public',
     preferOrgScopedPracticeList: false,
-    assignedTo: conversationAssignedToFilter
+    assignedTo: conversationAssignedToFilter,
+    limit: 100
   });
   const resolvedConversations = mockConversations ?? conversations;
   const resolvedConversationsLoading = mockConversations ? false : isConversationsLoading;
   const resolvedConversationsError = mockConversations ? null : conversationsError;
+  const [acceptedIntakeConversations, setAcceptedIntakeConversations] = useState<Conversation[]>([]);
   const conversationFilterId = workspaceSection === 'conversations' && activeSecondaryFilter
     ? activeSecondaryFilter
     : 'all';
+  const {
+    items: allIntakes,
+    isLoaded: intakesLoaded,
+    error: intakesError,
+  } = useIntakesData(isPracticeWorkspace ? practiceId : null, {
+    enabled: isPracticeWorkspace && (view === 'home' || workspaceSection === 'conversations'),
+    filter: workspaceSection === 'conversations' ? 'accepted' : 'all',
+    limit: workspaceSection === 'conversations' ? 500 : undefined,
+  });
+  const intakeTriageStatusLookup = useMemo(() => {
+    const byConversationId = new Map<string, string>();
+    for (const intake of allIntakes) {
+      const conversationId = typeof intake.conversation_id === 'string' ? intake.conversation_id.trim() : '';
+      const triageStatus = typeof intake.triage_status === 'string' ? intake.triage_status.trim() : '';
+      if (conversationId && triageStatus) {
+        byConversationId.set(conversationId, triageStatus);
+      }
+    }
+    return { byConversationId };
+  }, [allIntakes]);
+  const acceptedIntakeConversationIds = useMemo(
+    () => Array.from(intakeTriageStatusLookup.byConversationId.keys()),
+    [intakeTriageStatusLookup]
+  );
+  const [acceptedIntakeConversationsLoading, setAcceptedIntakeConversationsLoading] = useState(false);
+  const intakeLookupLoaded = intakesLoaded && !intakesError;
+
+  useEffect(() => {
+    if (!isPracticeWorkspace || workspaceSection !== 'conversations' || !practiceId || !intakeLookupLoaded) {
+      setAcceptedIntakeConversations([]);
+      setAcceptedIntakeConversationsLoading(false);
+      return;
+    }
+
+    const knownConversationIds = new Set([
+      ...resolvedConversations.map((conversation) => conversation.id),
+      ...acceptedIntakeConversations.map((conversation) => conversation.id),
+    ]);
+    const missingConversationIds = acceptedIntakeConversationIds.filter((conversationId) => !knownConversationIds.has(conversationId));
+    if (missingConversationIds.length === 0) {
+      setAcceptedIntakeConversations((prev) => {
+        const filtered = prev.filter((conversation) => acceptedIntakeConversationIds.includes(conversation.id));
+        if (
+          filtered.length === prev.length
+          && filtered.every((conversation, index) => conversation.id === prev[index]?.id)
+        ) {
+          return prev;
+        }
+        return filtered;
+      });
+      setAcceptedIntakeConversationsLoading(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    setAcceptedIntakeConversationsLoading(true);
+    void Promise.all(
+      missingConversationIds.map((conversationId) =>
+        getConversation(conversationId, practiceId, { signal: controller.signal }).catch(() => null)
+      )
+    ).then((loadedConversations) => {
+      if (controller.signal.aborted) return;
+      setAcceptedIntakeConversations((prev) => {
+        const merged = new Map<string, Conversation>();
+        for (const conversation of prev) {
+          if (acceptedIntakeConversationIds.includes(conversation.id)) {
+            merged.set(conversation.id, conversation);
+          }
+        }
+        for (const conversation of loadedConversations) {
+          if (conversation && acceptedIntakeConversationIds.includes(conversation.id)) {
+            merged.set(conversation.id, conversation);
+          }
+        }
+        return Array.from(merged.values());
+      });
+    }).finally(() => {
+      if (!controller.signal.aborted) {
+        setAcceptedIntakeConversationsLoading(false);
+      }
+    });
+
+    return () => controller.abort();
+  }, [
+    acceptedIntakeConversationIds,
+    acceptedIntakeConversations,
+    intakeLookupLoaded,
+    isPracticeWorkspace,
+    practiceId,
+    resolvedConversations,
+    workspaceSection,
+  ]);
+
+  const conversationsForInbox = useMemo(() => {
+    const merged = new Map<string, Conversation>();
+    for (const conversation of resolvedConversations) {
+      merged.set(conversation.id, conversation);
+    }
+    for (const conversation of acceptedIntakeConversations) {
+      merged.set(conversation.id, conversation);
+    }
+    return Array.from(merged.values());
+  }, [acceptedIntakeConversations, resolvedConversations]);
 
   const filteredConversations = useMemo(() => {
-    const activeConversations = resolvedConversations.filter((conversation) => conversation.status === 'active');
+    const activeConversations = conversationsForInbox
+      .filter((conversation) => conversation.status === 'active' || intakeTriageStatusLookup.byConversationId.has(conversation.id))
+      .filter((conversation) => {
+        if (!isPracticeWorkspace) return true;
+        const triageStatus = intakeTriageStatusLookup.byConversationId.get(conversation.id) ?? null;
+        return shouldShowConversationInPracticeInbox(conversation, triageStatus, {
+          intakeLookupLoaded,
+          requireAcceptedIntakeRecord: true,
+        });
+      });
     const sessionUserId = session?.user?.id ?? null;
     if (isPracticeWorkspace) {
       if (conversationFilterId === 'your-inbox') {
@@ -461,9 +579,11 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     return activeConversations;
   }, [
     conversationFilterId,
+    intakeLookupLoaded,
+    intakeTriageStatusLookup,
+    conversationsForInbox,
     isClientWorkspace,
     isPracticeWorkspace,
-    resolvedConversations,
     session?.user?.id,
   ]);
   const selectedConversation = useMemo(
@@ -772,7 +892,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   const fetchedPreviewIds = useRef<Set<string>>(new Set());
   const previewFailureCounts = useRef<Record<string, number>>({});
   const MAX_PREVIEW_ATTEMPTS = 2;
-  const shouldLoadConversationPreviews = view === 'home' || view === 'list';
+  const shouldLoadConversationPreviews = view === 'home' || view === 'list' || view === 'conversation';
 
   useEffect(() => {
     fetchedPreviewIds.current = new Set();
@@ -782,7 +902,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
 
   useEffect(() => {
     if (mockConversationPreviews || mockConversations) return;
-    if (!shouldLoadConversationPreviews || resolvedConversations.length === 0 || !practiceId) {
+    if (!shouldLoadConversationPreviews || filteredConversations.length === 0 || !practiceId) {
       return;
     }
     if (workspace === 'practice' && (isSessionPending || !session?.user?.id)) {
@@ -791,7 +911,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     let isMounted = true;
     const loadPreviews = async () => {
       const updates: Record<string, { content: string; role: string; createdAt: string }> = {};
-      const toFetch = resolvedConversations.slice(0, 10).filter(
+      const toFetch = filteredConversations.slice(0, 10).filter(
         (conversation) => !fetchedPreviewIds.current.has(conversation.id)
       );
       await Promise.all(toFetch.map(async (conversation) => {
@@ -823,7 +943,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [mockConversationPreviews, mockConversations, practiceId, resolvedConversations, isSessionPending, session?.user?.id, shouldLoadConversationPreviews, workspace]);
+  }, [mockConversationPreviews, mockConversations, practiceId, filteredConversations, isSessionPending, session?.user?.id, shouldLoadConversationPreviews, workspace]);
 
   const handleSelectConversation = useCallback((conversationId: string) => {
     hasAutoNavigatedRef.current = true;
@@ -833,6 +953,38 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     }
     navigate(withWidgetQuery(`${conversationsPath}/${encodeURIComponent(conversationId)}`));
   }, [conversationsPath, navigate, onSelectConversationOverride, withWidgetQuery]);
+
+  useEffect(() => {
+    if (!isPracticeWorkspace || workspaceSection !== 'conversations' || view !== 'conversation') {
+      return;
+    }
+    if (!activeConversationId || resolvedConversationsLoading || !intakeLookupLoaded || acceptedIntakeConversationsLoading) {
+      return;
+    }
+    if (filteredConversations.some((conversation) => conversation.id === activeConversationId)) {
+      return;
+    }
+
+    const firstConversationId = filteredConversations[0]?.id;
+    if (!firstConversationId) {
+      navigate(withWidgetQuery(conversationsPath));
+      return;
+    }
+    handleSelectConversation(firstConversationId);
+  }, [
+    activeConversationId,
+    acceptedIntakeConversationsLoading,
+    conversationsPath,
+    filteredConversations,
+    handleSelectConversation,
+    intakeLookupLoaded,
+    isPracticeWorkspace,
+    navigate,
+    resolvedConversationsLoading,
+    view,
+    withWidgetQuery,
+    workspaceSection,
+  ]);
 
   useEffect(() => {
     if (!isClientWorkspace || layoutMode !== 'desktop') {
@@ -863,8 +1015,8 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     const fallbackPracticeName = typeof practiceName === 'string'
       ? practiceName.trim()
       : '';
-    if (resolvedConversations.length > 0) {
-      const sorted = [...resolvedConversations].sort((a, b) => {
+    if (filteredConversations.length > 0) {
+      const sorted = [...filteredConversations].sort((a, b) => {
         const aTime = new Date(a.updated_at).getTime();
         const bTime = new Date(b.updated_at).getTime();
         return bTime - aTime;
@@ -913,7 +1065,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       avatarSrc: practiceLogo ?? null,
       conversationId: null
     };
-  }, [practiceLogo, practiceName, conversationPreviews, resolvedConversations, filteredMessages]);
+  }, [practiceLogo, practiceName, conversationPreviews, filteredConversations, filteredMessages]);
 
   const { currentPractice, updatePractice } = usePracticeManagement({ fetchOnboardingStatus: false });
   const { showSuccess, showError } = useToastContext();
@@ -953,11 +1105,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     matters: mattersData.isLoaded ? mattersData.items : undefined,
   });
 
-  const {
-    items: allIntakes,
-  } = useIntakesData(isPracticeWorkspace ? (currentPractice?.id ?? practiceId ?? null) : null, {
-    enabled: isPracticeWorkspace && view === 'home',
-  });
   const recentIntakes = useMemo(() => {
     return allIntakes.slice(0, 3);
   }, [allIntakes]);

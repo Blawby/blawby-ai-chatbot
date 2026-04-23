@@ -48,7 +48,11 @@ import { PlusIcon } from '@heroicons/react/24/solid';
 import { Button } from '@/shared/ui/Button';
 import { Icon } from '@/shared/ui/Icon';
 import { shouldShowWorkspaceDetailBack } from '@/shared/utils/workspaceDetailNavigation';
-import { resolveConversationDisplayTitle } from '@/shared/utils/conversationDisplay';
+import {
+  resolveConversationCaseTitle,
+  resolveConversationContactName,
+  resolveConversationDisplayTitle,
+} from '@/shared/utils/conversationDisplay';
 import { DetailHeader } from '@/shared/ui/layout/DetailHeader';
 import { LoadingBlock } from '@/shared/ui/layout/LoadingBlock';
 import { resolveStrengthStyle, resolveStrengthTier } from '@/shared/utils/intakeStrength';
@@ -563,6 +567,15 @@ export function MainApp({
     const relative = formatRelativeTime(new Date(lastTimestamp));
     return relative ? `Active ${relative}` : 'Inactive';
   }, [filteredMessagesForHeader, isSocketReady]);
+  const conversationCaseTitle = useMemo(() => (
+    resolveConversationCaseTitle(
+      conversationMetadata ?? null,
+      resolveConversationDisplayTitle(conversationMetadata ?? null, resolvedPracticeName)
+    )
+  ), [conversationMetadata, resolvedPracticeName]);
+  const conversationContactName = useMemo(() => (
+    resolveConversationContactName(conversationMetadata ?? null)
+  ), [conversationMetadata]);
 
   const isConsultConversation = useMemo(
     () => conversationMode === 'REQUEST_CONSULTATION'
@@ -624,7 +637,7 @@ export function MainApp({
     const showConversationBack = shouldShowWorkspaceDetailBack(layoutMode, Boolean(conversationBackPath));
     return (
       <DetailHeader
-        title={resolvedPracticeName}
+        title={conversationCaseTitle}
         subtitle={conversationHeaderActiveLabel}
         showBack={showConversationBack}
         onBack={showConversationBack ? () => navigate(conversationBackPath) : undefined}
@@ -638,8 +651,8 @@ export function MainApp({
     );
   }, [
     activeConversationId, conversationBackPath, conversationsBasePath,
-    conversationHeaderActiveLabel, conversationStrengthAction,
-    layoutMode, navigate, resolvedPracticeName,
+    conversationCaseTitle, conversationHeaderActiveLabel, conversationStrengthAction,
+    layoutMode, navigate,
   ]);
   const showWorkspaceDetailBack = useMemo(
     () => shouldShowWorkspaceDetailBack(layoutMode),
@@ -690,6 +703,7 @@ export function MainApp({
               conversationMetadata ?? null,
               conversationMetadata?.title ?? ''
             )}
+            conversationContactName={conversationContactName}
             viewerContext={isPracticeWorkspace ? 'practice' : isClientWorkspace ? 'client' : 'public'}
             onSendMessage={handleSendMessage}
             conversationMode={conversationMode}

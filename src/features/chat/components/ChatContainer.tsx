@@ -28,6 +28,7 @@ export interface ChatContainerProps {
     };
   messages: ChatMessageUI[];
   conversationTitle?: string | null;
+  conversationContactName?: string | null;
   viewerContext?: 'practice' | 'client' | 'public';
   onSendMessage: (
     message: string,
@@ -119,6 +120,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   disclaimerProps,
   messages,
   conversationTitle,
+  conversationContactName,
   viewerContext,
   onSendMessage,
   conversationMode,
@@ -457,6 +459,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
               <VirtualMessageList
                 messages={messagesReady ? filteredMessages : []}
                 conversationTitle={conversationTitle}
+                conversationContactName={conversationContactName}
                 viewerContext={viewerContext}
                 practiceConfig={practiceConfig}
                 isPublicWorkspace={isPublicWorkspace}

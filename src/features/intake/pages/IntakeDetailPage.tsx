@@ -275,7 +275,12 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
       // On accept: add practitioner as participant and post system message
       if (action === 'accepted' && session?.user?.id && responseConversationId && targetPracticeId) {
         try {
-          await updateConversationMetadata(responseConversationId, targetPracticeId, { status: 'active' });
+          await updateConversationMetadata(responseConversationId, targetPracticeId, {
+            status: 'active',
+            triageStatus: 'accepted',
+            triage_status: 'accepted',
+            intakeTriageStatus: 'accepted',
+          });
         } catch (conversationErr) {
           console.warn('[IntakeDetailPage] Failed to mark conversation active', conversationErr);
         }

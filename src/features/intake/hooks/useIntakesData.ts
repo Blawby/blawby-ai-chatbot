@@ -42,12 +42,14 @@ export function useIntakesData(
   options: {
     filter?: IntakesFilter;
     page?: number;
+    limit?: number;
     enabled?: boolean;
   } = {}
 ): UseIntakesDataResult {
-  const { enabled = true } = options;
+  const { enabled = true, limit } = options;
   const [filter, setFilterState] = useState<IntakesFilter>(options.filter ?? 'all');
   const [page, setPageState] = useState(options.page ?? 1);
+  const effectiveFilter = options.filter ?? filter;
   const [items, setItems] = useState<IntakeListItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
@@ -79,13 +81,13 @@ export function useIntakesData(
 
     // Map "queue" filter names to the API-level triage_status params
     const triageStatus: IntakeListParams['triage_status'] = (() => {
-      if (filter === 'pending') return 'pending_review';
-      if (filter === 'accepted') return 'accepted';
-      if (filter === 'declined') return 'declined';
+      if (effectiveFilter === 'pending') return 'pending_review';
+      if (effectiveFilter === 'accepted') return 'accepted';
+      if (effectiveFilter === 'declined') return 'declined';
       return undefined;
     })();
 
-    listIntakes(practiceId, { page, triage_status: triageStatus }, { signal: controller.signal })
+    listIntakes(practiceId, { page, limit, triage_status: triageStatus }, { signal: controller.signal })
       .then((result) => {
         if (!isMountedRef.current || controller.signal.aborted) return;
         setItems(result.intakes);
@@ -105,7 +107,7 @@ export function useIntakesData(
       });
 
     return () => controller.abort();
-  }, [practiceId, filter, page, enabled, retryTick]);
+  }, [practiceId, effectiveFilter, page, limit, enabled, retryTick]);
 
   const setFilter = useCallback((f: IntakesFilter) => {
     setFilterState(f);
@@ -128,7 +130,7 @@ export function useIntakesData(
     page,
     totalPages,
     total,
-    filter,
+    filter: effectiveFilter,
     setFilter,
     setPage,
     refetch,

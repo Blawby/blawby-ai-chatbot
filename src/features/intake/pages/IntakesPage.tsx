@@ -25,6 +25,9 @@ import { DEFAULT_INTAKE_TEMPLATE } from '@/shared/constants/intakeTemplates';
 const PAGE_SIZE = 20;
 // Limit additional backend pages fetched in client-side template filtering to avoid unbounded sequential fetches
 const MAX_ADDITIONAL_PAGES = 10;
+const normalizeTriageStatus = (value: unknown): string => (
+  typeof value === 'string' ? value.trim().toLowerCase() : ''
+);
 
 // Internal type that satisfies usePaginatedList's { id: string } constraint
 interface PaginatedIntake extends IntakeListItem {
@@ -188,7 +191,7 @@ export const IntakesPage: FunctionComponent<IntakesPageProps> = ({
           break;
         }
         lastBackendPageRef.current++;
-        const limit = templateFilter ? 100 : PAGE_SIZE;
+        const limit = templateFilter || triageFilter ? 100 : PAGE_SIZE;
         const result = await listIntakes(practiceId, {
           page: lastBackendPageRef.current,
           limit,
@@ -202,8 +205,11 @@ export const IntakesPage: FunctionComponent<IntakesPageProps> = ({
         totalBackendPagesRef.current = result.total_pages;
 
         pagesFetched++;
+        const triageFiltered = triageFilter
+          ? result.intakes.filter((item) => normalizeTriageStatus(item.triage_status) === triageFilter)
+          : result.intakes;
         const filtered = templateFilter
-          ? result.intakes.filter((item) => {
+          ? triageFiltered.filter((item) => {
             const metadata = item.metadata as Record<string, unknown> | null | undefined;
             const directSlug = metadata?.intake_template_slug ?? metadata?.template_slug;
             if (typeof directSlug === 'string' && directSlug.trim()) return directSlug.trim() === templateFilter;
@@ -214,7 +220,7 @@ export const IntakesPage: FunctionComponent<IntakesPageProps> = ({
             }
             return templateFilter === DEFAULT_INTAKE_TEMPLATE.slug;
           })
-          : result.intakes;
+          : triageFiltered;
 
         accumulatedFilteredRef.current.push(
           ...filtered.map(item => ({ ...item, id: item.uuid }))
