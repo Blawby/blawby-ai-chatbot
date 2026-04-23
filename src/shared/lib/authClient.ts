@@ -3,6 +3,7 @@ import { organizationClient } from 'better-auth/client/plugins';
 import { anonymousClient } from 'better-auth/client/plugins';
 import { stripeClient } from '@better-auth/stripe/client';
 import type { BackendSessionUser, AuthSessionPayload } from '@/shared/types/user';
+import { safeConvertToDate, validateRequiredFields } from '@/shared/types/user';
 import { getWorkerApiUrl } from '@/config/urls';
 
 type BetterAuthRawSessionRecord = Record<string, unknown> & {
@@ -230,6 +231,34 @@ function unwrapSessionData(d: unknown): AuthSessionPayload | null {
       && typeof userRecord.lastLoginMethod === 'string'
     ) {
       normalizedUser.last_login_method = userRecord.lastLoginMethod;
+    }
+    // Runtime validation: ensure required fields exist and timestamps are converted
+    try {
+      // Basic required fields (id, email) - throws if missing
+      validateRequiredFields(normalizedUser);
+    } catch (err) {
+      console.warn('[authClient] Invalid session user received; rejecting session payload', err, { raw: userRecord });
+      return null;
+    }
+
+    // Ensure name exists (must be a string)
+    if (typeof normalizedUser.name !== 'string' || normalizedUser.name.trim() === '') {
+      console.warn('[authClient] Session user missing `name` field; rejecting session payload', { raw: userRecord });
+      return null;
+    }
+
+    // Ensure is_anonymous exists and is boolean
+    if (typeof normalizedUser.is_anonymous !== 'boolean') {
+      normalizedUser.is_anonymous = Boolean(userRecord.isAnonymous ?? false);
+    }
+
+    // Convert timestamps to Date|null
+    try {
+      normalizedUser.created_at = safeConvertToDate((userRecord as Record<string, unknown>).created_at ?? (userRecord as Record<string, unknown>).createdAt ?? null);
+      normalizedUser.updated_at = safeConvertToDate((userRecord as Record<string, unknown>).updated_at ?? (userRecord as Record<string, unknown>).updatedAt ?? null);
+    } catch (_) {
+      normalizedUser.created_at = null;
+      normalizedUser.updated_at = null;
     }
 
     return {
