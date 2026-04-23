@@ -105,7 +105,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
 
   const currentUserId = bootstrapSession?.user?.id ?? null;
   // Rely on backend field name only
-  const isAnonymous = bootstrapSession?.user?.is_anonymous === true;
+  const isAnonymous = bootstrapSession?.user?.is_anonymous ?? true;
 
   const isEmbedded = typeof window !== 'undefined' && window.parent !== window;
 
