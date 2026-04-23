@@ -324,7 +324,10 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
 
   const handleStrengthenCase = useCallback(async () => {
     try {
-      await applyIntakeFields({ enrichmentMode: true });
+      // Clear ctaShown so the submit button disappears during enrichment.
+      // Without this, ctaShown: true persists from the required-fields-complete
+      // state and the UI keeps showing submit even while collecting optional fields.
+      await applyIntakeFields({ enrichmentMode: true, ctaShown: false });
       await sendMessage('I want to provide more details to strengthen my case.', []);
     } catch (err) {
       console.error('Failed to start strengthen case flow', err);

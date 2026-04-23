@@ -155,7 +155,10 @@ export class ConversationService {
     return normalizeSharedSlimContactDraft(value);
   }
 
-  private shouldCreateFreshCurrentConversation(metadata: Record<string, unknown> | null): boolean {
+  private shouldCreateFreshCurrentConversation(
+    metadata: Record<string, unknown> | null,
+    updatedAt?: string | null,
+  ): boolean {
     if (!metadata) return false;
 
     const consultation = resolveConsultationState(metadata);
@@ -166,6 +169,24 @@ export class ConversationService {
 
       if (isIntakeReadyForSubmission(consultation.case)) {
         return true;
+      }
+
+      // If the conversation has any partial intake state and hasn't been
+      // touched in over 7 days, treat it as stale and start fresh.
+      // This prevents a returning user from inheriting their previous
+      // session's fields (e.g. city/state pre-filled) on a new consultation.
+      const STALE_INTAKE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+      const hasPartialIntake = Boolean(
+        consultation.case.description ||
+        consultation.case.city ||
+        consultation.case.state ||
+        consultation.case.practiceServiceUuid
+      );
+      if (hasPartialIntake && updatedAt) {
+        const lastUpdated = new Date(updatedAt).getTime();
+        if (!Number.isNaN(lastUpdated) && Date.now() - lastUpdated > STALE_INTAKE_MS) {
+          return true;
+        }
       }
     }
 
@@ -675,7 +696,7 @@ export class ConversationService {
 
     if (existing) {
       const mapped = this.mapRecordToConversation(existing);
-      if (!this.shouldCreateFreshCurrentConversation(mapped.user_info ?? null)) {
+      if (!this.shouldCreateFreshCurrentConversation(mapped.user_info ?? null, mapped.updated_at)) {
         return mapped;
       }
     }

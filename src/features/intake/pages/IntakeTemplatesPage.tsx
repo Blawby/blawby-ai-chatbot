@@ -60,6 +60,9 @@ type EditorState = {
 type BuilderSelectionId = 'contact' | 'opening' | 'disclaimer' | 'payment' | `required:${string}` | `enrichment:${string}`;
 
 const SLUG_RE = /^[a-z0-9-]+$/;
+// Structurally locked: these fields cannot be removed, moved, or replaced —
+// they are always present and always required. Practice owners CAN edit their
+// label and promptHint (wording) so the AI asks the question in their voice.
 const LOCKED_REQUIRED_KEYS = new Set(['description', 'city', 'state']);
 
 function slugify(name: string): string {
@@ -1246,9 +1249,12 @@ function TemplateEditor({
   const updateFieldLabel = (key: string, phase: FieldPhase, value: string) => {
     updateField(key, phase, (field) => {
       if (field.isStandard) {
+        // Standard fields: allow editing label and previewQuestion.
+        // The key, type, isStandard, and mapsTo are always preserved.
         return {
           ...field,
-          previewQuestion: value,
+          label: value,
+          previewQuestion: value ? `${value.trim().replace(/\?$/, '')}?` : field.previewQuestion,
         };
       }
 
@@ -1258,6 +1264,10 @@ function TemplateEditor({
         previewQuestion: getDefaultPreviewQuestion(value),
       };
     });
+  };
+
+  const updateFieldHint = (key: string, phase: FieldPhase, value: string) => {
+    updateField(key, phase, (field) => ({ ...field, promptHint: value || undefined }));
   };
 
   const finalizeFieldLabel = (key: string, phase: FieldPhase) => {
@@ -1684,7 +1694,7 @@ function TemplateEditor({
   const builderCanvas = selectedFieldContext ? (
     <BuilderQuestionCanvas
       field={selectedFieldContext.field}
-      readOnly={LOCKED_REQUIRED_KEYS.has(selectedFieldContext.field.key)}
+      readOnly={false}
       practiceName={practiceCanvasName}
       practiceLogo={practiceCanvasLogo}
       onLabelChange={(label) => updateFieldLabel(selectedFieldContext.field.key, selectedFieldContext.phase, label)}
@@ -1770,6 +1780,18 @@ function TemplateEditor({
                 placeholder="Option 1, Option 2"
               />
             ) : null}
+
+            <Input
+              label={selectedFieldContext.field.isStandard ? 'AI question phrasing' : 'AI instruction'}
+              description={selectedFieldContext.field.isStandard
+                ? 'How the AI asks this question. Leave blank to use the default.'
+                : 'How the AI should ask and handle this question.'}
+              value={selectedFieldContext.field.promptHint ?? ''}
+              onChange={(value) => updateFieldHint(selectedFieldContext.field.key, selectedFieldContext.phase, value)}
+              placeholder={selectedFieldContext.field.isStandard
+                ? `e.g. "Ask for the client's ${selectedFieldContext.field.label.toLowerCase()} in a warm, conversational tone."`
+                : 'Describe how the AI should ask and what counts as a valid answer.'}
+            />
           </div>
         </SettingSection>
       ) : effectiveSelectedItemId === 'payment' ? (
