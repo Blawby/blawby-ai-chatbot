@@ -32,7 +32,7 @@ export const STANDARD_FIELD_DEFINITIONS: IntakeFieldDefinition[] = [
     mapsTo: 'address.city',
     description: 'The city where the legal issue happened.',
     previewQuestion: 'What city did this happen in?',
-    promptHint: 'Ask what city they are located in, so the attorney knows their jurisdiction. Keep it brief and warm.',
+    promptHint: 'Ask for the city where the incident/matter occurred (the venue), not the client\'s current or residential city. Keep it brief and warm.',
   },
   {
     key: 'state',

@@ -166,6 +166,9 @@ const persistMergedIntakeState = async (
       conversationId: params.conversationId,
       error: metadataError instanceof Error ? metadataError.message : String(metadataError),
     });
+    // Propagate the error so callers awaiting this function do not proceed
+    // as-if persistence succeeded. This prevents emitting `done` when D1 writes fail.
+    throw metadataError;
   }
 };
 

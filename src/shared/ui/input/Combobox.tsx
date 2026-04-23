@@ -171,7 +171,7 @@ function DropdownOption({
         'group relative flex w-full items-center justify-between px-3 py-2.5 text-left text-sm transition-all',
         option.disabled && 'cursor-not-allowed opacity-45',
         isSelected || isFocused
-          ? 'bg-accent-500/15 text-[rgb(var(--accent-foreground))]'
+          ? 'bg-accent-500/15 text-input-text'
           : 'text-input-text hover:bg-surface-utility/10 dark:hover:bg-surface-utility/20',
         option.disabled && 'hover:bg-transparent dark:hover:bg-transparent'
       )}
@@ -647,16 +647,16 @@ export function Combobox({
                 className={cn(
                   'flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm transition-colors',
                   clampedFocus === 0
-                    ? 'bg-accent-500/15 text-[rgb(var(--accent-foreground))]'
+                    ? 'bg-accent-500/15 text-input-text'
                     : 'text-input-text hover:bg-surface-utility/10 focus:bg-surface-utility/20'
                 )}
               >
-                <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded bg-accent-500/20 text-accent-400">
+                <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded bg-accent-500/20 text-accent-utility">
                   <Icon icon={PlusIcon} className="h-3.5 w-3.5"  />
                 </span>
                 <span>
                   {addNewLabel}{' '}
-                  <span className="font-semibold text-accent-300">&quot;{trimmedQuery}&quot;</span>
+                  <span className="font-semibold text-accent-utility">&quot;{trimmedQuery}&quot;</span>
                 </span>
               </button>
             )}

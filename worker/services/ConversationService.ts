@@ -176,12 +176,21 @@ export class ConversationService {
       // This prevents a returning user from inheriting their previous
       // session's fields (e.g. city/state pre-filled) on a new consultation.
       const STALE_INTAKE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
-      const hasPartialIntake = Boolean(
-        consultation.case.description ||
-        consultation.case.city ||
-        consultation.case.state ||
-        consultation.case.practiceServiceUuid
-      );
+      const caseObj = consultation.case as unknown as Record<string, unknown> | null | undefined;
+      const intakeKeys = [
+        'description', 'city', 'state', 'practiceServiceUuid',
+        'opposingParty', 'urgency', 'desiredOutcome', 'courtDate',
+        'hasDocuments', 'householdSize', 'customFields',
+      ];
+      const hasPartialIntake = Boolean(caseObj && intakeKeys.some((k) => {
+        const v = (caseObj as Record<string, unknown>)[k];
+        if (v == null) return false;
+        if (typeof v === 'string') return v.trim().length > 0;
+        if (typeof v === 'boolean') return true;
+        if (typeof v === 'number') return Number.isFinite(v);
+        if (typeof v === 'object') return Object.keys(v as Record<string, unknown>).length > 0;
+        return false;
+      }));
       if (hasPartialIntake && updatedAt) {
         const lastUpdated = new Date(updatedAt).getTime();
         if (!Number.isNaN(lastUpdated) && Date.now() - lastUpdated > STALE_INTAKE_MS) {

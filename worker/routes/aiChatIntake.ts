@@ -320,11 +320,11 @@ export const handleSaveCaseDetails = (
     postSaveNextEnrichmentField = null;
   }
 
-  // Template fee takes precedence over practice details — same rule as deriveCaseSavedAcknowledgment
-  const consultationFee =
-    (typeof submissionGate.templateConsultationFee === 'number' && submissionGate.templateConsultationFee > 0)
-      ? submissionGate.templateConsultationFee
-      : readFiniteNumberField(submissionGate.details, ['consultationFee', 'consultation_fee']);
+  // Template fee presence takes precedence over practice details — allow zero values.
+  const templatePaymentConfigured = typeof submissionGate.templateConsultationFee === 'number';
+  const consultationFee = templatePaymentConfigured
+    ? submissionGate.templateConsultationFee
+    : readFiniteNumberField(submissionGate.details, ['consultationFee', 'consultation_fee']);
   const actions = deriveNextActions(merged, submissionGate, consultationFee, postSaveNextEnrichmentField);
   if (actions.length > 0) {
     patch.ctaShown = true;
