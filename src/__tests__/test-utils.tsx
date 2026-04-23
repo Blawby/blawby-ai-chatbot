@@ -55,6 +55,7 @@ vi.mock('@/config/features', () => ({
 vi.mock('@/shared/lib/authClient', () => ({
   authClient: {
     getSession: vi.fn().mockResolvedValue({
+      session: { id: 'session-1' },
       user: { id: 'test-user-id', email: 'test@test-blawby.com' },
     }),
     signOut: vi.fn().mockResolvedValue(undefined),

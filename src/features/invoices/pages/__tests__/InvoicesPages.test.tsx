@@ -31,6 +31,7 @@ vi.mock('react-i18next', () => ({
 vi.mock('@/shared/contexts/SessionContext', () => ({
   useSessionContext: () => ({
     session: {
+      session: { id: 'session-1' },
       user: {
         name: 'Test User',
         email: 'test@test-blawby.com',

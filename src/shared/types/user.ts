@@ -14,7 +14,7 @@ export interface ExtendedUser extends BetterAuthUser {
   role?: string | null;
   practiceCount?: number | null;
   onboardingComplete?: boolean | null;
-  primaryWorkspace?: 'public' | 'client' | 'practice' | null;
+  primary_workspace?: 'public' | 'client' | 'practice' | null;
   
   // Contact Info
   phone?: string | null;
@@ -223,16 +223,11 @@ export interface BetterAuthSessionUser {
   email: string;
   emailVerified?: boolean;
   image?: string | null;
-  isAnonymous?: boolean;
   lastLoginMethod?: string; // "google", "email", etc.
-  practiceId?: string | null;
-  activePracticeId?: string | null;
   role?: string | null;
-  stripeCustomerId?: string | null;
   phone?: string | null;
   practiceCount?: number | null;
-  onboardingComplete?: boolean | null;
-  primaryWorkspace?: 'public' | 'client' | 'practice' | null;
+  primary_workspace?: 'public' | 'client' | 'practice' | null;
   
   // All the additional fields we added
   bio?: string | null;
@@ -269,9 +264,7 @@ export interface BetterAuthSessionUser {
   githubUrl?: string | null;
   customDomains?: string | null; // JSON string of custom domains array
 
-  // Backend (snake_case) aliases — the server returns snake_case names.
-  // These are included to help transition and to type payloads returned
-  // directly from the backend without frontend-side remapping.
+  // Backend session payload uses snake_case field names.
   is_anonymous?: boolean;
   onboarding_complete?: boolean | null;
   practice_id?: string | null;

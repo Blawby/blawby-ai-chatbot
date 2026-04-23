@@ -1396,18 +1396,11 @@ export async function getPracticeDetails(
   if (!practiceId) {
     throw new Error('practiceId is required');
   }
-  try {
-    const response = await apiClient.get(
-      `/api/practice/${encodeURIComponent(practiceId)}/details`,
-      { signal: config?.signal }
-    );
-    return normalizePracticeDetailsResponse(response.data);
-  } catch (error) {
-    if (axios.isAxiosError(error) && error.response?.status === 404) {
-      return null;
-    }
-    throw error;
-  }
+  const response = await apiClient.get(
+    `/api/practice/${encodeURIComponent(practiceId)}/details`,
+    { signal: config?.signal }
+  );
+  return normalizePracticeDetailsResponse(response.data);
 }
 
 export async function getPracticeDetailsBySlug(
@@ -1421,18 +1414,11 @@ export async function getPracticeDetailsBySlug(
   if (!normalizedSlug) {
     throw new Error('practice slug is required');
   }
-  try {
-    const response = await apiClient.get(
-      `/api/practice/details/${encodeURIComponent(normalizedSlug)}`,
-      { signal: config?.signal }
-    );
-    return normalizePracticeDetailsResponse(response.data);
-  } catch (error) {
-    if (axios.isAxiosError(error) && error.response?.status === 404) {
-      return null;
-    }
-    throw error;
-  }
+  const response = await apiClient.get(
+    `/api/practice/details/${encodeURIComponent(normalizedSlug)}`,
+    { signal: config?.signal }
+  );
+  return normalizePracticeDetailsResponse(response.data);
 }
 
 export interface PublicPracticeDetails {

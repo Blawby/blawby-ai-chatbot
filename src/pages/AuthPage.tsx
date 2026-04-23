@@ -7,7 +7,6 @@ import AuthForm from '@/shared/components/AuthForm';
 import { useTranslation } from '@/shared/i18n/hooks';
 import { useNavigation } from '@/shared/utils/navigation';
 import { getSession } from '@/shared/lib/authClient';
-import type { BackendSessionUser } from '@/shared/types/user';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { SetupShell } from '@/shared/ui/layout/SetupShell';
 
@@ -81,11 +80,7 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
       return null;
     });
 
-    // Canonical session shape: { session, user } | null
-    let detectedUser: BackendSessionUser | null = null;
-    if (session && typeof session === 'object' && 'user' in session && session.user && typeof session.user === 'object') {
-      detectedUser = session.user as BackendSessionUser;
-    }
+    const detectedUser = session?.user ?? null;
 
     // Minimal diagnostics for debugging without leaking tokens
     try {
@@ -93,7 +88,7 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
         console.debug('[AuthPage] post-signin session shape', {
           hasSession: !!session,
           userId: detectedUser?.id ?? null,
-          sessionKeys: session && typeof session === 'object' ? Object.keys(session) : null
+          sessionKeys: session ? Object.keys(session) : null
         });
       }
     } catch (_e) {

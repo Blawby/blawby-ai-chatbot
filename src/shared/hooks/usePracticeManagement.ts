@@ -612,8 +612,8 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
       if (practicesFetchForbidden) {
         const sessionRecord = session?.session as Record<string, unknown> | undefined;
         const hasOrg =
-          typeof sessionRecord?.activeOrganizationId === 'string' &&
-          sessionRecord.activeOrganizationId.length > 0;
+          typeof sessionRecord?.active_organization_id === 'string' &&
+          sessionRecord.active_organization_id.length > 0;
         if (!hasOrg) {
           setLoading(false);
           return;

@@ -541,6 +541,8 @@ function PracticeAppRoute({
   const {
     activeRole,
     canAccessPracticeWorkspace: canAccessPractice,
+    rolePending,
+    hasPracticeMembership,
     practicesLoading,
     currentPractice,
   } = useWorkspaceResolver({
@@ -632,7 +634,16 @@ function PracticeAppRoute({
   }
 
   if (!canAccessPractice) {
-    return <LoadingScreen />;
+    if (rolePending || practicesLoading) {
+      return <LoadingScreen />;
+    }
+    if (!hasPracticeMembership) {
+      return <App404 />;
+    }
+    return renderWorkspaceFailureState(
+      'Practice access denied',
+      'This account cannot open the requested practice workspace route.'
+    );
   }
 
 

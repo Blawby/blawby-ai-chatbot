@@ -20,7 +20,7 @@ function Harness({ practiceId, conversationId }: { practiceId: string | null; co
 
 const createSessionContext = (overrides: Partial<SessionContextValue> = {}): SessionContextValue => ({
   session: {
-    user: { id: 'user-1', isAnonymous: false } as never,
+    user: { id: 'user-1', is_anonymous: false } as never,
     session: { id: 'session-1' } as never,
   } as never,
   isPending: false,

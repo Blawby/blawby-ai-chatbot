@@ -168,7 +168,7 @@ function installFetchAudit(
  *
  * Each step reflects real code paths:
  *   Step 1: usePracticeConfig fires getPublicPracticeDetails (slug)
- *   Step 2: SessionProvider fires GET /auth/get-session (useTypedSession)
+ *   Step 2: SessionProvider fires GET /auth/get-session (useSession)
  *   Step 3: PublicPracticeRoute effect fires POST /api/auth/sign-in/anonymous
  *             (only after session check resolves with no user)
  *   Step 4: useConversations fires GET conversations-list (after session)
@@ -183,7 +183,7 @@ async function simulateCurrentWidgetBoot(
   // Step 1 & 2 — PARALLEL on mount: practice config + session check.
   await Promise.all([
     mockFetch('/api/practice/details/paul-yahoo'),          // usePracticeConfig
-    mockFetch('/auth/get-session'),                         // useTypedSession
+    mockFetch('/auth/get-session'),                         // useSession
   ]);
 
   // Step 3 — SEQUENTIAL: anon sign-in only fires AFTER session check resolves
@@ -239,7 +239,7 @@ const MOCK_RESPONSES: Record<string, { status: number; body: unknown; delayMs?: 
   '\\/auth\\/get-session': {
     delayMs: 90,
     status: 200,
-    body: { user: null, session: null }  // no user → triggers anon sign-in
+    body: null  // no user → triggers anon sign-in
   },
   '\\/api\\/auth\\/sign-in\\/anonymous': {
     delayMs: 150,

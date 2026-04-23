@@ -28,7 +28,7 @@ export const waitForSession = async (
         }
       });
       const rawText = await response.text().catch(() => '');
-      let data: any = null;
+      let data: { session: { id?: unknown }; user: { id?: unknown; is_anonymous?: unknown } } | null = null;
       if (rawText) {
         try {
           data = JSON.parse(rawText);
@@ -37,8 +37,8 @@ export const waitForSession = async (
         }
       }
       // Canonical shape: { session, user } | null
-      const hasSession = Boolean(data?.session || data?.user);
-      const userId = data?.user?.id ?? data?.session?.user?.id ?? null;
+      const hasSession = data !== null;
+      const userId = data?.user?.id ?? null;
       lastResult = {
         ok: response.ok(),
         status: response.status(),
@@ -54,7 +54,7 @@ export const waitForSession = async (
       }
       // If anonymous session arrives without explicit id, accept presence of is_anonymous
       if (lastResult.ok && lastResult.hasSession && !lastResult.userId) {
-        const isAnon = Boolean(data?.user?.is_anonymous || data?.session?.user?.is_anonymous);
+        const isAnon = data?.user?.is_anonymous === true;
         if (isAnon) return '';
       }
     } catch (error) {

@@ -157,7 +157,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
     const resolvedConversationName = conversationTitle?.trim() || '';
     const currentUserName = (
         isPublicWorkspace
-        && (session?.user?.isAnonymous === true || !sessionUserName)
+        && (session?.user?.is_anonymous === true || !sessionUserName)
         && resolvedConversationName
     ) ? resolvedConversationName : (sessionUserName || 'You');
     const virtualizationEnabled = dedupedMessages.length > BATCH_SIZE * 2;

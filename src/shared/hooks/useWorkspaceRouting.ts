@@ -67,7 +67,7 @@ interface PracticeDetails {
 }
 
 interface Session {
-  user?: { id: string; isAnonymous?: boolean } | null;
+  user?: { id: string; is_anonymous?: boolean } | null;
 }
 
 export interface UseWorkspaceRoutingOptions {
@@ -114,7 +114,7 @@ export const useWorkspaceRouting = ({
   const isAuthenticatedClient = useMemo(() => Boolean(
     isPublicWorkspace &&
     session?.user &&
-    !session.user.isAnonymous &&
+    !session.user.is_anonymous &&
     normalizePracticeRole(activeMemberRole) === 'client'
   ), [activeMemberRole, isPublicWorkspace, session?.user]);
 

@@ -94,7 +94,7 @@ vi.mock('@/shared/lib/authClient', () => ({
 
 vi.mock('@/shared/contexts/SessionContext', () => ({
   useSessionContext: () => ({
-    session: { user: { id: 'user-1', email: 'test@test-blawby.com' } },
+    session: { session: { id: 'session-1' }, user: { id: 'user-1', email: 'test@test-blawby.com' } },
     isPending: false,
     isAnonymous: false,
     activePracticeId: 'practice-1',
