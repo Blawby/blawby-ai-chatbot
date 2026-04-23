@@ -88,10 +88,8 @@ export async function handleWidgetBootstrap(request: Request, env: Env): Promise
       const validatedToken = await validateWidgetAuthToken(requestedWidgetToken.token, env);
       validatedWidgetTokenSource = requestedWidgetToken.tokenSource;
       sessionData = {
-        id: validatedToken.sessionId,
         user: {
           id: validatedToken.userId,
-          isAnonymous: true,
           is_anonymous: true,
         },
         session: {
@@ -129,7 +127,7 @@ export async function handleWidgetBootstrap(request: Request, env: Env): Promise
       }
 
       // Typing session data
-      const typedSessionData = sessionData as { user?: { id?: string; isAnonymous?: boolean } } | null;
+      const typedSessionData = sessionData as { user?: { id?: string; is_anonymous?: boolean } } | null;
 
       if (!typedSessionData?.user) {
         // Need anonymous signin
@@ -182,9 +180,7 @@ export async function handleWidgetBootstrap(request: Request, env: Env): Promise
   const practiceDetails = await getPracticeDetails as Record<string, unknown>;
   const pd = practiceDetails as Record<string, unknown>;
   const practiceId =
-    (typeof pd.organizationId === 'string' && pd.organizationId.trim()) ||
-    (typeof pd.organization_id === 'string' && pd.organization_id.trim()) ||
-    null;
+    (typeof pd.organization_id === 'string' && pd.organization_id.trim()) || null;
   if (!practiceId) {
     throw HttpErrors.badGateway('Unable to resolve practice id from practice details');
   }
@@ -194,17 +190,15 @@ export async function handleWidgetBootstrap(request: Request, env: Env): Promise
   let conversationId: string | null = null;
   let recentConversations: Array<{ id: string, created_at: string, last_message_at: string | null }> = [];
   const typedSessionDataResolved = sessionData as {
-    user?: { id?: string; isAnonymous?: boolean; is_anonymous?: boolean };
+    user?: { id?: string; is_anonymous?: boolean };
     session?: { id?: string };
   } | null;
   const sessionUserId = typedSessionDataResolved?.user?.id ?? null;
   const sessionId =
     typeof typedSessionDataResolved?.session?.id === 'string' && typedSessionDataResolved.session.id.trim().length > 0
       ? typedSessionDataResolved.session.id.trim()
-      : sessionUserId;
-  const isAnonymous =
-    typedSessionDataResolved?.user?.isAnonymous === true ||
-    typedSessionDataResolved?.user?.is_anonymous === true;
+      : null;
+  const isAnonymous = typedSessionDataResolved?.user?.is_anonymous === true;
   const widgetAuth =
     isAnonymous && sessionUserId && sessionId
       ? await issueWidgetAuthToken(

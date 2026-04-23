@@ -5,6 +5,32 @@ import { stripeClient } from '@better-auth/stripe/client';
 import type { BackendSessionUser, AuthSessionPayload } from '@/shared/types/user';
 import { getWorkerApiUrl } from '@/config/urls';
 
+type BetterAuthRawSessionRecord = Record<string, unknown> & {
+  active_organization_id?: string;
+  activeOrganizationId?: string;
+};
+
+type BetterAuthRawSessionUser = Record<string, unknown> & {
+  is_anonymous?: boolean;
+  isAnonymous?: boolean;
+  onboarding_complete?: boolean;
+  onboardingComplete?: boolean;
+  primary_workspace?: 'public' | 'client' | 'practice' | null;
+  primaryWorkspace?: 'public' | 'client' | 'practice' | null;
+  practice_id?: string | null;
+  practiceId?: string | null;
+  active_practice_id?: string | null;
+  activePracticeId?: string | null;
+  active_organization_id?: string | null;
+  activeOrganizationId?: string | null;
+  stripe_customer_id?: string | null;
+  stripeCustomerId?: string | null;
+  email_verified?: boolean;
+  emailVerified?: boolean;
+  last_login_method?: string;
+  lastLoginMethod?: string;
+};
+
 // Type for the auth client (inferred from createAuthClient return type)
 type AuthClientType = ReturnType<typeof createAuthClient>;
 // We intentionally avoid exposing any "transformError" union here.
@@ -107,55 +133,131 @@ export const signOut = (...args: Parameters<AuthClientType['signOut']>) => getAu
 export const useSession = () => {
   const client = getAuthClient();
   const hook = client.useSession();
-
   // Normalize the hook return so consumers only see the backend shape.
-  const unwrapData = (d: unknown): AuthSessionPayload => {
-    if (d === null || d === undefined) return null;
-    if (typeof d === 'object' && d !== null) {
-      const asRecord = d as Record<string, unknown>;
-      if ('data' in asRecord && typeof asRecord.data === 'object' && asRecord.data !== null) {
-        const inner = asRecord.data as Record<string, unknown>;
-        if ('session' in inner || 'user' in inner) {
-          return inner as AuthSessionPayload;
-        }
-      }
-      if ('session' in asRecord || 'user' in asRecord) {
-        return asRecord as AuthSessionPayload;
-      }
-    }
-    return null;
-  };
-
-  const sessionPayload = unwrapData(hook.data);
+  const sessionPayload = unwrapSessionData(hook.data);
   const hookState = hook as unknown as { isPending?: boolean; isLoading?: boolean; error?: unknown };
 
   return {
     session: sessionPayload,
     isPending: hookState.isPending ?? hookState.isLoading ?? false,
     error: hookState.error ?? null,
-  } as { session: AuthSessionPayload; isPending: boolean; error: unknown };
+  } as { session: AuthSessionPayload | null; isPending: boolean; error: unknown };
 };
+
+// Helper to normalize/unpack SDK envelopes or raw backend session shapes.
+function unwrapSessionData(d: unknown): AuthSessionPayload | null {
+  const toCanonical = (record: Record<string, unknown>): AuthSessionPayload | null => {
+    if (!('session' in record) || !('user' in record)) {
+      return null;
+    }
+    // Better Auth may return explicit nulls for unauthenticated state.
+    if (record.session === null && record.user === null) {
+      return null;
+    }
+    if (!record.session || !record.user || typeof record.session !== 'object' || typeof record.user !== 'object') {
+      return null;
+    }
+
+    const sessionRecord = record.session as BetterAuthRawSessionRecord;
+    const userRecord = record.user as BetterAuthRawSessionUser;
+
+    const normalizedSession: Record<string, unknown> = {
+      ...sessionRecord,
+    };
+    if (
+      typeof normalizedSession.active_organization_id !== 'string'
+      && typeof sessionRecord.activeOrganizationId === 'string'
+    ) {
+      normalizedSession.active_organization_id = sessionRecord.activeOrganizationId;
+    }
+
+    const normalizedUser: Record<string, unknown> = {
+      ...userRecord,
+    };
+    if (
+      typeof normalizedUser.is_anonymous !== 'boolean'
+      && typeof userRecord.isAnonymous === 'boolean'
+    ) {
+      normalizedUser.is_anonymous = userRecord.isAnonymous;
+    }
+    if (typeof normalizedUser.is_anonymous !== 'boolean') {
+      normalizedUser.is_anonymous = false;
+    }
+    if (
+      typeof normalizedUser.onboarding_complete !== 'boolean'
+      && typeof userRecord.onboardingComplete === 'boolean'
+    ) {
+      normalizedUser.onboarding_complete = userRecord.onboardingComplete;
+    }
+    if (
+      typeof normalizedUser.primary_workspace !== 'string'
+      && typeof userRecord.primaryWorkspace === 'string'
+    ) {
+      normalizedUser.primary_workspace = userRecord.primaryWorkspace;
+    }
+    if (
+      typeof normalizedUser.practice_id !== 'string'
+      && typeof userRecord.practiceId === 'string'
+    ) {
+      normalizedUser.practice_id = userRecord.practiceId;
+    }
+    if (
+      typeof normalizedUser.active_practice_id !== 'string'
+      && typeof userRecord.activePracticeId === 'string'
+    ) {
+      normalizedUser.active_practice_id = userRecord.activePracticeId;
+    }
+    if (
+      typeof normalizedUser.active_organization_id !== 'string'
+      && typeof userRecord.activeOrganizationId === 'string'
+    ) {
+      normalizedUser.active_organization_id = userRecord.activeOrganizationId;
+    }
+    if (
+      typeof normalizedUser.stripe_customer_id !== 'string'
+      && typeof userRecord.stripeCustomerId === 'string'
+    ) {
+      normalizedUser.stripe_customer_id = userRecord.stripeCustomerId;
+    }
+    if (
+      typeof normalizedUser.email_verified !== 'boolean'
+      && typeof userRecord.emailVerified === 'boolean'
+    ) {
+      normalizedUser.email_verified = userRecord.emailVerified;
+    }
+    if (
+      typeof normalizedUser.last_login_method !== 'string'
+      && typeof userRecord.lastLoginMethod === 'string'
+    ) {
+      normalizedUser.last_login_method = userRecord.lastLoginMethod;
+    }
+
+    return {
+      session: normalizedSession,
+      user: normalizedUser as unknown as BackendSessionUser,
+    } as AuthSessionPayload;
+  };
+
+  if (d === null || d === undefined) return null;
+  if (typeof d === 'object' && d !== null) {
+    const asRecord = d as Record<string, unknown>;
+    if ('data' in asRecord && typeof asRecord.data === 'object' && asRecord.data !== null) {
+      const inner = asRecord.data as Record<string, unknown>;
+      return toCanonical(inner);
+    }
+    return toCanonical(asRecord);
+  }
+  return null;
+}
 
 export const useActiveMemberRole = () => {
   const client = getAuthClient();
   return client.useActiveMemberRole();
 };
 
-export const getSession = async (...args: Parameters<AuthClientType['getSession']>): Promise<AuthSessionPayload> => {
+export const getSession = async (...args: Parameters<AuthClientType['getSession']>): Promise<AuthSessionPayload | null> => {
   const result = await getAuthClient().getSession(...args);
-  // If the SDK returns an envelope `{ data: { session, user } }`, unwrap it once.
-  // Otherwise assume it already returned the backend shape or `null`.
-  // Cast via unknown first to avoid accidental structural conversion warnings
-  const resUnknown = result as unknown;
-  if (resUnknown && typeof resUnknown === 'object') {
-    const resObj = resUnknown as Record<string, unknown>;
-    if ('data' in resObj && typeof resObj.data === 'object' && resObj.data !== null) {
-      const inner = resObj.data as Record<string, unknown>;
-      if ('session' in inner || 'user' in inner) return inner as AuthSessionPayload | null;
-    }
-  }
-
-  return result as unknown as AuthSessionPayload | null;
+  return unwrapSessionData(result);
 };
 type UpdateUserArgs = Parameters<AuthClientType['updateUser']>;
 type UpdateUserInput = Partial<BackendSessionUser> & Record<string, unknown>;

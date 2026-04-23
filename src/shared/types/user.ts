@@ -6,7 +6,7 @@ import type { User as BetterAuthUser } from 'better-auth/types';
 // Language type for internationalization
 export type Language = 'en' | 'es' | 'fr' | 'de' | 'it' | 'pt' | 'ja' | 'ko' | 'zh' | 'ar' | 'hi' | 'ru' | 'tr' | 'pl' | 'nl' | 'id' | 'th' | 'vi' | 'uk';
 
-// Extended User type that includes all custom fields from Better Auth
+// Extended Better Auth SDK user type (camelCase fields). Not used as canonical session payload.
 export interface ExtendedUser extends BetterAuthUser {
   // Organization & Role
   practiceId?: string | null;
@@ -216,17 +216,18 @@ export interface EmailSettings {
 // Type for updating user data via Better Auth
 export type UserUpdateData = Partial<Omit<UserProfile, 'id' | 'email' | 'createdAt' | 'updatedAt'>>;
 
-// Helper type for Better Auth session user (what we get from useSession)
+// Canonical backend-shaped session user consumed across the app.
+// Keep this snake_case to match normalized AuthSessionPayload from authClient.
 export interface BetterAuthSessionUser {
   id: string;
   name: string;
   email: string;
-  emailVerified?: boolean;
+  email_verified?: boolean;
   image?: string | null;
-  lastLoginMethod?: string; // "google", "email", etc.
+  last_login_method?: string; // "google", "email", etc.
   role?: string | null;
   phone?: string | null;
-  practiceCount?: number | null;
+  practice_count?: number | null;
   primary_workspace?: 'public' | 'client' | 'practice' | null;
   
   // All the additional fields we added
@@ -265,7 +266,7 @@ export interface BetterAuthSessionUser {
   customDomains?: string | null; // JSON string of custom domains array
 
   // Backend session payload uses snake_case field names.
-  is_anonymous?: boolean;
+  is_anonymous: boolean;
   onboarding_complete?: boolean | null;
   practice_id?: string | null;
   active_practice_id?: string | null;
@@ -285,8 +286,8 @@ export interface BetterAuthSessionUser {
   dataDeletionRequested?: boolean;
   dataDeletionDate?: Date | null;
   
-  createdAt: Date | null;
-  updatedAt: Date | null;
+  created_at: Date | null;
+  updated_at: Date | null;
 }
 
 /**
