@@ -20,6 +20,8 @@ export default defineConfig({
   testDir: './tests/e2e',
   testMatch: PUBLIC_WIDGET_SPECS,
   fullyParallel: true,
+  // Use Chromium as the default project when none is specified on the CLI
+  defaultProject: 'chromium',
   retries: 0,
   workers: resolveWorkers(),
   outputDir: './.tmp/playwright/public/results',

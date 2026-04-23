@@ -175,24 +175,24 @@ function unwrapSessionData(d: unknown): AuthSessionPayload | null {
     if (typeof userRecord.name === 'string') normalizedUser.name = userRecord.name;
     // Map anonymity flags explicitly
     if (typeof userRecord.is_anonymous === 'boolean') normalizedUser.is_anonymous = userRecord.is_anonymous;
-    else if (typeof (userRecord as any).isAnonymous === 'boolean') normalizedUser.is_anonymous = (userRecord as any).isAnonymous;
+    else if (typeof userRecord.isAnonymous === 'boolean') normalizedUser.is_anonymous = userRecord.isAnonymous;
     // Onboarding, workspace, practice/organization ids
     if (typeof userRecord.onboarding_complete === 'boolean') normalizedUser.onboarding_complete = userRecord.onboarding_complete;
-    else if (typeof (userRecord as any).onboardingComplete === 'boolean') normalizedUser.onboarding_complete = (userRecord as any).onboardingComplete;
+    else if (typeof userRecord.onboardingComplete === 'boolean') normalizedUser.onboarding_complete = userRecord.onboardingComplete;
     if (typeof userRecord.primary_workspace === 'string') normalizedUser.primary_workspace = userRecord.primary_workspace;
-    else if (typeof (userRecord as any).primaryWorkspace === 'string') normalizedUser.primary_workspace = (userRecord as any).primaryWorkspace;
+    else if (typeof userRecord.primaryWorkspace === 'string') normalizedUser.primary_workspace = userRecord.primaryWorkspace;
     if (typeof userRecord.practice_id === 'string') normalizedUser.practice_id = userRecord.practice_id;
-    else if (typeof (userRecord as any).practiceId === 'string') normalizedUser.practice_id = (userRecord as any).practiceId;
+    else if (typeof userRecord.practiceId === 'string') normalizedUser.practice_id = userRecord.practiceId;
     if (typeof userRecord.active_practice_id === 'string') normalizedUser.active_practice_id = userRecord.active_practice_id;
-    else if (typeof (userRecord as any).activePracticeId === 'string') normalizedUser.active_practice_id = (userRecord as any).activePracticeId;
+    else if (typeof userRecord.activePracticeId === 'string') normalizedUser.active_practice_id = userRecord.activePracticeId;
     if (typeof userRecord.active_organization_id === 'string') normalizedUser.active_organization_id = userRecord.active_organization_id;
-    else if (typeof (userRecord as any).activeOrganizationId === 'string') normalizedUser.active_organization_id = (userRecord as any).activeOrganizationId;
+    else if (typeof userRecord.activeOrganizationId === 'string') normalizedUser.active_organization_id = userRecord.activeOrganizationId;
     if (typeof userRecord.stripe_customer_id === 'string') normalizedUser.stripe_customer_id = userRecord.stripe_customer_id;
-    else if (typeof (userRecord as any).stripeCustomerId === 'string') normalizedUser.stripe_customer_id = (userRecord as any).stripeCustomerId;
+    else if (typeof userRecord.stripeCustomerId === 'string') normalizedUser.stripe_customer_id = userRecord.stripeCustomerId;
     if (typeof userRecord.email_verified === 'boolean') normalizedUser.email_verified = userRecord.email_verified;
-    else if (typeof (userRecord as any).emailVerified === 'boolean') normalizedUser.email_verified = (userRecord as any).emailVerified;
+    else if (typeof userRecord.emailVerified === 'boolean') normalizedUser.email_verified = userRecord.emailVerified;
     if (typeof userRecord.last_login_method === 'string') normalizedUser.last_login_method = userRecord.last_login_method;
-    else if (typeof (userRecord as any).lastLoginMethod === 'string') normalizedUser.last_login_method = (userRecord as any).lastLoginMethod;
+    else if (typeof userRecord.lastLoginMethod === 'string') normalizedUser.last_login_method = userRecord.lastLoginMethod;
 
     // Runtime validation: ensure required fields exist and timestamps are converted
     try {

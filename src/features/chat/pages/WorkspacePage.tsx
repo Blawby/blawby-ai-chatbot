@@ -203,7 +203,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   workspace = 'public',
   settingsView = 'general',
   settingsAppId,
-  routeInvoiceId: _routeInvoiceId,
+  routeInvoiceId: _,
   onStartNewConversation,
   activeConversationId = null,
   chatView,
@@ -449,15 +449,16 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   } = useIntakesData(isPracticeWorkspace ? practiceId : null, {
     enabled: isPracticeWorkspace && (view === 'home' || workspaceSection === 'conversations'),
     filter: workspaceSection === 'conversations' ? 'accepted' : 'all',
-    limit: workspaceSection === 'conversations' ? 500 : undefined,
+    // Reduced from 500 to 100 to prevent loading hangs in large practices.
+    // 100 is sufficient for the immediate triage status lookup in the practice inbox.
+    limit: workspaceSection === 'conversations' ? 100 : undefined,
   });
   const intakeTriageStatusLookup = useMemo(() => {
     const byConversationId = new Map<string, string>();
     for (const intake of allIntakes) {
-      const rawConversationId = intake.conversation_id ?? (intake as any).conversationId;
-      const conversationId = typeof rawConversationId === 'string' ? rawConversationId.trim() : '';
-      const rawTriageStatus = intake.triage_status ?? (intake as any).triageStatus;
-      const triageStatus = typeof rawTriageStatus === 'string' ? rawTriageStatus.trim() : '';
+      const conversationId = typeof intake.conversation_id === 'string' ? intake.conversation_id.trim() : '';
+      const triageStatus = typeof intake.triage_status === 'string' ? intake.triage_status.trim() : '';
+
       if (conversationId && triageStatus) {
         byConversationId.set(conversationId, triageStatus);
       }
@@ -465,7 +466,9 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     return { byConversationId };
   }, [allIntakes]);
   const acceptedIntakeConversationIds = useMemo(
-    () => Array.from(intakeTriageStatusLookup.byConversationId.keys()),
+    () => Array.from(intakeTriageStatusLookup.byConversationId.entries())
+      .filter(([, status]) => status === 'accepted')
+      .map(([id]) => id),
     [intakeTriageStatusLookup]
   );
   const [acceptedIntakeConversationsLoading, setAcceptedIntakeConversationsLoading] = useState(false);
@@ -599,10 +602,20 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     isPracticeWorkspace,
     sessionUserId,
   ]);
+  // Use the merged inbox (resolved + accepted intake conversations) when
+  // resolving the currently selected conversation so inspector actions
+  // operate on accepted-intake conversations as well.
   const selectedConversation = useMemo(
-    () => resolvedConversations.find((conversation) => conversation.id === activeConversationId) ?? null,
-    [activeConversationId, resolvedConversations]
+    () => conversationsForInbox.find((conversation) => conversation.id === activeConversationId) ?? null,
+    [activeConversationId, conversationsForInbox]
   );
+
+  // When accepted intake records can hide conversations, surface a combined
+  // loading/error state that includes intake lookup readiness so the list
+  // view renders appropriate placeholders/diagnostics.
+  const requireAcceptedIntakeRecord = true;
+  const combinedResolvedConversationsLoading = resolvedConversationsLoading || (requireAcceptedIntakeRecord && !intakeLookupLoaded);
+  const combinedResolvedConversationsError = resolvedConversationsError || (requireAcceptedIntakeRecord && intakesError);
   const inspectorTarget = useMemo(() => {
     if (workspaceSection === 'conversations' && activeConversationId) {
       return { entityType: 'conversation' as const, entityId: activeConversationId };
@@ -1305,7 +1318,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   }, [forcePreviewReload, updateSetupDetails]);
 
   const workspacePracticeId = practiceId ?? currentPractice?.id ?? null;
-  const organizationId = practiceId ?? currentPractice?.id ?? null;
   const { members: practiceMembers } = usePracticeTeam(
     workspacePracticeId,
     session?.user?.id ?? null,
@@ -1345,13 +1357,13 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   useEffect(() => { showErrorRef.current = showError; });
 
   const refreshStripeStatus = useCallback(async (options?: { signal?: AbortSignal }) => {
-    if (!organizationId || !shouldFetchStripeStatus) {
+    if (!workspacePracticeId || !shouldFetchStripeStatus) {
       setStripeStatus(null);
       return;
     }
     setIsStripeLoading(true);
     try {
-      const payload = await getOnboardingStatusPayload(organizationId, { signal: options?.signal });
+      const payload = await getOnboardingStatusPayload(workspacePracticeId, { signal: options?.signal });
       const status = extractStripeStatusFromPayload(payload);
       setStripeStatus(status ?? null);
     } catch (error) {
@@ -1365,20 +1377,20 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     } finally {
       setIsStripeLoading(false);
     }
-  // organizationId and shouldFetchStripeStatus are both stable primitives
-  }, [organizationId, shouldFetchStripeStatus]);
+  // workspacePracticeId and shouldFetchStripeStatus are both stable primitives
+  }, [workspacePracticeId, shouldFetchStripeStatus]);
 
-  // Only fetch when organizationId changes and the current view needs Stripe status.
+  // Only fetch when workspacePracticeId changes and the current view needs Stripe status.
   useEffect(() => {
-    if (!organizationId || !shouldFetchStripeStatus) return;
+    if (!workspacePracticeId || !shouldFetchStripeStatus) return;
     const controller = new AbortController();
     void refreshStripeStatus({ signal: controller.signal });
     return () => controller.abort();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [organizationId, shouldFetchStripeStatus]);
+  }, [workspacePracticeId, shouldFetchStripeStatus]);
 
   const handleStartStripeOnboarding = useCallback(async () => {
-    if (!organizationId) {
+    if (!workspacePracticeId) {
       showError('Payouts', 'Missing active practice.');
       return;
     }
@@ -1400,7 +1412,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     try {
       const connectedAccount = await createConnectedAccount({
         practiceEmail: email,
-        practiceUuid: organizationId,
+        practiceUuid: workspacePracticeId,
         returnUrl: returnUrl.toString(),
         refreshUrl: refreshUrl.toString()
       });
@@ -1421,7 +1433,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       setIsStripeSubmitting(false);
     }
 
-  }, [organizationId, currentPractice?.businessEmail, session?.user?.email, showError]);
+  }, [workspacePracticeId, currentPractice?.businessEmail, session?.user?.email, showError]);
 
   const handleIntakePreviewSubmit = useCallback(async () => {
     showSuccess('Intake preview submitted', 'This submission is for preview only.');
@@ -1731,8 +1743,8 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       previews={conversationPreviews}
       practiceName={practiceName}
       practiceLogo={practiceLogo}
-      isLoading={resolvedConversationsLoading}
-      error={resolvedConversationsError}
+      isLoading={combinedResolvedConversationsLoading}
+      error={combinedResolvedConversationsError}
       onSelectConversation={handleSelectConversation}
       onSendMessage={() => handleStartConversation('ASK_QUESTION')}
       showSendMessageButton={false /* Permanent UX decision: conversation creation is initiated from guided entry points, not from list headers. */}
@@ -1837,8 +1849,8 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
           previews={conversationPreviews}
           practiceName={practiceName}
           practiceLogo={practiceLogo}
-          isLoading={resolvedConversationsLoading}
-          error={resolvedConversationsError}
+          isLoading={combinedResolvedConversationsLoading}
+          error={combinedResolvedConversationsError}
           onSelectConversation={handleSelectConversation}
           onSendMessage={() => handleStartConversation('ASK_QUESTION')}
           showSendMessageButton={false /* Permanent UX decision: conversation creation is initiated from guided entry points, not from list headers. */}
