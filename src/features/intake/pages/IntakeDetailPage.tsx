@@ -574,6 +574,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
     gatherDetailsSubmitting,
     intake?.conversation_id,
     intake?.organization_id,
+    intake,
     intakeConversationState,
     intakeId,
     showError,

@@ -68,22 +68,26 @@ export const RecentIntakesGrid = ({
           {intakes.map((intake) => {
             const contactName = intake.metadata.name || 'Unknown';
             const title = resolveIntakeTitle(intake.metadata, contactName);
+            const actionable = Boolean(onViewIntake);
             return (
               <li
                 key={intake.uuid}
                 className="glass-card flex flex-col overflow-hidden"
               >
                 <div
-                  className="flex items-center gap-x-4 border-b border-line-glass/20 p-6"
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => onViewIntake?.(intake.uuid)}
-                  onKeyDown={(e) => {
+                  className={
+                    `flex items-center gap-x-4 border-b border-line-glass/20 p-6 ${actionable ? 'cursor-pointer focus-visible:ring-2 focus-visible:ring-accent-400 focus:outline-none' : ''}`
+                  }
+                  role={actionable ? 'button' : undefined}
+                  tabIndex={actionable ? 0 : -1}
+                  aria-disabled={actionable ? undefined : true}
+                  onClick={actionable ? () => onViewIntake?.(intake.uuid) : undefined}
+                  onKeyDown={actionable ? (e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
                       e.preventDefault();
                       onViewIntake?.(intake.uuid);
                     }
-                  }}
+                  } : undefined}
                 >
                 <Avatar 
                   name={contactName}
