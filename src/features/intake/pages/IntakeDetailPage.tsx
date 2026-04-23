@@ -1,4 +1,5 @@
 import { FunctionComponent } from 'preact';
+import { useLocation } from 'preact-iso';
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 import { useMessageHandling } from '@/shared/hooks/useMessageHandling';
 import {
@@ -42,6 +43,65 @@ import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
 import { resolvePracticeServiceLabel } from '@/features/matters/utils/matterUtils';
 import { resolveIntakeTitle } from '@/features/intake/utils/intakeTitle';
 import { applyConsultationPatchToMetadata } from '@/shared/utils/consultationState';
+import { DEFAULT_INTAKE_TEMPLATE } from '@/shared/constants/intakeTemplates';
+import type { IntakeTemplate, IntakeFieldDefinition } from '@/shared/types/intake';
+
+// ── Template helpers ──────────────────────────────────────────────────────────
+
+function parseTemplatesFromPracticeDetails(details: unknown): IntakeTemplate[] {
+  if (!details || typeof details !== 'object') return [];
+  const meta = (details as Record<string, unknown>).metadata;
+  if (!meta || typeof meta !== 'object') return [];
+  const raw = (meta as Record<string, unknown>).intakeTemplates;
+  if (typeof raw === 'string') {
+    try { const p = JSON.parse(raw); return Array.isArray(p) ? p as IntakeTemplate[] : []; } catch { return []; }
+  }
+  return Array.isArray(raw) ? raw as IntakeTemplate[] : [];
+}
+
+function resolveTemplateSlug(intake: PracticeIntakeDetail): string | null {
+  const meta = (intake.metadata ?? {}) as Record<string, unknown>;
+  const direct = meta.intake_template_slug ?? meta.template_slug;
+  if (typeof direct === 'string' && direct.trim()) return direct.trim();
+  const cf = meta.custom_fields ?? meta.customFields;
+  if (cf && typeof cf === 'object' && !Array.isArray(cf)) {
+    const slug = (cf as Record<string, unknown>)._intake_template_slug;
+    if (typeof slug === 'string' && slug.trim()) return slug.trim();
+  }
+  return null;
+}
+
+function resolveActiveTemplate(
+  intake: PracticeIntakeDetail,
+  practiceDetails: unknown,
+): IntakeTemplate | null {
+  const slug = resolveTemplateSlug(intake);
+  if (!slug) return null;
+  const templates = parseTemplatesFromPracticeDetails(practiceDetails);
+  return templates.find((t) => t.slug === slug) ?? null;
+}
+
+/** Get the value for a given intake field from conversation state. */
+function resolveFieldValue(
+  field: IntakeFieldDefinition,
+  intakeState: Record<string, unknown> | null,
+): string | null {
+  if (!intakeState) return null;
+  // Standard fields map to top-level keys on the state
+  if (field.isStandard) {
+    const v = intakeState[field.key];
+    if (v === null || v === undefined || v === '') return null;
+    if (typeof v === 'boolean') return v ? 'Yes' : 'No';
+    return String(v);
+  }
+  // Custom fields live under customFields
+  const cf = intakeState.customFields;
+  if (!cf || typeof cf !== 'object' || Array.isArray(cf)) return null;
+  const v = (cf as Record<string, unknown>)[field.key];
+  if (v === null || v === undefined || v === '') return null;
+  if (typeof v === 'boolean') return v ? 'Yes' : 'No';
+  return String(v);
+}
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -130,6 +190,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
   onBack,
   onTriageComplete,
 }) => {
+  const { route } = useLocation();
   const { showSuccess, showError } = useToastContext();
   const { session } = useSessionContext();
 
@@ -209,6 +270,8 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
     hasDetails: hasPracticeDetails,
     fetchDetails: fetchPracticeDetails,
   } = usePracticeDetails(practiceId, null, false);
+
+  const activeTemplate = intake ? resolveActiveTemplate(intake, practiceDetails) : null;
 
   // Load intake detail
   useEffect(() => {
@@ -436,36 +499,16 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
       { mirrorLegacyFields: true }
     );
 
-    const metadata = (intake?.metadata ?? {}) as Record<string, unknown>;
-    const representedParty = typeof metadata.on_behalf_of === 'string' && metadata.on_behalf_of.trim().length > 0
-      ? metadata.on_behalf_of.trim()
-      : null;
-    const otherParty = typeof metadata.opposing_party === 'string' && metadata.opposing_party.trim().length > 0
-      ? metadata.opposing_party.trim()
-      : null;
-    const desiredOutcome = typeof intake?.desired_outcome === 'string' && intake.desired_outcome.trim().length > 0
-      ? intake.desired_outcome.trim()
-      : null;
-
-    // These are intentionally static follow-up prompts so the intake detail
-    // screen can gather a few missing fields deterministically without
-    // invoking the full AI planning flow again.
-    const missingPrompts = [
-      {
-        missing: !representedParty,
-        content: 'I can gather a little more detail for the attorney. Are you reaching out for yourself, or on behalf of someone else?',
-      },
-      {
-        missing: !otherParty,
-        content: 'I can gather a little more detail for the attorney. Is there a specific person or organization on the other side of this issue?',
-      },
-      {
-        missing: !desiredOutcome,
-        content: 'I can gather a little more detail for the attorney. What outcome are you hoping for from this consultation?',
-      },
-    ];
-    const prompt = missingPrompts.find((item) => item.missing)?.content
-      ?? 'To help the attorney, may I ask—are you seeking assistance for yourself, or on behalf of someone else?';
+    // Use the first unanswered enrichment field from the active template
+    // to build a targeted question instead of hardcoded prompts.
+    const templateFields = (activeTemplate?.fields ?? DEFAULT_INTAKE_TEMPLATE.fields)
+      .filter((f) => f.phase === 'enrichment');
+    const nextMissingField = templateFields.find(
+      (f) => !resolveFieldValue(f, intakeConversationState as unknown as Record<string, unknown> | null)
+    );
+    const prompt = nextMissingField
+      ? `I can gather a little more detail for the attorney. ${nextMissingField.previewQuestion ?? `Can you tell me about your ${nextMissingField.label.toLowerCase()}?`}`
+      : 'To help the attorney, is there any additional detail about your situation you\'d like to share?';
 
     setGatherDetailsSubmitting(true);
     try {
@@ -502,11 +545,10 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
       if (isMountedRef.current) setGatherDetailsSubmitting(false);
     }
   }, [
+    activeTemplate,
     conversationMetadata,
     gatherDetailsSubmitting,
     intake?.conversation_id,
-    intake?.desired_outcome,
-    intake?.metadata,
     intake?.organization_id,
     intakeConversationState,
     intakeId,
@@ -584,10 +626,27 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
   const locationLabel = [city, state].filter(Boolean).join(', ') || null;
   const paymentLabel = feeAmount ? `${feeAmount} ${intake.stripe_charge_id ? 'paid' : 'consultation'}` : null;
   const canReplyInIntake = Boolean(intake.conversation_id && effectiveTriageStatus === 'accepted');
-  const hasMissingLegalDetails =
-    !onBehalfOf ||
-    !opposingParty ||
-    (typeof intake.desired_outcome === 'string' ? intake.desired_outcome.trim() === '' : !intake.desired_outcome);
+  const templateName = activeTemplate?.name
+    ?? (() => {
+      // Fall back to the stored name from custom_fields if template not found in practice data
+      const cf = (meta.custom_fields ?? meta.customFields) as Record<string, unknown> | undefined;
+      const storedName = cf?._intake_template_name;
+      return typeof storedName === 'string' && storedName.trim() ? storedName.trim() : null;
+    })();
+
+  // Enrichment fields from the matched template (or fallback to defaults)
+  const enrichmentFields: IntakeFieldDefinition[] = (
+    activeTemplate?.fields ?? DEFAULT_INTAKE_TEMPLATE.fields
+  ).filter((f) => f.phase === 'enrichment');
+
+  // Cast intakeConversationState to a plain record for resolveFieldValue
+  const intakeStateRecord = intakeConversationState as unknown as Record<string, unknown> | null;
+
+  // hasMissingLegalDetails: true if any enrichment field is unanswered
+  const unansweredEnrichmentFields = enrichmentFields.filter(
+    (f) => !resolveFieldValue(f, intakeStateRecord),
+  );
+  const hasMissingLegalDetails = unansweredEnrichmentFields.length > 0 && Boolean(intake.conversation_id);
 
   const statusChipClass = (status: string) => {
     if (status === 'accepted') return 'bg-emerald-500/10 text-emerald-500 ring-emerald-500/20';
@@ -815,15 +874,48 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
         </section>
 
         <section className="glass-card p-6 sm:p-8">
-          <h2 className="mb-6 text-xs font-semibold uppercase tracking-widest text-input-placeholder">
-            Legal details
-          </h2>
-          <dl className="grid grid-cols-1 gap-5 md:grid-cols-3">
-            <StatCell label="On behalf of" value={onBehalfOf} icon={UserIcon} />
-            <StatCell label="Opposing party" value={opposingParty} icon={ScaleIcon} />
-            <StatCell label="Desired outcome" value={intake.desired_outcome} icon={CheckCircleIcon} />
-          </dl>
-          {hasMissingLegalDetails && intake.conversation_id ? (
+          <div className="mb-6 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <h2 className="text-xs font-semibold uppercase tracking-widest text-input-placeholder">
+                Form details
+              </h2>
+              {templateName ? (
+                <span className="inline-flex items-center rounded-full bg-accent/10 px-2 py-0.5 text-xs font-medium text-accent ring-1 ring-inset ring-accent/20">
+                  {templateName}
+                </span>
+              ) : null}
+            </div>
+            {activeTemplate && practiceId ? (
+              <Button
+                type="button"
+                variant="link"
+                size="sm"
+                onClick={() => route(`/practice/${encodeURIComponent((practiceDetails as { slug?: string })?.slug ?? practiceId)}/intakes/${encodeURIComponent(activeTemplate.slug)}/edit`)}
+                className="h-auto p-0 text-xs text-accent hover:text-accent-hover"
+              >
+                View form setup
+              </Button>
+            ) : null}
+          </div>
+          {enrichmentFields.length > 0 ? (
+            <dl className="grid grid-cols-1 gap-5 md:grid-cols-3">
+              {enrichmentFields.map((field) => (
+                <StatCell
+                  key={field.key}
+                  label={field.label}
+                  value={resolveFieldValue(field, intakeStateRecord)}
+                  icon={ClipboardDocumentCheckIcon}
+                />
+              ))}
+            </dl>
+          ) : (
+            <dl className="grid grid-cols-1 gap-5 md:grid-cols-3">
+              <StatCell label="On behalf of" value={onBehalfOf} icon={UserIcon} />
+              <StatCell label="Opposing party" value={opposingParty} icon={ScaleIcon} />
+              <StatCell label="Desired outcome" value={intake.desired_outcome} icon={CheckCircleIcon} />
+            </dl>
+          )}
+          {hasMissingLegalDetails ? (
             <div className="mt-6 flex flex-col gap-3 border-t border-line-glass/10 pt-5 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-sm leading-relaxed text-input-placeholder">
                 Blawby can ask the client for the missing legal details and add them to this thread.
@@ -841,46 +933,6 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
             </div>
           ) : null}
         </section>
-
-        {/* ── Custom template fields ── */}
-        {(() => {
-          const customFields = intakeConversationState?.customFields;
-          if (!customFields || typeof customFields !== 'object' || Array.isArray(customFields)) return null;
-          // Normalize: trim string values, filter out empty after trim
-          const entries = Object.entries(customFields)
-            .filter(([key, v]) => {
-              if (key.startsWith('_')) return false;
-              if (typeof v === 'string') {
-                return v.trim() !== '';
-              }
-              return v !== null && v !== undefined;
-            });
-          if (entries.length === 0) return null;
-          // Humanize label: replace _/- with space, split camel, capitalize
-          const humanize = (key: string) => {
-            return key
-              .replace(/[_-]/g, ' ')
-              .replace(/([a-z])([A-Z])/g, '$1 $2')
-              .replace(/^./, (s) => s.toUpperCase());
-          };
-          return (
-            <section className="glass-card p-6 sm:p-8">
-              <h2 className="mb-6 text-xs font-semibold uppercase tracking-widest text-input-placeholder">
-                Custom fields
-              </h2>
-              <dl className="grid grid-cols-1 gap-5 md:grid-cols-3">
-                {entries.map(([key, value]) => (
-                  <StatCell
-                    key={key}
-                    label={humanize(key)}
-                    value={typeof value === 'boolean' ? (value ? 'Yes' : 'No') : String(value)}
-                    icon={ClipboardDocumentCheckIcon}
-                  />
-                ))}
-              </dl>
-            </section>
-          );
-        })()}
 
           {conversationSection}
         </div>
