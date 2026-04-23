@@ -1,5 +1,5 @@
 import axios, { type AxiosRequestConfig } from 'axios';
-import { useState, useCallback, useEffect, useRef, useContext } from 'preact/hooks';
+import { useState, useCallback, useEffect, useRef, useContext, useMemo } from 'preact/hooks';
 import { getPracticeWorkspaceEndpoint } from '@/config/api';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { RoutePracticeContext } from '@/shared/contexts/RoutePracticeContext';
@@ -23,6 +23,7 @@ import { resetPracticeDetailsStore, setPracticeDetailsEntry } from '@/shared/sto
 import { ensurePracticeTeamCacheUserId, invalidatePracticeTeamForPractice, resetPracticeTeamStore as _resetPracticeTeamStore } from '@/shared/stores/practiceTeamStore';
 import { asMajor, type MajorAmount } from '@/shared/utils/money';
 import { type PracticeRole } from '@/shared/utils/practiceRoles';
+import { debounce } from '@/shared/utils/debounce';
 
 const isPlainObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -917,6 +918,16 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
     }
   }, [fetchOnboardingStatus, fetchPracticeDetails, isAnonymous, requestedPracticeSlug, session]);
 
+  // Debounced fetch for cases where multiple components mount/trigger rapidly.
+  // This prevents aggressive aborts of in-flight requests caused by rapid
+  // successive invocations (e.g. multiple components calling auto-fetch).
+  const debouncedFetchPractices = useMemo(
+    () => debounce(() => {
+      void fetchPractices();
+    }, 300),
+    [fetchPractices]
+  );
+
   // Create practice
   const createPractice = useCallback(async (data: CreatePracticeData): Promise<Practice> => {
     if (!data?.name || data.name.trim().length === 0) {
@@ -1159,17 +1170,22 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
       return;
     }
 
-    void fetchPractices();
+    // Use a debounced fetch to avoid rapid successive requests causing
+    // in-flight aborts when multiple components mount or session state
+    // updates trigger repeated refetches.
+    void debouncedFetchPractices();
 
     return () => {
       currentRequestRef.current?.abort();
+      // Cancel pending debounced invocation when effect cleans up
+      debouncedFetchPractices.cancel?.();
     };
   }, [
     autoFetchPractices,
     sessionLoading,
     session?.user?.id,
     isAnonymous,
-    fetchPractices
+    debouncedFetchPractices
   ]);
 
   return {
