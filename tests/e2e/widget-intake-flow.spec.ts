@@ -63,19 +63,62 @@ type DonePayload = {
  */
 function parseDonePayloads(text: string): DonePayload[] {
   if (!text) return [];
-  return text
-    .split('\n')
-    .filter((line) => line.trim().startsWith('data: '))
-    .map((line) => {
-      const jsonStr = line.trim().slice(6);
-      try {
-        const data = JSON.parse(jsonStr);
-        return data.done ? (data as DonePayload) : null;
-      } catch {
-        return null;
+  // Split into SSE event blocks separated by a blank line (handles \n and \r\n)
+  const events = text.split(/\r?\n\r?\n/);
+  const results: DonePayload[] = [];
+  for (const ev of events) {
+    if (!ev.trim()) continue;
+    const lines = ev.split(/\r?\n/);
+    const dataLines: string[] = [];
+    for (const line of lines) {
+      const trimmed = line.trimStart();
+      if (trimmed.startsWith('data:')) {
+        // remove leading `data:` and optional single space
+        const payloadFragment = trimmed.length > 5 && trimmed[5] === ' ' ? trimmed.slice(6) : trimmed.slice(5);
+        dataLines.push(payloadFragment);
       }
-    })
-    .filter((p): p is DonePayload => p !== null);
+    }
+    if (dataLines.length === 0) continue;
+    const assembled = dataLines.join('\n');
+    try {
+      const parsed = JSON.parse(assembled) as unknown;
+      if (parsed && typeof parsed === 'object' && (parsed as any).done) {
+        results.push(parsed as DonePayload);
+      }
+    } catch (_) {
+      // skip malformed JSON fragments
+      continue;
+    }
+  }
+  return results;
+}
+
+/**
+ * Aggregate multiple DonePayload entries into one.
+ * - intakeFields: shallow merge (later values win)
+ * - actions: use the latest explicit actions array (do not concat)
+ * - other scalar fields: overwritten by later payloads
+ */
+function aggregateDonePayloads(payloads: DonePayload[]): DonePayload | null {
+  if (!payloads || payloads.length === 0) return null;
+  const out: DonePayload = {};
+  for (const p of payloads) {
+    if (p.intakeFields && typeof p.intakeFields === 'object') {
+      out.intakeFields = out.intakeFields ?? {};
+      for (const [k, v] of Object.entries(p.intakeFields)) {
+        if (v !== undefined) (out.intakeFields as Record<string, unknown>)[k] = v;
+      }
+    }
+    if (Array.isArray(p.actions)) {
+      // replace actions with the latest explicit array (do not concat)
+      out.actions = p.actions;
+    }
+    if (p.question) out.question = p.question;
+    if (p.persistedMessageId !== undefined) out.persistedMessageId = p.persistedMessageId;
+    if (typeof p.messagePersisted === 'boolean') out.messagePersisted = p.messagePersisted;
+    if (typeof p.wasToolOnly === 'boolean') out.wasToolOnly = p.wasToolOnly;
+  }
+  return Object.keys(out).length ? out : null;
 }
 
 
@@ -283,10 +326,9 @@ test.describe('Public widget intake flow', () => {
       if (response.url().includes('/api/ai/chat') && response.request().method() === 'POST') {
         void response.text().then((text) => {
           const payloads = parseDonePayloads(text);
-          if (payloads.length) {
-            latestDonePayload = payloads[payloads.length - 1];
-          }
-        });
+          const aggregated = aggregateDonePayloads(payloads);
+          if (aggregated) latestDonePayload = aggregated;
+        }).catch(() => undefined);
       }
     });
 
@@ -1075,25 +1117,7 @@ test.describe('Public widget intake flow', () => {
 
         // Aggregate successive done payloads into a single composed payload so tests
         // don't depend on the exact timing/order of intermediate SSE events.
-        const aggregated: DonePayload = {};
-        for (const p of payloads) {
-          if (p.intakeFields && typeof p.intakeFields === 'object') {
-            aggregated.intakeFields = aggregated.intakeFields ?? {};
-            for (const [k, v] of Object.entries(p.intakeFields)) {
-              // prefer later values (overwrite) when available
-              if (v !== undefined) (aggregated.intakeFields as Record<string, unknown>)[k] = v;
-            }
-          }
-          if (Array.isArray(p.actions) && p.actions.length) {
-            aggregated.actions = (aggregated.actions ?? []).concat(p.actions as Array<Record<string, unknown>>);
-          }
-          if (p.question) aggregated.question = p.question;
-          if (p.persistedMessageId) aggregated.persistedMessageId = p.persistedMessageId;
-          if (typeof p.messagePersisted === 'boolean') aggregated.messagePersisted = p.messagePersisted;
-          if (typeof p.wasToolOnly === 'boolean') aggregated.wasToolOnly = p.wasToolOnly;
-        }
-
-        const donePayload = Object.keys(aggregated).length ? aggregated : null;
+        const donePayload = aggregateDonePayloads(payloads);
         if (donePayload) latestDonePayload = donePayload;
 
         await expect.poll(
@@ -1335,7 +1359,8 @@ test.describe('Public widget intake flow', () => {
           await timeSensitiveChip.click();
           const response = await responsePromise;
           const responseText = await response.text().catch(() => '');
-          const donePayload = parseDonePayloads(responseText).at(-1) ?? null;
+          const payloads = parseDonePayloads(responseText);
+          const donePayload = aggregateDonePayloads(payloads);
           if (donePayload) {
             latestDonePayload = donePayload;
           }
@@ -1502,23 +1527,8 @@ test.describe('Public widget intake flow', () => {
       }
 
       // Aggregate payloads into latestDonePayload so downstream structured-answer logic can use it
-      const aggregated: DonePayload = {};
-      for (const p of payloads) {
-        if (p.intakeFields && typeof p.intakeFields === 'object') {
-          aggregated.intakeFields = aggregated.intakeFields ?? {};
-          for (const [k, v] of Object.entries(p.intakeFields)) {
-            if (v !== undefined) (aggregated.intakeFields as Record<string, unknown>)[k] = v;
-          }
-        }
-        if (Array.isArray(p.actions) && p.actions.length) {
-          aggregated.actions = (aggregated.actions ?? []).concat(p.actions as Array<Record<string, unknown>>);
-        }
-        if (p.question) aggregated.question = p.question;
-        if (p.persistedMessageId) aggregated.persistedMessageId = p.persistedMessageId;
-        if (typeof p.messagePersisted === 'boolean') aggregated.messagePersisted = p.messagePersisted;
-        if (typeof p.wasToolOnly === 'boolean') aggregated.wasToolOnly = p.wasToolOnly;
-      }
-      if (Object.keys(aggregated).length) latestDonePayload = aggregated;
+      const aggregated = aggregateDonePayloads(payloads);
+      if (aggregated) latestDonePayload = aggregated;
 
       await expect.poll(
         async () => {
