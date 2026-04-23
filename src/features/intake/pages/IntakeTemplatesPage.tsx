@@ -1251,10 +1251,11 @@ function TemplateEditor({
       if (field.isStandard) {
         // Standard fields: allow editing label and previewQuestion.
         // The key, type, isStandard, and mapsTo are always preserved.
+        const trimmed = value.trim();
         return {
           ...field,
           label: value,
-          previewQuestion: value ? `${value.trim().replace(/\?$/, '')}?` : field.previewQuestion,
+          previewQuestion: trimmed ? `${trimmed.replace(/\?$/, '')}?` : field.previewQuestion,
         };
       }
 
