@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useRef, useMemo, useState } from 'preact/compat';
 import { ComponentChildren } from 'preact';
-import { useSession, useActiveMemberRole } from '@/shared/lib/authClient';
+import { useSession, authClient } from '@/shared/lib/authClient';
 import { RoutePracticeContext } from '@/shared/contexts/RoutePracticeContext';
 import { rememberAnonymousUserId, rememberAnonymousSessionId } from '@/shared/utils/anonymousIdentity';
 import type { AuthSessionPayload, BackendSession, BackendSessionUser } from '@/shared/types/user';
@@ -72,27 +72,40 @@ function ActiveMemberRoleBridge({
 }: {
   onChange: (next: ActiveMemberRoleState) => void;
 }) {
-  const activeMemberRoleResult = useActiveMemberRole() as {
-    data?: string | { role?: string | null } | null;
-    isPending?: boolean;
-    error?: unknown;
-  };
-  const activeRoleData = activeMemberRoleResult?.data;
-  const resolvedActiveMemberRole = typeof activeRoleData === 'string'
-    ? activeRoleData
-    : activeRoleData && typeof activeRoleData === 'object' && typeof activeRoleData.role === 'string'
-      ? activeRoleData.role
-      : null;
-  const activeMemberRoleLoading = activeMemberRoleResult?.isPending === true;
-
   useEffect(() => {
-    onChange({
-      role: resolvedActiveMemberRole,
-      loading: activeMemberRoleLoading,
-      resolved: !activeMemberRoleLoading,
-      error: activeMemberRoleResult?.error,
-    });
-  }, [activeMemberRoleLoading, onChange, resolvedActiveMemberRole, activeMemberRoleResult?.error]);
+    let mounted = true;
+    
+    onChange({ role: null, loading: true, resolved: false });
+    
+    authClient.organization.getActiveMemberRole()
+      .then((res) => {
+        if (!mounted) return;
+        const activeRoleData = res?.data;
+        const resolvedActiveMemberRole = typeof activeRoleData === 'string'
+          ? activeRoleData
+          : activeRoleData && typeof activeRoleData === 'object' && typeof activeRoleData.role === 'string'
+            ? activeRoleData.role
+            : null;
+            
+        onChange({
+          role: resolvedActiveMemberRole,
+          loading: false,
+          resolved: true,
+          error: res?.error,
+        });
+      })
+      .catch((err) => {
+        if (!mounted) return;
+        onChange({
+          role: null,
+          loading: false,
+          resolved: true,
+          error: err,
+        });
+      });
+      
+    return () => { mounted = false; };
+  }, [onChange]);
 
   return null;
 }
