@@ -14,7 +14,6 @@ import { ArrowUturnLeftIcon } from '@heroicons/react/24/outline';
 import { Icon } from '@/shared/ui/Icon';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
 import { chatTypography } from '@/features/chat/styles/chatTypography';
-import type { IntakeConversationState } from '@/shared/types/intake';
 import type { ChatMessageAction } from '@/shared/types/conversation';
 import { features } from '@/config/features';
 
@@ -91,17 +90,6 @@ interface MessageProps {
 	toolMessage?: string;
 	id?: string;
 	practiceId?: string;
-	intakeStatus?: {
-		step?: string;
-		decision?: string;
-		intakeUuid?: string | null;
-		paymentRequired?: boolean;
-		paymentReceived?: boolean;
-	};
-	intakeConversationState?: IntakeConversationState | null;
-	onSubmitNow?: () => void | Promise<void>;
-	onBuildBrief?: () => void;
-	onStrengthenCase?: () => void;
 	actions?: ChatMessageAction[];
 	onActionReply?: (text: string) => void;
 	onboardingProfile?: {
@@ -140,7 +128,6 @@ const Message: FunctionComponent<MessageProps> = memo(({
 	variant = 'default',
 	size = 'md',
 	matterCanvas,
-	intakeStatus,
 	documentChecklist,
 	generatedPDF,
 	paymentRequest,
@@ -161,10 +148,6 @@ const Message: FunctionComponent<MessageProps> = memo(({
 	id: _id,
 	practiceId: _practiceId,
 	className = '',
-	intakeConversationState,
-	onSubmitNow,
-	onBuildBrief,
-	onStrengthenCase,
 	actions,
 	onActionReply,
 	onboardingProfile,
@@ -320,7 +303,6 @@ const Message: FunctionComponent<MessageProps> = memo(({
 				{/* Actions (matter canvas, forms, etc.) */}
 			<MessageActions
 					matterCanvas={matterCanvas}
-				intakeStatus={intakeStatus}
 				documentChecklist={documentChecklist}
 				generatedPDF={generatedPDF}
 					paymentRequest={paymentRequest}
@@ -328,12 +310,8 @@ const Message: FunctionComponent<MessageProps> = memo(({
 					assistantRetry={assistantRetry}
 					authCta={authCta}
 					onAuthPromptRequest={onAuthPromptRequest}
-				intakeConversationState={intakeConversationState}
 				actions={actions}
 				onActionReply={onActionReply}
-				onSubmitNow={onSubmitNow}
-				onBuildBrief={onBuildBrief}
-				onStrengthenCase={onStrengthenCase}
 				onboardingProfile={onboardingProfile}
 				isStreaming={isStreaming}
 				isLast={isLast}

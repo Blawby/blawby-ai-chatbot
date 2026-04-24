@@ -341,6 +341,7 @@ export default function DebugConversationsPage() {
       messages={activeMessages}
       conversationTitle={activeConversation?.user_info?.title as string | null}
       onSendMessage={handleSendMessage}
+      isReady={true}
       conversationMode="ASK_QUESTION"
       isPublicWorkspace={false}
       practiceConfig={{
@@ -399,8 +400,6 @@ export default function DebugConversationsPage() {
       isRecording={isRecording}
       setIsRecording={setIsRecording}
       isReadyToUpload
-      isSessionReady
-      isSocketReady
       messagesReady
     />
   );

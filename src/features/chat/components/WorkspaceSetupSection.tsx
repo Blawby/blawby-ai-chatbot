@@ -402,12 +402,12 @@ export const WorkspaceSetupSection: FunctionComponent<WorkspaceSetupSectionProps
                     }
                   }}
                   conversationMode="PRACTICE_ONBOARDING"
+                  isReady={!waitingForRealChat && !isEnriching && Boolean(practiceId)}
                   isPublicWorkspace={false}
                   practiceConfig={onboardingPracticeConfig}
                   layoutMode="desktop"
                   useFrame={false}
                   practiceId={practiceId || undefined}
-                  composerDisabled={waitingForRealChat || isEnriching || !practiceId}
                   previewFiles={emptyPreviewFiles}
                   uploadingFiles={emptyUploadingFiles}
                   removePreviewFile={() => {}}
@@ -419,8 +419,6 @@ export const WorkspaceSetupSection: FunctionComponent<WorkspaceSetupSectionProps
                   isRecording={isRecording}
                   setIsRecording={setIsRecording}
                   isReadyToUpload
-                  isSessionReady={!waitingForRealChat}
-                  isSocketReady={waitingForRealChat ? false : (chatAdapter?.isSocketReady ?? true)}
                   messagesReady={chatMessagesReady}
                   onToggleReaction={chatAdapter?.onToggleReaction && features.enableMessageReactions ? chatAdapter.onToggleReaction : undefined}
                   onRequestReactions={chatAdapter?.onRequestReactions && features.enableMessageReactions ? chatAdapter.onRequestReactions : undefined}

@@ -5,14 +5,15 @@ import DragDropOverlay from '@/shared/ui/DragDropOverlay';
 import WorkspacePage from '@/features/chat/pages/WorkspacePage';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { RoutePracticeProvider } from '@/shared/contexts/RoutePracticeContext';
+import { IntakeProvider } from '@/shared/contexts/IntakeContext';
 import type { UIPracticeConfig } from '@/shared/hooks/usePracticeConfig';
 import type { WorkspaceType } from '@/shared/types/workspace';
 import { useMessageHandling } from '@/shared/hooks/useMessageHandling';
 import { useConversationSetup } from '@/shared/hooks/useConversationSetup';
 import { useWorkspaceRouting } from '@/shared/hooks/useWorkspaceRouting';
+import { useFileUpload } from '@/shared/hooks/useFileUpload';
 import { setupGlobalKeyboardListeners } from '@/shared/utils/keyboard';
 import type { FileAttachment } from '../../worker/types';
-import type { UploadingFile } from '@/shared/types/upload';
 import { useNavigation } from '@/shared/utils/navigation';
 import WelcomeDialog from '@/features/modals/components/WelcomeDialog';
 import { useWelcomeDialog } from '@/features/modals/hooks/useWelcomeDialog';
@@ -21,7 +22,7 @@ import { useToastContext } from '@/shared/contexts/ToastContext';
 import { clearPendingPracticeInviteLink, readPendingPracticeInviteLink } from '@/shared/utils/practiceInvites';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
-import type { ConversationMetadata, ConversationMode } from '@/shared/types/conversation';
+import type { ConversationMode } from '@/shared/types/conversation';
 import { lazy, Suspense } from 'preact/compat';
 const PracticeMattersPage = lazy(() => import('@/features/matters/pages/PracticeMattersPage').then(m => ({ default: m.PracticeMattersPage })));
 const PracticeClientsPage = lazy(() => import('@/features/clients/pages/PracticeClientsPage').then(m => ({ default: m.PracticeClientsPage })));
@@ -107,8 +108,6 @@ export function MainApp({
 }) {
   // ── UI state ───────────────────────────────────────────────────────────────
   const [clearInputTrigger, setClearInputTrigger] = useState(0);
-  const [isRecording, setIsRecording] = useState(false);
-  const [conversationMode, setConversationMode] = useState<ConversationMode | null>(null);
   const [isPaymentAuthPromptOpen, setIsPaymentAuthPromptOpen] = useState(false);
 
   const { navigate } = useNavigation();
@@ -178,7 +177,6 @@ export function MainApp({
     conversationBackPath,
     practiceMattersPath,
     practiceClientsPath,
-    conversationResetKey,
     layoutMode,
   } = useWorkspaceRouting({
     practiceId,
@@ -220,14 +218,11 @@ export function MainApp({
     return `/practice/${encodeURIComponent(slug)}/engagements`;
   }, [isPracticeWorkspace, resolvedPracticeSlug]);
 
+  const isAuthenticatedWorkspace = isPracticeWorkspace || isClientWorkspace;
+
   useEffect(() => {
     initializeAccentColor(fullAccentColor);
   }, [fullAccentColor]);
-
-  // ── reset conversation when practice context changes ───────────────────────
-  useEffect(() => {
-    setConversationMode(null);
-  }, [conversationResetKey]);
 
   const handleSetupError = useCallback((msg: string) => {
     showErrorRef.current?.(msg);
@@ -248,12 +243,15 @@ export function MainApp({
     sessionIsPending,
     isPracticeWorkspace,
     isPublicWorkspace,
-    onModeChange: setConversationMode,
+    onModeChange: () => {},
     onError: handleSetupError,
   });
 
   const activeConversationId = normalizedRouteConversationId ?? setupConversationId;
-  const shouldEnableConversationTransport = workspaceView !== 'settings';
+  const shouldEnableConversationTransport = workspace === 'public'
+    || workspaceView === 'conversation'
+    || workspaceView === 'list'
+    || workspaceView === 'home';
   const liveConversationId = shouldEnableConversationTransport ? activeConversationId : null;
 
   // ── message handling ───────────────────────────────────────────────────────
@@ -262,17 +260,6 @@ export function MainApp({
     if (message.toLowerCase().includes('chat connection closed')) return;
     console.error('Message handling error:', error);
     showErrorRef.current?.(message || 'We hit a snag sending that message.');
-  }, []);
-
-  const handleConversationMetadataUpdated = useCallback((metadata: ConversationMetadata | null) => {
-    const persistedMode = metadata?.mode;
-    if (
-      persistedMode === 'ASK_QUESTION' ||
-      persistedMode === 'REQUEST_CONSULTATION' ||
-      persistedMode === 'PRACTICE_ONBOARDING'
-    ) {
-      setConversationMode(persistedMode);
-    }
   }, []);
 
 
@@ -284,8 +271,6 @@ export function MainApp({
     conversationId: liveConversationId ?? undefined,
     onEnsureConversation: () => ensureConversation(),
     linkAnonymousConversationOnLoad: isPublicWorkspace,
-    mode: conversationMode,
-    onConversationMetadataUpdated: handleConversationMetadataUpdated,
     onError: handleMessageError,
   });
 
@@ -298,6 +283,8 @@ export function MainApp({
     ingestServerMessages, messagesReady, hasMoreMessages, isLoadingMoreMessages,
     loadMoreMessages, isSocketReady, applyIntakeFields,
   } = messageHandling;
+
+  const conversationMode = conversationMetadata?.mode ?? null;
 
 
 
@@ -328,26 +315,14 @@ export function MainApp({
   }, [applyIntakeFields, sendMessage]);
 
   // ── conversation mode selection ────────────────────────────────────────────
-  const isSelectingRef = useRef(false);
-
   const handleModeSelection = useCallback(async (
-    nextMode: ConversationMode, 
-    source: 'intro_gate' | 'composer_footer' | 'home_cta' | 'chat_intro' | 'slim_form_dismiss' | 'chat_selector' = 'home_cta'
+    nextMode: ConversationMode,
+    source: string = 'home_cta'
   ) => {
-    if (isSelectingRef.current) return;
-    try {
-      isSelectingRef.current = true;
-      const currentConversationId = activeConversationId ?? (isCreatingConversation ? null : await ensureConversation());
-      if (!currentConversationId || !practiceId) return;
-      await applyConversationMode(nextMode, currentConversationId, source, startConsultFlow);
-    } catch (error) {
-      setConversationMode(null);
-      showErrorRef.current?.(error instanceof Error ? error.message : 'Unable to start conversation');
-      console.warn('[MainApp] Failed to persist conversation mode selection', error);
-    } finally {
-      isSelectingRef.current = false;
-    }
-  }, [activeConversationId, applyConversationMode, ensureConversation, isCreatingConversation, practiceId, startConsultFlow]);
+    const currentConversationId = activeConversationId ?? await ensureConversation();
+    if (!currentConversationId || !practiceId) return;
+    await applyConversationMode(nextMode, currentConversationId, source as 'intro_gate' | 'composer_footer' | 'home_cta' | 'chat_intro' | 'slim_form_dismiss' | 'chat_selector', startConsultFlow);
+  }, [activeConversationId, applyConversationMode, ensureConversation, practiceId, startConsultFlow]);
 
 
   const handleSlimFormDismiss = useCallback(async () => {
@@ -360,8 +335,6 @@ export function MainApp({
     preferredConversationId?: string,
     options?: { forceCreate?: boolean; silentSessionNotReady?: boolean }
   ): Promise<string> => {
-    if (isSelectingRef.current) throw new Error('Conversation start already in progress');
-    isSelectingRef.current = true;
     try {
       if (!practiceId) throw new Error('Practice context is required');
 
@@ -392,12 +365,8 @@ export function MainApp({
       await applyConversationMode(nextMode, newConversationId, 'home_cta', startConsultFlow);
       return newConversationId;
     } catch (error) {
-      setConversationMode(null);
       console.warn('[MainApp] Failed to start new conversation', error);
       throw error;
-    } finally {
-      // Always release the lock so subsequent clicks work.
-      isSelectingRef.current = false;
     }
   }, [activeConversationId, applyConversationMode, ensureConversation, practiceId, startConsultFlow]);
 
@@ -416,43 +385,27 @@ export function MainApp({
 
   const { mentionCandidates } = useMentionCandidates(practiceId, liveConversationId);
 
-  const handleUploadError = useCallback((error: unknown) => {
-    console.error('File upload error:', error);
-    showErrorRef.current?.(typeof error === 'string' ? error : 'File upload failed. Please try again.');
-  }, []);
-
   // ── file upload ────────────────────────────────────────────────────────────
-  const previewFiles = useMemo<FileAttachment[]>(() => (features.enableFileAttachments ? [] : []), []);
-  const uploadingFiles = useMemo<UploadingFile[]>(() => (features.enableFileAttachments ? [] : []), []);
-  const isDragging = features.enableFileAttachments ? false : false;
-  const handleCameraCapture = useCallback(async (_file: File) => {
-    if (!features.enableFileAttachments) {
-      handleUploadError('Chat attachments are currently disabled.');
-      return;
-    }
-    // TODO: Implement real camera/media capture logic
-  }, [handleUploadError]);
-  const handleFileSelect = useCallback(async (_files: File[]) => {
-    if (!features.enableFileAttachments) {
-      handleUploadError('Chat attachments are currently disabled.');
-      return [];
-    }
-    // TODO: Implement real file selection and upload logic
-    return [];
-  }, [handleUploadError]);
-  const removePreviewFile = useCallback((_index: number) => {
-    if (!features.enableFileAttachments) return;
-    // TODO: Implement real preview file removal logic
-  }, []);
-  const clearPreviewFiles = useCallback(() => {
-    if (!features.enableFileAttachments) return;
-    // TODO: Implement real preview files clearing logic
-  }, []);
-  const cancelUpload = useCallback((_fileId: string) => {
-    if (!features.enableFileAttachments) return;
-    // TODO: Implement real upload cancellation logic
-  }, []);
-  const isReadyToUpload = features.enableFileAttachments;
+  const {
+    previewFiles,
+    uploadingFiles,
+    isReadyToUpload,
+    handleFileSelect,
+    handleCameraCapture,
+    removePreviewFile,
+    clearPreviewFiles,
+    cancelUpload,
+    handleMediaCapture,
+    isRecording,
+    setIsRecording,
+  } = useFileUpload({
+    practiceId: effectivePracticeId ?? practiceId,
+    conversationId: activeConversationId ?? undefined,
+    enabled: features.enableFileAttachments && isAuthenticatedWorkspace,
+  });
+  const isDragging = features.enableFileAttachments && isAuthenticatedWorkspace
+    ? uploadingFiles.length > 0 || previewFiles.length > 0
+    : false;
 
   // ── welcome modals ─────────────────────────────────────────────────────────
   const { shouldShow: shouldShowWelcome, markAsShown: markWelcomeAsShown } = useWelcomeDialog({ enabled: workspace !== 'public' });
@@ -508,17 +461,6 @@ export function MainApp({
   }, []);
 
   // ── media capture ──────────────────────────────────────────────────────────
-  const handleMediaCaptureWrapper = async (blob: Blob, type: 'audio' | 'video') => {
-    try {
-      const ext = type === 'audio' ? 'webm' : 'mp4';
-      const file = new File([blob], `Recording_${new Date().toISOString()}.${ext}`, { type: blob.type });
-      await handleFileSelect([file]);
-    } catch (err) {
-      console.error('Failed to upload captured media:', err);
-      showErrorRef.current?.('Failed to upload recording. Please try again.');
-    }
-  };
-
   // ── conversation header ────────────────────────────────────────────────────
 
   const filteredMessagesForHeader = useMemo(() => {
@@ -650,6 +592,7 @@ export function MainApp({
   const isSessionReady = isConversationReady && isAuthReady;
   const effectiveIsSocketReady = isConversationReady && isAuthReady ? isSocketReady : false;
   const isComposerDisabled = isPublicWorkspace && !conversationMode;
+  const isChatReady = isSessionReady && effectiveIsSocketReady && !isComposerDisabled;
   const canChat = Boolean(practiceId) && (!isPracticeWorkspace ? Boolean(isPracticeView) : Boolean(activeConversationId));
   const shouldShowChatPlaceholder = workspace !== 'public' && !activeConversationId;
 
@@ -677,7 +620,6 @@ export function MainApp({
             onSelectMode={(mode, source) => { void handleModeSelection(mode, source); }}
             onToggleReaction={features.enableMessageReactions ? toggleMessageReaction : undefined}
             onRequestReactions={requestMessageReactions}
-            composerDisabled={isComposerDisabled}
             isPublicWorkspace={isPublicWorkspace}
             messagesReady={messagesReady}
             headerContent={conversationHeaderContent}
@@ -700,24 +642,14 @@ export function MainApp({
             removePreviewFile={removePreviewFile}
             clearPreviewFiles={clearPreviewFiles}
             handleCameraCapture={handleCameraCapture}
-            handleFileSelect={async (files: File[]) => { await handleFileSelect(files); }}
+            handleFileSelect={handleFileSelect}
             cancelUpload={cancelUpload}
-            handleMediaCapture={handleMediaCaptureWrapper}
+            handleMediaCapture={handleMediaCapture}
             isRecording={isRecording}
             setIsRecording={setIsRecording}
             clearInput={clearInputTrigger}
             isReadyToUpload={isReadyToUpload}
-            isSessionReady={isSessionReady}
-            isSocketReady={effectiveIsSocketReady}
-            intakeStatus={intakeStatus}
-            intakeConversationState={intakeConversationState}
-            onIntakeCtaResponse={handleIntakeCtaResponse}
-            slimContactDraft={slimContactDraft}
-            onSlimFormContinue={handleSlimFormContinue}
-            onSlimFormDismiss={handleSlimFormDismiss}
-            onBuildBrief={handleBuildBrief}
-            onStrengthenCase={handleStrengthenCase}
-            onSubmitNow={handleSubmitNow}
+            isReady={isChatReady}
 
             isAnonymousUser={isAnonymous}
             canChat={canChat}
@@ -1046,6 +978,18 @@ export function MainApp({
 
   // ── render ─────────────────────────────────────────────────────────────────
   const rootClassName = isWidget ? 'h-full w-full overflow-hidden' : 'min-h-dvh w-full';
+  const intakeProviderValue = {
+    intakeStatus,
+    intakeConversationState,
+    onIntakeCtaResponse: handleIntakeCtaResponse,
+    onSubmitNow: handleSubmitNow,
+    onBuildBrief: handleBuildBrief,
+    onStrengthenCase: handleStrengthenCase,
+    slimContactDraft,
+    onSlimFormContinue: handleSlimFormContinue,
+    onSlimFormDismiss: handleSlimFormDismiss,
+    isPublicWorkspace,
+  };
 
   const routePracticeContextValue = {
     practiceId: effectivePracticeId ?? null,
@@ -1060,11 +1004,13 @@ export function MainApp({
   return (
     <>
       {!isWidget && <DragDropOverlay isVisible={isDragging} onClose={() => {}} />}
-      <div className={rootClassName}>
-        <RoutePracticeProvider value={routePracticeContextValue}>
-          {workspacePage}
-        </RoutePracticeProvider>
-      </div>
+      <IntakeProvider value={intakeProviderValue}>
+        <div className={rootClassName}>
+          <RoutePracticeProvider value={routePracticeContextValue}>
+            {workspacePage}
+          </RoutePracticeProvider>
+        </div>
+      </IntakeProvider>
       {!isWidget && (
         <>
           <WelcomeDialog

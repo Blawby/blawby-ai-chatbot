@@ -1,4 +1,4 @@
-import { FunctionComponent } from 'preact';
+import { FunctionComponent, type ComponentChildren } from 'preact';
 import { useMemo, useState } from 'preact/hooks';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 import { ChatActionCard } from '@/features/chat/components/ChatActionCard';
@@ -10,6 +10,7 @@ import type { UIPracticeConfig } from '@/shared/hooks/usePracticeConfig';
 import type { WidgetPreviewConfig, WidgetPreviewScenario } from '@/shared/types/widgetPreview';
 import type { ChatMessageUI, FileAttachment } from '../../worker/types';
 import type { MinorAmount } from '@/shared/utils/money';
+import { IntakeProvider } from '@/shared/contexts/IntakeContext';
 
 type WidgetPreviewAppProps = {
   practiceId: string;
@@ -68,6 +69,23 @@ export const WidgetPreviewApp: FunctionComponent<WidgetPreviewAppProps> = ({
       : null;
   const paymentLinkEnabled = Boolean(previewConfig.paymentLinkEnabled);
   const currency = previewConfig.currency || 'USD';
+  const intakeProviderValue = {
+    intakeStatus: null,
+    intakeConversationState: null,
+    onIntakeCtaResponse: undefined,
+    onSubmitNow: undefined,
+    onBuildBrief: undefined,
+    onStrengthenCase: undefined,
+    slimContactDraft: null,
+    onSlimFormContinue: undefined,
+    onSlimFormDismiss: undefined,
+    isPublicWorkspace: true,
+  };
+  const withIntakeProvider = (content: ComponentChildren) => (
+    <IntakeProvider value={intakeProviderValue}>
+      {content}
+    </IntakeProvider>
+  );
 
   const header = (subtitle: string) => (
     <DetailHeader
@@ -248,206 +266,152 @@ export const WidgetPreviewApp: FunctionComponent<WidgetPreviewAppProps> = ({
 
   if (scenario === 'messenger-start' && legalDisclaimer) {
     return (
-      <div className="absolute inset-0 flex h-full w-full flex-col overflow-hidden widget-shell-gradient">
-        {header('Please read and accept to continue')}
-        <div className="flex-1 min-h-0" />
-        <div className="sticky bottom-0 z-[1000] w-full">
-          <ChatActionCard
-            isOpen={true}
-            type="disclaimer"
-            onClose={noop}
-            disclaimerProps={{
-              text: legalDisclaimer,
-              onAccept: noop,
-              isSubmitting: false,
-            }}
-          />
+      withIntakeProvider(
+        <div className="absolute inset-0 flex h-full w-full flex-col overflow-hidden widget-shell-gradient">
+          {header('Please read and accept to continue')}
+          <div className="flex-1 min-h-0" />
+          <div className="sticky bottom-0 z-[1000] w-full">
+            <ChatActionCard
+              isOpen={true}
+              type="disclaimer"
+              onClose={noop}
+              disclaimerProps={{
+                text: legalDisclaimer,
+                onAccept: noop,
+                isSubmitting: false,
+              }}
+            />
+          </div>
         </div>
-      </div>
+      )
     );
   }
 
   if (scenario === 'messenger-start' && !introMessage && !legalDisclaimer) {
     return (
-      <div className="absolute inset-0 h-full w-full overflow-hidden widget-shell-gradient">
-        <WorkspaceHomeView
-          practiceName={practiceName}
-          practiceLogo={practiceLogo}
-          onSendMessage={noop}
-          onRequestConsultation={noop}
-          onOpenRecentMessage={noop}
-          recentMessage={null}
-        />
-      </div>
+      withIntakeProvider(
+        <div className="absolute inset-0 h-full w-full overflow-hidden widget-shell-gradient">
+          <WorkspaceHomeView
+            practiceName={practiceName}
+            practiceLogo={practiceLogo}
+            onSendMessage={noop}
+            onRequestConsultation={noop}
+            onOpenRecentMessage={noop}
+            recentMessage={null}
+          />
+        </div>
+      )
     );
   }
 
   if (scenario === 'intake-template' && intakePreviewView === 'home') {
     return (
-      <div className="absolute inset-0 flex h-full w-full flex-col overflow-hidden widget-shell-gradient">
-        <div className="flex h-full flex-col overflow-hidden relative">
-          <div className="flex-1 overflow-y-auto">
-            <WorkspaceHomeView
-              practiceName={practiceName}
-              practiceLogo={practiceLogo}
-              recentMessage={null}
-              onSendMessage={() => {
-                setShowIntakeDisclaimer(false);
-                setIntakePreviewMode('message');
-                setIntakePreviewStep('conversation');
-                setIntakePreviewView('chat');
-              }}
-              onRequestConsultation={() => {
-                setIntakePreviewMode('consultation');
-                setIntakePreviewStep('contact');
-                setIntakePreviewView('chat');
-              }}
-              onOpenRecentMessage={noop}
-            />
+      withIntakeProvider(
+        <div className="absolute inset-0 flex h-full w-full flex-col overflow-hidden widget-shell-gradient">
+          <div className="flex h-full flex-col overflow-hidden relative">
+            <div className="flex-1 overflow-y-auto">
+              <WorkspaceHomeView
+                practiceName={practiceName}
+                practiceLogo={practiceLogo}
+                recentMessage={null}
+                onSendMessage={() => {
+                  setShowIntakeDisclaimer(false);
+                  setIntakePreviewMode('message');
+                  setIntakePreviewStep('conversation');
+                  setIntakePreviewView('chat');
+                }}
+                onRequestConsultation={() => {
+                  setIntakePreviewMode('consultation');
+                  setIntakePreviewStep('contact');
+                  setIntakePreviewView('chat');
+                }}
+                onOpenRecentMessage={noop}
+              />
+            </div>
           </div>
         </div>
-      </div>
+      )
     );
   }
 
   if (scenario === 'intake-template' && intakePreviewMode === 'consultation' && intakePreviewStep === 'disclaimer' && showIntakeDisclaimer) {
     return (
-      <div className="absolute inset-0 flex h-full w-full flex-col overflow-hidden widget-shell-gradient">
-        {header('Please read and accept to continue')}
-        <div className="flex-1 min-h-0" />
-        <div className="sticky bottom-0 z-[1000] w-full">
-          <ChatActionCard
-            isOpen={true}
-            type="disclaimer"
-            onClose={() => {
-              setShowIntakeDisclaimer(false);
-            }}
-            disclaimerProps={{
-              text: legalDisclaimer,
-              onAccept: async () => {
+      withIntakeProvider(
+        <div className="absolute inset-0 flex h-full w-full flex-col overflow-hidden widget-shell-gradient">
+          {header('Please read and accept to continue')}
+          <div className="flex-1 min-h-0" />
+          <div className="sticky bottom-0 z-[1000] w-full">
+            <ChatActionCard
+              isOpen={true}
+              type="disclaimer"
+              onClose={() => {
                 setShowIntakeDisclaimer(false);
-                setIntakePreviewStep('conversation');
-              },
-              isSubmitting: false,
-            }}
-          />
+              }}
+              disclaimerProps={{
+                text: legalDisclaimer,
+                onAccept: async () => {
+                  setShowIntakeDisclaimer(false);
+                  setIntakePreviewStep('conversation');
+                },
+                isSubmitting: false,
+              }}
+            />
+          </div>
         </div>
-      </div>
+      )
     );
   }
 
   return (
-    <div className="absolute inset-0 flex h-full w-full flex-col overflow-hidden widget-shell-gradient">
-      <ChatContainer
-        messages={messages}
-        conversationTitle="Preview"
-        onSendMessage={noop}
-        composerDisabled
-        isPublicWorkspace
-        messagesReady
-        headerContent={header(
-          scenario === 'consultation-payment'
-            ? 'Consultation request'
-            : scenario === 'service-routing'
-              ? 'Service routing'
-              : scenario === 'intake-template'
-                ? intakePreviewMode === 'consultation'
-                  ? 'Consultation request'
-                  : ''
-                : 'Opening message'
-        )}
-        heightClassName="h-full"
-        useFrame={false}
-        layoutMode="widget"
-        practiceConfig={{
-          ...practiceConfig,
-          name: practiceName,
-          profileImage: practiceLogo,
-          practiceId,
-        }}
-        practiceId={practiceId}
-        intakeStatus={scenario === 'consultation-payment'
-          ? {
-            step: paymentLinkEnabled ? 'payment_required' : 'ready_to_submit',
-            intakeUuid: 'preview',
-            paymentRequired: paymentLinkEnabled,
-            paymentReceived: false,
-          }
-          : scenario === 'intake-template' && intakePreviewMode === 'consultation'
-            ? {
-              step: intakePreviewStep === 'contact'
-                ? 'contact_form_slim'
-                : intakePreviewStep === 'payment'
-                  ? 'payment_required'
-                  : paymentLinkEnabled
-                    ? 'contact_form_decision'
-                    : 'ready_to_submit',
-              intakeUuid: intakePreviewStep === 'contact' ? null : 'preview',
-              paymentRequired: paymentLinkEnabled,
-              paymentReceived: false,
-            }
-            : undefined}
-        intakeConversationState={scenario === 'intake-template' && intakePreviewMode === 'consultation'
-          ? {
-            practiceServiceUuid: null,
-            description: 'Preview case summary',
-            urgency: null,
-            opposingParty: null,
-            city: 'Durham',
-            state: 'NC',
-            desiredOutcome: null,
-            courtDate: null,
-            hasDocuments: null,
-            householdSize: null,
-            turnCount: 3,
-            ctaShown: intakePreviewStep !== 'contact',
-            ctaResponse: null,
-            notYetCount: 0,
-            enrichmentMode: false,
-          }
-          : undefined}
-        onSlimFormContinue={scenario === 'intake-template' && intakePreviewMode === 'consultation'
-          ? async () => {
-            if (legalDisclaimer) {
-              setShowIntakeDisclaimer(true);
-              setIntakePreviewStep('disclaimer');
-              return;
-            }
-            setIntakePreviewStep('conversation');
-          }
-          : undefined}
-        onSubmitNow={scenario === 'intake-template' && intakePreviewMode === 'consultation' && paymentLinkEnabled
-          ? async () => {
-            setIntakePreviewStep('payment');
-          }
-          : undefined}
-        slimContactDraft={scenario === 'intake-template' && intakePreviewMode === 'consultation'
-          ? {
-            name: 'Jordan Client',
-            email: 'jordan@example.com',
-            phone: '(919) 555-0142',
-          }
-          : undefined}
-        previewFiles={emptyFiles}
-        uploadingFiles={[]}
-        removePreviewFile={noop}
-        clearPreviewFiles={noop}
-        handleCameraCapture={noopAsync}
-        handleFileSelect={noopAsync}
-        handleMediaCapture={noop}
-        cancelUpload={noop}
-        isRecording={false}
-        setIsRecording={noop}
-        isReadyToUpload={false}
-        isSessionReady
-        isSocketReady
-        canChat
-        hideMessageActions={scenario === 'intake-template'}
-        hasMoreMessages={false}
-        isLoadingMoreMessages={false}
-        onLoadMoreMessages={noopAsync}
-        hideComposer={scenario === 'intake-template'}
-      />
-    </div>
+    withIntakeProvider(
+      <div className="absolute inset-0 flex h-full w-full flex-col overflow-hidden widget-shell-gradient">
+        <ChatContainer
+          messages={messages}
+          conversationTitle="Preview"
+          onSendMessage={noop}
+          isReady={true}
+          isPublicWorkspace
+          messagesReady
+          headerContent={header(
+            scenario === 'consultation-payment'
+              ? 'Consultation request'
+              : scenario === 'service-routing'
+                ? 'Service routing'
+                : scenario === 'intake-template'
+                  ? intakePreviewMode === 'consultation'
+                    ? 'Consultation request'
+                    : ''
+                  : 'Opening message'
+          )}
+          heightClassName="h-full"
+          useFrame={false}
+          layoutMode="widget"
+          practiceConfig={{
+            ...practiceConfig,
+            name: practiceName,
+            profileImage: practiceLogo,
+            practiceId,
+          }}
+          practiceId={practiceId}
+          previewFiles={emptyFiles}
+          uploadingFiles={[]}
+          removePreviewFile={noop}
+          clearPreviewFiles={noop}
+          handleCameraCapture={noopAsync}
+          handleFileSelect={noopAsync}
+          handleMediaCapture={noop}
+          cancelUpload={noop}
+          isRecording={false}
+          setIsRecording={noop}
+          isReadyToUpload={false}
+          canChat
+          hideMessageActions={scenario === 'intake-template'}
+          hasMoreMessages={false}
+          isLoadingMoreMessages={false}
+          onLoadMoreMessages={noopAsync}
+          hideComposer={scenario === 'intake-template'}
+        />
+      </div>
+    )
   );
 };

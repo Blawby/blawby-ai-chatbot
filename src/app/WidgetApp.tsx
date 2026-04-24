@@ -1,4 +1,4 @@
-import { FunctionComponent } from 'preact';
+import { FunctionComponent, type ComponentChildren } from 'preact';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { useTranslation } from '@/shared/i18n/hooks';
 import { Button } from '@/shared/ui/Button';
@@ -31,6 +31,7 @@ import { resolveConsultationState } from '@/shared/utils/consultationState';
 import { MobileInspectorOverlay } from '@/shared/ui/inspector/MobileInspectorOverlay';
 import { initializeAccentColor } from '@/shared/utils/accentColors';
 import { features } from '@/config/features';
+import { IntakeProvider } from '@/shared/contexts/IntakeContext';
 import type { FileAttachment } from '../../worker/types';
 import type { UploadingFile } from '@/shared/types/upload';
 import type { IntakeTemplate } from '@/shared/types/intake';
@@ -595,10 +596,38 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
     }
   }, []);
 
+  const intakeProviderValue = useMemo(() => ({
+    intakeStatus,
+    intakeConversationState,
+    onIntakeCtaResponse: handleIntakeCtaResponse,
+    onSubmitNow: handleSubmitNow,
+    onBuildBrief: handleBuildBrief,
+    onStrengthenCase: handleStrengthenCase,
+    slimContactDraft,
+    onSlimFormContinue: handleSlimFormContinue,
+    onSlimFormDismiss: undefined,
+    isPublicWorkspace: true,
+  }), [
+    handleBuildBrief,
+    handleIntakeCtaResponse,
+    handleSlimFormContinue,
+    handleSubmitNow,
+    intakeConversationState,
+    intakeStatus,
+    handleStrengthenCase,
+    slimContactDraft,
+  ]);
+  const withIntakeProvider = (content: ComponentChildren) => (
+    <IntakeProvider value={intakeProviderValue}>
+      {content}
+    </IntakeProvider>
+  );
+
   return (
     <>
       <DragDropOverlay isVisible={isDragging} />
-      <div className={`absolute inset-x-0 inset-y-0 h-[100dvh] w-full overflow-hidden flex flex-col supports-[height:100cqh]:h-[100cqh] supports-[height:100svh]:h-[100svh] widget-shell-gradient justify-end`}>
+      {withIntakeProvider(
+        <div className={`absolute inset-x-0 inset-y-0 h-[100dvh] w-full overflow-hidden flex flex-col supports-[height:100cqh]:h-[100cqh] supports-[height:100svh]:h-[100svh] widget-shell-gradient justify-end`}>
         {view === 'home' && (
           <div className="flex h-full flex-col overflow-hidden relative">
             <div className="flex-1 overflow-y-auto">
@@ -660,10 +689,10 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
                 )}
                 conversationId={activeConversationId}
                 onSendMessage={sendMessage}
+                isReady={currentUserId !== null && isSocketReady}
                 conversationMode={conversationMode}
                 onToggleReaction={features.enableMessageReactions ? toggleMessageReaction : undefined}
                 onRequestReactions={requestMessageReactions}
-                composerDisabled={false}
                 isPublicWorkspace={true}
                 messagesReady={messagesReady}
                 headerContent={
@@ -695,25 +724,12 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
                 removePreviewFile={removePreviewFile}
                 clearPreviewFiles={clearPreviewFiles}
                 handleCameraCapture={handleCameraCapture}
-                handleFileSelect={async (files) => { await handleFileSelect(files); }}
+                handleFileSelect={handleFileSelect}
                 handleMediaCapture={handleMediaCapture}
                 cancelUpload={cancelUpload}
                 isRecording={false}
                 setIsRecording={() => {}}
                 isReadyToUpload={isReadyToUpload}
-                isSessionReady={currentUserId !== null}
-                isSocketReady={isSocketReady}
-                intakeStatus={intakeStatus}
-                intakeConversationState={intakeConversationState}
-                onIntakeCtaResponse={handleIntakeCtaResponse}
-                slimContactDraft={slimContactDraft}
-                onSlimFormContinue={handleSlimFormContinue}
-                onSlimFormDismiss={async () => {
-                  setConversationMode(null);
-                }}
-                onBuildBrief={handleBuildBrief}
-                onStrengthenCase={handleStrengthenCase}
-                onSubmitNow={handleSubmitNow}
 
                 isAnonymousUser={isAnonymous}
                 canChat={canChat}
@@ -799,6 +815,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
           hidden={view === 'chat'}
         />
       </div>
+      )}
     </>
   );
 };

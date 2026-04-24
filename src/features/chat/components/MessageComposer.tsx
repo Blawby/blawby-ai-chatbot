@@ -18,7 +18,7 @@ interface MessageComposerProps {
   previewFiles: FileAttachment[];
   uploadingFiles: UploadingFile[];
   removePreviewFile: (index: number) => void;
-  handleFileSelect: (files: File[]) => Promise<void>;
+  handleFileSelect: (files: File[]) => Promise<unknown>;
   handleCameraCapture: (file: File) => Promise<void>;
   cancelUpload: (fileId: string) => void;
   isRecording: boolean;

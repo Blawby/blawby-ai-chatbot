@@ -145,11 +145,11 @@ const OnboardingChat: FunctionComponent<OnboardingChatProps> = ({
               }
             }}
             isPublicWorkspace={false}
+            isReady={!waitingForRealChat && Boolean(chatAdapter?.messagesReady)}
             practiceConfig={onboardingPracticeConfig}
             layoutMode="desktop"
             useFrame={false}
             practiceId={practiceId || undefined}
-            composerDisabled={waitingForRealChat}
             previewFiles={[]}
             uploadingFiles={[]}
             removePreviewFile={() => {}}
@@ -161,8 +161,6 @@ const OnboardingChat: FunctionComponent<OnboardingChatProps> = ({
             isRecording={false}
             setIsRecording={() => {}}
             isReadyToUpload={true}
-            isSessionReady={!waitingForRealChat && Boolean(chatAdapter?.messagesReady)}
-            isSocketReady={waitingForRealChat ? false : (chatAdapter?.isSocketReady ?? true)}
             messagesReady={waitingForRealChat ? false : (chatAdapter?.messagesReady ?? true)}
             onToggleReaction={chatAdapter?.onToggleReaction && features.enableMessageReactions ? chatAdapter.onToggleReaction : undefined}
             onRequestReactions={chatAdapter?.onRequestReactions && features.enableMessageReactions ? chatAdapter.onRequestReactions : undefined}

@@ -5,17 +5,16 @@ import VirtualMessageList from './VirtualMessageList';
 import MessageComposer from './MessageComposer';
 import { ChatMessageUI } from '../../../../worker/types';
 import { FileAttachment } from '../../../../worker/types';
-import { ContactData } from '@/features/intake/components/ContactForm';
 import { createKeyPressHandler } from '@/shared/utils/keyboard';
 import type { UploadingFile } from '@/shared/types/upload';
 import type { ConversationMode } from '@/shared/types/conversation';
 import type { ReplyTarget } from '@/features/chat/types';
 import type { LayoutMode } from '@/app/MainApp';
-import type { IntakeConversationState } from '@/shared/types/intake';
 import { isIntakeSubmittable } from '@/shared/utils/consultationState';
 import { getChatPatterns } from '../config/chatPatterns';
 import type { OnboardingActions } from './VirtualMessageList';
 import { ChatActionCard } from './ChatActionCard';
+import { useIntakeContext } from '@/shared/contexts/IntakeContext';
 
 import { features } from '@/config/features';
 
@@ -36,11 +35,11 @@ export interface ChatContainerProps {
     replyToMessageId?: string | null,
     options?: { mentionedUserIds?: string[] }
   ) => void;
+  isReady: boolean;
   conversationMode?: ConversationMode | null;
   onSelectMode?: (mode: ConversationMode, source?: 'intro_gate' | 'composer_footer' | 'home_cta' | 'chat_intro' | 'slim_form_dismiss' | 'chat_selector') => void;
   onToggleReaction?: (messageId: string, emoji: string) => void;
   onRequestReactions?: (messageId: string) => void;
-  composerDisabled?: boolean;
   isPublicWorkspace?: boolean;
   practiceConfig?: {
     name: string;
@@ -59,35 +58,13 @@ export interface ChatContainerProps {
   uploadingFiles: UploadingFile[];
   removePreviewFile: (index: number) => void;
   clearPreviewFiles: () => void;
-  handleFileSelect: (files: File[]) => Promise<void>;
+  handleFileSelect: (files: File[]) => Promise<unknown>;
   handleCameraCapture: (file: File) => Promise<void>;
   cancelUpload: (fileId: string) => void;
   handleMediaCapture: (blob: Blob, type: 'audio' | 'video') => void;
   isRecording: boolean;
   setIsRecording: (v: boolean) => void;
   isReadyToUpload?: boolean;
-  isSessionReady?: boolean;
-  isSocketReady?: boolean;
-  intakeStatus?: {
-    step: string;
-    decision?: string;
-    intakeUuid?: string | null;
-    submittedAt?: string | null;
-    paymentRequired?: boolean;
-    paymentReceived?: boolean;
-  };
-  intakeConversationState?: IntakeConversationState | null;
-  onIntakeCtaResponse?: (response: 'ready' | 'not_yet') => void;
-  onSlimFormContinue?: (data: ContactData) => void | Promise<void>;
-  onSlimFormDismiss?: () => void | Promise<void>;
-  onBuildBrief?: () => void;
-  onStrengthenCase?: () => void;
-  onSubmitNow?: () => void | Promise<void>;
-  slimContactDraft?: {
-    name: string;
-    email: string;
-    phone: string;
-  } | null;
   isAnonymousUser?: boolean;
   canChat?: boolean;
   hasMoreMessages?: boolean;
@@ -123,6 +100,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   conversationContactName,
   viewerContext,
   onSendMessage,
+  isReady,
   conversationMode,
   isPublicWorkspace = false,
   practiceConfig,
@@ -145,21 +123,9 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   isRecording,
   setIsRecording,
   isReadyToUpload,
-  isSessionReady,
-  isSocketReady,
-  intakeStatus,
-  intakeConversationState,
-  onIntakeCtaResponse,
-  onSlimFormContinue,
-  onSlimFormDismiss,
-  onBuildBrief,
-  onStrengthenCase,
-  onSubmitNow,
-  slimContactDraft,
   clearInput,
   canChat = true,
   onSelectMode,
-  composerDisabled,
   hasMoreMessages,
   isLoadingMoreMessages,
   onLoadMoreMessages,
@@ -176,12 +142,13 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   onboardingActions,
   mentionCandidates = [],
 }) => {
+  const intakeContext = useIntakeContext();
   const [inputValue, setInputValue] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [replyTarget, setReplyTarget] = useState<ReplyTarget | null>(null);
   const composerDockRef = useRef<HTMLDivElement>(null);
   const [composerInsetPx, setComposerInsetPx] = useState(104);
-  const isChatInputLocked = Boolean(composerDisabled) || isSessionReady === false || isSocketReady === false || (isPublicWorkspace && intakeStatus?.step === 'contact_form_slim');
+  const isChatInputLocked = !isReady || (isPublicWorkspace && intakeContext.intakeStatus?.step === 'contact_form_slim');
   const hiddenSystemMessageKeys = new Set(['ask_question_help', 'disclaimer_accepted']);
   const baseMessages = isPublicWorkspace
     ? messages.filter((message) => !hiddenSystemMessageKeys.has(String(message.metadata?.systemMessageKey ?? '')))
@@ -189,9 +156,9 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   const filteredMessages = baseMessages;
   
   const shouldShowSlimForm = isPublicWorkspace &&
-    (intakeStatus?.step === 'contact_form_slim' || (!conversationId && conversationMode === 'REQUEST_CONSULTATION')) &&
-    !intakeStatus?.intakeUuid &&
-    typeof onSlimFormContinue === 'function';
+    (intakeContext.intakeStatus?.step === 'contact_form_slim' || (!conversationId && conversationMode === 'REQUEST_CONSULTATION')) &&
+    !intakeContext.intakeStatus?.intakeUuid &&
+    typeof intakeContext.onSlimFormContinue === 'function';
 
   // Show disclaimer if disclaimerProps is present
   const shouldShowDisclaimer = Boolean(disclaimerProps);
@@ -277,16 +244,16 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     const attachments = [...previewFiles];
     const replyToMessageId = replyTarget?.messageId ?? null;
 
-    const canHandleCta = isPublicWorkspace && isIntakeSubmittable(intakeConversationState, {
-      paymentRequired: intakeStatus?.paymentRequired ?? null,
-      paymentReceived: intakeStatus?.paymentReceived ?? null,
-    }) && intakeConversationState?.ctaResponse !== 'ready';
+    const canHandleCta = isPublicWorkspace && isIntakeSubmittable(intakeContext.intakeConversationState, {
+      paymentRequired: intakeContext.intakeStatus?.paymentRequired ?? null,
+      paymentReceived: intakeContext.intakeStatus?.paymentReceived ?? null,
+    }) && intakeContext.intakeConversationState?.ctaResponse !== 'ready';
     const normalized = message.trim();
     const { affirmative, negative } = getChatPatterns('en'); // TODO: Pass actual language when available
     const isPatternAffirmative = affirmative.test(normalized);
     const isNegative = negative.test(normalized);
 
-    if (canHandleCta && onIntakeCtaResponse && isPatternAffirmative) {
+    if (canHandleCta && intakeContext.onIntakeCtaResponse && isPatternAffirmative) {
       (async () => {
         try {
           await handleSubmitNowAction();
@@ -300,8 +267,8 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
       return;
     }
 
-    if (canHandleCta && onIntakeCtaResponse && isNegative) {
-      onIntakeCtaResponse('not_yet');
+    if (canHandleCta && intakeContext.onIntakeCtaResponse && isNegative) {
+      void intakeContext.onIntakeCtaResponse('not_yet');
       setInputValue('');
       setReplyTarget(null);
       return;
@@ -336,17 +303,17 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
       return;
     }
     submitActionInFlightRef.current = true;
-    if (onSubmitNow) {
+    if (intakeContext.onSubmitNow) {
       try {
-        await onSubmitNow();
+        await intakeContext.onSubmitNow();
       } finally {
         submitActionInFlightRef.current = false;
       }
       return;
     }
     try {
-      if (onIntakeCtaResponse) {
-        await Promise.resolve(onIntakeCtaResponse('ready'));
+      if (intakeContext.onIntakeCtaResponse) {
+        await Promise.resolve(intakeContext.onIntakeCtaResponse('ready'));
       }
     } finally {
       submitActionInFlightRef.current = false;
@@ -431,10 +398,10 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
 
   const dismissSlimForm = async (source: 'backdrop' | 'gesture' | 'manual' = 'manual') => {
     void source;
-    if (!onSlimFormDismiss || isDismissingSlimDrawer) return;
+    if (!intakeContext.onSlimFormDismiss || isDismissingSlimDrawer) return;
     setIsDismissingSlimDrawer(true);
     try {
-      await onSlimFormDismiss();
+      await intakeContext.onSlimFormDismiss();
     } finally {
       setIsDismissingSlimDrawer(false);
     }
@@ -469,13 +436,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
                 onToggleReaction={onToggleReaction && features.enableMessageReactions ? onToggleReaction : undefined}
                 onRequestReactions={onRequestReactions}
                 onAuthPromptRequest={emitAuthPromptRequest}
-                intakeStatus={intakeStatus}
-                intakeConversationState={intakeConversationState}
-                hasSlimContactDraft={Boolean(slimContactDraft)}
                 onQuickReply={handleQuickReply}
-                onSubmitNow={handleSubmitNowAction}
-                onBuildBrief={onBuildBrief}
-                onStrengthenCase={onStrengthenCase}
                 modeSelectorActions={onSelectMode ? {
                   onAskQuestion: handleAskQuestion,
                   onRequestConsultation: handleRequestConsultation
@@ -505,14 +466,14 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
               }}
               authProps={{
                 practiceName: practiceConfig?.name,
-                initialEmail: slimContactDraft?.email ?? '',
-                initialName: slimContactDraft?.name ?? '',
+                initialEmail: intakeContext.slimContactDraft?.email ?? '',
+                initialName: intakeContext.slimContactDraft?.name ?? '',
                 callbackURL: authPromptCallbackUrl,
                 onSuccess: onAuthPromptSuccess
               }}
               slimFormProps={{
-                onContinue: onSlimFormContinue as NonNullable<typeof onSlimFormContinue>,
-                initialValues: slimContactDraft
+                onContinue: intakeContext.onSlimFormContinue as NonNullable<typeof intakeContext.onSlimFormContinue>,
+                initialValues: intakeContext.slimContactDraft
               }}
               disclaimerProps={shouldShowDisclaimer && disclaimerProps ? disclaimerProps : undefined}
             />
@@ -534,10 +495,10 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
                   onKeyDown={handleKeyDown}
                   textareaRef={textareaRef}
                   isReadyToUpload={isReadyToUpload}
-                  isSessionReady={isSessionReady || (!conversationId && !!canChat)}
-                  isSocketReady={isSocketReady || (!conversationId && !!canChat)}
-                  intakeStatus={isPublicWorkspace ? intakeStatus : undefined}
-                  disabled={composerDisabled || (isPublicWorkspace && intakeStatus?.step === 'contact_form_slim')}
+                  isSessionReady={isReady || (!conversationId && !!canChat)}
+                  isSocketReady={isReady || (!conversationId && !!canChat)}
+                  intakeStatus={isPublicWorkspace ? intakeContext.intakeStatus : undefined}
+                  disabled={!isReady || (isPublicWorkspace && intakeContext.intakeStatus?.step === 'contact_form_slim')}
                   replyTo={replyTarget}
                   onCancelReply={handleCancelReply}
                   mentionCandidates={mentionCandidates}

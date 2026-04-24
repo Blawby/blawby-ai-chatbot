@@ -29,9 +29,8 @@
 
 import { useState, useMemo, useCallback, useRef, useEffect } from 'preact/hooks';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
-import { invalidateParticipants } from '@/shared/lib/conversationRepository';
 import type { ChatMessageUI, MessageReaction } from '../../../worker/types';
-import { getConversationMessagesEndpoint, getConversationWsEndpoint } from '@/config/api';
+import { getConversationMessagesEndpoint } from '@/config/api';
 import { getWorkerApiUrl } from '@/config/urls';
 import { type IntakePaymentRequest } from '@/shared/utils/intakePayments';
 import { asMinor } from '@/shared/utils/money';
@@ -49,19 +48,14 @@ import {
   rememberConversationAnonymousParticipant,
   clearConversationAnonymousParticipant,
 } from '@/shared/utils/anonymousIdentity';
-import { appendWidgetTokenToUrl, withWidgetAuthHeaders } from '@/shared/utils/widgetAuth';
+import { withWidgetAuthHeaders } from '@/shared/utils/widgetAuth';
 import { quickActionDebugLog, isQuickActionDebugEnabled } from '@/shared/utils/quickActionDebug';
 import { normalizeChatActions } from '@/shared/utils/chatActions';
+import { useConversationTransport } from '@/shared/hooks/useConversationTransport';
 
 // ─── constants ───────────────────────────────────────────────────────────────
 
-const CHAT_PROTOCOL_VERSION = 1;
-const SOCKET_READY_TIMEOUT_MS = 8_000;
 const GAP_FETCH_LIMIT = 50;
-const MESSAGE_CACHE_LIMIT = 200;
-const RECONNECT_BASE_DELAY_MS = 800;
-const RECONNECT_MAX_DELAY_MS = 12_000;
-const RECONNECT_MAX_ATTEMPTS = 5;
 export const STREAMING_BUBBLE_PREFIX = 'streaming-';
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
@@ -128,9 +122,6 @@ const parsePaymentRequestMetadata = (metadata: unknown): IntakePaymentRequest | 
 export const isTempMessageId = (id: string): boolean =>
   id.startsWith('temp-') || id.startsWith('system-') || id.startsWith(STREAMING_BUBBLE_PREFIX);
 
-const getMessageCacheKey = (practiceId: string, conversationId: string) =>
-  `chat:messages:${practiceId}:${conversationId}`;
-
 // ─── types ────────────────────────────────────────────────────────────────────
 
 export interface UseConversationOptions {
@@ -162,33 +153,13 @@ export const useConversation = ({
   const currentUserId = externalUserId ?? session?.user?.id ?? null;
 
   // ── state ──────────────────────────────────────────────────────────────────
-  // ── cache sync initialization ──────────────────────────────────────────
-  const { initialMessages, initialMessagesReady } = useMemo(() => {
-    if (typeof window === 'undefined' || !enabled || !conversationId || !practiceId) {
-      return { initialMessages: [], initialMessagesReady: false };
-    }
-    try {
-      const key = `chat:messages:${practiceId}:${conversationId}`;
-      const raw = window.localStorage.getItem(key);
-      if (!raw) return { initialMessages: [], initialMessagesReady: false };
-      const parsed = JSON.parse(raw) as ChatMessageUI[];
-      if (!Array.isArray(parsed) || parsed.length === 0) return { initialMessages: [], initialMessagesReady: false };
-      const isValid = parsed.every(m => typeof m.id === 'string' && typeof m.content === 'string' && typeof m.timestamp === 'number');
-      if (!isValid) { window.localStorage.removeItem(key); return { initialMessages: [], initialMessagesReady: false }; }
-      const filtered = parsed.filter(m => typeof m.id === 'string' && !m.id.startsWith(STREAMING_BUBBLE_PREFIX));
-      return { initialMessages: filtered, initialMessagesReady: true };
-    } catch { return { initialMessages: [], initialMessagesReady: false }; }
-  }, [enabled, conversationId, practiceId]);
-
-  // ── state ──────────────────────────────────────────────────────────────────
   const [isConversationLinkReady, setIsConversationLinkReady] = useState(!linkAnonymousConversationOnLoad);
-  const [messages, setMessages] = useState<ChatMessageUI[]>(initialMessages);
+  const [messages, setMessages] = useState<ChatMessageUI[]>([]);
   const [conversationMetadata, setConversationMetadata] = useState<ConversationMetadata | null>(null);
   const [hasMoreMessages, setHasMoreMessages] = useState(false);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [isLoadingMoreMessages, setIsLoadingMoreMessages] = useState(false);
-  const [messagesReady, setMessagesReady] = useState(initialMessagesReady);
-  const [isSocketReady, setIsSocketReady] = useState(false);
+  const [messagesReady, setMessagesReady] = useState(false);
 
   // ── stable refs ───────────────────────────────────────────────────────────
   const isDisposedRef = useRef(false);
@@ -198,24 +169,9 @@ export const useConversation = ({
   const practiceIdRef = useRef<string | undefined>();
   const conversationMetadataRef = useRef<ConversationMetadata | null>(null);
   const metadataUpdateQueueRef = useRef<Promise<Conversation | null>>(Promise.resolve(null));
-  const sessionReadyRef = useRef(sessionReady);
   const messagesRef = useRef(messages);
-
-  // WebSocket refs
-  const wsRef = useRef<WebSocket | null>(null);
-  const wsReadyRef = useRef<Promise<void> | null>(null);
-  const wsReadyResolveRef = useRef<(() => void) | null>(null);
-  const wsReadyRejectRef = useRef<((error: Error) => void) | null>(null);
-  const socketSessionRef = useRef(0);
-  const isSocketReadyRef = useRef(false);
   const lastSeqRef = useRef(0);
   const lastReadSeqRef = useRef(0);
-  const socketConversationIdRef = useRef<string | null>(null);
-  const isClosingSocketRef = useRef(false);
-  const reconnectAttemptRef = useRef(0);
-  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const connectChatRoomRef = useRef<(id: string) => void>(() => {});
-  const resumeSeqResetAttemptedForRef = useRef<string | null>(null);
 
   // Mark ready if no conversation exists yet (deferred creation case)
   useEffect(() => {
@@ -226,7 +182,7 @@ export const useConversation = ({
 
   // Message tracking refs — exposed so useChatComposer can share them
   /** Tracks all message IDs that have been applied to avoid duplicates */
-  const messageIdSetRef = useRef(new Set<string>(initialMessages.map(m => m.id)));
+  const messageIdSetRef = useRef(new Set<string>());
   /** Maps client_id → temp UI message ID for optimistic update resolution */
   const pendingClientMessageRef = useRef(new Map<string, string>());
   /** Maps client_id → ack promise handlers */
@@ -251,7 +207,6 @@ export const useConversation = ({
 
   // Keep refs in sync
   practiceIdRef.current = practiceId;
-  sessionReadyRef.current = sessionReady;
   messagesRef.current = messages;
 
   useEffect(() => {
@@ -376,6 +331,18 @@ export const useConversation = ({
     return metadata;
   }, [applyConversationMetadata, conversationId, practiceId, sessionReady]);
 
+  function sendReadUpdate(seq: number) {
+    const activeConversationId = socketConversationIdRef.current;
+    if (!activeConversationId || !isSocketReadyRef.current) return;
+    if (seq <= lastReadSeqRef.current) return;
+    lastReadSeqRef.current = seq;
+    try {
+      sendFrame({ type: 'read.update', data: { conversation_id: activeConversationId, last_read_seq: seq } });
+    } catch (error) {
+      if (import.meta.env.DEV) console.warn('[useConversation] Failed to send read.update', error);
+    }
+  }
+
   // ── message mapping ────────────────────────────────────────────────────────
 
   const toUIMessage = useCallback((msg: ConversationMessage): ChatMessageUI => {
@@ -440,94 +407,6 @@ export const useConversation = ({
       seq: msg.seq,
     };
   }, [currentUserId]);
-
-  // ── socket ready helpers ───────────────────────────────────────────────────
-
-  const updateSocketReady = useCallback((ready: boolean) => {
-    if (isDisposedRef.current) return;
-    setIsSocketReady(ready);
-  }, []);
-
-  const initSocketReadyPromise = useCallback(() => {
-    const nextReadyPromise = new Promise<void>((resolve, reject) => {
-      wsReadyResolveRef.current = resolve;
-      wsReadyRejectRef.current = reject;
-    });
-    // This internal promise may be rejected during normal reconnect/close cycles
-    // before any consumer awaits it. Swallow unhandled-rejection noise while
-    // preserving rejection semantics for explicit awaiters.
-    nextReadyPromise.catch(() => {});
-    wsReadyRef.current = nextReadyPromise;
-    isSocketReadyRef.current = false;
-    updateSocketReady(false);
-  }, [updateSocketReady]);
-
-  const resolveSocketReady = useCallback(() => {
-    isSocketReadyRef.current = true;
-    updateSocketReady(true);
-    wsReadyResolveRef.current?.();
-    wsReadyResolveRef.current = null;
-    wsReadyRejectRef.current = null;
-  }, [updateSocketReady]);
-
-  const rejectSocketReady = useCallback((error: Error) => {
-    isSocketReadyRef.current = false;
-    updateSocketReady(false);
-    wsReadyRejectRef.current?.(error);
-    wsReadyResolveRef.current = null;
-    wsReadyRejectRef.current = null;
-  }, [updateSocketReady]);
-
-  const flushPendingAcks = useCallback((error: Error) => {
-    for (const pending of pendingAckRef.current.values()) {
-      clearTimeout(pending.timer);
-      pending.reject(error);
-    }
-    pendingAckRef.current.clear();
-  }, []);
-
-  /** Exposed so callers (useChatComposer) can await the socket */
-  const waitForSocketReady = useCallback(async () => {
-    if (!wsReadyRef.current) throw new Error('Chat connection not initialized');
-    let timeoutId: ReturnType<typeof setTimeout> | null = null;
-    const timeoutPromise = new Promise<void>((_resolve, reject) => {
-      timeoutId = setTimeout(() => reject(new Error('Chat connection timed out')), SOCKET_READY_TIMEOUT_MS);
-    });
-    try { await Promise.race([wsReadyRef.current, timeoutPromise]); }
-    finally { if (timeoutId) clearTimeout(timeoutId); }
-  }, []);
-
-  // ── realtime state reset ───────────────────────────────────────────────────
-
-  const resetRealtimeState = useCallback(() => {
-    flushPendingAcks(new Error('reset realtime state'));
-    messageIdSetRef.current.clear();
-    pendingClientMessageRef.current.clear();
-    lastSeqRef.current = 0;
-    lastReadSeqRef.current = 0;
-    messagesRef.current = [];
-    reactionLoadedRef.current.clear();
-    reactionFetchRef.current.clear();
-    pendingStreamMessageIdRef.current = null;
-    resumeSeqResetAttemptedForRef.current = null;
-  }, [flushPendingAcks]);
-
-  // ── send frame (used by WS handlers and exposed for useChatComposer) ───────
-
-  const sendFrame = useCallback((frame: { type: string; data: Record<string, unknown>; request_id?: string }) => {
-    const ws = wsRef.current;
-    if (!ws || ws.readyState !== WebSocket.OPEN) throw new Error('Chat connection not open');
-    ws.send(JSON.stringify(frame));
-  }, []);
-
-  const sendReadUpdate = useCallback((seq: number) => {
-    const activeConversationId = conversationIdRef.current;
-    if (!activeConversationId || !isSocketReadyRef.current) return;
-    if (seq <= lastReadSeqRef.current) return;
-    lastReadSeqRef.current = seq;
-    try { sendFrame({ type: 'read.update', data: { conversation_id: activeConversationId, last_read_seq: seq } }); }
-    catch (error) { if (import.meta.env.DEV) console.warn('[useConversation] Failed to send read.update', error); }
-  }, [sendFrame]);
 
   // ── core message application ───────────────────────────────────────────────
 
@@ -833,169 +712,100 @@ export const useConversation = ({
     }
   }, [applyServerMessages, onError]);
 
-  // ── reconnect ─────────────────────────────────────────────────────────────
+  const handleTransportGap = useCallback((fromSeq: number, latestSeq: number) => {
+    fetchGapMessages(fromSeq, latestSeq).catch(err => {
+      if (import.meta.env.DEV) console.warn('[useConversation] Gap fetch failed', err);
+    });
+  }, [fetchGapMessages]);
 
-  const clearReconnectTimer = useCallback(() => {
-    if (reconnectTimerRef.current) { clearTimeout(reconnectTimerRef.current); reconnectTimerRef.current = null; }
+  const handleTransportResumeOk = useCallback((latestSeq: number) => {
+    if (Number.isFinite(latestSeq)) {
+      lastSeqRef.current = Math.max(lastSeqRef.current, latestSeq);
+      lastReadSeqRef.current = Math.max(lastReadSeqRef.current, latestSeq);
+    }
+  }, [lastReadSeqRef, lastSeqRef]);
+
+  const onMessageNewRef = useRef(handleMessageNew);
+  const onMessageAckRef = useRef(handleMessageAck);
+  const onReactionUpdateRef = useRef(handleReactionUpdate);
+  const onGapRef = useRef(handleTransportGap);
+  const onResumeOkRef = useRef(handleTransportResumeOk);
+  const transportErrorRef = useRef(onError);
+  onMessageNewRef.current = handleMessageNew;
+  onMessageAckRef.current = handleMessageAck;
+  onReactionUpdateRef.current = handleReactionUpdate;
+  onGapRef.current = handleTransportGap;
+  onResumeOkRef.current = handleTransportResumeOk;
+  transportErrorRef.current = onError;
+
+  const stableOnMessageNew = useCallback((data: Record<string, unknown>) => {
+    onMessageNewRef.current(data);
   }, []);
 
-  const scheduleReconnect = useCallback((targetConversationId: string) => {
-    if (isDisposedRef.current || isClosingSocketRef.current || !sessionReadyRef.current) return;
-    if (conversationIdRef.current !== targetConversationId || reconnectTimerRef.current) return;
-    const nextAttempt = reconnectAttemptRef.current + 1;
-    if (nextAttempt > RECONNECT_MAX_ATTEMPTS) return;
-    reconnectAttemptRef.current = nextAttempt;
-    const backoff = Math.min(RECONNECT_BASE_DELAY_MS * 2 ** (nextAttempt - 1), RECONNECT_MAX_DELAY_MS);
-    reconnectTimerRef.current = globalThis.setTimeout(() => {
-      reconnectTimerRef.current = null;
-      if (isDisposedRef.current || isClosingSocketRef.current) return;
-      if (!sessionReadyRef.current || conversationIdRef.current !== targetConversationId) return;
-      connectChatRoomRef.current(targetConversationId);
-    }, backoff + Math.floor(Math.random() * 250));
+  const stableOnMessageAck = useCallback((data: Record<string, unknown>) => {
+    onMessageAckRef.current(data);
   }, []);
 
-  // ── WebSocket connect ──────────────────────────────────────────────────────
+  const stableOnReactionUpdate = useCallback((data: Record<string, unknown>) => {
+    onReactionUpdateRef.current(data);
+  }, []);
 
-  const connectChatRoom = useCallback((targetConversationId: string) => {
-    if (!sessionReady || !targetConversationId) return;
-    clearReconnectTimer();
-    if (typeof WebSocket === 'undefined') { onError?.('WebSocket is not available in this environment.'); return; }
-    if (wsRef.current && socketConversationIdRef.current === targetConversationId) {
-      if (wsRef.current.readyState === WebSocket.CONNECTING) return;
-      if (wsRef.current.readyState === WebSocket.OPEN && isSocketReadyRef.current) return;
+  const stableOnGap = useCallback((fromSeq: number, latestSeq: number) => {
+    onGapRef.current(fromSeq, latestSeq);
+  }, []);
+
+  const stableOnResumeOk = useCallback((latestSeq: number) => {
+    onResumeOkRef.current(latestSeq);
+  }, []);
+
+  const stableOnError = useCallback((error: unknown) => {
+    transportErrorRef.current?.(error);
+  }, []);
+
+  const transport = useConversationTransport({
+    enabled,
+    sessionReady,
+    practiceId,
+    onError: stableOnError,
+    onMessageNew: stableOnMessageNew,
+    onMessageAck: stableOnMessageAck,
+    onReactionUpdate: stableOnReactionUpdate,
+    onGap: stableOnGap,
+    onResumeOk: stableOnResumeOk,
+    lastSeqRef,
+    lastReadSeqRef,
+    pendingAckRef,
+  });
+  const {
+    isSocketReady,
+    sendFrame,
+    waitForSocketReady,
+    connectChatRoom,
+    closeChatSocket,
+    isSocketReadyRef,
+    socketConversationIdRef,
+    wsReadyRef,
+  } = transport;
+
+  const flushPendingAcks = useCallback((error: Error) => {
+    for (const pending of pendingAckRef.current.values()) {
+      clearTimeout(pending.timer);
+      pending.reject(error);
     }
+    pendingAckRef.current.clear();
+  }, [pendingAckRef]);
 
-    isClosingSocketRef.current = false;
-    socketSessionRef.current += 1;
-    const sessionId = socketSessionRef.current;
-    if (wsRef.current) { wsRef.current.close(); wsRef.current = null; }
-    socketConversationIdRef.current = targetConversationId;
-    initSocketReadyPromise();
-
-    const wsUrl = appendWidgetTokenToUrl(getConversationWsEndpoint(targetConversationId));
-    if (import.meta.env.DEV) {
-      console.log('[WebSocket] Creating connection to', wsUrl);
-    }
-    const ws = new WebSocket(wsUrl);
-    wsRef.current = ws;
-
-    ws.addEventListener('open', () => {
-      if (import.meta.env.DEV) {
-        console.log('[WebSocket] Connection opened');
-      }
-      reconnectAttemptRef.current = 0;
-      clearReconnectTimer();
-      ws.send(JSON.stringify({ type: 'auth', data: { protocol_version: CHAT_PROTOCOL_VERSION, client_info: { platform: 'web' } } }));
-    });
-
-    ws.addEventListener('message', (event) => {
-      if (socketSessionRef.current !== sessionId || typeof event.data !== 'string') return;
-      let frame: { type?: string; data?: Record<string, unknown>; request_id?: string };
-      try { frame = JSON.parse(event.data) as typeof frame; } catch { return; }
-      if (!frame.type || !frame.data || typeof frame.data !== 'object') return;
-
-      switch (frame.type) {
-        case 'auth.ok':
-          resolveSocketReady();
-          try { sendFrame({ type: 'resume', data: { conversation_id: targetConversationId, last_seq: lastSeqRef.current } }); }
-          catch (err) { if (import.meta.env.DEV) console.warn('[useConversation] Failed to send resume', err); }
-          return;
-        case 'auth.error': {
-          const msg = typeof frame.data.message === 'string' ? frame.data.message : 'Chat protocol error';
-          onError?.(msg); rejectSocketReady(new Error(msg)); isClosingSocketRef.current = true; ws.close(); return;
-        }
-        case 'resume.ok': {
-          const seq = Number(frame.data.latest_seq);
-          if (Number.isFinite(seq)) { lastSeqRef.current = Math.max(lastSeqRef.current, seq); sendReadUpdate(lastSeqRef.current); }
-          return;
-        }
-        case 'resume.gap': {
-          const fromSeq = Number(frame.data.from_seq);
-          const latestSeq = Number(frame.data.latest_seq);
-          if (Number.isFinite(fromSeq) && Number.isFinite(latestSeq)) {
-            fetchGapMessages(fromSeq, latestSeq).catch(err => { if (import.meta.env.DEV) console.warn('[useConversation] Gap fetch failed', err); });
-          }
-          return;
-        }
-        case 'message.new': handleMessageNew(frame.data); return;
-        case 'message.ack': handleMessageAck(frame.data); return;
-        case 'reaction.update': handleReactionUpdate(frame.data); return;
-        case 'membership.changed':
-          if (practiceId) {
-            invalidateParticipants(practiceId, targetConversationId);
-          }
-          return;
-        case 'error': {
-          const code = typeof frame.data.code === 'string' ? frame.data.code : null;
-          const msg = typeof frame.data.message === 'string' ? frame.data.message : 'Chat error';
-          const reqId = typeof frame.request_id === 'string' ? frame.request_id : null;
-          if (reqId) {
-            const p = pendingAckRef.current.get(reqId);
-            if (p) {
-              clearTimeout(p.timer);
-              p.reject(new Error(msg));
-              pendingAckRef.current.delete(reqId);
-              // Request-scoped errors are surfaced by the sender's catch block.
-              // Emitting onError here would duplicate the same toast.
-              return;
-            }
-          }
-
-          if (
-            code === 'invalid_payload' &&
-            msg === 'last_seq ahead of latest' &&
-            conversationIdRef.current === targetConversationId
-          ) {
-            // Server no longer has the seq we attempted to resume from
-            // (for example after data reconciliation). Reset local seq once
-            // and reconnect without showing a user-facing toast.
-            if (resumeSeqResetAttemptedForRef.current !== targetConversationId) {
-              resumeSeqResetAttemptedForRef.current = targetConversationId;
-              lastSeqRef.current = 0;
-              lastReadSeqRef.current = 0;
-              if (import.meta.env.DEV) {
-                console.warn('[useConversation] Resetting resume sequence after server drift', {
-                  conversationId: targetConversationId,
-                });
-              }
-              ws.close(4000, 'resume_seq_reset');
-              return;
-            }
-          }
-
-          onError?.(msg); return;
-        }
-        default: return;
-      }
-    });
-
-    ws.addEventListener('close', () => {
-      if (import.meta.env.DEV) {
-        console.log('[WebSocket] Connection closed');
-      }
-      if (socketSessionRef.current !== sessionId) return;
-      isSocketReadyRef.current = false;
-      rejectSocketReady(new Error('Chat connection closed'));
-      flushPendingAcks(new Error('Chat connection closed'));
-      if (wsRef.current === ws) { wsRef.current = null; socketConversationIdRef.current = null; }
-      if (!isClosingSocketRef.current && conversationIdRef.current === targetConversationId) scheduleReconnect(targetConversationId);
-    });
-
-    ws.addEventListener('error', (err) => { if (import.meta.env.DEV) console.warn('[useConversation] WebSocket error', err); });
-  }, [clearReconnectTimer, fetchGapMessages, flushPendingAcks, handleMessageAck, handleMessageNew, handleReactionUpdate, initSocketReadyPromise, onError, practiceId, rejectSocketReady, resolveSocketReady, scheduleReconnect, sendFrame, sendReadUpdate, sessionReady]);
-
-  connectChatRoomRef.current = connectChatRoom;
-
-  const closeChatSocket = useCallback(() => {
-    isClosingSocketRef.current = true;
-    isSocketReadyRef.current = false;
-    rejectSocketReady(new Error('Chat connection closed'));
-    flushPendingAcks(new Error('Chat connection closed'));
-    clearReconnectTimer();
-    reconnectAttemptRef.current = 0;
-    if (wsRef.current) { wsRef.current.close(); wsRef.current = null; }
-    socketConversationIdRef.current = null;
-  }, [clearReconnectTimer, flushPendingAcks, rejectSocketReady]);
+  const resetRealtimeState = useCallback(() => {
+    flushPendingAcks(new Error('reset realtime state'));
+    messageIdSetRef.current.clear();
+    pendingClientMessageRef.current.clear();
+    lastSeqRef.current = 0;
+    lastReadSeqRef.current = 0;
+    messagesRef.current = [];
+    reactionLoadedRef.current.clear();
+    reactionFetchRef.current.clear();
+    pendingStreamMessageIdRef.current = null;
+  }, [flushPendingAcks]);
 
   // ── message fetch & pagination ─────────────────────────────────────────────
 
@@ -1184,19 +994,6 @@ export const useConversation = ({
   }, [resetRealtimeState]);
 
   // ── lifecycle effects ──────────────────────────────────────────────────────
-
-
-
-  // Message cache write
-  useEffect(() => {
-    if (!enabled) return;
-    if (typeof window === 'undefined' || !conversationId || !practiceId || messages.length === 0) return;
-    const trimmed = messages
-      .filter(m => typeof m.id === 'string' && !m.id.startsWith(STREAMING_BUBBLE_PREFIX))
-      .slice(-MESSAGE_CACHE_LIMIT);
-    try { window.localStorage.setItem(getMessageCacheKey(practiceId, conversationId), JSON.stringify(trimmed)); }
-    catch (err) { if (import.meta.env.DEV) console.warn('[useConversation] Failed to cache messages', err); }
-  }, [conversationId, enabled, messages, practiceId]);
 
   // Conversation change — full reset
   useEffect(() => {

@@ -150,7 +150,7 @@ export const useMessageHandling = (options: UseMessageHandlingOptions) => {
     onEnsureConversation,
     userId,
     linkAnonymousConversationOnLoad,
-    mode,
+    mode: conversation.conversationMetadata?.mode ?? mode ?? null,
     messages: conversation.messages,
     messagesRef: conversation.messagesRef,
     conversationMetadataRef: conversation.conversationMetadataRef,

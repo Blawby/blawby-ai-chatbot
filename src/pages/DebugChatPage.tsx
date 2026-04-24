@@ -210,6 +210,7 @@ export default function DebugChatPage() {
             messages={messages}
             conversationTitle="Debug Chat"
             onSendMessage={handleSendMessage}
+            isReady={true}
             conversationMode="ASK_QUESTION"
             isPublicWorkspace
             practiceConfig={practiceConfig}
@@ -225,8 +226,6 @@ export default function DebugChatPage() {
             isRecording={isRecording}
             setIsRecording={setIsRecording}
             isReadyToUpload
-            isSessionReady
-            isSocketReady
             messagesReady
           />
         </div>

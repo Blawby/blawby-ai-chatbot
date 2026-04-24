@@ -10,12 +10,12 @@ import { DocumentIcon } from "@heroicons/react/24/outline";
 import { Icon } from '@/shared/ui/Icon';
 import { formatDocumentIconSize } from '@/features/chat/utils/fileUtils';
 import { Button } from '@/shared/ui/Button';
-import type { IntakeConversationState } from '@/shared/types/intake';
 import type { ChatMessageAction } from '@/shared/types/conversation';
 import { SettingsNotice } from '@/features/settings/components/SettingsNotice';
 import { quickActionDebugLog, isQuickActionDebugEnabled } from '@/shared/utils/quickActionDebug';
 import { getChatActionKey } from '@/shared/utils/chatActions';
 import { useNavigation } from '@/shared/utils/navigation';
+import { useIntakeContext } from '@/shared/contexts/IntakeContext';
 
 interface MessageActionsProps {
 	matterCanvas?: {
@@ -25,13 +25,6 @@ interface MessageActionsProps {
 		matterSummary: string;
 		answers?: Record<string, string>;
 		isExpanded?: boolean;
-	};
-	intakeStatus?: {
-		step?: string;
-		decision?: string;
-		intakeUuid?: string | null;
-		paymentRequired?: boolean;
-		paymentReceived?: boolean;
 	};
 	paymentRequest?: IntakePaymentRequest;
 	documentChecklist?: {
@@ -67,13 +60,8 @@ interface MessageActionsProps {
 		label: string;
 	};
 	onAuthPromptRequest?: () => void;
-
-	intakeConversationState?: IntakeConversationState | null;
 	actions?: ChatMessageAction[];
 	onActionReply?: (text: string) => void;
-	onSubmitNow?: () => void | Promise<void>;
-	onBuildBrief?: () => void;
-	onStrengthenCase?: () => void;
 	onboardingProfile?: {
 		completionScore?: number;
 		missingFields?: string[];
@@ -100,7 +88,6 @@ interface MessageActionsProps {
 
 export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 	matterCanvas,
-	intakeStatus,
 	documentChecklist,
 	generatedPDF,
 	paymentRequest,
@@ -108,12 +95,8 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 	assistantRetry,
 	authCta,
 	onAuthPromptRequest,
-	intakeConversationState: _intakeConversationState,
 	actions,
 	onActionReply,
-	onSubmitNow,
-	onBuildBrief,
-	onStrengthenCase,
 	onboardingProfile,
 	isStreaming = false,
 	isLast,
@@ -122,25 +105,30 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 	const { showSuccess, showInfo } = useToastContext();
 	const { t } = useTranslation('common');
 	const { navigate } = useNavigation();
+	const intakeContext = useIntakeContext();
 	const quickActionRenderSnapshotRef = useRef('');
+	const resolvedIntakeStatus = intakeContext.intakeStatus;
+	const resolvedOnSubmitNow = intakeContext.onSubmitNow;
+	const resolvedOnBuildBrief = intakeContext.onBuildBrief;
+	const resolvedOnStrengthenCase = intakeContext.onStrengthenCase;
 
-	const isIntakeCompleted = intakeStatus?.step === 'completed';
+	const isIntakeCompleted = resolvedIntakeStatus?.step === 'completed';
 	const shouldShowAuthCta = Boolean(authCta?.label && onAuthPromptRequest && !isIntakeCompleted);
-	const shouldShowPaymentCard = Boolean(paymentRequest && intakeStatus?.paymentReceived !== true);
+	const shouldShowPaymentCard = Boolean(paymentRequest && resolvedIntakeStatus?.paymentReceived !== true);
 	const renderableActions = (actions ?? []).filter((action) => {
 		switch (action.type) {
 			case 'reply':
 				return Boolean(onActionReply);
 			case 'submit':
-				return Boolean(onSubmitNow);
+				return Boolean(resolvedOnSubmitNow);
 			case 'continue_payment':
 				return Boolean(paymentRequest?.paymentLinkUrl);
 			case 'open_url':
 				return true;
 			case 'build_brief':
-				return Boolean(onBuildBrief);
+				return Boolean(resolvedOnBuildBrief);
 			case 'strengthen_case':
-				return Boolean(onStrengthenCase);
+				return Boolean(resolvedOnStrengthenCase);
 		}
 	});
 
@@ -233,14 +221,14 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 								} catch { return null; }
 							})()
 						) : action.type === 'submit' ? (
-							onSubmitNow ? (
+							resolvedOnSubmitNow ? (
 								<Button
 									key={getChatActionKey(action, idx)}
 									variant={action.variant === 'primary' ? 'primary' : 'secondary'}
 									size="sm"
 									className="shrink-0"
 									onClick={() => {
-										void onSubmitNow();
+										void resolvedOnSubmitNow();
 									}}
 								>
 									{action.label}
@@ -290,25 +278,25 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 								);
 							})()
 						) : action.type === 'build_brief' ? (
-							onBuildBrief ? (
+							resolvedOnBuildBrief ? (
 								<Button
 									key={getChatActionKey(action, idx)}
 									variant={action.variant === 'primary' ? 'primary' : 'secondary'}
 									size="sm"
 									className="shrink-0"
-									onClick={() => onBuildBrief()}
+									onClick={() => resolvedOnBuildBrief()}
 								>
 									{action.label}
 								</Button>
 							) : null
 						) : action.type === 'strengthen_case' ? (
-							onStrengthenCase ? (
+							resolvedOnStrengthenCase ? (
 								<Button
 									key={getChatActionKey(action, idx)}
 									variant={action.variant === 'primary' ? 'primary' : 'secondary'}
 									size="sm"
 									className="shrink-0"
-									onClick={() => onStrengthenCase()}
+									onClick={() => resolvedOnStrengthenCase()}
 								>
 									{action.label}
 								</Button>
