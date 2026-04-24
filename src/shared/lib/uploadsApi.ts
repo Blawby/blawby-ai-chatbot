@@ -10,6 +10,10 @@ export interface UploadProgress {
 export type UploadContext = 'matter' | 'intake' | 'trust' | 'profile' | 'asset';
 export type UploadSubContext = 'documents' | 'correspondence' | 'evidence';
 
+const MAX_UPLOAD_FILE_SIZE_BYTES = 52_428_800; // Matches backend presign schema max (50 MiB).
+const MAX_UPLOAD_FILE_NAME_LENGTH = 255;
+const MAX_UPLOAD_MIME_LENGTH = 100;
+
 interface PresignUploadRequest {
   file_name: string;
   mime_type: string;
@@ -53,6 +57,37 @@ interface BackendUploadOptions {
   onProgress?: (progress: UploadProgress) => void;
   signal?: AbortSignal;
 }
+
+const validateUploadInput = (options: BackendUploadOptions): void => {
+  const { file, uploadContext, matterId } = options;
+
+  const fileName = typeof file.name === 'string' ? file.name.trim() : '';
+  if (!fileName) {
+    throw new Error('File name is required.');
+  }
+  if (fileName.length > MAX_UPLOAD_FILE_NAME_LENGTH) {
+    throw new Error(`File name must be ${MAX_UPLOAD_FILE_NAME_LENGTH} characters or fewer.`);
+  }
+
+  if (!Number.isInteger(file.size) || file.size <= 0) {
+    throw new Error('File size must be a positive number of bytes.');
+  }
+  if (file.size > MAX_UPLOAD_FILE_SIZE_BYTES) {
+    throw new Error('File is too large. Maximum allowed size is 50 MB.');
+  }
+
+  const mimeType = (file.type || 'application/octet-stream').trim();
+  if (!mimeType) {
+    throw new Error('File MIME type is required.');
+  }
+  if (mimeType.length > MAX_UPLOAD_MIME_LENGTH) {
+    throw new Error(`File MIME type must be ${MAX_UPLOAD_MIME_LENGTH} characters or fewer.`);
+  }
+
+  if (uploadContext === 'matter' && (!matterId || matterId.trim().length === 0)) {
+    throw new Error('Matter uploads require a matter ID.');
+  }
+};
 
 const buildWorkerUrl = (path: string): string => {
   const baseUrl = getWorkerApiUrl();
@@ -229,6 +264,17 @@ export const uploadFileViaBackend = async ({
   onProgress,
   signal,
 }: BackendUploadOptions): Promise<BackendUploadResult> => {
+  validateUploadInput({
+    file,
+    uploadContext,
+    entityId,
+    matterId,
+    subContext,
+    isPrivileged,
+    onProgress,
+    signal,
+  });
+
   const presigned = await presignUpload(
     {
       file_name: file.name,
