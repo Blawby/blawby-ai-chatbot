@@ -1802,16 +1802,17 @@ export const PracticeMattersPage = ({
               actions={matterDetailHeaderActions}
               onInspector={onDetailInspector}
               inspectorOpen={detailInspectorOpen}
+              className="sticky top-0 z-30"
             />
             {detailHeaderMeta ? (
           <div className="px-4 py-4 @container">
                 <section className="relative overflow-hidden rounded-[28px] bg-gradient-to-b from-accent-500/30 via-surface-overlay/70 to-surface-overlay/85 [--accent-foreground:var(--input-text)]">
                   <div className="absolute inset-0 bg-gradient-to-t from-surface-base/45 via-transparent to-transparent" />
                   <div className="relative px-4 pb-8 pt-8 sm:px-6 sm:pb-12 sm:pt-10">
-                    <div className="flex flex-col items-center gap-5 text-center lg:flex-row lg:items-start lg:text-left lg:gap-8">
+                    <div className="flex flex-col items-center gap-5 text-center @4xl:flex-row @4xl:items-start @4xl:text-left @4xl:gap-8">
                       <Avatar
                         size="xl"
-                        className="mx-auto h-28 w-28 lg:h-36 lg:w-36 lg:mx-0"
+                        className="mx-auto h-28 w-28 @4xl:mx-0 @4xl:h-36 @4xl:w-36"
                         src={detailClientOption?.image ?? null}
                         name={detailClientOption?.name ?? 'Unassigned client'}
                       />
@@ -1856,18 +1857,18 @@ export const PracticeMattersPage = ({
                               </div>
                             ) : (
                               <>
-                                <div className="flex flex-col items-center gap-1 lg:flex-row lg:items-baseline lg:justify-between lg:gap-3">
-                                  <h4 className="break-words text-center text-2xl font-semibold leading-tight text-[rgb(var(--accent-foreground))] lg:text-left lg:text-4xl xl:text-5xl">
+                                <div className="flex flex-col items-center gap-1 @4xl:flex-row @4xl:items-baseline @4xl:justify-between @4xl:gap-3">
+                                  <h4 className="mx-auto max-w-[20ch] break-words text-center text-2xl font-semibold leading-tight text-[rgb(var(--accent-foreground))] @2xl:text-3xl @4xl:mx-0 @4xl:text-left @4xl:text-4xl @6xl:text-5xl">
                                     {selectedMatterDetail.title?.trim() || 'Untitled matter'}
                                   </h4>
                                   {selectedMatterDetail.caseNumber?.trim() ? (
-                                    <span className="hidden shrink-0 text-sm font-normal text-[rgb(var(--accent-foreground))]/65 lg:pt-2 lg:inline">
+                                    <span className="hidden shrink-0 text-sm font-normal text-[rgb(var(--accent-foreground))]/65 @4xl:inline @4xl:pt-2">
                                       #{selectedMatterDetail.caseNumber.trim()}
                                     </span>
                                   ) : null}
                                 </div>
                                 {selectedMatterDetail.caseNumber?.trim() ? (
-                                  <p className="text-xs font-medium uppercase tracking-[0.16em] text-[rgb(var(--accent-foreground))]/65 lg:hidden">
+                                  <p className="text-xs font-medium uppercase tracking-[0.16em] text-[rgb(var(--accent-foreground))]/65 @4xl:hidden">
                                     #{selectedMatterDetail.caseNumber.trim()}
                                   </p>
                                 ) : null}
@@ -1878,7 +1879,7 @@ export const PracticeMattersPage = ({
                             )}
                           </div>
                         ) : null}
-                        <nav className="mt-6 flex flex-wrap items-center justify-center gap-2 lg:gap-3 lg:justify-start" aria-label="Matter detail tabs">
+                        <nav className="mt-6 flex flex-wrap items-center justify-center gap-2 @4xl:justify-start @4xl:gap-3" aria-label="Matter detail tabs">
                           {DETAIL_TABS.map((tab) => {
                             const isActive = detailSection === tab.id;
                             const TabIcon = tab.icon;
@@ -1908,10 +1909,10 @@ export const PracticeMattersPage = ({
                           })}
                         </nav>
                         {selectedMatterDetail ? (
-                          <div className="mt-6 grid grid-cols-1 gap-4 text-center lg:grid-cols-3 lg:text-left">
+                          <div className="mt-6 grid grid-cols-1 gap-4 text-center @2xl:grid-cols-2 @2xl:text-left @4xl:grid-cols-3">
                             <div>
                               <p className="text-xs font-medium uppercase tracking-wide text-[rgb(var(--accent-foreground))]/70">Client</p>
-                              <p className="mt-1 text-sm break-words text-[rgb(var(--accent-foreground))]">
+                              <p className="mt-1 break-all text-sm text-[rgb(var(--accent-foreground))] @2xl:break-words">
                                 {detailClientOption?.name ?? 'Unassigned client'}
                               </p>
                             </div>
@@ -1923,7 +1924,7 @@ export const PracticeMattersPage = ({
                                 const attName = assigneeNameById.get(attId);
                                 if (!attName) return <p className="mt-1 text-sm text-[rgb(var(--accent-foreground))]/60">Not set</p>;
                                 return (
-                                  <div className="mt-1 flex items-center justify-center gap-1.5 lg:justify-start">
+                                  <div className="mt-1 flex items-center justify-center gap-1.5 @2xl:justify-start">
                                     <Avatar src={member?.image ?? null} name={attName} size="xs" />
                                     <span className="min-w-0 text-sm text-[rgb(var(--accent-foreground))]">{attName}</span>
                                   </div>

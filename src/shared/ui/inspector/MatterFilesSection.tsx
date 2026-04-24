@@ -91,6 +91,8 @@ export const MatterFilesSection = ({ practiceId, matterId }: MatterFilesSectionP
       <UploadSurface
         onFilesSelected={(selected) => { void handleFileBatch(selected); }}
         items={surfaceItems}
+        dropzoneInstructionText="Drag & drop or choose file to upload"
+        dropzoneValidationText="Supported: images, PDF, docs, audio, video - Max 50 MB"
         dropzoneAccept={ACCEPTED_FILE_TYPES}
         dropzoneDisabled={isLoading || isUploading}
         emptyStateLabel={null}

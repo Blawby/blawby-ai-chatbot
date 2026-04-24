@@ -9,6 +9,8 @@ interface UploadDropzoneProps {
   multiple?: boolean;
   accept?: string;
   label?: string;
+  instructionText?: string;
+  validationText?: string;
   helperText?: string;
   className?: string;
 }
@@ -19,6 +21,8 @@ export const UploadDropzone = ({
   multiple = true,
   accept,
   label = 'Upload files',
+  instructionText = 'Drag & drop or choose file to upload',
+  validationText = 'Max 50 MB per file',
   helperText,
   className,
 }: UploadDropzoneProps) => {
@@ -40,7 +44,8 @@ export const UploadDropzone = ({
       aria-label={label}
       aria-disabled={disabled}
       className={cn(
-        'rounded-xl border-2 border-dashed px-3 py-4 transition-colors',
+        'rounded-xl border-2 border-dashed transition-colors',
+        'relative flex min-h-[160px] items-center justify-center px-4 py-5',
         isDragOver ? 'border-accent-500 bg-accent-500/10' : 'border-line-glass/25',
         disabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:border-line-glass/45',
         className
@@ -92,14 +97,14 @@ export const UploadDropzone = ({
           target.value = '';
         }}
       />
-      <div className="flex items-center gap-2 text-input-text">
-        <Icon icon={ArrowUpTrayIcon} className="h-4 w-4" />
-        <span className="text-sm font-medium">{label}</span>
+      <div className="flex w-full max-w-[520px] flex-col items-center justify-center text-center">
+        <Icon icon={ArrowUpTrayIcon} className="mb-3 h-6 w-6 text-input-placeholder" />
+        <p className="text-sm font-medium text-input-text">{instructionText}</p>
+        <p className="mt-1 text-xs text-input-placeholder">{validationText}</p>
       </div>
       {helperText ? (
-        <p className="mt-1 text-xs text-input-placeholder">{helperText}</p>
+        <p className="mt-2 text-center text-xs text-input-placeholder">{helperText}</p>
       ) : null}
     </div>
   );
 };
-

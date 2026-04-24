@@ -210,6 +210,8 @@ export function MatterFilesPanel({ matterId, isPrivilegedUploads = true }: Matte
       <UploadSurface
         onFilesSelected={(files) => { void handleUploadBatch(files); }}
         items={surfaceItems}
+        dropzoneInstructionText="Drag & drop or choose file to upload"
+        dropzoneValidationText="Supported: images, PDF, docs, audio, video - Max 50 MB"
         dropzoneDisabled={isUploading}
         emptyStateLabel={null}
       />

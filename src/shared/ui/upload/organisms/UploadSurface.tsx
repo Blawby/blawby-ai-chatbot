@@ -17,6 +17,8 @@ interface UploadSurfaceProps {
   onFilesSelected: (files: File[]) => void;
   items: UploadSurfaceItem[];
   dropzoneLabel?: string;
+  dropzoneInstructionText?: string;
+  dropzoneValidationText?: string;
   dropzoneAccept?: string;
   dropzoneDisabled?: boolean;
   emptyStateLabel?: string | null;
@@ -27,6 +29,8 @@ export const UploadSurface = ({
   onFilesSelected,
   items,
   dropzoneLabel = 'Upload files',
+  dropzoneInstructionText,
+  dropzoneValidationText,
   dropzoneAccept,
   dropzoneDisabled = false,
   emptyStateLabel = 'No files',
@@ -39,6 +43,8 @@ export const UploadSurface = ({
         accept={dropzoneAccept}
         disabled={dropzoneDisabled}
         label={dropzoneLabel}
+        instructionText={dropzoneInstructionText}
+        validationText={dropzoneValidationText}
       />
 
       {items.length > 0 ? (
@@ -65,4 +71,3 @@ export const UploadSurface = ({
     </div>
   );
 };
-

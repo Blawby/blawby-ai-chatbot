@@ -35,8 +35,8 @@ interface MatterSummaryCardsProps {
 }
 
 const summaryItemBase = 'min-w-0 flex flex-col gap-1';
-const gridBase = 'grid grid-cols-2 gap-x-4 gap-y-5 md:grid-cols-4 md:gap-x-6';
-const wrapperBase = 'glass-panel p-4 sm:p-5';
+const gridBase = 'grid grid-cols-1 gap-x-4 gap-y-5 @lg:grid-cols-2 @4xl:grid-cols-4 @4xl:gap-x-6';
+const wrapperBase = 'glass-panel @container p-4 sm:p-5';
 
 const formatDurationFromSeconds = (totalSeconds?: number | null) => {
   if (!totalSeconds || totalSeconds <= 0) return '0:00 hrs';
@@ -134,15 +134,15 @@ export const MatterSummaryCards = ({
       ];
 
       const fixedGridClass = hasMilestones
-        ? 'grid grid-cols-4 gap-x-4 gap-y-5 md:grid-cols-6 md:gap-x-6'
-        : 'grid grid-cols-4 gap-x-4 gap-y-5 md:grid-cols-6 md:gap-x-6';
+        ? 'grid grid-cols-1 gap-x-4 gap-y-5 @lg:grid-cols-2 @3xl:grid-cols-4 @5xl:grid-cols-6 @5xl:gap-x-6'
+        : 'grid grid-cols-1 gap-x-4 gap-y-5 @lg:grid-cols-2 @3xl:grid-cols-4 @5xl:grid-cols-6 @5xl:gap-x-6';
 
       return (
         <section className={wrapperBase}>
           <div className={fixedGridClass}>
             {fixedCards.map((card, index) => {
               const isFirst = index === 0;
-              const spanClass = isFirst ? 'col-span-2 md:col-span-4' : 'col-span-1';
+              const spanClass = isFirst ? 'col-span-1 @lg:col-span-2 @5xl:col-span-4' : 'col-span-1';
               return (
                 <div key={card.label} className={cn(summaryItemBase, spanClass)}>
                   <p className="text-xs font-medium text-input-placeholder leading-tight">{card.label}</p>
@@ -153,7 +153,7 @@ export const MatterSummaryCards = ({
                 </div>
               );
             })}
-            <div className="col-span-2 flex flex-col gap-2 md:col-span-2 md:justify-start">
+            <div className="col-span-1 flex flex-col gap-2 @lg:col-span-2 @lg:justify-start @5xl:col-span-2">
               <Button
                 size="xs"
                 onClick={() => onCreateInvoice?.()}
@@ -184,7 +184,7 @@ export const MatterSummaryCards = ({
     return (
       <section className={wrapperBase}>
         <div className={gridBase}>
-          <div className={cn(summaryItemBase, 'col-span-2 md:col-span-1')}>
+          <div className={cn(summaryItemBase, 'col-span-1 @lg:col-span-2 @4xl:col-span-1')}>
             <p className="text-xs font-medium text-input-placeholder leading-tight">Billable time this week</p>
             <p className="mt-2 text-lg font-semibold text-input-text leading-tight break-words">{billableDisplay}</p>
             <p className="mt-1 text-xs text-input-placeholder leading-tight">
@@ -221,7 +221,7 @@ export const MatterSummaryCards = ({
             <p className="mt-2 text-lg font-semibold text-input-text leading-tight break-words">{totalDisplay}</p>
             <p className="mt-1 text-xs text-input-placeholder leading-tight">Across all logged entries this week</p>
           </div>
-              <div className="col-span-2 flex flex-col gap-2 md:col-span-1">
+              <div className="col-span-1 flex flex-col gap-2 @lg:col-span-2 @4xl:col-span-1">
             <Button
               size="xs"
               onClick={() => onCreateInvoice?.()}
@@ -230,7 +230,7 @@ export const MatterSummaryCards = ({
             >
               Invoice
             </Button>
-            <div className="text-center md:text-left">
+            <div className="text-center @lg:text-left">
               {onViewTimesheet ? (
                 <button
                   type="button"
