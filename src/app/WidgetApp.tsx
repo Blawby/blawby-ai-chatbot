@@ -34,6 +34,7 @@ import { features } from '@/config/features';
 import type { FileAttachment } from '../../worker/types';
 import type { UploadingFile } from '@/shared/types/upload';
 import type { IntakeTemplate } from '@/shared/types/intake';
+import type { AuthSessionPayload } from '@/shared/types/user';
 import { DEFAULT_INTAKE_TEMPLATE } from '@/shared/constants/intakeTemplates';
 
 const safeGetSessionItem = (key: string): string | null => {
@@ -59,13 +60,7 @@ interface WidgetAppProps {
   practiceConfig: UIPracticeConfig;
   routeConversationId?: string;
   bootstrapConversationId?: string | null;
-  bootstrapSession?: {
-    user?: {
-      id: string;
-      isAnonymous?: boolean;
-      is_anonymous?: boolean;
-    } | null;
-  } | null;
+  bootstrapSession?: AuthSessionPayload;
   /** Resolved intake template from bootstrap. Falls back to DEFAULT_INTAKE_TEMPLATE if absent. */
   intakeTemplate?: IntakeTemplate | null;
 }
@@ -109,7 +104,10 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
   }, [practiceConfig.accentColor]);
 
   const currentUserId = bootstrapSession?.user?.id ?? null;
-  const isAnonymous = bootstrapSession?.user?.isAnonymous ?? bootstrapSession?.user?.is_anonymous ?? true;
+  // If there's no bootstrap user, default to anonymous=true. If a user exists,
+  // prefer the explicit backend field (coerced to boolean) so a missing
+  // `is_anonymous` does not incorrectly mark an authenticated user anonymous.
+  const isAnonymous = bootstrapSession?.user ? Boolean(bootstrapSession.user.is_anonymous) : true;
 
   const isEmbedded = typeof window !== 'undefined' && window.parent !== window;
 

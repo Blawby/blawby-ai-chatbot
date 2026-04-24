@@ -7,6 +7,7 @@ import AuthForm from '@/shared/components/AuthForm';
 import { useTranslation } from '@/shared/i18n/hooks';
 import { useNavigation } from '@/shared/utils/navigation';
 import { getSession } from '@/shared/lib/authClient';
+import { useToastContext } from '@/shared/contexts/ToastContext';
 import { SetupShell } from '@/shared/ui/layout/SetupShell';
 
 interface AuthPageProps {
@@ -18,6 +19,7 @@ interface AuthPageProps {
 const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPageProps) => {
   const { t } = useTranslation('auth');
   const { navigate } = useNavigation();
+  const { showError } = useToastContext();
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>(mode);
   const [redirectPath, setRedirectPath] = useState<string | null>(null);
   const [initialEmail, setInitialEmail] = useState<string>('');
@@ -73,7 +75,40 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
 
   // Helper function to handle redirect with proper onSuccess awaiting
   const handleRedirect = async () => {
-    await getSession().catch(() => undefined);
+    const session = await getSession().catch((err) => {
+      console.warn('[AuthPage] getSession() failed after sign-in', err);
+      return null;
+    });
+
+    const detectedUser = session?.user ?? null;
+
+    // Minimal diagnostics for debugging without leaking tokens
+    try {
+      if (typeof process !== 'undefined' && import.meta.env && import.meta.env.DEV) {
+        console.debug('[AuthPage] post-signin session shape', {
+          hasSession: !!session,
+          userId: detectedUser?.id ?? null,
+          sessionKeys: session ? Object.keys(session) : null
+        });
+      }
+    } catch (_e) {
+      // ignore diagnostics failures
+    }
+
+    if (!session || !detectedUser) {
+      // Fail fast: sign-in reported success but no usable session was returned.
+      // Surface a clear, actionable error instead of redirecting into the auth loop.
+      try {
+        showError(
+          t('signin.sessionMissing') ||
+            'Sign-in succeeded but session is not available yet. Please refresh the page or try signing in again.'
+        );
+      } catch (err) {
+        console.warn('[AuthPage] Failed to show missing-session toast', err);
+      }
+      return;
+    }
+
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('auth:session-updated'));
     }

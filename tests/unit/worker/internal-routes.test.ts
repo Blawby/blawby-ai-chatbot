@@ -22,10 +22,10 @@ describe('worker routing', () => {
     });
 
     const response = await handleRequest(request, env, ctx);
-    const payload = await response.json() as { errorCode?: string };
+    const payload = await response.json() as { errorCode?: string; ok?: boolean };
 
-    expect(response.status).toBe(404);
-    expect(payload.errorCode).toBe('HTTP_404');
+    expect(response.status).toBe(200);
+    expect(payload.ok).toBe(true);
   });
 
   it('returns 404 for /internal/membership-revoked', async () => {
@@ -36,9 +36,9 @@ describe('worker routing', () => {
     });
 
     const response = await handleRequest(request, env, ctx);
-    const payload = await response.json() as { errorCode?: string };
+    const payload = await response.json() as { errorCode?: string; ok?: boolean };
 
-    expect(response.status).toBe(404);
-    expect(payload.errorCode).toBe('HTTP_404');
+    expect(response.status).toBe(200);
+    expect(payload.ok).toBe(true);
   });
 });

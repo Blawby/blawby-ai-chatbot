@@ -25,5 +25,19 @@ export async function handlePracticeTeam(request: Request, env: Env): Promise<Re
   }
 
   const team = await RemoteApiService.getPracticeTeam(env, practiceId, request);
-  return createSuccessResponse(team);
+  return createSuccessResponse({
+    members: team.members.map((member) => ({
+      user_id: member.userId,
+      name: member.name ?? null,
+      image: member.image,
+      role: member.role,
+      created_at: member.createdAt,
+      can_assign_to_matter: member.canAssignToMatter,
+      can_mention_internally: member.canMentionInternally,
+    })),
+    summary: {
+      seats_included: team.summary.seatsIncluded,
+      seats_used: team.summary.seatsUsed,
+    },
+  });
 }

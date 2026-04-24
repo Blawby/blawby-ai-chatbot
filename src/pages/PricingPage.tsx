@@ -12,7 +12,7 @@ const PricingPage = () => {
   const { navigate } = useNavigation();
   const location = useLocation();
   const { session, isPending } = useSessionContext();
-  const isAuthenticated = Boolean(session?.user && !session.user.isAnonymous);
+  const isAuthenticated = Boolean(session?.user && !session.user.is_anonymous);
 
   useEffect(() => {
     if (isPending || isAuthenticated) return;

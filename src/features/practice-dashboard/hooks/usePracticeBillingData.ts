@@ -291,8 +291,15 @@ export const usePracticeBillingData = ({
         return map;
       }, new Map());
 
-      const unbilledSnapshots = await Promise.allSettled(
-        matterSubset.map(async (matter) => {
+      // Run unbilled summary requests in small batches to avoid large
+      // concurrent request bursts which increase the chance of AbortErrors
+      // when parent effects clean up. This reduces network churn and
+      // improves stability on slow/latency-sensitive networks.
+      const batchSize = 4;
+      const unbilledSnapshots: PromiseSettledResult<MajorAmount | null>[] = [];
+      for (let i = 0; i < matterSubset.length; i += batchSize) {
+        const batch = matterSubset.slice(i, i + batchSize);
+        const batchPromises = batch.map(async (matter) => {
           try {
             const summary = await getUnbilledSummary(practiceId, matter.id, { signal });
             return summary.totalUnbilled ?? null;
@@ -303,8 +310,15 @@ export const usePracticeBillingData = ({
             console.warn('[usePracticeBillingData] Failed to load unbilled summary', err);
             return null;
           }
-        })
-      );
+        });
+
+        // Wait for this batch to settle before launching the next batch.
+        // If the parent signal has been aborted, stop processing further.
+        // This keeps ordering consistent with matterSubset indices.
+        const settled = await Promise.allSettled(batchPromises);
+        unbilledSnapshots.push(...settled);
+        if (signal?.aborted) break;
+      }
       if (signal?.aborted) return;
 
       const snapshots: MatterBillingSnapshot[] = matterSubset.map((matter, index) => {

@@ -121,6 +121,64 @@ const buildProxyHeaders = (
   return { headers: proxyHeaders, hasSetCookie: false };
 };
 
+const appendDebugHeaders = (proxyHeaders: Headers, response: Response, request: Request, env: Env) => {
+  try {
+    const debugEnabled =
+      String(env.DEBUG).toLowerCase() === 'true'
+      || String(env.DEBUG) === '1'
+      || String(env.ALLOW_DEBUG).toLowerCase() === 'true';
+    const environment = (
+      typeof (env as unknown as Record<string, unknown>).ENVIRONMENT === 'string'
+        ? (env as unknown as Record<string, unknown>).ENVIRONMENT
+        : env.NODE_ENV
+    )?.toString().toLowerCase();
+    const isProductionEnvironment = environment === 'production' || String(env.IS_PRODUCTION).toLowerCase() === 'true';
+    if (!debugEnabled || isProductionEnvironment) return;
+
+    const headersWithSetCookie = response.headers as Headers & { getSetCookie?: () => string[] };
+    if (typeof headersWithSetCookie.getSetCookie !== 'function') {
+      return;
+    }
+    const rawSetCookie = headersWithSetCookie.getSetCookie();
+
+    const setCookieMeta: Array<Record<string, unknown>> = rawSetCookie.map((cookieStr) => {
+      const parts = cookieStr.split(';').map((p) => p.trim());
+      const [nameValue, ...attrs] = parts;
+      const name = nameValue.split('=')[0] || '';
+      const meta: Record<string, unknown> = { name };
+      for (const attr of attrs) {
+        const [k, v] = attr.split('=');
+        const key = k.trim().toLowerCase();
+        if (key === 'domain') meta.domain = (v ?? '').trim();
+        if (key === 'path') meta.path = (v ?? '').trim();
+        if (key === 'samesite') meta.sameSite = (v ?? '').trim();
+        if (key === 'max-age') meta.maxAge = (v ?? '').trim();
+        if (key === 'expires') meta.expires = (v ?? '').trim();
+        if (key === 'httponly') meta.httpOnly = true;
+        if (key === 'secure') meta.secure = true;
+      }
+      return meta;
+    });
+
+    if (setCookieMeta.length > 0) {
+      proxyHeaders.set('X-Debug-Set-Cookie-Names', setCookieMeta.map((m) => String(m.name)).join(','));
+      proxyHeaders.set('X-Debug-Set-Cookie-Meta', JSON.stringify(setCookieMeta));
+    }
+
+    const incomingCookieHeader = request.headers.get('Cookie') || '';
+    const incomingNames = incomingCookieHeader
+      .split(';')
+      .map((c) => c.trim())
+      .filter(Boolean)
+      .map((c) => c.split('=')[0]);
+    if (incomingNames.length > 0) {
+      proxyHeaders.set('X-Debug-Request-Cookie-Names', incomingNames.join(','));
+    }
+  } catch (err) {
+    console.warn('[proxy] failed to add debug headers', err);
+  }
+};
+
 
 export async function handleAuthProxy(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);
@@ -201,6 +259,8 @@ export async function handleAuthProxy(request: Request, env: Env): Promise<Respo
   }
 
   const { headers: proxyHeaders } = buildProxyHeaders(response, requestHost);
+
+  appendDebugHeaders(proxyHeaders, response, request, env);
 
   return new Response(response.body, {
     status: response.status,
@@ -502,6 +562,8 @@ export async function handleBackendProxy(request: Request, env: Env): Promise<Re
     }
   }
   const { headers: proxyHeaders } = buildProxyHeaders(response, requestHost);
+
+  appendDebugHeaders(proxyHeaders, response, request, env);
 
   return new Response(response.body, {
     status: response.status,

@@ -126,12 +126,10 @@ export async function listIntakes(practiceId: string, params: IntakeListParams, 
     query.limit = String(params.limit);
   }
 
-  if (params.status && params.status !== 'all') {
-    query.status = params.status;
-  }
-
   if (params.triage_status && params.triage_status !== 'all') {
-    query.triage_status = params.triage_status;
+    query.status = params.triage_status;
+  } else if (params.status && params.status !== 'all') {
+    query.status = params.status;
   }
 
   const response = await fetch(

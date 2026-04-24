@@ -1098,7 +1098,15 @@ export async function handleConversations(request: Request, env: Env): Promise<R
     return createJsonResponse({
       conversationId,
       practiceId,
-      participants
+      participants: participants.map((participant) => ({
+        user_id: participant.userId,
+        name: participant.name,
+        image: participant.image,
+        role: participant.role,
+        is_team_member: participant.isTeamMember,
+        can_be_mentioned_by_team_member: participant.canBeMentionedByTeamMember,
+        can_be_mentioned_by_client: participant.canBeMentionedByClient,
+      }))
     });
   }
 

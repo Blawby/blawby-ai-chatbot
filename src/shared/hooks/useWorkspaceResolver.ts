@@ -50,12 +50,12 @@ export function useWorkspaceResolver(options: UseWorkspaceResolverOptions = {}):
   const canAccessPracticeWorkspace = !activeMemberRoleLoading && hasPracticeMembership && !isClientMember;
   const canAccessClientWorkspace = !activeMemberRoleLoading && Boolean(
     session?.user &&
-    !session.user.isAnonymous &&
+    !session.user.is_anonymous &&
     isClientMember
   );
   const hasPracticeAccess = canAccessPracticeWorkspace;
 
-  const userPrimaryWorkspace = session?.user?.primaryWorkspace;
+  const userPrimaryWorkspace = session?.user?.primary_workspace;
   const preferredWorkspace: WorkspacePreference =
     userPrimaryWorkspace === 'client' || userPrimaryWorkspace === 'public'
       ? 'client'

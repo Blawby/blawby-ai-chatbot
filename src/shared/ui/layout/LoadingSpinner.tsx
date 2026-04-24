@@ -25,7 +25,10 @@ export const LoadingSpinner = ({
 
   return (
     <div
-      className={cn('inline-flex items-center justify-center', className)}
+      className={cn(
+        'inline-flex items-center justify-center text-[rgb(var(--accent-foreground))]',
+        className
+      )}
       {...(announce ? { role: 'status', 'aria-live': 'polite' } : {})}
     >
       {announce
@@ -34,7 +37,7 @@ export const LoadingSpinner = ({
       <div
         aria-hidden="true"
         className={cn(
-          'rounded-full animate-spin border-[rgb(var(--accent-foreground))] border-t-transparent',
+          'rounded-full animate-spin border-current border-t-transparent',
           sizeClasses[size]
         )}
       />

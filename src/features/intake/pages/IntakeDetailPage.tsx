@@ -1,4 +1,5 @@
 import { FunctionComponent } from 'preact';
+import { useLocation } from 'preact-iso';
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 import { useMessageHandling } from '@/shared/hooks/useMessageHandling';
 import {
@@ -42,6 +43,89 @@ import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
 import { resolvePracticeServiceLabel } from '@/features/matters/utils/matterUtils';
 import { resolveIntakeTitle } from '@/features/intake/utils/intakeTitle';
 import { applyConsultationPatchToMetadata } from '@/shared/utils/consultationState';
+import { DEFAULT_INTAKE_TEMPLATE } from '@/shared/constants/intakeTemplates';
+import type { IntakeTemplate, IntakeFieldDefinition } from '@/shared/types/intake';
+
+// ── Template helpers ──────────────────────────────────────────────────────────
+
+function parseTemplatesFromPracticeDetails(details: unknown): IntakeTemplate[] {
+  if (!details || typeof details !== 'object') return [];
+  const meta = (details as Record<string, unknown>).metadata;
+  if (!meta || typeof meta !== 'object') return [];
+  const raw = (meta as Record<string, unknown>).intakeTemplates;
+  if (typeof raw === 'string') {
+    try { const p = JSON.parse(raw); return Array.isArray(p) ? p as IntakeTemplate[] : []; } catch { return []; }
+  }
+  return Array.isArray(raw) ? raw as IntakeTemplate[] : [];
+}
+
+function resolveTemplateSlug(intake: PracticeIntakeDetail): string | null {
+  const meta = (intake.metadata ?? {}) as Record<string, unknown>;
+  const direct = meta.intake_template_slug ?? meta.template_slug;
+  if (typeof direct === 'string' && direct.trim()) return direct.trim();
+  const cf = meta.custom_fields ?? meta.customFields;
+  if (cf && typeof cf === 'object' && !Array.isArray(cf)) {
+    const slug = (cf as Record<string, unknown>)._intake_template_slug;
+    if (typeof slug === 'string' && slug.trim()) return slug.trim();
+  }
+  return null;
+}
+
+function resolveActiveTemplate(
+  intake: PracticeIntakeDetail,
+  practiceDetails: unknown,
+): IntakeTemplate | null {
+  const slug = resolveTemplateSlug(intake);
+  if (!slug) return null;
+  const templates = parseTemplatesFromPracticeDetails(practiceDetails);
+  return templates.find((t) => t.slug === slug) ?? null;
+}
+
+/** Get the value for a given intake field from conversation state. */
+function resolveFieldValue(
+  field: IntakeFieldDefinition,
+  intakeState: Record<string, unknown> | null,
+  intake?: PracticeIntakeDetail | null,
+): string | null {
+  // Helper to normalize boolean/string/null handling
+  const normalize = (v: unknown): string | null => {
+    if (v === null || v === undefined || v === '') return null;
+    if (typeof v === 'boolean') return v ? 'Yes' : 'No';
+    return String(v);
+  };
+
+  // Check the provided intakeState first (conversation-submitted answers)
+  if (intakeState) {
+    if (field.isStandard) {
+      const v = intakeState[field.key];
+      return normalize(v);
+    }
+    const cf = (intakeState as Record<string, unknown>).customFields;
+    if (cf && typeof cf === 'object' && !Array.isArray(cf)) {
+      const v = (cf as Record<string, unknown>)[field.key];
+      const nv = normalize(v);
+      if (nv !== null) return nv;
+    }
+  }
+
+  // Fallback: inspect intake.metadata (template-submitted answers or stored metadata)
+  if (intake && typeof intake === 'object') {
+    const meta = (intake.metadata ?? {}) as Record<string, unknown>;
+    if (field.isStandard) {
+      const v = meta[field.key] ?? meta[field.key as string];
+      const nv = normalize(v);
+      if (nv !== null) return nv;
+    }
+    const cf = meta.customFields ?? meta.custom_fields;
+    if (cf && typeof cf === 'object' && !Array.isArray(cf)) {
+      const v = (cf as Record<string, unknown>)[field.key];
+      const nv = normalize(v);
+      if (nv !== null) return nv;
+    }
+  }
+
+  return null;
+}
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -130,6 +214,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
   onBack,
   onTriageComplete,
 }) => {
+  const { route } = useLocation();
   const { showSuccess, showError } = useToastContext();
   const { session } = useSessionContext();
 
@@ -210,6 +295,8 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
     fetchDetails: fetchPracticeDetails,
   } = usePracticeDetails(practiceId, null, false);
 
+  const activeTemplate = intake ? resolveActiveTemplate(intake, practiceDetails) : null;
+
   // Load intake detail
   useEffect(() => {
     if (!practiceId || !intakeId) return;
@@ -275,7 +362,12 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
       // On accept: add practitioner as participant and post system message
       if (action === 'accepted' && session?.user?.id && responseConversationId && targetPracticeId) {
         try {
-          await updateConversationMetadata(responseConversationId, targetPracticeId, { status: 'active' });
+          await updateConversationMetadata(responseConversationId, targetPracticeId, {
+            status: 'active',
+            triageStatus: 'accepted',
+            triage_status: 'accepted',
+            intakeTriageStatus: 'accepted',
+          });
         } catch (conversationErr) {
           console.warn('[IntakeDetailPage] Failed to mark conversation active', conversationErr);
         }
@@ -431,36 +523,16 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
       { mirrorLegacyFields: true }
     );
 
-    const metadata = (intake?.metadata ?? {}) as Record<string, unknown>;
-    const representedParty = typeof metadata.on_behalf_of === 'string' && metadata.on_behalf_of.trim().length > 0
-      ? metadata.on_behalf_of.trim()
-      : null;
-    const otherParty = typeof metadata.opposing_party === 'string' && metadata.opposing_party.trim().length > 0
-      ? metadata.opposing_party.trim()
-      : null;
-    const desiredOutcome = typeof intake?.desired_outcome === 'string' && intake.desired_outcome.trim().length > 0
-      ? intake.desired_outcome.trim()
-      : null;
-
-    // These are intentionally static follow-up prompts so the intake detail
-    // screen can gather a few missing fields deterministically without
-    // invoking the full AI planning flow again.
-    const missingPrompts = [
-      {
-        missing: !representedParty,
-        content: 'I can gather a little more detail for the attorney. Are you reaching out for yourself, or on behalf of someone else?',
-      },
-      {
-        missing: !otherParty,
-        content: 'I can gather a little more detail for the attorney. Is there a specific person or organization on the other side of this issue?',
-      },
-      {
-        missing: !desiredOutcome,
-        content: 'I can gather a little more detail for the attorney. What outcome are you hoping for from this consultation?',
-      },
-    ];
-    const prompt = missingPrompts.find((item) => item.missing)?.content
-      ?? 'To help the attorney, may I ask—are you seeking assistance for yourself, or on behalf of someone else?';
+    // Use the first unanswered enrichment field from the active template
+    // to build a targeted question instead of hardcoded prompts.
+    const templateFields = (activeTemplate?.fields ?? DEFAULT_INTAKE_TEMPLATE.fields)
+      .filter((f) => f.phase === 'enrichment');
+    const nextMissingField = templateFields.find(
+      (f) => !resolveFieldValue(f, intakeConversationState as unknown as Record<string, unknown> | null, intake)
+    );
+    const prompt = nextMissingField
+      ? `I can gather a little more detail for the attorney. ${nextMissingField.previewQuestion ?? `Can you tell me about your ${nextMissingField.label.toLowerCase()}?`}`
+      : 'To help the attorney, is there any additional detail about your situation you\'d like to share?';
 
     setGatherDetailsSubmitting(true);
     try {
@@ -497,12 +569,10 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
       if (isMountedRef.current) setGatherDetailsSubmitting(false);
     }
   }, [
+    activeTemplate,
     conversationMetadata,
     gatherDetailsSubmitting,
-    intake?.conversation_id,
-    intake?.desired_outcome,
-    intake?.metadata,
-    intake?.organization_id,
+    intake,
     intakeConversationState,
     intakeId,
     showError,
@@ -579,10 +649,27 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
   const locationLabel = [city, state].filter(Boolean).join(', ') || null;
   const paymentLabel = feeAmount ? `${feeAmount} ${intake.stripe_charge_id ? 'paid' : 'consultation'}` : null;
   const canReplyInIntake = Boolean(intake.conversation_id && effectiveTriageStatus === 'accepted');
-  const hasMissingLegalDetails =
-    !onBehalfOf ||
-    !opposingParty ||
-    (typeof intake.desired_outcome === 'string' ? intake.desired_outcome.trim() === '' : !intake.desired_outcome);
+  const templateName = activeTemplate?.name
+    ?? (() => {
+      // Fall back to the stored name from custom_fields if template not found in practice data
+      const cf = (meta.custom_fields ?? meta.customFields) as Record<string, unknown> | undefined;
+      const storedName = cf?._intake_template_name;
+      return typeof storedName === 'string' && storedName.trim() ? storedName.trim() : null;
+    })();
+
+  // Enrichment fields from the matched template (or fallback to defaults)
+  const enrichmentFields: IntakeFieldDefinition[] = (
+    activeTemplate?.fields ?? DEFAULT_INTAKE_TEMPLATE.fields
+  ).filter((f) => f.phase === 'enrichment');
+
+  // Cast intakeConversationState to a plain record for resolveFieldValue
+  const intakeStateRecord = intakeConversationState as unknown as Record<string, unknown> | null;
+
+  // hasMissingLegalDetails: true if any enrichment field is unanswered
+  const unansweredEnrichmentFields = enrichmentFields.filter(
+    (f) => !resolveFieldValue(f, intakeStateRecord, intake),
+  );
+  const hasMissingLegalDetails = unansweredEnrichmentFields.length > 0 && Boolean(intake.conversation_id);
 
   const statusChipClass = (status: string) => {
     if (status === 'accepted') return 'bg-emerald-500/10 text-emerald-500 ring-emerald-500/20';
@@ -590,6 +677,156 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
     if (status === 'spam') return 'bg-gray-500/10 text-input-placeholder ring-gray-500/20';
     return 'bg-accent/10 text-accent ring-accent/20';
   };
+
+  const conversationSection = intake.conversation_id ? (
+    <section className="glass-card flex min-h-[620px] flex-col overflow-hidden">
+      <header className="shrink-0 border-b border-line-glass/10 p-5">
+        <h2 className="text-xs font-semibold uppercase tracking-widest text-input-placeholder">
+          Conversation
+        </h2>
+        <p className="mt-2 text-sm text-input-placeholder">
+          Continue the client thread from this intake.
+        </p>
+      </header>
+      <div className="min-h-0 flex-1 overflow-hidden bg-surface-overlay/20 touch-pan-y">
+        {previewLoading && previewMessages.length === 0 ? (
+          <div className="flex h-full flex-col items-center justify-center p-6 text-center">
+            <LoadingBlock label="Loading conversation history..." />
+          </div>
+        ) : previewMessages.length === 0 ? (
+          <div className="flex h-full flex-col items-center justify-center p-6 text-center">
+            <p className="text-sm text-input-placeholder">No conversation history found for this intake.</p>
+          </div>
+        ) : (
+          <VirtualMessageList
+            messages={previewMessages}
+            conversationTitle={intakeTitle}
+            conversationContactName={name}
+            viewerContext="practice"
+            practiceConfig={{
+              name: practiceDetails?.name ?? practiceName ?? 'Practice',
+              profileImage: practiceDetails?.logo ?? practiceLogo ?? null,
+              practiceId: intake.organization_id,
+            }}
+            practiceId={intake.organization_id}
+          />
+        )}
+      </div>
+
+      {canReplyInIntake ? (
+        <div className="shrink-0 border-t border-line-glass/10 px-4 py-5">
+          <MessageComposer
+            inputValue={composerValue}
+            setInputValue={setComposerValue}
+            previewFiles={[]}
+            uploadingFiles={[]}
+            removePreviewFile={() => undefined}
+            handleFileSelect={async () => undefined}
+            handleCameraCapture={async () => undefined}
+            cancelUpload={() => undefined}
+            isRecording={false}
+            handleMediaCapture={() => undefined}
+            setIsRecording={() => undefined}
+            onSubmit={() => void submitConversationReply()}
+            onKeyDown={(event) => {
+              if ((event as KeyboardEvent & { isComposing?: boolean }).isComposing || event.repeat) return;
+              if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                void submitConversationReply();
+              }
+            }}
+            textareaRef={composerTextareaRef}
+            isReadyToUpload={false}
+            isSessionReady={!composerSubmitting}
+            isSocketReady={!composerSubmitting}
+            disabled={composerSubmitting}
+            hideAttachmentControls
+            mentionCandidates={[]}
+          />
+        </div>
+      ) : null}
+    </section>
+  ) : null;
+
+  const intakeSidebar = (
+    <aside className="min-w-0 space-y-6 xl:sticky xl:top-6 xl:self-start">
+      {isPendingReview && (
+        <section className="glass-card p-5 sm:p-6">
+          <div className="space-y-3">
+            <Button
+              id="intake-accept-btn"
+              variant="primary"
+              className="w-full"
+              disabled={isSubmitting}
+              onClick={() => openTriageDialog('accepted')}
+            >
+              {isSubmitting ? (
+                <span className="inline-flex items-center">
+                  <LoadingSpinner size="sm" className="mr-2" ariaLabel="Accepting consultation" />
+                  Accepting...
+                </span>
+              ) : 'Approve consultation'}
+            </Button>
+            <Button
+              id="intake-reject-btn"
+              variant="secondary"
+              className="w-full"
+              disabled={isSubmitting}
+              onClick={() => openTriageDialog('declined')}
+            >
+              Reject
+            </Button>
+          </div>
+        </section>
+      )}
+
+      <section className="glass-card space-y-6 p-5 sm:p-6">
+        <div>
+          <h3 className="mb-3 text-xs font-semibold uppercase tracking-widest text-input-placeholder">About</h3>
+          <div className="space-y-4">
+            {intake.payment_verified && (
+              <div className="flex items-center gap-2 text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                <Icon icon={CheckCircleIconSolid} className="h-4 w-4" />
+                Payment method verified
+              </div>
+            )}
+            <UserCard
+              name={name}
+              secondary={null}
+              className="px-0 py-0"
+              size="md"
+            />
+          </div>
+        </div>
+
+        {(email || phone || locationLabel) && (
+          <div>
+            <h3 className="mb-3 text-xs font-semibold uppercase tracking-widest text-input-placeholder">Contact Information</h3>
+            <dl className="space-y-3 text-sm">
+              {email && (
+                <div className="flex flex-col">
+                  <dt className="mb-0.5 text-xs text-input-placeholder">Email</dt>
+                  <dd className="truncate font-medium text-input-text">{email}</dd>
+                </div>
+              )}
+              {phone && (
+                <div className="flex flex-col">
+                  <dt className="mb-0.5 text-xs text-input-placeholder">Phone</dt>
+                  <dd className="font-medium text-input-text">{phone}</dd>
+                </div>
+              )}
+              {locationLabel && (
+                <div className="flex flex-col">
+                  <dt className="mb-0.5 text-xs text-input-placeholder">Location</dt>
+                  <dd className="truncate font-medium capitalize text-input-text">{locationLabel}</dd>
+                </div>
+              )}
+            </dl>
+          </div>
+        )}
+      </section>
+    </aside>
+  );
 
   return (
     <EditorShell
@@ -603,172 +840,12 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
         </span>
       }
       contentMaxWidth={null}
-      preview={
-        <div className="space-y-6">
-          {/* Triage actions */}
-          <div className="px-1 space-y-3">
-            {isPendingReview && (
-              <div className="space-y-3">
-                <Button
-                  id="intake-accept-btn"
-                  variant="primary"
-                  className="w-full"
-                  disabled={isSubmitting}
-                  onClick={() => openTriageDialog('accepted')}
-                >
-                  {isSubmitting ? (
-                    <span className="inline-flex items-center">
-                      <LoadingSpinner size="sm" className="mr-2" ariaLabel="Accepting consultation" />
-                      Accepting...
-                    </span>
-                  ) : 'Approve consultation'}
-                </Button>
-                <div className="w-full">
-                  <Button
-                    id="intake-reject-btn"
-                    variant="secondary"
-                    className="w-full"
-                    disabled={isSubmitting}
-                    onClick={() => openTriageDialog('declined')}
-                  >
-                    Reject
-                  </Button>
-                </div>
-              </div>
-            )}
-
-            {effectiveTriageStatus === 'accepted' && (
-              <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/20 p-5 text-center">
-                <p className="text-base font-bold text-emerald-700 dark:text-emerald-300">Intake Approved</p>
-                <p className="text-xs text-input-placeholder mt-2">This lead has been converted to a client or matter.</p>
-              </div>
-            )}
-
-            {effectiveTriageStatus === 'declined' && (
-              <div className="rounded-xl bg-rose-500/10 border border-rose-500/20 p-5 text-center">
-                <p className="text-base font-bold text-rose-700 dark:text-rose-300">Intake Rejected</p>
-              </div>
-            )}
-          </div>
-
-          <div className="px-1 space-y-6">
-            <div>
-              <h3 className="text-xs font-semibold uppercase tracking-widest text-input-placeholder mb-3">About</h3>
-              <div className="space-y-4">
-                {intake.payment_verified && (
-                  <div className="flex items-center gap-2 text-xs font-bold text-emerald-600 dark:text-emerald-400">
-                    <Icon icon={CheckCircleIconSolid} className="h-4 w-4" />
-                    Payment method verified
-                  </div>
-                )}
-                <UserCard
-                  name={name}
-                  secondary={null}
-                  className="px-0 py-0"
-                  size="md"
-                />
-              </div>
-            </div>
-
-            {(email || phone) && (
-              <div>
-                <h3 className="text-xs font-semibold uppercase tracking-widest text-input-placeholder mb-3">Contact Information</h3>
-                <dl className="space-y-3 text-sm">
-                  {email && (
-                    <div className="flex flex-col">
-                      <dt className="text-input-placeholder text-xs mb-0.5">Email</dt>
-                      <dd className="text-input-text font-medium truncate">{email}</dd>
-                    </div>
-                  )}
-                  {phone && (
-                    <div className="flex flex-col">
-                      <dt className="text-input-placeholder text-xs mb-0.5">Phone</dt>
-                      <dd className="text-input-text font-medium">{phone}</dd>
-                    </div>
-                  )}
-                  {locationLabel && (
-                    <div className="flex flex-col">
-                      <dt className="text-input-placeholder text-xs mb-0.5">Location</dt>
-                      <dd className="text-input-text font-medium truncate capitalize">{locationLabel}</dd>
-                    </div>
-                  )}
-                </dl>
-              </div>
-            )}
-          </div>
-
-          {/* Conversation preview */}
-          {intake.conversation_id && (
-            <section className="glass-card flex flex-col h-[600px] overflow-hidden mx-1">
-              <header className="p-4 border-b border-line-glass/10 shrink-0">
-                <h3 className="text-sm font-semibold text-input-text uppercase tracking-widest">
-                  Conversation Preview
-                </h3>
-              </header>
-              <div className="flex-1 min-h-0 overflow-hidden bg-surface-overlay/20 touch-pan-y">
-                {previewLoading && previewMessages.length === 0 ? (
-                  <div className="h-full flex flex-col items-center justify-center p-6 text-center">
-                    <LoadingBlock label="Loading conversation history..." />
-                  </div>
-                ) : previewMessages.length === 0 ? (
-                  <div className="h-full flex flex-col items-center justify-center p-6 text-center">
-                    <p className="text-sm text-input-placeholder">No conversation history found for this intake.</p>
-                  </div>
-                ) : (
-                  <VirtualMessageList
-                    messages={previewMessages}
-                    conversationTitle={intakeTitle}
-                    viewerContext="practice"
-                    practiceConfig={{
-                      name: practiceDetails?.name ?? practiceName ?? 'Practice',
-                      profileImage: practiceDetails?.logo ?? practiceLogo ?? null,
-                      practiceId: intake.organization_id,
-                    }}
-                    practiceId={intake.organization_id}
-                  />
-                )}
-              </div>
-              
-              {canReplyInIntake ? (
-                <div className="shrink-0 border-t border-line-glass/10 px-4 py-5">
-                  <MessageComposer
-                    inputValue={composerValue}
-                    setInputValue={setComposerValue}
-                    previewFiles={[]}
-                    uploadingFiles={[]}
-                    removePreviewFile={() => undefined}
-                    handleFileSelect={async () => undefined}
-                    handleCameraCapture={async () => undefined}
-                    cancelUpload={() => undefined}
-                    isRecording={false}
-                    handleMediaCapture={() => undefined}
-                    setIsRecording={() => undefined}
-                    onSubmit={() => void submitConversationReply()}
-                    onKeyDown={(event) => {
-                      if ((event as KeyboardEvent & { isComposing?: boolean }).isComposing || event.repeat) return;
-                      if (event.key === 'Enter' && !event.shiftKey) {
-                        event.preventDefault();
-                        void submitConversationReply();
-                      }
-                    }}
-                    textareaRef={composerTextareaRef}
-                    isReadyToUpload={false}
-                    isSessionReady={!composerSubmitting}
-                    isSocketReady={!composerSubmitting}
-                    disabled={composerSubmitting}
-                    hideAttachmentControls
-                    mentionCandidates={[]}
-                  />
-                </div>
-              ) : null}
-            </section>
-          )}
-        </div>
-      }
+      contentClassName="px-4 py-6 sm:px-6 lg:px-8"
     >
-      <div className="space-y-6">
-        {/* Main header card */}
-        <section className="glass-card overflow-hidden p-6 sm:p-10">
+      <div className="mx-auto grid w-full max-w-7xl grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="min-w-0 space-y-6">
+          {/* Main header card */}
+          <section className="glass-card overflow-hidden p-6 sm:p-10">
           <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_280px]">
             <header className="min-w-0">
               <h2 className="mb-2 text-xs font-semibold uppercase tracking-widest text-input-placeholder">
@@ -820,15 +897,48 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
         </section>
 
         <section className="glass-card p-6 sm:p-8">
-          <h2 className="mb-6 text-xs font-semibold uppercase tracking-widest text-input-placeholder">
-            Legal details
-          </h2>
-          <dl className="grid grid-cols-1 gap-5 md:grid-cols-3">
-            <StatCell label="On behalf of" value={onBehalfOf} icon={UserIcon} />
-            <StatCell label="Opposing party" value={opposingParty} icon={ScaleIcon} />
-            <StatCell label="Desired outcome" value={intake.desired_outcome} icon={CheckCircleIcon} />
-          </dl>
-          {hasMissingLegalDetails && intake.conversation_id ? (
+          <div className="mb-6 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <h2 className="text-xs font-semibold uppercase tracking-widest text-input-placeholder">
+                Form details
+              </h2>
+              {templateName ? (
+                <span className="inline-flex items-center rounded-full bg-accent/10 px-2 py-0.5 text-xs font-medium text-accent ring-1 ring-inset ring-accent/20">
+                  {templateName}
+                </span>
+              ) : null}
+            </div>
+            {activeTemplate && (practiceDetails as { slug?: string })?.slug ? (
+              <Button
+                type="button"
+                variant="link"
+                size="sm"
+                onClick={() => route(`/practice/${encodeURIComponent((practiceDetails as { slug?: string }).slug)}/intakes/${encodeURIComponent(activeTemplate.slug)}/edit`)}
+                className="h-auto p-0 text-xs text-accent hover:text-accent-hover"
+              >
+                View form setup
+              </Button>
+            ) : null}
+          </div>
+          {enrichmentFields.length > 0 ? (
+            <dl className="grid grid-cols-1 gap-5 md:grid-cols-3">
+              {enrichmentFields.map((field) => (
+                <StatCell
+                  key={field.key}
+                  label={field.label}
+                  value={resolveFieldValue(field, intakeStateRecord, intake)}
+                  icon={ClipboardDocumentCheckIcon}
+                />
+              ))}
+            </dl>
+          ) : (
+            <dl className="grid grid-cols-1 gap-5 md:grid-cols-3">
+              <StatCell label="On behalf of" value={onBehalfOf} icon={UserIcon} />
+              <StatCell label="Opposing party" value={opposingParty} icon={ScaleIcon} />
+              <StatCell label="Desired outcome" value={intake.desired_outcome} icon={CheckCircleIcon} />
+            </dl>
+          )}
+          {hasMissingLegalDetails ? (
             <div className="mt-6 flex flex-col gap-3 border-t border-line-glass/10 pt-5 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-sm leading-relaxed text-input-placeholder">
                 Blawby can ask the client for the missing legal details and add them to this thread.
@@ -847,45 +957,10 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
           ) : null}
         </section>
 
-        {/* ── Custom template fields ── */}
-        {(() => {
-          const customFields = intakeConversationState?.customFields;
-          if (!customFields || typeof customFields !== 'object' || Array.isArray(customFields)) return null;
-          // Normalize: trim string values, filter out empty after trim
-          const entries = Object.entries(customFields)
-            .filter(([key, v]) => {
-              if (key.startsWith('_')) return false;
-              if (typeof v === 'string') {
-                return v.trim() !== '';
-              }
-              return v !== null && v !== undefined;
-            });
-          if (entries.length === 0) return null;
-          // Humanize label: replace _/- with space, split camel, capitalize
-          const humanize = (key: string) => {
-            return key
-              .replace(/[_-]/g, ' ')
-              .replace(/([a-z])([A-Z])/g, '$1 $2')
-              .replace(/^./, (s) => s.toUpperCase());
-          };
-          return (
-            <section className="glass-card p-6 sm:p-8">
-              <h2 className="mb-6 text-xs font-semibold uppercase tracking-widest text-input-placeholder">
-                Custom fields
-              </h2>
-              <dl className="grid grid-cols-1 gap-5 md:grid-cols-3">
-                {entries.map(([key, value]) => (
-                  <StatCell
-                    key={key}
-                    label={humanize(key)}
-                    value={typeof value === 'boolean' ? (value ? 'Yes' : 'No') : String(value)}
-                    icon={ClipboardDocumentCheckIcon}
-                  />
-                ))}
-              </dl>
-            </section>
-          );
-        })()}
+          {conversationSection}
+        </div>
+
+        {intakeSidebar}
       </div>
 
       <Dialog

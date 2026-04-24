@@ -182,15 +182,15 @@ function AppShell() {
   const { session, isPending: sessionPending } = useSessionContext();
   const onboardingIncomplete =
     Boolean(session?.user) &&
-    !session.user.isAnonymous &&
-    session.user.onboardingComplete !== true;
+    !session.user.is_anonymous &&
+    session.user.onboarding_complete !== true;
   const shouldFetchWorkspacePractices =
     !location.path.startsWith('/public/') &&
     !location.path.startsWith('/auth') &&
     !location.path.startsWith('/pricing') &&
     // Pre-subscription users on the onboarding flow have no org yet — fetching
     // practices would produce a guaranteed 403. AppShell redirects back here
-    // until onboardingComplete is true, so this guard is safe.
+    // until `onboarding_complete` is true, so this guard is safe.
     !(location.path.startsWith('/onboarding') && onboardingIncomplete);
   const { defaultWorkspace, currentPractice, practices } = useWorkspaceResolver({
     autoFetchPractices: shouldFetchWorkspacePractices
@@ -207,7 +207,7 @@ function AppShell() {
 
   useEffect(() => {
     if (sessionPending) return;
-    if (session?.user && !session.user.isAnonymous) {
+    if (session?.user && !session.user.is_anonymous) {
       const pendingConversation = consumePostAuthConversationContext();
       if (
         pendingConversation?.workspace === 'public' &&
@@ -269,8 +269,8 @@ function AppShell() {
     const user = session?.user;
     const requiresOnboarding =
       Boolean(user) &&
-      !user?.isAnonymous &&
-      user?.onboardingComplete !== true &&
+      !user?.is_anonymous &&
+      user?.onboarding_complete !== true &&
       !bypassOnboardingForRoute;
 
     if (requiresOnboarding) {
@@ -487,7 +487,7 @@ function RootRoute() {
       return;
     }
 
-    if (session.user.onboardingComplete !== true && !session.user.isAnonymous) {
+    if (session.user.onboarding_complete !== true && !session.user.is_anonymous) {
       return;
     }
 
@@ -506,8 +506,8 @@ function RootRoute() {
     !isPending &&
     !practicesLoading &&
     session?.user &&
-    !session.user.isAnonymous &&
-    session.user.onboardingComplete === true &&
+    !session.user.is_anonymous &&
+    session.user.onboarding_complete === true &&
     !authenticatedHomePath
   ) {
     return renderWorkspaceFailureState(
@@ -541,54 +541,41 @@ function PracticeAppRoute({
   const {
     activeRole,
     canAccessPracticeWorkspace: canAccessPractice,
+    rolePending,
+    hasPracticeMembership,
     practicesLoading,
     currentPractice,
   } = useWorkspaceResolver({
     practiceSlug: practiceSlug ?? null,
   });
-  const targetPractice = currentPractice;
-  const practiceLookupKey = currentPractice?.id ?? '';
-  const practiceRefreshKey = useMemo(() => {
-    if (!currentPractice || currentPractice.slug !== normalizedPracticeSlug) return null;
-    return [
-      currentPractice.updatedAt,
-      currentPractice.slug,
-      currentPractice.logo,
-      currentPractice.name
-    ]
-      .filter(Boolean)
-      .join('|');
-  }, [currentPractice, normalizedPracticeSlug]);
-
-  const handlePracticeError = useCallback((error: string) => {
-    console.error('Practice config error:', error);
-  }, []);
-
-  const shouldDelayPracticeConfig = practicesLoading;
-
-  const {
-    practiceConfig,
-    practiceNotFound,
-    isLoading: _isLoading
-  } = usePracticeConfig({
-    onError: handlePracticeError,
-    practiceId: shouldDelayPracticeConfig ? '' : practiceLookupKey,
-    allowUnauthenticated: false,
-    refreshKey: practiceRefreshKey
-  });
-
-  const resolvedPracticeIdFromConfig = typeof practiceConfig.id === 'string' ? practiceConfig.id : '';
-  const resolvedPracticeId = resolvedPracticeIdFromConfig || practiceLookupKey;
+  const resolvedPracticeId = currentPractice?.id ?? '';
+  const practiceConfig = useMemo<UIPracticeConfig>(() => ({
+    id: currentPractice?.id ?? '',
+    slug: currentPractice?.slug ?? normalizedPracticeSlug,
+    name: currentPractice?.name ?? '',
+    profileImage: currentPractice?.logo ?? null,
+    description: '',
+    availableServices: [],
+    serviceQuestions: {},
+    domain: '',
+    brandColor: '#000000',
+    accentColor: currentPractice?.accentColor ?? 'gold',
+    voice: {
+      enabled: false,
+      provider: 'cloudflare',
+      voiceId: null,
+      displayName: null,
+      previewUrl: null,
+    },
+  }), [currentPractice, normalizedPracticeSlug]);
   const sessionRecord = session?.session as Record<string, unknown> | undefined;
-  const backendActiveOrgId =
-    (typeof sessionRecord?.activeOrganizationId === 'string'
-      ? sessionRecord.activeOrganizationId
-      : typeof sessionRecord?.active_organization_id === 'string'
-        ? sessionRecord.active_organization_id
-        : null);
+  // Use backend canonical field `active_organization_id` only
+  const backendActiveOrgId = typeof sessionRecord?.active_organization_id === 'string'
+    ? sessionRecord.active_organization_id
+    : null;
 
   useEffect(() => {
-    if (isPending || practicesLoading || !session?.user || !resolvedPracticeId) return;
+    if (isPending || !session?.user || !resolvedPracticeId) return;
 
     // If the backend session doesn't match the route-selected practice ID,
     // synchronize it to ensure correct permission/role resolution.
@@ -609,9 +596,14 @@ function PracticeAppRoute({
         cancelled = true;
       };
     }
-  }, [resolvedPracticeId, session?.user, isPending, practicesLoading, backendActiveOrgId]);
+  }, [resolvedPracticeId, session?.user, isPending, backendActiveOrgId]);
 
-  if (isPending || practicesLoading || shouldDelayPracticeConfig) {
+  // Only block on loading if we have no practice data yet. If currentPractice
+  // is already available (from the module cache), proceed immediately —
+  // don't hang on stale loading flags from other hook instances.
+  // Note: We MUST wait for rolePending, otherwise canAccessPractice will be false!
+  const stillLoading = isPending || (practicesLoading && !currentPractice) || rolePending;
+  if (stillLoading) {
     return <LoadingScreen />;
   }
 
@@ -634,25 +626,18 @@ function PracticeAppRoute({
   }
 
   if (!canAccessPractice) {
-    return <LoadingScreen />;
-  }
-
-
-
-  if (hasPracticeSlug && !targetPractice && !practicesLoading) {
-    return (
-      <App404 />
+    if (!hasPracticeMembership) {
+      return <App404 />;
+    }
+    return renderWorkspaceFailureState(
+      'Practice access denied',
+      'This account cannot open the requested practice workspace route.'
     );
   }
-
-  if (!resolvedPracticeId) {
-    if (practiceNotFound) {
-      return (
-        <App404 />
-      );
-    }
-    return <LoadingScreen />;
+  if (!currentPractice) {
+    return <App404 />;
   }
+  if (!resolvedPracticeId) return <LoadingScreen />;
 
   return (
       <MainApp
@@ -696,26 +681,28 @@ function ClientPracticeRoute({
     practiceSlug: practiceSlug ?? null,
   });
   const { navigate } = useNavigation();
-  const handlePracticeError = useCallback((error: string) => {
-    console.error('Practice config error:', error);
-  }, []);
 
   const slug = (practiceSlug ?? '').trim();
-  const practiceIdCandidate = currentPractice?.id ?? slug ?? '';
-
-  const {
-    practiceConfig,
-    practiceNotFound,
-    isLoading
-  } = usePracticeConfig({
-    onError: handlePracticeError,
-    practiceId: practicesLoading ? '' : practiceIdCandidate,
-    allowUnauthenticated: false
-  });
-  const resolvedPracticeId = useMemo(
-    () => (typeof practiceConfig.id === 'string' ? practiceConfig.id : '') || currentPractice?.id || '',
-    [practiceConfig.id, currentPractice?.id]
-  );
+  const resolvedPracticeId = currentPractice?.id ?? '';
+  const practiceConfig = useMemo<UIPracticeConfig>(() => ({
+    id: currentPractice?.id ?? '',
+    slug: currentPractice?.slug ?? slug,
+    name: currentPractice?.name ?? '',
+    profileImage: currentPractice?.logo ?? null,
+    description: '',
+    availableServices: [],
+    serviceQuestions: {},
+    domain: '',
+    brandColor: '#000000',
+    accentColor: currentPractice?.accentColor ?? 'gold',
+    voice: {
+      enabled: false,
+      provider: 'cloudflare',
+      voiceId: null,
+      displayName: null,
+      previewUrl: null,
+    },
+  }), [currentPractice, slug]);
 
   const accessFailureMessage = useMemo(() => {
     if (sessionIsPending || practicesLoading || rolePending) return null;
@@ -738,7 +725,7 @@ function ClientPracticeRoute({
     }
   }, [canAccessClientWorkspace, workspaceView, slug, navigate, sessionIsPending]);
 
-  if (isLoading || sessionIsPending || practicesLoading || rolePending) {
+  if (sessionIsPending || practicesLoading || rolePending) {
     return <LoadingScreen />;
   }
 
@@ -755,10 +742,6 @@ function ClientPracticeRoute({
       return renderWorkspaceFailureState('Practice access denied', accessFailureMessage);
     }
     return <LoadingScreen />;
-  }
-
-  if (practiceNotFound) {
-    return <App404 />;
   }
 
   if (!currentPractice) {

@@ -228,6 +228,7 @@ export interface ToolResult {
   intakeFields?: Record<string, unknown>;
   triggerPayment?: boolean;
   triggerSubmit?: boolean;
+  submittable?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -339,6 +340,7 @@ export const handleSaveCaseDetails = (
         : 'Case details saved. Continue collecting remaining fields.',
     intakeFields: patch,
     actions: actions.length > 0 ? actions : undefined,
+    submittable: isSubmittable,
   };
 };
 

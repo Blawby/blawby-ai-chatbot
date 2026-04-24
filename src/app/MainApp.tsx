@@ -16,9 +16,6 @@ import type { UploadingFile } from '@/shared/types/upload';
 import { useNavigation } from '@/shared/utils/navigation';
 import WelcomeDialog from '@/features/modals/components/WelcomeDialog';
 import { useWelcomeDialog } from '@/features/modals/hooks/useWelcomeDialog';
-import { getPreferencesCategory, updatePreferencesCategory } from '@/shared/lib/preferencesApi';
-import type { OnboardingPreferences } from '@/shared/types/preferences';
-import { BusinessWelcomePrompt } from '@/features/onboarding/components/BusinessWelcomePrompt';
 import { SessionNotReadyError } from '@/shared/types/errors';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { clearPendingPracticeInviteLink, readPendingPracticeInviteLink } from '@/shared/utils/practiceInvites';
@@ -48,7 +45,11 @@ import { PlusIcon } from '@heroicons/react/24/solid';
 import { Button } from '@/shared/ui/Button';
 import { Icon } from '@/shared/ui/Icon';
 import { shouldShowWorkspaceDetailBack } from '@/shared/utils/workspaceDetailNavigation';
-import { resolveConversationDisplayTitle } from '@/shared/utils/conversationDisplay';
+import {
+  resolveConversationCaseTitle,
+  resolveConversationContactName,
+  resolveConversationDisplayTitle,
+} from '@/shared/utils/conversationDisplay';
 import { DetailHeader } from '@/shared/ui/layout/DetailHeader';
 import { LoadingBlock } from '@/shared/ui/layout/LoadingBlock';
 import { resolveStrengthStyle, resolveStrengthTier } from '@/shared/utils/intakeStrength';
@@ -107,7 +108,6 @@ export function MainApp({
   // ── UI state ───────────────────────────────────────────────────────────────
   const [clearInputTrigger, setClearInputTrigger] = useState(0);
   const [isRecording, setIsRecording] = useState(false);
-  const [showBusinessWelcome, setShowBusinessWelcome] = useState(false);
   const [conversationMode, setConversationMode] = useState<ConversationMode | null>(null);
   const [isPaymentAuthPromptOpen, setIsPaymentAuthPromptOpen] = useState(false);
 
@@ -458,37 +458,8 @@ export function MainApp({
   const { shouldShow: shouldShowWelcome, markAsShown: markWelcomeAsShown } = useWelcomeDialog({ enabled: workspace !== 'public' });
   const showWelcomeDialog = shouldShowWelcome && workspace !== 'public';
 
-  const practiceWelcomeCheckRef = useRef(false);
-  useEffect(() => {
-    if (workspace !== 'practice') { practiceWelcomeCheckRef.current = false; setShowBusinessWelcome(false); return; }
-    if (sessionIsPending || isAnonymous || !session?.user?.id) { setShowBusinessWelcome(false); return; }
-    if (practiceWelcomeCheckRef.current) return;
-    practiceWelcomeCheckRef.current = true;
-    (async () => {
-      try {
-        const prefs = await getPreferencesCategory<OnboardingPreferences>('onboarding');
-        setShowBusinessWelcome(prefs?.completed === true && !prefs?.practice_welcome_shown);
-      } catch (err) {
-        console.warn('[PRACTICE_WELCOME] Preferences fetch failed:', err);
-        practiceWelcomeCheckRef.current = false;
-        setShowBusinessWelcome(false);
-      }
-    })();
-  }, [isAnonymous, session?.user?.id, sessionIsPending, workspace]);
-
   const handleWelcomeComplete = async () => { await markWelcomeAsShown(); };
   const handleWelcomeClose = async () => { await markWelcomeAsShown(); };
-  const handleBusinessWelcomeClose = async () => {
-    setShowBusinessWelcome(false);
-    try { await updatePreferencesCategory('onboarding', { practice_welcome_shown: true }); }
-    catch (err) {
-      console.warn('[PRACTICE_WELCOME] Failed to update preferences', err);
-      showError('Update failed', 'We could not save your preference. You may see this prompt again.');
-    }
-    if (resolvedPracticeSlug) {
-      navigate(`/practice/${encodeURIComponent(resolvedPracticeSlug)}/settings/practice`);
-    }
-  };
 
   // ── invite link handling ───────────────────────────────────────────────────
   useEffect(() => {
@@ -563,6 +534,15 @@ export function MainApp({
     const relative = formatRelativeTime(new Date(lastTimestamp));
     return relative ? `Active ${relative}` : 'Inactive';
   }, [filteredMessagesForHeader, isSocketReady]);
+  const conversationCaseTitle = useMemo(() => (
+    resolveConversationCaseTitle(
+      conversationMetadata ?? null,
+      resolveConversationDisplayTitle(conversationMetadata ?? null, resolvedPracticeName)
+    )
+  ), [conversationMetadata, resolvedPracticeName]);
+  const conversationContactName = useMemo(() => (
+    resolveConversationContactName(conversationMetadata ?? null)
+  ), [conversationMetadata]);
 
   const isConsultConversation = useMemo(
     () => conversationMode === 'REQUEST_CONSULTATION'
@@ -624,7 +604,7 @@ export function MainApp({
     const showConversationBack = shouldShowWorkspaceDetailBack(layoutMode, Boolean(conversationBackPath));
     return (
       <DetailHeader
-        title={resolvedPracticeName}
+        title={conversationCaseTitle}
         subtitle={conversationHeaderActiveLabel}
         showBack={showConversationBack}
         onBack={showConversationBack ? () => navigate(conversationBackPath) : undefined}
@@ -638,8 +618,8 @@ export function MainApp({
     );
   }, [
     activeConversationId, conversationBackPath, conversationsBasePath,
-    conversationHeaderActiveLabel, conversationStrengthAction,
-    layoutMode, navigate, resolvedPracticeName,
+    conversationCaseTitle, conversationHeaderActiveLabel, conversationStrengthAction,
+    layoutMode, navigate,
   ]);
   const showWorkspaceDetailBack = useMemo(
     () => shouldShowWorkspaceDetailBack(layoutMode),
@@ -690,6 +670,7 @@ export function MainApp({
               conversationMetadata ?? null,
               conversationMetadata?.title ?? ''
             )}
+            conversationContactName={conversationContactName}
             viewerContext={isPracticeWorkspace ? 'practice' : isClientWorkspace ? 'client' : 'public'}
             onSendMessage={handleSendMessage}
             conversationMode={conversationMode}
@@ -1092,9 +1073,6 @@ export function MainApp({
             onComplete={handleWelcomeComplete}
             workspace={isPracticeWorkspace ? 'practice' : 'client'}
           />
-          {showBusinessWelcome && (
-            <BusinessWelcomePrompt isOpen={showBusinessWelcome} onClose={handleBusinessWelcomeClose} />
-          )}
         </>
       )}
     </>

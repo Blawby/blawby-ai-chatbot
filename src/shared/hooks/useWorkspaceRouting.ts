@@ -51,6 +51,7 @@ import { hasLeadReviewPermission } from '@/shared/utils/leadPermissions';
 import { getWorkspaceConversationsPath, getWorkspaceMattersPath, getWorkspaceClientsPath } from '@/shared/utils/workspace';
 import type { LayoutMode } from '@/app/MainApp';
 import { useMobileDetection } from '@/shared/hooks/useMobileDetection';
+import type { AuthSessionPayload } from '@/shared/types/user';
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
@@ -64,10 +65,6 @@ interface CurrentPractice {
 
 interface PracticeDetails {
   accentColor?: string | null;
-}
-
-interface Session {
-  user?: { id: string; isAnonymous?: boolean } | null;
 }
 
 export interface UseWorkspaceRoutingOptions {
@@ -84,7 +81,7 @@ export interface UseWorkspaceRoutingOptions {
   currentPractice?: CurrentPractice | null;
   practiceDetails?: PracticeDetails | null;
   activeMemberRole?: string | null;
-  session?: Session | null;
+  session?: AuthSessionPayload;
 }
 
 // ─── hook ─────────────────────────────────────────────────────────────────────
@@ -114,7 +111,7 @@ export const useWorkspaceRouting = ({
   const isAuthenticatedClient = useMemo(() => Boolean(
     isPublicWorkspace &&
     session?.user &&
-    !session.user.isAnonymous &&
+    !session.user.is_anonymous &&
     normalizePracticeRole(activeMemberRole) === 'client'
   ), [activeMemberRole, isPublicWorkspace, session?.user]);
 

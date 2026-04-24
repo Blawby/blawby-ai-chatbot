@@ -115,7 +115,8 @@ describe('PracticeContext Middleware Security Tests', () => {
       });
 
       const requestWithContext = await withPracticeContext(request, mockEnv, {
-        requirePractice: true
+        requirePractice: true,
+        allowAuthenticatedUrlPracticeId: true
       });
 
       // Verify original auth header is preserved
@@ -141,7 +142,8 @@ describe('PracticeContext Middleware Security Tests', () => {
       vi.mocked(optionalAuth).mockResolvedValue(null);
 
       const requestWithContext = await withPracticeContext(request, mockEnv, {
-        requirePractice: true
+        requirePractice: true,
+        allowAuthenticatedUrlPracticeId: true
       });
 
       // All headers should be preserved
@@ -166,7 +168,8 @@ describe('PracticeContext Middleware Security Tests', () => {
       // Mock a scenario where headers might be modified (shouldn't happen in real code)
       // We'll test by manually modifying after the fact to verify the check works
       const requestWithContext = await withPracticeContext(request, mockEnv, {
-        requirePractice: true
+        requirePractice: true,
+        allowAuthenticatedUrlPracticeId: true
       });
 
       // The defensive check should pass in normal operation
@@ -205,7 +208,8 @@ describe('PracticeContext Middleware Security Tests', () => {
       });
 
       const requestWithContext = await withPracticeContext(request, mockEnv, {
-        requirePractice: true
+        requirePractice: true,
+        allowAuthenticatedUrlPracticeId: true
       });
 
       // Verify practice context uses URL param (allowed for practiceId - metadata only)
@@ -261,7 +265,8 @@ describe('PracticeContext Middleware Security Tests', () => {
       vi.mocked(optionalAuth).mockResolvedValue(mockAuthContext);
 
       const requestWithContext = await withPracticeContext(request, mockEnv, {
-        requirePractice: true
+        requirePractice: true,
+        allowAuthenticatedUrlPracticeId: true
       });
 
       // Practice context should only contain practice metadata
@@ -295,7 +300,8 @@ describe('PracticeContext Middleware Security Tests', () => {
       });
 
       const requestWithContext = await withPracticeContext(request, mockEnv, {
-        requirePractice: true
+        requirePractice: true,
+        allowAuthenticatedUrlPracticeId: true
       });
 
       // Practice ID can come from URL (metadata)

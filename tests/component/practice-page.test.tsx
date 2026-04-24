@@ -68,6 +68,7 @@ vi.mock('@/shared/utils/navigation', () => ({
 vi.mock('@/shared/contexts/SessionContext', () => ({
   useSessionContext: () => ({
     session: {
+      session: { id: 'session-1' },
       user: {
         id: 'user-1',
         email: 'owner@test-blawby.com'

@@ -298,6 +298,11 @@ const requestData = async <T>(promise: Promise<{ data: T }>, fallbackMessage: st
     const response = await promise;
     return response.data;
   } catch (error) {
+    // Preserve abort/cancel errors so callers can treat them as non-fatal
+    // (many hooks abort on cleanup and expect to ignore those errors).
+    if (axios.isCancel(error) || (error instanceof Error && (error.name === 'AbortError' || error.name === 'CanceledError'))) {
+      throw error;
+    }
     throw new Error(getErrorMessage(error, fallbackMessage));
   }
 };

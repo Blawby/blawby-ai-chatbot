@@ -2,28 +2,41 @@ import { createAuthClient } from 'better-auth/react';
 import { organizationClient } from 'better-auth/client/plugins';
 import { anonymousClient } from 'better-auth/client/plugins';
 import { stripeClient } from '@better-auth/stripe/client';
-import { useMemo } from 'preact/hooks';
-import { transformSessionUser, type BetterAuthSessionUser } from '@/shared/types/user';
+import type { BackendSessionUser, AuthSessionPayload } from '@/shared/types/user';
+import { safeConvertToDate, validateRequiredFields } from '@/shared/types/user';
 import { getWorkerApiUrl } from '@/config/urls';
+
+type BetterAuthRawSessionRecord = Record<string, unknown> & {
+  active_organization_id?: string;
+  activeOrganizationId?: string;
+};
+
+type BetterAuthRawSessionUser = Record<string, unknown> & {
+  is_anonymous?: boolean;
+  isAnonymous?: boolean;
+  onboarding_complete?: boolean;
+  onboardingComplete?: boolean;
+  primary_workspace?: 'public' | 'client' | 'practice' | null;
+  primaryWorkspace?: 'public' | 'client' | 'practice' | null;
+  practice_id?: string | null;
+  practiceId?: string | null;
+  active_practice_id?: string | null;
+  activePracticeId?: string | null;
+  active_organization_id?: string | null;
+  activeOrganizationId?: string | null;
+  stripe_customer_id?: string | null;
+  stripeCustomerId?: string | null;
+  email_verified?: boolean;
+  emailVerified?: boolean;
+  last_login_method?: string;
+  lastLoginMethod?: string;
+};
 
 // Type for the auth client (inferred from createAuthClient return type)
 type AuthClientType = ReturnType<typeof createAuthClient>;
-type AuthSession = ReturnType<AuthClientType['useSession']>;
-type AuthSessionData = AuthSession['data'];
-type UntrustedSessionUser = {
-  id: string;
-  email?: string;
-  name?: string;
-  image?: string;
-  isAnonymous?: boolean;
-  onboardingComplete?: boolean;
-} & Record<string, unknown>;
-type TypedSessionData = NonNullable<AuthSessionData> extends { user: unknown; session: infer S }
-  ? (
-    { user: BetterAuthSessionUser; session: S; transformError?: false }
-    | { user: UntrustedSessionUser; session: S; transformError: true }
-  ) | Extract<AuthSessionData, null | undefined>
-  : AuthSessionData;
+// We intentionally avoid exposing any "transformError" union here.
+// The hook and `getSession()` unwrap any SDK envelopes and return
+// the canonical `AuthSessionPayload` to callers.
 
 // Auth requests are proxied through the Worker to keep session cookies same-origin.
 function getAuthBaseUrl(): string | undefined {
@@ -120,59 +133,132 @@ export const signOut = (...args: Parameters<AuthClientType['signOut']>) => getAu
 // useSession is a React hook - must be called directly, not wrapped
 export const useSession = () => {
   const client = getAuthClient();
-  return client.useSession();
-};
-
-export const useTypedSession = (): Omit<AuthSession, 'data'> & { data: TypedSessionData | undefined } => {
-  const client = getAuthClient();
-  const session = client.useSession();
-
-  const data = useMemo(() => {
-    if (!session.data?.user) return undefined;
-    
-    try {
-      const typedUser = transformSessionUser(session.data.user as Record<string, unknown>);
-      return {
-        ...session.data,
-        user: typedUser
-      } as TypedSessionData;
-    } catch (error) {
-      console.error('[Auth] Failed to transform session user', {
-        error,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        userId: (session.data.user as any)?.id
-      });
-      return {
-        ...session.data,
-        user: (() => {
-          const raw = session.data.user;
-          const userRecord = (raw && typeof raw === 'object')
-            ? raw as Record<string, unknown>
-            : {};
-          return {
-            ...userRecord,
-            id: typeof userRecord.id === 'string' ? userRecord.id : '',
-          } as UntrustedSessionUser;
-        })(),
-        transformError: true
-      } as TypedSessionData;
-    }
-  }, [session.data]);
+  const hook = client.useSession();
+  // Normalize the hook return so consumers only see the backend shape.
+  const sessionPayload = unwrapSessionData(hook.data);
+  const hookState = hook as unknown as { isPending?: boolean; isLoading?: boolean; error?: unknown };
 
   return {
-    ...session,
-    data
-  };
+    session: sessionPayload,
+    isPending: hookState.isPending ?? hookState.isLoading ?? false,
+    error: hookState.error ?? null,
+  } as { session: AuthSessionPayload | null; isPending: boolean; error: unknown };
 };
+
+// Helper to normalize/unpack SDK envelopes or raw backend session shapes.
+function unwrapSessionData(d: unknown): AuthSessionPayload | null {
+  const toCanonical = (record: Record<string, unknown>): AuthSessionPayload | null => {
+    if (!('session' in record) || !('user' in record)) {
+      return null;
+    }
+    // Better Auth may return explicit nulls for unauthenticated state.
+    if (record.session === null && record.user === null) {
+      return null;
+    }
+    if (!record.session || !record.user || typeof record.session !== 'object' || typeof record.user !== 'object') {
+      return null;
+    }
+
+    const sessionRecord = record.session as BetterAuthRawSessionRecord;
+    const userRecord = record.user as BetterAuthRawSessionUser;
+
+    const normalizedSession: Record<string, unknown> = {};
+    if (typeof sessionRecord.active_organization_id === 'string') {
+      normalizedSession.active_organization_id = sessionRecord.active_organization_id;
+    } else if (typeof sessionRecord.activeOrganizationId === 'string') {
+      normalizedSession.active_organization_id = sessionRecord.activeOrganizationId;
+    }
+
+    const normalizedUser: Record<string, unknown> = {};
+    if (typeof userRecord.id === 'string') normalizedUser.id = userRecord.id;
+    if (typeof userRecord.email === 'string') normalizedUser.email = userRecord.email;
+    if (typeof userRecord.name === 'string') normalizedUser.name = userRecord.name;
+    // Map anonymity flags explicitly
+    if (typeof userRecord.is_anonymous === 'boolean') normalizedUser.is_anonymous = userRecord.is_anonymous;
+    else if (typeof userRecord.isAnonymous === 'boolean') normalizedUser.is_anonymous = userRecord.isAnonymous;
+    // Onboarding, workspace, practice/organization ids
+    if (typeof userRecord.onboarding_complete === 'boolean') normalizedUser.onboarding_complete = userRecord.onboarding_complete;
+    else if (typeof userRecord.onboardingComplete === 'boolean') normalizedUser.onboarding_complete = userRecord.onboardingComplete;
+    if (typeof userRecord.primary_workspace === 'string') normalizedUser.primary_workspace = userRecord.primary_workspace;
+    else if (typeof userRecord.primaryWorkspace === 'string') normalizedUser.primary_workspace = userRecord.primaryWorkspace;
+    if (typeof userRecord.practice_id === 'string') normalizedUser.practice_id = userRecord.practice_id;
+    else if (typeof userRecord.practiceId === 'string') normalizedUser.practice_id = userRecord.practiceId;
+    if (typeof userRecord.active_practice_id === 'string') normalizedUser.active_practice_id = userRecord.active_practice_id;
+    else if (typeof userRecord.activePracticeId === 'string') normalizedUser.active_practice_id = userRecord.activePracticeId;
+    if (typeof userRecord.active_organization_id === 'string') normalizedUser.active_organization_id = userRecord.active_organization_id;
+    else if (typeof userRecord.activeOrganizationId === 'string') normalizedUser.active_organization_id = userRecord.activeOrganizationId;
+    if (typeof userRecord.stripe_customer_id === 'string') normalizedUser.stripe_customer_id = userRecord.stripe_customer_id;
+    else if (typeof userRecord.stripeCustomerId === 'string') normalizedUser.stripe_customer_id = userRecord.stripeCustomerId;
+    if (typeof userRecord.email_verified === 'boolean') normalizedUser.email_verified = userRecord.email_verified;
+    else if (typeof userRecord.emailVerified === 'boolean') normalizedUser.email_verified = userRecord.emailVerified;
+    if (typeof userRecord.last_login_method === 'string') normalizedUser.last_login_method = userRecord.last_login_method;
+    else if (typeof userRecord.lastLoginMethod === 'string') normalizedUser.last_login_method = userRecord.lastLoginMethod;
+
+    // Runtime validation: ensure required fields exist and timestamps are converted
+    try {
+      // Basic required fields (id, email) - throws if missing
+      validateRequiredFields(normalizedUser);
+    } catch (err) {
+      console.warn('[authClient] Invalid session user; rejecting session payload', {
+        id: normalizedUser.id ?? 'no-id',
+        hasEmail: typeof normalizedUser.email === 'string',
+        error: err instanceof Error ? err.message : String(err),
+      });
+      return null;
+    }
+
+    // Ensure name exists (must be a string)
+    if (typeof normalizedUser.name !== 'string' || normalizedUser.name.trim() === '') {
+      console.warn('[authClient] Session user missing `name` field; rejecting session payload', {
+        id: normalizedUser.id ?? 'no-id',
+        namePresent: typeof normalizedUser.name === 'string',
+      });
+      return null;
+    }
+
+    // Ensure is_anonymous exists and is boolean (default false)
+    if (typeof normalizedUser.is_anonymous !== 'boolean') {
+      normalizedUser.is_anonymous = Boolean((userRecord as Record<string, unknown>).is_anonymous ?? (userRecord as Record<string, unknown>).isAnonymous ?? false);
+    }
+
+    // Convert timestamps to Date|null
+    try {
+      normalizedUser.created_at = safeConvertToDate((userRecord as Record<string, unknown>).created_at ?? (userRecord as Record<string, unknown>).createdAt ?? null);
+      normalizedUser.updated_at = safeConvertToDate((userRecord as Record<string, unknown>).updated_at ?? (userRecord as Record<string, unknown>).updatedAt ?? null);
+    } catch (_) {
+      normalizedUser.created_at = null;
+      normalizedUser.updated_at = null;
+    }
+
+    return {
+      session: normalizedSession,
+      user: normalizedUser as unknown as BackendSessionUser,
+    } as AuthSessionPayload;
+  };
+
+  if (d === null || d === undefined) return null;
+  if (typeof d === 'object' && d !== null) {
+    const asRecord = d as Record<string, unknown>;
+    if ('data' in asRecord && typeof asRecord.data === 'object' && asRecord.data !== null) {
+      const inner = asRecord.data as Record<string, unknown>;
+      return toCanonical(inner);
+    }
+    return toCanonical(asRecord);
+  }
+  return null;
+}
 
 export const useActiveMemberRole = () => {
   const client = getAuthClient();
   return client.useActiveMemberRole();
 };
 
-export const getSession = (...args: Parameters<AuthClientType['getSession']>) => getAuthClient().getSession(...args);
+export const getSession = async (...args: Parameters<AuthClientType['getSession']>): Promise<AuthSessionPayload | null> => {
+  const result = await getAuthClient().getSession(...args);
+  return unwrapSessionData(result);
+};
 type UpdateUserArgs = Parameters<AuthClientType['updateUser']>;
-type UpdateUserInput = Partial<BetterAuthSessionUser> & Record<string, unknown>;
+type UpdateUserInput = Partial<BackendSessionUser> & Record<string, unknown>;
 type UpdateUserFn = (data: UpdateUserInput, options?: UpdateUserArgs[1]) => ReturnType<AuthClientType['updateUser']>;
 
 export const updateUser: UpdateUserFn = (data, options) =>

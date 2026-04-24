@@ -52,26 +52,37 @@ vi.mock('@/config/features', () => ({
 }));
 
 // Mock the auth client
-vi.mock('@/shared/lib/authClient', () => ({
-  authClient: {
-    getSession: vi.fn().mockResolvedValue({
-      user: { id: 'test-user-id', email: 'test@test-blawby.com' },
+vi.mock('@/shared/lib/authClient', () => {
+  const mockGetSession = vi.fn().mockResolvedValue({
+    session: { id: 'session-1' },
+    user: { id: 'test-user-id', email: 'test@test-blawby.com' },
+  });
+  const mockSignOut = vi.fn().mockResolvedValue(undefined);
+
+  return {
+    // Top-level named export used by some modules/tests
+    getSession: mockGetSession,
+    // Keep an authClient object that contains the same mocked functions
+    authClient: {
+      getSession: mockGetSession,
+      signOut: mockSignOut,
+    },
+    // Also expose signOut as a top-level helper to mirror the real module
+    signOut: mockSignOut,
+    useSession: () => ({
+      session: { user: { id: 'test-user-id', email: 'test@test-blawby.com' }, session: { id: 'session-1' } },
+      isPending: false,
+      error: null,
     }),
-    signOut: vi.fn().mockResolvedValue(undefined),
-  },
-  useTypedSession: () => ({
-    data: { user: { id: 'test-user-id', email: 'test@test-blawby.com' }, session: { id: 'session-1' } },
-    isPending: false,
-    error: null,
-  }),
-  useActiveMemberRole: () => ({
-    data: { role: 'owner' },
-    isPending: false,
-    isRefetching: false,
-    error: null,
-    refetch: vi.fn(),
-  }),
-}));
+    useActiveMemberRole: () => ({
+      data: { role: 'owner' },
+      isPending: false,
+      isRefetching: false,
+      error: null,
+      refetch: vi.fn(),
+    }),
+  };
+});
 
 // Mock Heroicons
 vi.mock('@heroicons/react/24/outline', () => ({

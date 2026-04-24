@@ -26,6 +26,7 @@ import { useConversations } from '@/shared/hooks/useConversations';
 import {
   addConversationTag,
   fetchLatestConversationMessage,
+  getConversation,
   removeConversationTag,
   updateConversationMetadata,
   updateConversationTriage,
@@ -36,7 +37,10 @@ import {
   updateConversationMatter 
 } from '@/shared/lib/apiClient';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
-import { resolveConversationDisplayTitle } from '@/shared/utils/conversationDisplay';
+import {
+  resolveConversationDisplayTitle,
+  shouldShowConversationInPracticeInbox,
+} from '@/shared/utils/conversationDisplay';
 import { resolveConsultationState } from '@/shared/utils/consultationState';
 import { formatLongDate } from '@/shared/utils/dateFormatter';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
@@ -199,7 +203,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   workspace = 'public',
   settingsView = 'general',
   settingsAppId,
-  routeInvoiceId: _routeInvoiceId,
+  routeInvoiceId: _,
   onStartNewConversation,
   activeConversationId = null,
   chatView,
@@ -326,7 +330,8 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
 
   const workspaceSection: WorkspaceSection = getWorkspaceSection(view);
 
-  const { session, isPending: isSessionPending, activeMemberRole } = useSessionContext();
+  const { session, isPending: isSessionPending, isAnonymous, activeMemberRole } = useSessionContext();
+  const sessionUserId = session?.user?.id ?? null;
   const normalizedRole = normalizePracticeRole(activeMemberRole);
   const navConfig = useMemo(() => {
     const slug = (practiceSlug ?? '').trim();
@@ -421,18 +426,147 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     enabled: shouldListConversations && Boolean(practiceId) && !mockConversations,
     allowAnonymous: workspace === 'public',
     preferOrgScopedPracticeList: false,
-    assignedTo: conversationAssignedToFilter
+    assignedTo: conversationAssignedToFilter,
+    limit: 100
   });
   const resolvedConversations = mockConversations ?? conversations;
   const resolvedConversationsLoading = mockConversations ? false : isConversationsLoading;
   const resolvedConversationsError = mockConversations ? null : conversationsError;
+  const [acceptedIntakeConversations, setAcceptedIntakeConversations] = useState<Conversation[]>([]);
+  const acceptedIntakeConversationsRef = useRef<Conversation[]>(acceptedIntakeConversations);
+  useEffect(() => {
+    acceptedIntakeConversationsRef.current = acceptedIntakeConversations;
+  }, [acceptedIntakeConversations]);
+  const isInitialConversationCheckRef = useRef(true);
+  const [activeConversationMissingNotification, setActiveConversationMissingNotification] = useState<string | null>(null);
   const conversationFilterId = workspaceSection === 'conversations' && activeSecondaryFilter
     ? activeSecondaryFilter
     : 'all';
+  const {
+    items: allIntakes,
+    isLoaded: intakesLoaded,
+    error: intakesError,
+  } = useIntakesData(isPracticeWorkspace ? practiceId : null, {
+    enabled: isPracticeWorkspace && (view === 'home' || workspaceSection === 'conversations'),
+    filter: workspaceSection === 'conversations' ? 'accepted' : 'all',
+    // Reduced from 500 to 100 to prevent loading hangs in large practices.
+    // 100 is sufficient for the immediate triage status lookup in the practice inbox.
+    limit: workspaceSection === 'conversations' ? 100 : undefined,
+  });
+  const intakeTriageStatusLookup = useMemo(() => {
+    const byConversationId = new Map<string, string>();
+    for (const intake of allIntakes) {
+      const conversationId = typeof intake.conversation_id === 'string' ? intake.conversation_id.trim() : '';
+      const triageStatus = typeof intake.triage_status === 'string' ? intake.triage_status.trim() : '';
+
+      if (conversationId && triageStatus) {
+        byConversationId.set(conversationId, triageStatus);
+      }
+    }
+    return { byConversationId };
+  }, [allIntakes]);
+  const acceptedIntakeConversationIds = useMemo(
+    () => Array.from(intakeTriageStatusLookup.byConversationId.entries())
+      .filter(([, status]) => status === 'accepted')
+      .map(([id]) => id),
+    [intakeTriageStatusLookup]
+  );
+  const [acceptedIntakeConversationsLoading, setAcceptedIntakeConversationsLoading] = useState(false);
+  const intakeLookupLoaded = intakesLoaded && !intakesError;
+
+  useEffect(() => {
+    if (!isPracticeWorkspace || workspaceSection !== 'conversations' || !practiceId || !intakeLookupLoaded) {
+      setAcceptedIntakeConversations([]);
+      setAcceptedIntakeConversationsLoading(false);
+      return;
+    }
+
+    const knownConversationIds = new Set([
+      ...resolvedConversations.map((conversation) => conversation.id),
+      ...acceptedIntakeConversationsRef.current.map((conversation) => conversation.id),
+    ]);
+    const missingConversationIds = acceptedIntakeConversationIds.filter((conversationId) => !knownConversationIds.has(conversationId));
+    if (missingConversationIds.length === 0) {
+      setAcceptedIntakeConversations((prev) => {
+        const filtered = prev.filter((conversation) => acceptedIntakeConversationIds.includes(conversation.id));
+        if (
+          filtered.length === prev.length
+          && filtered.every((conversation, index) => conversation.id === prev[index]?.id)
+        ) {
+          return prev;
+        }
+        return filtered;
+      });
+      setAcceptedIntakeConversationsLoading(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    setAcceptedIntakeConversationsLoading(true);
+    void (async () => {
+      const loadedConversations: (Conversation | null)[] = [];
+      const chunkSize = 8;
+      for (let i = 0; i < missingConversationIds.length; i += chunkSize) {
+        if (controller.signal.aborted) break;
+        const chunk = missingConversationIds.slice(i, i + chunkSize);
+        const results = await Promise.all(
+          chunk.map((conversationId) =>
+            getConversation(conversationId, practiceId, { signal: controller.signal }).catch(() => null)
+          )
+        );
+        loadedConversations.push(...results);
+      }
+
+      if (controller.signal.aborted) return;
+      setAcceptedIntakeConversations((prev) => {
+        const merged = new Map<string, Conversation>();
+        for (const conversation of prev) {
+          if (acceptedIntakeConversationIds.includes(conversation.id)) {
+            merged.set(conversation.id, conversation);
+          }
+        }
+        for (const conversation of loadedConversations) {
+          if (conversation && acceptedIntakeConversationIds.includes(conversation.id)) {
+            merged.set(conversation.id, conversation);
+          }
+        }
+        return Array.from(merged.values());
+      });
+      setAcceptedIntakeConversationsLoading(false);
+    })();
+
+    return () => controller.abort();
+  }, [
+    acceptedIntakeConversationIds,
+    intakeLookupLoaded,
+    isPracticeWorkspace,
+    practiceId,
+    resolvedConversations,
+    workspaceSection,
+  ]);
+
+  const conversationsForInbox = useMemo(() => {
+    const merged = new Map<string, Conversation>();
+    for (const conversation of resolvedConversations) {
+      merged.set(conversation.id, conversation);
+    }
+    for (const conversation of acceptedIntakeConversations) {
+      merged.set(conversation.id, conversation);
+    }
+    return Array.from(merged.values());
+  }, [acceptedIntakeConversations, resolvedConversations]);
 
   const filteredConversations = useMemo(() => {
-    const activeConversations = resolvedConversations.filter((conversation) => conversation.status === 'active');
-    const sessionUserId = session?.user?.id ?? null;
+    const activeConversations = conversationsForInbox
+      .filter((conversation) => conversation.status === 'active' || intakeTriageStatusLookup.byConversationId.has(conversation.id))
+      .filter((conversation) => {
+        if (!isPracticeWorkspace) return true;
+        const triageStatus = intakeTriageStatusLookup.byConversationId.get(conversation.id) ?? null;
+        return shouldShowConversationInPracticeInbox(conversation, triageStatus, {
+          intakeLookupLoaded,
+          requireAcceptedIntakeRecord: true,
+        });
+      });
     if (isPracticeWorkspace) {
       if (conversationFilterId === 'your-inbox') {
         if (!sessionUserId) return activeConversations;
@@ -461,15 +595,27 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     return activeConversations;
   }, [
     conversationFilterId,
+    intakeLookupLoaded,
+    intakeTriageStatusLookup,
+    conversationsForInbox,
     isClientWorkspace,
     isPracticeWorkspace,
-    resolvedConversations,
-    session?.user?.id,
+    sessionUserId,
   ]);
+  // Use the merged inbox (resolved + accepted intake conversations) when
+  // resolving the currently selected conversation so inspector actions
+  // operate on accepted-intake conversations as well.
   const selectedConversation = useMemo(
-    () => resolvedConversations.find((conversation) => conversation.id === activeConversationId) ?? null,
-    [activeConversationId, resolvedConversations]
+    () => conversationsForInbox.find((conversation) => conversation.id === activeConversationId) ?? null,
+    [activeConversationId, conversationsForInbox]
   );
+
+  // When accepted intake records can hide conversations, surface a combined
+  // loading/error state that includes intake lookup readiness so the list
+  // view renders appropriate placeholders/diagnostics.
+  const requireAcceptedIntakeRecord = true;
+  const combinedResolvedConversationsLoading = resolvedConversationsLoading || (requireAcceptedIntakeRecord && !intakeLookupLoaded);
+  const combinedResolvedConversationsError = resolvedConversationsError || (requireAcceptedIntakeRecord && intakesError);
   const inspectorTarget = useMemo(() => {
     if (workspaceSection === 'conversations' && activeConversationId) {
       return { entityType: 'conversation' as const, entityId: activeConversationId };
@@ -534,7 +680,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   const clientsData = useClientsData(
     practiceId,
     clientsStatusFilter,
-    session?.user?.id ?? null,
+    sessionUserId,
     { enabled: isPracticeWorkspace && (view === 'clients' || view === 'matters') }
   );
   const selectedMatter = useMemo(
@@ -694,8 +840,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
 
   const createOnboardingConversation = useCallback(async (): Promise<string> => {
     if (!practiceId) throw new Error('Practice context is required');
-    const userId = session?.user?.id;
-    if (!userId) throw new SessionNotReadyError();
+    if (!sessionUserId || isAnonymous) throw new SessionNotReadyError();
 
     const params = new URLSearchParams({ practiceId });
     const response = await fetch(`/api/conversations?${params.toString()}`, {
@@ -703,7 +848,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
       body: JSON.stringify({
-        participantUserIds: [userId],
+        participantUserIds: [sessionUserId],
         metadata: { source: 'chat', mode: 'PRACTICE_ONBOARDING', title: 'Practice setup' },
         practiceId,
       }),
@@ -726,12 +871,12 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       source: 'chat',
     });
     return conversationId;
-  }, [practiceId, session?.user?.id]);
+  }, [isAnonymous, practiceId, sessionUserId]);
 
   useEffect(() => {
     if (!isPracticeWorkspace || view !== 'setup' || !practiceId) return;
     if (isSessionPending) return;
-    if (!session?.user?.id) return;
+    if (!sessionUserId || isAnonymous) return;
     if (isConversationsLoading) return;
     if (onboardingConversationId) return;
     if (onboardingConversationFromList) {
@@ -762,7 +907,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
         }
       }
     })();
-  }, [createOnboardingConversation, isConversationsLoading, isPracticeWorkspace, isSessionPending, onboardingConversationFromList, onboardingConversationId, onboardingConversationRetryTick, practiceId, refreshConversations, session?.user?.id, view]);
+  }, [createOnboardingConversation, isAnonymous, isConversationsLoading, isPracticeWorkspace, isSessionPending, onboardingConversationFromList, onboardingConversationId, onboardingConversationRetryTick, practiceId, refreshConversations, sessionUserId, view]);
 
   const [conversationPreviews, setConversationPreviews] = useState<Record<string, {
     content: string;
@@ -772,7 +917,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   const fetchedPreviewIds = useRef<Set<string>>(new Set());
   const previewFailureCounts = useRef<Record<string, number>>({});
   const MAX_PREVIEW_ATTEMPTS = 2;
-  const shouldLoadConversationPreviews = view === 'home' || view === 'list';
+  const shouldLoadConversationPreviews = view === 'home' || view === 'list' || view === 'conversation';
 
   useEffect(() => {
     fetchedPreviewIds.current = new Set();
@@ -782,16 +927,16 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
 
   useEffect(() => {
     if (mockConversationPreviews || mockConversations) return;
-    if (!shouldLoadConversationPreviews || resolvedConversations.length === 0 || !practiceId) {
+    if (!shouldLoadConversationPreviews || filteredConversations.length === 0 || !practiceId) {
       return;
     }
-    if (workspace === 'practice' && (isSessionPending || !session?.user?.id)) {
+    if (workspace === 'practice' && (isSessionPending || isAnonymous || !sessionUserId)) {
       return;
     }
     let isMounted = true;
     const loadPreviews = async () => {
       const updates: Record<string, { content: string; role: string; createdAt: string }> = {};
-      const toFetch = resolvedConversations.slice(0, 10).filter(
+      const toFetch = filteredConversations.slice(0, 10).filter(
         (conversation) => !fetchedPreviewIds.current.has(conversation.id)
       );
       await Promise.all(toFetch.map(async (conversation) => {
@@ -823,7 +968,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [mockConversationPreviews, mockConversations, practiceId, resolvedConversations, isSessionPending, session?.user?.id, shouldLoadConversationPreviews, workspace]);
+  }, [filteredConversations, isAnonymous, isSessionPending, mockConversationPreviews, mockConversations, practiceId, sessionUserId, shouldLoadConversationPreviews, workspace]);
 
   const handleSelectConversation = useCallback((conversationId: string) => {
     hasAutoNavigatedRef.current = true;
@@ -833,6 +978,74 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     }
     navigate(withWidgetQuery(`${conversationsPath}/${encodeURIComponent(conversationId)}`));
   }, [conversationsPath, navigate, onSelectConversationOverride, withWidgetQuery]);
+
+  // Reset the initial-check ref as we enter the conversations view or when the
+  // active conversation changes. This must run before the auto-navigation
+  // effect so that the navigation logic sees the reset on view entry / id changes.
+  useEffect(() => {
+    isInitialConversationCheckRef.current = true;
+  }, [view, workspaceSection, activeConversationId]);
+
+  useEffect(() => {
+    if (!isPracticeWorkspace || workspaceSection !== 'conversations' || view !== 'conversation') {
+      return;
+    }
+    // Only perform the auto-navigation on the initial check for this view to
+    // avoid background refreshes or later filter changes forcing navigation.
+    if (!isInitialConversationCheckRef.current) return;
+
+    if (!activeConversationId || resolvedConversationsLoading || !intakeLookupLoaded || acceptedIntakeConversationsLoading) {
+      // Still loading data — defer the initial check until data is ready.
+      return;
+    }
+
+    if (filteredConversations.some((conversation) => conversation.id === activeConversationId)) {
+      isInitialConversationCheckRef.current = false;
+      return;
+    }
+
+    // Verify whether the conversation truly no longer exists anywhere before
+    // navigating. If it still exists in the full resolved list or intake lookup
+    // (but is just hidden by filters), surface a non-disruptive notification
+    // instead of forcing navigation.
+    const existsInResolved = resolvedConversations.some((c) => c.id === activeConversationId);
+    const existsInAcceptedIntakes = intakeTriageStatusLookup.byConversationId.has(activeConversationId)
+      || acceptedIntakeConversationIds.includes(activeConversationId)
+      || acceptedIntakeConversationsRef.current.some((c) => c.id === activeConversationId);
+
+    if (existsInResolved || existsInAcceptedIntakes || resolvedConversationsLoading || !intakeLookupLoaded) {
+      setActiveConversationMissingNotification('The selected conversation is currently hidden by filters or still loading.');
+      isInitialConversationCheckRef.current = false;
+      return;
+    }
+
+    const firstConversationId = filteredConversations[0]?.id;
+    if (!firstConversationId) {
+      navigate(withWidgetQuery(conversationsPath));
+      isInitialConversationCheckRef.current = false;
+      return;
+    }
+    handleSelectConversation(firstConversationId);
+    isInitialConversationCheckRef.current = false;
+  }, [
+    activeConversationId,
+    acceptedIntakeConversationIds,
+    acceptedIntakeConversationsLoading,
+    conversationsPath,
+    filteredConversations,
+    handleSelectConversation,
+    intakeTriageStatusLookup.byConversationId,
+    intakeLookupLoaded,
+    isPracticeWorkspace,
+    navigate,
+    resolvedConversations,
+    resolvedConversationsLoading,
+    view,
+    withWidgetQuery,
+    workspaceSection,
+  ]);
+
+  
 
   useEffect(() => {
     if (!isClientWorkspace || layoutMode !== 'desktop') {
@@ -863,8 +1076,8 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     const fallbackPracticeName = typeof practiceName === 'string'
       ? practiceName.trim()
       : '';
-    if (resolvedConversations.length > 0) {
-      const sorted = [...resolvedConversations].sort((a, b) => {
+    if (filteredConversations.length > 0) {
+      const sorted = [...filteredConversations].sort((a, b) => {
         const aTime = new Date(a.updated_at).getTime();
         const bTime = new Date(b.updated_at).getTime();
         return bTime - aTime;
@@ -913,10 +1126,15 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       avatarSrc: practiceLogo ?? null,
       conversationId: null
     };
-  }, [practiceLogo, practiceName, conversationPreviews, resolvedConversations, filteredMessages]);
+  }, [practiceLogo, practiceName, conversationPreviews, filteredConversations, filteredMessages]);
 
   const { currentPractice, updatePractice } = usePracticeManagement({ fetchOnboardingStatus: false });
   const { showSuccess, showError } = useToastContext();
+  useEffect(() => {
+    if (!activeConversationMissingNotification) return;
+    showError('Conversation', activeConversationMissingNotification);
+    setActiveConversationMissingNotification(null);
+  }, [activeConversationMissingNotification, showError]);
   const handleOnboardingMessageError = useCallback((error: unknown) => {
     const message = error instanceof Error ? error.message : 'Onboarding chat error';
     showError('Onboarding', message);
@@ -953,11 +1171,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     matters: mattersData.isLoaded ? mattersData.items : undefined,
   });
 
-  const {
-    items: allIntakes,
-  } = useIntakesData(isPracticeWorkspace ? (currentPractice?.id ?? practiceId ?? null) : null, {
-    enabled: isPracticeWorkspace && view === 'home',
-  });
   const recentIntakes = useMemo(() => {
     return allIntakes.slice(0, 3);
   }, [allIntakes]);
@@ -1105,7 +1318,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   }, [forcePreviewReload, updateSetupDetails]);
 
   const workspacePracticeId = practiceId ?? currentPractice?.id ?? null;
-  const organizationId = practiceId ?? currentPractice?.id ?? null;
   const { members: practiceMembers } = usePracticeTeam(
     workspacePracticeId,
     session?.user?.id ?? null,
@@ -1145,13 +1357,13 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   useEffect(() => { showErrorRef.current = showError; });
 
   const refreshStripeStatus = useCallback(async (options?: { signal?: AbortSignal }) => {
-    if (!organizationId || !shouldFetchStripeStatus) {
+    if (!workspacePracticeId || !shouldFetchStripeStatus) {
       setStripeStatus(null);
       return;
     }
     setIsStripeLoading(true);
     try {
-      const payload = await getOnboardingStatusPayload(organizationId, { signal: options?.signal });
+      const payload = await getOnboardingStatusPayload(workspacePracticeId, { signal: options?.signal });
       const status = extractStripeStatusFromPayload(payload);
       setStripeStatus(status ?? null);
     } catch (error) {
@@ -1165,20 +1377,20 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     } finally {
       setIsStripeLoading(false);
     }
-  // organizationId and shouldFetchStripeStatus are both stable primitives
-  }, [organizationId, shouldFetchStripeStatus]);
+  // workspacePracticeId and shouldFetchStripeStatus are both stable primitives
+  }, [workspacePracticeId, shouldFetchStripeStatus]);
 
-  // Only fetch when organizationId changes and the current view needs Stripe status.
+  // Only fetch when workspacePracticeId changes and the current view needs Stripe status.
   useEffect(() => {
-    if (!organizationId || !shouldFetchStripeStatus) return;
+    if (!workspacePracticeId || !shouldFetchStripeStatus) return;
     const controller = new AbortController();
     void refreshStripeStatus({ signal: controller.signal });
     return () => controller.abort();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [organizationId, shouldFetchStripeStatus]);
+  }, [workspacePracticeId, shouldFetchStripeStatus]);
 
   const handleStartStripeOnboarding = useCallback(async () => {
-    if (!organizationId) {
+    if (!workspacePracticeId) {
       showError('Payouts', 'Missing active practice.');
       return;
     }
@@ -1200,7 +1412,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     try {
       const connectedAccount = await createConnectedAccount({
         practiceEmail: email,
-        practiceUuid: organizationId,
+        practiceUuid: workspacePracticeId,
         returnUrl: returnUrl.toString(),
         refreshUrl: refreshUrl.toString()
       });
@@ -1221,7 +1433,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       setIsStripeSubmitting(false);
     }
 
-  }, [organizationId, currentPractice?.businessEmail, session?.user?.email, showError]);
+  }, [workspacePracticeId, currentPractice?.businessEmail, session?.user?.email, showError]);
 
   const handleIntakePreviewSubmit = useCallback(async () => {
     showSuccess('Intake preview submitted', 'This submission is for preview only.');
@@ -1531,8 +1743,8 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       previews={conversationPreviews}
       practiceName={practiceName}
       practiceLogo={practiceLogo}
-      isLoading={resolvedConversationsLoading}
-      error={resolvedConversationsError}
+      isLoading={combinedResolvedConversationsLoading}
+      error={combinedResolvedConversationsError}
       onSelectConversation={handleSelectConversation}
       onSendMessage={() => handleStartConversation('ASK_QUESTION')}
       showSendMessageButton={false /* Permanent UX decision: conversation creation is initiated from guided entry points, not from list headers. */}
@@ -1637,8 +1849,8 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
           previews={conversationPreviews}
           practiceName={practiceName}
           practiceLogo={practiceLogo}
-          isLoading={resolvedConversationsLoading}
-          error={resolvedConversationsError}
+          isLoading={combinedResolvedConversationsLoading}
+          error={combinedResolvedConversationsError}
           onSelectConversation={handleSelectConversation}
           onSendMessage={() => handleStartConversation('ASK_QUESTION')}
           showSendMessageButton={false /* Permanent UX decision: conversation creation is initiated from guided entry points, not from list headers. */}

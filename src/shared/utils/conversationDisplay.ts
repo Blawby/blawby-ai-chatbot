@@ -59,3 +59,68 @@ export const resolveConversationDisplayTitle = (
 
   return fallback;
 };
+
+export const resolveConversationCaseTitle = (value: ConversationLike, fallback: string): string => {
+  const metadata = getMetadata(value);
+  if (!metadata) return fallback;
+
+  const title = trimString(metadata.title) || trimString(metadata.intake_title);
+  return title || fallback;
+};
+
+export const resolveConversationIntakeUuid = (value: ConversationLike): string | null => {
+  const metadata = getMetadata(value);
+  if (!metadata) return null;
+
+  const directUuid = trimString(metadata.intakeUuid);
+  if (directUuid) return directUuid;
+
+  const consultation = resolveConsultationState(metadata);
+  const consultationUuid = trimString(consultation?.submission?.intakeUuid);
+  return consultationUuid || null;
+};
+
+const normalizeTriageStatus = (value: unknown): string | null => {
+  const normalized = trimString(value).toLowerCase();
+  return normalized || null;
+};
+
+const resolveMetadataTriageStatus = (metadata: ConversationMetadata | null): string | null => {
+  if (!metadata) return null;
+  return normalizeTriageStatus(metadata.triageStatus)
+    ?? normalizeTriageStatus(metadata.triage_status)
+    ?? normalizeTriageStatus(metadata.intakeTriageStatus)
+    ?? normalizeTriageStatus(metadata.intake_triage_status);
+};
+
+const isVisibleTriageStatus = (status: string | null): boolean | null => {
+  if (!status) return null;
+  return status === 'accepted';
+};
+
+export const shouldShowConversationInPracticeInbox = (
+  conversation: Conversation,
+  intakeTriageStatus?: string | null,
+  options: { intakeLookupLoaded?: boolean; requireAcceptedIntakeRecord?: boolean } = {}
+): boolean => {
+  const authoritativeVisibility = isVisibleTriageStatus(normalizeTriageStatus(intakeTriageStatus));
+  if (authoritativeVisibility !== null) return authoritativeVisibility;
+
+  if (options.requireAcceptedIntakeRecord) {
+    if (conversation.matter_id) return true;
+    if (conversation.lead?.matter_id) return true;
+    return false;
+  }
+
+  const metadata = getMetadata(conversation);
+  const consultation = resolveConsultationState(metadata);
+  const metadataVisibility = isVisibleTriageStatus(resolveMetadataTriageStatus(metadata));
+  if (metadataVisibility !== null) return metadataVisibility;
+
+  if (!consultation) return true;
+  if (conversation.matter_id) return true;
+  if (conversation.lead?.matter_id) return true;
+  if (options.intakeLookupLoaded) return false;
+
+  return true;
+};

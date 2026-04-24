@@ -192,7 +192,7 @@ const Message: FunctionComponent<MessageProps> = memo(({
 
 	const messageAvatar = avatar;
 	const showHeader = Boolean(authorName || timestamp);
-	const contentClassName = showHeader ? 'mt-1' : '';
+	const contentClassName = '';
 	const formattedTime = timestamp
 		? formatRelativeTime(new Date(timestamp))
 		: null;

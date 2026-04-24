@@ -1,20 +1,13 @@
 import { useState, useEffect } from 'preact/hooks';
-import { getClient } from '@/shared/lib/authClient';
+import { getSession } from '@/shared/lib/authClient';
 import { rememberAnonymousUserId, rememberAnonymousSessionId } from '@/shared/utils/anonymousIdentity';
 import { clearWidgetAuthToken, persistWidgetAuthToken, withWidgetAuthHeaders } from '@/shared/utils/widgetAuth';
 import type { IntakeTemplate } from '@/shared/types/intake';
+import type { AuthSessionPayload } from '@/shared/types/user';
 
 export interface WidgetBootstrapData {
   practiceDetails: Record<string, unknown> | null;
-  session: {
-    id?: string | null;
-    user?: {
-      id: string;
-      isAnonymous?: boolean;
-      is_anonymous?: boolean;
-      [key: string]: unknown;
-    } | null;
-  } | null;
+  session: AuthSessionPayload;
   conversationId: string | null;
   conversations: Array<Record<string, unknown>>;
   widgetAuthToken?: string | null;
@@ -104,16 +97,11 @@ export function useWidgetBootstrap(slug: string, isWidget: boolean) {
         // If we dispatch auth:session-updated before the fetch completes, those
         // hooks will read the old (null) session and block or error.
         const bootstrapUser = freshData.session?.user;
-        const isAnonymousUser = bootstrapUser
-          ? (typeof bootstrapUser.isAnonymous === 'boolean'
-              ? bootstrapUser.isAnonymous
-              : typeof (bootstrapUser as Record<string, unknown>).is_anonymous === 'boolean'
-                ? Boolean((bootstrapUser as Record<string, unknown>).is_anonymous)
-                : false)
-          : false;
+        // Rely on backend field names only
+        const isAnonymousUser = bootstrapUser?.is_anonymous === true;
 
-        const bootstrapSessionId = typeof freshData.session?.id === 'string'
-          ? freshData.session.id.trim()
+        const bootstrapSessionId = typeof freshData.session?.session?.id === 'string'
+          ? freshData.session.session.id.trim()
           : null;
 
         if (bootstrapUser && isAnonymousUser) {
@@ -129,7 +117,7 @@ export function useWidgetBootstrap(slug: string, isWidget: boolean) {
             rememberAnonymousSessionId(bootstrapSessionId);
           }
           try {
-            await getClient().getSession();
+            await getSession();
           } catch (sessionError) {
             // Non-fatal: the cookie was still set by the worker.
             // The next call that requires auth will pick it up automatically.

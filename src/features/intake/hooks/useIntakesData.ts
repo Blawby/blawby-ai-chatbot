@@ -42,12 +42,15 @@ export function useIntakesData(
   options: {
     filter?: IntakesFilter;
     page?: number;
+    limit?: number;
     enabled?: boolean;
   } = {}
 ): UseIntakesDataResult {
-  const { enabled = true } = options;
+  const { enabled = true, limit } = options;
   const [filter, setFilterState] = useState<IntakesFilter>(options.filter ?? 'all');
   const [page, setPageState] = useState(options.page ?? 1);
+  const effectivePage = options.page ?? page;
+  const effectiveFilter = options.filter ?? filter;
   const [items, setItems] = useState<IntakeListItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
@@ -79,13 +82,13 @@ export function useIntakesData(
 
     // Map "queue" filter names to the API-level triage_status params
     const triageStatus: IntakeListParams['triage_status'] = (() => {
-      if (filter === 'pending') return 'pending_review';
-      if (filter === 'accepted') return 'accepted';
-      if (filter === 'declined') return 'declined';
+      if (effectiveFilter === 'pending') return 'pending_review';
+      if (effectiveFilter === 'accepted') return 'accepted';
+      if (effectiveFilter === 'declined') return 'declined';
       return undefined;
     })();
 
-    listIntakes(practiceId, { page, triage_status: triageStatus }, { signal: controller.signal })
+    listIntakes(practiceId, { page: effectivePage, limit, triage_status: triageStatus }, { signal: controller.signal })
       .then((result) => {
         if (!isMountedRef.current || controller.signal.aborted) return;
         setItems(result.intakes);
@@ -105,16 +108,28 @@ export function useIntakesData(
       });
 
     return () => controller.abort();
-  }, [practiceId, filter, page, enabled, retryTick]);
+  }, [practiceId, effectiveFilter, effectivePage, limit, enabled, retryTick]);
+
+  // If the caller controls the filter (options.filter provided) but does not
+  // control the page (options.page undefined), reset the internal page state
+  // to 1 whenever the controlled filter value changes so pagination doesn't
+  // remain stale across filter switches.
+  useEffect(() => {
+    if (options.page === undefined) {
+      setPageState(1);
+    }
+  }, [options.filter, options.page]);
 
   const setFilter = useCallback((f: IntakesFilter) => {
+    if (options.filter !== undefined) return;
     setFilterState(f);
     setPageState(1);
-  }, []);
+  }, [options.filter]);
 
   const setPage = useCallback((p: number) => {
+    if (options.page !== undefined) return;
     setPageState(p);
-  }, []);
+  }, [options.page]);
 
   const refetch = useCallback(() => {
     setRetryTick((t) => t + 1);
@@ -125,10 +140,10 @@ export function useIntakesData(
     isLoading,
     isLoaded,
     error,
-    page,
+    page: effectivePage,
     totalPages,
     total,
-    filter,
+    filter: effectiveFilter,
     setFilter,
     setPage,
     refetch,

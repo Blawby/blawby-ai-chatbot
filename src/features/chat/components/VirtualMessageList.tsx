@@ -37,6 +37,7 @@ export interface OnboardingActions {
 interface VirtualMessageListProps {
     messages: ChatMessageUI[];
     conversationTitle?: string | null;
+    conversationContactName?: string | null;
     viewerContext?: 'practice' | 'client' | 'public';
     practiceConfig?: {
         name: string;
@@ -88,6 +89,7 @@ const DEBUG_PAGINATION = typeof process !== 'undefined' && process.env.NODE_ENV 
 const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
     messages,
     conversationTitle,
+    conversationContactName,
     viewerContext,
     practiceConfig,
     isPublicWorkspace = false,
@@ -155,7 +157,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
     const resolvedConversationName = conversationTitle?.trim() || '';
     const currentUserName = (
         isPublicWorkspace
-        && (session?.user?.isAnonymous === true || !sessionUserName)
+        && (session?.user?.is_anonymous === true || !sessionUserName)
         && resolvedConversationName
     ) ? resolvedConversationName : (sessionUserName || 'You');
     const virtualizationEnabled = dedupedMessages.length > BATCH_SIZE * 2;
@@ -185,7 +187,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
         name: 'Practice'
     };
     const clientProfile = {
-        name: conversationTitle?.trim() || 'Person'
+        name: conversationContactName?.trim() || conversationTitle?.trim() || 'Person'
     };
     const blawbyProfile = {
         src: '/blawby-favicon-iframe.png',

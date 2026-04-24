@@ -439,16 +439,14 @@ export async function getConversationParticipants(
   return rows
     .filter((row): row is Record<string, unknown> => isRecord(row))
     .map((row) => ({
-      userId: typeof row.userId === 'string'
-        ? row.userId
-        : (typeof row.user_id === 'string' ? row.user_id : ''),
+      userId: typeof row.user_id === 'string' ? row.user_id : '',
       role: typeof row.role === 'string' ? row.role : null,
       name: typeof row.name === 'string' ? row.name : null,
       image: typeof row.image === 'string' ? row.image : null,
-      isTeamMember: row.isTeamMember === true || row.is_team_member === true,
-      canBeMentionedByTeamMember: row.canBeMentionedByTeamMember === true || row.can_be_mentioned_by_team_member === true,
-      canBeMentionedByClient: row.canBeMentionedByClient === true || row.can_be_mentioned_by_client === true,
-      canMentionInternally: row.canMentionInternally === true || row.can_mention_internally === true,
+      isTeamMember: row.is_team_member === true,
+      canBeMentionedByTeamMember: row.can_be_mentioned_by_team_member === true,
+      canBeMentionedByClient: row.can_be_mentioned_by_client === true,
+      canMentionInternally: row.can_mention_internally === true,
     }))
     .filter((row) => row.userId.trim().length > 0);
 }
@@ -554,13 +552,13 @@ function normalizePracticeInvitationPayload(payload: unknown): Record<string, un
   }
 
   const id = toNullableString(payload.id);
-  const practiceId = toNullableString(payload.practiceId ?? payload.practice_id ?? payload.organizationId ?? payload.organization_id);
+  const practiceId = toNullableString(payload.organizationId);
   const email = toNullableString(payload.email);
   const role = toNullableString(payload.role);
   const status = normalizeInvitationStatus(payload.status);
-  const invitedBy = toNullableString(payload.invitedBy ?? payload.invited_by ?? payload.inviterId ?? payload.inviter_id);
-  const expiresAt = toNullableTimestamp(payload.expiresAt ?? payload.expires_at);
-  const createdAt = toNullableTimestamp(payload.createdAt ?? payload.created_at);
+  const invitedBy = toNullableString(payload.inviterId);
+  const expiresAt = toNullableTimestamp(payload.expiresAt);
+  const createdAt = toNullableTimestamp(payload.createdAt);
 
   if (!id || !practiceId || !email || !role || !status || !invitedBy || expiresAt === null || createdAt === null) {
     return null;
@@ -569,12 +567,7 @@ function normalizePracticeInvitationPayload(payload: unknown): Record<string, un
   return {
     id,
     practiceId,
-    practiceName: toNullableString(
-      payload.practiceName ??
-      payload.practice_name ??
-      payload.organizationName ??
-      payload.organization_name
-    ) ?? undefined,
+    practiceName: toNullableString(payload.organizationName) ?? undefined,
     email,
     role,
     status,
@@ -595,7 +588,6 @@ function normalizePracticePayload(payload: unknown): Practice {
     record.uuid ??
     record.practice_id ??
     record.practice_uuid ??
-    record.practiceUuid ??
     ''
   );
   const name = String(record.name ?? 'Practice');
@@ -616,20 +608,20 @@ function normalizePracticePayload(payload: unknown): Practice {
       }
       return undefined;
     })(),
-    businessPhone: toNullableString(record.businessPhone ?? record.business_phone),
-    businessEmail: toNullableString(record.businessEmail ?? record.business_email),
+    businessPhone: toNullableString(record.business_phone),
+    businessEmail: toNullableString(record.business_email),
     consultationFee: (() => {
-      const rawFee = record.consultationFee ?? record.consultation_fee;
+      const rawFee = record.consultation_fee;
       if (typeof rawFee !== 'number') return null;
       assertMinorUnits(rawFee, 'practice.consultationFee');
       return toMajorUnits(Number(rawFee));
     })() ?? null,
-    paymentUrl: toNullableString(record.paymentUrl ?? record.payment_url),
-    calendlyUrl: toNullableString(record.calendlyUrl ?? record.calendly_url),
-    createdAt: toNullableString(record.createdAt ?? record.created_at),
-    updatedAt: toNullableString(record.updatedAt ?? record.updated_at),
+    paymentUrl: toNullableString(record.payment_url),
+    calendlyUrl: toNullableString(record.calendly_url),
+    createdAt: toNullableString(record.created_at),
+    updatedAt: toNullableString(record.updated_at),
     billingIncrementMinutes: (() => {
-      const value = record.billingIncrementMinutes ?? record.billing_increment_minutes;
+      const value = record.billing_increment_minutes;
       if (value === null || value === undefined) return null;
       if (typeof value === 'number' && Number.isFinite(value)) return value;
       if (typeof value === 'string' && value.trim().length > 0) {
@@ -643,13 +635,13 @@ function normalizePracticePayload(payload: unknown): Practice {
     apartment: toNullableString(record.apartment ?? record.address_line_2),
     city: toNullableString(record.city),
     state: toNullableString(record.state),
-    postalCode: toNullableString(record.postalCode ?? record.postal_code),
+    postalCode: toNullableString(record.postal_code),
     country: toNullableString(record.country),
-    primaryColor: toNullableString(record.primaryColor ?? record.primary_color),
-    accentColor: toNullableString(record.accentColor ?? record.accent_color),
-    legalDisclaimer: toNullableString(record.legalDisclaimer ?? record.legal_disclaimer ?? record.overview),
-    isPublic: 'isPublic' in record || 'is_public' in record
-      ? Boolean(record.isPublic ?? record.is_public)
+    primaryColor: toNullableString(record.primary_color),
+    accentColor: toNullableString(record.accent_color),
+    legalDisclaimer: toNullableString(record.legal_disclaimer ?? record.overview),
+    isPublic: 'is_public' in record
+      ? Boolean(record.is_public)
       : null,
     services: Array.isArray(record.services)
       ? (record.services as Array<Record<string, unknown>>)
@@ -711,13 +703,13 @@ function normalizeConnectedAccountResponse(payload: unknown): ConnectedAccountRe
   }
 
   return {
-    practiceUuid: String(payload.practice_uuid ?? payload.practiceUuid ?? ''),
-    stripeAccountId: String(payload.stripe_account_id ?? payload.stripeAccountId ?? ''),
-    clientSecret: toNullableString(payload.client_secret ?? payload.clientSecret),
-    onboardingUrl: toNullableString(payload.onboarding_url ?? payload.onboardingUrl ?? payload.url),
-    chargesEnabled: Boolean(payload.charges_enabled ?? payload.chargesEnabled),
-    payoutsEnabled: Boolean(payload.payouts_enabled ?? payload.payoutsEnabled),
-    detailsSubmitted: Boolean(payload.details_submitted ?? payload.detailsSubmitted)
+    practiceUuid: String(payload.practice_uuid ?? ''),
+    stripeAccountId: String(payload.stripe_account_id ?? ''),
+    clientSecret: toNullableString(payload.client_secret),
+    onboardingUrl: toNullableString(payload.url),
+    chargesEnabled: Boolean(payload.charges_enabled),
+    payoutsEnabled: Boolean(payload.payouts_enabled),
+    detailsSubmitted: Boolean(payload.details_submitted)
   };
 }
 
@@ -728,13 +720,13 @@ function normalizeOnboardingStatus(payload: unknown): OnboardingStatus {
   }
 
   return {
-    practiceUuid: String(normalized.practice_uuid ?? normalized.practiceUuid ?? ''),
-    stripeAccountId: toNullableString(normalized.stripe_account_id ?? normalized.stripeAccountId),
-    connectedAccountId: toNullableString(normalized.connected_account_id ?? normalized.connectedAccountId),
-    clientSecret: toNullableString(normalized.client_secret ?? normalized.clientSecret),
-    chargesEnabled: Boolean(normalized.charges_enabled ?? normalized.chargesEnabled),
-    payoutsEnabled: Boolean(normalized.payouts_enabled ?? normalized.payoutsEnabled),
-    detailsSubmitted: Boolean(normalized.details_submitted ?? normalized.detailsSubmitted),
+    practiceUuid: String(normalized.practice_uuid ?? ''),
+    stripeAccountId: toNullableString(normalized.stripe_account_id),
+    connectedAccountId: toNullableString(normalized.connected_account_id),
+    clientSecret: toNullableString(normalized.client_secret),
+    chargesEnabled: Boolean(normalized.charges_enabled),
+    payoutsEnabled: Boolean(normalized.payouts_enabled),
+    detailsSubmitted: Boolean(normalized.details_submitted),
     completed: 'completed' in normalized ? Boolean(normalized.completed) : undefined
   };
 }
@@ -865,13 +857,15 @@ export async function createPracticeInvitation(
   }
   const inviteUrl = toNullableString(
     data.inviteUrl ??
-    data.invite_url ??
+    data.inviteLink ??
     data.url ??
-    (isRecord(data.invitation) ? (data.invitation as Record<string, unknown>).inviteUrl ?? (data.invitation as Record<string, unknown>).invite_url : null)
+    (isRecord(data.invitation)
+      ? ((data.invitation as Record<string, unknown>).inviteUrl
+        ?? (data.invitation as Record<string, unknown>).inviteLink)
+      : null)
   );
   const invitationId = toNullableString(
     data.invitationId ??
-    data.invitation_id ??
     data.id ??
     (isRecord(data.invitation) ? (data.invitation as Record<string, unknown>).id : null)
   );
@@ -936,18 +930,14 @@ export async function listPracticeTeam(
         }
 
         return {
-          userId: typeof member.userId === 'string'
-            ? member.userId
-            : (typeof member.user_id === 'string' ? member.user_id : ''),
+          userId: typeof member.user_id === 'string' ? member.user_id : '',
           email: typeof member.email === 'string' ? member.email : '',
           name: typeof member.name === 'string' ? member.name : undefined,
           image: typeof member.image === 'string' ? member.image : null,
           role,
-          createdAt: typeof member.createdAt === 'number'
-            ? member.createdAt
-            : (typeof member.created_at === 'number' ? member.created_at : null),
-          canAssignToMatter: member.canAssignToMatter === true || member.can_assign_to_matter === true,
-          canMentionInternally: member.canMentionInternally === true || member.can_mention_internally === true,
+          createdAt: typeof member.created_at === 'number' ? member.created_at : null,
+          canAssignToMatter: member.can_assign_to_matter === true,
+          canMentionInternally: member.can_mention_internally === true,
         };
       })
       .filter((member): member is PracticeTeamResponse['members'][number] => (
@@ -956,12 +946,8 @@ export async function listPracticeTeam(
         && member.userId.trim().length > 0
       )),
     summary: {
-      seatsIncluded: typeof rawSummary.seatsIncluded === 'number'
-        ? rawSummary.seatsIncluded
-        : (typeof rawSummary.seats_included === 'number' ? rawSummary.seats_included : 1),
-      seatsUsed: typeof rawSummary.seatsUsed === 'number'
-        ? rawSummary.seatsUsed
-        : (typeof rawSummary.seats_used === 'number' ? rawSummary.seats_used : 0),
+      seatsIncluded: typeof rawSummary.seats_included === 'number' ? rawSummary.seats_included : 1,
+      seatsUsed: typeof rawSummary.seats_used === 'number' ? rawSummary.seats_used : 0,
     }
   };
 }
@@ -1396,18 +1382,11 @@ export async function getPracticeDetails(
   if (!practiceId) {
     throw new Error('practiceId is required');
   }
-  try {
-    const response = await apiClient.get(
-      `/api/practice/${encodeURIComponent(practiceId)}/details`,
-      { signal: config?.signal }
-    );
-    return normalizePracticeDetailsResponse(response.data);
-  } catch (error) {
-    if (axios.isAxiosError(error) && error.response?.status === 404) {
-      return null;
-    }
-    throw error;
-  }
+  const response = await apiClient.get(
+    `/api/practice/${encodeURIComponent(practiceId)}/details`,
+    { signal: config?.signal }
+  );
+  return normalizePracticeDetailsResponse(response.data);
 }
 
 export async function getPracticeDetailsBySlug(
@@ -1421,18 +1400,11 @@ export async function getPracticeDetailsBySlug(
   if (!normalizedSlug) {
     throw new Error('practice slug is required');
   }
-  try {
-    const response = await apiClient.get(
-      `/api/practice/details/${encodeURIComponent(normalizedSlug)}`,
-      { signal: config?.signal }
-    );
-    return normalizePracticeDetailsResponse(response.data);
-  } catch (error) {
-    if (axios.isAxiosError(error) && error.response?.status === 404) {
-      return null;
-    }
-    throw error;
-  }
+  const response = await apiClient.get(
+    `/api/practice/details/${encodeURIComponent(normalizedSlug)}`,
+    { signal: config?.signal }
+  );
+  return normalizePracticeDetailsResponse(response.data);
 }
 
 export interface PublicPracticeDetails {
@@ -1558,8 +1530,8 @@ function extractPublicPracticeDisplayDetails(
   pushCandidate(payload);
 
   for (const candidate of candidates) {
-    const name = toNullableString(candidate.name ?? candidate.practiceName ?? candidate.practice_name);
-    const rawLogo = toNullableString(candidate.logo ?? candidate.practiceLogo ?? candidate.practice_logo);
+    const name = toNullableString(candidate.name ?? candidate.practice_name);
+    const rawLogo = toNullableString(candidate.logo ?? candidate.practice_logo);
     const logo = normalizePublicFileUrl(rawLogo);
     if (name || logo) {
       return { name, logo };
@@ -1592,15 +1564,14 @@ function extractPublicPracticeId(payload: unknown): string | null {
 
   for (const candidate of candidates) {
     const id = toNullableString(
-      candidate.organizationId ?? candidate.organization_id ??
-      candidate.practiceId ?? candidate.practice_id ??
+      candidate.organization_id ??
+      candidate.practice_id ??
       candidate.id
     );
     if (id) return id;
     if ('organization' in candidate && isRecord(candidate.organization)) {
       const nested = toNullableString(
         (candidate.organization as Record<string, unknown>).id ??
-        (candidate.organization as Record<string, unknown>).organizationId ??
         (candidate.organization as Record<string, unknown>).organization_id
       );
       if (nested) return nested;
@@ -1608,14 +1579,13 @@ function extractPublicPracticeId(payload: unknown): string | null {
     if ('practice' in candidate && isRecord(candidate.practice)) {
       const practice = candidate.practice as Record<string, unknown>;
       const practiceId = toNullableString(
-        practice.practiceId ?? practice.practice_id ?? practice.organizationId ??
+        practice.practice_id ??
         practice.organization_id ?? practice.id
       );
       if (practiceId) return practiceId;
       if ('organization' in practice && isRecord(practice.organization)) {
         const nested = toNullableString(
           (practice.organization as Record<string, unknown>).id ??
-          (practice.organization as Record<string, unknown>).organizationId ??
           (practice.organization as Record<string, unknown>).organization_id
         );
         if (nested) return nested;
@@ -1804,37 +1774,23 @@ export function normalizePracticeDetailsResponse(payload: unknown): PracticeDeta
     'logo',
     'slug',
     'overview',
-    'legalDisclaimer',
     'legal_disclaimer',
     'intro_message',
-    'introMessage',
     'business_phone',
-    'businessPhone',
     'business_email',
-    'businessEmail',
     'consultation_fee',
-    'consultationFee',
     'payment_link_enabled',
-    'paymentLinkEnabled',
     'billing_increment_minutes',
-    'billingIncrementMinutes',
     'payment_url',
-    'paymentUrl',
     'calendly_url',
-    'calendlyUrl',
     'website',
     'accent_color',
-    'accentColor',
     'primary_color',
-    'primaryColor',
     'is_public',
-    'isPublic',
     'services',
     'address',
     'service_states',
-    'serviceStates',
     'supported_states',
-    'supportedStates',
     'settings',
   ].some((key) => key in value));
   const resolveCandidate = (value: unknown): Record<string, unknown> | null =>
@@ -1910,15 +1866,15 @@ export function normalizePracticeDetailsResponse(payload: unknown): PracticeDeta
   };
 
   return {
-    id: getOptionalNullableString(container, ['id', 'uuid', 'practice_id', 'practiceId', 'organization_id', 'organizationId']) ?? undefined,
-    businessPhone: getOptionalNullableString(container, ['business_phone', 'businessPhone']),
-    businessEmail: getOptionalNullableString(container, ['business_email', 'businessEmail']),
-    name: getOptionalNullableString(container, ['name', 'practice_name', 'business_name', 'businessName']),
-    logo: normalizePublicFileUrl(getOptionalNullableString(container, ['logo', 'logo_url', 'logoUrl', 'profile_image', 'profileImage'])),
+    id: getOptionalNullableString(container, ['id', 'uuid', 'practice_id', 'organization_id']) ?? undefined,
+    businessPhone: getOptionalNullableString(container, ['business_phone']),
+    businessEmail: getOptionalNullableString(container, ['business_email']),
+    name: getOptionalNullableString(container, ['name', 'practice_name', 'business_name']),
+    logo: normalizePublicFileUrl(getOptionalNullableString(container, ['logo', 'logo_url', 'profile_image'])),
     slug: getOptionalNullableString(container, ['slug', 'practice_slug']),
     consultationFee: (() => {
-      if ('consultation_fee' in container || 'consultationFee' in container) {
-        const value = container.consultation_fee ?? container.consultationFee;
+      if ('consultation_fee' in container) {
+        const value = container.consultation_fee;
         if (typeof value === 'number') {
           assertMinorUnits(value, 'practice.details.consultationFee');
           return toMajorUnits(value);
@@ -1928,20 +1884,20 @@ export function normalizePracticeDetailsResponse(payload: unknown): PracticeDeta
       return undefined;
     })(),
     paymentLinkEnabled: (() => {
-      if ('payment_link_enabled' in container || 'paymentLinkEnabled' in container) {
-        const value = container.payment_link_enabled ?? container.paymentLinkEnabled;
+      if ('payment_link_enabled' in container) {
+        const value = container.payment_link_enabled;
         return typeof value === 'boolean' ? value : null;
       }
       return undefined;
     })(),
-    paymentUrl: getOptionalNullableString(container, ['payment_url', 'paymentUrl']),
-    calendlyUrl: getOptionalNullableString(container, ['calendly_url', 'calendlyUrl']),
-    billingIncrementMinutes: getOptionalNullableNumber(container, ['billing_increment_minutes', 'billingIncrementMinutes']),
+    paymentUrl: getOptionalNullableString(container, ['payment_url']),
+    calendlyUrl: getOptionalNullableString(container, ['calendly_url']),
+    billingIncrementMinutes: getOptionalNullableNumber(container, ['billing_increment_minutes']),
     website: getOptionalNullableString(container, ['website']),
-    introMessage: getOptionalNullableString(container, ['intro_message', 'introMessage']),
-    legalDisclaimer: getOptionalNullableString(container, ['overview', 'legalDisclaimer', 'legal_disclaimer']),
-    isPublic: 'is_public' in container || 'isPublic' in container
-      ? Boolean(container.is_public ?? container.isPublic)
+    introMessage: getOptionalNullableString(container, ['intro_message']),
+    legalDisclaimer: getOptionalNullableString(container, ['overview', 'legal_disclaimer']),
+    isPublic: 'is_public' in container
+      ? Boolean(container.is_public)
       : undefined,
     services: 'services' in container
       ? (Array.isArray(container.services) ? (container.services as Array<Record<string, unknown>>) : null)
@@ -1950,15 +1906,13 @@ export function normalizePracticeDetailsResponse(payload: unknown): PracticeDeta
     apartment: getOptionalNullableString(address, ['line2', 'apartment']) ?? getOptionalNullableString(container, ['apartment']),
     city: getOptionalNullableString(address, ['city']) ?? getOptionalNullableString(container, ['city']),
     state: getOptionalNullableString(address, ['state']) ?? getOptionalNullableString(container, ['state']),
-    postalCode: getOptionalNullableString(address, ['postal_code', 'postalCode'])
-      ?? getOptionalNullableString(container, ['postalCode', 'postal_code']),
+    postalCode: getOptionalNullableString(address, ['postal_code'])
+      ?? getOptionalNullableString(container, ['postal_code']),
     country: getOptionalNullableString(address, ['country']) ?? getOptionalNullableString(container, ['country']),
-     primaryColor: getOptionalNullableString(container, ['primary_color', 'primaryColor']),
-     accentColor: getOptionalNullableString(container, ['accent_color', 'accentColor']),
+     primaryColor: getOptionalNullableString(container, ['primary_color']),
+     accentColor: getOptionalNullableString(container, ['accent_color']),
      serviceStates: (() => {
-       const raw = 'service_states' in container
-         ? container.service_states
-         : ('serviceStates' in container ? container.serviceStates : undefined);
+       const raw = 'service_states' in container ? container.service_states : undefined;
        if (raw === undefined) return undefined;
        if (!Array.isArray(raw)) return null;
        return raw
@@ -1967,9 +1921,7 @@ export function normalizePracticeDetailsResponse(payload: unknown): PracticeDeta
          .filter(Boolean);
      })(),
      supportedStates: (() => {
-       const raw = 'supported_states' in container
-         ? container.supported_states
-         : ('supportedStates' in container ? container.supportedStates : undefined);
+       const raw = 'supported_states' in container ? container.supported_states : undefined;
        if (raw === undefined) return undefined;
        if (!Array.isArray(raw)) return null;
        const result = raw

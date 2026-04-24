@@ -44,6 +44,83 @@ const buildWidgetUrl = (practiceSlug: string): string => (
   `/public/${encodeURIComponent(practiceSlug)}?v=widget`
 );
 
+type DonePayload = {
+  metadata?: Record<string, unknown>;
+  intakeFields?: Record<string, unknown> | null;
+  question?: {
+    text?: string;
+    options?: Array<{ label?: string; value?: string }>;
+  } | null;
+  wasToolOnly?: boolean;
+  messagePersisted?: boolean;
+  persistedMessageId?: string | null;
+  actions?: Array<Record<string, unknown>> | null;
+};
+
+/**
+ * Robustly parses SSE stream text to extract 'done' payloads.
+ * Handles multi-line chunks and potential JSON fragmentation.
+ */
+function parseDonePayloads(text: string): DonePayload[] {
+  if (!text) return [];
+  // Split into SSE event blocks separated by a blank line (handles \n and \r\n)
+  const events = text.split(/\r?\n\r?\n/);
+  const results: DonePayload[] = [];
+  for (const ev of events) {
+    if (!ev.trim()) continue;
+    const lines = ev.split(/\r?\n/);
+    const dataLines: string[] = [];
+    for (const line of lines) {
+      const trimmed = line.trimStart();
+      if (trimmed.startsWith('data:')) {
+        // remove leading `data:` and optional single space
+        const payloadFragment = trimmed.length > 5 && trimmed[5] === ' ' ? trimmed.slice(6) : trimmed.slice(5);
+        dataLines.push(payloadFragment);
+      }
+    }
+    if (dataLines.length === 0) continue;
+    const assembled = dataLines.join('\n');
+    try {
+      const parsed = JSON.parse(assembled) as unknown;
+      if (parsed && typeof parsed === 'object' && (parsed as any).done) {
+        results.push(parsed as DonePayload);
+      }
+    } catch (_) {
+      // skip malformed JSON fragments
+      continue;
+    }
+  }
+  return results;
+}
+
+/**
+ * Aggregate multiple DonePayload entries into one.
+ * - intakeFields: shallow merge (later values win)
+ * - actions: use the latest explicit actions array (do not concat)
+ * - other scalar fields: overwritten by later payloads
+ */
+function aggregateDonePayloads(payloads: DonePayload[]): DonePayload | null {
+  if (!payloads || payloads.length === 0) return null;
+  const out: DonePayload = {};
+  for (const p of payloads) {
+    if (p.intakeFields && typeof p.intakeFields === 'object') {
+      out.intakeFields = out.intakeFields ?? {};
+      for (const [k, v] of Object.entries(p.intakeFields)) {
+        if (v !== undefined) (out.intakeFields as Record<string, unknown>)[k] = v;
+      }
+    }
+    if (Array.isArray(p.actions)) {
+      // replace actions with the latest explicit array (do not concat)
+      out.actions = p.actions;
+    }
+    if (p.question) out.question = p.question;
+    if (p.persistedMessageId !== undefined) out.persistedMessageId = p.persistedMessageId;
+    if (typeof p.messagePersisted === 'boolean') out.messagePersisted = p.messagePersisted;
+    if (typeof p.wasToolOnly === 'boolean') out.wasToolOnly = p.wasToolOnly;
+  }
+  return Object.keys(out).length ? out : null;
+}
+
 
 // Robustly prepares the widget composer, matching the current WidgetApp/ChatContainer logic.
 const prepareWidgetComposer = async (
@@ -178,6 +255,7 @@ test.describe('Public widget intake flow', () => {
         };
       } | null;
     }> = [];
+    let latestDonePayload: DonePayload | null = null;
 
     anonPage.on('console', (msg) => {
       if (msg.text().includes('[QuickActionDebug]')) {
@@ -245,6 +323,13 @@ test.describe('Public widget intake flow', () => {
             });
           });
       }
+      if (response.url().includes('/api/ai/chat') && response.request().method() === 'POST') {
+        void response.text().then((text) => {
+          const payloads = parseDonePayloads(text);
+          const aggregated = aggregateDonePayloads(payloads);
+          if (aggregated) latestDonePayload = aggregated;
+        }).catch(() => undefined);
+      }
     });
 
     await anonPage.goto(buildWidgetUrl(practiceSlug), { waitUntil: 'domcontentloaded' });
@@ -261,29 +346,35 @@ test.describe('Public widget intake flow', () => {
     ).toBe(true);
 
     const captureLeadFlowState = async () => {
-      return anonPage.evaluate(() => {
-        const bodyText = document.body?.innerText ?? '';
+      const latestSettingsPayload = intakeSettingsPayloads[intakeSettingsPayloads.length - 1] ?? null;
+      return anonPage.evaluate((latestSettings) => {
+        const bodyText = document.body.innerText;
         const allButtons = Array.from(document.querySelectorAll('button'))
-          .map((el) => (el.textContent ?? '').trim())
-          .filter(Boolean)
-          .slice(-20);
+          .filter(b => {
+            const style = window.getComputedStyle(b);
+            return style.display !== 'none' && style.visibility !== 'hidden';
+          })
+          .map(b => (b as HTMLElement).innerText.trim());
+
         const aiMessages = Array.from(document.querySelectorAll('[data-testid="ai-message"]'))
-          .map((el) => (el.textContent ?? '').trim())
-          .slice(-5);
+          .map(m => (m as HTMLElement).innerText.trim());
         const systemMessages = Array.from(document.querySelectorAll('[data-testid="system-message"]'))
-          .map((el) => (el.textContent ?? '').trim())
-          .slice(-5);
+          .map(m => (m as HTMLElement).innerText.trim());
         const userMessages = Array.from(document.querySelectorAll('[data-testid="user-message"]'))
           .map((el) => (el.textContent ?? '').trim())
           .slice(-5);
+
+        const settings = latestSettings?.payload?.data?.settings ?? null;
+
         return {
           url: window.location.href,
           title: document.title,
           bodySnippet: bodyText.slice(-1500),
           buttons: allButtons,
           recentMessages: { userMessages, aiMessages, systemMessages },
+          settings,
         };
-      });
+      }, latestSettingsPayload);
     };
     const safeCaptureLeadFlowState = async () => {
       try {
@@ -312,7 +403,7 @@ test.describe('Public widget intake flow', () => {
       const getLatestMeaningfulAiText = async () => {
         const texts = await aiLocator.evaluateAll((els) => els.map((el) => (el.textContent ?? '').trim()));
         for (let i = texts.length - 1; i >= 0; i -= 1) {
-          const candidate = texts[i]?.trim() ?? '';
+          const candidate = (texts[i] && texts[i].trim()) ?? '';
           if (!candidate) continue;
           if (/loading markdown/i.test(candidate)) continue;
           return candidate;
@@ -377,7 +468,7 @@ test.describe('Public widget intake flow', () => {
         });
         throw new Error(`Expected /api/ai/chat to return 200 for "${text}", but no successful response was observed.`);
       }
-      const contentType = response?.headers()['content-type'] ?? '';
+      const contentType = response ? (response.headers()['content-type'] ?? '') : '';
       const hasValidContentType = contentType.includes('application/json') || contentType.startsWith('text/event-stream');
       if (response.status() !== 200 || !hasValidContentType) {
         const invalidResponseText = await response.text().catch(() => '');
@@ -484,7 +575,7 @@ test.describe('Public widget intake flow', () => {
         response,
         contentType,
         responseText: contentType.includes('application/json') ? '' : await responseTextPromise,
-        replyText: body?.reply ?? body?.message?.content ?? latestVisibleAiText,
+        replyText: (body && (body.reply ?? (body.message && body.message.content))) ?? latestVisibleAiText,
       };
     };
 
@@ -703,10 +794,10 @@ test.describe('Public widget intake flow', () => {
       : null;
     await testInfo.attach('payment-flow-debug.json', {
       body: JSON.stringify({
-        settingsStatus: settingsResponse?.status() ?? null,
-        settingsUrl: settingsResponse?.url() ?? null,
-        submitStatus: submitIntakeResponse?.status() ?? null,
-        submitUrl: submitIntakeResponse?.url() ?? null,
+        settingsStatus: settingsResponse ? settingsResponse.status() : null,
+        settingsUrl: settingsResponse ? settingsResponse.url() : null,
+        submitStatus: submitIntakeResponse ? submitIntakeResponse.status() : null,
+        submitUrl: submitIntakeResponse ? submitIntakeResponse.url() : null,
         submitBody: submitIntakeDebugBody,
       }, null, 2),
       contentType: 'application/json',
@@ -963,33 +1054,7 @@ test.describe('Public widget intake flow', () => {
       'planner-network-log.json'
     );
 
-    type DonePayload = {
-      intakeFields?: Record<string, unknown> | null;
-      actions?: Array<Record<string, unknown>> | null;
-      question?: {
-        text?: string;
-        options?: Array<{ label?: string; value?: string }>;
-      } | null;
-      persistedMessageId?: string | null;
-      messagePersisted?: boolean;
-      wasToolOnly?: boolean;
-    };
 
-    const parseDonePayloads = (text: string) => {
-      const payloads: DonePayload[] = [];
-      const lines = text.split('\n').filter((line) => line.trim().startsWith('data: '));
-      for (const line of lines) {
-        try {
-          const payload = JSON.parse(line.replace(/^data:\s*/, ''));
-          if (payload?.done === true) {
-            payloads.push(payload);
-          }
-        } catch {
-          // Skip malformed SSE payload lines.
-        }
-      }
-      return payloads;
-    };
 
     const networkLog: Array<{ time: string; method: string; url: string; status?: number }> = [];
 
@@ -1035,10 +1100,26 @@ test.describe('Public widget intake flow', () => {
         await anonPage.getByRole('button', { name: /send message/i }).click();
         const response = await responsePromise;
         const responseText = await response.text().catch(() => '');
-        const donePayload = parseDonePayloads(responseText).at(-1) ?? null;
-        if (donePayload) {
-          latestDonePayload = donePayload;
+
+        // Parse all done SSE payloads from the response and attach them for debugging.
+        const payloads = parseDonePayloads(responseText);
+        if (payloads.length) {
+          // Attach the sequence of payloads for observability
+          try {
+            await testInfo.attach(`sse-payloads-${Date.now()}.json`, {
+              body: JSON.stringify(payloads, null, 2),
+              contentType: 'application/json',
+            });
+          } catch {
+            // swallow attach errors - best effort
+          }
         }
+
+        // Aggregate successive done payloads into a single composed payload so tests
+        // don't depend on the exact timing/order of intermediate SSE events.
+        const donePayload = aggregateDonePayloads(payloads);
+        if (donePayload) latestDonePayload = donePayload;
+
         await expect.poll(
           async () => {
             const [sig, streamCount] = await Promise.all([
@@ -1128,8 +1209,8 @@ test.describe('Public widget intake flow', () => {
 
       // ASSERTION 1: Tool should be called when sufficient info provided
       expect(done1, 'Expected a done payload with intake fields after Turn 1.').not.toBeNull();
-      expect(done1?.intakeFields, 'Expected intakeFields in Turn 1 response.').toBeDefined();
-      expect(done1?.intakeFields?.description, 'Expected extracted description in Turn 1 fields.').toBeTruthy();
+      expect(done1 && done1.intakeFields, 'Expected intakeFields in Turn 1 response.').toBeDefined();
+      expect(done1 && done1.intakeFields && done1.intakeFields.description, 'Expected extracted description in Turn 1 fields.').toBeTruthy();
 
       const submitNowButton = anonPage.getByRole('button', { name: /submit request/i });
       const paymentButton = anonPage.locator('button:visible').filter({ hasText: /^(continue|continue\s+to\s+payment|pay\s*(?:&|and)\s*submit)$/i }).first();
@@ -1150,9 +1231,9 @@ test.describe('Public widget intake flow', () => {
 
       // ASSERTION 2: Tool called with location and no contact info requested
       
-      expect(done2?.intakeFields?.city, 'city should be extracted after turn 2').toBeTruthy();
-      expect(done2?.intakeFields?.description, 'description should still be present after turn 2').toBeTruthy();
-      let stateCollected = Boolean(done2?.intakeFields?.state);
+      expect(done2 && done2.intakeFields && done2.intakeFields.city, 'city should be extracted after turn 2').toBeTruthy();
+      expect(done2 && done2.intakeFields && done2.intakeFields.description, 'description should still be present after turn 2').toBeTruthy();
+      let stateCollected = Boolean(done2 && done2.intakeFields && done2.intakeFields.state);
       
       // Verify model did not ask for contact info (system prompt violation)
       // Check for direct request phrases and actual contact formats, not generic mentions
@@ -1175,19 +1256,19 @@ test.describe('Public widget intake flow', () => {
 
       // ASSERTION 2b: Verify normalization layer prevents tool-only responses from being unhandled
       // Verify the model produced a terminal action turn when actions are present.
-      if (done2?.actions && done2.actions.length > 0) {
+      if (done2 && done2.actions && done2.actions.length > 0) {
         expect(
-          done2?.wasToolOnly === true ? !!reply2 : true,
+          (done2 && done2.wasToolOnly) === true ? !!reply2 : true,
           'If wasToolOnly is true, we should have a synthetic reply rendered'
         ).toBe(true);
       }
 
       // Log observability data for model behavior analysis
-      if (done2?.wasToolOnly) {
+      if (done2 && done2.wasToolOnly) {
         console.log('Model produced tool-only response, synthetic reply applied:', {
           replyLength: reply2.length,
-          actionCount: done2?.actions?.length || 0,
-          messagePersisted: done2?.messagePersisted,
+          actionCount: (done2 && done2.actions && done2.actions.length) || 0,
+          messagePersisted: done2.messagePersisted,
         });
       }
 
@@ -1211,11 +1292,11 @@ test.describe('Public widget intake flow', () => {
         await testInfo.attach('planner-turn3-reply.txt', { body: reply3, contentType: 'text/plain' });
         
         // ASSERTION 3: Tool called with opposing party and single question
-        expect(done3?.intakeFields?.opposingParty, 'opposingParty should be extracted after turn 3').toBeTruthy();
+        expect(done3 && done3.intakeFields && done3.intakeFields.opposingParty, 'opposingParty should be extracted after turn 3').toBeTruthy();
         
         // Verify the third turn still produces a terminal action response when applicable.
-        if (done3?.actions && done3.actions.length > 0) {
-          expect(done3?.wasToolOnly === true ? !!reply3 : true, 'Tool/action turns should not collapse to an empty reply').toBe(true);
+        if (done3 && done3.actions && done3.actions.length > 0) {
+          expect((done3 && done3.wasToolOnly) === true ? !!reply3 : true, 'Tool/action turns should not collapse to an empty reply').toBe(true);
         }
         
         // Log observability data for turn 3
@@ -1223,7 +1304,7 @@ test.describe('Public widget intake flow', () => {
           console.log('Turn 3 model behavior:', {
             wasToolOnly: done3.wasToolOnly,
             replyLength: reply3.length,
-            actionCount: done3?.actions?.length || 0,
+            actionCount: (done3 && done3.actions && done3.actions.length) || 0,
             messagePersisted: done3.messagePersisted,
           });
         }
@@ -1278,7 +1359,8 @@ test.describe('Public widget intake flow', () => {
           await timeSensitiveChip.click();
           const response = await responsePromise;
           const responseText = await response.text().catch(() => '');
-          const donePayload = parseDonePayloads(responseText).at(-1) ?? null;
+          const payloads = parseDonePayloads(responseText);
+          const donePayload = aggregateDonePayloads(payloads);
           if (donePayload) {
             latestDonePayload = donePayload;
           }
@@ -1412,6 +1494,7 @@ test.describe('Public widget intake flow', () => {
     const aiLocator = anonPage.locator('[data-testid="ai-message"], [data-testid="system-message"]');
     const streamingLocator = anonPage.locator('[id^="message-streaming-"]');
     const terminalActionButton = anonPage.locator('button:visible').filter({ hasText: /(pay|continue|submit request)/i }).first();
+    let latestDonePayload: DonePayload | null = null;
 
     const getLatestAiText = async () => {
       const count = await aiLocator.count();
@@ -1429,7 +1512,24 @@ test.describe('Public widget intake flow', () => {
       );
       await messageInput.fill(text);
       await anonPage.getByRole('button', { name: /send message/i }).click();
-      await responsePromise;
+      const response = await responsePromise;
+      const responseText = await response.text().catch(() => '');
+
+      // Parse and attach SSE done payloads for debugging
+      const payloads = parseDonePayloads(responseText);
+      if (payloads.length) {
+        try {
+          await testInfo.attach(`sse-payloads-${Date.now()}.json`, {
+            body: JSON.stringify(payloads, null, 2),
+            contentType: 'application/json',
+          });
+        } catch {}
+      }
+
+      // Aggregate payloads into latestDonePayload so downstream structured-answer logic can use it
+      const aggregated = aggregateDonePayloads(payloads);
+      if (aggregated) latestDonePayload = aggregated;
+
       await expect.poll(
         async () => {
           const [sig, streamCount] = await Promise.all([

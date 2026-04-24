@@ -102,7 +102,7 @@ describe('Intake State Transitions', () => {
     test('should return the initial intake state for null or undefined input', () => {
       const result = normalizeIntakeConversationState(null);
       expect(result).toMatchObject({
-        practiceArea: null,
+        practiceServiceUuid: null,
         description: null,
         urgency: null,
         opposingParty: null,
@@ -183,7 +183,7 @@ describe('Intake State Transitions', () => {
         }),
       });
 
-      expect(deriveIntakeStatusFromConsultation({ consultation }).step).toBe('ai_brief');
+      expect(deriveIntakeStatusFromConsultation({ consultation, disclaimerAcceptedAt: '2026-01-01' }).step).toBe('ai_brief');
     });
 
     test('should derive contact_form_decision when the intake decision chips have been shown', () => {
@@ -199,7 +199,7 @@ describe('Intake State Transitions', () => {
         }),
       });
 
-      expect(deriveIntakeStatusFromConsultation({ consultation }).step).toBe('contact_form_decision');
+      expect(deriveIntakeStatusFromConsultation({ consultation, disclaimerAcceptedAt: '2026-01-01' }).step).toBe('contact_form_decision');
     });
 
     test('should validate collecting_case -> ready_to_submit transition', () => {

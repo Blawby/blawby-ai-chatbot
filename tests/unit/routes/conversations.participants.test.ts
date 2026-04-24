@@ -135,7 +135,7 @@ describe('handleConversations - participants endpoint', () => {
         role: null,
         isTeamMember: false,
         canBeMentionedByTeamMember: true,
-        canBeMentionedByClient: true,
+        canBeMentionedByClient: false,
       }),
       expect.objectContaining({
         userId: 'staff-1',

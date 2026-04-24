@@ -2,14 +2,16 @@ import { FunctionComponent } from 'preact';
 import { useTranslation } from 'react-i18next';
 import { PaperAirplaneIcon } from '@heroicons/react/24/outline';
 import { Avatar } from '@/shared/ui/profile/atoms/Avatar';
-import { InteractiveListItem } from '@/shared/ui/layout';
 import { Button } from '@/shared/ui/Button';
 import { cn } from '@/shared/utils/cn';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
 import type { Conversation } from '@/shared/types/conversation';
 import { chatTypography } from '@/features/chat/styles/chatTypography';
 import { ChatText } from '@/features/chat/components/ChatText';
-import { resolveConversationDisplayTitle } from '@/shared/utils/conversationDisplay';
+import {
+  resolveConversationContactName,
+  resolveConversationDisplayTitle,
+} from '@/shared/utils/conversationDisplay';
 
 interface ConversationPreview {
   content: string;
@@ -71,25 +73,26 @@ const ConversationListView: FunctionComponent<ConversationListViewProps> = ({
         ) : sorted.length === 0 ? (
           <div className="py-6 text-sm text-input-text/80">{t('workspace.conversationList.empty')}</div>
         ) : (
-          <div className="pt-1 divide-y divide-line-glass/[0.04]">
+          <div className="space-y-1 px-2 py-2">
             {sorted.map((conversation) => {
               const preview = previews[conversation.id];
-              const title = resolveConversationDisplayTitle(conversation, fallbackName);
+              const fallbackTitle = resolveConversationDisplayTitle(conversation, fallbackName);
+              const title = resolveConversationContactName(conversation) || fallbackTitle;
               const timeLabel = formatRelativeTime(conversation.updated_at);
-              const previewText = preview?.content
-                ? preview.content
-                : t('workspace.conversationList.previewPlaceholder');
-              const unreadCount = Math.max(0, Number(conversation.unread_count ?? 0));
-              const isUnread = unreadCount > 0;
+              const previewText = (preview?.content ?? conversation.last_message_content ?? '').trim();
+              const isUnread = Number(conversation.unread_count ?? 0) > 0;
               const isActive = activeConversationId === conversation.id;
 
               return (
-                <InteractiveListItem
+                <button
                   key={conversation.id}
                   onClick={() => onSelectConversation(conversation.id)}
-                  isSelected={isActive}
-                  padding="px-4 py-3"
-                  className="gap-3"
+                  type="button"
+                  aria-current={isActive ? 'page' : undefined}
+                  className={cn(
+                    'flex w-full items-start gap-3 rounded-xl px-3 py-2.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50',
+                    isActive ? 'nav-item-active' : 'nav-item-inactive'
+                  )}
                 >
                   <Avatar
                     src={null}
@@ -97,43 +100,45 @@ const ConversationListView: FunctionComponent<ConversationListViewProps> = ({
                     size="md"
                     className="ring-1 ring-line-glass/10"
                   />
-                  <div className="min-w-0 flex-1 space-y-1">
+                  <div className="min-w-0 flex-1">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0 flex-1">
                         <span className={cn(
-                          'block truncate text-input-text',
+                          'block truncate',
                           chatTypography.previewName,
-                          isUnread && 'font-bold'
+                          isUnread ? 'font-bold text-accent-utility' : 'text-input-text'
                         )}>
                           {title}
                         </span>
-                        <div className="mt-1 flex items-center gap-1.5">
-                          {conversation.lead?.is_lead && (
+                        {conversation.lead?.is_lead ? (
+                          <div className="mt-1 flex items-center gap-1.5">
                             <span className="flex-shrink-0 rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-200">
                               {t('conversation.badge.lead', { defaultValue: 'Lead' })}
                             </span>
-                          )}
-                        </div>
+                          </div>
+                        ) : null}
                       </div>
                       <div className="flex flex-col items-end gap-1">
                         {timeLabel && (
-                          <span className={chatTypography.headerTime}>{timeLabel}</span>
-                        )}
-                        {isUnread && (
-                          <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-accent-500 px-1.5 py-0.5 text-[11px] font-semibold text-[rgb(var(--accent-foreground))]">
-                            {unreadCount}
-                          </span>
+                          <span className={cn(
+                            chatTypography.headerTime,
+                            isUnread ? 'font-medium text-accent-utility/75' : 'text-input-placeholder'
+                          )}>{timeLabel}</span>
                         )}
                       </div>
                     </div>
-                    <div className={cn(
-                      'truncate text-sm',
-                      isUnread ? 'font-semibold text-input-text' : 'text-input-placeholder'
-                    )}>
-                      <ChatText text={previewText} className="truncate" />
-                    </div>
+                    {previewText ? (
+                      <div className={cn(
+                        'mt-0.5 truncate text-xs leading-5',
+                        isUnread
+                          ? 'font-semibold text-accent-utility/85'
+                          : 'text-input-placeholder'
+                      )}>
+                        <ChatText text={previewText} className="truncate" />
+                      </div>
+                    ) : null}
                   </div>
-                </InteractiveListItem>
+                </button>
               );
             })}
           </div>

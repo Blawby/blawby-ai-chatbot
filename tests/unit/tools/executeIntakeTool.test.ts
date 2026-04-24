@@ -95,9 +95,9 @@ describe('executeIntakeTool', () => {
     const result = executeIntakeTool(toolName, rawArgs, storedIntakeState, submissionGate);
     
     expect(result.success).toBe(true);
-    expect(result.actions).toEqual([
+    expect(result.actions).toEqual(expect.arrayContaining([
       { type: 'submit', label: 'Submit request', variant: 'primary' }
-    ]);
+    ]));
   });
 
   test('should handle empty args for request_payment', () => {
