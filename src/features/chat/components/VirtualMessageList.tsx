@@ -111,9 +111,6 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
     const intakeContext = useIntakeContext();
     const intakeStatus = intakeContext.intakeStatus;
     const intakeConversationState = intakeContext.intakeConversationState;
-    const onSubmitNow = intakeContext.onSubmitNow;
-    const onBuildBrief = intakeContext.onBuildBrief;
-    const onStrengthenCase = intakeContext.onStrengthenCase;
     const dedupedMessages = useMemo(() => {
         const seenPaymentConfirm = new Set<string>();
         return messages.filter((message) => {

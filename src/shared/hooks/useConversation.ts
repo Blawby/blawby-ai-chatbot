@@ -201,6 +201,7 @@ export const useConversation = ({
   const reactionFetchRef = useRef(new Map<string, Promise<MessageReaction[]>>());
   const reactionLoadedRef = useRef(new Set<string>());
   const quickActionMessageDebugRef = useRef(new Map<string, string>());
+  const sendReadUpdateRef = useRef<(seq: number) => void>(() => {});
 
   // Consult abort ref
   const consultFlowAbortRef = useRef<AbortController | null>(null);
@@ -331,18 +332,6 @@ export const useConversation = ({
     return metadata;
   }, [applyConversationMetadata, conversationId, practiceId, sessionReady]);
 
-  function sendReadUpdate(seq: number) {
-    const activeConversationId = socketConversationIdRef.current;
-    if (!activeConversationId || !isSocketReadyRef.current) return;
-    if (seq <= lastReadSeqRef.current) return;
-    lastReadSeqRef.current = seq;
-    try {
-      sendFrame({ type: 'read.update', data: { conversation_id: activeConversationId, last_read_seq: seq } });
-    } catch (error) {
-      if (import.meta.env.DEV) console.warn('[useConversation] Failed to send read.update', error);
-    }
-  }
-
   // ── message mapping ────────────────────────────────────────────────────────
 
   const toUIMessage = useCallback((msg: ConversationMessage): ChatMessageUI => {
@@ -429,7 +418,7 @@ export const useConversation = ({
     }
 
     if (replacements.size === 0 && additions.length === 0) {
-      if (nextLatestSeq > lastSeqRef.current) { lastSeqRef.current = nextLatestSeq; sendReadUpdate(nextLatestSeq); }
+      if (nextLatestSeq > lastSeqRef.current) { lastSeqRef.current = nextLatestSeq; sendReadUpdateRef.current(nextLatestSeq); }
       return;
     }
     lastSeqRef.current = nextLatestSeq;
@@ -577,8 +566,8 @@ export const useConversation = ({
       return dedupeMessagesById(next.sort((a, b) => a.timestamp - b.timestamp));
     });
 
-    sendReadUpdate(nextLatestSeq);
-  }, [sendReadUpdate, toUIMessage]);
+    sendReadUpdateRef.current(nextLatestSeq);
+  }, [toUIMessage]);
 
   const ingestServerMessages = useCallback((incoming: ConversationMessage[]) => {
     applyServerMessages(incoming);
@@ -603,11 +592,11 @@ export const useConversation = ({
     lastSeqRef.current = Math.max(lastSeqRef.current, seqValue);
 
     const pendingId = pendingClientMessageRef.current.get(clientId);
-    if (!pendingId) { sendReadUpdate(lastSeqRef.current); return; }
+    if (!pendingId) { sendReadUpdateRef.current(lastSeqRef.current); return; }
     pendingClientMessageRef.current.delete(clientId);
     setMessages(prev => prev.map(msg => msg.id !== pendingId ? msg : { ...msg, id: messageId } as ChatMessageUI));
-    sendReadUpdate(lastSeqRef.current);
-  }, [sendReadUpdate]);
+    sendReadUpdateRef.current(lastSeqRef.current);
+  }, []);
 
   const handleMessageNew = useCallback((data: Record<string, unknown>) => {
     const conversationIdValue = typeof data.conversation_id === 'string' ? data.conversation_id : null;
@@ -784,8 +773,20 @@ export const useConversation = ({
     closeChatSocket,
     isSocketReadyRef,
     socketConversationIdRef,
-    wsReadyRef,
   } = transport;
+
+  const sendReadUpdate = useCallback((seq: number) => {
+    const activeConversationId = socketConversationIdRef.current;
+    if (!activeConversationId || !isSocketReadyRef.current) return;
+    if (seq <= lastReadSeqRef.current) return;
+    lastReadSeqRef.current = seq;
+    try {
+      sendFrame({ type: 'read.update', data: { conversation_id: activeConversationId, last_read_seq: seq } });
+    } catch (error) {
+      if (import.meta.env.DEV) console.warn('[useConversation] Failed to send read.update', error);
+    }
+  }, [isSocketReadyRef, sendFrame, socketConversationIdRef]);
+  sendReadUpdateRef.current = sendReadUpdate;
 
   const flushPendingAcks = useCallback((error: Error) => {
     for (const pending of pendingAckRef.current.values()) {
@@ -838,7 +839,7 @@ export const useConversation = ({
 
           if (maxSeq > lastSeqRef.current) {
             lastSeqRef.current = maxSeq;
-            sendReadUpdate(maxSeq);
+            sendReadUpdateRef.current(maxSeq);
           }
 
           // Update the ID set BEFORE state update to keep updater pure
@@ -868,7 +869,7 @@ export const useConversation = ({
     } finally {
       if (!isDisposedRef.current && isLoadMore) setIsLoadingMoreMessages(false);
     }
-  }, [applyServerMessages, conversationId, onError, practiceId, sendReadUpdate, sessionReady, toUIMessage]);
+  }, [applyServerMessages, conversationId, onError, practiceId, sessionReady, toUIMessage]);
 
   const loadMoreMessages = useCallback(async () => {
     if (!nextCursor || isLoadingMoreMessages) return;
