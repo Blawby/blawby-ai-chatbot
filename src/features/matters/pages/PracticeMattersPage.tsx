@@ -553,7 +553,7 @@ export const PracticeMattersPage = ({
   // ── Data fetching: people (paginated) ─────────────────────────────────────
   const buildClientOption = useCallback((detail: UserDetailRecord): MatterOption => ({
     id: detail.id,
-    name: detail.user?.name?.trim() || detail.user?.email?.trim() || detail.user?.phone?.trim() || 'Unknown person',
+    name: detail.user?.name?.trim() || detail.user?.email?.trim() || detail.user?.phone?.trim() || 'Unknown contact',
     email: detail.user?.email ?? undefined,
     role: 'client',
     status: detail.status
@@ -601,7 +601,7 @@ export const PracticeMattersPage = ({
           console.error('[PracticeMattersPage] Failed to load people', error);
           setClientOptions(allClients);
           setIsClientListTruncated(true);
-          showError('Failed to load full people list', 'Some people may be missing.');
+          showError('Failed to load full contacts list', 'Some contacts may be missing.');
         }
       }
     };
@@ -2303,7 +2303,7 @@ export const PracticeMattersPage = ({
       <div className="h-full min-h-0 flex flex-col gap-2">
         {isClientListTruncated && (
           <WarningBanner>
-            <strong>Warning:</strong> The people list is incomplete. Some names or options may be missing.
+            <strong>Warning:</strong> The contacts list is incomplete. Some names or options may be missing.
           </WarningBanner>
         )}
         {mattersError && <ErrorBanner>{mattersError}</ErrorBanner>}
@@ -2333,7 +2333,7 @@ export const PracticeMattersPage = ({
     <div className="min-h-0 flex flex-1 flex-col gap-2">
       {isClientListTruncated && (
         <WarningBanner>
-          <strong>Warning:</strong> The people list is incomplete. Some names or options may be missing.
+            <strong>Warning:</strong> The contacts list is incomplete. Some names or options may be missing.
         </WarningBanner>
       )}
 

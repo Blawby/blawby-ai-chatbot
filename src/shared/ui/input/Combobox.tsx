@@ -48,7 +48,7 @@ type BaseProps = {
   optionLeading?: ComponentChildren | ((option: ComboboxOption) => ComponentChildren);
   /** Optional custom right-side meta content for each dropdown option */
   optionMeta?: (option: ComboboxOption) => ComponentChildren;
-  footer?: ComponentChildren;
+  footer?: ComponentChildren | ((close: () => void) => ComponentChildren);
   className?: string;
   disabled?: boolean;
   /** Show clear icon for single-select values. Default: true */
@@ -87,7 +87,8 @@ const normalize = (s: string) =>
     .replace(/\s+/g, ' ')
     .trim();
 
-const uid = () => Math.random().toString(36).slice(2, 9);
+let comboboxUidCounter = 0;
+const uid = () => `cbx-${++comboboxUidCounter}`;
 
 // ---------------------------------------------------------------------------
 // Sub-components
@@ -236,7 +237,7 @@ export function Combobox({
   hideTrigger = false,
 }: ComboboxProps) {
   const isMultiple = multiple === true;
-  const internalId = useMemo(() => `cbx-${uid()}`, []);
+  const internalId = useMemo(() => uid(), []);
   const inputId = id || internalId;
   const listboxId = `${inputId}-listbox`;
 
@@ -263,7 +264,7 @@ export function Combobox({
     return value ? [value as string] : [];
   }, [value, isMultiple]);
 
-  // Merge in any custom (free-text) values already selected so chips resolve
+  // Keep selected custom values visible even when they are not part of the option list yet.
   const mergedOptions = useMemo(() => {
     const known = new Set(options.map((o) => o.value));
     const custom: ComboboxOption[] = valueList
@@ -328,6 +329,8 @@ export function Combobox({
     setFocusedIndex(-1);
     triggerRef.current?.focus();
   }, []);
+
+  const resolvedFooter = typeof footer === 'function' ? footer(close) : footer;
 
   // Close on outside click
   useEffect(() => {
@@ -691,9 +694,9 @@ export function Combobox({
             )}
           </div>
 
-          {footer ? (
+          {resolvedFooter ? (
             <div className="border-t border-line-glass/10 px-2 py-2">
-              {footer}
+              {resolvedFooter}
             </div>
           ) : null}
         </div>

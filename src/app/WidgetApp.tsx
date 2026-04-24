@@ -288,8 +288,8 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
   const {
     messages, conversationMetadata, sendMessage, addMessage: _addMessage, clearMessages,
     requestMessageReactions, toggleMessageReaction,
-    intakeStatus, intakeConversationState, handleIntakeCtaResponse,
-    slimContactDraft, handleSlimFormContinue, handleBuildBrief, handleSubmitNow, handleFinalizeSubmit: _handleFinalizeSubmit,
+    intakeStatus, intakeConversationState, handleIntakeCtaResponse: _handleIntakeCtaResponse,
+    slimContactDraft, handleSlimFormContinue: _handleSlimFormContinue, handleBuildBrief: _handleBuildBrief, handleSubmitNow: _handleSubmitNow, handleFinalizeSubmit: _handleFinalizeSubmit,
     startConsultFlow: _startConsultFlow, updateConversationMetadata: _updateConversationMetadata, isConsultFlowActive: _isConsultFlowActive,
     ingestServerMessages, messagesReady, hasMoreMessages, isLoadingMoreMessages,
     loadMoreMessages, isSocketReady, applyIntakeFields,
@@ -321,7 +321,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
     setIsPaymentAuthPromptOpen(false);
   }, []);
 
-  const handleStrengthenCase = useCallback(async () => {
+  const _handleStrengthenCase = useCallback(async () => {
     try {
       // Clear ctaShown so the submit button disappears during enrichment.
       // Without this, ctaShown: true persists from the required-fields-complete
@@ -439,8 +439,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
       showErrorRef.current?.(attachmentsDisabledMessage);
       return [];
     }
-    // File uploads are disabled for anonymous public widget users.
-    // Authenticated client/practice uploads are handled via useFileUpload in MainApp.
+    // TODO: Implement file upload logic
     return [];
   }, [attachmentsDisabledMessage]);
   const removePreviewFile = useCallback((_index: number) => {}, []);
@@ -597,27 +596,18 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
     }
   }, []);
 
-  const intakeProviderValue = useMemo(() => ({
-    intakeStatus,
-    intakeConversationState,
-    onIntakeCtaResponse: handleIntakeCtaResponse,
-    onSubmitNow: handleSubmitNow,
-    onBuildBrief: handleBuildBrief,
-    onStrengthenCase: handleStrengthenCase,
-    slimContactDraft,
-    onSlimFormContinue: handleSlimFormContinue,
+  const intakeProviderValue = {
+    intakeStatus: null,
+    intakeConversationState: null,
+    onIntakeCtaResponse: undefined,
+    onSubmitNow: undefined,
+    onBuildBrief: undefined,
+    onStrengthenCase: undefined,
+    slimContactDraft: null,
+    onSlimFormContinue: undefined,
     onSlimFormDismiss: undefined,
     isPublicWorkspace: true,
-  }), [
-    handleBuildBrief,
-    handleIntakeCtaResponse,
-    handleSlimFormContinue,
-    handleSubmitNow,
-    intakeConversationState,
-    intakeStatus,
-    handleStrengthenCase,
-    slimContactDraft,
-  ]);
+  };
   const withIntakeProvider = (content: ComponentChildren) => (
     <IntakeProvider value={intakeProviderValue}>
       {content}

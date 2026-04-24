@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'preact/hooks';
 import { forwardRef, useImperativeHandle } from 'preact/compat';
+import { PlusIcon } from '@heroicons/react/24/outline';
 import { Button } from '@/shared/ui/Button';
 import { Combobox, Input, Textarea } from '@/shared/ui/input';
 import { asMajor, safeAdd } from '@/shared/utils/money';
@@ -11,8 +12,10 @@ import { InvoiceLineItemsForm } from '@/features/invoices/components/InvoiceLine
 import { InvoicePreview } from '@/features/invoices/components/InvoicePreview';
 import { SendInvoiceDialog } from '@/features/invoices/components/SendInvoiceDialog';
 import type { InvoicePageMode } from '@/features/invoices/utils/invoicePageConfig';
+import { buildDefaultDueDate, detectDefaultInvoiceType } from '@/features/invoices/utils/invoiceDefaults';
 import { ContentWithPreview } from '@/shared/ui/layout';
 import { Tabs } from '@/shared/ui/tabs';
+import { AddContactDialog } from '@/shared/ui/contacts/AddContactDialog';
 
 type InvoiceFormProps = {
   mode?: InvoicePageMode;
@@ -73,43 +76,7 @@ const InvoiceEmailPlaceholder = () => (
   </div>
 );
 
-const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-const buildDefaultDueDate = () => {
-  const next = new Date();
-  next.setDate(next.getDate() + 1);
-  const year = next.getFullYear();
-  const month = String(next.getMonth() + 1).padStart(2, '0');
-  const day = String(next.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
-
-const _INVOICE_TYPE_OPTIONS = [
-  { value: 'flat_fee', label: 'Flat fee' },
-  { value: 'hourly', label: 'Hourly' },
-  { value: 'phase_fee', label: 'Milestone / phase fee' },
-  { value: 'retainer_deposit', label: 'Retainer deposit' },
-  { value: 'contingency', label: 'Contingency fee' },
-] satisfies Array<{ value: Invoice['invoice_type']; label: string }>;
-
-const detectDefaultInvoiceType = (
-  items: InvoiceLineItem[],
-  context: 'default' | 'milestone' | 'retainer',
-  billingType: MatterDetail['billingType'],
-  fallback?: Invoice['invoice_type']
-): Invoice['invoice_type'] => {
-  if (fallback) return fallback;
-  if (context === 'milestone') return 'phase_fee';
-  if (context === 'retainer') return 'retainer_deposit';
-  if (items.length === 0) return 'retainer_deposit';
-  if (items.some((item) => typeof item.description === 'string' && /retainer/i.test(item.description))) {
-    return 'retainer_deposit';
-  }
-  if (billingType === 'fixed') return 'flat_fee';
-  if (billingType === 'hourly') return 'hourly';
-  if (billingType === 'contingency') return 'contingency';
-  return 'flat_fee';
-};
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const buildInvoiceUpdatePayload = ({
   dueDate,
@@ -130,8 +97,6 @@ const buildInvoiceUpdatePayload = ({
   invoice_type: invoiceType,
   line_items: lineItems
 });
-
-const serializeInvoiceUpdatePayload = (payload: InvoiceUpdatePayload) => JSON.stringify(payload);
 
 export const InvoiceForm = forwardRef<InvoiceFormHandle, InvoiceFormProps>(({
   mode,
@@ -160,14 +125,9 @@ export const InvoiceForm = forwardRef<InvoiceFormHandle, InvoiceFormProps>(({
   billingIncrementMinutes = null,
 }, ref) => {
   const { showError } = useToastContext();
-  const resolvedMode: InvoicePageMode = useMemo(() => {
-    if (mode) return mode;
-    if (readOnly) return 'readOnly';
-    if (editMode) return 'edit';
-    return 'create';
-  }, [editMode, mode, readOnly]);
-  const resolvedReadOnly = resolvedMode === 'readOnly' || readOnly;
-  const resolvedEditMode = resolvedMode === 'edit' || resolvedMode === 'readOnly' || editMode;
+  const resolvedMode: InvoicePageMode = mode ?? (readOnly ? 'readOnly' : (editMode ? 'edit' : 'create'));
+  const resolvedReadOnly = resolvedMode === 'readOnly';
+  const resolvedEditMode = resolvedMode !== 'create';
 
   const defaultInvoiceType = detectDefaultInvoiceType(
     initialLineItems,
@@ -189,26 +149,16 @@ export const InvoiceForm = forwardRef<InvoiceFormHandle, InvoiceFormProps>(({
   const [isSaving, setIsSaving] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [showSendDialog, setShowSendDialog] = useState(false);
+  const [addPersonOpen, setAddPersonOpen] = useState(false);
+  const [isDirty, setIsDirty] = useState(false);
   const [createdInvoiceId, setCreatedInvoiceId] = useState<string | null>(
     resolvedEditMode ? existingInvoiceId ?? null : null
   );
-  const [lastPersistedSnapshot, setLastPersistedSnapshot] = useState<string | null>(() => (
-    resolvedEditMode && existingInvoiceId
-      ? serializeInvoiceUpdatePayload(
-          buildInvoiceUpdatePayload({
-            dueDate: initialDueDate ?? buildDefaultDueDate(),
-            notes: initialNotes ?? '',
-            memo: initialMemo ?? '',
-            invoiceType: defaultInvoiceType,
-            lineItems: initialLineItems
-          })
-        )
-      : null
-  ));
   const [sendError, setSendError] = useState<string | null>(null);
-  const [invoiceType, _setInvoiceType] = useState<Invoice['invoice_type']>(defaultInvoiceType);
+  const invoiceType: Invoice['invoice_type'] = defaultInvoiceType;
   const [activePreviewTab, setActivePreviewTab] = useState<InvoicePreviewTab>('pdf');
   const isMatterScoped = Boolean(matter);
+  const resolvedClientOptions = clientOptions;
   const resolvedMatterId = isMatterScoped ? matter?.id ?? '' : matterId;
   const resolvedClientId = isMatterScoped ? matter?.clientId ?? '' : clientId;
   const resolvedMatterLabel = isMatterScoped
@@ -216,17 +166,21 @@ export const InvoiceForm = forwardRef<InvoiceFormHandle, InvoiceFormProps>(({
     : (matterOptions.find((option) => option.value === matterId)?.label ?? '');
   const resolvedClientLabel = isMatterScoped
     ? matter?.clientName ?? ''
-    : (clientOptions.find((option) => option.value === clientId)?.label ?? '');
+    : (resolvedClientOptions.find((option) => option.value === clientId)?.label ?? '');
   // Client e-mail is stored as `meta` on standalone (non-matter-scoped) options
   const resolvedClientEmail = isMatterScoped
     ? null
-    : (clientOptions.find((option) => option.value === clientId)?.meta ?? null);
+    : (resolvedClientOptions.find((option) => option.value === clientId)?.meta ?? null);
   const previewTitle = resolvedMatterLabel || resolvedClientLabel || 'Draft invoice';
   const previewReferenceLabel = resolvedMatterId
     ? `Matter ID: ${resolvedMatterId}`
     : resolvedClientLabel
-      ? `Person: ${resolvedClientLabel}`
+      ? `Contact: ${resolvedClientLabel}`
       : null;
+  const markDirty = useCallback(() => {
+    setIsDirty(true);
+  }, []);
+
   const handleClientChange = (nextClientId: string) => {
     setClientId(nextClientId);
     setMatterId((currentMatterId) => {
@@ -235,21 +189,40 @@ export const InvoiceForm = forwardRef<InvoiceFormHandle, InvoiceFormProps>(({
       const matterClientId = typeof selectedMatter?.meta === 'string' ? selectedMatter.meta : null;
       return !matterClientId || matterClientId === nextClientId ? currentMatterId : '';
     });
+    markDirty();
   };
 
-  const total = useMemo(() => {
-    return lineItems.reduce((acc, item) => {
-      return safeAdd(acc, item.line_total);
-    }, asMajor(0));
-  }, [lineItems]);
-  const currentUpdatePayload = useMemo(
-    () => buildInvoiceUpdatePayload({ dueDate, notes, memo, invoiceType, lineItems }),
-    [dueDate, notes, memo, invoiceType, lineItems]
-  );
-  const currentUpdateSnapshot = useMemo(
-    () => serializeInvoiceUpdatePayload(currentUpdatePayload),
-    [currentUpdatePayload]
-  );
+  const handleMatterChange = useCallback((nextMatterId: string) => {
+    setMatterId(nextMatterId);
+    markDirty();
+  }, [markDirty]);
+
+  const handleLineItemsChange = useCallback((nextLineItems: InvoiceLineItem[]) => {
+    setLineItems(nextLineItems);
+    markDirty();
+  }, [markDirty]);
+
+  const handleNotesChange = useCallback((nextNotes: string) => {
+    setNotes(nextNotes);
+    markDirty();
+  }, [markDirty]);
+
+  const handleMemoChange = useCallback((nextMemo: string) => {
+    setMemo(nextMemo);
+    markDirty();
+  }, [markDirty]);
+
+  const handleDueDateChange = useCallback((nextDueDate: string) => {
+    setDueDate(nextDueDate);
+    markDirty();
+  }, [markDirty]);
+
+  const handleDueDateModeChange = useCallback((nextMode: 'tomorrow' | 'custom') => {
+    setDueDateMode(nextMode);
+    markDirty();
+  }, [markDirty]);
+
+  const total = useMemo(() => lineItems.reduce((acc, item) => safeAdd(acc, item.line_total), asMajor(0)), [lineItems]);
   const previewIssueDate = useMemo(() => new Date(), []);
 
   // Preview toggle and last-saved timestamp
@@ -269,7 +242,7 @@ export const InvoiceForm = forwardRef<InvoiceFormHandle, InvoiceFormProps>(({
       return;
     }
     if (!resolvedClientId) {
-      showError('Cannot send invoice', 'Choose a person first.');
+      showError('Cannot send invoice', 'Choose a contact first.');
       return;
     }
     if (lineItems.length === 0) {
@@ -279,12 +252,6 @@ export const InvoiceForm = forwardRef<InvoiceFormHandle, InvoiceFormProps>(({
     if (isSaving || isSending) return;
     setShowSendDialog(true);
   }, [isSaving, isSending, isValidConnectedAccount, lineItems.length, resolvedClientId, resolvedReadOnly, showError]);
-
-  const logInvoiceAction = (action: string, details: Record<string, unknown>) => {
-    if (import.meta.env.DEV) {
-      console.info('[Billing][InvoiceForm]', action, details);
-    }
-  };
 
   const buildCreatePayload = (accountId: string) => ({
     client_id: resolvedClientId,
@@ -304,66 +271,73 @@ export const InvoiceForm = forwardRef<InvoiceFormHandle, InvoiceFormProps>(({
     }
   };
 
+  const ensureInvoicePersisted = async () => {
+    if (resolvedEditMode && existingInvoiceId) {
+      if (!isDirty) return existingInvoiceId;
+      const updated = await updateInvoice(practiceId, existingInvoiceId, buildInvoiceUpdatePayload({
+        dueDate,
+        notes,
+        memo,
+        invoiceType,
+        lineItems
+      }));
+      const nextInvoiceId = updated?.id ?? existingInvoiceId;
+      setCreatedInvoiceId(nextInvoiceId);
+      setIsDirty(false);
+      setLastSavedAt(new Date());
+      return nextInvoiceId;
+    }
+
+    if (createdInvoiceId) {
+      if (!isDirty) return createdInvoiceId;
+      const updated = await updateInvoice(practiceId, createdInvoiceId, buildInvoiceUpdatePayload({
+        dueDate,
+        notes,
+        memo,
+        invoiceType,
+        lineItems
+      }));
+      const nextInvoiceId = updated?.id ?? createdInvoiceId;
+      setCreatedInvoiceId(nextInvoiceId);
+      setIsDirty(false);
+      setLastSavedAt(new Date());
+      return nextInvoiceId;
+    }
+
+    if (!connectedAccountId) {
+      throw new Error('Stripe onboarding account is required.');
+    }
+    const created = await createInvoice(practiceId, buildCreatePayload(connectedAccountId));
+    const nextInvoiceId = created?.id ?? null;
+    if (!nextInvoiceId) {
+      throw new Error('Invoice ID missing in create response.');
+    }
+    setCreatedInvoiceId(nextInvoiceId);
+    setIsDirty(false);
+    setLastSavedAt(new Date());
+    return nextInvoiceId;
+  };
+
+  const sendPersistedInvoice = async (invoiceId: string) => {
+    await sendInvoice(practiceId, invoiceId);
+    await finalizeSuccess(invoiceId);
+  };
+
   const handleSendInvoice = async () => {
     if (!resolvedClientId) {
-      showError('Could not send invoice', 'Choose a person before creating the invoice.');
+      showError('Could not send invoice', 'Choose a contact before creating the invoice.');
       return;
     }
     if (disableActions || !connectedAccountId) return;
     setIsSaving(true);
     setIsSending(true);
     setSendError(null);
-    let invoiceId = createdInvoiceId;
     try {
-      if (resolvedEditMode && existingInvoiceId) {
-        const payload = currentUpdatePayload;
-        logInvoiceAction('update-before-send', {
-          invoiceId: existingInvoiceId,
-          invoiceType: payload.invoice_type
-        });
-        const updated = await updateInvoice(practiceId, existingInvoiceId, payload);
-        invoiceId = updated?.id ?? existingInvoiceId;
-        setCreatedInvoiceId(invoiceId);
-        setLastPersistedSnapshot(currentUpdateSnapshot);
-        setLastSavedAt(new Date());
-      } else if (!invoiceId) {
-        const payload = buildCreatePayload(connectedAccountId);
-        logInvoiceAction('create-before-send', {
-          connectedAccountId: payload.connected_account_id,
-          invoiceType: payload.invoice_type,
-          lineItemCount: payload.line_items.length
-        });
-        const created = await createInvoice(practiceId, payload);
-        invoiceId = created?.id ?? null;
-        if (!invoiceId) throw new Error('Invoice ID missing in create response.');
-        setCreatedInvoiceId(invoiceId);
-        setLastPersistedSnapshot(currentUpdateSnapshot);
-        setLastSavedAt(new Date());
-      } else if (lastPersistedSnapshot !== currentUpdateSnapshot) {
-        const payload = currentUpdatePayload;
-        logInvoiceAction('update-retry-before-send', {
-          invoiceId,
-          invoiceType: payload.invoice_type
-        });
-        const updated = await updateInvoice(practiceId, invoiceId, payload);
-        invoiceId = updated?.id ?? invoiceId;
-        setCreatedInvoiceId(invoiceId);
-        setLastPersistedSnapshot(currentUpdateSnapshot);
-        setLastSavedAt(new Date());
-      }
-
-      if (!invoiceId) {
-        throw new Error('Invoice ID missing in create response.');
-      }
-
-      logInvoiceAction('send', { invoiceId, invoiceType });
-      await sendInvoice(practiceId, invoiceId);
-      await finalizeSuccess(invoiceId);
+      const invoiceId = await ensureInvoicePersisted();
+      await sendPersistedInvoice(invoiceId);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to send invoice';
-      setSendError(
-        invoiceId ? `${message}. Invoice draft saved - click Send again to retry.` : message
-      );
+      setSendError(message);
     } finally {
       setIsSending(false);
       setIsSaving(false);
@@ -374,8 +348,6 @@ export const InvoiceForm = forwardRef<InvoiceFormHandle, InvoiceFormProps>(({
   useImperativeHandle(ref, () => ({
     requestSend: openSendDialog,
   }), [openSendDialog]);
-
-  // lastSavedAt is now set at the exact save call-sites (create/update/send)
 
   // Notify global shell about draft saves so the global header can show the timestamp
   useEffect(() => {
@@ -455,17 +427,33 @@ export const InvoiceForm = forwardRef<InvoiceFormHandle, InvoiceFormProps>(({
             {!isMatterScoped ? (
               <div className="space-y-4">
                 <Combobox
-                  label="Person"
+                  label="Contact"
                   value={clientId}
                   onChange={handleClientChange}
-                  options={clientOptions}
-                  placeholder="Choose a person"
+                  options={resolvedClientOptions}
+                  placeholder="Choose a contact"
                   disabled={resolvedReadOnly}
+                  footer={!resolvedReadOnly ? (
+                    (close) => (
+                      <button
+                        type="button"
+                        className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-accent-utility hover:bg-surface-utility/10"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => {
+                          close();
+                          setAddPersonOpen(true);
+                        }}
+                      >
+                        <PlusIcon className="h-4 w-4" />
+                        Invite contact
+                      </button>
+                    )
+                  ) : undefined}
                 />
                 <Combobox
                   label="Matter (optional)"
                   value={matterId}
-                  onChange={setMatterId}
+                  onChange={handleMatterChange}
                   options={matterOptions.filter((option) => {
                     if (!clientId) return true;
                     const clientMatch = typeof option.meta === 'string' ? option.meta : null;
@@ -474,7 +462,7 @@ export const InvoiceForm = forwardRef<InvoiceFormHandle, InvoiceFormProps>(({
                     value: option.value,
                     label: option.label,
                   }))}
-                  placeholder={clientId ? 'Link a matter' : 'Choose a person first'}
+                  placeholder={clientId ? 'Link a matter' : 'Choose a contact first'}
                   disabled={resolvedReadOnly || !clientId}
                   clearable
                 />
@@ -482,7 +470,7 @@ export const InvoiceForm = forwardRef<InvoiceFormHandle, InvoiceFormProps>(({
             ) : null}
             <InvoiceLineItemsForm
               lineItems={lineItems}
-              onChange={setLineItems}
+              onChange={handleLineItemsChange}
               billingIncrementMinutes={billingIncrementMinutes}
               readOnly={resolvedReadOnly}
             />
@@ -498,8 +486,8 @@ export const InvoiceForm = forwardRef<InvoiceFormHandle, InvoiceFormProps>(({
                     name="due-date-mode"
                     checked={dueDateMode === 'tomorrow'}
                     onChange={() => {
-                      setDueDateMode('tomorrow');
-                      setDueDate(defaultDueDate);
+                      handleDueDateModeChange('tomorrow');
+                      handleDueDateChange(defaultDueDate);
                     }}
                     disabled={resolvedReadOnly}
                   />
@@ -510,7 +498,7 @@ export const InvoiceForm = forwardRef<InvoiceFormHandle, InvoiceFormProps>(({
                     type="radio"
                     name="due-date-mode"
                     checked={dueDateMode === 'custom'}
-                    onChange={() => setDueDateMode('custom')}
+                    onChange={() => handleDueDateModeChange('custom')}
                     disabled={resolvedReadOnly}
                   />
                   <span>Custom due date</span>
@@ -521,14 +509,14 @@ export const InvoiceForm = forwardRef<InvoiceFormHandle, InvoiceFormProps>(({
                   label="Due date"
                   type="date"
                   value={dueDate}
-                  onChange={setDueDate}
+                  onChange={handleDueDateChange}
                   disabled={resolvedReadOnly}
                   min={defaultDueDate}
                 />
               ) : null}
             </section>
-            <Textarea label="Notes to client" value={notes} onChange={setNotes} rows={3} disabled={resolvedReadOnly} />
-            <Textarea label="Internal memo" value={memo} onChange={setMemo} rows={2} disabled={resolvedReadOnly} />
+            <Textarea label="Notes to client" value={notes} onChange={handleNotesChange} rows={3} disabled={resolvedReadOnly} />
+            <Textarea label="Internal memo" value={memo} onChange={handleMemoChange} rows={2} disabled={resolvedReadOnly} />
             {sendError ? (
               <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
                 <p>{sendError}</p>
@@ -566,6 +554,11 @@ export const InvoiceForm = forwardRef<InvoiceFormHandle, InvoiceFormProps>(({
           previewNotes={notes || null}
         />
       ) : null}
+      <AddContactDialog
+        practiceId={practiceId}
+        isOpen={addPersonOpen}
+        onClose={() => setAddPersonOpen(false)}
+      />
     </div>
   );
 });

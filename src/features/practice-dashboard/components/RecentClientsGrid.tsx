@@ -34,7 +34,7 @@ export const RecentClientsGrid = ({
   <section className="w-full">
     <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
       <div className="flex items-center justify-between">
-        <h2 className="text-base font-semibold text-input-text">Recent people</h2>
+        <h2 className="text-base font-semibold text-input-text">Recent contacts</h2>
         <button
           type="button"
           onClick={() => onViewAll?.()}
@@ -81,7 +81,7 @@ export const RecentClientsGrid = ({
                     <button
                       type="button"
                       className="relative block text-input-placeholder hover:text-input-text"
-                      aria-label={`Person actions for ${client.name}`}
+                      aria-label={`Contact actions for ${client.name}`}
                     >
                       <span className="absolute -inset-2.5" />
                       <Icon icon={EllipsisHorizontalIcon} className="h-5 w-5"  />
@@ -89,7 +89,7 @@ export const RecentClientsGrid = ({
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="min-w-[140px]">
                     <DropdownMenuItem onSelect={() => onViewClient?.(client.id)}>
-                      View person
+                      View contact
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>

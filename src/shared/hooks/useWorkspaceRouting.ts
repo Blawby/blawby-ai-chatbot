@@ -48,7 +48,7 @@ import type { UIPracticeConfig } from '@/shared/hooks/usePracticeConfig';
 import type { WorkspaceType } from '@/shared/types/workspace';
 import { normalizePracticeRole } from '@/shared/utils/practiceRoles';
 import { hasLeadReviewPermission } from '@/shared/utils/leadPermissions';
-import { getWorkspaceConversationsPath, getWorkspaceMattersPath, getWorkspaceClientsPath } from '@/shared/utils/workspace';
+import { getWorkspaceConversationsPath, getWorkspaceMattersPath, getWorkspaceContactsPath } from '@/shared/utils/workspace';
 import type { LayoutMode } from '@/app/MainApp';
 import { useMobileDetection } from '@/shared/hooks/useMobileDetection';
 import type { AuthSessionPayload } from '@/shared/types/user';
@@ -222,8 +222,8 @@ export const useWorkspaceRouting = ({
     [resolvedPracticeSlug]
   );
   
-  const practiceClientsPath = useMemo(
-    () => getWorkspaceClientsPath('practice', resolvedPracticeSlug ?? null),
+  const practiceContactsPath = useMemo(
+    () => getWorkspaceContactsPath('practice', resolvedPracticeSlug ?? null),
     [resolvedPracticeSlug]
   );
 
@@ -292,7 +292,7 @@ export const useWorkspaceRouting = ({
     conversationsBasePath,
     conversationBackPath,
     practiceMattersPath,
-    practiceClientsPath,
+    practiceContactsPath,
     publicConversationsBasePath,
     conversationResetKey,
 

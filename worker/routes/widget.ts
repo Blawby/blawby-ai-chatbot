@@ -164,6 +164,29 @@ export async function handleWidgetBootstrap(request: Request, env: Env): Promise
           
           responseCookies = responseCookies.concat(setCookieHeaders);
           sessionData = await anonRes.json().catch(() => null);
+
+          // After anonymous sign-in the upstream may return only a `user` object
+          // and set a session cookie. Fetch the session wrapper using that
+          // cookie so `session.id` is available to downstream logic.
+          try {
+            const cookieHeader = setCookieHeaders.map(c => c.split(';')[0]).join('; ');
+            if (cookieHeader) {
+              const followHeaders = Object.assign({}, upstreamHeaders);
+              followHeaders['Cookie'] = cookieHeader;
+              const followRes = await fetch(`${env.BACKEND_API_URL}/api/auth/get-session`, {
+                headers: followHeaders,
+                signal: anonController.signal
+              }).catch(() => null);
+              if (followRes && followRes.ok) {
+                const followed = await followRes.json().catch(() => null);
+                if (followed) {
+                  sessionData = followed;
+                }
+              }
+            }
+          } catch (_e) {
+            // If we fail to follow-up, keep the original anon payload (user only)
+          }
         } finally {
           clearTimeout(anonTimer);
         }

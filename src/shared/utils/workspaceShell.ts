@@ -9,7 +9,7 @@ type WorkspaceView =
   | 'intakeDetail'
   | 'engagements'
   | 'matters'
-  | 'clients'
+  | 'contacts'
   | 'invoices'
   | 'invoiceCreate'
   | 'invoiceEdit'
@@ -23,8 +23,8 @@ type WorkspaceRouteState = {
   isIntakeResponsesRoute: boolean;
   selectedMatterIdFromPath: string | null;
   isMatterNonListRoute: boolean;
-  selectedClientIdFromPath: string | null;
-  peopleRouteKind: 'all' | 'archived' | 'team' | 'clients';
+  selectedContactIdFromPath: string | null;
+  contactsRouteKind: 'all' | 'archived' | 'team' | 'clients' | 'pending';
   reportSectionFromPath: string;
 };
 
@@ -48,7 +48,7 @@ const normalizeDecodedSegment = (value: string) => {
 export const getWorkspaceSection = (view: WorkspaceView): WorkspaceSection => {
   if (view === 'list' || view === 'conversation') return 'conversations';
   if (view === 'invoiceCreate' || view === 'invoiceEdit' || view === 'invoiceDetail') return 'invoices';
-  if (view === 'setup' || view === 'clients') return 'home';
+  if (view === 'setup' || view === 'contacts') return 'home';
   if (view === 'intakeDetail') return 'intakes';
   return view as WorkspaceSection;
 };
@@ -94,45 +94,46 @@ export const getWorkspaceRouteState = ({
     }
   }
 
-  let selectedClientIdFromPath: string | null = null;
-  let peopleRouteKind: WorkspaceRouteState['peopleRouteKind'] = 'all';
-  if (view === 'clients' && isPracticeWorkspace) {
-    const peopleMarker = `${normalizedBase}/people/`;
-    const legacyMarker = `${normalizedBase}/clients/`;
-    const activeBaseMarker = path.startsWith(peopleMarker)
-      ? peopleMarker
-      : path.startsWith(legacyMarker)
-        ? legacyMarker
-        : null;
+  let selectedContactIdFromPath: string | null = null;
+  let contactsRouteKind: WorkspaceRouteState['contactsRouteKind'] = 'all';
+  if (view === 'contacts' && isPracticeWorkspace) {
+    const contactsMarker = `${normalizedBase}/contacts/`;
 
-    if (activeBaseMarker) {
-      const peopleSubpath = path.slice(activeBaseMarker.length);
-      if (peopleSubpath.startsWith('archived/')) {
-        peopleRouteKind = 'archived';
-        const raw = peopleSubpath.slice('archived/'.length).split('/')[0] ?? '';
+    if (path.startsWith(contactsMarker)) {
+      const contactsSubpath = path.slice(contactsMarker.length);
+      if (contactsSubpath.startsWith('archived/')) {
+        contactsRouteKind = 'archived';
+        const raw = contactsSubpath.slice('archived/'.length).split('/')[0] ?? '';
         const candidate = normalizeDecodedSegment(raw);
-        selectedClientIdFromPath = candidate || null;
-      } else if (peopleSubpath === 'archived') {
-        peopleRouteKind = 'archived';
-      } else if (peopleSubpath.startsWith('team/')) {
-        peopleRouteKind = 'team';
-        const raw = peopleSubpath.slice('team/'.length).split('/')[0] ?? '';
+        selectedContactIdFromPath = candidate || null;
+      } else if (contactsSubpath === 'archived') {
+        contactsRouteKind = 'archived';
+      } else if (contactsSubpath.startsWith('team/')) {
+        contactsRouteKind = 'team';
+        const raw = contactsSubpath.slice('team/'.length).split('/')[0] ?? '';
         const candidate = normalizeDecodedSegment(raw);
-        selectedClientIdFromPath = candidate ? `team:${candidate}` : null;
-      } else if (peopleSubpath === 'team') {
-        peopleRouteKind = 'team';
-      } else if (peopleSubpath.startsWith('clients/')) {
-        peopleRouteKind = 'clients';
-        const raw = peopleSubpath.slice('clients/'.length).split('/')[0] ?? '';
+        selectedContactIdFromPath = candidate ? `team:${candidate}` : null;
+      } else if (contactsSubpath === 'team') {
+        contactsRouteKind = 'team';
+      } else if (contactsSubpath.startsWith('clients/')) {
+        contactsRouteKind = 'clients';
+        const raw = contactsSubpath.slice('clients/'.length).split('/')[0] ?? '';
         const candidate = normalizeDecodedSegment(raw);
-        selectedClientIdFromPath = candidate || null;
-      } else if (peopleSubpath === 'clients') {
-        peopleRouteKind = 'clients';
+        selectedContactIdFromPath = candidate || null;
+      } else if (contactsSubpath === 'clients') {
+        contactsRouteKind = 'clients';
+      } else if (contactsSubpath.startsWith('pending/')) {
+        contactsRouteKind = 'pending';
+        const raw = contactsSubpath.slice('pending/'.length).split('/')[0] ?? '';
+        const candidate = normalizeDecodedSegment(raw);
+        selectedContactIdFromPath = candidate ? `pending:${candidate}` : null;
+      } else if (contactsSubpath === 'pending') {
+        contactsRouteKind = 'pending';
       } else {
-        const raw = peopleSubpath.split('/')[0] ?? '';
+        const raw = contactsSubpath.split('/')[0] ?? '';
         const candidate = normalizeDecodedSegment(raw);
-        if (candidate && candidate !== 'archived' && candidate !== 'clients' && candidate !== 'team') {
-          selectedClientIdFromPath = candidate;
+        if (candidate && candidate !== 'archived' && candidate !== 'clients' && candidate !== 'team' && candidate !== 'pending') {
+          selectedContactIdFromPath = candidate;
         }
       }
     }
@@ -156,8 +157,8 @@ export const getWorkspaceRouteState = ({
     selectedMatterIdFromPath,
     isMatterNonListRoute,
     isIntakeResponsesRoute,
-    selectedClientIdFromPath,
-    peopleRouteKind,
+    selectedContactIdFromPath,
+    contactsRouteKind,
     reportSectionFromPath,
   };
 };
@@ -166,7 +167,7 @@ export const getWorkspaceDefaultSecondaryFilter = ({
   workspaceSection,
   isPracticeWorkspace,
   view,
-  peopleRouteKind,
+  contactsRouteKind,
   reportSectionFromPath,
   isIntakeTemplateRoute,
   isIntakeResponsesRoute,
@@ -175,7 +176,7 @@ export const getWorkspaceDefaultSecondaryFilter = ({
   workspaceSection: WorkspaceSection;
   isPracticeWorkspace: boolean;
   view: WorkspaceView;
-  peopleRouteKind: WorkspaceRouteState['peopleRouteKind'];
+  contactsRouteKind: WorkspaceRouteState['contactsRouteKind'];
   reportSectionFromPath: string;
   isIntakeTemplateRoute: boolean;
   isIntakeResponsesRoute: boolean;
@@ -185,11 +186,12 @@ export const getWorkspaceDefaultSecondaryFilter = ({
     return 'all';
   }
   if (workspaceSection === 'home' && isPracticeWorkspace) {
-    if (view !== 'clients') return 'overview';
-    if (peopleRouteKind === 'archived') return 'people-archived';
-    if (peopleRouteKind === 'team') return 'people-team';
-    if (peopleRouteKind === 'clients') return 'people-clients';
-    return 'people-all';
+    if (view !== 'contacts') return 'overview';
+    if (contactsRouteKind === 'archived') return 'contacts-archived';
+    if (contactsRouteKind === 'team') return 'contacts-team';
+    if (contactsRouteKind === 'clients') return 'contacts-clients';
+    if (contactsRouteKind === 'pending') return 'contacts-pending';
+    return 'contacts-all';
   }
   if (workspaceSection === 'reports' && isPracticeWorkspace) {
     return reportSectionFromPath;
@@ -207,7 +209,7 @@ export const getWorkspaceActiveSecondaryFilter = ({
   workspaceSection,
   isPracticeWorkspace,
   view,
-  peopleRouteKind,
+  contactsRouteKind,
   reportSectionFromPath,
   isIntakeTemplateRoute,
   isIntakeResponsesRoute,
@@ -217,7 +219,7 @@ export const getWorkspaceActiveSecondaryFilter = ({
   workspaceSection: WorkspaceSection;
   isPracticeWorkspace: boolean;
   view: WorkspaceView;
-  peopleRouteKind: WorkspaceRouteState['peopleRouteKind'];
+  contactsRouteKind: WorkspaceRouteState['contactsRouteKind'];
   reportSectionFromPath: string;
   isIntakeTemplateRoute: boolean;
   isIntakeResponsesRoute: boolean;
@@ -226,11 +228,12 @@ export const getWorkspaceActiveSecondaryFilter = ({
 }) => {
   if (workspaceSection === 'settings') return null;
   if (workspaceSection === 'home' && isPracticeWorkspace) {
-    if (view !== 'clients') return 'overview';
-    if (peopleRouteKind === 'archived') return 'people-archived';
-    if (peopleRouteKind === 'team') return 'people-team';
-    if (peopleRouteKind === 'clients') return 'people-clients';
-    return 'people-all';
+    if (view !== 'contacts') return 'overview';
+    if (contactsRouteKind === 'archived') return 'contacts-archived';
+    if (contactsRouteKind === 'team') return 'contacts-team';
+    if (contactsRouteKind === 'clients') return 'contacts-clients';
+    if (contactsRouteKind === 'pending') return 'contacts-pending';
+    return 'contacts-all';
   }
   if (workspaceSection === 'reports' && isPracticeWorkspace) {
     return reportSectionFromPath;
@@ -257,7 +260,7 @@ export const shouldShowWorkspaceMobileMenuButton = ({
   isPracticeWorkspace,
   selectedMatterIdFromPath,
   isMatterNonListRoute,
-  selectedClientIdFromPath,
+  selectedContactIdFromPath,
 }: {
   isMobileLayout: boolean;
   hasSecondaryNav: boolean;
@@ -266,14 +269,14 @@ export const shouldShowWorkspaceMobileMenuButton = ({
   isPracticeWorkspace: boolean;
   selectedMatterIdFromPath: string | null;
   isMatterNonListRoute: boolean;
-  selectedClientIdFromPath: string | null;
+  selectedContactIdFromPath: string | null;
 }) => {
   if (!isMobileLayout || !hasSecondaryNav) return false;
   if (workspaceSection === 'conversations') return view === 'list';
   if (workspaceSection === 'intakes') return view === 'intakes';
   if (workspaceSection === 'matters') return !selectedMatterIdFromPath && !isMatterNonListRoute;
   if (workspaceSection === 'home') {
-    return isPracticeWorkspace && (view === 'home' || (view === 'clients' && !selectedClientIdFromPath));
+    return isPracticeWorkspace && (view === 'home' || (view === 'contacts' && !selectedContactIdFromPath));
   }
   if (workspaceSection === 'invoices') return view === 'invoices';
   if (workspaceSection === 'reports') return true;
@@ -304,7 +307,7 @@ export const getWorkspaceActiveHref = ({
   normalizedBase: string;
   path: string;
 }) => {
-  return view === 'clients' ? (normalizedBase || '/') : path;
+  return view === 'contacts' ? (normalizedBase || '/') : path;
 };
 
 export const WORKSPACE_REPORT_SECTION_TITLES = REPORT_SECTION_TITLES;

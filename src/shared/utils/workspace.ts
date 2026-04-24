@@ -117,24 +117,24 @@ export function getWorkspaceMattersPath(
 }
 
 /**
- * Generate a workspace clients path for the given workspace and practice slug.
+ * Generate a workspace contacts path for the given workspace and practice slug.
  * Returns null if required params are missing.
- * Routes: `/practice/:practiceSlug/people` or `/client/:practiceSlug/people`
+ * Routes: `/practice/:practiceSlug/contacts` or `/client/:practiceSlug/contacts`
  */
-export function getWorkspaceClientsPath(
+export function getWorkspaceContactsPath(
   workspace: WorkspaceType,
   slug?: string | null
 ): string | null {
   if (!slug) return null;
   
   if (workspace === 'practice') {
-    return generateWorkspacePath('/practice/:practiceSlug/people', { practiceSlug: slug });
+    return generateWorkspacePath('/practice/:practiceSlug/contacts', { practiceSlug: slug });
   }
   if (workspace === 'client') {
-    return generateWorkspacePath('/client/:practiceSlug/people', { practiceSlug: slug });
+    return generateWorkspacePath('/client/:practiceSlug/contacts', { practiceSlug: slug });
   }
   if (workspace === 'public') {
-    return generateWorkspacePath('/public/:practiceSlug/people', { practiceSlug: slug });
+    return generateWorkspacePath('/public/:practiceSlug/contacts', { practiceSlug: slug });
   }
   
   return null;

@@ -79,7 +79,7 @@ export const WorkspaceDashboardView: FunctionComponent<{
           onClick={onNavigateToMatters}
         />
         <DashboardCard 
-          title="Potential People" 
+          title="Potential Contacts" 
           value="0" 
           label="new leads" 
           icon={UsersIcon}

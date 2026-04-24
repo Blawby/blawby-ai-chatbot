@@ -348,10 +348,8 @@ function AppShell() {
           <Route path="/practice/:practiceSlug/setup" component={PracticeAppRoute} workspaceView="setup" />
           <Route path="/practice/:practiceSlug/conversations" component={PracticeAppRoute} workspaceView="list" />
           <Route path="/practice/:practiceSlug/conversations/:conversationId" component={PracticeAppRoute} workspaceView="conversation" />
-          <Route path="/practice/:practiceSlug/people" component={PracticeAppRoute} workspaceView="clients" />
-          <Route path="/practice/:practiceSlug/people/*" component={PracticeAppRoute} workspaceView="clients" />
-          <Route path="/practice/:practiceSlug/clients" component={PracticeAppRoute} workspaceView="clients" />
-          <Route path="/practice/:practiceSlug/clients/*" component={PracticeAppRoute} workspaceView="clients" />
+          <Route path="/practice/:practiceSlug/contacts" component={PracticeAppRoute} workspaceView="contacts" />
+          <Route path="/practice/:practiceSlug/contacts/*" component={PracticeAppRoute} workspaceView="contacts" />
           <Route path="/practice/:practiceSlug/matters" component={PracticeAppRoute} workspaceView="matters" />
           <Route path="/practice/:practiceSlug/matters/*" component={PracticeAppRoute} workspaceView="matters" />
           <Route path="/practice/:practiceSlug/intakes" component={PracticeAppRoute} workspaceView="intakes" />
@@ -577,7 +575,7 @@ function PracticeAppRoute({
   conversationId?: string;
   invoiceId?: string;
   appId?: string;
-  workspaceView?: 'home' | 'setup' | 'list' | 'conversation' | 'intakes' | 'intakeDetail' | 'engagements' | 'matters' | 'clients' | 'invoices' | 'invoiceCreate' | 'invoiceEdit' | 'invoiceDetail' | 'reports' | 'settings';
+  workspaceView?: 'home' | 'setup' | 'list' | 'conversation' | 'intakes' | 'intakeDetail' | 'engagements' | 'matters' | 'contacts' | 'invoices' | 'invoiceCreate' | 'invoiceEdit' | 'invoiceDetail' | 'reports' | 'settings';
   settingsView?: 'general' | 'notifications' | 'account' | 'practice' | 'practice-contact' | 'practice-payouts' | 'practice-coverage' | 'practice-team' | 'apps' | 'app-detail' | 'security' | 'help';
   practiceSlug?: string;
 }) {

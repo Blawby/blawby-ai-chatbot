@@ -49,7 +49,7 @@ const loadRemainingMatterPages = async (
 const getClientLabel = (client: UserDetailRecord) => {
   const name = client.user?.name?.trim();
   const email = client.user?.email?.trim();
-  return name || email || 'Unnamed person';
+  return name || email || 'Unnamed contact';
 };
 
 export type InvoiceBuilderSurfaceMode = 'create' | 'edit';

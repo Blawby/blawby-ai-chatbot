@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'preact/hooks';
+import { useMemo, useState, type Dispatch, type StateUpdater } from 'preact/hooks';
 import { Button } from '@/shared/ui/Button';
 import { Input } from '@/shared/ui/input/Input';
 import { Textarea } from '@/shared/ui/input/Textarea';
@@ -29,9 +29,10 @@ import {
 import { PlusIcon } from '@heroicons/react/24/solid';
 import { Icon } from '@/shared/ui/Icon';
 import { formatDateOnlyUtc } from '@/shared/utils/dateOnly';
-import { asMajor, type MajorAmount } from '@/shared/utils/money';
+import { asMajor, isMajorAmount, type MajorAmount } from '@/shared/utils/money';
 import { FormGrid } from '@/shared/ui/layout/FormGrid';
 import { Panel } from '@/shared/ui/layout/Panel';
+import { AddContactDialog } from '@/shared/ui/contacts/AddContactDialog';
 import { parseMultiValueText, serializeMultiValueText } from '@/features/matters/utils/multiValueText';
 
 type MatterFormMode = 'create' | 'edit';
@@ -62,7 +63,7 @@ export type PaymentFrequency = 'project' | 'milestone';
 
 export type MatterFormState = {
   title: string;
-  // UI treats this as "person", but backend contract remains `client_id`.
+  // UI treats this as "contact", but backend contract remains `client_id`.
   clientId: string;
   practiceAreaId: string;
   assigneeIds: string[];
@@ -191,6 +192,122 @@ const buildLeadingIcon = (icon: ComponentChildren) => (
   </div>
 );
 
+type MilestoneDraftState = {
+  description: string;
+  dueDate: string;
+  amount: MajorAmount | undefined;
+};
+
+const MatterMilestoneForm = ({
+  milestones,
+  draft,
+  isVisible,
+  onDraftChange,
+  onAdd,
+  onShowForm,
+}: {
+  milestones: MatterMilestoneFormInput[];
+  draft: MilestoneDraftState;
+  isVisible: boolean;
+  onDraftChange: Dispatch<StateUpdater<MilestoneDraftState>>;
+  onAdd: () => void;
+  onShowForm: () => void;
+}) => {
+  const canAddMilestone =
+    draft.description.trim().length > 0 &&
+    draft.dueDate &&
+    isMajorAmount(draft.amount);
+
+  return (
+    <div className="border-t border-line-glass/30 pt-6 space-y-4">
+      <h4 className="text-lg font-medium text-input-text">Enter project milestones</h4>
+
+      {milestones.length > 0 && (
+        <ol className="list-decimal pl-4 space-y-2 text-sm text-input-text">
+          {milestones.map((milestone, index) => (
+            <li
+              key={`${milestone.description}-${index}`}
+              className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_120px_140px] sm:items-center"
+            >
+              <span className="min-w-0">{milestone.description}</span>
+              <span className="text-left sm:text-right tabular-nums">
+                {milestone.amount ? `$${milestone.amount.toFixed(2)}` : '$0.00'}
+              </span>
+              <span className="text-left sm:text-right tabular-nums text-input-placeholder">
+                {milestone.dueDate ? formatDateOnlyUtc(milestone.dueDate) : ''}
+              </span>
+            </li>
+          ))}
+        </ol>
+      )}
+
+      {isVisible ? (
+        <div className="space-y-2">
+          <div>
+            <Textarea
+              label="Milestone description"
+              value={draft.description}
+              onChange={(value) =>
+                onDraftChange((prev) => ({
+                  ...prev,
+                  description: value
+                }))
+              }
+              rows={2}
+              maxLength={100}
+              enforceMaxLength="hard"
+              placeholder="Enter a description of your deliverable"
+            />
+            <p className="mt-1 text-sm text-input-placeholder">
+              {draft.description.length}/100
+            </p>
+          </div>
+
+          <Input
+            label="Due date"
+            type="date"
+            value={draft.dueDate}
+            onChange={(value) =>
+              onDraftChange((prev) => ({
+                ...prev,
+                dueDate: value
+              }))
+            }
+          />
+
+          <CurrencyInput
+            label="Amount"
+            value={draft.amount}
+            onChange={(value) =>
+              onDraftChange((prev) => ({
+                ...prev,
+                amount: typeof value === 'number' ? asMajor(value) : undefined
+              }))
+            }
+          />
+
+          <div className="w-full flex justify-end">
+            <Button type="button" onClick={onAdd} disabled={!canAddMilestone}>
+              Add
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <Button
+          variant="outline"
+          size="sm"
+          type="button"
+          onClick={onShowForm}
+          icon={PlusIcon}
+          iconClassName="h-4 w-4"
+        >
+          Add Milestone
+        </Button>
+      )}
+    </div>
+  );
+};
+
 const MatterFormInner = ({
   onClose,
   onSubmit,
@@ -206,7 +323,7 @@ const MatterFormInner = ({
   const [formState, setFormState] = useState<MatterFormState>(() => buildInitialState(mode, initialValues));
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-
+  const [addPersonOpen, setAddPersonOpen] = useState(false);
   const clientOptions = useMemo(
     () => clients.map((client) => ({
       value: client.id,
@@ -238,7 +355,7 @@ const MatterFormInner = ({
   );
 
   const [isMilestoneFormVisible, setIsMilestoneFormVisible] = useState(false);
-  const [milestoneDraft, setMilestoneDraft] = useState({
+  const [milestoneDraft, setMilestoneDraft] = useState<MilestoneDraftState>({
     description: '',
     dueDate: '',
     amount: undefined as MajorAmount | undefined
@@ -252,13 +369,8 @@ const MatterFormInner = ({
   const submitLabel = mode === 'edit' ? 'Save changes' : 'Create matter';
   const modalTitle = mode === 'edit' ? 'Edit Matter' : 'Propose new matter';
 
-  const canAddMilestone =
-    milestoneDraft.description.trim().length > 0 &&
-    milestoneDraft.dueDate &&
-    typeof milestoneDraft.amount === 'number';
-
   const addMilestone = () => {
-    if (!canAddMilestone) {
+    if (!isMajorAmount(milestoneDraft.amount) || !milestoneDraft.description.trim() || !milestoneDraft.dueDate) {
       return;
     }
     updateForm('milestones', [
@@ -274,29 +386,30 @@ const MatterFormInner = ({
   };
 
   return (
-    <Panel className="p-4 sm:p-6 lg:p-8">
-      <form
-        className="space-y-6 max-w-4xl mx-auto"
-        onSubmit={async (event) => {
-          event.preventDefault();
-          if (!canSubmit) return;
-          setSubmitError(null);
-          if (!onSubmit) {
-            onClose();
-            return;
-          }
-          setIsSubmitting(true);
-          try {
-            await onSubmit({ ...formState });
-            setIsSubmitting(false);
-            onClose();
-          } catch (error) {
-            const message = error instanceof Error ? error.message : 'Failed to save matter';
-            setSubmitError(message);
-            setIsSubmitting(false);
-          }
-        }}
-      >
+    <>
+      <Panel className="p-4 sm:p-6 lg:p-8">
+        <form
+          className="space-y-6 max-w-4xl mx-auto"
+          onSubmit={async (event) => {
+            event.preventDefault();
+            if (!canSubmit) return;
+            setSubmitError(null);
+            if (!onSubmit) {
+              onClose();
+              return;
+            }
+            setIsSubmitting(true);
+            try {
+              await onSubmit({ ...formState });
+              setIsSubmitting(false);
+              onClose();
+            } catch (error) {
+              const message = error instanceof Error ? error.message : 'Failed to save matter';
+              setSubmitError(message);
+              setIsSubmitting(false);
+            }
+          }}
+        >
         <h2 className="text-xl font-semibold text-input-text">{modalTitle}</h2>
 
         <Input
@@ -346,8 +459,8 @@ const MatterFormInner = ({
           />
 
           <Combobox
-            label={`Person${requireClientSelection ? ' *' : ''}`}
-            placeholder="Select person"
+            label={`Contact${requireClientSelection ? ' *' : ''}`}
+            placeholder="Select contact"
             value={formState.clientId}
             options={clientOptions}
             leading={(selectedOption) => {
@@ -369,6 +482,22 @@ const MatterFormInner = ({
               return client?.email || option.meta;
             }}
             onChange={(value) => updateForm('clientId', value)}
+            footer={practiceId ? (
+              (close) => (
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-accent-utility hover:bg-surface-utility/10"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => {
+                    close();
+                    setAddPersonOpen(true);
+                  }}
+                >
+                  <PlusIcon className="h-4 w-4" />
+                  Invite contact
+                </button>
+              )
+            ) : undefined}
           />
 
           <Combobox
@@ -562,92 +691,14 @@ const MatterFormInner = ({
               )}
 
               {formState.paymentFrequency === 'milestone' && (
-                <div className="border-t border-line-glass/30 pt-6 space-y-4">
-                  <h4 className="text-lg font-medium text-input-text">Enter project milestones</h4>
-
-                  {formState.milestones.length > 0 && (
-                    <ol className="list-decimal pl-4 space-y-2 text-sm text-input-text">
-                      {formState.milestones.map((milestone, index) => (
-                        <li
-                          key={`${milestone.description}-${index}`}
-                          className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_120px_140px] sm:items-center"
-                        >
-                          <span className="min-w-0">{milestone.description}</span>
-                          <span className="text-left sm:text-right tabular-nums">
-                            {milestone.amount ? `$${milestone.amount.toFixed(2)}` : '$0.00'}
-                          </span>
-                          <span className="text-left sm:text-right tabular-nums text-input-placeholder">
-                            {milestone.dueDate ? formatDateOnlyUtc(milestone.dueDate) : ''}
-                          </span>
-                        </li>
-                      ))}
-                    </ol>
-                  )}
-
-                  {isMilestoneFormVisible ? (
-                    <div className="space-y-2">
-                      <div>
-                        <Textarea
-                          label="Milestone description"
-                          value={milestoneDraft.description}
-                          onChange={(value) =>
-                            setMilestoneDraft((prev) => ({
-                              ...prev,
-                              description: value
-                            }))
-                          }
-                          rows={2}
-                          maxLength={100}
-                          enforceMaxLength="hard"
-                          placeholder="Enter a description of your deliverable"
-                        />
-                        <p className="mt-1 text-sm text-input-placeholder">
-                          {milestoneDraft.description.length}/100
-                        </p>
-                      </div>
-
-                      <Input
-                        label="Due date"
-                        type="date"
-                        value={milestoneDraft.dueDate}
-                        onChange={(value) =>
-                          setMilestoneDraft((prev) => ({
-                            ...prev,
-                            dueDate: value
-                          }))
-                        }
-                      />
-
-                      <CurrencyInput
-                        label="Amount"
-                        value={milestoneDraft.amount}
-                        onChange={(value) =>
-                          setMilestoneDraft((prev) => ({
-                            ...prev,
-                            amount: typeof value === 'number' ? asMajor(value) : undefined
-                          }))
-                        }
-                      />
-
-                      <div className="w-full flex justify-end">
-                        <Button type="button" onClick={addMilestone} disabled={!canAddMilestone}>
-                          Add
-                        </Button>
-                      </div>
-                    </div>
-                  ) : (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      type="button"
-                      onClick={() => setIsMilestoneFormVisible(true)}
-                      icon={PlusIcon}
-                      iconClassName="h-4 w-4"
-                    >
-                      Add Milestone
-                    </Button>
-                  )}
-                </div>
+                <MatterMilestoneForm
+                  milestones={formState.milestones}
+                  draft={milestoneDraft}
+                  isVisible={isMilestoneFormVisible}
+                  onDraftChange={setMilestoneDraft}
+                  onAdd={addMilestone}
+                  onShowForm={() => setIsMilestoneFormVisible(true)}
+                />
               )}
             </div>
           )}
@@ -704,13 +755,21 @@ const MatterFormInner = ({
             </Button>
           </div>
         </div>
-      </form>
-    </Panel>
+        </form>
+      </Panel>
+      <AddContactDialog
+        practiceId={practiceId ?? null}
+        isOpen={addPersonOpen}
+        onClose={() => setAddPersonOpen(false)}
+      />
+    </>
   );
 };
 
 export const MatterForm = (props: MatterFormProps) => {
   const { mode = 'create', initialValues } = props;
+  // Remounting here intentionally discards in-progress edits when the parent swaps the
+  // initialValues object. That keeps the form state aligned with the selected matter.
   const resetKey = useMemo(
     () => `${mode}-${JSON.stringify(initialValues ?? {})}`,
     [mode, initialValues]

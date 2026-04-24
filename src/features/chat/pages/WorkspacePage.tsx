@@ -102,7 +102,7 @@ import type { MatterStatus } from '@/shared/types/matterStatus';
 import type { IntakeConversationState, DerivedIntakeStatus, IntakeFieldChangeOptions } from '@/shared/types/intake';
 import { features } from '@/config/features';
 
-type WorkspaceView = 'home' | 'setup' | 'list' | 'conversation' | 'intakes' | 'intakeDetail' | 'engagements' | 'matters' | 'clients' | 'invoices' | 'invoiceCreate' | 'invoiceEdit' | 'invoiceDetail' | 'reports' | 'settings';
+type WorkspaceView = 'home' | 'setup' | 'list' | 'conversation' | 'intakes' | 'intakeDetail' | 'engagements' | 'matters' | 'contacts' | 'invoices' | 'invoiceCreate' | 'invoiceEdit' | 'invoiceDetail' | 'reports' | 'settings';
 type PreviewTab = 'home' | 'messages' | 'intake';
 type WorkspacePrefetchData = {
   mattersData?: {
@@ -112,7 +112,7 @@ type WorkspacePrefetchData = {
     error: string | null;
     refetch: (signal?: AbortSignal) => Promise<void>;
   };
-  clientsData?: {
+  contactsData?: {
     items: UserDetailRecord[];
     isLoaded: boolean;
     isLoading: boolean;
@@ -144,8 +144,8 @@ interface WorkspacePageProps {
   chatView: ComponentChildren;
   mattersView?: ComponentChildren | ((statusFilter: string[], prefetchData?: WorkspacePrefetchData, onDetailInspector?: (() => void), detailInspectorOpen?: boolean, detailHeaderLeadingAction?: ComponentChildren) => ComponentChildren);
   mattersListContent?: ComponentChildren | ((statusFilter: string[], prefetchData?: WorkspacePrefetchData) => ComponentChildren);
-  clientsView?: ComponentChildren | ((statusFilter: UserDetailStatus | null, prefetchData?: WorkspacePrefetchData, onDetailInspector?: (() => void), detailInspectorOpen?: boolean, detailHeaderLeadingAction?: ComponentChildren) => ComponentChildren);
-  clientsListContent?: ComponentChildren | ((statusFilter: UserDetailStatus | null, prefetchData?: WorkspacePrefetchData) => ComponentChildren);
+  contactsView?: ComponentChildren | ((statusFilter: UserDetailStatus | null, prefetchData?: WorkspacePrefetchData, onDetailInspector?: (() => void), detailInspectorOpen?: boolean, detailHeaderLeadingAction?: ComponentChildren) => ComponentChildren);
+  contactsListContent?: ComponentChildren | ((statusFilter: UserDetailStatus | null, prefetchData?: WorkspacePrefetchData) => ComponentChildren);
   invoicesView?: ComponentChildren | ((statusFilter: string[], onDetailInspector?: (() => void), detailInspectorOpen?: boolean, detailHeaderLeadingAction?: ComponentChildren) => ComponentChildren);
   invoicesListContent?: ComponentChildren | ((statusFilter: string[]) => ComponentChildren);
   reportsView?: ComponentChildren | ((title: string) => ComponentChildren);
@@ -209,8 +209,8 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   chatView,
   mattersView,
   mattersListContent,
-  clientsView,
-  clientsListContent,
+  contactsView,
+  contactsListContent,
   invoicesView,
   invoicesListContent,
   intakesView,
@@ -284,8 +284,8 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     isIntakeResponsesRoute,
     selectedMatterIdFromPath,
     isMatterNonListRoute,
-    selectedClientIdFromPath,
-    peopleRouteKind,
+    selectedContactIdFromPath,
+    contactsRouteKind,
     reportSectionFromPath,
   } = useMemo(() => getWorkspaceRouteState({
     view,
@@ -294,14 +294,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     isPracticeWorkspace,
     isClientWorkspace,
   }), [view, location.path, normalizedBase, isPracticeWorkspace, isClientWorkspace]);
-  useEffect(() => {
-    if (view !== 'clients' || !isPracticeWorkspace) return;
-    const legacyPrefix = `${normalizedBase}/clients`;
-    if (!location.path.startsWith(legacyPrefix)) return;
-    const nextPath = `${normalizedBase}/people${location.path.slice(legacyPrefix.length)}`;
-    if (nextPath === location.path) return;
-    navigate(nextPath, true);
-  }, [isPracticeWorkspace, location.path, navigate, normalizedBase, view]);
   const previewBaseUrl = useMemo(() => {
     const path = practiceSlug ? `/public/${encodeURIComponent(practiceSlug)}` : '/public';
     if (typeof window !== 'undefined' && window.location?.origin) {
@@ -355,36 +347,38 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     workspaceSection,
     isPracticeWorkspace,
     view,
-    peopleRouteKind,
+    contactsRouteKind,
     reportSectionFromPath,
     isIntakeTemplateRoute,
     isIntakeResponsesRoute,
     navSecondary: navConfig.secondary,
-  }), [workspaceSection, isPracticeWorkspace, view, peopleRouteKind, reportSectionFromPath, isIntakeTemplateRoute, isIntakeResponsesRoute, navConfig.secondary]);
+  }), [workspaceSection, isPracticeWorkspace, view, contactsRouteKind, reportSectionFromPath, isIntakeTemplateRoute, isIntakeResponsesRoute, navConfig.secondary]);
   const activeSecondaryFilter = useMemo(() => getWorkspaceActiveSecondaryFilter({
     workspaceSection,
     isPracticeWorkspace,
     view,
-    peopleRouteKind,
+    contactsRouteKind,
     reportSectionFromPath,
     isIntakeTemplateRoute,
     isIntakeResponsesRoute,
     secondaryFilterBySection,
     defaultSecondaryFilterId,
-  }), [workspaceSection, isPracticeWorkspace, view, peopleRouteKind, reportSectionFromPath, isIntakeTemplateRoute, isIntakeResponsesRoute, secondaryFilterBySection, defaultSecondaryFilterId]);
+  }), [workspaceSection, isPracticeWorkspace, view, contactsRouteKind, reportSectionFromPath, isIntakeTemplateRoute, isIntakeResponsesRoute, secondaryFilterBySection, defaultSecondaryFilterId]);
   const handleSecondaryFilterSelect = useCallback((id: string) => {
     if (workspaceSection === 'settings') return;
     const basePath = normalizedBase || '/';
     if (workspaceSection === 'home') {
-      const peopleBasePath = `${basePath}/people`;
-      const target = id === 'people-archived'
-        ? `${peopleBasePath}/archived`
-        : id === 'people-team'
-          ? `${peopleBasePath}/team`
-          : id === 'people-clients'
-            ? `${peopleBasePath}/clients`
-        : id === 'people' || id === 'people-all'
-          ? peopleBasePath
+      const contactsBasePath = `${basePath}/contacts`;
+      const target = id === 'contacts-archived'
+        ? `${contactsBasePath}/archived`
+        : id === 'contacts-team'
+          ? `${contactsBasePath}/team`
+          : id === 'contacts-clients'
+            ? `${contactsBasePath}/clients`
+            : id === 'contacts-pending'
+              ? `${contactsBasePath}/pending`
+        : id === 'contacts' || id === 'contacts-all'
+          ? contactsBasePath
           : basePath;
       navigate(target);
       setSecondaryFilterBySection((prev) => ({ ...prev, [workspaceSection]: id }));
@@ -623,11 +617,11 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     if (workspaceSection === 'matters' && selectedMatterIdFromPath) {
       return { entityType: 'matter' as const, entityId: selectedMatterIdFromPath };
     }
-    if (view === 'clients' && selectedClientIdFromPath) {
-      return { entityType: 'client' as const, entityId: selectedClientIdFromPath };
+    if (view === 'contacts' && selectedContactIdFromPath) {
+      return { entityType: 'client' as const, entityId: selectedContactIdFromPath };
     }
     return null;
-  }, [activeConversationId, selectedClientIdFromPath, selectedMatterIdFromPath, view, workspaceSection]);
+  }, [activeConversationId, selectedContactIdFromPath, selectedMatterIdFromPath, view, workspaceSection]);
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const handleOpenInspector = () => {
@@ -648,7 +642,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     }
     return [];
   }, [activeSecondaryFilter, isClientWorkspace, isPracticeWorkspace, workspaceSection]);
-  const clientsStatusFilter = useMemo<UserDetailStatus | null>(() => null, []);
+  const contactsStatusFilter = useMemo<UserDetailStatus | null>(() => null, []);
   const invoicesStatusFilter = useMemo<string[]>(() => {
     if (workspaceSection !== 'invoices') return [];
     if (!activeSecondaryFilter) return [];
@@ -677,18 +671,18 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     ...mattersData,
     items: filteredMattersItems,
   }), [mattersData, filteredMattersItems]);
-  const clientsData = useClientsData(
+  const contactsData = useClientsData(
     practiceId,
-    clientsStatusFilter,
+    contactsStatusFilter,
     sessionUserId,
-    { enabled: isPracticeWorkspace && (view === 'clients' || view === 'matters') }
+    { enabled: isPracticeWorkspace && (view === 'contacts' || view === 'matters') }
   );
   const selectedMatter = useMemo(
     () => mattersData?.items?.find((matter) => matter.id === selectedMatterIdFromPath) ?? null,
     [mattersData?.items, selectedMatterIdFromPath]
   );
   const matterClientOptions = useMemo<ComboboxOption[]>(
-    () => (clientsData?.items ?? [])
+    () => (contactsData?.items ?? [])
       .map((client): ComboboxOption | null => {
         const userId = client.user?.id;
         if (!userId) return null;
@@ -696,16 +690,16 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
           value: userId,
           label: (() => {
             const name = client.user?.name?.trim();
-            return name && name.length ? name : client.user?.email ?? 'Unknown person';
+            return name && name.length ? name : client.user?.email ?? 'Unknown contact';
           })(),
           meta: client.user?.email ?? undefined,
         };
       })
       .filter((option): option is ComboboxOption => option !== null),
-    [clientsData?.items]
+    [contactsData?.items]
   );
   const matterClientPeople = useMemo(
-    () => (clientsData?.items ?? [])
+    () => (contactsData?.items ?? [])
       .map((client) => {
         const userId = client.user?.id;
         if (!userId) return null;
@@ -713,7 +707,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
           userId,
           name: (() => {
             const name = client.user?.name?.trim();
-            return name && name.length ? name : client.user?.email ?? 'Unknown person';
+            return name && name.length ? name : client.user?.email ?? 'Unknown contact';
           })(),
           email: client.user?.email ?? undefined,
           image: null,
@@ -721,13 +715,13 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
         };
       })
       .filter((client) => client !== null),
-    [clientsData?.items]
+    [contactsData?.items]
   );
   const selectedMatterInspectorData = useMemo(() => {
     if (!selectedMatter) return null;
 
     const clientNameById = new Map(
-      (clientsData?.items ?? []).map((client) => [
+      (contactsData?.items ?? []).map((client) => [
         client.user?.id ?? '',
         client.user?.name ?? client.user?.email ?? '',
       ])
@@ -775,7 +769,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       matterOpposingParty: selectedMatter.opposing_party ?? null,
       matterOpposingCounsel: selectedMatter.opposing_counsel ?? null,
     };
-  }, [clientsData?.items, selectedMatter]);
+  }, [contactsData?.items, selectedMatter]);
   const isMobileLayout = layoutMode !== 'desktop';
   const [hasDesktopInvoiceListItems, setHasDesktopInvoiceListItems] = useState<boolean | null>(null);
 
@@ -1273,7 +1267,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       });
       await updateSetupDetails(detailsPayload);
       if (!options?.suppressSuccessToast) {
-        showSuccess('Contact info updated', 'People and receipts will use your latest details.');
+        showSuccess('Contact info updated', 'Contacts and receipts will use your latest details.');
       }
       forcePreviewReload();
     } catch (error) {
@@ -1674,7 +1668,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     isPracticeWorkspace,
     selectedMatterIdFromPath,
     isMatterNonListRoute,
-    selectedClientIdFromPath,
+    selectedContactIdFromPath,
   });
   const mobileMenuButton = showMobileMenuButton ? (
     <Button
@@ -1712,7 +1706,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   const toggleDetailInspector = inspectorTarget ? () => setIsInspectorOpen((prev) => !prev) : undefined;
   const workspacePrefetchData: WorkspacePrefetchData = {
     mattersData: mattersDataForView, // filtered for the list view
-    clientsData,
+    contactsData,
   };
   const shouldShowDesktopMattersListPanel = !(
     layoutMode === 'desktop'
@@ -1722,13 +1716,14 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     && !mattersDataForView.error
     && mattersDataForView.items.length === 0
   );
-  const shouldShowDesktopClientsListPanel = !(
+  const shouldShowDesktopContactsListPanel = !(
     layoutMode === 'desktop'
-    && view === 'clients'
-    && clientsData.isLoaded
-    && !clientsData.isLoading
-    && !clientsData.error
-    && clientsData.items.length === 0
+    && view === 'contacts'
+    && activeSecondaryFilter !== 'contacts-pending'
+    && contactsData.isLoaded
+    && !contactsData.isLoading
+    && !contactsData.error
+    && contactsData.items.length === 0
   );
   const shouldShowDesktopInvoicesListPanel = view === 'invoices' && hasDesktopInvoiceListItems !== false;
   const matterListIsEmpty = layoutMode === 'desktop'
@@ -1777,19 +1772,19 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   const engagementsContent = (typeof engagementsView === 'function'
     ? engagementsView()
     : engagementsView) ?? null;
-  const clientsContent = (typeof clientsView === 'function'
-    ? clientsView(
-      clientsStatusFilter,
+  const contactsContent = (typeof contactsView === 'function'
+    ? contactsView(
+      contactsStatusFilter,
       workspacePrefetchData,
       toggleDetailInspector,
       detailInspectorOpen,
       layoutMode === 'desktop' ? desktopCreateButton ?? undefined : undefined
     )
-    : clientsView) ?? (
+    : contactsView) ?? (
     <div className="flex flex-1 flex-col glass-card">
       <div className="mx-6 my-6 glass-panel p-5">
         <p className="text-sm text-input-placeholder">
-          Manage people and relationship statuses here.
+          Manage contacts and relationship statuses here.
         </p>
       </div>
     </div>
@@ -1832,10 +1827,10 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       ? mattersListContent(mattersStatusFilter, workspacePrefetchData)
       : mattersListContent)
     : undefined;
-  const clientsListPanel = layoutMode === 'desktop' && isPracticeWorkspace && view === 'clients' && shouldShowDesktopClientsListPanel
-    ? (typeof clientsListContent === 'function'
-      ? clientsListContent(clientsStatusFilter, workspacePrefetchData)
-      : clientsListContent)
+  const contactsListPanel = layoutMode === 'desktop' && isPracticeWorkspace && view === 'contacts' && shouldShowDesktopContactsListPanel
+    ? (typeof contactsListContent === 'function'
+      ? contactsListContent(contactsStatusFilter, workspacePrefetchData)
+      : contactsListContent)
     : undefined;
   const invoicesListPanel = layoutMode === 'desktop' && (isPracticeWorkspace || isClientWorkspace) && view === 'invoices' && shouldShowDesktopInvoicesListPanel
     ? (typeof invoicesListContent === 'function' ? invoicesListContent(invoicesStatusFilter) : invoicesListContent)
@@ -1876,8 +1871,8 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
         return null;
       case 'matters':
         return selectedMatterIdFromPath || isMatterNonListRoute ? null : 'Matters';
-      case 'clients':
-        return selectedClientIdFromPath ? null : 'People';
+      case 'contacts':
+        return selectedContactIdFromPath ? null : 'Contacts';
       case 'invoices':
         return 'Invoices';
       case 'invoiceCreate':
@@ -1988,8 +1983,8 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
         return engagementsContent;
       case 'matters':
         return mattersContent;
-      case 'clients':
-        return clientsContent;
+      case 'contacts':
+        return contactsContent;
       case 'invoices':
       case 'invoiceCreate':
       case 'invoiceEdit':
@@ -2026,7 +2021,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
         },
       };
     }
-    if (view === 'clients') {
+    if (view === 'contacts') {
       return { kind: 'full-page', overflow: 'hidden' };
     }
     if (view === 'invoices' || view === 'invoiceDetail' || view === 'invoiceCreate' || view === 'invoiceEdit') {
@@ -2165,7 +2160,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       accentBackdropVariant="none"
       sidebar={sidebarNav}
       secondarySidebar={secondaryPanel}
-      listPanel={conversationListPanel ?? matterListPanel ?? clientsListPanel ?? invoicesListPanel}
+      listPanel={conversationListPanel ?? matterListPanel ?? contactsListPanel ?? invoicesListPanel}
       inspector={activeInspector ?? undefined}
       inspectorMobileOpen={detailInspectorOpen && isMobileLayout}
       onInspectorMobileClose={() => setIsInspectorOpen(false)}
