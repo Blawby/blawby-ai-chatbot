@@ -241,6 +241,7 @@ export const InvoiceBuilderSurface = forwardRef<InvoiceFormHandle, InvoiceBuilde
           closeAfterSuccess={false}
           onClose={onClose}
           onSuccess={onSuccess}
+          onContactCreated={() => clientsData.refetch()}
           practiceName={practiceName ?? undefined}
           practiceLogoUrl={resolvedPracticeLogoUrl}
           practiceEmail={resolvedPracticeEmail}

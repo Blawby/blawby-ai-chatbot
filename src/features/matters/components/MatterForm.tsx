@@ -40,6 +40,7 @@ type MatterFormMode = 'create' | 'edit';
 interface MatterFormProps {
   onClose: () => void;
   onSubmit?: (values: MatterFormState) => Promise<void> | void;
+  onContactCreated?: () => Promise<void> | void;
   practiceId?: string | null;
   clients: MatterOption[];
   practiceAreas: MatterOption[];
@@ -311,6 +312,7 @@ const MatterMilestoneForm = ({
 const MatterFormInner = ({
   onClose,
   onSubmit,
+  onContactCreated,
   practiceId,
   clients,
   practiceAreas,
@@ -761,6 +763,7 @@ const MatterFormInner = ({
         practiceId={practiceId ?? null}
         isOpen={addPersonOpen}
         onClose={() => setAddPersonOpen(false)}
+        onSuccess={onContactCreated}
       />
     </>
   );

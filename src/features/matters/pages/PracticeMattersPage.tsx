@@ -559,56 +559,52 @@ export const PracticeMattersPage = ({
     status: detail.status
   }), []);
 
-  useEffect(() => {
+  const refreshClientOptions = useCallback(async (signal?: AbortSignal) => {
     if (!activePracticeId) {
       setClientOptions([]);
       setIsClientListTruncated(false);
       return;
     }
 
-    let cancelled = false;
-    const controller = new AbortController();
+    setIsClientListTruncated(false);
+    let offset = 0;
+    const limit = 100;
+    const allClients: MatterOption[] = [];
+    let hasMore = true;
+    let lastTotal = 0;
+    const MAX_PAGES = 100;
+    let iterations = 0;
 
-    const fetchAllClients = async () => {
-      setIsClientListTruncated(false);
-      let offset = 0;
-      const limit = 100;
-      const allClients: MatterOption[] = [];
-      let hasMore = true;
-      let lastTotal = 0;
-      const MAX_PAGES = 100;
-      let iterations = 0;
+    try {
+      while (hasMore && !signal?.aborted && iterations < MAX_PAGES) {
+        iterations += 1;
+        const response = await listUserDetails(activePracticeId, { limit, offset, signal });
+        if (signal?.aborted) break;
 
-      try {
-        while (hasMore && !cancelled && !controller.signal.aborted && iterations < MAX_PAGES) {
-          iterations++;
-          const response = await listUserDetails(activePracticeId, { limit, offset, signal: controller.signal });
-          if (cancelled || controller.signal.aborted) break;
-
-          allClients.push(...response.data.map(buildClientOption));
-          lastTotal = response.total ?? 0;
-          hasMore = lastTotal > 0 ? allClients.length < lastTotal : response.data.length === limit;
-          if (hasMore) offset += limit;
-        }
-
-        if (!cancelled && !controller.signal.aborted) {
-          setClientOptions(allClients);
-          setIsClientListTruncated(iterations >= MAX_PAGES || lastTotal > allClients.length);
-        }
-      } catch (error) {
-        if (controller.signal.aborted || (error instanceof DOMException && error.name === 'AbortError')) return;
-        if (!cancelled) {
-          console.error('[PracticeMattersPage] Failed to load people', error);
-          setClientOptions(allClients);
-          setIsClientListTruncated(true);
-          showError('Failed to load full contacts list', 'Some contacts may be missing.');
-        }
+        allClients.push(...response.data.map(buildClientOption));
+        lastTotal = response.total ?? 0;
+        hasMore = lastTotal > 0 ? allClients.length < lastTotal : response.data.length === limit;
+        if (hasMore) offset += limit;
       }
-    };
 
-    void fetchAllClients();
-    return () => { cancelled = true; controller.abort(); };
+      if (!signal?.aborted) {
+        setClientOptions(allClients);
+        setIsClientListTruncated(iterations >= MAX_PAGES || lastTotal > allClients.length);
+      }
+    } catch (error) {
+      if (signal?.aborted || (error instanceof DOMException && error.name === 'AbortError')) return;
+      console.error('[PracticeMattersPage] Failed to load people', error);
+      setClientOptions(allClients);
+      setIsClientListTruncated(true);
+      showError('Failed to load full contacts list', 'Some contacts may be missing.');
+    }
   }, [activePracticeId, buildClientOption, showError]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    void refreshClientOptions(controller.signal);
+    return () => controller.abort();
+  }, [refreshClientOptions]);
 
   // ── Data fetching: practice services ─────────────────────────────────────
   useEffect(() => {
@@ -1748,6 +1744,7 @@ export const PracticeMattersPage = ({
                 goToList();
               }}
               onSubmit={submitHandler}
+              onContactCreated={() => refreshClientOptions()}
               practiceId={activePracticeId}
               clients={clientOptions}
               practiceAreas={practiceAreaOptions}

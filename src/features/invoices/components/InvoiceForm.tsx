@@ -46,6 +46,7 @@ type InvoiceFormProps = {
   practiceEmail?: string | null;
   /** Practice billing increment in minutes (e.g. 6 for 0.1h steps) */
   billingIncrementMinutes?: number | null;
+  onContactCreated?: () => Promise<void> | void;
 };
 
 export type InvoiceFormHandle = {
@@ -123,6 +124,7 @@ export const InvoiceForm = forwardRef<InvoiceFormHandle, InvoiceFormProps>(({
   practiceLogoUrl = null,
   practiceEmail = null,
   billingIncrementMinutes = null,
+  onContactCreated,
 }, ref) => {
   const { showError } = useToastContext();
   const resolvedMode: InvoicePageMode = mode ?? (readOnly ? 'readOnly' : (editMode ? 'edit' : 'create'));
@@ -558,7 +560,7 @@ export const InvoiceForm = forwardRef<InvoiceFormHandle, InvoiceFormProps>(({
         practiceId={practiceId}
         isOpen={addPersonOpen}
         onClose={() => setAddPersonOpen(false)}
-        onSuccess={() => setAddPersonOpen(false)}
+        onSuccess={onContactCreated}
       />
     </div>
   );
