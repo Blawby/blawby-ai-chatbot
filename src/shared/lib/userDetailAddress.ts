@@ -31,19 +31,13 @@ export const readUserDetailAddress = (detail: unknown): Address | null => {
 };
 
 export const hasRenderableUserDetailAddress = (value: unknown): value is Address => {
-  if (!value || typeof value !== 'object') return false;
-  const address = value as Record<string, unknown>;
-  return Boolean(
-    readText(address.address) ||
-    readText(address.line1) ||
-    readText(address.apartment) ||
-    readText(address.line2) ||
-    readText(address.city) ||
-    readText(address.state) ||
-    readText(address.postalCode) ||
-    readText(address.postal_code) ||
-    readText(address.country)
-  );
+  // Delegate to readUserDetailAddress which normalizes nested address shapes
+  try {
+    const resolved = readUserDetailAddress(value);
+    return resolved !== null;
+  } catch (_err) {
+    return false;
+  }
 };
 
 export const formatUserDetailAddressDisplay = (value: Address | null | undefined): string | null => {

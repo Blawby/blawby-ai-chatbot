@@ -36,7 +36,13 @@ export const AddContactDialog = ({
       await createContact.submit();
       showSuccess('Invite sent', 'The invitation has been sent.');
       handleClose();
-      await onSuccess?.();
+      try {
+        await onSuccess?.();
+      } catch (err) {
+        // onSuccess failures should not surface as user-facing errors
+        // log for diagnostics but don't show an error toast after a successful invite
+        console.error('[AddContactDialog] onSuccess callback failed', err);
+      }
     } catch (error) {
       showError(
         'Could not send invite',
@@ -69,7 +75,7 @@ export const AddContactDialog = ({
           onSubmit={handleSubmit}
           submitType="button"
           submitText={submitLabel}
-          disabled={createContact.submitting}
+          disabled={createContact.submitting || !practiceId}
         />
       </div>
     </Dialog>

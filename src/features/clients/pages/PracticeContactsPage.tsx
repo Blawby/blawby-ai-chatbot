@@ -396,7 +396,8 @@ export const PracticeContactsPage = ({
     if (!activePracticeId) return;
     setMemoTimelineByPractice((prev) => {
       const current = prev[activePracticeId] ?? {};
-      return { [activePracticeId]: updater(current) };
+      const updated = updater(current);
+      return { ...prev, [activePracticeId]: updated };
     });
   }, [activePracticeId]);
   useEffect(() => {
@@ -546,10 +547,9 @@ export const PracticeContactsPage = ({
   );
   const groupedClients = useMemo(() => {
     return sortedClients.reduce<Record<string, DirectoryRecord[]>>((acc, client) => {
-      const letter = client.name.charAt(0).toUpperCase();
-      if (!acc[letter]) {
-        acc[letter] = [];
-      }
+      const trimmedName = (client.name || '').trim() || (client.email || 'Unknown contact');
+      const letter = (trimmedName.charAt(0) || '#').toUpperCase();
+      if (!acc[letter]) acc[letter] = [];
       acc[letter].push(client);
       return acc;
     }, {});
@@ -1052,8 +1052,8 @@ export const PracticeContactsPage = ({
           ? `${basePath}/archived`
           : isTeamListRoute
             ? `${basePath}/team`
-            : isClientsListRoute
-              ? `${basePath}/contacts`
+              : isClientsListRoute
+                ? `${basePath}/clients`
               : `${basePath}/pending`,
       }
     : {
@@ -1063,8 +1063,8 @@ export const PracticeContactsPage = ({
           ? `${basePath}/archived`
           : isTeamListRoute
             ? `${basePath}/team`
-            : isClientsListRoute
-              ? `${basePath}/contacts`
+              : isClientsListRoute
+                ? `${basePath}/clients`
               : basePath,
       };
   const detailHeaderActions = selectedClient ? (

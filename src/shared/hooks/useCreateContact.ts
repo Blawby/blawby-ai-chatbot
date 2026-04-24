@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'preact/hooks';
+import { useCallback, useState, useRef } from 'preact/hooks';
 import { createUserDetail } from '@/shared/lib/apiClient';
 
 export type CreateContactFormState = {
@@ -20,6 +20,7 @@ type UseCreateContactResult = {
 export const useCreateContact = (practiceId: string | null): UseCreateContactResult => {
   const [form, setForm] = useState<CreateContactFormState>(buildDefaultCreateContactFormState);
   const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false);
 
   const reset = useCallback(() => {
     setForm(buildDefaultCreateContactFormState());
@@ -42,10 +43,11 @@ export const useCreateContact = (practiceId: string | null): UseCreateContactRes
       throw new Error('Email is required');
     }
 
-    if (submitting) {
+    // Guard against rapid double-submits using a mutable ref for synchronous checks
+    if (submittingRef.current) {
       throw new Error('Invite already in progress');
     }
-
+    submittingRef.current = true;
     setSubmitting(true);
     try {
       await createUserDetail(practiceId, {
@@ -54,9 +56,10 @@ export const useCreateContact = (practiceId: string | null): UseCreateContactRes
       });
       reset();
     } finally {
+      submittingRef.current = false;
       setSubmitting(false);
     }
-  }, [form.email, practiceId, reset, submitting]);
+  }, [form.email, practiceId, reset]);
 
   return {
     form,

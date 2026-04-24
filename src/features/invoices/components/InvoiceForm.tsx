@@ -558,6 +558,7 @@ export const InvoiceForm = forwardRef<InvoiceFormHandle, InvoiceFormProps>(({
         practiceId={practiceId}
         isOpen={addPersonOpen}
         onClose={() => setAddPersonOpen(false)}
+        onSuccess={() => setAddPersonOpen(false)}
       />
     </div>
   );
