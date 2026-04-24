@@ -12,6 +12,7 @@ import { MatterListItem } from '@/features/matters/components/MatterListItem';
 import { MatterSummaryCards } from '@/features/matters/components/MatterSummaryCards';
 import { MatterTasksPanel } from '@/features/matters/components/tasks/MatterTasksPanel';
 import { MatterMessagesPanel } from '@/features/matters/components/messages/MatterMessagesPanel';
+import { MatterFilesPanel } from '@/features/matters/components/files/MatterFilesPanel';
 import {
   getMatter,
   getMatterActivity,
@@ -32,16 +33,17 @@ import {
 } from '@/features/matters/utils/matterUtils';
 import { asMajor, safeAdd } from '@/shared/utils/money';
 
-type DetailTabId = 'overview' | 'tasks' | 'messages';
+type DetailTabId = 'overview' | 'tasks' | 'messages' | 'files';
 
 const DETAIL_TABS: Array<{ id: DetailTabId; label: string }> = [
   { id: 'overview', label: 'Overview' },
   { id: 'tasks', label: 'Tasks' },
-  { id: 'messages', label: 'Messages' }
+  { id: 'messages', label: 'Messages' },
+  { id: 'files', label: 'Files' }
 ];
 
 const isDetailTabId = (value: string): value is DetailTabId =>
-  value === 'overview' || value === 'tasks' || value === 'messages';
+  value === 'overview' || value === 'tasks' || value === 'messages' || value === 'files';
 
 type ClientMattersPageProps = {
   basePath?: string;
@@ -525,6 +527,13 @@ export const ClientMattersPage = ({
               ) : (
                 <ErrorBanner>Missing practice context for conversations.</ErrorBanner>
               )
+            ) : null}
+            {detailTab === 'files' ? (
+              <MatterFilesPanel
+                key={`files-${resolvedMatter.id}`}
+                matterId={resolvedMatter.id}
+                isPrivilegedUploads={false}
+              />
             ) : null}
           </div>
         </div>

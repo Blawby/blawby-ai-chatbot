@@ -30,6 +30,7 @@ import { resolveStrengthTier, resolveStrengthLabel, resolveStrengthStyle, resolv
 import type { PracticeSetupStatus } from '@/features/practice-setup/utils/status';
 import type { BusinessOnboardingStatus } from '@/shared/hooks/usePracticeManagement';
 import { SetupInspectorContent } from './SetupInspectorContent';
+import { MatterFilesSection } from './MatterFilesSection';
 
 type InspectorConfig =
   | { type: 'conversation' }
@@ -1818,6 +1819,12 @@ export const InspectorPanel = ({
                     />
                   </div>
                 </InspectorEditableRow>
+              </InspectorGroup>
+              <InspectorGroup label="Files & Media">
+                <MatterFilesSection
+                  practiceId={practiceId}
+                  matterId={entityId}
+                />
               </InspectorGroup>
               <InspectorGroup label="Record">
                 <InfoRow label="Created" value={resolvedMatterCreatedLabel ?? undefined} />

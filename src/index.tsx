@@ -22,6 +22,7 @@ import { WidgetApp } from '@/app/WidgetApp';
 import { WidgetPreviewApp } from '@/app/WidgetPreviewApp';
 import { useNavigation } from '@/shared/utils/navigation';
 import { usePracticeConfig } from '@/shared/hooks/usePracticeConfig';
+import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import type { UIPracticeConfig } from '@/shared/hooks/usePracticeConfig';
 import type { MinorAmount } from '../worker/types';
 import { useWidgetBootstrap } from '@/shared/hooks/useWidgetBootstrap';
@@ -454,7 +455,9 @@ function ClientEngagementReviewRoute({
 }
 
 function RootRoute() {
+  const location = useLocation();
   const { session, isPending } = useSessionContext();
+  const { refetch: refetchPractices } = usePracticeManagement({ autoFetchPractices: false });
   const {
     defaultWorkspace,
     practicesLoading,
@@ -464,6 +467,9 @@ function RootRoute() {
   } = useWorkspaceResolver();
   const { navigate } = useNavigation();
   const isMountedRef = useRef(true);
+  const subscriptionSyncHandledRef = useRef(false);
+  const [subscriptionSyncPending, setSubscriptionSyncPending] = useState(false);
+  const isSubscriptionSuccessReturn = location.query.subscription === 'success';
   const authenticatedHomePath = useMemo(() => {
     const fallbackSlug = currentPractice?.slug ?? practices[0]?.slug ?? null;
     return resolveAuthenticatedHomePath({
@@ -480,6 +486,40 @@ function RootRoute() {
   }, []);
 
   useEffect(() => {
+    if (!isSubscriptionSuccessReturn) {
+      subscriptionSyncHandledRef.current = false;
+      return;
+    }
+    if (subscriptionSyncHandledRef.current) return;
+
+    subscriptionSyncHandledRef.current = true;
+    setSubscriptionSyncPending(true);
+
+    void getSession()
+      .then(() => {
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('auth:session-updated'));
+        }
+      })
+      .catch((error) => {
+        console.warn('[RootRoute] Failed to refresh session after Stripe checkout', error);
+      })
+      .then(() => refetchPractices())
+      .catch((error) => {
+        console.warn('[RootRoute] Failed to refresh practices after Stripe checkout', error);
+      })
+      .finally(() => {
+        if (typeof window !== 'undefined') {
+          const newUrl = new URL(window.location.href);
+          newUrl.searchParams.delete('subscription');
+          window.history.replaceState({}, '', `${newUrl.pathname}${newUrl.search}${newUrl.hash}`);
+        }
+        setSubscriptionSyncPending(false);
+      });
+  }, [isSubscriptionSuccessReturn, refetchPractices]);
+
+  useEffect(() => {
+    if (subscriptionSyncPending) return;
     if (isPending || practicesLoading) return;
 
     if (!session?.user) {
@@ -496,6 +536,7 @@ function RootRoute() {
     }
   }, [
     authenticatedHomePath,
+    subscriptionSyncPending,
     practicesLoading,
     isPending,
     navigate,
@@ -503,6 +544,7 @@ function RootRoute() {
   ]);
 
   if (
+    !subscriptionSyncPending &&
     !isPending &&
     !practicesLoading &&
     session?.user &&
@@ -514,6 +556,10 @@ function RootRoute() {
       'Workspace routing failed',
       'Authenticated workspace routing could not be resolved because no practice slug was available.'
     );
+  }
+
+  if (subscriptionSyncPending) {
+    return <LoadingScreen />;
   }
 
   return <LoadingScreen />;
