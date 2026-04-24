@@ -34,15 +34,17 @@ export const AddContactDialog = ({
   const handleSubmit = async () => {
     try {
       await createContact.submit();
+      // Run onSuccess first so downstream failures don't contradict the success toast
+      if (onSuccess) {
+        try {
+          await onSuccess();
+        } catch (err) {
+          showError('Post-create action failed', err instanceof Error ? err.message : 'Unknown error');
+          return;
+        }
+      }
       showSuccess('Invite sent', 'The invitation has been sent.');
       handleClose();
-      try {
-        await onSuccess?.();
-      } catch (err) {
-        // onSuccess failures should not surface as user-facing errors
-        // log for diagnostics but don't show an error toast after a successful invite
-        console.error('[AddContactDialog] onSuccess callback failed', err);
-      }
     } catch (error) {
       showError(
         'Could not send invite',

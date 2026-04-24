@@ -173,15 +173,21 @@ export async function handleWidgetBootstrap(request: Request, env: Env): Promise
             if (cookieHeader) {
               const followHeaders = Object.assign({}, upstreamHeaders);
               followHeaders['Cookie'] = cookieHeader;
-              const followRes = await fetch(`${env.BACKEND_API_URL}/api/auth/get-session`, {
-                headers: followHeaders,
-                signal: anonController.signal
-              }).catch(() => null);
-              if (followRes && followRes.ok) {
-                const followed = await followRes.json().catch(() => null);
-                if (followed) {
-                  sessionData = followed;
+              const followController = new AbortController();
+              const followTimer = setTimeout(() => followController.abort(), 5000);
+              try {
+                const followRes = await fetch(`${env.BACKEND_API_URL}/api/auth/get-session`, {
+                  headers: followHeaders,
+                  signal: followController.signal
+                }).catch(() => null);
+                if (followRes && followRes.ok) {
+                  const followed = await followRes.json().catch(() => null);
+                  if (followed) {
+                    sessionData = followed;
+                  }
                 }
+              } finally {
+                clearTimeout(followTimer);
               }
             }
           } catch (_e) {

@@ -30,7 +30,7 @@ export const readUserDetailAddress = (detail: unknown): Address | null => {
   };
 };
 
-export const hasRenderableUserDetailAddress = (value: unknown): value is Address => {
+export const hasRenderableUserDetailAddress = (value: unknown): boolean => {
   // Delegate to readUserDetailAddress which normalizes nested address shapes
   try {
     const resolved = readUserDetailAddress(value);

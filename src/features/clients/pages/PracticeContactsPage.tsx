@@ -332,8 +332,9 @@ export const PracticeContactsPage = ({
   const [memoActionId, setMemoActionId] = useState<string | null>(null);
   const [sendMessagePending, setSendMessagePending] = useState(false);
   const [hydratedAddressByDetailId, setHydratedAddressByDetailId] = useState<Record<string, unknown>>({});
-  const [hydrationInFlightById, setHydrationInFlightById] = useState<Record<string, true>>({});
-  const [hydrationFailedById, setHydrationFailedById] = useState<Record<string, true>>({});
+  // Transient in-flight / failed trackers — use refs to avoid effect self-canceling
+  const hydrationInFlightRef = useRef<Record<string, true>>({});
+  const hydrationFailedRef = useRef<Record<string, true>>({});
 
   const pathSuffix = location.path.startsWith(basePath) ? location.path.slice(basePath.length) : '';
   const pathSegments = pathSuffix.replace(/^\/+/, '').split('/').filter(Boolean);
@@ -404,7 +405,7 @@ export const PracticeContactsPage = ({
     if (!activePracticeId) return;
 
     const candidates = prefetchedItems.filter((detail) => {
-      if (hydratedAddressByDetailId[detail.id] || hydrationInFlightById[detail.id] || hydrationFailedById[detail.id]) return false;
+      if (hydratedAddressByDetailId[detail.id] || hydrationInFlightRef.current[detail.id] || hydrationFailedRef.current[detail.id]) return false;
       const hasAddressId = Boolean((detail as Record<string, unknown>).address_id ?? (detail as Record<string, unknown>).addressId);
       if (!hasAddressId) return false;
       const inlineAddress = readUserDetailAddress(detail);
@@ -414,12 +415,10 @@ export const PracticeContactsPage = ({
     if (candidates.length === 0) return;
 
     let cancelled = false;
-    setHydrationInFlightById((prev) => {
-      const next = { ...prev };
-      candidates.forEach((detail) => {
-        next[detail.id] = true;
-      });
-      return next;
+    // mark in-flight in the ref (transient)
+    hydrationInFlightRef.current = { ...hydrationInFlightRef.current };
+    candidates.forEach((detail) => {
+      hydrationInFlightRef.current[detail.id] = true;
     });
     void Promise.allSettled(
       candidates.map(async (detail) => {
@@ -451,24 +450,24 @@ export const PracticeContactsPage = ({
             reason: result.reason
           });
           if (detailId) {
-            setHydrationFailedById((prev) => ({ ...prev, [detailId]: true }));
+            hydrationFailedRef.current = { ...hydrationFailedRef.current };
+            hydrationFailedRef.current[detailId] = true;
           }
           return;
         }
         if (!result.value) {
           if (detailId) {
-            setHydrationFailedById((prev) => ({ ...prev, [detailId]: true }));
+            hydrationFailedRef.current = { ...hydrationFailedRef.current };
+            hydrationFailedRef.current[detailId] = true;
           }
           return;
         }
         updates[result.value.id] = result.value.address;
       });
-      setHydrationInFlightById((prev) => {
-        const next = { ...prev };
-        candidates.forEach((detail) => {
-          delete next[detail.id];
-        });
-        return next;
+      // remove in-flight flags for completed candidates
+      hydrationInFlightRef.current = { ...hydrationInFlightRef.current };
+      candidates.forEach((detail) => {
+        delete hydrationInFlightRef.current[detail.id];
       });
       if (Object.keys(updates).length === 0) return;
       setHydratedAddressByDetailId((prev) => ({ ...prev, ...updates }));
@@ -477,7 +476,7 @@ export const PracticeContactsPage = ({
     return () => {
       cancelled = true;
     };
-  }, [activePracticeId, hydratedAddressByDetailId, hydrationFailedById, hydrationInFlightById, prefetchedItems]);
+  }, [activePracticeId, hydratedAddressByDetailId, prefetchedItems]);
   const teamMembers = useMemo<DirectoryRecord[]>(() => {
     return teamMembersData.map<DirectoryRecord>((member) => ({
         id: `team:${member.userId}`,
@@ -493,9 +492,7 @@ export const PracticeContactsPage = ({
     const peopleItems: DirectoryRecord[] = prefetchedItems.map((detail) => {
       const name = detail.user?.name?.trim() || detail.user?.email?.trim() || 'Unknown contact';
       const hydratedAddress = hydratedAddressByDetailId[detail.id];
-      const resolvedAddress = hasRenderableUserDetailAddress(hydratedAddress)
-        ? hydratedAddress
-        : readUserDetailAddress(detail);
+      const resolvedAddress = readUserDetailAddress(hydratedAddress) ?? readUserDetailAddress(detail);
       return {
         id: detail.id,
         kind: 'client',
@@ -668,9 +665,7 @@ export const PracticeContactsPage = ({
         }
         const name = detail.user?.name?.trim() || detail.user?.email?.trim() || 'Unknown contact';
         const hydratedAddress = hydratedAddressByDetailId[detail.id];
-        const resolvedAddress = hasRenderableUserDetailAddress(hydratedAddress)
-          ? hydratedAddress
-          : readUserDetailAddress(detail);
+        const resolvedAddress = readUserDetailAddress(hydratedAddress) ?? readUserDetailAddress(detail);
         setSelectedClientRemote({
           id: detail.id,
           kind: 'client' as const,
@@ -828,12 +823,12 @@ export const PracticeContactsPage = ({
   const handleCancelPendingInvitation = useCallback(async (invitationId: string) => {
     try {
       await cancelInvitation(invitationId);
-      showSuccess('Invitation canceled successfully!');
+      showSuccess('Invitation canceled', 'The pending invitation was successfully canceled');
       if (selectedPendingInvitationIdFromPath === invitationId) {
         location.route(`${basePath}/pending`);
       }
     } catch (error) {
-      showError(error instanceof Error ? error.message : 'Failed to cancel invitation');
+      showError('Failed to cancel invitation', error instanceof Error ? error.message : 'Unknown error');
     }
   }, [basePath, cancelInvitation, location, selectedPendingInvitationIdFromPath, showError, showSuccess]);
 
