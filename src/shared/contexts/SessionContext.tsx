@@ -69,8 +69,10 @@ const buildSessionContextValue = ({
 
 function ActiveMemberRoleBridge({
   onChange,
+  activePracticeId,
 }: {
   onChange: (next: ActiveMemberRoleState) => void;
+  activePracticeId: string | null;
 }) {
   useEffect(() => {
     let mounted = true;
@@ -105,7 +107,7 @@ function ActiveMemberRoleBridge({
       });
       
     return () => { mounted = false; };
-  }, [onChange]);
+  }, [onChange, activePracticeId]);
 
   return null;
 }
@@ -198,7 +200,10 @@ export function SessionProvider({ children }: { children: ComponentChildren }) {
   return (
     <SessionContext.Provider value={value}>
       {shouldResolveActiveMemberRole ? (
-        <ActiveMemberRoleBridge onChange={setActiveMemberRoleState} />
+        <ActiveMemberRoleBridge 
+          onChange={setActiveMemberRoleState} 
+          activePracticeId={sessionActivePracticeId} 
+        />
       ) : null}
       {children}
     </SessionContext.Provider>

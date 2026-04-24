@@ -190,7 +190,7 @@ function AppShell() {
     !location.path.startsWith('/pricing') &&
     // Pre-subscription users on the onboarding flow have no org yet — fetching
     // practices would produce a guaranteed 403. AppShell redirects back here
-    // until onboardingComplete is true, so this guard is safe.
+    // until `onboarding_complete` is true, so this guard is safe.
     !(location.path.startsWith('/onboarding') && onboardingIncomplete);
   const { defaultWorkspace, currentPractice, practices } = useWorkspaceResolver({
     autoFetchPractices: shouldFetchWorkspacePractices
@@ -635,7 +635,6 @@ function PracticeAppRoute({
     );
   }
   if (!currentPractice) {
-    if (practicesLoading || isPending || rolePending) return <LoadingScreen />;
     return <App404 />;
   }
   if (!resolvedPracticeId) return <LoadingScreen />;

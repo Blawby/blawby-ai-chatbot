@@ -216,13 +216,15 @@ export const initI18n = async () => {
     });
 
   const normalizedAnyLocale = normalizeAnyLocale(i18next.language);
-  // Do not block app bootstrap on lazy locale chunk loading.
-  // `i18next.init` above already completed with fallback resources, so UI can hydrate.
-  // Any non-default locale bundles are loaded asynchronously and merged when ready.
+  // For non-default locales, load the locale bundles before proceeding so the
+  // initial render doesn't flash fallback (English) text. This intentionally
+  // blocks bootstrapping for non-default locales to avoid FOUC.
   if (normalizedAnyLocale !== DEFAULT_LOCALE) {
-    void loadLocaleResources(normalizedAnyLocale).catch((error) => {
+    try {
+      await loadLocaleResources(normalizedAnyLocale);
+    } catch (error) {
       console.warn(`[i18n] Failed to preload locale resources for "${normalizedAnyLocale}"`, error);
-    });
+    }
   }
 
   // Set initial HTML dir and lang attributes
