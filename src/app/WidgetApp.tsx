@@ -439,7 +439,8 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
       showErrorRef.current?.(attachmentsDisabledMessage);
       return [];
     }
-    // TODO: Implement file upload logic
+    // File uploads are disabled for anonymous public widget users.
+    // Authenticated client/practice uploads are handled via useFileUpload in MainApp.
     return [];
   }, [attachmentsDisabledMessage]);
   const removePreviewFile = useCallback((_index: number) => {}, []);

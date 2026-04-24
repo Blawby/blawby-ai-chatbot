@@ -163,10 +163,6 @@ export const useFileUpload = ({ practiceId, conversationId, enabled }: UseFileUp
         resolve(null);
       };
 
-      xhr.onloadend = () => {
-        cleanup();
-      };
-
       xhr.open('POST', '/api/files/upload', true);
       xhr.withCredentials = true;
 
@@ -207,7 +203,7 @@ export const useFileUpload = ({ practiceId, conversationId, enabled }: UseFileUp
   const cancelUpload = useCallback((fileId: string) => {
     if (!enabled) return;
     const xhr = xhrRef.current.get(fileId);
-    if (xhr && xhr.readyState !== XMLHttpRequest.DONE) {
+    if (xhr) {
       xhr.abort();
     }
     xhrRef.current.delete(fileId);
