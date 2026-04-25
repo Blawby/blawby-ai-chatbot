@@ -231,7 +231,7 @@ export const PayoutsPage = ({
     setIsSavingBilling(true);
     try {
       const savedDetails = await updateDetails({ billingIncrementMinutes: nextValue });
-      if (savedDetails !== undefined) setDetails(savedDetails);
+      if (savedDetails != null) setDetails(savedDetails);
       setBillingTouched(false);
       setBillingIncrementDraft(nextValue);
       showSuccess('Payouts and Billing', 'Billing increment updated.');

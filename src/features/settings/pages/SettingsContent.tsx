@@ -218,7 +218,7 @@ export const SettingsContent = (props: SettingsContentProps) => {
       const item = section.items.find((i) => i.id === view);
       if (item) return item.label;
     }
-    if (view === 'practice') return 'Practice';
+    if (view === 'practice') return t('settings:practice.title');
     if (view === 'mfa-enrollment') return t('settings:mfa.title');
     return t(`settings:${view}.title`);
   }, [currentApp, navConfig.secondary, t, view]);

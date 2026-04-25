@@ -109,15 +109,16 @@ const resolveContactDraft = (
         website: details.website ?? undefined,
         businessEmail: details.businessEmail ?? undefined,
         contactPhone: details.businessPhone ?? undefined,
-        address: buildAddress(mapAddressSource(typeof details.address === 'object' && details.address !== null
-          ? {
-              ...details.address,
-              city: details.city ?? (details.address as Record<string, unknown>).city,
-              state: details.state ?? (details.address as Record<string, unknown>).state,
-              postalCode: details.postalCode ?? (details.address as Record<string, unknown>).postalCode ?? (details.address as Record<string, unknown>).postal_code,
-              country: details.country ?? (details.address as Record<string, unknown>).country,
-            }
-          : details.address)),
+        address: buildAddress(mapAddressSource({
+          ...(typeof details.address === 'object' && details.address !== null
+            ? details.address
+            : { address: details.address }),
+          apartment: details.apartment,
+          city: details.city,
+          state: details.state,
+          postalCode: details.postalCode,
+          country: details.country,
+        })),
       }
     : {};
 
@@ -164,6 +165,58 @@ export const PracticePage = ({ className, onBack }: PracticePageProps) => {
     }),
     [currentAccentColor, currentPractice, details, draft]
   );
+  const practiceText = useMemo(() => ({
+    pageTitle: t('settings:practice.page.title', { defaultValue: 'Practice' }),
+    pageSubtitle: t('settings:practice.page.subtitle', { defaultValue: 'Identity, brand, contact, services, and licensed states' }),
+    identityTitle: t('settings:practice.identity.title', { defaultValue: 'Identity' }),
+    identityDescription: t('settings:practice.identity.description', { defaultValue: 'Practice name and public slug used in the workspace URL.' }),
+    practiceNameLabel: t('settings:practice.identity.nameLabel', { defaultValue: 'Practice name' }),
+    practiceNamePlaceholder: t('settings:practice.identity.namePlaceholder', { defaultValue: 'Smith & Associates' }),
+    publicSlugLabel: t('settings:practice.identity.slugLabel', { defaultValue: 'Public slug' }),
+    publicSlugPlaceholder: t('settings:practice.identity.slugPlaceholder', { defaultValue: 'smith-associates' }),
+    publicSlugDescription: t('settings:practice.identity.slugDescription', { defaultValue: 'This controls the workspace URL.' }),
+    brandTitle: t('settings:practice.brand.title', { defaultValue: 'Brand' }),
+    brandDescription: t('settings:practice.brand.description', { defaultValue: 'Avatar and accent color used throughout the widget experience.' }),
+    avatarLabel: t('settings:practice.brand.avatarLabel', { defaultValue: 'Upload brand avatar' }),
+    avatarDescription: t('settings:practice.brand.avatarDescription', { defaultValue: 'Upload a square image. Maximum 5 MB.' }),
+    brandColorLabel: t('settings:practice.brand.colorLabel', { defaultValue: 'Brand color' }),
+    brandColorAriaLabel: t('settings:practice.brand.colorAriaLabel', { defaultValue: 'Brand color' }),
+    currentBrandColorAria: t('settings:practice.brand.currentColorAria', { defaultValue: 'Current brand color {{color}}', color: contactValues.accentColor ?? currentAccentColor }),
+    brandColorHexAria: t('settings:practice.brand.colorHexAria', { defaultValue: 'Brand color hex' }),
+    brandColorPlaceholder: t('settings:practice.brand.colorPlaceholder', { defaultValue: '#D4AF37' }),
+    contactTitle: t('settings:practice.contact.title', { defaultValue: 'Contact details' }),
+    contactDescription: t('settings:practice.contact.description', { defaultValue: 'Website, business email, and phone number for this practice.' }),
+    websiteLabel: t('settings:practice.contact.websiteLabel', { defaultValue: 'Website' }),
+    websitePlaceholder: t('settings:practice.contact.websitePlaceholder', { defaultValue: 'https://example.com' }),
+    businessEmailLabel: t('settings:practice.contact.businessEmailLabel', { defaultValue: 'Business email' }),
+    businessEmailPlaceholder: t('settings:practice.contact.businessEmailPlaceholder', { defaultValue: 'business@example.com' }),
+    contactPhoneLabel: t('settings:practice.contact.phoneLabel', { defaultValue: 'Contact phone' }),
+    contactPhonePlaceholder: t('settings:practice.contact.phonePlaceholder', { defaultValue: '+1 (555) 123-4567' }),
+    addressTitle: t('settings:practice.address.title', { defaultValue: 'Address' }),
+    addressDescription: t('settings:practice.address.description', { defaultValue: 'Used in public practice details and intake flows.' }),
+    addressHelper: t('settings:practice.address.helper', { defaultValue: 'Leave fields blank to clear them.' }),
+    servicesTitle: t('settings:practice.servicesTitle', { defaultValue: 'Services' }),
+    servicesDescription: t('settings:practice.servicesDescription', { defaultValue: 'Choose the legal service areas this practice accepts for routing and intake setup.' }),
+    licensedStatesTitle: t('settings:practice.licensedStates.title', { defaultValue: 'Licensed states' }),
+    licensedStatesDescription: t('settings:practice.licensedStates.description', { defaultValue: 'Choose one or more states where this practice is licensed.' }),
+    licensedStatesPlaceholder: t('settings:practice.licensedStates.placeholder', { defaultValue: 'Select licensed states' }),
+    reset: t('common:forms.actions.reset'),
+    save: t('common:forms.actions.save'),
+    saving: t('common:forms.actions.saving'),
+    noPracticeSelected: t('settings:practice.noPracticeSelected', { defaultValue: 'No practice selected.' }),
+    practiceSettingsSavedTitle: t('settings:practice.toasts.practiceSettingsSaved.title', { defaultValue: 'Practice settings saved' }),
+    practiceSettingsSavedBody: t('settings:practice.toasts.practiceSettingsSaved.body', { defaultValue: 'Your practice settings have been saved.' }),
+    practiceSettingsSaveFailedTitle: t('settings:practice.toasts.practiceSettingsSaveFailed.title', { defaultValue: 'Practice settings save failed' }),
+    practiceSettingsSaveFailedBody: t('settings:practice.toasts.practiceSettingsSaveFailed.body', { defaultValue: 'Unable to save your practice settings. Please try again.' }),
+    licensedStatesSavedTitle: t('settings:practice.toasts.licensedStatesSaved.title', { defaultValue: 'Licensed states saved' }),
+    licensedStatesSavedBody: t('settings:practice.toasts.licensedStatesSaved.body', { defaultValue: 'Your licensed states were saved.' }),
+    licensedStatesSaveFailedTitle: t('settings:practice.toasts.licensedStatesSaveFailed.title', { defaultValue: 'Licensed states save failed' }),
+    licensedStatesSaveFailedBody: t('settings:practice.toasts.licensedStatesSaveFailed.body', { defaultValue: 'Unable to save your licensed states. Please try again.' }),
+    logoUploadFailedTitle: t('settings:practice.toasts.logoUploadFailed.title', { defaultValue: 'Logo upload failed' }),
+    logoUploadFailedBody: t('settings:practice.toasts.logoUploadFailed.body', { defaultValue: 'Unable to upload your logo. Please try again.' }),
+    brandColorInvalidTitle: t('settings:practice.toasts.brandColorInvalid.title', { defaultValue: 'Brand color' }),
+    brandColorInvalidBody: t('settings:practice.toasts.brandColorInvalid.body', { defaultValue: 'Brand color must be a valid hex value.' }),
+  }), [contactValues.accentColor, currentAccentColor, t]);
 
   const hasChanges = useMemo(() => {
     const baseline = resolveContactDraft(currentPractice, details);
@@ -206,8 +259,24 @@ export const PracticePage = ({ className, onBack }: PracticePageProps) => {
       return { saveId: latestSaveId, optimisticDetails: latestSave.optimisticDetails };
     };
 
+    const defaultDetails: Partial<PracticeDetails> = {
+      services: [],
+      website: null,
+      businessEmail: null,
+      businessPhone: null,
+      address: null,
+      apartment: null,
+      city: null,
+      state: null,
+      postalCode: null,
+      country: null,
+      accentColor: null,
+      logo: null,
+      serviceStates: [],
+    };
+
     const optimisticDetails = {
-      ...(details ?? { services: [] }),
+      ...(details ?? defaultDetails),
       services: apiServices,
     };
     pendingSaveSnapshotsRef.current.set(saveId, { optimisticDetails });
@@ -259,8 +328,24 @@ export const PracticePage = ({ className, onBack }: PracticePageProps) => {
     setStatesError(null);
     setIsSavingStates(true);
     try {
+      const defaultDetails: Partial<PracticeDetails> = {
+        services: [],
+        website: null,
+        businessEmail: null,
+        businessPhone: null,
+        address: null,
+        apartment: null,
+        city: null,
+        state: null,
+        postalCode: null,
+        country: null,
+        accentColor: null,
+        logo: null,
+        serviceStates: [],
+      };
+
       const optimisticDetails = {
-        ...(details ?? { services: [] }),
+        ...(details ?? defaultDetails),
         serviceStates: validStates,
       };
       setDetails(optimisticDetails);
@@ -268,15 +353,15 @@ export const PracticePage = ({ className, onBack }: PracticePageProps) => {
       if (savedDetails !== undefined) setDetails(savedDetails);
       setLicensedStatesDraft(validStates);
       setStatesDraftTouched(false);
-      showSuccess('Licensed states updated.');
+      showSuccess(practiceText.licensedStatesSavedTitle, practiceText.licensedStatesSavedBody);
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to update licensed states';
+      const message = err instanceof Error ? err.message : practiceText.licensedStatesSaveFailedBody;
       setStatesError(message);
-      showError('Licensed states update failed', message);
+      showError(practiceText.licensedStatesSaveFailedTitle, err instanceof Error ? err.message : practiceText.licensedStatesSaveFailedBody);
     } finally {
       setIsSavingStates(false);
     }
-  }, [currentPractice, details, setDetails, showError, showSuccess, updateDetails, validateStateCode]);
+  }, [currentPractice, details, practiceText, setDetails, showError, showSuccess, updateDetails, validateStateCode]);
 
   const handleLogoChange = async (files: FileList | File[]) => {
     if (!currentPractice) return;
@@ -289,7 +374,7 @@ export const PracticePage = ({ className, onBack }: PracticePageProps) => {
       const logoUrl = await uploadPracticeLogo(file, currentPractice.id, setLogoUploadProgress);
       setDraft((prev) => ({ ...prev, logo: logoUrl }));
     } catch (error) {
-      showError('Logo upload failed', error instanceof Error ? error.message : 'Unable to upload logo.');
+      showError(practiceText.logoUploadFailedTitle, error instanceof Error ? error.message : practiceText.logoUploadFailedBody);
     } finally {
       setLogoUploading(false);
       setLogoUploadProgress(null);
@@ -300,7 +385,7 @@ export const PracticePage = ({ className, onBack }: PracticePageProps) => {
     if (!currentPractice) return;
     const normalizedAccentColor = normalizeAccentColor(contactValues.accentColor);
     if (!normalizedAccentColor) {
-      showError('Brand color', 'Brand color must be a valid hex value.');
+      showError(practiceText.brandColorInvalidTitle, practiceText.brandColorInvalidBody);
       return;
     }
     setIsSaving(true);
@@ -344,9 +429,9 @@ export const PracticePage = ({ className, onBack }: PracticePageProps) => {
         await updateDetails(detailsPayload);
       }
       setDraft({});
-      showSuccess('Practice settings updated.');
+      showSuccess(practiceText.practiceSettingsSavedTitle, practiceText.practiceSettingsSavedBody);
     } catch (error) {
-      showError('Practice settings update failed', error instanceof Error ? error.message : 'Unable to save practice settings.');
+      showError(practiceText.practiceSettingsSaveFailedTitle, error instanceof Error ? error.message : practiceText.practiceSettingsSaveFailedBody);
     } finally {
       setIsSaving(false);
     }
@@ -354,16 +439,16 @@ export const PracticePage = ({ className, onBack }: PracticePageProps) => {
 
   if (!currentPractice) {
     return (
-      <EditorShell title="Practice" showBack={Boolean(onBack)} onBack={onBack}>
-        <p className="text-sm text-input-placeholder">No practice selected.</p>
+      <EditorShell title={practiceText.pageTitle} showBack={Boolean(onBack)} onBack={onBack}>
+        <p className="text-sm text-input-placeholder">{practiceText.noPracticeSelected}</p>
       </EditorShell>
     );
   }
 
   return (
     <EditorShell
-      title="Practice"
-      subtitle="Identity, brand, contact, services, and licensed states"
+      title={practiceText.pageTitle}
+      subtitle={practiceText.pageSubtitle}
       showBack={Boolean(onBack)}
       backVariant="close"
       onBack={onBack}
@@ -378,7 +463,7 @@ export const PracticePage = ({ className, onBack }: PracticePageProps) => {
             onClick={() => setDraft({})}
             disabled={!hasChanges || isSaving || logoUploading}
           >
-            Reset
+            {practiceText.reset}
           </Button>
           <Button
             type="button"
@@ -386,7 +471,7 @@ export const PracticePage = ({ className, onBack }: PracticePageProps) => {
             onClick={handleSave}
             disabled={!hasChanges || isSaving || logoUploading}
           >
-            {isSaving ? 'Saving...' : 'Save'}
+            {isSaving ? practiceText.saving : practiceText.save}
           </Button>
         </div>
       )}
@@ -404,24 +489,24 @@ export const PracticePage = ({ className, onBack }: PracticePageProps) => {
         )}
 
         <SettingSection
-          title="Identity"
-          description="Practice name and public slug used in the workspace URL."
+          title={practiceText.identityTitle}
+          description={practiceText.identityDescription}
         >
           <FormGrid>
             <Input
-              label="Practice name"
+              label={practiceText.practiceNameLabel}
               value={contactValues.name || ''}
               onChange={(value) => setDraft((prev) => ({ ...prev, name: value }))}
               disabled={isSaving}
-              placeholder="Smith & Associates"
+              placeholder={practiceText.practiceNamePlaceholder}
             />
             <Input
-              label="Public slug"
+              label={practiceText.publicSlugLabel}
               value={contactValues.slug || ''}
               onChange={(value) => setDraft((prev) => ({ ...prev, slug: value }))}
               disabled={isSaving}
-              placeholder="smith-associates"
-              description="This controls the workspace URL."
+              placeholder={practiceText.publicSlugPlaceholder}
+              description={practiceText.publicSlugDescription}
             />
           </FormGrid>
         </SettingSection>
@@ -429,15 +514,15 @@ export const PracticePage = ({ className, onBack }: PracticePageProps) => {
         <SectionDivider />
 
         <SettingSection
-          title="Brand"
-          description="Avatar and accent color used throughout the widget experience."
+          title={practiceText.brandTitle}
+          description={practiceText.brandDescription}
         >
           <div className="space-y-6">
             <LogoUploadInput
               imageUrl={contactValues.logo?.trim() ? contactValues.logo : null}
-              name={currentPractice.name || 'Practice'}
-              label="Upload brand avatar"
-              description="Upload a square image. Maximum 5 MB."
+              name={currentPractice.name || practiceText.pageTitle}
+              label={practiceText.avatarLabel}
+              description={practiceText.avatarDescription}
               accept="image/*"
               multiple={false}
               onChange={handleLogoChange}
@@ -447,13 +532,13 @@ export const PracticePage = ({ className, onBack }: PracticePageProps) => {
 
             <div className="space-y-3">
               <div>
-                <h3 className="text-sm font-semibold text-input-text">Brand color</h3>
+                <h3 className="text-sm font-semibold text-input-text">{practiceText.brandColorLabel}</h3>
                 <div className="mt-2 flex items-center gap-3">
                   <div
                     role="img"
                     className="h-5 w-5 rounded-full"
                     style={{ backgroundColor: normalizeAccentColor(contactValues.accentColor) ?? currentAccentColor }}
-                    aria-label={`Current brand color ${contactValues.accentColor}`}
+                    aria-label={practiceText.currentBrandColorAria}
                   />
                   <SettingsHelperText>{contactValues.accentColor}</SettingsHelperText>
                 </div>
@@ -467,17 +552,17 @@ export const PracticePage = ({ className, onBack }: PracticePageProps) => {
                     accentColor: normalizeAccentColor((event.target as HTMLInputElement).value) ?? (event.target as HTMLInputElement).value.toUpperCase(),
                   }))}
                   disabled={isSaving}
-                  aria-label="Brand color"
+                  aria-label={practiceText.brandColorAriaLabel}
                   className="h-10 w-16 rounded-xl border border-line-glass bg-surface-card p-1"
                 />
                 <Input
-                  aria-label="Brand color hex"
+                  aria-label={practiceText.brandColorHexAria}
                   value={contactValues.accentColor ?? ''}
                   onChange={(value) => setDraft((prev) => ({
                     ...prev,
                     accentColor: normalizeAccentColor(value) ?? value.toUpperCase(),
                   }))}
-                  placeholder="#D4AF37"
+                  placeholder={practiceText.brandColorPlaceholder}
                   maxLength={7}
                   disabled={isSaving}
                   className="w-32"
@@ -490,32 +575,32 @@ export const PracticePage = ({ className, onBack }: PracticePageProps) => {
         <SectionDivider />
 
         <SettingSection
-          title="Contact details"
-          description="Website, business email, and phone number for this practice."
+          title={practiceText.contactTitle}
+          description={practiceText.contactDescription}
         >
           <FormGrid>
             <Input
-              label="Website"
+              label={practiceText.websiteLabel}
               value={contactValues.website || ''}
               onChange={(value) => setDraft((prev) => ({ ...prev, website: value }))}
               disabled={isSaving}
-              placeholder="https://example.com"
+              placeholder={practiceText.websitePlaceholder}
             />
             <Input
-              label="Business email"
+              label={practiceText.businessEmailLabel}
               value={contactValues.businessEmail || ''}
               onChange={(value) => setDraft((prev) => ({ ...prev, businessEmail: value }))}
               disabled={isSaving}
               type="email"
-              placeholder="business@example.com"
+              placeholder={practiceText.businessEmailPlaceholder}
             />
             <Input
-              label="Contact phone"
+              label={practiceText.contactPhoneLabel}
               value={contactValues.contactPhone || ''}
               onChange={(value) => setDraft((prev) => ({ ...prev, contactPhone: value }))}
               disabled={isSaving}
               type="tel"
-              placeholder="+1 (555) 123-4567"
+              placeholder={practiceText.contactPhonePlaceholder}
             />
           </FormGrid>
         </SettingSection>
@@ -523,8 +608,8 @@ export const PracticePage = ({ className, onBack }: PracticePageProps) => {
         <SectionDivider />
 
         <SettingSection
-          title="Address"
-          description="Used in public practice details and intake flows."
+          title={practiceText.addressTitle}
+          description={practiceText.addressDescription}
         >
           <AddressExperienceForm
             initialValues={{ address: contactValues.address }}
@@ -543,15 +628,15 @@ export const PracticePage = ({ className, onBack }: PracticePageProps) => {
             disabled={isSaving}
           />
           <SettingsHelperText className="mt-3">
-            Leave fields blank to clear them.
+            {practiceText.addressHelper}
           </SettingsHelperText>
         </SettingSection>
 
         <SectionDivider />
 
         <SettingSection
-          title="Services"
-          description="Choose the legal service areas this practice accepts for routing and intake setup."
+          title={practiceText.servicesTitle}
+          description={practiceText.servicesDescription}
         >
           <ServicesEditor
             services={initialServiceDetails}
@@ -563,8 +648,8 @@ export const PracticePage = ({ className, onBack }: PracticePageProps) => {
         <SectionDivider />
 
         <SettingSection
-          title="Licensed states"
-          description="Choose one or more states where this practice is licensed."
+          title={practiceText.licensedStatesTitle}
+          description={practiceText.licensedStatesDescription}
         >
           <Combobox
             multiple
@@ -575,9 +660,9 @@ export const PracticePage = ({ className, onBack }: PracticePageProps) => {
               setStatesDraftTouched(true);
               void saveLicensedStates(nextStates);
             }}
-            placeholder="Select licensed states"
+            placeholder={practiceText.licensedStatesPlaceholder}
             disabled={isSavingStates}
-            aria-label="Licensed states"
+            aria-label={practiceText.licensedStatesTitle}
           />
         </SettingSection>
       </div>
