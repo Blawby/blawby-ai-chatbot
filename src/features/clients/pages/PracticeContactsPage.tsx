@@ -466,13 +466,14 @@ export const PracticeContactsPage = ({
         }
         updates[result.value.id] = result.value.address;
       });
-      // remove in-flight flags for completed candidates
+      if (Object.keys(updates).length === 0) return;
+      setHydratedAddressByDetailId((prev) => ({ ...prev, ...updates }));
+    }).finally(() => {
+      // remove in-flight flags for completed candidates, even if the effect was cancelled
       hydrationInFlightRef.current = { ...hydrationInFlightRef.current };
       candidates.forEach((detail) => {
         delete hydrationInFlightRef.current[detail.id];
       });
-      if (Object.keys(updates).length === 0) return;
-      setHydratedAddressByDetailId((prev) => ({ ...prev, ...updates }));
     });
 
     return () => {
