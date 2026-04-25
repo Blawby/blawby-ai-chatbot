@@ -1077,7 +1077,6 @@ export async function getUserDetailAddressById(
 
 export type CreateUserDetailPayload = {
   email: string;
-  event_name?: string;
 };
 
 type UserDetailBasePayload = {

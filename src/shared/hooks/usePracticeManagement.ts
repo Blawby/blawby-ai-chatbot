@@ -660,6 +660,14 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
 
   // Fetch user's practices
   const fetchPractices = useCallback(async () => {
+    console.log('[usePracticeManagement] fetchPractices triggered', {
+      sessionLoading,
+      sessionUserId,
+      isAnonymous,
+      practicesLoaded,
+      practicesFetchForbidden,
+      requestedPracticeSlug
+    });
     let currentFetchPromise: Promise<SharedPracticeSnapshot> | null = null;
     setGlobalLoading(true);
     try {
@@ -980,7 +988,7 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
         sharedPracticePromise = null;
       }
     }
-  }, [fetchOnboardingStatus, fetchPracticeDetails, isAnonymous, requestedPracticeSlug]);
+  }, [fetchOnboardingStatus, fetchPracticeDetails, isAnonymous, requestedPracticeSlug, sessionLoading, sessionUserId]);
 
   // Create practice
   const createPractice = useCallback(async (data: CreatePracticeData): Promise<Practice> => {

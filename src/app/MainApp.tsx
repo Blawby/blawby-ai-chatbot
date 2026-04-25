@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'preact/hooks';
 import type { ComponentChildren } from 'preact';
+import { useLocation } from 'preact-iso';
 import ChatContainer from '@/features/chat/components/ChatContainer';
 import DragDropOverlay from '@/shared/ui/DragDropOverlay';
 import WorkspacePage from '@/features/chat/pages/WorkspacePage';
@@ -28,8 +29,6 @@ const PracticeMattersPage = lazy(() => import('@/features/matters/pages/Practice
 const PracticeContactsPage = lazy(() => import('@/features/clients/pages/PracticeContactsPage').then(m => ({ default: m.PracticeContactsPage })));
 const ClientMattersPage = lazy(() => import('@/features/matters/pages/ClientMattersPage').then(m => ({ default: m.ClientMattersPage })));
 const PracticeInvoicesPage = lazy(() => import('@/features/invoices/pages/PracticeInvoicesPage').then(m => ({ default: m.PracticeInvoicesPage })));
-const PracticeInvoiceCreatePage = lazy(() => import('@/features/invoices/pages/PracticeInvoiceCreatePage').then(m => ({ default: m.PracticeInvoiceCreatePage })));
-const PracticeInvoiceEditPage = lazy(() => import('@/features/invoices/pages/PracticeInvoiceEditPage').then(m => ({ default: m.PracticeInvoiceEditPage })));
 const PracticeInvoiceDetailPage = lazy(() => import('@/features/invoices/pages/PracticeInvoiceDetailPage').then(m => ({ default: m.PracticeInvoiceDetailPage })));
 const ClientInvoicesPage = lazy(() => import('@/features/invoices/pages/ClientInvoicesPage').then(m => ({ default: m.ClientInvoicesPage })));
 const ClientInvoiceDetailPage = lazy(() => import('@/features/invoices/pages/ClientInvoiceDetailPage').then(m => ({ default: m.ClientInvoiceDetailPage })));
@@ -41,7 +40,7 @@ import { initializeAccentColor } from '@/shared/utils/accentColors';
 import { useMentionCandidates } from '@/shared/hooks/useMentionCandidates';
 import { isIntakeReadyForSubmission, resolveConsultationState } from '@/shared/utils/consultationState';
 import type { SettingsView } from '@/features/settings/pages/SettingsContent';
-import { InformationCircleIcon, PaperAirplaneIcon } from '@heroicons/react/24/outline';
+import { InformationCircleIcon } from '@heroicons/react/24/outline';
 import { PlusIcon } from '@heroicons/react/24/solid';
 import { Button } from '@/shared/ui/Button';
 import { Icon } from '@/shared/ui/Icon';
@@ -55,12 +54,11 @@ import { DetailHeader } from '@/shared/ui/layout/DetailHeader';
 import { LoadingBlock } from '@/shared/ui/layout/LoadingBlock';
 import { resolveStrengthStyle, resolveStrengthTier } from '@/shared/utils/intakeStrength';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
-import { INVOICE_CREATE_SEND_EVENT } from '@/features/invoices/utils/invoicePageConfig';
 import { features } from '@/config/features';
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
-export type WorkspaceView = 'home' | 'setup' | 'list' | 'conversation' | 'intakes' | 'intakeDetail' | 'engagements' | 'matters' | 'contacts' | 'invoices' | 'invoiceCreate' | 'invoiceEdit' | 'invoiceDetail' | 'reports' | 'settings';
+export type WorkspaceView = 'home' | 'setup' | 'list' | 'conversation' | 'intakes' | 'intakeDetail' | 'engagements' | 'matters' | 'contacts' | 'invoices' | 'invoiceDetail' | 'reports' | 'settings';
 
 /**
  * LayoutMode controls how ChatContainer renders its shell.
@@ -111,6 +109,7 @@ export function MainApp({
   const [isPaymentAuthPromptOpen, setIsPaymentAuthPromptOpen] = useState(false);
 
   const { navigate } = useNavigation();
+  const location = useLocation();
   const { showError, showInfo } = useToastContext();
   const showErrorRef = useRef(showError);
   useEffect(() => { showErrorRef.current = showError; }, [showError]);
@@ -219,6 +218,7 @@ export function MainApp({
   }, [isPracticeWorkspace, resolvedPracticeSlug]);
 
   const isAuthenticatedWorkspace = isPracticeWorkspace || isClientWorkspace;
+  const returnToPath = location.url.startsWith('/') ? location.url : `/${location.url.replace(/^\/+/, '')}`;
 
   useEffect(() => {
     initializeAccentColor(fullAccentColor);
@@ -834,24 +834,13 @@ export function MainApp({
                   inspectorOpen={detailInspectorOpen}
                   showBack={showPracticeInvoiceDetailBack}
                 />
-              ) : resolvedWorkspaceView === 'invoiceEdit' ? (
-                <PracticeInvoiceEditPage
-                  practiceId={effectivePracticeId ?? practiceId}
-                  practiceSlug={resolvedPracticeSlug ?? null}
-                  invoiceId={routeInvoiceId ?? null}
-                />
-              ) : resolvedWorkspaceView === 'invoiceCreate' ? (
-                <PracticeInvoiceCreatePage
-                  practiceId={effectivePracticeId ?? practiceId}
-                  practiceSlug={resolvedPracticeSlug ?? null}
-                />
               ) : (
                 <PracticeInvoicesPage
                   practiceId={effectivePracticeId ?? practiceId}
                   practiceSlug={resolvedPracticeSlug ?? null}
                   statusFilter={statusFilter}
                   renderMode="full"
-                  onCreateInvoice={practiceInvoicesPath ? () => navigate(`${practiceInvoicesPath}/new`) : undefined}
+                  onCreateInvoice={practiceInvoicesPath ? () => navigate(`${practiceInvoicesPath}/new?returnTo=${encodeURIComponent(returnToPath)}`) : undefined}
                 />
               )}
             </Suspense>
@@ -891,7 +880,7 @@ export function MainApp({
                   practiceSlug={resolvedPracticeSlug ?? null}
                   statusFilter={statusFilter}
                   renderMode="listOnly"
-                  onCreateInvoice={practiceInvoicesPath ? () => navigate(`${practiceInvoicesPath}/new`) : undefined}
+                  onCreateInvoice={practiceInvoicesPath ? () => navigate(`${practiceInvoicesPath}/new?returnTo=${encodeURIComponent(returnToPath)}`) : undefined}
                 />
               ) : (
                 <ClientInvoicesPage
@@ -950,25 +939,19 @@ export function MainApp({
         resolvedWorkspaceView === 'matters' && isPracticeWorkspace && practiceMattersPath
           ? {
               label: 'New Matter',
-              onClick: () => navigate(`${practiceMattersPath}/new`),
+              onClick: () => navigate(`${practiceMattersPath}/new?returnTo=${encodeURIComponent(returnToPath)}`),
               icon: PlusIcon,
             }
-          : (resolvedWorkspaceView === 'invoiceCreate' || resolvedWorkspaceView === 'invoiceEdit') && isPracticeWorkspace
-            ? {
-                label: 'Review Invoice',
-                onClick: () => window.dispatchEvent(new CustomEvent(INVOICE_CREATE_SEND_EVENT)),
-                icon: PaperAirplaneIcon,
-              }
           : resolvedWorkspaceView === 'invoices' && isPracticeWorkspace && practiceInvoicesPath
             ? {
-                label: 'New Invoice',
-                onClick: () => navigate(`${practiceInvoicesPath}/new`),
-                icon: PlusIcon,
-              }
+              label: 'New Invoice',
+              onClick: () => navigate(`${practiceInvoicesPath}/new?returnTo=${encodeURIComponent(returnToPath)}`),
+              icon: PlusIcon,
+            }
           : resolvedWorkspaceView === 'contacts' && isPracticeWorkspace && practiceContactsPath
             ? {
-                label: 'Invite Contact',
-                onClick: () => navigate(`${practiceContactsPath}?create=1`),
+                label: 'New Contact',
+                onClick: () => navigate(`${practiceContactsPath}/new?returnTo=${encodeURIComponent(returnToPath)}`),
                 icon: PlusIcon,
               }
             : null

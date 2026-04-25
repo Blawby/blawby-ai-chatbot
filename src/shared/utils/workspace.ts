@@ -153,6 +153,20 @@ export function setSettingsReturnPath(path: string): void {
 const isRelativeInternalPath = (path: string): boolean =>
   path.startsWith('/') && !path.startsWith('//');
 
+export function isValidInternalReturnPath(path: string | null | undefined): path is string {
+  return typeof path === 'string' && isRelativeInternalPath(path);
+}
+
+export function getValidatedInternalReturnPath(
+  returnPath: string | null | undefined,
+  fallback: string
+): string {
+  if (isValidInternalReturnPath(returnPath)) {
+    return returnPath;
+  }
+  return fallback;
+}
+
 export function getValidatedSettingsReturnPath(
   returnPath: string | null,
   workspace: Exclude<WorkspaceType, 'public'>,

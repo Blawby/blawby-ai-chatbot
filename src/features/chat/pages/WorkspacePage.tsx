@@ -3,7 +3,7 @@ import type { ComponentChildren } from 'preact';
 import { useMemo, useRef, useState, useEffect, useCallback } from 'preact/hooks';
 import { useLocation } from 'preact-iso';
 import axios from 'axios';
-import { Bars3Icon, XMarkIcon } from '@heroicons/react/24/outline';
+import { Bars3Icon } from '@heroicons/react/24/outline';
 import { PlusIcon } from '@heroicons/react/24/solid';
 import { useNavigation } from '@/shared/utils/navigation';
 import { signOut } from '@/shared/utils/auth';
@@ -102,7 +102,7 @@ import type { MatterStatus } from '@/shared/types/matterStatus';
 import type { IntakeConversationState, DerivedIntakeStatus, IntakeFieldChangeOptions } from '@/shared/types/intake';
 import { features } from '@/config/features';
 
-type WorkspaceView = 'home' | 'setup' | 'list' | 'conversation' | 'intakes' | 'intakeDetail' | 'engagements' | 'matters' | 'contacts' | 'invoices' | 'invoiceCreate' | 'invoiceEdit' | 'invoiceDetail' | 'reports' | 'settings';
+type WorkspaceView = 'home' | 'setup' | 'list' | 'conversation' | 'intakes' | 'intakeDetail' | 'engagements' | 'matters' | 'contacts' | 'invoices' | 'invoiceDetail' | 'reports' | 'settings';
 type PreviewTab = 'home' | 'messages' | 'intake';
 type WorkspacePrefetchData = {
   mattersData?: {
@@ -317,8 +317,9 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   }, [previewBaseUrl]);
 
   const handleDashboardCreateInvoice = useCallback(() => {
-    navigate(`${normalizedBase}/invoices/new`);
-  }, [navigate, normalizedBase]);
+    const returnTo = location.url.startsWith('/') ? location.url : `/${location.url.replace(/^\/+/, '')}`;
+    navigate(`${normalizedBase}/invoices/new?returnTo=${encodeURIComponent(returnTo)}`);
+  }, [location.url, navigate, normalizedBase]);
 
   const workspaceSection: WorkspaceSection = getWorkspaceSection(view);
 
@@ -1875,8 +1876,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
         return selectedContactIdFromPath ? null : 'Contacts';
       case 'invoices':
         return 'Invoices';
-      case 'invoiceCreate':
-      case 'invoiceEdit':
       case 'invoiceDetail':
         return null;
       case 'engagements':
@@ -1902,72 +1901,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       />
     )
     : undefined;
-  // Global invoice draft timestamp shown in the top bar for invoice builder routes.
-  const [invoiceDraftSavedAt, setInvoiceDraftSavedAt] = useState<string | null>(null);
-  useEffect(() => {
-    const handler = (ev: Event) => {
-      const ce = ev as CustomEvent;
-      try {
-        const ts = ce?.detail?.timestamp;
-        if (!ts) return;
-        const d = new Date(ts);
-        if (!isNaN(d.getTime())) {
-          setInvoiceDraftSavedAt(d.toLocaleString());
-        }
-      } catch (_e) {
-        // ignore malformed events
-      }
-    };
-    window.addEventListener('invoice:draft-saved', handler as EventListener);
-    return () => window.removeEventListener('invoice:draft-saved', handler as EventListener);
-  }, []);
-  const invoiceBuilderTopBar = (view === 'invoiceCreate' || view === 'invoiceEdit') ? (
-    <WorkspaceListHeader
-      leftControls={(
-        <div className="flex items-center gap-3">
-          <Button
-            type="button"
-            variant="icon"
-            size="icon-sm"
-            aria-label={view === 'invoiceEdit' ? 'Close invoice editor' : 'Close invoice composer'}
-            onClick={() => {
-              if (workspace === 'practice' && practiceSlug) {
-                navigate(`/practice/${encodeURIComponent(practiceSlug)}/invoices`);
-                return;
-              }
-              if (workspace === 'client' && practiceSlug) {
-                navigate(`/client/${encodeURIComponent(practiceSlug)}/invoices`);
-                return;
-              }
-              navigate('/dashboard');
-            }}
-            icon={XMarkIcon}
-            iconClassName="h-5 w-5"
-          />
-          <div className="h-5 w-px bg-line-glass/30" aria-hidden="true" />
-        </div>
-      )}
-      title={<h1 className="workspace-header__title">{view === 'invoiceEdit' ? 'Edit Invoice' : 'Create Invoice'}</h1>}
-      controls={(
-        <div className="flex items-center gap-3">
-          {invoiceDraftSavedAt ? <div className="text-sm text-input-placeholder">Draft saved at {invoiceDraftSavedAt}</div> : null}
-          <Button type="button" variant="secondary" size="sm" onClick={() => window.dispatchEvent(new CustomEvent('invoice:hide-preview', { detail: { force: 'hide' } }))}>
-            Hide preview
-          </Button>
-          {primaryCreateAction ? (
-            <Button
-              type="button"
-              size="sm"
-              onClick={primaryCreateAction.onClick}
-            >
-              {primaryCreateAction.label}
-            </Button>
-          ) : null}
-        </div>
-      )}
-      className={layoutMode === 'desktop' ? 'px-4 py-2' : 'px-1 py-1'}
-    />
-  ) : undefined;
   const sectionContent = (() => {
     switch (view) {
       case 'setup':
@@ -1986,8 +1919,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       case 'contacts':
         return contactsContent;
       case 'invoices':
-      case 'invoiceCreate':
-      case 'invoiceEdit':
       case 'invoiceDetail':
         return invoicesContent;
       case 'reports':
@@ -2024,7 +1955,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     if (view === 'contacts') {
       return { kind: 'full-page', overflow: 'hidden' };
     }
-    if (view === 'invoices' || view === 'invoiceDetail' || view === 'invoiceCreate' || view === 'invoiceEdit') {
+    if (view === 'invoices' || view === 'invoiceDetail') {
       return { kind: 'full-page', overflow: 'auto' };
     }
     if (view === 'reports') {
@@ -2039,7 +1970,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       content={sectionContent}
       chatView={chatView}
       layout={sectionLayout}
-      topBar={invoiceBuilderTopBar ?? (layoutMode === 'desktop' ? undefined : mobileSectionTopBar)}
+      topBar={layoutMode === 'desktop' ? undefined : mobileSectionTopBar}
       bottomNav={bottomNav}
     />
   );

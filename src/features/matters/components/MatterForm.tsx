@@ -32,7 +32,6 @@ import { formatDateOnlyUtc } from '@/shared/utils/dateOnly';
 import { asMajor, isFiniteNumber as isMajorAmount, type MajorAmount } from '@/shared/utils/money';
 import { FormGrid } from '@/shared/ui/layout/FormGrid';
 import { Panel } from '@/shared/ui/layout/Panel';
-import { AddContactDialog } from '@/shared/ui/contacts/AddContactDialog';
 import { parseMultiValueText, serializeMultiValueText } from '@/features/matters/utils/multiValueText';
 
 type MatterFormMode = 'create' | 'edit';
@@ -40,7 +39,6 @@ type MatterFormMode = 'create' | 'edit';
 interface MatterFormProps {
   onClose: () => void;
   onSubmit?: (values: MatterFormState) => Promise<void> | void;
-  onContactCreated?: () => Promise<void> | void;
   practiceId?: string | null;
   clients: MatterOption[];
   practiceAreas: MatterOption[];
@@ -312,7 +310,6 @@ const MatterMilestoneForm = ({
 const MatterFormInner = ({
   onClose,
   onSubmit,
-  onContactCreated,
   practiceId,
   clients,
   practiceAreas,
@@ -325,7 +322,6 @@ const MatterFormInner = ({
   const [formState, setFormState] = useState<MatterFormState>(() => buildInitialState(mode, initialValues));
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [addPersonOpen, setAddPersonOpen] = useState(false);
   const clientOptions = useMemo(
     () => clients.map((client) => ({
       value: client.id,
@@ -484,22 +480,11 @@ const MatterFormInner = ({
               return client?.email || option.meta;
             }}
             onChange={(value) => updateForm('clientId', value)}
-            footer={practiceId ? (
-              (close) => (
-                <button
-                  type="button"
-                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-accent-utility hover:bg-surface-utility/10"
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => {
-                    close();
-                    setAddPersonOpen(true);
-                  }}
-                >
-                  <PlusIcon className="h-4 w-4" />
-                  Invite contact
-                </button>
-              )
-            ) : undefined}
+                footer={practiceId ? () => (
+                  <div className="px-3 py-2 text-sm text-input-placeholder">
+                    Create contacts from the contacts page before linking them here.
+                  </div>
+                ) : undefined}
           />
 
           <Combobox
@@ -759,12 +744,6 @@ const MatterFormInner = ({
         </div>
         </form>
       </Panel>
-      <AddContactDialog
-        practiceId={practiceId ?? null}
-        isOpen={addPersonOpen}
-        onClose={() => setAddPersonOpen(false)}
-        onSuccess={onContactCreated}
-      />
     </>
   );
 };

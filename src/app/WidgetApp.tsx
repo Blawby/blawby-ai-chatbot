@@ -680,7 +680,18 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
                 )}
                 conversationId={activeConversationId}
                 onSendMessage={sendMessage}
-                isReady={currentUserId !== null && isSocketReady}
+                isReady={(() => {
+                  const ready = currentUserId !== null && isSocketReady;
+                  console.log('[WidgetApp]', {
+                    currentUserId,
+                    isSocketReady,
+                    effectiveConversationId,
+                    bootstrapConversationId,
+                    messagesReady,
+                    isReady: ready
+                  });
+                  return ready;
+                })()}
                 conversationMode={conversationMode}
                 onToggleReaction={features.enableMessageReactions ? toggleMessageReaction : undefined}
                 onRequestReactions={requestMessageReactions}
