@@ -1758,6 +1758,28 @@ function normalizePracticeDetailsPayload(payload: PracticeDetailsUpdate): Record
     }
   }
 
+  if ('servicesByState' in payload && payload.servicesByState !== undefined) {
+    if (payload.servicesByState && typeof payload.servicesByState === 'object' && !Array.isArray(payload.servicesByState)) {
+      const mapped: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(payload.servicesByState)) {
+        if (typeof k !== 'string') continue;
+        const stateKey = k.trim().toUpperCase();
+        if (!stateKey) continue;
+        if (Array.isArray(v)) {
+          const services = v.filter((s): s is string => typeof s === 'string').map(s => s.trim()).filter(Boolean);
+          if (services.length > 0) mapped[stateKey] = services;
+        }
+      }
+      if (Object.keys(mapped).length > 0) {
+        normalized.services_by_state = mapped;
+      } else {
+        normalized.services_by_state = {};
+      }
+    } else {
+      normalized.services_by_state = payload.servicesByState as unknown as Record<string, unknown>;
+    }
+  }
+
   return normalized;
 }
 
@@ -1938,6 +1960,20 @@ export function normalizePracticeDetailsResponse(payload: unknown): PracticeDeta
          .filter((e): e is SupportedStateEntry => e !== null);
        return result;
      })(),
+    servicesByState: (() => {
+      const raw = 'services_by_state' in container ? container.services_by_state : undefined;
+      if (raw === undefined) return undefined;
+      if (!isRecord(raw)) return null;
+      const result: Record<string, string[]> = {};
+      for (const [k, v] of Object.entries(raw)) {
+        if (!Array.isArray(v)) continue;
+        const services = v.filter((s): s is string => typeof s === 'string').map((s) => s.trim()).filter(Boolean);
+        if (services.length > 0) {
+          result[k.trim().toUpperCase()] = services;
+        }
+      }
+      return result;
+    })(),
      // Pass settings through as an opaque string so the UI can read/write it.
      settings: 'settings' in container
        ? (typeof container.settings === 'string' ? container.settings : null)

@@ -371,6 +371,19 @@ export const PracticePage = ({ className, onBack }: PracticePageProps) => {
     setServicesByStateDraft(details?.servicesByState ?? {});
   }, [details?.servicesByState]);
 
+  // prune servicesByStateDraft keys when licensed states change
+  useEffect(() => {
+    const savedStates = details?.serviceStates ?? [];
+    const currentStates = displayedLicensedStates ?? savedStates;
+    setServicesByStateDraft((prev) => {
+      const next: Record<string, string[]> = {};
+      for (const s of currentStates) {
+        if (prev[s]) next[s] = prev[s];
+      }
+      return next;
+    });
+  }, [displayedLicensedStates, details?.serviceStates]);
+
   const handleLogoChange = async (files: FileList | File[]) => {
     if (!currentPractice) return;
     const [file] = Array.isArray(files) ? files : Array.from(files);
@@ -677,14 +690,46 @@ export const PracticePage = ({ className, onBack }: PracticePageProps) => {
 
         <SectionDivider />
 
+        <SectionDivider />
+
         <SettingSection
-          title="Services by state"
-          description="Select which services are offered in each state."
+          title="Licenses & Services"
+          description="Add licensed states, then select services offered for each license."
         >
-          <ServicesByStateEditor
-            value={servicesByStateDraft}
-            onChange={(next) => setServicesByStateDraft(next)}
-          />
+          <div className="space-y-4">
+            <div>
+              <h4 className="text-sm font-medium text-input-text">Add your licensed states</h4>
+              <div className="mt-2">
+                <Combobox
+                  multiple
+                  options={STATE_OPTIONS}
+                  value={displayedLicensedStates}
+                  onChange={(nextStates) => {
+                    setLicensedStatesDraft(nextStates);
+                    setStatesDraftTouched(true);
+                    void saveLicensedStates(nextStates);
+                  }}
+                  placeholder={practiceText.licensedStatesPlaceholder}
+                />
+              </div>
+            </div>
+
+            <div>
+              <h4 className="text-sm font-medium text-input-text">Services per licensed state</h4>
+              <div className="mt-2">
+                <ServicesByStateEditor
+                  licensedStates={displayedLicensedStates}
+                  value={servicesByStateDraft}
+                  onChange={(next) => setServicesByStateDraft(next)}
+                  onRemove={(stateCode) => {
+                    const next = { ...servicesByStateDraft };
+                    delete next[stateCode];
+                    setServicesByStateDraft(next);
+                  }}
+                />
+              </div>
+            </div>
+          </div>
         </SettingSection>
       </div>
     </EditorShell>
