@@ -13,6 +13,7 @@ import {
   createMatter,
   type BackendMatter,
 } from '@/features/matters/services/mattersApi';
+import { urls } from '@/config/urls';
 import { invalidateMattersForPractice } from '@/shared/stores/mattersStore';
 import {
   buildCreatePayload,
@@ -150,7 +151,7 @@ export function PracticeMatterCreatePage({
 
   const clientOptions = useMemo(
     () => clients.items.map((client) => ({
-      id: client.id,
+      id: client.user?.id ?? client.id,
       name: client.user?.name?.trim() || client.user?.email?.trim() || 'Unnamed contact',
       email: client.user?.email ?? '',
       role: 'client' as const,
@@ -195,22 +196,20 @@ export function PracticeMatterCreatePage({
       throw new Error('Practice ID and intake UUID are required to convert an intake.');
     }
 
-    const response = await fetch(
-      `/api/practice-client-intakes/${encodeURIComponent(convertIntakeUuid)}/convert`,
-      {
-        method: 'PATCH',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          billing_type: values.billingType || undefined,
-          responsible_attorney_id: values.responsibleAttorneyId || undefined,
-          practice_service_id: values.practiceAreaId || undefined,
-          title: values.title || undefined,
-          status: values.status || 'engagement_pending',
-          open_date: values.openDate || undefined,
-        })
-      }
-    );
+    const endpoint = `${urls.clientIntake(practiceId, convertIntakeUuid)}/convert`;
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        billing_type: values.billingType || undefined,
+        responsible_attorney_id: values.responsibleAttorneyId || undefined,
+        practice_service_id: values.practiceAreaId || undefined,
+        title: values.title || undefined,
+        status: values.status || 'engagement_pending',
+        open_date: values.openDate || undefined,
+      })
+    });
 
     if (!response.ok) {
       const textBody = await response.text();
@@ -218,12 +217,13 @@ export function PracticeMatterCreatePage({
     }
 
     const payload = await response.json() as {
-      matter?: { id?: string };
-      data?: { matter?: { id?: string } };
+      success?: boolean;
+      data?: { matter_id?: string };
+      error?: string;
     };
-    const matterId = payload.matter?.id ?? payload.data?.matter?.id;
+    const matterId = payload.success ? payload.data?.matter_id ?? null : null;
     if (!matterId) {
-      throw new Error('Intake conversion response did not include a matter ID.');
+      throw new Error(payload.error || 'Intake conversion response did not include a matter ID.');
     }
 
     invalidateMattersForPractice(practiceId);

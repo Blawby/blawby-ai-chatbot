@@ -1,4 +1,6 @@
 import { useMemo, useState, type Dispatch, type StateUpdater } from 'preact/hooks';
+import { useLocation } from 'preact-iso';
+import { useNavigation } from '@/shared/utils/navigation';
 import { Button } from '@/shared/ui/Button';
 import { Input } from '@/shared/ui/input/Input';
 import { Textarea } from '@/shared/ui/input/Textarea';
@@ -358,6 +360,8 @@ const MatterFormInner = ({
     dueDate: '',
     amount: undefined as MajorAmount | undefined
   });
+  const location = useLocation();
+  const { navigate } = useNavigation();
   const canSubmit = Boolean(formState.title && (!requireClientSelection || formState.clientId));
 
   const updateForm = <K extends keyof MatterFormState>(key: K, value: MatterFormState[K]) => {
@@ -456,7 +460,7 @@ const MatterFormInner = ({
             onChange={(value) => updateForm('status', value as MatterStatus)}
           />
 
-          <Combobox
+            <Combobox
             label={`Contact${requireClientSelection ? ' *' : ''}`}
             placeholder="Select contact"
             value={formState.clientId}
@@ -480,11 +484,33 @@ const MatterFormInner = ({
               return client?.email || option.meta;
             }}
             onChange={(value) => updateForm('clientId', value)}
-                footer={practiceId ? () => (
-                  <div className="px-3 py-2 text-sm text-input-placeholder">
-                    Create contacts from the contacts page before linking them here.
-                  </div>
-                ) : undefined}
+                footer={practiceId ? () => {
+                  return (
+                    <div className="px-3 py-2 text-sm text-input-placeholder">
+                      <button
+                        type="button"
+                        className="text-sm text-accent-foreground underline"
+                        onClick={() => {
+                          try {
+                            if (typeof window !== 'undefined') {
+                              const draftId = crypto.randomUUID();
+                              const key = `matterDraft:${draftId}`;
+                              const payload = { formState, returnPath: location.url };
+                              window.sessionStorage.setItem(key, JSON.stringify(payload));
+                              const baseMatch = (location.url || '').match(/^\/practice\/[^/]+/);
+                              const contactsBase = baseMatch ? `${baseMatch[0]}/contacts` : '/practice/contacts';
+                              navigate(`${contactsBase}/new?draft=${encodeURIComponent(draftId)}&returnTo=${encodeURIComponent(location.url)}`);
+                            }
+                          } catch (_err) {
+                            // ignore storage/navigation errors
+                          }
+                        }}
+                      >
+                        Create a contact
+                      </button>
+                    </div>
+                  );
+                } : undefined}
           />
 
           <Combobox

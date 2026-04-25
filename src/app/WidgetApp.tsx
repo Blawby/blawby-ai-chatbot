@@ -278,6 +278,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
     conversationId: effectiveConversationId ?? undefined,
     onEnsureConversation: createConversationIfNeeded,
     userId: currentUserId,
+    isAnonymous,
     linkAnonymousConversationOnLoad: true,
     mode: conversationMode,
     onConversationMetadataUpdated: handleConversationMetadataUpdated,
@@ -537,6 +538,8 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
     return relative ? t('workspace.header.activeRelative', { time: relative }) : t('workspace.header.inactive');
   }, [filteredMessagesForHeader, isSocketReady, t]);
 
+  const isReady = useMemo(() => currentUserId !== null && isSocketReady && messagesReady, [currentUserId, isSocketReady, messagesReady]);
+
 
   const isConsultConversation = useMemo(
     () => conversationMode === 'REQUEST_CONSULTATION'
@@ -689,18 +692,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
                 )}
                 conversationId={activeConversationId}
                 onSendMessage={sendMessage}
-                isReady={(() => {
-                  const ready = currentUserId !== null && isSocketReady;
-                  console.log('[WidgetApp]', {
-                    currentUserId,
-                    isSocketReady,
-                    effectiveConversationId,
-                    bootstrapConversationId,
-                    messagesReady,
-                    isReady: ready
-                  });
-                  return ready;
-                })()}
+                isReady={isReady}
                 conversationMode={conversationMode}
                 onToggleReaction={features.enableMessageReactions ? toggleMessageReaction : undefined}
                 onRequestReactions={requestMessageReactions}

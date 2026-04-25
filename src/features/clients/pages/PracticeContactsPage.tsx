@@ -800,7 +800,10 @@ export const PracticeContactsPage = ({
   }, [activePracticeId, basePath, location, sendMessagePending, showError, conversationsPath]);
 
   const handleOpenAddClient = useCallback(() => {
-    const returnTo = encodeURIComponent(location.url);
+    // Normalize to a leading-slash path so encoded returnTo is canonical
+    const raw = typeof location.url === 'string' ? location.url : '';
+    const normalizedUrl = raw.startsWith('/') ? raw : `/${raw}`;
+    const returnTo = encodeURIComponent(normalizedUrl);
     location.route(`${basePath}/new?returnTo=${returnTo}`);
   }, [basePath, location]);
   const handleOpenTeamInvite = useCallback(() => {

@@ -83,7 +83,7 @@ export function PracticeContactEditorPage({
 }: PracticeContactEditorPageProps) {
   const location = useLocation();
   const { navigate } = useNavigation();
-  const { showSuccess } = useToastContext();
+  const { showSuccess, showWarning } = useToastContext();
 
   const isEditMode = Boolean(contactId);
   const formId = useId();
@@ -214,8 +214,42 @@ export function PracticeContactEditorPage({
       return;
     }
 
-    showSuccess('Invite sent', 'The contact invitation was sent.');
-    navigate(returnTo);
+    // Invite was sent but the created record did not appear within retries.
+    // Persist the pending update so a background retry or next page load
+    // can complete the remaining fields (name/phone/address).
+    try {
+      if (typeof window !== 'undefined') {
+        const key = 'pendingContactUpdates';
+        const raw = window.localStorage.getItem(key);
+        const list = raw ? JSON.parse(raw) as Array<Record<string, unknown>> : [];
+        list.push({
+          practiceId,
+          email,
+          payload,
+          timestamp: new Date().toISOString(),
+        });
+        window.localStorage.setItem(key, JSON.stringify(list));
+      }
+    } catch (_err) {
+      // ignore localStorage errors — still surface the pending state to the user
+    }
+
+    showWarning(
+      'Invite sent but details not saved',
+      'The contact invite was sent but additional details were not persisted. The remaining details will be retried in the background.'
+    );
+
+    // Preserve resolvedContactId (do not drop it) and surface pending state
+    // to the caller by adding a query flag so UIs can render pending indicators.
+    const pendingReturnTo = (() => {
+      try {
+        const url = returnTo || '/practice';
+        return url.includes('?') ? `${url}&pendingContact=1` : `${url}?pendingContact=1`;
+      } catch {
+        return returnTo;
+      }
+    })();
+    navigate(pendingReturnTo);
     } catch (nextError) {
       const message = nextError instanceof Error ? nextError.message : 'Failed to save contact.';
       setError(message);
@@ -223,7 +257,7 @@ export function PracticeContactEditorPage({
     } finally {
       setSaving(false);
     }
-  }, [draft.address, draft.email, draft.name, draft.phone, draft.status, isEditMode, navigate, practiceId, resolvedContactId, returnTo, saving, showSuccess]);
+  }, [draft.address, draft.email, draft.name, draft.phone, draft.status, isEditMode, navigate, practiceId, resolvedContactId, returnTo, saving, showSuccess, showWarning]);
 
   const title = isEditMode ? 'Edit Contact' : 'Create Contact';
   const subtitle = isEditMode
@@ -260,7 +294,7 @@ export function PracticeContactEditorPage({
             {error}
           </div>
         ) : null}
-        {!loading || isEditMode ? (
+        {!loading ? (
           <div className="space-y-6">
             <AddressExperienceForm
               formId={formId}
