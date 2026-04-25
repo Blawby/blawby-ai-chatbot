@@ -219,7 +219,7 @@ export function PracticeInvoiceDetailPage({
           mode="readOnly"
           practiceId={practiceId}
           connectedAccountId={detail.sourceInvoice.connected_account_id}
-          clientOptions={[{ value: detail.sourceInvoice.client_id, label: detail.clientName?.trim() || 'Person' }]}
+          clientOptions={[{ value: detail.sourceInvoice.client_id, label: detail.clientName?.trim() || 'Contact' }]}
           matterOptions={detail.sourceInvoice.matter_id
             ? [{ value: detail.sourceInvoice.matter_id, label: detail.matterTitle?.trim() || 'Matter', meta: detail.sourceInvoice.client_id }]
             : []}

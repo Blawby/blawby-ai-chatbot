@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'preact/hooks';
+import { useCallback, useEffect, useMemo, useState } from 'preact/hooks';
 import { useLocation } from 'preact-iso';
 import { UserPlusIcon, DocumentDuplicateIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import { Icon } from '@/shared/ui/Icon';
@@ -80,7 +80,6 @@ export const PracticeTeamPage = ({ className, onBack }: PracticeTeamPageProps) =
   const teamRoleOptions = PRACTICE_ROLE_OPTIONS.filter(option => option.value !== 'owner');
 
   const [isInvitingMember, setIsInvitingMember] = useState(false);
-  const [isEditingMember, setIsEditingMember] = useState(false);
   const [inviteForm, setInviteForm] = useState({
     email: '',
     role: 'admin' as Role
@@ -91,6 +90,7 @@ export const PracticeTeamPage = ({ className, onBack }: PracticeTeamPageProps) =
     name?: string;
     role: Role;
   } | null>(null);
+  const isEditingMember = editMemberData !== null;
 
   const origin = (typeof window !== 'undefined' && window.location)
     ? window.location.origin
@@ -107,6 +107,15 @@ export const PracticeTeamPage = ({ className, onBack }: PracticeTeamPageProps) =
     if (!teamError) return;
     showError(teamError);
   }, [showError, teamError]);
+
+  const refetchTeamAfterAction = useCallback(async () => {
+    try {
+      await refetchTeam();
+    } catch (refetchErr) {
+      console.warn('[PracticeTeamPage] Failed to refresh team — changes were saved.', refetchErr);
+      showWarning('Failed to refresh team — changes were saved.');
+    }
+  }, [refetchTeam, showWarning]);
 
   if (currentPractice && !activeMemberRoleLoading && isMembershipResolved && !isMember) {
     return (
@@ -139,13 +148,7 @@ export const PracticeTeamPage = ({ className, onBack }: PracticeTeamPageProps) =
       await updateMemberRole(currentPractice.id, editMemberData.userId, editMemberData.role);
       showSuccess('Member role updated successfully!');
       setEditMemberData(null);
-      setIsEditingMember(false);
-      try {
-        await refetchTeam();
-      } catch (refetchErr) {
-        console.warn('[PracticeTeamPage] Failed to refresh team — changes were saved.', refetchErr);
-        showWarning('Failed to refresh team — changes were saved.');
-      }
+      await refetchTeamAfterAction();
     } catch (err) {
       showError(err instanceof Error ? err.message : 'Failed to update member role');
     }
@@ -162,13 +165,7 @@ export const PracticeTeamPage = ({ className, onBack }: PracticeTeamPageProps) =
       await removeMember(currentPractice.id, member.userId);
       showSuccess('Member removed successfully!');
       setEditMemberData(null);
-      setIsEditingMember(false);
-      try {
-        await refetchTeam();
-      } catch (refetchErr) {
-        console.warn('[PracticeTeamPage] Failed to refresh team — changes were saved.', refetchErr);
-        showWarning('Failed to refresh team — changes were saved.');
-      }
+      await refetchTeamAfterAction();
     } catch (err) {
       showError(err instanceof Error ? err.message : 'Failed to remove member');
     }
@@ -178,12 +175,7 @@ export const PracticeTeamPage = ({ className, onBack }: PracticeTeamPageProps) =
     try {
       await acceptInvitation(invitationId);
       showSuccess('Invitation accepted!');
-      try {
-        await refetchTeam();
-      } catch (refetchErr) {
-        console.warn('[PracticeTeamPage] Failed to refresh team — changes were saved.', refetchErr);
-        showWarning('Failed to refresh team — changes were saved.');
-      }
+      await refetchTeamAfterAction();
     } catch (err) {
       showError(err instanceof Error ? err.message : 'Failed to accept invitation');
     }
@@ -288,40 +280,38 @@ export const PracticeTeamPage = ({ className, onBack }: PracticeTeamPageProps) =
       {members.length === 0 && (loading || teamLoading) ? (
         <LoadingBlock label="Loading members..." />
       ) : members.length > 0 ? (
-          <div className="space-y-3">
-            {members.map((member) => (
-              <div key={member.userId} className="flex items-center justify-between py-2">
-                <div className="flex min-w-0 flex-1 items-center gap-3">
-                  <UserCard
-                    name={member.name || member.email || member.userId}
-                    image={member.image ?? null}
-                    secondary={`${member.email || member.userId} • ${getPracticeRoleLabel(member.role)}`}
-                    badge={member.role === 'owner' ? 'Owner' : undefined}
-                    size="md"
-                    className="-ml-3"
-                  />
-                </div>
-                {isAdmin && member.role !== 'owner' && (
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => {
-                      if (isEditingMember && editMemberData?.userId === member.userId) {
-                        setIsEditingMember(false);
-                        setEditMemberData(null);
-                        return;
-                      }
-                      setEditMemberData(member);
-                      setIsEditingMember(true);
-                    }}
-                    className="text-input-text hover:text-accent-600 dark:hover:text-accent-400"
-                  >
-                    {isEditingMember && editMemberData?.userId === member.userId ? 'Cancel' : 'Manage'}
-                  </Button>
-                )}
+        <div className="space-y-3">
+          {members.map((member) => (
+            <div key={member.userId} className="flex items-center justify-between py-2">
+              <div className="flex min-w-0 flex-1 items-center gap-3">
+                <UserCard
+                  name={member.name || member.email || member.userId}
+                  image={member.image ?? null}
+                  secondary={`${member.email || member.userId} • ${getPracticeRoleLabel(member.role)}`}
+                  badge={member.role === 'owner' ? 'Owner' : undefined}
+                  size="md"
+                  className="-ml-3"
+                />
               </div>
-            ))}
-          </div>
+              {isAdmin && member.role !== 'owner' && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    if (editMemberData?.userId === member.userId) {
+                      setEditMemberData(null);
+                      return;
+                    }
+                    setEditMemberData(member);
+                  }}
+                  className="text-input-text hover:text-accent-600 dark:hover:text-accent-400"
+                >
+                  {isEditingMember && editMemberData?.userId === member.userId ? 'Cancel' : 'Manage'}
+                </Button>
+              )}
+            </div>
+          ))}
+        </div>
       ) : (
         <SettingsHelperText>No team members yet</SettingsHelperText>
       )}
@@ -395,7 +385,6 @@ export const PracticeTeamPage = ({ className, onBack }: PracticeTeamPageProps) =
               <FormActions
                 className="gap-2 pt-0"
                 onCancel={() => {
-                  setIsEditingMember(false);
                   setEditMemberData(null);
                 }}
                 onSubmit={handleUpdateMemberRole}

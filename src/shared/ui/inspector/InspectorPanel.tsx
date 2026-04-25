@@ -23,7 +23,7 @@ import {
 } from './InspectorPrimitives';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
-import { PERSON_RELATIONSHIP_STATUS_LABELS } from '@/shared/domain/people';
+import { CONTACT_RELATIONSHIP_STATUS_LABELS } from '@/shared/domain/contacts';
 import type { Address } from '@/shared/types/address';
 import type { IntakeConversationState, DerivedIntakeStatus } from '@/shared/types/intake';
 import { resolveStrengthTier, resolveStrengthLabel, resolveStrengthStyle, resolveStrengthDescription } from '@/shared/utils/intakeStrength';
@@ -859,7 +859,7 @@ export const InspectorPanel = ({
       }
       setActivePersonEditor(null);
     } catch (nextError: unknown) {
-      setError(nextError instanceof Error ? nextError.message : 'Failed to update person');
+      setError(nextError instanceof Error ? nextError.message : 'Failed to update contact');
     } finally {
       setIsSavingPersonField(false);
     }
@@ -877,7 +877,7 @@ export const InspectorPanel = ({
   };
   const handlePersonStatusChange = async (
     status: 'archived' | 'active',
-    eventName: 'Archive Person' | 'Restore Person'
+    eventName: 'Archive Contact' | 'Restore Contact'
   ) => {
     if (!practiceId || !entityId) return;
     setError(null);
@@ -900,7 +900,7 @@ export const InspectorPanel = ({
       setIsArchiveConfirmOpen(false);
       invalidateClientsForPractice(practiceId);
     } catch (nextError: unknown) {
-      setError(nextError instanceof Error ? nextError.message : 'Failed to update person status');
+      setError(nextError instanceof Error ? nextError.message : 'Failed to update contact status');
     } finally {
       setIsArchivingPerson(false);
     }
@@ -916,7 +916,7 @@ export const InspectorPanel = ({
               ? 'Matter Info'
               : entityType === 'invoice'
                 ? 'Invoice Info'
-                : 'Person Info'}
+                : 'Contact Info'}
         </h2>
         {showCloseButton ? (
           <Button
@@ -1307,11 +1307,11 @@ export const InspectorPanel = ({
                   secondaryLine={userDetail?.user?.email ?? undefined}
                 />
                 <div className="">
-                  <InspectorGroup label="Person Details">
+                  <InspectorGroup label="Contact Details">
                     <InfoRow label="Phone" value={userDetail?.user?.phone ?? undefined} muted={!userDetail?.user?.phone} />
                     <InfoRow
                       label="Relationship status"
-                      value={userDetail?.status ? PERSON_RELATIONSHIP_STATUS_LABELS[userDetail.status] : undefined}
+                      value={userDetail?.status ? CONTACT_RELATIONSHIP_STATUS_LABELS[userDetail.status] : undefined}
                     />
                   </InspectorGroup>
                 </div>
@@ -1320,14 +1320,14 @@ export const InspectorPanel = ({
 
             {!isClientView && resolvedConversationMode !== 'PRACTICE_ONBOARDING' && (
               <div className="">
-                <InspectorGroup label="People">
+                <InspectorGroup label="Contacts">
                   <InfoRow
                     label=""
                     valueNode={renderIdentityStack(
                       conversationPeople,
-                      'No people linked',
-                      'person linked',
-                      'people linked',
+                      'No contacts linked',
+                      'contact linked',
+                      'contacts linked',
                     )}
                   />
                 </InspectorGroup>
@@ -1850,7 +1850,7 @@ export const InspectorPanel = ({
               <InspectorGroup label="Relationship status">
                 <InfoRow
                   label=""
-                  value={userDetail?.status ? PERSON_RELATIONSHIP_STATUS_LABELS[userDetail.status] : undefined}
+                  value={userDetail?.status ? CONTACT_RELATIONSHIP_STATUS_LABELS[userDetail.status] : undefined}
                   muted={!userDetail?.status}
                 />
               </InspectorGroup>
@@ -1912,10 +1912,10 @@ export const InspectorPanel = ({
                 <div className="px-5 py-1.5">
                   {userDetail?.status === 'archived' ? (
                     <div className="flex items-center justify-between gap-2">
-                      <p className="text-[13px] text-input-placeholder">This person is archived.</p>
+                      <p className="text-[13px] text-input-placeholder">This contact is archived.</p>
                       <Button
                         size="sm"
-                        onClick={() => { void handlePersonStatusChange('active', 'Restore Person'); }}
+                        onClick={() => { void handlePersonStatusChange('active', 'Restore Contact'); }}
                         disabled={isArchivingPerson || isSavingPersonField}
                       >
                         {isArchivingPerson ? 'Restoring...' : 'Restore'}
@@ -1951,7 +1951,7 @@ export const InspectorPanel = ({
             />
             <div className="">
               <InspectorGroup label="Invoice Details">
-                <InfoRow label="Person" value={invoiceClientName ?? undefined} muted={!invoiceClientName} />
+                <InfoRow label="Contact" value={invoiceClientName ?? undefined} muted={!invoiceClientName} />
                 <InfoRow label="Matter" value={invoiceMatterTitle ?? undefined} muted={!invoiceMatterTitle} />
                 <InfoRow label="Due Date" value={invoiceDueDate ?? undefined} muted={!invoiceDueDate} />
                 <InfoRow label="Total Amount" value={invoiceTotal ?? undefined} muted={!invoiceTotal} />
@@ -1967,11 +1967,11 @@ export const InspectorPanel = ({
           if (isArchivingPerson) return;
           setIsArchiveConfirmOpen(false);
         }}
-        title="Archive person"
+        title="Archive contact"
       >
         <div className="space-y-4">
           <p className="text-sm text-input-placeholder">
-            Archive this person? They will move to the Archived list and can be restored later.
+            Archive this contact? They will move to the Archived list and can be restored later.
           </p>
           <div className="flex justify-end gap-2">
             <Button
@@ -1985,7 +1985,7 @@ export const InspectorPanel = ({
             <Button
               variant="danger"
               size="sm"
-              onClick={() => { void handlePersonStatusChange('archived', 'Archive Person'); }}
+            onClick={() => { void handlePersonStatusChange('archived', 'Archive Contact'); }}
               disabled={isArchivingPerson}
             >
               {isArchivingPerson ? 'Archiving...' : 'Archive'}

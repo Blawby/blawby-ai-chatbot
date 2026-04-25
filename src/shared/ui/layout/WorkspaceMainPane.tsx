@@ -1,25 +1,8 @@
 import type { ComponentChildren } from 'preact';
-import type { LayoutMode } from '@/app/MainApp';
+import type { LayoutMode, WorkspaceView } from '@/app/MainApp';
 import { WorkspacePlaceholderState, type WorkspacePlaceholderAction } from '@/shared/ui/layout/WorkspacePlaceholderState';
 import { cn } from '@/shared/utils/cn';
 import { useTranslation } from '@/shared/i18n/hooks';
-
-type WorkspaceView =
-  | 'home'
-  | 'setup'
-  | 'list'
-  | 'conversation'
-  | 'intakes'
-  | 'intakeDetail'
-  | 'engagements'
-  | 'matters'
-  | 'clients'
-  | 'invoices'
-  | 'invoiceCreate'
-  | 'invoiceEdit'
-  | 'invoiceDetail'
-  | 'reports'
-  | 'settings';
 
 export type WorkspaceSectionPlaceholder = {
   titleKey: string;

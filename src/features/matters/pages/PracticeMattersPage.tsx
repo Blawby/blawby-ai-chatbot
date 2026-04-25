@@ -553,62 +553,63 @@ export const PracticeMattersPage = ({
   // ── Data fetching: people (paginated) ─────────────────────────────────────
   const buildClientOption = useCallback((detail: UserDetailRecord): MatterOption => ({
     id: detail.id,
-    name: detail.user?.name?.trim() || detail.user?.email?.trim() || detail.user?.phone?.trim() || 'Unknown person',
+    name: detail.user?.name?.trim() || detail.user?.email?.trim() || detail.user?.phone?.trim() || 'Unknown contact',
     email: detail.user?.email ?? undefined,
     role: 'client',
     status: detail.status
   }), []);
 
-  useEffect(() => {
+  const refreshClientOptions = useCallback(async (signal?: AbortSignal) => {
     if (!activePracticeId) {
       setClientOptions([]);
       setIsClientListTruncated(false);
       return;
     }
 
-    let cancelled = false;
-    const controller = new AbortController();
+    setIsClientListTruncated(false);
+    let offset = 0;
+    const limit = 100;
+    const allClients: MatterOption[] = [];
+    let hasMore = true;
+    let lastTotal = 0;
+    const MAX_PAGES = 100;
+    let iterations = 0;
 
-    const fetchAllClients = async () => {
-      setIsClientListTruncated(false);
-      let offset = 0;
-      const limit = 100;
-      const allClients: MatterOption[] = [];
-      let hasMore = true;
-      let lastTotal = 0;
-      const MAX_PAGES = 100;
-      let iterations = 0;
+    try {
+      while (hasMore && !signal?.aborted && iterations < MAX_PAGES) {
+        iterations += 1;
+        const response = await listUserDetails(activePracticeId, { limit, offset, signal });
+        if (signal?.aborted) break;
 
-      try {
-        while (hasMore && !cancelled && !controller.signal.aborted && iterations < MAX_PAGES) {
-          iterations++;
-          const response = await listUserDetails(activePracticeId, { limit, offset, signal: controller.signal });
-          if (cancelled || controller.signal.aborted) break;
-
-          allClients.push(...response.data.map(buildClientOption));
-          lastTotal = response.total ?? 0;
-          hasMore = lastTotal > 0 ? allClients.length < lastTotal : response.data.length === limit;
-          if (hasMore) offset += limit;
-        }
-
-        if (!cancelled && !controller.signal.aborted) {
-          setClientOptions(allClients);
-          setIsClientListTruncated(iterations >= MAX_PAGES || lastTotal > allClients.length);
-        }
-      } catch (error) {
-        if (controller.signal.aborted || (error instanceof DOMException && error.name === 'AbortError')) return;
-        if (!cancelled) {
-          console.error('[PracticeMattersPage] Failed to load people', error);
-          setClientOptions(allClients);
-          setIsClientListTruncated(true);
-          showError('Failed to load full people list', 'Some people may be missing.');
-        }
+        allClients.push(...response.data.map(buildClientOption));
+        lastTotal = response.total ?? 0;
+        hasMore = lastTotal > 0 ? allClients.length < lastTotal : response.data.length === limit;
+        if (hasMore) offset += limit;
       }
-    };
 
-    void fetchAllClients();
-    return () => { cancelled = true; controller.abort(); };
+      if (!signal?.aborted) {
+        setClientOptions(allClients);
+        setIsClientListTruncated(iterations >= MAX_PAGES || lastTotal > allClients.length);
+      }
+    } catch (error) {
+      if (signal?.aborted || (error instanceof DOMException && error.name === 'AbortError')) return;
+      console.error('[PracticeMattersPage] Failed to load people', error);
+      setClientOptions(allClients);
+      setIsClientListTruncated(true);
+      showError('Failed to load full contacts list', 'Some contacts may be missing.');
+    }
   }, [activePracticeId, buildClientOption, showError]);
+
+  const refreshClientsControllerRef = useRef<AbortController | null>(null);
+  useEffect(() => {
+    const controller = new AbortController();
+    refreshClientsControllerRef.current = controller;
+    void refreshClientOptions(controller.signal);
+    return () => {
+      controller.abort();
+      if (refreshClientsControllerRef.current === controller) refreshClientsControllerRef.current = null;
+    };
+  }, [refreshClientOptions]);
 
   // ── Data fetching: practice services ─────────────────────────────────────
   useEffect(() => {
@@ -1740,7 +1741,7 @@ export const PracticeMattersPage = ({
             </Panel>
           ) : null}
           {!shouldDeferCreateForm ? (
-            <MatterCreateForm
+              <MatterCreateForm
               onClose={() => {
                 const id = createdMatterIdRef.current;
                 createdMatterIdRef.current = null;
@@ -1748,6 +1749,12 @@ export const PracticeMattersPage = ({
                 goToList();
               }}
               onSubmit={submitHandler}
+              onContactCreated={() => {
+                // Reuse the controller used by the main refresh effect so the request
+                // can be aborted when the component unmounts or navigation occurs.
+                const controller = refreshClientsControllerRef.current ?? new AbortController();
+                void refreshClientOptions(controller.signal);
+              }}
               practiceId={activePracticeId}
               clients={clientOptions}
               practiceAreas={practiceAreaOptions}
@@ -2303,7 +2310,7 @@ export const PracticeMattersPage = ({
       <div className="h-full min-h-0 flex flex-col gap-2">
         {isClientListTruncated && (
           <WarningBanner>
-            <strong>Warning:</strong> The people list is incomplete. Some names or options may be missing.
+            <strong>Warning:</strong> The contacts list is incomplete. Some names or options may be missing.
           </WarningBanner>
         )}
         {mattersError && <ErrorBanner>{mattersError}</ErrorBanner>}
@@ -2333,7 +2340,7 @@ export const PracticeMattersPage = ({
     <div className="min-h-0 flex flex-1 flex-col gap-2">
       {isClientListTruncated && (
         <WarningBanner>
-          <strong>Warning:</strong> The people list is incomplete. Some names or options may be missing.
+            <strong>Warning:</strong> The contacts list is incomplete. Some names or options may be missing.
         </WarningBanner>
       )}
 

@@ -173,7 +173,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
         name: 'Practice'
     };
     const clientProfile = {
-        name: conversationContactName?.trim() || conversationTitle?.trim() || 'Person'
+        name: conversationContactName?.trim() || conversationTitle?.trim() || 'Contact'
     };
     const blawbyProfile = {
         src: '/blawby-favicon-iframe.png',

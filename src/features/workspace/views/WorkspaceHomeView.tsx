@@ -66,7 +66,7 @@ const WorkspaceHomeView: FunctionComponent<WorkspaceHomeViewProps> = ({
             <div>
               <h2 className="text-2xl font-bold text-input-text">Practice Dashboard</h2>
               <p className="text-sm text-input-placeholder">
-                Manage your practice and people interactions
+                Manage your practice and contact interactions
               </p>
             </div>
           </div>

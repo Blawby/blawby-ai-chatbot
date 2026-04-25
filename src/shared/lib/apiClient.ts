@@ -552,13 +552,13 @@ function normalizePracticeInvitationPayload(payload: unknown): Record<string, un
   }
 
   const id = toNullableString(payload.id);
-  const practiceId = toNullableString(payload.organizationId);
+  const practiceId = toNullableString(payload.organizationId ?? payload.organization_id);
   const email = toNullableString(payload.email);
   const role = toNullableString(payload.role);
   const status = normalizeInvitationStatus(payload.status);
-  const invitedBy = toNullableString(payload.inviterId);
-  const expiresAt = toNullableTimestamp(payload.expiresAt);
-  const createdAt = toNullableTimestamp(payload.createdAt);
+  const invitedBy = toNullableString(payload.inviterId ?? payload.inviter_id);
+  const expiresAt = toNullableTimestamp(payload.expiresAt ?? payload.expires_at);
+  const createdAt = toNullableTimestamp(payload.createdAt ?? payload.created_at);
 
   if (!id || !practiceId || !email || !role || !status || !invitedBy || expiresAt === null || createdAt === null) {
     return null;
@@ -567,7 +567,7 @@ function normalizePracticeInvitationPayload(payload: unknown): Record<string, un
   return {
     id,
     practiceId,
-    practiceName: toNullableString(payload.organizationName) ?? undefined,
+    practiceName: toNullableString(payload.organizationName ?? payload.organization_name) ?? undefined,
     email,
     role,
     status,
@@ -1076,12 +1076,7 @@ export async function getUserDetailAddressById(
 }
 
 export type CreateUserDetailPayload = {
-  name: string;
   email: string;
-  phone?: string;
-  status?: UserDetailStatus;
-  currency?: string;
-  address?: Partial<Address>;
   event_name?: string;
 };
 
@@ -1149,16 +1144,15 @@ const normalizeUserDetailPayload = (payload: UserDetailBasePayload): Record<stri
 export async function createUserDetail(
   practiceId: string,
   payload: CreateUserDetailPayload
-): Promise<UserDetailRecord | null> {
+): Promise<void> {
   if (!practiceId) {
     throw new Error('practiceId is required');
   }
 
   const normalizedEmail = payload.email?.trim() || '';
-  const normalizedName = payload.name?.trim() || '';
 
-  if (!normalizedName || !normalizedEmail) {
-    throw new Error('Name and email are required');
+  if (!normalizedEmail) {
+    throw new Error('Email is required');
   }
 
   // Use Better Auth organization invitation instead of direct user-details creation.
@@ -1183,7 +1177,6 @@ export async function createUserDetail(
       role: 'client',
       organizationId: practiceId,
     });
-    return null;
   } catch (error) {
     console.error('Failed to invite client:', error);
     throw error;

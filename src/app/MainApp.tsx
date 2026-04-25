@@ -25,7 +25,7 @@ import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
 import type { ConversationMode } from '@/shared/types/conversation';
 import { lazy, Suspense } from 'preact/compat';
 const PracticeMattersPage = lazy(() => import('@/features/matters/pages/PracticeMattersPage').then(m => ({ default: m.PracticeMattersPage })));
-const PracticeClientsPage = lazy(() => import('@/features/clients/pages/PracticeClientsPage').then(m => ({ default: m.PracticeClientsPage })));
+const PracticeContactsPage = lazy(() => import('@/features/clients/pages/PracticeContactsPage').then(m => ({ default: m.PracticeContactsPage })));
 const ClientMattersPage = lazy(() => import('@/features/matters/pages/ClientMattersPage').then(m => ({ default: m.ClientMattersPage })));
 const PracticeInvoicesPage = lazy(() => import('@/features/invoices/pages/PracticeInvoicesPage').then(m => ({ default: m.PracticeInvoicesPage })));
 const PracticeInvoiceCreatePage = lazy(() => import('@/features/invoices/pages/PracticeInvoiceCreatePage').then(m => ({ default: m.PracticeInvoiceCreatePage })));
@@ -60,7 +60,7 @@ import { features } from '@/config/features';
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
-type WorkspaceView = 'home' | 'setup' | 'list' | 'conversation' | 'intakes' | 'intakeDetail' | 'engagements' | 'matters' | 'clients' | 'invoices' | 'invoiceCreate' | 'invoiceEdit' | 'invoiceDetail' | 'reports' | 'settings';
+export type WorkspaceView = 'home' | 'setup' | 'list' | 'conversation' | 'intakes' | 'intakeDetail' | 'engagements' | 'matters' | 'contacts' | 'invoices' | 'invoiceCreate' | 'invoiceEdit' | 'invoiceDetail' | 'reports' | 'settings';
 
 /**
  * LayoutMode controls how ChatContainer renders its shell.
@@ -176,7 +176,7 @@ export function MainApp({
     conversationsBasePath,
     conversationBackPath,
     practiceMattersPath,
-    practiceClientsPath,
+    practiceContactsPath,
     layoutMode,
   } = useWorkspaceRouting({
     practiceId,
@@ -783,18 +783,18 @@ export function MainApp({
             )
           : undefined
       }
-      clientsView={isPracticeWorkspace && practiceClientsPath != null
+      contactsView={isPracticeWorkspace && practiceContactsPath != null
         ? (statusFilter, prefetchData, onDetailInspector, detailInspectorOpen, detailHeaderLeadingAction) => (
           <Suspense fallback={<WorkspaceSubviewFallback />}>
-            <PracticeClientsPage
+            <PracticeContactsPage
               practiceId={effectivePracticeId ?? practiceId}
-              basePath={practiceClientsPath}
+              basePath={practiceContactsPath}
               renderMode={layoutMode === 'desktop' ? 'detailOnly' : 'full'}
               statusFilter={statusFilter}
-              prefetchedItems={prefetchData?.clientsData?.items}
-              prefetchedLoading={prefetchData?.clientsData?.isLoading}
-              prefetchedError={prefetchData?.clientsData?.error}
-              onRefetchList={prefetchData?.clientsData?.refetch}
+              prefetchedItems={prefetchData?.contactsData?.items}
+              prefetchedLoading={prefetchData?.contactsData?.isLoading}
+              prefetchedError={prefetchData?.contactsData?.error}
+              onRefetchList={prefetchData?.contactsData?.refetch}
               onDetailInspector={onDetailInspector}
               detailInspectorOpen={detailInspectorOpen}
               detailHeaderLeadingAction={detailHeaderLeadingAction}
@@ -803,18 +803,18 @@ export function MainApp({
           </Suspense>
         )
         : undefined}
-      clientsListContent={isPracticeWorkspace && layoutMode === 'desktop' && practiceClientsPath != null
+      contactsListContent={isPracticeWorkspace && layoutMode === 'desktop' && practiceContactsPath != null
         ? (statusFilter, prefetchData) => (
           <Suspense fallback={<WorkspaceSubviewFallback />}>
-            <PracticeClientsPage
+            <PracticeContactsPage
               practiceId={effectivePracticeId ?? practiceId}
-              basePath={practiceClientsPath}
+              basePath={practiceContactsPath}
               renderMode="listOnly"
               statusFilter={statusFilter}
-              prefetchedItems={prefetchData?.clientsData?.items}
-              prefetchedLoading={prefetchData?.clientsData?.isLoading}
-              prefetchedError={prefetchData?.clientsData?.error}
-              onRefetchList={prefetchData?.clientsData?.refetch}
+              prefetchedItems={prefetchData?.contactsData?.items}
+              prefetchedLoading={prefetchData?.contactsData?.isLoading}
+              prefetchedError={prefetchData?.contactsData?.error}
+              onRefetchList={prefetchData?.contactsData?.refetch}
               showDetailBackButton={showWorkspaceDetailBack}
             />
           </Suspense>
@@ -965,10 +965,10 @@ export function MainApp({
                 onClick: () => navigate(`${practiceInvoicesPath}/new`),
                 icon: PlusIcon,
               }
-          : resolvedWorkspaceView === 'clients' && isPracticeWorkspace && practiceClientsPath
+          : resolvedWorkspaceView === 'contacts' && isPracticeWorkspace && practiceContactsPath
             ? {
-                label: 'New Person',
-                onClick: () => navigate(`${practiceClientsPath}?create=1`),
+                label: 'Invite Contact',
+                onClick: () => navigate(`${practiceContactsPath}?create=1`),
                 icon: PlusIcon,
               }
             : null

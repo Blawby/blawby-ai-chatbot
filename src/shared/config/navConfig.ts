@@ -9,7 +9,7 @@ import {
   InboxStackIcon,
 } from '@heroicons/react/24/solid';
 import { SettingsNavIcon } from '@/shared/ui/nav/SettingsNavIcon';
-import { PEOPLE_DIRECTORY_LABEL } from '@/shared/domain/people';
+import { CONTACTS_DIRECTORY_LABEL } from '@/shared/domain/contacts';
 import type { PracticeRole } from '@/shared/utils/practiceRoles';
 
 export type NavCtx = {
@@ -109,7 +109,7 @@ const buildPracticeRail = (basePath: string): NavRailItem[] => [
     label: 'Home',
     icon: HomeIcon,
     href: basePath,
-    matchHrefs: [basePath, `${basePath}/setup`, `${basePath}/people`, `${basePath}/clients`],
+    matchHrefs: [basePath, `${basePath}/setup`, `${basePath}/contacts`, `${basePath}/contacts/pending`, `${basePath}/contacts/clients`, `${basePath}/contacts/team`, `${basePath}/contacts/archived`],
   },
   {
     id: 'conversations',
@@ -247,13 +247,14 @@ const buildHomeSecondary = (basePath: string, workspace: 'practice' | 'client'):
     items: [
       { id: 'overview', label: 'Overview', href: `${basePath}` },
       {
-        id: 'people',
-        label: PEOPLE_DIRECTORY_LABEL,
+        id: 'contacts',
+        label: CONTACTS_DIRECTORY_LABEL,
         children: [
-          { id: 'people-all', label: 'All', href: `${basePath}/people` },
-          { id: 'people-clients', label: 'Clients', href: `${basePath}/people/clients` },
-          { id: 'people-team', label: 'Team', href: `${basePath}/people/team` },
-          { id: 'people-archived', label: 'Archived', href: `${basePath}/people/archived` },
+          { id: 'contacts-all', label: 'All', href: `${basePath}/contacts` },
+          { id: 'contacts-clients', label: 'Clients', href: `${basePath}/contacts/clients` },
+          { id: 'contacts-pending', label: 'Pending', href: `${basePath}/contacts/pending` },
+          { id: 'contacts-team', label: 'Team', href: `${basePath}/contacts/team` },
+          { id: 'contacts-archived', label: 'Archived', href: `${basePath}/contacts/archived` },
         ],
       },
     ],

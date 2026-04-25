@@ -356,7 +356,7 @@ export const PayoutsPage = ({
           <SettingsHelperText className="mt-3 block">
             {missingBusinessEmail
               ? 'Add a business email before starting Stripe verification.'
-              : 'The recommended person to complete onboarding is the business owner or another authorized representative.'}
+              : 'The recommended contact to complete onboarding is the business owner or another authorized representative.'}
           </SettingsHelperText>
         )}
       </SettingSection>
