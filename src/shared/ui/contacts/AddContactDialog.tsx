@@ -22,7 +22,7 @@ export const AddContactDialog = ({
   title = 'Invite contact',
   submitText = 'Send invite',
 }: AddContactDialogProps) => {
-  const { showSuccess, showError } = useToastContext();
+  const { showSuccess, showError, showWarning } = useToastContext();
   const createContact = useCreateContact(practiceId);
   const submitLabel = createContact.submitting ? 'Sending...' : submitText;
 
@@ -34,17 +34,23 @@ export const AddContactDialog = ({
   const handleSubmit = async () => {
     try {
       await createContact.submit();
-      // Run onSuccess first so downstream failures don't contradict the success toast
+      // Close and reset the dialog immediately so duplicate submissions are
+      // prevented even if a downstream post-create step fails.
+      handleClose();
+      // Run optional post-create hook but treat failures as warnings — the
+      // contact was created successfully.
       if (onSuccess) {
         try {
           await onSuccess();
         } catch (err) {
-          showError('Post-create action failed', err instanceof Error ? err.message : 'Unknown error');
+          showWarning(
+            'Contact created, post-create action failed',
+            err instanceof Error ? err.message : 'A post-create step failed'
+          );
           return;
         }
       }
       showSuccess('Invite sent', 'The invitation has been sent.');
-      handleClose();
     } catch (error) {
       showError(
         'Could not send invite',

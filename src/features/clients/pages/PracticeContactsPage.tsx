@@ -476,6 +476,12 @@ export const PracticeContactsPage = ({
     });
 
     return () => {
+      // clear any in-flight markers we set for these candidates so they can
+      // be retried on the next effect run instead of being permanently blocked
+      hydrationInFlightRef.current = { ...hydrationInFlightRef.current };
+      candidates.forEach((detail) => {
+        delete hydrationInFlightRef.current[detail.id];
+      });
       cancelled = true;
     };
   }, [activePracticeId, hydratedAddressByDetailId, prefetchedItems]);
