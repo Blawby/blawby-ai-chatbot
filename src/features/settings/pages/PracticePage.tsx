@@ -13,6 +13,7 @@ import { useTranslation } from '@/shared/i18n/hooks';
 import type { PracticeDetails } from '@/shared/lib/apiClient';
 import type { Address } from '@/shared/types/address';
 import { buildPracticeProfilePayloads } from '@/shared/utils/practiceProfile';
+import { getPracticeDetails } from '@/shared/lib/apiClient';
 import { normalizeAccentColor } from '@/shared/utils/accentColors';
 import { uploadPracticeLogo } from '@/shared/utils/practiceLogoUpload';
 import ServicesByStateEditor from '@/features/services/components/ServicesByStateEditor';
@@ -164,13 +165,15 @@ export const PracticePage = ({ className, onBack }: PracticePageProps) => {
   const [servicesDirty, setServicesDirty] = useState(false);
 
   // Seed local state once when details first loads. Never again.
-  const initializedRef = useRef(false);
+  const lastPracticeIdRef = useRef<string | null>(null);
   useEffect(() => {
-    if (initializedRef.current || !details) return;
-    initializedRef.current = true;
+    if (!details) return;
+    const pid = currentPractice?.id ?? null;
+    if (lastPracticeIdRef.current === pid) return;
+    lastPracticeIdRef.current = pid;
     setLicensedStates(details.serviceStates ?? []);
     setServicesByState(details.servicesByState ?? {});
-  }, [details]);
+  }, [details, currentPractice?.id]);
 
   const currentAccentColor =
     normalizeAccentColor(details?.accentColor ?? currentPractice?.accentColor) ?? '#D4AF37';
@@ -178,11 +181,11 @@ export const PracticePage = ({ className, onBack }: PracticePageProps) => {
   const contactValues = useMemo(
     () => ({
       ...resolveContactDraft(currentPractice, details),
+      ...draft,
       name: draft.name ?? currentPractice?.name ?? '',
       slug: draft.slug ?? currentPractice?.slug ?? '',
       logo: draft.logo ?? currentPractice?.logo ?? '',
       accentColor: draft.accentColor ?? currentAccentColor,
-      ...draft,
     }),
     [currentAccentColor, currentPractice, details, draft]
   );
@@ -231,6 +234,10 @@ export const PracticePage = ({ className, onBack }: PracticePageProps) => {
     logoUploadFailedBody: t('settings:practice.toasts.logoUploadFailed.body', { defaultValue: 'Unable to upload your logo. Please try again.' }),
     brandColorInvalidTitle: t('settings:practice.toasts.brandColorInvalid.title', { defaultValue: 'Brand color' }),
     brandColorInvalidBody: t('settings:practice.toasts.brandColorInvalid.body', { defaultValue: 'Brand color must be a valid hex value.' }),
+    servicesTitle: t('settings:practice.services.title', { defaultValue: 'Services' }),
+    servicesDescription: t('settings:practice.services.description', { defaultValue: 'Add states, then select services offered for each state.' }),
+    addStatesHeading: t('settings:practice.services.addStatesHeading', { defaultValue: 'Add your states' }),
+    servicesPerStateHeading: t('settings:practice.services.servicesPerStateHeading', { defaultValue: 'Services per state' }),
   }), [contactValues.accentColor, currentAccentColor, t]);
 
   // ── hasChanges ────────────────────────────────────────────────────────────
@@ -330,9 +337,19 @@ export const PracticePage = ({ className, onBack }: PracticePageProps) => {
 
       // Always write serviceStates and settings so they're never accidentally
       // dropped by a contact-only save. Backend doesn't echo `settings` back,
-      // so we are the source of truth for it.
+      // so we are the source of truth for it. To avoid clobbering unrelated
+      // `settings` keys from a stale local `details`, attempt to fetch the
+      // latest details and merge only the `services_by_state` portion.
       detailsPayload.serviceStates = validStates;
-      detailsPayload.settings = buildSettingsString(details?.settings ?? null, prunedServicesByState);
+      try {
+        const freshest = currentPractice?.id ? await getPracticeDetails(currentPractice.id) : null;
+        const baseSettings = freshest?.settings ?? details?.settings ?? null;
+        detailsPayload.settings = buildSettingsString(baseSettings, prunedServicesByState);
+      } catch (fetchError) {
+        // If fetching latest details fails, fall back to local `details`.
+        if (import.meta.env.DEV) console.warn('[PracticePage] Failed to fetch fresh details before saving settings', fetchError);
+        detailsPayload.settings = buildSettingsString(details?.settings ?? null, prunedServicesByState);
+      }
 
       if (Object.keys(practicePayload).length > 0) {
         await updatePractice(currentPractice.id, practicePayload);
@@ -342,7 +359,7 @@ export const PracticePage = ({ className, onBack }: PracticePageProps) => {
 
       // Backend doesn't return `settings`, so patch servicesByState back onto
       // whatever the server gave us so local state stays consistent.
-      if (savedDetails !== undefined) {
+      if (savedDetails != null) {
         setDetails({
           ...savedDetails,
           servicesByState: prunedServicesByState,
@@ -579,12 +596,12 @@ export const PracticePage = ({ className, onBack }: PracticePageProps) => {
         <SectionDivider />
 
         <SettingSection
-          title="Services"
-          description="Add states, then select services offered for each state."
+          title={practiceText.servicesTitle}
+          description={practiceText.servicesDescription}
         >
           <div className="space-y-4">
             <div>
-              <h4 className="text-sm font-medium text-input-text">Add your states</h4>
+              <h4 className="text-sm font-medium text-input-text">{practiceText.addStatesHeading}</h4>
               <div className="mt-2">
                 <Combobox
                   multiple
@@ -608,7 +625,7 @@ export const PracticePage = ({ className, onBack }: PracticePageProps) => {
             </div>
 
             <div>
-              <h4 className="text-sm font-medium text-input-text">Services per state</h4>
+              <h4 className="text-sm font-medium text-input-text">{practiceText.servicesPerStateHeading}</h4>
               <div className="mt-2">
                 <ServicesByStateEditor
                   licensedStates={licensedStates}

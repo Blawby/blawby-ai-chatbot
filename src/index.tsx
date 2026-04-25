@@ -82,11 +82,9 @@ const renderWorkspaceFailureState = (title: string, description: string) => (
 const resolveAuthenticatedHomePath = ({
   defaultWorkspace,
   fallbackSlug,
-  hasPracticeMembership,
 }: {
   defaultWorkspace: 'practice' | 'client' | 'public';
   fallbackSlug: string | null;
-  hasPracticeMembership: boolean;
 }): string | null => {
   if (!fallbackSlug) {
     return null;
@@ -197,15 +195,14 @@ function AppShell() {
   const { defaultWorkspace, currentPractice, practices } = useWorkspaceResolver({
     autoFetchPractices: shouldFetchWorkspacePractices
   });
-  const hasPracticeMembership = practices.length > 0 || Boolean(currentPractice?.id);
+  
   const authenticatedHomePath = useMemo(() => {
     const fallbackSlug = currentPractice?.slug ?? practices[0]?.slug ?? null;
     return resolveAuthenticatedHomePath({
       defaultWorkspace,
       fallbackSlug,
-      hasPracticeMembership,
     });
-  }, [currentPractice?.slug, defaultWorkspace, hasPracticeMembership, practices]);
+  }, [currentPractice?.slug, defaultWorkspace, practices]);
 
   useEffect(() => {
     if (sessionPending) return;
@@ -458,7 +455,6 @@ function RootRoute() {
     practicesLoading,
     currentPractice,
     practices,
-    hasPracticeMembership,
   } = useWorkspaceResolver();
   const { navigate } = useNavigation();
   const isMountedRef = useRef(true);
@@ -470,9 +466,8 @@ function RootRoute() {
     return resolveAuthenticatedHomePath({
       defaultWorkspace,
       fallbackSlug,
-      hasPracticeMembership,
     });
-  }, [currentPractice?.slug, defaultWorkspace, hasPracticeMembership, practices]);
+  }, [currentPractice?.slug, defaultWorkspace, practices]);
 
   useEffect(() => {
     return () => {

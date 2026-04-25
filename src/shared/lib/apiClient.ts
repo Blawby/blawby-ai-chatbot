@@ -1360,12 +1360,24 @@ export async function updatePracticeDetails(
     throw new Error('practiceId is required');
   }
   const normalized = normalizePracticeDetailsPayload(details);
-  // Always log payload for debugging persistence issues during local investigation.
-  // This can be removed after root cause is found.
-  try {
-    console.info('[apiClient] updatePracticeDetails payload', { practiceId, payload: normalized });
-  } catch {
-    void 0;
+  // Debug: only log payload in development. Redact known PII before logging.
+  if (import.meta.env.DEV) {
+    try {
+      const sanitized: Record<string, unknown> = { ...(normalized as Record<string, unknown>) };
+      // Remove or mask sensitive fields
+      delete sanitized.business_email;
+      delete sanitized.business_phone;
+      if (sanitized.address && typeof sanitized.address === 'object') {
+        try { delete (sanitized.address as Record<string, unknown>).line1; } catch { void 0; }
+        try { delete (sanitized.address as Record<string, unknown>).line2; } catch { void 0; }
+        try { delete (sanitized.address as Record<string, unknown>).postal_code; } catch { void 0; }
+        try { delete (sanitized.address as Record<string, unknown>).city; } catch { void 0; }
+        try { delete (sanitized.address as Record<string, unknown>).state; } catch { void 0; }
+      }
+      console.info('[apiClient] updatePracticeDetails payload (sanitized)', { practiceId, payload: sanitized });
+    } catch {
+      void 0;
+    }
   }
   const response = await apiClient.put(
     `/api/practice/${encodeURIComponent(practiceId)}/details`,
@@ -1373,34 +1385,44 @@ export async function updatePracticeDetails(
     { signal: config?.signal }
   );
   // Inspect raw API payload to see what backend returned for `settings`.
-  try {
-    const raw = unwrapApiData(response.data);
-    if (raw && typeof raw === 'object') {
-      const container = raw as Record<string, unknown>;
-      try {
-        console.info('[apiClient] updatePracticeDetails raw container keys', Object.keys(container));
-        if ('settings' in container) {
-          console.info('[apiClient] updatePracticeDetails raw settings (first 200 chars)', String(container.settings).slice(0, 200));
+  if (import.meta.env.DEV) {
+    try {
+      const raw = unwrapApiData(response.data);
+      if (raw && typeof raw === 'object') {
+        const container = raw as Record<string, unknown>;
+        try {
+          console.info('[apiClient] updatePracticeDetails raw container keys', Object.keys(container));
+          if ('settings' in container) {
+            console.info('[apiClient] updatePracticeDetails raw settings (first 200 chars)', String(container.settings).slice(0, 200));
+          }
+        } catch {
+          void 0;
         }
-      } catch {
-        void 0;
       }
+    } catch {
+      void 0;
     }
-  } catch {
-    void 0;
   }
-  try {
-    console.info('[apiClient] updatePracticeDetails response', { status: response.status, dataSnippet: (() => {
-      try { return JSON.stringify(response.data).slice(0, 1000); } catch { return String(response.data); }
-    })() });
-  } catch {
-    void 0;
+  if (import.meta.env.DEV) {
+    try {
+      let dataSnippet: string | undefined;
+      try {
+        dataSnippet = JSON.stringify(response.data).slice(0, 1000);
+      } catch {
+        dataSnippet = String(response.data);
+      }
+      console.info('[apiClient] updatePracticeDetails response', { status: response.status, dataSnippet });
+    } catch {
+      void 0;
+    }
   }
   const normalizedResult = normalizePracticeDetailsResponse(response.data);
-  try {
-    console.info('[apiClient] updatePracticeDetails normalized result', { result: normalizedResult });
-  } catch {
-    void 0;
+  if (import.meta.env.DEV) {
+    try {
+      console.info('[apiClient] updatePracticeDetails normalized result', { result: normalizedResult });
+    } catch {
+      void 0;
+    }
   }
   // If we sent `settings` but the PUT response did not include `settings`,
   // re-fetch the details to ensure we surface persisted values (some backend
@@ -1410,8 +1432,9 @@ export async function updatePracticeDetails(
       const refetch = await getPracticeDetails(practiceId);
       if (refetch !== null) return refetch;
     }
-  } catch {
-    void 0;
+  } catch (err) {
+    if (import.meta.env.DEV) console.error('[apiClient] updatePracticeDetails: failed refetching practice details', err);
+    throw err;
   }
 
   return normalizedResult;
@@ -1428,16 +1451,18 @@ export async function getPracticeDetails(
     `/api/practice/${encodeURIComponent(practiceId)}/details`,
     { signal: config?.signal }
   );
-  try {
-    console.info('[apiClient] getPracticeDetails response', { status: response.status, dataSnippet: (() => {
-      try { return JSON.stringify(response.data).slice(0, 1000); } catch { return String(response.data); }
-    })() });
-    const raw = unwrapApiData(response.data);
-    if (raw && typeof raw === 'object') {
-      try { console.info('[apiClient] getPracticeDetails raw container keys', Object.keys(raw)); } catch { void 0; }
+  if (import.meta.env.DEV) {
+    try {
+      let dataSnippet: string | undefined;
+      try { dataSnippet = JSON.stringify(response.data).slice(0, 1000); } catch { dataSnippet = String(response.data); }
+      console.info('[apiClient] getPracticeDetails response', { status: response.status, dataSnippet });
+      const raw = unwrapApiData(response.data);
+      if (raw && typeof raw === 'object') {
+        try { console.info('[apiClient] getPracticeDetails raw container keys', Object.keys(raw)); } catch { void 0; }
+      }
+    } catch {
+      void 0;
     }
-  } catch {
-    void 0;
   }
   return normalizePracticeDetailsResponse(response.data);
 }
@@ -1784,6 +1809,29 @@ function normalizePracticeDetailsPayload(payload: PracticeDetailsUpdate): Record
           .map((state) => state.trim().toUpperCase())
           .filter(Boolean)
       : payload.serviceStates;
+  }
+
+  // If callers provided a top-level `servicesByState`, serialize and merge
+  // it into the opaque `settings` JSON so the backend receives the
+  // `services_by_state` key. This preserves the write-time type while
+  // ensuring the data is sent inside `settings` as expected by the API.
+  if ('servicesByState' in payload && payload.servicesByState !== undefined) {
+    try {
+      const existingSettingsRaw = (payload as Record<string, unknown>).settings;
+      let base: Record<string, unknown> = {};
+      if (typeof existingSettingsRaw === 'string' && existingSettingsRaw.trim().length > 0) {
+        try {
+          const parsed = JSON.parse(existingSettingsRaw);
+          if (typeof parsed === 'object' && parsed !== null) base = parsed as Record<string, unknown>;
+        } catch {
+          base = {};
+        }
+      }
+      base.services_by_state = payload.servicesByState;
+      normalized.settings = JSON.stringify(base);
+    } catch {
+      // Fall back to leaving settings alone if merge fails.
+    }
   }
 
   if ('supportedStates' in payload && payload.supportedStates !== undefined) {

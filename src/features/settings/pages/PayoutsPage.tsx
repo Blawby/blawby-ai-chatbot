@@ -61,6 +61,10 @@ export const PayoutsPage = ({
     return typeof raw === 'number' && Number.isFinite(raw) ? raw : 6;
   }, [currentPractice?.billingIncrementMinutes, details?.billingIncrementMinutes]);
   const displayedBillingIncrement = billingTouched ? billingIncrementDraft : savedBillingIncrement;
+  const isBillingValid = typeof displayedBillingIncrement === 'number'
+    && Number.isInteger(displayedBillingIncrement)
+    && displayedBillingIncrement >= 1
+    && displayedBillingIncrement <= 60;
 
   const fetchStatus = useCallback(async (signal: AbortSignal) => {
     if (!organizationId) {
@@ -216,11 +220,11 @@ export const PayoutsPage = ({
 
   const handleSaveBillingIncrement = async () => {
     if (!currentPractice) return;
-    const nextValue = typeof displayedBillingIncrement === 'number' ? displayedBillingIncrement : Number(displayedBillingIncrement);
-    if (!Number.isInteger(nextValue) || nextValue < 1 || nextValue > 60) {
+    if (!isBillingValid) {
       showError('Payouts and Billing', 'Billing increment must be a whole number between 1 and 60 minutes.');
       return;
     }
+    const nextValue = displayedBillingIncrement as number;
 
     if (nextValue === savedBillingIncrement) {
       setBillingTouched(false);
@@ -284,7 +288,7 @@ export const PayoutsPage = ({
               type="button"
               size="sm"
               onClick={() => void handleSaveBillingIncrement()}
-              disabled={isSavingBilling || (!billingTouched && displayedBillingIncrement === savedBillingIncrement)}
+              disabled={isSavingBilling || !billingTouched || !isBillingValid || displayedBillingIncrement === savedBillingIncrement}
             >
               {isSavingBilling ? 'Saving...' : 'Save'}
             </Button>

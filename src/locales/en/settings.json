@@ -72,6 +72,12 @@
       "description": "Choose one or more states where this practice operates.",
       "placeholder": "Select states"
     },
+    "servicesByState": {
+      "empty": "No states selected. Add a state to assign services.",
+      "placeholder": "Select services offered",
+      "remove": "Remove {{label}}",
+      "removeShort": "Remove"
+    },
     "toasts": {
       "practiceSettingsSaved": {
         "title": "Practice settings saved",
@@ -81,14 +87,7 @@
         "title": "Practice settings save failed",
         "body": "Unable to save your practice settings. Please try again."
       },
-      "licensedStatesSaved": {
-        "title": "States saved",
-        "body": "Your states were saved."
-      },
-      "licensedStatesSaveFailed": {
-        "title": "States save failed",
-        "body": "Unable to save your states. Please try again."
-      },
+      
       "logoUploadFailed": {
         "title": "Logo upload failed",
         "body": "Unable to upload your logo. Please try again."
