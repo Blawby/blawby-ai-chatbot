@@ -341,8 +341,6 @@ function AppShell() {
           <Route path="/client/:practiceSlug/settings/notifications" component={ClientPracticeRoute} workspaceView="settings" settingsView="notifications" />
           <Route path="/client/:practiceSlug/settings/account" component={ClientPracticeRoute} workspaceView="settings" settingsView="account" />
           <Route path="/client/:practiceSlug/settings/practice" component={ClientPracticeRoute} workspaceView="settings" settingsView="practice" />
-          <Route path="/client/:practiceSlug/settings/practice/contact" component={ClientPracticeRoute} workspaceView="settings" settingsView="practice-contact" />
-          <Route path="/client/:practiceSlug/settings/practice/coverage" component={ClientPracticeRoute} workspaceView="settings" settingsView="practice-coverage" />
           <Route path="/client/:practiceSlug/settings/practice/team" component={ClientPracticeRoute} workspaceView="settings" settingsView="practice-team" />
           <Route path="/client/:practiceSlug/settings/apps" component={ClientPracticeRoute} workspaceView="settings" settingsView="apps" />
           <Route path="/client/:practiceSlug/settings/apps/:appId" component={ClientPracticeRoute} workspaceView="settings" settingsView="app-detail" />
@@ -376,9 +374,7 @@ function AppShell() {
           <Route path="/practice/:practiceSlug/settings/notifications" component={PracticeAppRoute} workspaceView="settings" settingsView="notifications" />
           <Route path="/practice/:practiceSlug/settings/account" component={PracticeAppRoute} workspaceView="settings" settingsView="account" />
           <Route path="/practice/:practiceSlug/settings/practice" component={PracticeAppRoute} workspaceView="settings" settingsView="practice" />
-          <Route path="/practice/:practiceSlug/settings/practice/contact" component={PracticeAppRoute} workspaceView="settings" settingsView="practice-contact" />
           <Route path="/practice/:practiceSlug/settings/practice/payouts" component={PracticeAppRoute} workspaceView="settings" settingsView="practice-payouts" />
-          <Route path="/practice/:practiceSlug/settings/practice/coverage" component={PracticeAppRoute} workspaceView="settings" settingsView="practice-coverage" />
           <Route path="/practice/:practiceSlug/settings/practice/team" component={PracticeAppRoute} workspaceView="settings" settingsView="practice-team" />
           <Route path="/practice/:practiceSlug/settings/apps" component={PracticeAppRoute} workspaceView="settings" settingsView="apps" />
           <Route path="/practice/:practiceSlug/settings/apps/:appId" component={PracticeAppRoute} workspaceView="settings" settingsView="app-detail" />
@@ -581,7 +577,7 @@ function PracticeAppRoute({
   invoiceId?: string;
   appId?: string;
   workspaceView?: 'home' | 'setup' | 'list' | 'conversation' | 'intakes' | 'intakeDetail' | 'engagements' | 'matters' | 'contacts' | 'invoices' | 'invoiceDetail' | 'reports' | 'settings';
-  settingsView?: 'general' | 'notifications' | 'account' | 'practice' | 'practice-contact' | 'practice-payouts' | 'practice-coverage' | 'practice-team' | 'apps' | 'app-detail' | 'security' | 'help';
+  settingsView?: 'general' | 'notifications' | 'account' | 'practice' | 'practice-payouts' | 'practice-team' | 'apps' | 'app-detail' | 'security' | 'help';
   practiceSlug?: string;
 }) {
   const location = useLocation();
@@ -768,7 +764,7 @@ function ClientPracticeRoute({
   invoiceId?: string;
   appId?: string;
   workspaceView?: 'home' | 'list' | 'conversation' | 'matters' | 'invoices' | 'invoiceDetail' | 'settings';
-  settingsView?: 'general' | 'notifications' | 'account' | 'practice' | 'practice-contact' | 'practice-payouts' | 'practice-coverage' | 'practice-team' | 'apps' | 'app-detail' | 'security' | 'help';
+  settingsView?: 'general' | 'notifications' | 'account' | 'practice' | 'practice-payouts' | 'practice-team' | 'apps' | 'app-detail' | 'security' | 'help';
 }) {
   const location = useLocation();
   const { session, isPending: sessionIsPending } = useSessionContext();

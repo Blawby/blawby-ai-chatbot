@@ -604,7 +604,7 @@ export function Combobox({
           tabIndex={-1}
           onMouseDown={(e) => e.preventDefault()}
           className={cn(
-            'z-50 w-full overflow-hidden rounded-xl absolute',
+            'z-[60] w-full overflow-hidden rounded-xl absolute',
             'bg-surface-overlay shadow-glass border border-line-glass/20',
             hideTrigger ? 'top-0 mt-1' : (direction === 'up' ? 'bottom-full mb-1 top-auto' : 'top-full mt-1')
           )}
