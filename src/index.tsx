@@ -88,10 +88,6 @@ const resolveAuthenticatedHomePath = ({
   fallbackSlug: string | null;
   hasPracticeMembership: boolean;
 }): string | null => {
-  if (!hasPracticeMembership) {
-    return '/pricing';
-  }
-
   if (!fallbackSlug) {
     return null;
   }
