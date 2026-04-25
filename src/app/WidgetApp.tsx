@@ -596,18 +596,27 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
     }
   }, []);
 
-  const intakeProviderValue = {
-    intakeStatus: null,
-    intakeConversationState: null,
-    onIntakeCtaResponse: undefined,
-    onSubmitNow: undefined,
-    onBuildBrief: undefined,
-    onStrengthenCase: undefined,
-    slimContactDraft: null,
-    onSlimFormContinue: undefined,
+  const intakeProviderValue = useMemo(() => ({
+    intakeStatus,
+    intakeConversationState,
+    onIntakeCtaResponse: _handleIntakeCtaResponse,
+    onSubmitNow: _handleSubmitNow,
+    onBuildBrief: _handleBuildBrief,
+    onStrengthenCase: _handleStrengthenCase,
+    slimContactDraft,
+    onSlimFormContinue: _handleSlimFormContinue,
     onSlimFormDismiss: undefined,
     isPublicWorkspace: true,
-  };
+  }), [
+    intakeStatus,
+    intakeConversationState,
+    _handleIntakeCtaResponse,
+    _handleSubmitNow,
+    _handleBuildBrief,
+    _handleStrengthenCase,
+    slimContactDraft,
+    _handleSlimFormContinue
+  ]);
   const withIntakeProvider = (content: ComponentChildren) => (
     <IntakeProvider value={intakeProviderValue}>
       {content}

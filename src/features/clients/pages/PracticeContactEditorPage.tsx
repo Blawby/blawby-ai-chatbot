@@ -186,15 +186,25 @@ export function PracticeContactEditorPage({
       return;
     }
 
-    await createUserDetail(practiceId, {
-      email,
-    });
+    await createUserDetail(practiceId, { email });
 
-    const maybeCreated = await listUserDetails(practiceId, {
-      search: email,
-      limit: 25,
-    });
-    const resolved = maybeCreated.data.find((item) => item.user?.email?.trim().toLowerCase() === email.toLowerCase());
+    // The create API uses an external invitation system and may be eventually
+    // consistent. Retry-list for the created record instead of relying on a
+    // single immediate query. Use exponential backoff with a few attempts.
+    const attempts = 5;
+    let resolved: UserDetailRecord | undefined;
+    for (let i = 0; i < attempts; i++) {
+      const maybeCreated = await listUserDetails(practiceId, {
+        search: email,
+        limit: 100,
+      });
+      resolved = maybeCreated.data.find((item) => item.user?.email?.trim().toLowerCase() === email.toLowerCase());
+      if (resolved) break;
+      // backoff: 300ms, 600ms, 1200ms, ...
+      const delay = 300 * Math.pow(2, i);
+      // don't block the event loop excessively
+      await new Promise((res) => setTimeout(res, delay));
+    }
 
     if (resolved) {
       const updated = await updateUserDetail(practiceId, resolved.id, payload);

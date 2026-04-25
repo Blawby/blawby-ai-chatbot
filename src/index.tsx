@@ -56,6 +56,8 @@ import type { WidgetPreviewConfig, WidgetPreviewMessage, WidgetPreviewScenario }
 import { lazy } from 'preact/compat';
 const PracticeMatterCreatePage = lazy(() => import('@/features/matters/pages/PracticeMatterCreatePage').then((m) => ({ default: m.PracticeMatterCreatePage })));
 const PracticeContactEditorPage = lazy(() => import('@/features/clients/pages/PracticeContactEditorPage').then((m) => ({ default: m.PracticeContactEditorPage })));
+const PracticeInvoiceCreatePage = lazy(() => import('@/features/invoices/pages/PracticeInvoiceCreatePage').then((m) => ({ default: m.PracticeInvoiceCreatePage })));
+const PracticeInvoiceEditPage = lazy(() => import('@/features/invoices/pages/PracticeInvoiceEditPage').then((m) => ({ default: m.PracticeInvoiceEditPage })));
 
 const reloadPage = () => {
   if (typeof window !== 'undefined') {
@@ -366,6 +368,8 @@ function AppShell() {
           <Route path="/practice/:practiceSlug/reports" component={PracticeAppRoute} workspaceView="reports" />
           <Route path="/practice/:practiceSlug/reports/*" component={PracticeAppRoute} workspaceView="reports" />
           <Route path="/practice/:practiceSlug/invoices" component={PracticeAppRoute} workspaceView="invoices" />
+          <Route path="/practice/:practiceSlug/invoices/new" component={PracticeAppRoute} workspaceView="invoices" />
+          <Route path="/practice/:practiceSlug/invoices/:invoiceId/edit" component={PracticeAppRoute} workspaceView="invoiceDetail" />
           <Route path="/practice/:practiceSlug/invoices/:invoiceId" component={PracticeAppRoute} workspaceView="invoiceDetail" />
           <Route path="/practice/:practiceSlug/settings" component={PracticeAppRoute} workspaceView="settings" settingsView="general" />
           <Route path="/practice/:practiceSlug/settings/general" component={PracticeAppRoute} workspaceView="settings" settingsView="general" />
@@ -597,6 +601,8 @@ function PracticeAppRoute({
   const resolvedPracticeId = currentPractice?.id ?? '';
   const isMatterCreateRoute = workspaceView === 'matters' && location.path.endsWith('/matters/new');
   const isContactCreateRoute = workspaceView === 'contacts' && location.path.endsWith('/contacts/new');
+  const isInvoiceCreateRoute = workspaceView === 'invoices' && location.path.endsWith('/invoices/new');
+  const isInvoiceEditRoute = workspaceView === 'invoiceDetail' && location.path.endsWith('/edit');
   const practiceConfig = useMemo<UIPracticeConfig>(() => ({
     id: currentPractice?.id ?? '',
     slug: currentPractice?.slug ?? normalizedPracticeSlug,
@@ -705,6 +711,29 @@ function PracticeAppRoute({
         <PracticeContactEditorPage
           practiceId={resolvedPracticeId}
           practiceSlug={normalizedPracticeSlug || null}
+        />
+      </Suspense>
+    );
+  }
+
+  if (isInvoiceCreateRoute) {
+    return (
+      <Suspense fallback={<LoadingScreen />}>
+        <PracticeInvoiceCreatePage
+          practiceId={resolvedPracticeId}
+          practiceSlug={normalizedPracticeSlug || null}
+        />
+      </Suspense>
+    );
+  }
+
+  if (isInvoiceEditRoute) {
+    return (
+      <Suspense fallback={<LoadingScreen />}>
+        <PracticeInvoiceEditPage
+          practiceId={resolvedPracticeId}
+          practiceSlug={normalizedPracticeSlug || null}
+          invoiceId={invoiceId ?? null}
         />
       </Suspense>
     );
