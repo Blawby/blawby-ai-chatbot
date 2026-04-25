@@ -206,6 +206,8 @@ export interface PracticeDetailsUpdate {
   services?: Array<Record<string, unknown>> | null;
   serviceStates?: string[] | null;
   supportedStates?: SupportedStateEntry[] | null;
+  /** Map of state code -> array of service ids offered in that state */
+  servicesByState?: Record<string, string[]> | null;
   businessOnboardingHasDraft?: boolean;
   businessOnboardingStatus?: 'not_required' | 'pending' | 'completed' | 'skipped';
   /** Raw JSON string stored in the practice settings column. Passed through as-is. */
@@ -244,6 +246,8 @@ export interface PracticeDetails {
   services?: Array<Record<string, unknown>> | null;
   serviceStates?: string[] | null;
   supportedStates?: SupportedStateEntry[] | null;
+  /** Map of state code -> array of service ids offered in that state */
+  servicesByState?: Record<string, string[]> | null;
   /** Raw JSON string stored in the practice settings column. */
   settings?: string | null;
   /** Arbitrary practice metadata. */

@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, useCallback } from 'preact/hooks';
+import { useMemo, useRef, useState, useCallback, useEffect } from 'preact/hooks';
 import { Button } from '@/shared/ui/Button';
 import { Input, LogoUploadInput } from '@/shared/ui/input';
 import { Combobox } from '@/shared/ui/input/Combobox';
@@ -16,6 +16,7 @@ import { buildPracticeProfilePayloads } from '@/shared/utils/practiceProfile';
 import { normalizeAccentColor } from '@/shared/utils/accentColors';
 import { uploadPracticeLogo } from '@/shared/utils/practiceLogoUpload';
 import { ServicesEditor } from '@/features/services/components/ServicesEditor';
+import { ServicesByStateEditor } from '@/features/services/components/ServicesByStateEditor';
 import { SERVICE_CATALOG } from '@/features/services/data/serviceCatalog';
 import type { Service } from '@/features/services/types';
 import { getServiceDetailsForSave } from '@/features/services/utils';
@@ -137,6 +138,7 @@ export const PracticePage = ({ className, onBack }: PracticePageProps) => {
   const [servicesError, setServicesError] = useState<string | null>(null);
   const [statesError, setStatesError] = useState<string | null>(null);
   const [licensedStatesDraft, setLicensedStatesDraft] = useState<string[]>([]);
+  const [servicesByStateDraft, setServicesByStateDraft] = useState<Record<string, string[]>>(() => ({}));
   const [statesDraftTouched, setStatesDraftTouched] = useState(false);
   const [isSavingStates, setIsSavingStates] = useState(false);
   const lastSavedKeyRef = useRef<string>('');
@@ -152,6 +154,7 @@ export const PracticePage = ({ className, onBack }: PracticePageProps) => {
     [details, currentPractice]
   );
   const savedLicensedStates = useMemo(() => details?.serviceStates ?? [], [details?.serviceStates]);
+  
   const displayedLicensedStates = statesDraftTouched || isSavingStates ? licensedStatesDraft : savedLicensedStates;
 
   const contactValues = useMemo(
@@ -363,6 +366,11 @@ export const PracticePage = ({ className, onBack }: PracticePageProps) => {
     }
   }, [currentPractice, details, practiceText, setDetails, showError, showSuccess, updateDetails, validateStateCode]);
 
+  // initialize servicesByStateDraft from details when details changes
+  useEffect(() => {
+    setServicesByStateDraft(details?.servicesByState ?? {});
+  }, [details?.servicesByState]);
+
   const handleLogoChange = async (files: FileList | File[]) => {
     if (!currentPractice) return;
     const [file] = Array.isArray(files) ? files : Array.from(files);
@@ -404,6 +412,7 @@ export const PracticePage = ({ className, onBack }: PracticePageProps) => {
         state: contactValues.address?.state ?? null,
         postalCode: contactValues.address?.postalCode ?? null,
         country: contactValues.address?.country ?? null,
+        servicesByState: Object.keys(servicesByStateDraft).length > 0 ? servicesByStateDraft : undefined,
       }, {
         compareTo: {
           logo: currentPractice.logo ?? null,
@@ -663,6 +672,18 @@ export const PracticePage = ({ className, onBack }: PracticePageProps) => {
             placeholder={practiceText.licensedStatesPlaceholder}
             disabled={isSavingStates}
             aria-label={practiceText.licensedStatesTitle}
+          />
+        </SettingSection>
+
+        <SectionDivider />
+
+        <SettingSection
+          title="Services by state"
+          description="Select which services are offered in each state."
+        >
+          <ServicesByStateEditor
+            value={servicesByStateDraft}
+            onChange={(next) => setServicesByStateDraft(next)}
           />
         </SettingSection>
       </div>
