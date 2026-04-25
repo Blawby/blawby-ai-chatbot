@@ -26,6 +26,7 @@ const BACKEND_PATH_PREFIXES = [
   '/api/matters',
   '/api/invoices',
   '/api/conversations',
+  '/api/practice-client-intakes',
   '/api/practice',
   '/api/preferences',
   '/api/subscriptions',

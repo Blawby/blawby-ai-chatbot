@@ -1749,12 +1749,6 @@ export const PracticeMattersPage = ({
                 goToList();
               }}
               onSubmit={submitHandler}
-              onContactCreated={() => {
-                // Reuse the controller used by the main refresh effect so the request
-                // can be aborted when the component unmounts or navigation occurs.
-                const controller = refreshClientsControllerRef.current ?? new AbortController();
-                void refreshClientOptions(controller.signal);
-              }}
               practiceId={activePracticeId}
               clients={clientOptions}
               practiceAreas={practiceAreaOptions}
@@ -2329,7 +2323,7 @@ export const PracticeMattersPage = ({
             isLoading={mattersLoading}
             isLoadingMore={mattersLoadingMore}
             error={mattersError}
-            emptyState={<EmptyState onCreate={() => navigate(`${basePath}/new`)} disableCreate={!activePracticeId} />}
+            emptyState={<EmptyState onCreate={() => navigate(`${basePath}/new?returnTo=${encodeURIComponent(location.url)}`)} disableCreate={!activePracticeId} />}
           />
         </Panel>
       </div>
@@ -2361,7 +2355,7 @@ export const PracticeMattersPage = ({
           isLoading={mattersLoading}
           isLoadingMore={mattersLoadingMore}
           error={mattersError}
-          emptyState={<EmptyState onCreate={() => navigate(`${basePath}/new`)} disableCreate={!activePracticeId} />}
+          emptyState={<EmptyState onCreate={() => navigate(`${basePath}/new?returnTo=${encodeURIComponent(location.url)}`)} disableCreate={!activePracticeId} />}
         />
       </Panel>
     </div>

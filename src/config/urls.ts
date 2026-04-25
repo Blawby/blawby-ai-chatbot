@@ -288,7 +288,6 @@ const WIDGET_TOKEN_ALLOWLIST_PATTERNS: RegExp[] = [
 ];
 
 const WIDGET_TOKEN_DENYLIST_PATTERNS: RegExp[] = [
-	/^\/api\/conversations\/[^/]+\/link(?:\/|$)/
 ];
 
 const extractPathname = (requestUrl: string): string | null => {

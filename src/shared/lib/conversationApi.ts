@@ -255,7 +255,7 @@ export const fetchLatestConversationMessage = async (
     `/api/conversations/${encodeURIComponent(conversationId)}/messages?${params.toString()}`,
     {
       method: 'GET',
-      headers,
+      headers: withWidgetAuthHeaders(headers),
       credentials: 'include'
     }
   );
@@ -326,7 +326,7 @@ export const fetchConversationMessages = async (
     `/api/conversations/${encodeURIComponent(conversationId)}/messages?${params.toString()}`,
     {
       method: 'GET',
-      headers,
+      headers: withWidgetAuthHeaders(headers),
       credentials: 'include',
       signal: options.signal
     }

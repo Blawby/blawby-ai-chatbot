@@ -278,6 +278,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
     conversationId: effectiveConversationId ?? undefined,
     onEnsureConversation: createConversationIfNeeded,
     userId: currentUserId,
+    isAnonymous,
     linkAnonymousConversationOnLoad: true,
     mode: conversationMode,
     onConversationMetadataUpdated: handleConversationMetadataUpdated,
@@ -537,6 +538,8 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
     return relative ? t('workspace.header.activeRelative', { time: relative }) : t('workspace.header.inactive');
   }, [filteredMessagesForHeader, isSocketReady, t]);
 
+  const isReady = useMemo(() => currentUserId !== null && isSocketReady && messagesReady, [currentUserId, isSocketReady, messagesReady]);
+
 
   const isConsultConversation = useMemo(
     () => conversationMode === 'REQUEST_CONSULTATION'
@@ -596,18 +599,27 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
     }
   }, []);
 
-  const intakeProviderValue = {
-    intakeStatus: null,
-    intakeConversationState: null,
-    onIntakeCtaResponse: undefined,
-    onSubmitNow: undefined,
-    onBuildBrief: undefined,
-    onStrengthenCase: undefined,
-    slimContactDraft: null,
-    onSlimFormContinue: undefined,
+  const intakeProviderValue = useMemo(() => ({
+    intakeStatus,
+    intakeConversationState,
+    onIntakeCtaResponse: _handleIntakeCtaResponse,
+    onSubmitNow: _handleSubmitNow,
+    onBuildBrief: _handleBuildBrief,
+    onStrengthenCase: _handleStrengthenCase,
+    slimContactDraft,
+    onSlimFormContinue: _handleSlimFormContinue,
     onSlimFormDismiss: undefined,
     isPublicWorkspace: true,
-  };
+  }), [
+    intakeStatus,
+    intakeConversationState,
+    _handleIntakeCtaResponse,
+    _handleSubmitNow,
+    _handleBuildBrief,
+    _handleStrengthenCase,
+    slimContactDraft,
+    _handleSlimFormContinue
+  ]);
   const withIntakeProvider = (content: ComponentChildren) => (
     <IntakeProvider value={intakeProviderValue}>
       {content}
@@ -680,7 +692,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
                 )}
                 conversationId={activeConversationId}
                 onSendMessage={sendMessage}
-                isReady={currentUserId !== null && isSocketReady}
+                isReady={isReady}
                 conversationMode={conversationMode}
                 onToggleReaction={features.enableMessageReactions ? toggleMessageReaction : undefined}
                 onRequestReactions={requestMessageReactions}

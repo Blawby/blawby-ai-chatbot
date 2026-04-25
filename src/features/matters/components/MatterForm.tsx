@@ -1,4 +1,6 @@
 import { useMemo, useState, type Dispatch, type StateUpdater } from 'preact/hooks';
+import { useLocation } from 'preact-iso';
+import { useNavigation } from '@/shared/utils/navigation';
 import { Button } from '@/shared/ui/Button';
 import { Input } from '@/shared/ui/input/Input';
 import { Textarea } from '@/shared/ui/input/Textarea';
@@ -32,7 +34,6 @@ import { formatDateOnlyUtc } from '@/shared/utils/dateOnly';
 import { asMajor, isFiniteNumber as isMajorAmount, type MajorAmount } from '@/shared/utils/money';
 import { FormGrid } from '@/shared/ui/layout/FormGrid';
 import { Panel } from '@/shared/ui/layout/Panel';
-import { AddContactDialog } from '@/shared/ui/contacts/AddContactDialog';
 import { parseMultiValueText, serializeMultiValueText } from '@/features/matters/utils/multiValueText';
 
 type MatterFormMode = 'create' | 'edit';
@@ -40,7 +41,6 @@ type MatterFormMode = 'create' | 'edit';
 interface MatterFormProps {
   onClose: () => void;
   onSubmit?: (values: MatterFormState) => Promise<void> | void;
-  onContactCreated?: () => Promise<void> | void;
   practiceId?: string | null;
   clients: MatterOption[];
   practiceAreas: MatterOption[];
@@ -312,7 +312,6 @@ const MatterMilestoneForm = ({
 const MatterFormInner = ({
   onClose,
   onSubmit,
-  onContactCreated,
   practiceId,
   clients,
   practiceAreas,
@@ -325,7 +324,6 @@ const MatterFormInner = ({
   const [formState, setFormState] = useState<MatterFormState>(() => buildInitialState(mode, initialValues));
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [addPersonOpen, setAddPersonOpen] = useState(false);
   const clientOptions = useMemo(
     () => clients.map((client) => ({
       value: client.id,
@@ -362,6 +360,8 @@ const MatterFormInner = ({
     dueDate: '',
     amount: undefined as MajorAmount | undefined
   });
+  const location = useLocation();
+  const { navigate } = useNavigation();
   const canSubmit = Boolean(formState.title && (!requireClientSelection || formState.clientId));
 
   const updateForm = <K extends keyof MatterFormState>(key: K, value: MatterFormState[K]) => {
@@ -460,7 +460,7 @@ const MatterFormInner = ({
             onChange={(value) => updateForm('status', value as MatterStatus)}
           />
 
-          <Combobox
+            <Combobox
             label={`Contact${requireClientSelection ? ' *' : ''}`}
             placeholder="Select contact"
             value={formState.clientId}
@@ -484,22 +484,33 @@ const MatterFormInner = ({
               return client?.email || option.meta;
             }}
             onChange={(value) => updateForm('clientId', value)}
-            footer={practiceId ? (
-              (close) => (
-                <button
-                  type="button"
-                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-accent-utility hover:bg-surface-utility/10"
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => {
-                    close();
-                    setAddPersonOpen(true);
-                  }}
-                >
-                  <PlusIcon className="h-4 w-4" />
-                  Invite contact
-                </button>
-              )
-            ) : undefined}
+                footer={practiceId ? () => {
+                  return (
+                    <div className="px-3 py-2 text-sm text-input-placeholder">
+                      <button
+                        type="button"
+                        className="text-sm text-accent-foreground underline"
+                        onClick={() => {
+                          try {
+                            if (typeof window !== 'undefined') {
+                              const draftId = crypto.randomUUID();
+                              const key = `matterDraft:${draftId}`;
+                              const payload = { formState, returnPath: location.url };
+                              window.sessionStorage.setItem(key, JSON.stringify(payload));
+                              const baseMatch = (location.url || '').match(/^\/practice\/[^/]+/);
+                              const contactsBase = baseMatch ? `${baseMatch[0]}/contacts` : '/practice/contacts';
+                              navigate(`${contactsBase}/new?draft=${encodeURIComponent(draftId)}&returnTo=${encodeURIComponent(location.url)}`);
+                            }
+                          } catch (_err) {
+                            // ignore storage/navigation errors
+                          }
+                        }}
+                      >
+                        Create a contact
+                      </button>
+                    </div>
+                  );
+                } : undefined}
           />
 
           <Combobox
@@ -759,12 +770,6 @@ const MatterFormInner = ({
         </div>
         </form>
       </Panel>
-      <AddContactDialog
-        practiceId={practiceId ?? null}
-        isOpen={addPersonOpen}
-        onClose={() => setAddPersonOpen(false)}
-        onSuccess={onContactCreated}
-      />
     </>
   );
 };

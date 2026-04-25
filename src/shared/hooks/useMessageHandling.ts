@@ -25,6 +25,7 @@ export interface UseMessageHandlingOptions {
   conversationId?: string;
   onEnsureConversation?: () => Promise<string | null>;
   userId?: string | null;
+  isAnonymous?: boolean;
   linkAnonymousConversationOnLoad?: boolean;
   mode?: ConversationMode | null;
   onConversationMetadataUpdated?: (metadata: ConversationMetadata | null) => void;
@@ -81,6 +82,7 @@ export const useMessageHandling = (options: UseMessageHandlingOptions) => {
     conversationId,
     onEnsureConversation,
     userId,
+    isAnonymous,
     mode,
     onConversationMetadataUpdated,
     onError,
@@ -98,6 +100,7 @@ export const useMessageHandling = (options: UseMessageHandlingOptions) => {
     practiceId,
     conversationId,
     userId,
+    isAnonymous,
     linkAnonymousConversationOnLoad,
     onConversationMetadataUpdated,
     skipInitialFetch,

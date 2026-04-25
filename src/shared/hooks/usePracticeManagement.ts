@@ -660,6 +660,8 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
 
   // Fetch user's practices
   const fetchPractices = useCallback(async () => {
+    // fetchPractices: triggered to refresh the practices snapshot. Avoid
+    // noisy debugging logs in production.
     let currentFetchPromise: Promise<SharedPracticeSnapshot> | null = null;
     setGlobalLoading(true);
     try {

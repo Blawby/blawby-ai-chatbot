@@ -40,7 +40,6 @@ import {
   type ContactRelationshipStatus,
 } from '@/shared/domain/contacts';
 import { getPracticeRoleLabel, normalizePracticeRole } from '@/shared/utils/practiceRoles';
-import { AddContactDialog } from '@/shared/ui/contacts/AddContactDialog';
 import {
   ChatBubbleLeftRightIcon,
   PlusIcon,
@@ -80,7 +79,7 @@ const PendingEmptyState = ({ onInviteClient }: { onInviteClient: () => void }) =
     title="No pending invites"
     description="Contact invites you send will appear here until they are accepted."
     primaryAction={{
-      label: 'Invite contact',
+      label: 'New Contact',
       onClick: onInviteClient,
       icon: PlusIcon,
     }}
@@ -340,7 +339,6 @@ export const PracticeContactsPage = ({
 
   const pathSuffix = location.path.startsWith(basePath) ? location.path.slice(basePath.length) : '';
   const pathSegments = pathSuffix.replace(/^\/+/, '').split('/').filter(Boolean);
-  const isAddClientOpen = location.query?.create === '1';
   const contactsScope = (() => {
     if (pathSegments[0] === 'archived') return 'archived';
     if (pathSegments[0] === 'team') return 'team';
@@ -382,7 +380,6 @@ export const PracticeContactsPage = ({
     isLoading: invitationsLoading,
     error: invitationsError,
     cancelInvitation,
-    refetch: refetchPendingInvitations,
   } = usePracticeInvitations(activePracticeId);
   const {
     members: teamMembersData,
@@ -485,7 +482,7 @@ export const PracticeContactsPage = ({
       });
       cancelled = true;
     };
-  }, [activePracticeId, hydratedAddressByDetailId, prefetchedItems]);
+  }, [activePracticeId, prefetchedItems, hydratedAddressByDetailId]);
   const teamMembers = useMemo<DirectoryRecord[]>(() => {
     return teamMembersData.map<DirectoryRecord>((member) => ({
         id: `team:${member.userId}`,
@@ -669,6 +666,10 @@ export const PracticeContactsPage = ({
       .then((detail) => {
         if (controller.signal.aborted) return;
         if (!detail) {
+          console.warn('[Contacts] Selected contact was not found', {
+            practiceId: activePracticeId,
+            contactId: selectedClientIdFromPath,
+          });
           setSelectedClientRemote(null);
           return;
         }
@@ -799,16 +800,16 @@ export const PracticeContactsPage = ({
   }, [activePracticeId, basePath, location, sendMessagePending, showError, conversationsPath]);
 
   const handleOpenAddClient = useCallback(() => {
-    location.route(`${location.path}?create=1`);
-  }, [location]);
+    // Normalize to a leading-slash path so encoded returnTo is canonical
+    const raw = typeof location.url === 'string' ? location.url : '';
+    const normalizedUrl = raw.startsWith('/') ? raw : `/${raw}`;
+    const returnTo = encodeURIComponent(normalizedUrl);
+    location.route(`${basePath}/new?returnTo=${returnTo}`);
+  }, [basePath, location]);
   const handleOpenTeamInvite = useCallback(() => {
     const settingsTeamPath = basePath.replace(/\/contacts$/, '/settings/practice/team');
     location.route(`${settingsTeamPath}?invite=1`);
   }, [basePath, location]);
-
-  const handleCloseAddClient = useCallback(() => {
-    location.route(location.path);
-  }, [location]);
 
   const origin = (typeof window !== 'undefined' && window.location)
     ? window.location.origin
@@ -832,10 +833,12 @@ export const PracticeContactsPage = ({
   const handleCancelPendingInvitation = useCallback(async (invitationId: string) => {
     try {
       await cancelInvitation(invitationId);
-      showSuccess('Invitation canceled', 'The pending invitation was successfully canceled');
       if (selectedPendingInvitationIdFromPath === invitationId) {
+        showSuccess('Invitation canceled', 'The pending invitation was successfully canceled');
         location.route(`${basePath}/pending`);
+        return;
       }
+      showSuccess('Invitation canceled', 'The pending invitation was successfully canceled');
     } catch (error) {
       showError('Failed to cancel invitation', error instanceof Error ? error.message : 'Unknown error');
     }
@@ -900,7 +903,7 @@ export const PracticeContactsPage = ({
           ) : null}
         </ul>
       </div>
-      {letters.length > 0 ? (
+          {letters.length > 0 ? (
         <div className="pointer-events-auto absolute right-1 top-1/2 z-20 -translate-y-1/2 hidden md:flex flex-col items-center gap-1 text-[11px] font-medium text-input-placeholder border border-line-utility bg-surface-workspace/80">
           {letters.map((letter) => (
             <Button
@@ -1021,10 +1024,10 @@ export const PracticeContactsPage = ({
   ) : (
     <WorkspacePlaceholderState
       icon={UserIcon}
-      title="Invite a contact to get started"
-      description="Invite clients or team members, then select them from the list to view details."
+      title="Create a contact to get started"
+      description="Create client or team records, then select them from the list to view details."
       primaryAction={{
-        label: 'Invite contact',
+        label: 'New Contact',
         onClick: handleOpenAddClient,
       }}
       secondaryAction={{
@@ -1080,15 +1083,6 @@ export const PracticeContactsPage = ({
       ) : null}
     </div>
   ) : null;
-
-  const addClientModal = (
-    <AddContactDialog
-      practiceId={activePracticeId}
-      isOpen={isAddClientOpen}
-      onClose={handleCloseAddClient}
-      onSuccess={isPendingListRoute ? () => void refetchPendingInvitations() : undefined}
-    />
-  );
 
   const renderCenteredState = (children: ComponentChildren) => (
     <div className="h-full flex items-center justify-center">
@@ -1163,9 +1157,7 @@ export const PracticeContactsPage = ({
   );
   const listPanelContent = isPendingListRoute
     ? {
-        content: sortedPendingInvitations.length === 0
-          ? <PendingEmptyState onInviteClient={handleOpenAddClient} />
-          : <div className="min-h-0 flex-1">{pendingInvitationListPane}</div>,
+        content: <div className="min-h-0 flex-1">{pendingInvitationListPane}</div>,
         useEmptyMinHeight: true,
       }
     : {
@@ -1202,7 +1194,6 @@ export const PracticeContactsPage = ({
           actions: detailHeaderActions,
           inspectorOpen: detailInspectorOpen,
         })}
-        {addClientModal}
       </>
     );
   }
@@ -1219,7 +1210,6 @@ export const PracticeContactsPage = ({
           actions: detailHeaderActions,
           inspectorOpen: detailInspectorOpen,
         })}
-        {addClientModal}
       </>
     );
   }
@@ -1234,7 +1224,6 @@ export const PracticeContactsPage = ({
           useEmptyMinHeight: listPanelContent.useEmptyMinHeight,
         })}
       </div>
-      {addClientModal}
     </>
   );
 };
