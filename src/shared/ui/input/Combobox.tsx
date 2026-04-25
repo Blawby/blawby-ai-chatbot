@@ -585,7 +585,7 @@ export function Combobox({
           className={cn(
             'glass-input relative flex w-full gap-2 rounded-xl px-3 py-2.5 transition-all duration-200',
             isOpen && 'isOpen',
-            isMultiple ? 'min-h-[3.5rem] items-start' : 'items-center',
+            'items-center',
             !disabled && 'cursor-pointer'
           )}
         >

@@ -27,7 +27,7 @@
     "team": "Team Members",
     "page": {
       "title": "Practice",
-      "subtitle": "Identity, brand, contact, services, and licensed states"
+      "subtitle": "Identity, brand, contact, services, and states"
     },
     "noPracticeSelected": "No practice selected.",
     "identity": {
@@ -68,9 +68,9 @@
     "servicesTitle": "Services",
     "servicesDescription": "Choose the legal service areas this practice accepts for routing and intake setup.",
     "licensedStates": {
-      "title": "Licensed states",
-      "description": "Choose one or more states where this practice is licensed.",
-      "placeholder": "Select licensed states"
+      "title": "States",
+      "description": "Choose one or more states where this practice operates.",
+      "placeholder": "Select states"
     },
     "toasts": {
       "practiceSettingsSaved": {
@@ -82,12 +82,12 @@
         "body": "Unable to save your practice settings. Please try again."
       },
       "licensedStatesSaved": {
-        "title": "Licensed states saved",
-        "body": "Your licensed states were saved."
+        "title": "States saved",
+        "body": "Your states were saved."
       },
       "licensedStatesSaveFailed": {
-        "title": "Licensed states save failed",
-        "body": "Unable to save your licensed states. Please try again."
+        "title": "States save failed",
+        "body": "Unable to save your states. Please try again."
       },
       "logoUploadFailed": {
         "title": "Logo upload failed",

@@ -15,12 +15,7 @@ import type { Address } from '@/shared/types/address';
 import { buildPracticeProfilePayloads } from '@/shared/utils/practiceProfile';
 import { normalizeAccentColor } from '@/shared/utils/accentColors';
 import { uploadPracticeLogo } from '@/shared/utils/practiceLogoUpload';
-import { ServicesEditor } from '@/features/services/components/ServicesEditor';
-import { ServicesByStateEditor } from '@/features/services/components/ServicesByStateEditor';
-import { SERVICE_CATALOG } from '@/features/services/data/serviceCatalog';
-import type { Service } from '@/features/services/types';
-import { getServiceDetailsForSave } from '@/features/services/utils';
-import { resolveServiceDetails } from '@/features/services/utils/serviceNormalization';
+import ServicesByStateEditor from '@/features/services/components/ServicesByStateEditor';
 import { STATE_OPTIONS } from '@/shared/ui/address/AddressFields';
 
 interface PracticePageProps {
@@ -38,6 +33,8 @@ type ContactDraft = {
   logo?: string;
   accentColor?: string;
 };
+
+// ─── helpers ────────────────────────────────────────────────────────────────
 
 const mapAddressSource = (src: string | Record<string, unknown> | null | undefined) => {
   if (typeof src === 'string') return { address: src };
@@ -69,14 +66,7 @@ const buildAddress = (source: {
   const country = source.country?.trim() || '';
   const hasAny = Boolean(address || apartment || city || state || postalCode || country);
   if (!hasAny) return undefined;
-  return {
-    address,
-    apartment,
-    city,
-    state,
-    postalCode,
-    country,
-  };
+  return { address, apartment, city, state, postalCode, country };
 };
 
 const resolveContactDraft = (
@@ -126,36 +116,64 @@ const resolveContactDraft = (
   return { ...basePractice, ...baseDetails };
 };
 
+/** Parse an opaque settings JSON string safely. */
+const parseSettings = (s?: string | null): Record<string, unknown> => {
+  if (!s) return {};
+  try {
+    const p = JSON.parse(s);
+    return typeof p === 'object' && p !== null ? (p as Record<string, unknown>) : {};
+  } catch {
+    return {};
+  }
+};
+
+/** Merge services_by_state into the opaque settings string. */
+const buildSettingsString = (
+  existingSettings: string | null | undefined,
+  servicesByState: Record<string, string[]>
+): string => {
+  const base = parseSettings(existingSettings);
+  if (Object.keys(servicesByState).length > 0) {
+    base.services_by_state = servicesByState;
+  } else {
+    delete base.services_by_state;
+  }
+  return JSON.stringify(base);
+};
+
+// ─── component ──────────────────────────────────────────────────────────────
+
 export const PracticePage = ({ className, onBack }: PracticePageProps) => {
   const { currentPractice, updatePractice } = usePracticeManagement({ fetchPracticeDetails: true });
   const { details, updateDetails, setDetails } = usePracticeDetails(currentPractice?.id, currentPractice?.slug, false);
   const { showSuccess, showError } = useToastContext();
   const { t } = useTranslation(['settings', 'common']);
+
+  // ── contact / brand draft ──────────────────────────────────────────────────
   const [draft, setDraft] = useState<Partial<ContactDraft>>({});
   const [isSaving, setIsSaving] = useState(false);
   const [logoUploading, setLogoUploading] = useState(false);
   const [logoUploadProgress, setLogoUploadProgress] = useState<number | null>(null);
-  const [servicesError, setServicesError] = useState<string | null>(null);
-  const [statesError, setStatesError] = useState<string | null>(null);
-  const [licensedStatesDraft, setLicensedStatesDraft] = useState<string[]>([]);
-  const [servicesByStateDraft, setServicesByStateDraft] = useState<Record<string, string[]>>(() => ({}));
-  const [statesDraftTouched, setStatesDraftTouched] = useState(false);
-  const [isSavingStates, setIsSavingStates] = useState(false);
-  const lastSavedKeyRef = useRef<string>('');
-  const saveRequestIdRef = useRef(0);
-  const pendingSaveSnapshotsRef = useRef(new Map<number, { optimisticDetails: typeof details }>());
-  const confirmedDetailsRef = useRef(details);
-  const confirmedSaveIdRef = useRef(0);
-  const lastToastAtRef = useRef(0);
-  const toastCooldownMs = 4000;
-  const currentAccentColor = normalizeAccentColor(details?.accentColor ?? currentPractice?.accentColor) ?? '#D4AF37';
-  const initialServiceDetails = useMemo(
-    () => resolveServiceDetails(details, currentPractice),
-    [details, currentPractice]
-  );
-  const savedLicensedStates = useMemo(() => details?.serviceStates ?? [], [details?.serviceStates]);
-  
-  const displayedLicensedStates = statesDraftTouched || isSavingStates ? licensedStatesDraft : savedLicensedStates;
+
+  // ── services / states draft ───────────────────────────────────────────────
+  // These are the LOCAL source of truth. We never reset them from server
+  // responses because the backend does not echo `settings` back.
+  const [licensedStates, setLicensedStates] = useState<string[]>([]);
+  const [servicesByState, setServicesByState] = useState<Record<string, string[]>>({});
+  // Track whether the user has edited states/services since last save.
+  const [servicesDirty, setServicesDirty] = useState(false);
+
+  // Seed local state once when details first loads. Never again.
+  const initializedRef = useRef(false);
+  useEffect(() => {
+    if (initializedRef.current || !details) return;
+    initializedRef.current = true;
+    setLicensedStates(details.serviceStates ?? []);
+    setServicesByState(details.servicesByState ?? {});
+  }, [details]);
+
+  const currentAccentColor =
+    normalizeAccentColor(details?.accentColor ?? currentPractice?.accentColor) ?? '#D4AF37';
 
   const contactValues = useMemo(
     () => ({
@@ -168,9 +186,11 @@ export const PracticePage = ({ className, onBack }: PracticePageProps) => {
     }),
     [currentAccentColor, currentPractice, details, draft]
   );
+
+  // ── i18n ──────────────────────────────────────────────────────────────────
   const practiceText = useMemo(() => ({
     pageTitle: t('settings:practice.page.title', { defaultValue: 'Practice' }),
-    pageSubtitle: t('settings:practice.page.subtitle', { defaultValue: 'Identity, brand, contact, services, and licensed states' }),
+    pageSubtitle: t('settings:practice.page.subtitle', { defaultValue: 'Identity, brand, contact, services, and states' }),
     identityTitle: t('settings:practice.identity.title', { defaultValue: 'Identity' }),
     identityDescription: t('settings:practice.identity.description', { defaultValue: 'Practice name and public slug used in the workspace URL.' }),
     practiceNameLabel: t('settings:practice.identity.nameLabel', { defaultValue: 'Practice name' }),
@@ -198,32 +218,26 @@ export const PracticePage = ({ className, onBack }: PracticePageProps) => {
     addressTitle: t('settings:practice.address.title', { defaultValue: 'Address' }),
     addressDescription: t('settings:practice.address.description', { defaultValue: 'Used in public practice details and intake flows.' }),
     addressHelper: t('settings:practice.address.helper', { defaultValue: 'Leave fields blank to clear them.' }),
-    servicesTitle: t('settings:practice.servicesTitle', { defaultValue: 'Services' }),
-    servicesDescription: t('settings:practice.servicesDescription', { defaultValue: 'Choose the legal service areas this practice accepts for routing and intake setup.' }),
-    licensedStatesTitle: t('settings:practice.licensedStates.title', { defaultValue: 'Licensed states' }),
-    licensedStatesDescription: t('settings:practice.licensedStates.description', { defaultValue: 'Choose one or more states where this practice is licensed.' }),
-    licensedStatesPlaceholder: t('settings:practice.licensedStates.placeholder', { defaultValue: 'Select licensed states' }),
+    licensedStatesPlaceholder: t('settings:practice.licensedStates.placeholder', { defaultValue: 'Select states' }),
     reset: t('common:forms.actions.reset'),
     save: t('common:forms.actions.save'),
     saving: t('common:forms.actions.saving'),
     noPracticeSelected: t('settings:practice.noPracticeSelected', { defaultValue: 'No practice selected.' }),
-    practiceSettingsSavedTitle: t('settings:practice.toasts.practiceSettingsSaved.title', { defaultValue: 'Practice settings saved' }),
-    practiceSettingsSavedBody: t('settings:practice.toasts.practiceSettingsSaved.body', { defaultValue: 'Your practice settings have been saved.' }),
-    practiceSettingsSaveFailedTitle: t('settings:practice.toasts.practiceSettingsSaveFailed.title', { defaultValue: 'Practice settings save failed' }),
-    practiceSettingsSaveFailedBody: t('settings:practice.toasts.practiceSettingsSaveFailed.body', { defaultValue: 'Unable to save your practice settings. Please try again.' }),
-    licensedStatesSavedTitle: t('settings:practice.toasts.licensedStatesSaved.title', { defaultValue: 'Licensed states saved' }),
-    licensedStatesSavedBody: t('settings:practice.toasts.licensedStatesSaved.body', { defaultValue: 'Your licensed states were saved.' }),
-    licensedStatesSaveFailedTitle: t('settings:practice.toasts.licensedStatesSaveFailed.title', { defaultValue: 'Licensed states save failed' }),
-    licensedStatesSaveFailedBody: t('settings:practice.toasts.licensedStatesSaveFailed.body', { defaultValue: 'Unable to save your licensed states. Please try again.' }),
+    savedTitle: t('settings:practice.toasts.practiceSettingsSaved.title', { defaultValue: 'Practice settings saved' }),
+    savedBody: t('settings:practice.toasts.practiceSettingsSaved.body', { defaultValue: 'Your practice settings have been saved.' }),
+    saveFailedTitle: t('settings:practice.toasts.practiceSettingsSaveFailed.title', { defaultValue: 'Practice settings save failed' }),
+    saveFailedBody: t('settings:practice.toasts.practiceSettingsSaveFailed.body', { defaultValue: 'Unable to save your practice settings. Please try again.' }),
     logoUploadFailedTitle: t('settings:practice.toasts.logoUploadFailed.title', { defaultValue: 'Logo upload failed' }),
     logoUploadFailedBody: t('settings:practice.toasts.logoUploadFailed.body', { defaultValue: 'Unable to upload your logo. Please try again.' }),
     brandColorInvalidTitle: t('settings:practice.toasts.brandColorInvalid.title', { defaultValue: 'Brand color' }),
     brandColorInvalidBody: t('settings:practice.toasts.brandColorInvalid.body', { defaultValue: 'Brand color must be a valid hex value.' }),
   }), [contactValues.accentColor, currentAccentColor, t]);
 
+  // ── hasChanges ────────────────────────────────────────────────────────────
   const hasChanges = useMemo(() => {
     const baseline = resolveContactDraft(currentPractice, details);
-    return contactValues.name?.trim() !== baseline.name?.trim()
+    const contactChanged =
+      contactValues.name?.trim() !== baseline.name?.trim()
       || contactValues.slug?.trim() !== baseline.slug?.trim()
       || contactValues.website?.trim() !== baseline.website?.trim()
       || contactValues.businessEmail?.trim() !== baseline.businessEmail?.trim()
@@ -231,234 +245,151 @@ export const PracticePage = ({ className, onBack }: PracticePageProps) => {
       || JSON.stringify(contactValues.address ?? null) !== JSON.stringify(baseline.address ?? null)
       || (contactValues.logo ?? '').trim() !== (currentPractice?.logo ?? '').trim()
       || normalizeAccentColor(contactValues.accentColor) !== currentAccentColor;
-  }, [contactValues, currentAccentColor, currentPractice, details]);
 
-  const saveServices = useCallback(async (nextServices: Service[]) => {
-    if (!currentPractice) return;
-    setServicesError(null);
-    const serviceDetails = getServiceDetailsForSave(nextServices);
-    const apiServices = serviceDetails
-      .map(({ id, title }) => ({ id: id.trim(), name: title.trim() }))
-      .filter((service) => service.id && service.name);
-    const payloadKey = JSON.stringify(apiServices);
-    if (payloadKey === lastSavedKeyRef.current) return;
+    return contactChanged || servicesDirty;
+  }, [contactValues, currentAccentColor, currentPractice, details, servicesDirty]);
 
-    const saveId = ++saveRequestIdRef.current;
-    if (pendingSaveSnapshotsRef.current.size === 0) {
-      confirmedDetailsRef.current = details;
-      confirmedSaveIdRef.current = saveId - 1;
-    }
-
-    const getLatestPendingSave = () => {
-      let latestSaveId: number | null = null;
-      let latestSave: { optimisticDetails: typeof details } | null = null;
-      pendingSaveSnapshotsRef.current.forEach((pendingSave, pendingSaveId) => {
-        if (latestSaveId === null || pendingSaveId > latestSaveId) {
-          latestSaveId = pendingSaveId;
-          latestSave = pendingSave;
-        }
-      });
-      if (latestSaveId === null || !latestSave) return null;
-      return { saveId: latestSaveId, optimisticDetails: latestSave.optimisticDetails };
-    };
-
-    const defaultDetails: Partial<PracticeDetails> = {
-      services: [],
-      website: null,
-      businessEmail: null,
-      businessPhone: null,
-      address: null,
-      apartment: null,
-      city: null,
-      state: null,
-      postalCode: null,
-      country: null,
-      accentColor: null,
-      logo: null,
-      serviceStates: [],
-    };
-
-    const optimisticDetails = {
-      ...(details ?? defaultDetails),
-      services: apiServices,
-    };
-    pendingSaveSnapshotsRef.current.set(saveId, { optimisticDetails });
-    setDetails(optimisticDetails);
-
-    try {
-      const savedDetails = await updateDetails({ services: apiServices });
-      pendingSaveSnapshotsRef.current.delete(saveId);
-      if (savedDetails !== undefined && saveId >= confirmedSaveIdRef.current) {
-        confirmedSaveIdRef.current = saveId;
-        confirmedDetailsRef.current = savedDetails;
-      }
-      const latestPendingSave = getLatestPendingSave();
-      if (latestPendingSave && latestPendingSave.saveId > saveId) {
-        setDetails(latestPendingSave.optimisticDetails);
-        return;
-      }
-      if (saveId < confirmedSaveIdRef.current) {
-        setDetails(confirmedDetailsRef.current);
-        return;
-      }
-      if (saveId !== saveRequestIdRef.current) return;
-      lastSavedKeyRef.current = payloadKey;
-      const now = Date.now();
-      if (now - lastToastAtRef.current > toastCooldownMs) {
-        showSuccess(
-          t('common:notifications.settingsSavedTitle'),
-          t('common:notifications.settingsSavedBody')
-        );
-        lastToastAtRef.current = now;
-      }
-    } catch (err) {
-      pendingSaveSnapshotsRef.current.delete(saveId);
-      const latestPendingSave = getLatestPendingSave();
-      setDetails(latestPendingSave?.optimisticDetails ?? confirmedDetailsRef.current);
-      if (saveId !== saveRequestIdRef.current) return;
-      const message = err instanceof Error ? err.message : t('common:notifications.settingsSaveErrorBody');
-      setServicesError(message);
-      showError(t('common:notifications.settingsSaveErrorTitle'), message);
-    }
-  }, [currentPractice, details, setDetails, showError, showSuccess, t, updateDetails]);
-
-  const validateStateCode = useCallback((code: string) => STATE_OPTIONS.some(opt => opt.value === code), []);
-
-  const saveLicensedStates = useCallback(async (nextStates: string[]) => {
-    if (!currentPractice) return;
-    const validStates = nextStates.filter(validateStateCode);
-    const { detailsPayload } = buildPracticeProfilePayloads({ serviceStates: validStates });
-    setStatesError(null);
-    setIsSavingStates(true);
-    try {
-      const defaultDetails: Partial<PracticeDetails> = {
-        services: [],
-        website: null,
-        businessEmail: null,
-        businessPhone: null,
-        address: null,
-        apartment: null,
-        city: null,
-        state: null,
-        postalCode: null,
-        country: null,
-        accentColor: null,
-        logo: null,
-        serviceStates: [],
-      };
-
-      const optimisticDetails = {
-        ...(details ?? defaultDetails),
-        serviceStates: validStates,
-      };
-      setDetails(optimisticDetails);
-      const savedDetails = await updateDetails(detailsPayload);
-      if (savedDetails !== undefined) setDetails(savedDetails);
-      setLicensedStatesDraft(validStates);
-      setStatesDraftTouched(false);
-      showSuccess(practiceText.licensedStatesSavedTitle, practiceText.licensedStatesSavedBody);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : practiceText.licensedStatesSaveFailedBody;
-      setStatesError(message);
-      showError(practiceText.licensedStatesSaveFailedTitle, err instanceof Error ? err.message : practiceText.licensedStatesSaveFailedBody);
-    } finally {
-      setIsSavingStates(false);
-    }
-  }, [currentPractice, details, practiceText, setDetails, showError, showSuccess, updateDetails, validateStateCode]);
-
-  // initialize servicesByStateDraft from details when details changes
-  useEffect(() => {
-    setServicesByStateDraft(details?.servicesByState ?? {});
-  }, [details?.servicesByState]);
-
-  // prune servicesByStateDraft keys when licensed states change
-  useEffect(() => {
-    const savedStates = details?.serviceStates ?? [];
-    const currentStates = displayedLicensedStates ?? savedStates;
-    setServicesByStateDraft((prev) => {
-      const next: Record<string, string[]> = {};
-      for (const s of currentStates) {
-        if (prev[s]) next[s] = prev[s];
-      }
-      return next;
-    });
-  }, [displayedLicensedStates, details?.serviceStates]);
-
+  // ── logo upload ───────────────────────────────────────────────────────────
   const handleLogoChange = async (files: FileList | File[]) => {
     if (!currentPractice) return;
     const [file] = Array.isArray(files) ? files : Array.from(files);
     if (!file) return;
-
     setLogoUploading(true);
     setLogoUploadProgress(0);
     try {
       const logoUrl = await uploadPracticeLogo(file, currentPractice.id, setLogoUploadProgress);
       setDraft((prev) => ({ ...prev, logo: logoUrl }));
     } catch (error) {
-      showError(practiceText.logoUploadFailedTitle, error instanceof Error ? error.message : practiceText.logoUploadFailedBody);
+      showError(
+        practiceText.logoUploadFailedTitle,
+        error instanceof Error ? error.message : practiceText.logoUploadFailedBody
+      );
     } finally {
       setLogoUploading(false);
       setLogoUploadProgress(null);
     }
   };
 
-  const handleSave = async () => {
-    if (!currentPractice) return;
+  // ── save ──────────────────────────────────────────────────────────────────
+  // Single save path for everything. States and services are always included
+  // so they never get orphaned by a contact-only save.
+  const handleSave = useCallback(async () => {
+    if (!currentPractice || isSaving) return;
+
     const normalizedAccentColor = normalizeAccentColor(contactValues.accentColor);
     if (!normalizedAccentColor) {
       showError(practiceText.brandColorInvalidTitle, practiceText.brandColorInvalidBody);
       return;
     }
+
     setIsSaving(true);
     try {
-      const { practicePayload, detailsPayload } = buildPracticeProfilePayloads({
-        name: contactValues.name ?? null,
-        slug: contactValues.slug ?? null,
-        logo: contactValues.logo ?? null,
-        accentColor: normalizedAccentColor,
-        website: contactValues.website ?? null,
-        businessEmail: contactValues.businessEmail ?? null,
-        businessPhone: contactValues.contactPhone ?? null,
-        address: contactValues.address?.address ?? null,
-        apartment: contactValues.address?.apartment ?? null,
-        city: contactValues.address?.city ?? null,
-        state: contactValues.address?.state ?? null,
-        postalCode: contactValues.address?.postalCode ?? null,
-        country: contactValues.address?.country ?? null,
-        servicesByState: Object.keys(servicesByStateDraft).length > 0 ? servicesByStateDraft : undefined,
-      }, {
-        compareTo: {
-          logo: currentPractice.logo ?? null,
-          name: currentPractice.name ?? null,
-          slug: currentPractice.slug ?? null,
-          accentColor: currentAccentColor,
-          website: details?.website ?? currentPractice.website ?? null,
-          businessEmail: details?.businessEmail ?? currentPractice.businessEmail ?? null,
-          businessPhone: details?.businessPhone ?? currentPractice.businessPhone ?? null,
-          address: currentPractice.address ?? null,
-          apartment: currentPractice.apartment ?? null,
-          city: currentPractice.city ?? null,
-          state: currentPractice.state ?? null,
-          postalCode: currentPractice.postalCode ?? null,
-          country: currentPractice.country ?? null,
+      const { practicePayload, detailsPayload } = buildPracticeProfilePayloads(
+        {
+          name: contactValues.name ?? null,
+          slug: contactValues.slug ?? null,
+          logo: contactValues.logo ?? null,
+          accentColor: normalizedAccentColor,
+          website: contactValues.website ?? null,
+          businessEmail: contactValues.businessEmail ?? null,
+          businessPhone: contactValues.contactPhone ?? null,
+          address: contactValues.address?.address ?? null,
+          apartment: contactValues.address?.apartment ?? null,
+          city: contactValues.address?.city ?? null,
+          state: contactValues.address?.state ?? null,
+          postalCode: contactValues.address?.postalCode ?? null,
+          country: contactValues.address?.country ?? null,
         },
-      });
+        {
+          compareTo: {
+            logo: currentPractice.logo ?? null,
+            name: currentPractice.name ?? null,
+            slug: currentPractice.slug ?? null,
+            accentColor: currentAccentColor,
+            website: details?.website ?? currentPractice.website ?? null,
+            businessEmail: details?.businessEmail ?? currentPractice.businessEmail ?? null,
+            businessPhone: details?.businessPhone ?? currentPractice.businessPhone ?? null,
+            address: currentPractice.address ?? null,
+            apartment: currentPractice.apartment ?? null,
+            city: currentPractice.city ?? null,
+            state: currentPractice.state ?? null,
+            postalCode: currentPractice.postalCode ?? null,
+            country: currentPractice.country ?? null,
+          },
+        }
+      );
+
+      // Prune servicesByState to only include currently licensed states.
+      const validStates = licensedStates.filter((s) =>
+        STATE_OPTIONS.some((opt) => opt.value === s)
+      );
+      const prunedServicesByState: Record<string, string[]> = {};
+      for (const s of validStates) {
+        if (servicesByState[s]) prunedServicesByState[s] = servicesByState[s];
+      }
+
+      // Always write serviceStates and settings so they're never accidentally
+      // dropped by a contact-only save. Backend doesn't echo `settings` back,
+      // so we are the source of truth for it.
+      detailsPayload.serviceStates = validStates;
+      detailsPayload.settings = buildSettingsString(details?.settings ?? null, prunedServicesByState);
 
       if (Object.keys(practicePayload).length > 0) {
         await updatePractice(currentPractice.id, practicePayload);
       }
-      if (Object.keys(detailsPayload).length > 0) {
-        await updateDetails(detailsPayload);
+
+      const savedDetails = await updateDetails(detailsPayload);
+
+      // Backend doesn't return `settings`, so patch servicesByState back onto
+      // whatever the server gave us so local state stays consistent.
+      if (savedDetails !== undefined) {
+        setDetails({
+          ...savedDetails,
+          servicesByState: prunedServicesByState,
+          serviceStates: validStates,
+        });
       }
+
+      // Keep local draft in sync with what we just persisted.
+      setServicesByState(prunedServicesByState);
+      setLicensedStates(validStates);
+      setServicesDirty(false);
       setDraft({});
-      showSuccess(practiceText.practiceSettingsSavedTitle, practiceText.practiceSettingsSavedBody);
+      showSuccess(practiceText.savedTitle, practiceText.savedBody);
     } catch (error) {
-      showError(practiceText.practiceSettingsSaveFailedTitle, error instanceof Error ? error.message : practiceText.practiceSettingsSaveFailedBody);
+      showError(
+        practiceText.saveFailedTitle,
+        error instanceof Error ? error.message : practiceText.saveFailedBody
+      );
     } finally {
       setIsSaving(false);
     }
-  };
+  }, [
+    currentPractice,
+    isSaving,
+    contactValues,
+    currentAccentColor,
+    details,
+    licensedStates,
+    servicesByState,
+    updatePractice,
+    updateDetails,
+    setDetails,
+    showError,
+    showSuccess,
+    practiceText,
+  ]);
 
+  // ── reset ─────────────────────────────────────────────────────────────────
+  const handleReset = useCallback(() => {
+    setDraft({});
+    // Reset services/states back to what the server last told us.
+    setLicensedStates(details?.serviceStates ?? []);
+    setServicesByState(details?.servicesByState ?? {});
+    setServicesDirty(false);
+  }, [details]);
+
+  // ── render ────────────────────────────────────────────────────────────────
   if (!currentPractice) {
     return (
       <EditorShell title={practiceText.pageTitle} showBack={Boolean(onBack)} onBack={onBack}>
@@ -482,7 +413,7 @@ export const PracticePage = ({ className, onBack }: PracticePageProps) => {
             type="button"
             variant="secondary"
             size="sm"
-            onClick={() => setDraft({})}
+            onClick={handleReset}
             disabled={!hasChanges || isSaving || logoUploading}
           >
             {practiceText.reset}
@@ -499,17 +430,6 @@ export const PracticePage = ({ className, onBack }: PracticePageProps) => {
       )}
     >
       <div className="space-y-6">
-        {servicesError && (
-          <p className="text-xs text-accent-error dark:text-accent-error-light mb-4">
-            {servicesError}
-          </p>
-        )}
-        {statesError && (
-          <p className="text-xs text-red-600 dark:text-red-400 mb-4">
-            {statesError}
-          </p>
-        )}
-
         <SettingSection
           title={practiceText.identityTitle}
           description={practiceText.identityDescription}
@@ -571,7 +491,9 @@ export const PracticePage = ({ className, onBack }: PracticePageProps) => {
                   value={normalizeAccentColor(contactValues.accentColor) ?? currentAccentColor}
                   onChange={(event) => setDraft((prev) => ({
                     ...prev,
-                    accentColor: normalizeAccentColor((event.target as HTMLInputElement).value) ?? (event.target as HTMLInputElement).value.toUpperCase(),
+                    accentColor:
+                      normalizeAccentColor((event.target as HTMLInputElement).value)
+                      ?? (event.target as HTMLInputElement).value.toUpperCase(),
                   }))}
                   disabled={isSaving}
                   aria-label={practiceText.brandColorAriaLabel}
@@ -657,57 +579,28 @@ export const PracticePage = ({ className, onBack }: PracticePageProps) => {
         <SectionDivider />
 
         <SettingSection
-          title={practiceText.servicesTitle}
-          description={practiceText.servicesDescription}
-        >
-          <ServicesEditor
-            services={initialServiceDetails}
-            onChange={(nextServices) => void saveServices(nextServices)}
-            catalog={SERVICE_CATALOG}
-          />
-        </SettingSection>
-
-        <SectionDivider />
-
-        <SettingSection
-          title={practiceText.licensedStatesTitle}
-          description={practiceText.licensedStatesDescription}
-        >
-          <Combobox
-            multiple
-            options={STATE_OPTIONS}
-            value={displayedLicensedStates}
-            onChange={(nextStates) => {
-              setLicensedStatesDraft(nextStates);
-              setStatesDraftTouched(true);
-              void saveLicensedStates(nextStates);
-            }}
-            placeholder={practiceText.licensedStatesPlaceholder}
-            disabled={isSavingStates}
-            aria-label={practiceText.licensedStatesTitle}
-          />
-        </SettingSection>
-
-        <SectionDivider />
-
-        <SectionDivider />
-
-        <SettingSection
-          title="Licenses & Services"
-          description="Add licensed states, then select services offered for each license."
+          title="Services"
+          description="Add states, then select services offered for each state."
         >
           <div className="space-y-4">
             <div>
-              <h4 className="text-sm font-medium text-input-text">Add your licensed states</h4>
+              <h4 className="text-sm font-medium text-input-text">Add your states</h4>
               <div className="mt-2">
                 <Combobox
                   multiple
                   options={STATE_OPTIONS}
-                  value={displayedLicensedStates}
+                  value={licensedStates}
                   onChange={(nextStates) => {
-                    setLicensedStatesDraft(nextStates);
-                    setStatesDraftTouched(true);
-                    void saveLicensedStates(nextStates);
+                    setLicensedStates(nextStates);
+                    // Prune servicesByState to only valid states as user removes them.
+                    setServicesByState((prev) => {
+                      const pruned: Record<string, string[]> = {};
+                      for (const s of nextStates) {
+                        if (prev[s]) pruned[s] = prev[s];
+                      }
+                      return pruned;
+                    });
+                    setServicesDirty(true);
                   }}
                   placeholder={practiceText.licensedStatesPlaceholder}
                 />
@@ -715,16 +608,22 @@ export const PracticePage = ({ className, onBack }: PracticePageProps) => {
             </div>
 
             <div>
-              <h4 className="text-sm font-medium text-input-text">Services per licensed state</h4>
+              <h4 className="text-sm font-medium text-input-text">Services per state</h4>
               <div className="mt-2">
                 <ServicesByStateEditor
-                  licensedStates={displayedLicensedStates}
-                  value={servicesByStateDraft}
-                  onChange={(next) => setServicesByStateDraft(next)}
+                  licensedStates={licensedStates}
+                  value={servicesByState}
+                  onChange={(next) => {
+                    setServicesByState(next);
+                    setServicesDirty(true);
+                  }}
                   onRemove={(stateCode) => {
-                    const next = { ...servicesByStateDraft };
-                    delete next[stateCode];
-                    setServicesByStateDraft(next);
+                    setServicesByState((prev) => {
+                      const next = { ...prev };
+                      delete next[stateCode];
+                      return next;
+                    });
+                    setServicesDirty(true);
                   }}
                 />
               </div>

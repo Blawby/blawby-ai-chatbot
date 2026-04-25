@@ -4,7 +4,7 @@ import { STATE_OPTIONS } from '@/shared/ui/address/AddressFields';
 import { SERVICE_CATALOG } from '@/features/services/data/serviceCatalog';
 
 type Props = {
-  licensedStates: string[]; // array of state codes to render
+  licensedStates: string[]; // array of state codes to render (state codes)
   value?: Record<string, string[]> | null;
   onChange: (next: Record<string, string[]>) => void;
   onRemove?: (stateCode: string) => void;
@@ -27,8 +27,8 @@ export const ServicesByStateEditor = ({ licensedStates, value, onChange, onRemov
   return (
     <div className="space-y-2">
       {licensedStates.length === 0 && (
-        <div className="text-sm text-input-placeholder">No licensed states selected. Add a licensed state to assign services.</div>
-      )}
+          <div className="text-sm text-input-placeholder">No states selected. Add a state to assign services.</div>
+        )}
       {licensedStates.map((stateCode) => {
         const opt = STATE_OPTIONS.find((s) => s.value === stateCode);
         const label = opt ? opt.label : stateCode;
