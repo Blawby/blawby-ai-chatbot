@@ -967,7 +967,7 @@ export function MainApp({
               }
           : resolvedWorkspaceView === 'contacts' && isPracticeWorkspace && practiceContactsPath
             ? {
-                label: 'Invite contact',
+                label: 'Invite Contact',
                 onClick: () => navigate(`${practiceContactsPath}?create=1`),
                 icon: PlusIcon,
               }

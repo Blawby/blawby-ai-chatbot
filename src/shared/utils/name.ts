@@ -4,7 +4,7 @@ export const splitName = (fullName: string) => {
     return { first: '', last: '' };
   }
   if (parts.length === 1) {
-    return { first: '', last: parts[0] };
+    return { first: parts[0], last: '' };
   }
   const last = parts[parts.length - 1];
   const first = parts.slice(0, -1).join(' ');

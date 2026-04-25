@@ -600,10 +600,15 @@ export const PracticeMattersPage = ({
     }
   }, [activePracticeId, buildClientOption, showError]);
 
+  const refreshClientsControllerRef = useRef<AbortController | null>(null);
   useEffect(() => {
     const controller = new AbortController();
+    refreshClientsControllerRef.current = controller;
     void refreshClientOptions(controller.signal);
-    return () => controller.abort();
+    return () => {
+      controller.abort();
+      if (refreshClientsControllerRef.current === controller) refreshClientsControllerRef.current = null;
+    };
   }, [refreshClientOptions]);
 
   // ── Data fetching: practice services ─────────────────────────────────────
@@ -1736,7 +1741,7 @@ export const PracticeMattersPage = ({
             </Panel>
           ) : null}
           {!shouldDeferCreateForm ? (
-            <MatterCreateForm
+              <MatterCreateForm
               onClose={() => {
                 const id = createdMatterIdRef.current;
                 createdMatterIdRef.current = null;
@@ -1744,7 +1749,12 @@ export const PracticeMattersPage = ({
                 goToList();
               }}
               onSubmit={submitHandler}
-              onContactCreated={() => refreshClientOptions()}
+              onContactCreated={() => {
+                // Reuse the controller used by the main refresh effect so the request
+                // can be aborted when the component unmounts or navigation occurs.
+                const controller = refreshClientsControllerRef.current ?? new AbortController();
+                void refreshClientOptions(controller.signal);
+              }}
               practiceId={activePracticeId}
               clients={clientOptions}
               practiceAreas={practiceAreaOptions}

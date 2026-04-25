@@ -109,7 +109,7 @@ const buildPracticeRail = (basePath: string): NavRailItem[] => [
     label: 'Home',
     icon: HomeIcon,
     href: basePath,
-    matchHrefs: [basePath, `${basePath}/setup`, `${basePath}/contacts`, `${basePath}/contacts/pending`],
+    matchHrefs: [basePath, `${basePath}/setup`, `${basePath}/contacts`, `${basePath}/contacts/pending`, `${basePath}/contacts/clients`, `${basePath}/contacts/team`, `${basePath}/contacts/archived`],
   },
   {
     id: 'conversations',

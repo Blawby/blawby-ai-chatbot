@@ -43,10 +43,10 @@ export const hasRenderableUserDetailAddress = (value: unknown): boolean => {
 export const formatUserDetailAddressDisplay = (value: Address | null | undefined): string | null => {
   if (!value) return null;
   const parts = [
-    value.address,
+    value.address ?? '',
     value.apartment ?? '',
-    [value.city, value.state, value.postalCode].filter(Boolean).join(' '),
-    value.country,
+    [(value.city ?? ''), (value.state ?? ''), (value.postalCode ?? '')].filter(Boolean).join(' '),
+    value.country ?? '',
   ].map((part) => part.trim()).filter(Boolean);
   return parts.length > 0 ? parts.join(', ') : null;
 };

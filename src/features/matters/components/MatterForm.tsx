@@ -29,7 +29,7 @@ import {
 import { PlusIcon } from '@heroicons/react/24/solid';
 import { Icon } from '@/shared/ui/Icon';
 import { formatDateOnlyUtc } from '@/shared/utils/dateOnly';
-import { asMajor, isMajorAmount, type MajorAmount } from '@/shared/utils/money';
+import { asMajor, isFiniteNumber as isMajorAmount, type MajorAmount } from '@/shared/utils/money';
 import { FormGrid } from '@/shared/ui/layout/FormGrid';
 import { Panel } from '@/shared/ui/layout/Panel';
 import { AddContactDialog } from '@/shared/ui/contacts/AddContactDialog';

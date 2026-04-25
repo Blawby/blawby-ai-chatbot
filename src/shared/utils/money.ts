@@ -3,7 +3,12 @@ export type MinorAmount = number & { readonly __brand: 'MinorAmount' };
 
 export const asMajor = (amount: number): MajorAmount => amount as MajorAmount;
 export const asMinor = (amount: number): MinorAmount => amount as MinorAmount;
-export const isMajorAmount = (value: unknown): value is MajorAmount => typeof value === 'number' && Number.isFinite(value);
+/**
+ * Runtime check for a finite number. Branded types like `MajorAmount` are
+ * compile-time only and cannot be distinguished at runtime — use this helper
+ * when you need to validate a numeric value at runtime.
+ */
+export const isFiniteNumber = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value);
 
 const isDev =
   typeof import.meta !== 'undefined' &&

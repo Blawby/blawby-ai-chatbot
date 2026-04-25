@@ -294,6 +294,7 @@ const ClientDetailPanel = ({
 export const PracticeContactsPage = ({
   practiceId: routePracticeId,
   basePath = '/practice/contacts',
+  conversationsPath,
   renderMode = 'full',
   statusFilter = null,
   prefetchedItems = [],
@@ -308,6 +309,7 @@ export const PracticeContactsPage = ({
 }: {
   practiceId?: string | null;
   basePath?: string;
+  conversationsPath?: string | null;
   renderMode?: 'full' | 'listOnly' | 'detailOnly';
   statusFilter?: ContactRelationshipStatus | null;
   prefetchedItems?: ContactRecord[];
@@ -776,9 +778,9 @@ export const PracticeContactsPage = ({
       if (!payload.success || !conversationId) {
         throw new Error(payload.error || 'Failed to create conversation');
       }
-      const conversationsBasePath = basePath.replace(/\/contacts$/, '/conversations');
-      if (conversationsBasePath === basePath) {
-        throw new Error('Contacts base path does not map to conversations path');
+      const conversationsBasePath = conversationsPath ?? (basePath.endsWith('/contacts') ? basePath.replace(/\/contacts$/, '/conversations') : null);
+      if (!conversationsBasePath) {
+        throw new Error('Unable to derive conversations path from basePath; provide `conversationsPath` prop if your basePath does not end with "/contacts"');
       }
       location.route(`${conversationsBasePath}/${encodeURIComponent(conversationId)}`);
     } catch (error) {
@@ -787,7 +789,7 @@ export const PracticeContactsPage = ({
     } finally {
       setSendMessagePending(false);
     }
-  }, [activePracticeId, basePath, location, sendMessagePending, showError]);
+  }, [activePracticeId, basePath, location, sendMessagePending, showError, conversationsPath]);
 
   const handleOpenAddClient = useCallback(() => {
     location.route(`${location.path}?create=1`);
@@ -1043,13 +1045,7 @@ export const PracticeContactsPage = ({
     ? {
         title: 'Pending invitation',
         body: pendingInvitationDetailBody,
-        backHref: isArchivedListRoute
-          ? `${basePath}/archived`
-          : isTeamListRoute
-            ? `${basePath}/team`
-              : isClientsListRoute
-                ? `${basePath}/clients`
-              : `${basePath}/pending`,
+        backHref: `${basePath}/pending`,
       }
     : {
         title: 'Contact details',
