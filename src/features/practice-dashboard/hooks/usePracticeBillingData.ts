@@ -466,6 +466,9 @@ export const usePracticeBillingData = ({
       setRecentClients([]);
     } finally {
       if (!signal?.aborted) {
+        if (typeof performance !== 'undefined') {
+          performance.mark('app:dashboard-ready');
+        }
         setLoading(false);
       }
     }

@@ -599,6 +599,9 @@ export const useConversation = ({
   }, []);
 
   const handleMessageNew = useCallback((data: Record<string, unknown>) => {
+    if (typeof performance !== 'undefined') {
+      performance.mark('chat:message-ingest');
+    }
     const conversationIdValue = typeof data.conversation_id === 'string' ? data.conversation_id : null;
     if (!conversationIdValue || conversationIdValue !== conversationIdRef.current) return;
     const messageId = typeof data.message_id === 'string' ? data.message_id : null;
@@ -850,13 +853,16 @@ export const useConversation = ({
               set.add(m.id);
               return set;
             }, new Set<string>());
-            
+
             const newBatch = fetchedUIMessages.filter(m => !existingIds.has(m.id));
             const merged = dedupeMessagesById([...newBatch, ...prev].sort((a, b) => a.timestamp - b.timestamp));
-            
+
             return merged;
           });
-          
+
+          if (typeof performance !== 'undefined') {
+            performance.mark('chat:messages-ready');
+          }
           setMessagesReady(true);
         }
         setHasMoreMessages(Boolean(data.data.hasMore));

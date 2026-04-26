@@ -1067,6 +1067,10 @@ function loadOneSignalSdk(): void {
 }
 
 async function mountClientApp() {
+  if (typeof performance !== 'undefined') {
+    performance.mark('app:mount-start');
+  }
+
   let savedTheme: string | null = null;
   try {
     savedTheme = localStorage.getItem('theme');
@@ -1088,7 +1092,12 @@ async function mountClientApp() {
     .then(() => {
       {
         const mountEl = document.getElementById('app');
-        if (mountEl) hydrate(<AppWithProviders />, mountEl);
+        if (mountEl) {
+          hydrate(<AppWithProviders />, mountEl);
+          if (typeof performance !== 'undefined') {
+            performance.mark('app:mount-complete');
+          }
+        }
       }
     })
     .catch((_error) => {
