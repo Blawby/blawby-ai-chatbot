@@ -976,6 +976,27 @@ export class ConversationService {
       WHERE id = ? AND practice_id = ?
     `).bind(...bindings).run();
 
+    // Notify ChatRoom Durable Object to invalidate any cached hideReplies flag
+    try {
+      if (this.env.CHAT_ROOM) {
+        const stub = this.env.CHAT_ROOM.get(this.env.CHAT_ROOM.idFromName(conversationId));
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        // Fire-and-forget; ensure we don't fail the update if the DO is unreachable.
+        void stub.fetch('https://chat-room/internal/invalidate-hide-replies', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ conversation_id: conversationId })
+        }).catch((err) => {
+          Logger.warn('Failed to notify ChatRoom to invalidate hideReplies cache', {
+            conversationId,
+            error: err instanceof Error ? err.message : String(err)
+          });
+        });
+      }
+    } catch (err) {
+      Logger.warn('ChatRoom invalidation attempt failed', { conversationId, error: err instanceof Error ? err.message : String(err) });
+    }
+
     return this.getConversation(conversationId, practiceId);
   }
 

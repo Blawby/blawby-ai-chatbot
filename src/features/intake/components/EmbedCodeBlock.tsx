@@ -1,14 +1,16 @@
 import { useState, useRef, useEffect } from 'preact/hooks';
 import { Button } from '@/shared/ui/Button';
+import { getWidgetScriptUrl, getPublicFormOrigin } from '@/config/urls';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import type { JSX } from 'preact';
 import { Dialog, DialogBody, DialogFooter } from '@/shared/ui/dialog';
 
 export function getEmbedSnippet(practiceSlug: string, templateSlug: string): string {
   const esc = (s: string) => escapeHtmlAttribute(s);
+  const src = getWidgetScriptUrl(encodeURIComponent(String(templateSlug)));
   return [
     '<script',
-    `  src="https://app.blawby.com/widget.js?template=${esc(templateSlug)}"`,
+    `  src="${esc(src)}"`,
     `  data-practice="${esc(practiceSlug)}"`,
     '  async',
     '></script>',
@@ -27,7 +29,7 @@ function escapeHtmlAttribute(input: string): string {
 export function getPublicFormUrl(practiceSlug: string, templateSlug: string): string {
   const origin = typeof window !== 'undefined' && window.location?.origin
     ? window.location.origin
-    : 'https://app.blawby.com';
+    : getPublicFormOrigin();
   const url = new URL(`/public/${encodeURIComponent(practiceSlug)}`, origin);
   url.searchParams.set('template', templateSlug);
   return url.toString();
@@ -172,7 +174,7 @@ export function EmbedCodeBlock({ practiceSlug, templateSlug }: EmbedCodeBlockPro
         description="Copy or inspect the embed snippet for this intake template."
       >
         <DialogBody>
-          <p className="mb-3 text-sm text-input-placeholder">Paste this script into your site's <code>&lt;head&gt;</code> or before <code>&lt;/body&gt;</code>.</p>
+          <p className="mb-3 text-sm text-input-placeholder">Paste this script into your site&apos;s <code>&lt;head&gt;</code> or before <code>&lt;/body&gt;</code>.</p>
           <textarea
             ref={textareaRef}
             readOnly

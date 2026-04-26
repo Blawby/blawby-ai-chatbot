@@ -917,43 +917,45 @@ function TemplateCard({
           </DropdownMenu>
         </div>
         {openEmbedDialog ? (
-          <Dialog
-            isOpen={openEmbedDialog}
-            onClose={() => setOpenEmbedDialog(false)}
-            title="Embed code"
-            description="Copy or inspect the embed snippet for this intake template."
-          >
-            <DialogBody>
-              <p className="mb-3 text-sm text-input-placeholder">Paste this script into your site's <code>&lt;head&gt;</code> or before <code>&lt;/body&gt;</code>.</p>
-              <textarea
-                ref={embedTextareaRef}
-                readOnly
-                value={embedSnippet}
-                className="w-full resize-none rounded-md border border-line-glass/20 bg-surface-ground p-3 font-mono text-sm text-input-text"
-                rows={6}
-                aria-label="Embed snippet"
-              />
-            </DialogBody>
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={() => {
-                  copyTextToClipboard(
-                    embedSnippet,
-                    () => {
-                      showSuccess('Embed copied', 'The widget snippet is ready to paste.');
-                      setOpenEmbedDialog(false);
-                    },
-                    (message) => showError('Copy failed', message),
-                  );
-                }}
-              >
-                Copy embed
-              </Button>
-              <Button type="button" variant="ghost" onClick={() => setOpenEmbedDialog(false)}>Close</Button>
-            </DialogFooter>
-          </Dialog>
+          <div onClick={(e) => e.stopPropagation()}>
+            <Dialog
+              isOpen={openEmbedDialog}
+              onClose={() => setOpenEmbedDialog(false)}
+              title="Embed code"
+              description="Copy or inspect the embed snippet for this intake template."
+            >
+              <DialogBody>
+                <p className="mb-3 text-sm text-input-placeholder">Paste this script into your site&apos;s <code>&lt;head&gt;</code> or before <code>&lt;/body&gt;</code>.</p>
+                <textarea
+                  ref={embedTextareaRef}
+                  readOnly
+                  value={embedSnippet}
+                  className="w-full resize-none rounded-md border border-line-glass/20 bg-surface-ground p-3 font-mono text-sm text-input-text"
+                  rows={6}
+                  aria-label="Embed snippet"
+                />
+              </DialogBody>
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => {
+                    copyTextToClipboard(
+                      embedSnippet,
+                      () => {
+                        showSuccess('Embed copied', 'The widget snippet is ready to paste.');
+                        setOpenEmbedDialog(false);
+                      },
+                      (message) => showError('Copy failed', message),
+                    );
+                  }}
+                >
+                  Copy embed
+                </Button>
+                <Button type="button" variant="ghost" onClick={() => setOpenEmbedDialog(false)}>Close</Button>
+              </DialogFooter>
+            </Dialog>
+          </div>
         ) : null}
 
         <div className="mt-5 space-y-2">
