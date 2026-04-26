@@ -1494,10 +1494,11 @@ export class ChatRoom {
           hideReplies = Boolean(parsed && (parsed.hideReplies ?? parsed.hide_replies));
           this.hideRepliesCache = hideReplies;
         } catch (err) {
-          console.warn('[ChatRoom] Failed to read conversation.user_info for hideReplies, failing closed', err);
-          // Fail-closed: treat unknown as true until refreshed to avoid accidental leakage
+          console.warn('[ChatRoom] Failed to read conversation.user_info for hideReplies, treating this broadcast as hide (fail-closed) but not caching', err);
+          // Fail-closed for this attempt only: set local flag so this broadcast masks replies,
+          // but do NOT persist into `this.hideRepliesCache` so transient DB errors don't
+          // cause prolonged incorrect masking; leave cache population to successful reads.
           hideReplies = true;
-          this.hideRepliesCache = true;
         }
       }
 
