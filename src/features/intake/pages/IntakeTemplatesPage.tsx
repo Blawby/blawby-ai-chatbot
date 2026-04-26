@@ -36,7 +36,7 @@ import { fromMinorUnits, toMinorUnitsValue } from '@/shared/utils/money';
 import { getOnboardingStatusPayload } from '@/shared/lib/apiClient';
 import { STANDARD_FIELD_DEFINITIONS, DEFAULT_INTAKE_TEMPLATE } from '@/shared/constants/intakeTemplates';
 import type { FieldPhase, IntakeFieldDefinition, IntakeTemplate } from '@/shared/types/intake';
-import EmbedCodeBlock, { getEmbedSnippet, getPublicFormUrl, copyTextToClipboard } from '@/features/intake/components/EmbedCodeBlock';
+import EmbedCodeBlock, { EmbedCodeDialog, getEmbedSnippet, getPublicFormUrl, copyTextToClipboard } from '@/features/intake/components/EmbedCodeBlock';
 
 type IntakeTemplatesPageProps = {
   onBack?: () => void;
@@ -834,20 +834,12 @@ function TemplateCard({
   onArchive,
 }: TemplateCardProps) {
   const { showSuccess, showError } = useToastContext();
-  const [openEmbedDialog, setOpenEmbedDialog] = useState(false);
-  const embedTextareaRef = useRef<HTMLTextAreaElement | null>(null);
-  useEffect(() => {
-    if (openEmbedDialog && embedTextareaRef.current) {
-      embedTextareaRef.current.focus();
-      embedTextareaRef.current.select();
-    }
-  }, [openEmbedDialog]);
   const questionPreview = template.fields
     .map((field) => getFieldCanvasQuestion(field))
     .filter((question) => question.trim().length > 0)
     .slice(0, 3);
   const remainingQuestions = Math.max(template.fields.length - questionPreview.length, 0);
-  const embedSnippet = getEmbedSnippet(practiceSlug, template.slug);
+  const [openEmbedDialog, setOpenEmbedDialog] = useState(false);
   const publicUrl = getPublicFormUrl(practiceSlug, template.slug);
 
   return (
@@ -916,47 +908,12 @@ function TemplateCard({
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-        {openEmbedDialog ? (
-          <div onClick={(e) => e.stopPropagation()}>
-            <Dialog
-              isOpen={openEmbedDialog}
-              onClose={() => setOpenEmbedDialog(false)}
-              title="Embed code"
-              description="Copy or inspect the embed snippet for this intake template."
-            >
-              <DialogBody>
-                <p className="mb-3 text-sm text-input-placeholder">Paste this script into your site&apos;s <code>&lt;head&gt;</code> or before <code>&lt;/body&gt;</code>.</p>
-                <textarea
-                  ref={embedTextareaRef}
-                  readOnly
-                  value={embedSnippet}
-                  className="w-full resize-none rounded-md border border-line-glass/20 bg-surface-ground p-3 font-mono text-sm text-input-text"
-                  rows={6}
-                  aria-label="Embed snippet"
-                />
-              </DialogBody>
-              <DialogFooter>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={() => {
-                    copyTextToClipboard(
-                      embedSnippet,
-                      () => {
-                        showSuccess('Embed copied', 'The widget snippet is ready to paste.');
-                        setOpenEmbedDialog(false);
-                      },
-                      (message) => showError('Copy failed', message),
-                    );
-                  }}
-                >
-                  Copy embed
-                </Button>
-                <Button type="button" variant="ghost" onClick={() => setOpenEmbedDialog(false)}>Close</Button>
-              </DialogFooter>
-            </Dialog>
-          </div>
-        ) : null}
+        <EmbedCodeDialog
+          isOpen={openEmbedDialog}
+          onClose={() => setOpenEmbedDialog(false)}
+          practiceSlug={practiceSlug}
+          templateSlug={template.slug}
+        />
 
         <div className="mt-5 space-y-2">
           {questionPreview.map((question, index) => (

@@ -7,7 +7,7 @@ import { Dialog, DialogBody, DialogFooter } from '@/shared/ui/dialog';
 
 export function getEmbedSnippet(practiceSlug: string, templateSlug: string): string {
   const esc = (s: string) => escapeHtmlAttribute(s);
-  const src = getWidgetScriptUrl(encodeURIComponent(String(templateSlug)));
+  const src = getWidgetScriptUrl(String(templateSlug));
   return [
     '<script',
     `  src="${esc(src)}"`,
@@ -73,8 +73,6 @@ export function copyTextToClipboard(
       } else {
         onError('Clipboard is not available.');
       }
-    } catch (error) {
-      throw error;
     } finally {
       if (document.body.contains(textarea)) {
         document.body.removeChild(textarea);
@@ -211,3 +209,58 @@ export function EmbedCodeBlock({ practiceSlug, templateSlug }: EmbedCodeBlockPro
 }
 
 export default EmbedCodeBlock;
+
+type EmbedCodeDialogProps = {
+  isOpen: boolean;
+  onClose: () => void;
+  practiceSlug: string;
+  templateSlug: string;
+};
+
+export function EmbedCodeDialog({ isOpen, onClose, practiceSlug, templateSlug }: EmbedCodeDialogProps) {
+  const { showSuccess, showError } = useToastContext();
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const snippet = getEmbedSnippet(practiceSlug, templateSlug);
+
+  useEffect(() => {
+    if (isOpen && textareaRef.current) {
+      textareaRef.current.focus();
+      textareaRef.current.select();
+    }
+  }, [isOpen]);
+
+  return (
+    <Dialog isOpen={isOpen} onClose={onClose} title="Embed code" description="Copy or inspect the embed snippet for this intake template.">
+      <DialogBody>
+        <p className="mb-3 text-sm text-input-placeholder">Paste this script into your site's <code>&lt;head&gt;</code> or before <code>&lt;/body&gt;</code>.</p>
+        <textarea
+          ref={textareaRef}
+          readOnly
+          value={snippet}
+          className="w-full resize-none rounded-md border border-line-glass/20 bg-surface-ground p-3 font-mono text-sm text-input-text"
+          rows={6}
+          aria-label="Embed snippet"
+        />
+      </DialogBody>
+      <DialogFooter>
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={() => {
+            copyTextToClipboard(
+              snippet,
+              () => {
+                showSuccess('Embed copied', 'The widget snippet is ready to paste.');
+                onClose();
+              },
+              (message) => showError('Copy failed', message),
+            );
+          }}
+        >
+          Copy embed
+        </Button>
+        <Button type="button" variant="ghost" onClick={onClose}>Close</Button>
+      </DialogFooter>
+    </Dialog>
+  );
+}

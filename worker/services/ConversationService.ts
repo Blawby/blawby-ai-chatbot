@@ -981,17 +981,21 @@ export class ConversationService {
       if (this.env.CHAT_ROOM) {
         const stub = this.env.CHAT_ROOM.get(this.env.CHAT_ROOM.idFromName(conversationId));
         const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-        // Fire-and-forget; ensure we don't fail the update if the DO is unreachable.
-        void stub.fetch('https://chat-room/internal/invalidate-hide-replies', {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({ conversation_id: conversationId })
-        }).catch((err) => {
+        // Await the DO invalidation so we know the ChatRoom instance has seen
+        // the update before returning. Log any failures but do not fail the
+        // conversation update operation.
+        try {
+          await stub.fetch('https://chat-room/internal/invalidate-hide-replies', {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({ conversation_id: conversationId })
+          });
+        } catch (err) {
           Logger.warn('Failed to notify ChatRoom to invalidate hideReplies cache', {
             conversationId,
             error: err instanceof Error ? err.message : String(err)
           });
-        });
+        }
       }
     } catch (err) {
       Logger.warn('ChatRoom invalidation attempt failed', { conversationId, error: err instanceof Error ? err.message : String(err) });
