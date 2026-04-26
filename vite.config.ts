@@ -372,6 +372,7 @@ export default defineConfig(({ mode }: ConfigEnv) => {
 						vendor: ['preact', 'preact/hooks', 'preact/jsx-runtime', 'preact/compat'],
 						ui: ['./src/app/ErrorBoundary.tsx'],
 						i18n: ['i18next', 'react-i18next', 'i18next-browser-languagedetector'],
+						stripe: ['@stripe/stripe-js', '@stripe/react-stripe-js'],
 						motion: ['framer-motion'],
 						markdown: ['react-markdown', 'remark-gfm'],
 					}
