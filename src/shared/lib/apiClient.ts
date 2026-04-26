@@ -1,4 +1,5 @@
 import axios, { AxiosHeaders, type AxiosRequestConfig } from 'axios';
+import { queryCache } from '@/shared/lib/queryCache';
 import {
   getSubscriptionBillingPortalEndpoint,
   getSubscriptionCancelEndpoint,
@@ -1324,11 +1325,18 @@ export async function getOnboardingStatusPayload(
   if (!organizationId) {
     throw new Error('organizationId is required');
   }
-  const response = await apiClient.get(
-    `/api/onboarding/organization/${encodeURIComponent(organizationId)}/status`,
-    { signal: config?.signal }
+  const cacheKey = `onboarding:status:${organizationId}`;
+  return queryCache.coalesceGet(
+    cacheKey,
+    async (signal) => {
+      const response = await apiClient.get(
+        `/api/onboarding/organization/${encodeURIComponent(organizationId)}/status`,
+        { signal }
+      );
+      return response.data;
+    },
+    { ttl: 60_000, signal: config?.signal as AbortSignal | undefined }
   );
-  return response.data;
 }
 
 export async function createConnectedAccount(
