@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'preact/hooks';
 import { useLocation } from 'preact-iso';
 import { Button } from '@/shared/ui/Button';
-import { SectionDivider } from '@/shared/ui';
+import { SectionDivider } from '@/shared/ui/layout/SectionDivider';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { useNavigation } from '@/shared/utils/navigation';
 import { useSessionContext } from '@/shared/contexts/SessionContext';

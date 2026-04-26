@@ -3,7 +3,7 @@ import { Button } from '@/shared/ui/Button';
 import { Input, LogoUploadInput } from '@/shared/ui/input';
 import { Combobox } from '@/shared/ui/input/Combobox';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/shared/ui/dropdown';
-import { SectionDivider } from '@/shared/ui';
+import { SectionDivider } from '@/shared/ui/layout/SectionDivider';
 import { Dialog } from '@/shared/ui/dialog';
 import ConfirmationDialog from '@/shared/components/ConfirmationDialog';
 import { useToastContext } from '@/shared/contexts/ToastContext';

@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'preact/hooks';
 import { useTranslation } from '@/shared/i18n/hooks';
-import { SectionDivider } from '@/shared/ui';
+import { SectionDivider } from '@/shared/ui/layout/SectionDivider';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { DEFAULT_LOCALE, detectBestLocale, setLocale, SUPPORTED_LOCALES } from '@/shared/i18n/hooks';
 import type { Language } from '@/shared/types/user';

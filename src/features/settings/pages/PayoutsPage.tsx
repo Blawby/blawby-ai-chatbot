@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { Button } from '@/shared/ui/Button';
-import { SectionDivider, EditorShell } from '@/shared/ui';
+import { SectionDivider } from '@/shared/ui/layout/SectionDivider';
+import { EditorShell } from '@/shared/ui/layout/EditorShell';
 import { SettingsHelperText } from '@/features/settings/components/SettingsHelperText';
 import { SettingsNotice } from '@/features/settings/components/SettingsNotice';
 import { SettingSection } from '@/features/settings/components/SettingSection';
