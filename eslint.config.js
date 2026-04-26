@@ -153,6 +153,25 @@ export default [
       'custom/loading-consistency': 'error',
       'custom/no-hardcoded-colors': 'warn',
 
+      // Import guardrails: ban barrel import, namespace imports of icon/motion libs
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: '@/shared/ui',
+              message: 'Import from the specific path (e.g. @/shared/ui/Button) instead of the barrel.'
+            }
+          ],
+          patterns: [
+            {
+              group: ['@heroicons/react/*/index', '@heroicons/react/index'],
+              message: 'Import individual icons by path (e.g. @heroicons/react/24/outline/CheckIcon).'
+            }
+          ]
+        }
+      ],
+
       // Project guardrails
       'no-restricted-syntax': [
         'error',
