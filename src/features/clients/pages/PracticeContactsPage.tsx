@@ -301,8 +301,6 @@ export const PracticeContactsPage = ({
   prefetchedLoadingMore = false,
   prefetchedError = null,
   onRefetchList: _onRefetchList,
-  onDetailInspector,
-  detailInspectorOpen = false,
   detailHeaderLeadingAction,
   showDetailBackButton = true,
 }: {
@@ -316,8 +314,6 @@ export const PracticeContactsPage = ({
   prefetchedLoadingMore?: boolean;
   prefetchedError?: string | null;
   onRefetchList?: (signal?: AbortSignal) => Promise<void>;
-  onDetailInspector?: () => void;
-  detailInspectorOpen?: boolean;
   detailHeaderLeadingAction?: ComponentChildren;
   showDetailBackButton?: boolean;
 }) => {
@@ -1128,7 +1124,6 @@ export const PracticeContactsPage = ({
     showBack = false,
     leadingAction,
     actions,
-    inspectorOpen,
   }: {
     title: string;
     backHref?: string;
@@ -1136,7 +1131,6 @@ export const PracticeContactsPage = ({
     showBack?: boolean;
     leadingAction?: ComponentChildren;
     actions?: ComponentChildren;
-    inspectorOpen?: boolean;
   }) => (
     <div className="h-full min-h-0 overflow-hidden">
       <div className="h-full min-h-0 flex flex-col">
@@ -1146,8 +1140,6 @@ export const PracticeContactsPage = ({
           onBack={backHref ? () => location.route(backHref) : undefined}
           leadingAction={leadingAction}
           actions={actions}
-          onInspector={onDetailInspector}
-          inspectorOpen={inspectorOpen}
         />
         <div className="min-h-0 flex-1 overflow-hidden px-4 pb-4 sm:px-6 sm:pb-6">
           {body}
@@ -1192,7 +1184,6 @@ export const PracticeContactsPage = ({
           body: detailConfig.body,
           leadingAction: detailHeaderLeadingAction,
           actions: detailHeaderActions,
-          inspectorOpen: detailInspectorOpen,
         })}
       </>
     );
@@ -1208,7 +1199,6 @@ export const PracticeContactsPage = ({
           body: detailConfig.body,
           leadingAction: detailHeaderLeadingAction,
           actions: detailHeaderActions,
-          inspectorOpen: detailInspectorOpen,
         })}
       </>
     );

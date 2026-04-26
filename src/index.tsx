@@ -20,6 +20,7 @@ import { getSession } from '@/shared/lib/authClient';
 import { MainApp } from '@/app/MainApp';
 import { WidgetApp } from '@/app/WidgetApp';
 import { WidgetPreviewApp } from '@/app/WidgetPreviewApp';
+import { PublicIntakeApp } from '@/app/PublicIntakeApp';
 import { useNavigation } from '@/shared/utils/navigation';
 import { usePracticeConfig } from '@/shared/hooks/usePracticeConfig';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
@@ -316,6 +317,7 @@ function AppShell() {
           <Route path="/debug/conversations" component={DevDebugConversationsRoute} />
           <Route path="/debug/matters" component={DevDebugMatterRoute} />
           <Route path="/pay" component={PayRedirect} />
+          <Route path="/public/:practiceSlug/intake/:templateSlug" component={PublicIntakeApp} />
           <Route path="/public/:practiceSlug" component={PublicPracticeRoute} workspaceView="home" />
           <Route path="/public/:practiceSlug/conversations" component={PublicPracticeRoute} workspaceView="list" />
           <Route path="/public/:practiceSlug/conversations/:conversationId" component={PublicPracticeRoute} workspaceView="conversation" />
@@ -883,9 +885,13 @@ function PublicPracticeRoute({
 
   const slug = (practiceSlug ?? '').trim();
   const isWidget = typeof window !== 'undefined'
-    ? new URLSearchParams(window.location.search).get('v') === 'widget'
+    ? (() => {
+        const params = new URLSearchParams(window.location.search);
+        return params.get('v') === 'widget' || params.has('template');
+      })()
     : (location.query?.v === 'widget'
-      || /(?:^|[?&])v=widget(?:[&#]|$)/.test(location.url ?? ''));
+      || typeof location.query?.template === 'string'
+      || /(?:^|[?&])v=widget(?:[&#]|$)|(?:^|[?&])template=[^&]+(?:[&#]|$)/.test(location.url ?? ''));
 
   // --- Widget bootstrap and preview state ---
   const { data, isLoading, error } = useWidgetBootstrap(slug, isWidget);
@@ -1069,14 +1075,21 @@ function PublicPracticeRoute({
           previewConfig={previewConfig}
         />
       ) : (
-        <WidgetApp
-          practiceId={resolvedPracticeId}
-          practiceConfig={practiceConfig}
-          routeConversationId={conversationId}
-          bootstrapConversationId={data.conversationId}
-          bootstrapSession={data.session}
-          intakeTemplate={data.intakeTemplate ?? null}
-        />
+        // If a template query param is present on the public route, render the
+        // card-based public intake wrapper so direct URLs like
+        // /public/:practiceSlug?template=default show the centered card.
+        (typeof location.query?.template === 'string' || (typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('template'))) ? (
+          <PublicIntakeApp practiceSlug={slug} templateSlug={typeof location.query?.template === 'string' ? location.query.template : undefined} />
+        ) : (
+          <WidgetApp
+            practiceId={resolvedPracticeId}
+            practiceConfig={practiceConfig}
+            routeConversationId={conversationId}
+            bootstrapConversationId={data.conversationId}
+            bootstrapSession={data.session}
+            intakeTemplate={data.intakeTemplate ?? null}
+          />
+        )
       )}
     </>
   );

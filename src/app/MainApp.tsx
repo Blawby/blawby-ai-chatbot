@@ -795,8 +795,7 @@ export function MainApp({
               prefetchedLoading={prefetchData?.contactsData?.isLoading}
               prefetchedError={prefetchData?.contactsData?.error}
               onRefetchList={prefetchData?.contactsData?.refetch}
-              onDetailInspector={onDetailInspector}
-              detailInspectorOpen={detailInspectorOpen}
+              
               detailHeaderLeadingAction={detailHeaderLeadingAction}
               showDetailBackButton={showWorkspaceDetailBack}
             />
