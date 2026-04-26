@@ -1163,9 +1163,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     matterLimit: 25,
     windowSize: dashboardWindow,
     matters: mattersData.isLoaded ? mattersData.items : undefined,
-    // Skip the per-matter unbilled fan-out (~N requests) on dashboard load.
-    // Worker aggregation endpoint will restore the "Ready to invoice" stat.
-    loadUnbilled: false,
   });
 
   const recentIntakes = useMemo(() => {

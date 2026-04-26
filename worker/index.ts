@@ -16,6 +16,7 @@ import {
   handleBackendProxy,
   handleParalegal,
   handleWidgetBootstrap,
+  handleBillingSummary,
 } from './routes';
 import { handleConversations } from './routes/conversations.js';
 import { handleAiChat } from './routes/aiChat.js';
@@ -71,6 +72,8 @@ async function handleRequestInternal(request: Request, env: Env, _ctx: Execution
       response = await handleAuthProxy(request, env);
     } else if (/^\/api\/practice\/[^/]+\/team$/.test(path)) {
       response = await handlePracticeTeam(request, env);
+    } else if (/^\/api\/practice\/[^/]+\/billing\/summary$/.test(path)) {
+      response = await handleBillingSummary(request, env);
     } else if (
       path.startsWith('/api/onboarding') ||
       path.startsWith('/api/matters') ||

@@ -579,3 +579,26 @@ export const getUnbilledSummary = async (
   const result = await getMatterUnbilledData(practiceId, matterId, { signal: options.signal });
   return result.summary;
 };
+
+export type BillingSummaryResult = { matterId: string; totalUnbilled: MajorAmount | null }[];
+
+export const getPracticeBillingSummary = async (
+  practiceId: string,
+  matterIds: string[],
+  options: FetchOptions = {}
+): Promise<BillingSummaryResult> => {
+  if (!practiceId || matterIds.length === 0) return [];
+  const params = new URLSearchParams({ matterIds: matterIds.join(',') });
+  const payload = await requestData(
+    apiClient.get(`/api/practice/${encodeURIComponent(practiceId)}/billing/summary?${params}`, { signal: options.signal }),
+    'Failed to load billing summary'
+  );
+  const record = unwrapPayloadRecord(payload);
+  const summaries = Array.isArray(record.summaries) ? record.summaries : [];
+  return (summaries as Record<string, unknown>[])
+    .filter((item) => typeof item.matterId === 'string')
+    .map((item) => ({
+      matterId: item.matterId as string,
+      totalUnbilled: typeof item.totalUnbilled === 'number' ? asMajor(item.totalUnbilled) : null,
+    }));
+};

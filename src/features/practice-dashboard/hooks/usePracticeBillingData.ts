@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'preact/hooks';
 import { asMajor, getMajorAmountValue, safeAdd, type MajorAmount } from '@/shared/utils/money';
 import { listMatters, type BackendMatter } from '@/features/matters/services/mattersApi';
-import { getUnbilledSummary, listInvoices } from '@/features/matters/services/invoicesApi';
+import { getPracticeBillingSummary, listInvoices } from '@/features/matters/services/invoicesApi';
 import type { Invoice } from '@/features/matters/types/billing.types';
 
 export type BillingActionReason = 'unbilled' | 'overdue' | 'retainer';
@@ -72,15 +72,6 @@ type UsePracticeBillingDataProps = {
   windowSize?: BillingWindow;
   /** Pre-fetched matters list. When provided, the internal listMatters call is skipped. */
   matters?: BackendMatter[];
-  /**
-   * Whether to fetch per-matter unbilled summaries. Defaults to true.
-   * When false, the N+1 fan-out loop is skipped: `unbilledTotal` is null for
-   * every matter, the "Ready to invoice" stat reads $0, and "Create invoice"
-   * billing actions are not surfaced. The dashboard opts out of this fetch to
-   * eliminate ~50 backend calls on cold load (issue #529, Phase 1.1). A worker
-   * aggregation endpoint will replace the per-matter fan-out in a follow-up.
-   */
-  loadUnbilled?: boolean;
 };
 
 type MatterBillingSnapshot = {
@@ -186,7 +177,6 @@ export const usePracticeBillingData = ({
   matterLimit = 15,
   windowSize = '7d',
   matters: externalMatters,
-  loadUnbilled = true,
 }: UsePracticeBillingDataProps) => {
   const [billingActions, setBillingActions] = useState<BillingAction[]>([]);
   const [outstandingSummary, setOutstandingSummary] = useState<OutstandingPaymentsSummary | null>(null);
@@ -301,44 +291,19 @@ export const usePracticeBillingData = ({
         return map;
       }, new Map());
 
-      // Per-matter unbilled summaries fan out N+1 requests (one per matter).
-      // When `loadUnbilled` is false, skip the loop entirely — see prop docs.
-      let unbilledSnapshots: PromiseSettledResult<MajorAmount | null>[];
-      if (loadUnbilled) {
-        // Run unbilled summary requests in small batches to avoid large
-        // concurrent request bursts which increase the chance of AbortErrors
-        // when parent effects clean up.
-        const batchSize = 4;
-        unbilledSnapshots = [];
-        for (let i = 0; i < matterSubset.length; i += batchSize) {
-          const batch = matterSubset.slice(i, i + batchSize);
-          const batchPromises = batch.map(async (matter) => {
-            try {
-              const summary = await getUnbilledSummary(practiceId, matter.id, { signal });
-              return summary.totalUnbilled ?? null;
-            } catch (err) {
-              if ((err as DOMException)?.name === 'AbortError' || (err as { name?: string })?.name === 'CanceledError') {
-                return null;
-              }
-              console.warn('[usePracticeBillingData] Failed to load unbilled summary', err);
-              return null;
-            }
-          });
-          const settled = await Promise.allSettled(batchPromises);
-          unbilledSnapshots.push(...settled);
-          if (signal?.aborted) break;
-        }
-      } else {
-        unbilledSnapshots = matterSubset.map(() => ({ status: 'fulfilled' as const, value: null }));
-      }
+      const unbilledResults = await getPracticeBillingSummary(
+        practiceId,
+        matterSubset.map((m) => m.id),
+        { signal }
+      );
       if (signal?.aborted) return;
 
-      const snapshots: MatterBillingSnapshot[] = matterSubset.map((matter, index) => {
+      const unbilledMap = new Map(unbilledResults.map((r) => [r.matterId, r.totalUnbilled]));
+
+      const snapshots: MatterBillingSnapshot[] = matterSubset.map((matter) => {
         const invoicesForMatter = invoiceMap.get(matter.id) ?? [];
         const overdueInvoices = invoicesForMatter.filter((invoice) => invoice.status === 'overdue');
-        const unbilledTotal = unbilledSnapshots[index].status === 'fulfilled'
-          ? unbilledSnapshots[index].value
-          : null;
+        const unbilledTotal = unbilledMap.get(matter.id) ?? null;
         return {
           matter,
           unbilledTotal,
@@ -504,7 +469,7 @@ export const usePracticeBillingData = ({
         setLoading(false);
       }
     }
-  }, [practiceId, enabled, matterLimit, windowSize, buildActions, externalMatters, loadUnbilled]);
+  }, [practiceId, enabled, matterLimit, windowSize, buildActions, externalMatters]);
 
   useEffect(() => {
     const controller = new AbortController();
