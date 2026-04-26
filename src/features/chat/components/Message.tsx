@@ -156,6 +156,16 @@ const Message: FunctionComponent<MessageProps> = memo(({
 	isSystemEvent = false,
 	hideMessageActions = false,
 }) => {
+	const handleReply = useCallback(() => {
+		if (!onReply) return;
+		onReply({
+			messageId: _id ?? '',
+			authorName: authorName ?? avatar?.name ?? 'Unknown',
+			content,
+			avatar,
+		});
+	}, [onReply, _id, authorName, avatar, content]);
+
 	if (isSystemEvent) {
 		return (
 			<ConversationEventRow
@@ -184,15 +194,6 @@ const Message: FunctionComponent<MessageProps> = memo(({
 	// Avatar size based on message size
 	const avatarSize = size === 'sm' ? 'sm' : 'lg';
 	const quickReactions = ['👍', '👀', '😂', '❤️'];
-	const handleReply = useCallback(() => {
-		if (!onReply) return;
-		onReply({
-			messageId: _id ?? '',
-			authorName: authorName ?? avatar?.name ?? 'Unknown',
-			content,
-			avatar,
-		});
-	}, [onReply, _id, authorName, avatar, content]);
 
 	const showActions = !hideMessageActions && Boolean(onReply || (onToggleReaction && features.enableMessageReactions));
 	const hasReactions = reactions.length > 0 && features.enableMessageReactions;
