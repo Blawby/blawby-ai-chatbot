@@ -28,6 +28,7 @@ import {
   updateConversationTriage,
 } from '@/shared/lib/conversationApi';
 import { useWorkspaceConversations } from './hooks/useWorkspaceConversations';
+import { useWorkspaceNavigation, previewTabOptions } from './hooks/useWorkspaceNavigation';
 import { 
   createConnectedAccount, 
   getOnboardingStatusPayload, 
@@ -59,20 +60,12 @@ import { buildPracticeProfilePayloads } from '@/shared/utils/practiceProfile';
 import { normalizePracticeRole } from '@/shared/utils/practiceRoles';
 import {
   getWorkspaceActiveHref,
-  getWorkspaceActiveSecondaryFilter,
-  getWorkspaceDefaultSecondaryFilter,
-  getWorkspaceRouteState,
-  getWorkspaceSection,
   shouldShowWorkspaceBottomNav,
   shouldShowWorkspaceMobileMenuButton,
   WORKSPACE_REPORT_SECTION_TITLES,
 } from '@/shared/utils/workspaceShell';
 import {
   type SecondaryNavItem,
-  type WorkspaceSection,
-  getClientNavConfig,
-  getPracticeNavConfig,
-  getSettingsNavConfig
 } from '@/shared/config/navConfig';
 import NavRail from '@/shared/ui/nav/NavRail';
 import SecondaryPanel from '@/shared/ui/nav/SecondaryPanel';
@@ -210,7 +203,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   const { navigate } = useNavigation();
   const [previewTab, setPreviewTab] = useState<PreviewTab>('home');
   const [setupSidebarView, setSetupSidebarView] = useState<'info' | 'preview'>('info');
-  const [secondaryFilterBySection, setSecondaryFilterBySection] = useState<Partial<Record<WorkspaceSection, string>>>({});
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
   const [isInspectorOpen, setIsInspectorOpen] = useState(false);
   const [draftBasics, setDraftBasics] = useState<BasicsFormValues | null>(null);
@@ -234,155 +226,35 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   const isPracticeWorkspace = workspace === 'practice';
   const isClientWorkspace = workspace === 'client';
 
-  const workspaceBasePath = useMemo(() => {
-    let base = '/';
-    if (workspace === 'practice' && practiceSlug) {
-      base = `/practice/${encodeURIComponent(practiceSlug)}`;
-    } else if (workspace === 'client' && practiceSlug) {
-      base = `/client/${encodeURIComponent(practiceSlug)}`;
-    } else if (practiceSlug) {
-      base = `/public/${encodeURIComponent(practiceSlug)}`;
-    }
-    return base.replace(/\/+$/, '') || '/';
-  }, [workspace, practiceSlug]);
-
-  const normalizedBase = useMemo(() => 
-    workspaceBasePath === '/' ? '' : workspaceBasePath, 
-  [workspaceBasePath]);
-
-  const conversationsPath = useMemo(() => {
-    return `${normalizedBase}/conversations`;
-  }, [normalizedBase]);
-  const withWidgetQuery = useCallback((path: string): string => {
-    if (workspace !== 'public' || layoutMode !== 'widget') {
-      return path;
-    }
-    return path.includes('?') ? `${path}&v=widget` : `${path}?v=widget`;
-  }, [layoutMode, workspace]);
-  const {
-    isIntakeTemplateRoute,
-    isIntakeTemplateEditorRoute,
-    isIntakeResponsesRoute,
-    selectedMatterIdFromPath,
-    isMatterNonListRoute,
-    selectedContactIdFromPath,
-    contactsRouteKind,
-    reportSectionFromPath,
-  } = useMemo(() => getWorkspaceRouteState({
-    view,
-    path: location.path,
-    normalizedBase,
-    isPracticeWorkspace,
-    isClientWorkspace,
-  }), [view, location.path, normalizedBase, isPracticeWorkspace, isClientWorkspace]);
-  const previewBaseUrl = useMemo(() => {
-    const path = practiceSlug ? `/public/${encodeURIComponent(practiceSlug)}` : '/public';
-    if (typeof window !== 'undefined' && window.location?.origin) {
-      return `${window.location.origin}${path}`;
-    }
-    return path;
-  }, [practiceSlug]);
-  const previewTabOptions: Array<{ id: PreviewTab; label: string }> = [
-    { id: 'home', label: 'Home' },
-    { id: 'messages', label: 'Messages' },
-    { id: 'intake', label: 'Intake form' }
-  ];
-  const previewUrls = useMemo(() => {
-    const trimmed = previewBaseUrl.endsWith('/')
-      ? previewBaseUrl.slice(0, -1)
-      : previewBaseUrl;
-    return {
-      home: trimmed,
-      messages: `${trimmed}/conversations`
-    };
-  }, [previewBaseUrl]);
-
-  const handleDashboardCreateInvoice = useCallback(() => {
-    navigate(`${normalizedBase}/invoices/new`);
-  }, [navigate, normalizedBase]);
-
-  const workspaceSection: WorkspaceSection = getWorkspaceSection(view);
-
   const { session, isPending: isSessionPending, isAnonymous, activeMemberRole } = useSessionContext();
   const sessionUserId = session?.user?.id ?? null;
   const normalizedRole = normalizePracticeRole(activeMemberRole);
-  const navConfig = useMemo(() => {
-    const slug = (practiceSlug ?? '').trim();
-    if (!slug) return { rail: [] };
-    const navCtx = {
-      practiceSlug: slug,
-      role: normalizedRole,
-      canAccessPractice: isPracticeWorkspace || normalizedRole !== 'client',
-    };
-    if (view === 'settings') {
-      return getSettingsNavConfig(navCtx);
-    }
-    if (workspace === 'public') {
-      return { rail: [] };
-    }
-    return isPracticeWorkspace
-      ? getPracticeNavConfig(navCtx, workspaceSection)
-      : getClientNavConfig(navCtx, workspaceSection);
-  }, [isPracticeWorkspace, normalizedRole, practiceSlug, view, workspace, workspaceSection]);
-  const defaultSecondaryFilterId = useMemo(() => getWorkspaceDefaultSecondaryFilter({
+
+  const {
+    normalizedBase,
+    conversationsPath,
+    withWidgetQuery,
+    isIntakeTemplateEditorRoute,
+    selectedMatterIdFromPath,
+    isMatterNonListRoute,
+    selectedContactIdFromPath,
+    previewUrls,
+    handleDashboardCreateInvoice,
     workspaceSection,
-    isPracticeWorkspace,
+    navConfig,
+    activeSecondaryFilter,
+    handleSecondaryFilterSelect,
+  } = useWorkspaceNavigation({
     view,
-    contactsRouteKind,
-    reportSectionFromPath,
-    isIntakeTemplateRoute,
-    isIntakeResponsesRoute,
-    navSecondary: navConfig.secondary,
-  }), [workspaceSection, isPracticeWorkspace, view, contactsRouteKind, reportSectionFromPath, isIntakeTemplateRoute, isIntakeResponsesRoute, navConfig.secondary]);
-  const activeSecondaryFilter = useMemo(() => getWorkspaceActiveSecondaryFilter({
-    workspaceSection,
+    workspace,
+    practiceSlug,
+    layoutMode,
+    location,
+    navigate,
     isPracticeWorkspace,
-    view,
-    contactsRouteKind,
-    reportSectionFromPath,
-    isIntakeTemplateRoute,
-    isIntakeResponsesRoute,
-    secondaryFilterBySection,
-    defaultSecondaryFilterId,
-  }), [workspaceSection, isPracticeWorkspace, view, contactsRouteKind, reportSectionFromPath, isIntakeTemplateRoute, isIntakeResponsesRoute, secondaryFilterBySection, defaultSecondaryFilterId]);
-  const handleSecondaryFilterSelect = useCallback((id: string) => {
-    if (workspaceSection === 'settings') return;
-    const basePath = normalizedBase || '/';
-    if (workspaceSection === 'home') {
-      const contactsBasePath = `${basePath}/contacts`;
-      const target = id === 'contacts-archived'
-        ? `${contactsBasePath}/archived`
-        : id === 'contacts-team'
-          ? `${contactsBasePath}/team`
-          : id === 'contacts-clients'
-            ? `${contactsBasePath}/clients`
-            : id === 'contacts-pending'
-              ? `${contactsBasePath}/pending`
-        : id === 'contacts' || id === 'contacts-all'
-          ? contactsBasePath
-          : basePath;
-      navigate(target);
-      setSecondaryFilterBySection((prev) => ({ ...prev, [workspaceSection]: id }));
-      return;
-    }
-    if (workspaceSection === 'reports') {
-      const reportPathById: Record<string, string> = {
-        'all-reports': `${basePath}/reports`,
-        'payroll-matter-activity': `${basePath}/reports/payroll-matter-activity`,
-        'trust-reconciliation': `${basePath}/reports/trust-reconciliation`,
-        'stale-matters': `${basePath}/reports/stale-matters`,
-      };
-      navigate(reportPathById[id] ?? `${basePath}/reports`);
-      setSecondaryFilterBySection((prev) => ({ ...prev, [workspaceSection]: id }));
-      return;
-    }
-    if (workspaceSection === 'intakes') {
-      navigate(id === 'forms' ? `${basePath}/intakes` : `${basePath}/intakes/responses`);
-      setSecondaryFilterBySection((prev) => ({ ...prev, [workspaceSection]: id }));
-      return;
-    }
-    setSecondaryFilterBySection((prev) => ({ ...prev, [workspaceSection]: id }));
-  }, [navigate, normalizedBase, workspaceSection]);
+    isClientWorkspace,
+    normalizedRole,
+  });
   const {
     isConversationsLoading,
     refreshConversations,
