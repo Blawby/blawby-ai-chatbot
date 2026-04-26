@@ -24,6 +24,7 @@
     --surface-glass: 255 255 255;
     --line-glass: 255 255 255;
     --input-text: 17 24 39;
+    --input-foreground: var(--input-text);
     --input-placeholder: 55 65 81;
     --info-foreground: 29 78 216;
     --success-foreground: 22 101 52;
@@ -84,6 +85,7 @@
     --surface-glass: 255 255 255;
     --line-glass: 255 255 255;
     --input-text: 249 250 251;
+    --input-foreground: var(--input-text);
     --input-placeholder: 156 163 175;
 
     /* Navigation Tokens (Dark Mode) */

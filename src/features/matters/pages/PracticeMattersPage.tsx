@@ -5,6 +5,7 @@ import { PageHeader } from '@/shared/ui/layout/PageHeader';
 import { Page } from '@/shared/ui/layout/Page';
 import { Panel } from '@/shared/ui/layout/Panel';
 import { DetailHeader } from '@/shared/ui/layout/DetailHeader';
+import { AccentHeroSurface } from '@/shared/ui/layout/AccentHeroSurface';
 import { WorkspacePlaceholderState } from '@/shared/ui/layout/WorkspacePlaceholderState';
 import { Button } from '@/shared/ui/Button';
 import { EntityList } from '@/shared/ui/list/EntityList';
@@ -1807,9 +1808,8 @@ export const PracticeMattersPage = ({
             />
             {detailHeaderMeta ? (
           <div className="px-4 py-4 @container">
-                <section className="relative overflow-hidden rounded-[28px] bg-gradient-to-b from-accent-500/30 via-surface-overlay/70 to-surface-overlay/85 [--accent-foreground:var(--input-text)]">
-                  <div className="absolute inset-0 bg-gradient-to-t from-surface-base/45 via-transparent to-transparent" />
-                  <div className="relative px-4 pb-8 pt-8 sm:px-6 sm:pb-12 sm:pt-10">
+                <AccentHeroSurface>
+                  <div className="px-4 pb-8 pt-8 sm:px-6 sm:pb-12 sm:pt-10">
                     <div className="flex flex-col items-center gap-5 text-center @4xl:flex-row @4xl:items-start @4xl:text-left @4xl:gap-8">
                       <Avatar
                         size="xl"
@@ -1943,7 +1943,7 @@ export const PracticeMattersPage = ({
                       </div>
                     </div>
                   </div>
-                </section>
+                </AccentHeroSurface>
               </div>
             ) : null}
             <div className="px-4 pb-4 pt-2">
