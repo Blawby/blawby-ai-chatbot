@@ -909,6 +909,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
                 </span>
               ) : null}
             </div>
+            
             {activeTemplate && (practiceDetails as { slug?: string })?.slug ? (
               <Button
                 type="button"
@@ -920,15 +921,15 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
                 View form setup
               </Button>
             ) : null}
-            {activeTemplate && (practiceDetails as { slug?: string })?.slug && (
-              <div className="mt-4">
-                <EmbedCodeBlock
-                  practiceSlug={(practiceDetails as { slug?: string }).slug}
-                  templateSlug={activeTemplate.slug}
-                />
-              </div>
-            )}
           </div>
+          {activeTemplate && (practiceDetails as { slug?: string })?.slug && (
+            <div className="mt-4">
+              <EmbedCodeBlock
+                practiceSlug={(practiceDetails as { slug?: string }).slug}
+                templateSlug={activeTemplate.slug}
+              />
+            </div>
+          )}
           {enrichmentFields.length > 0 ? (
             <dl className="grid grid-cols-1 gap-5 md:grid-cols-3">
               {enrichmentFields.map((field) => (

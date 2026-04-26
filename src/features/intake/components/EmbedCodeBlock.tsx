@@ -5,13 +5,23 @@ import type { JSX } from 'preact';
 import { Dialog, DialogBody, DialogFooter } from '@/shared/ui/dialog';
 
 export function getEmbedSnippet(practiceSlug: string, templateSlug: string): string {
+  const esc = (s: string) => escapeHtmlAttribute(s);
   return [
     '<script',
-    `  src="https://app.blawby.com/widget.js?template=${templateSlug}"`,
-    `  data-practice="${practiceSlug}"`,
+    `  src="https://app.blawby.com/widget.js?template=${esc(templateSlug)}"`,
+    `  data-practice="${esc(practiceSlug)}"`,
     '  async',
     '></script>',
   ].join('\n');
+}
+
+function escapeHtmlAttribute(input: string): string {
+  return String(input)
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
 }
 
 export function getPublicFormUrl(practiceSlug: string, templateSlug: string): string {
@@ -53,13 +63,20 @@ export function copyTextToClipboard(
     textarea.style.position = 'absolute';
     textarea.style.left = '-9999px';
     document.body.appendChild(textarea);
-    textarea.select();
-    const copied = document.execCommand('copy');
-    document.body.removeChild(textarea);
-    if (copied) {
-      onSuccess();
-    } else {
-      onError('Clipboard is not available.');
+    try {
+      textarea.select();
+      const copied = document.execCommand('copy');
+      if (copied) {
+        onSuccess();
+      } else {
+        onError('Clipboard is not available.');
+      }
+    } catch (error) {
+      throw error;
+    } finally {
+      if (document.body.contains(textarea)) {
+        document.body.removeChild(textarea);
+      }
     }
   } catch (error) {
     onError(error instanceof Error ? error.message : 'Clipboard is not available.');
