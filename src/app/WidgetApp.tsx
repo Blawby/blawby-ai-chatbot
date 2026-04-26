@@ -683,6 +683,16 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
         )}
         {view === 'chat' && (
           <>
+            {/* Debug: log readiness and bootstrap session user id to help diagnose disabled composer */}
+            {/* eslint-disable-next-line no-console */}
+            {typeof window !== 'undefined' && console.debug('[WidgetApp isReady]', {
+              currentUserId,
+              isSocketReady,
+              messagesReady,
+              bootstrapSessionUser: bootstrapSession?.user?.id,
+              effectiveConversationId
+            })}
+
             <div className="flex flex-1 min-h-0 overflow-hidden flex-row">
               <ChatContainer
                 messages={messages}

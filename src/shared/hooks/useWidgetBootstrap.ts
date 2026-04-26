@@ -131,6 +131,15 @@ export function useWidgetBootstrap(slug: string, isWidget: boolean) {
         }
 
         if (mounted) {
+          try {
+            // Log session shape to help diagnose bootstrap shape mismatches
+            // that can cause `currentUserId` to be null in WidgetApp.
+            // Keep this at debug level so it's easy to remove if noisy.
+            // eslint-disable-next-line no-console
+            console.debug('[useWidgetBootstrap] bootstrap session', freshData.session);
+          } catch {
+            // ignore logging errors
+          }
           setData(freshData);
           setIsLoading(false);
         }

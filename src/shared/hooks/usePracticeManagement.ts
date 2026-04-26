@@ -1,5 +1,5 @@
 import axios, { type AxiosRequestConfig } from 'axios';
-import { useState, useCallback, useEffect, useRef, useContext } from 'preact/hooks';
+import { useState, useCallback, useEffect, useRef, useContext, useMemo } from 'preact/hooks';
 import { getPracticeWorkspaceEndpoint } from '@/config/api';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { RoutePracticeContext } from '@/shared/contexts/RoutePracticeContext';
@@ -579,17 +579,19 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
   }, []);
 
   const [error, setError] = useState<string | null>(null);
-  const requestedPracticeSlug = (() => {
+  const requestedPracticeSlug = useMemo(() => {
     const explicit = typeof practiceSlug === 'string' ? practiceSlug.trim() : '';
     if (explicit.length > 0) return explicit;
     const routeScopedSlug = routePractice?.practiceSlug?.trim() ?? '';
-    if (routeScopedSlug.length > 0 && (routePractice?.workspace === 'practice' || routePractice?.workspace === 'client')) {
+    if (routeScopedSlug.length > 0 && (
+      routePractice?.workspace === 'practice' || routePractice?.workspace === 'client'
+    )) {
       return routeScopedSlug;
     }
     return null;
-  })();
-  
-  const requestedPracticeSlugRef = useRef(requestedPracticeSlug);
+  }, [practiceSlug, routePractice?.practiceSlug, routePractice?.workspace]);
+
+  const requestedPracticeSlugRef = useRef<string | null>(requestedPracticeSlug);
   requestedPracticeSlugRef.current = requestedPracticeSlug;
 
   // Track if we've already fetched practices to prevent duplicate calls
@@ -1232,7 +1234,7 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
     sessionLoading,
     sessionUserId,
     isAnonymous,
-    fetchPractices
+    requestedPracticeSlug
   ]);
 
   return {
