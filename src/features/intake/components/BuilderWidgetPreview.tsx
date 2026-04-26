@@ -43,7 +43,7 @@ export function BuilderWidgetComposerShell() {
     <div className="px-4 pb-4 pt-2">
       <div className="message-composer-container">
         <div className="message-composer-input-row">
-          <div className="col-start-2 relative flex min-h-12 flex-1 items-end gap-2 rounded-full px-3 py-1 glass-input">
+          <div className="col-start-2 relative flex flex-1 items-end gap-2 rounded-full px-3 py-2.5 glass-input">
             <div className="relative flex min-w-0 flex-1 self-stretch items-center">
               <textarea
                 rows={1}

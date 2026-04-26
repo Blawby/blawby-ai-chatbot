@@ -5,8 +5,10 @@ import { SettingsHelperText } from '@/features/settings/components/SettingsHelpe
 import { SettingsNotice } from '@/features/settings/components/SettingsNotice';
 import { SettingSection } from '@/features/settings/components/SettingSection';
 import { SettingRow } from '@/features/settings/components/SettingRow';
+import { Input } from '@/shared/ui/input';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
+import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import {
   createConnectedAccount,
@@ -39,7 +41,8 @@ export const PayoutsPage = ({
 }) => {
   const { session } = useSessionContext();
   const { currentPractice } = usePracticeManagement({ fetchPracticeDetails: true });
-  const { showError } = useToastContext();
+  const { details, updateDetails, setDetails } = usePracticeDetails(currentPractice?.id, null, false);
+  const { showError, showSuccess } = useToastContext();
 
   const organizationId = useMemo(
     () => currentPractice?.betterAuthOrgId ?? currentPractice?.id ?? null,
@@ -49,6 +52,19 @@ export const PayoutsPage = ({
   const [stripeStatus, setStripeStatus] = useState<StripeConnectStatus | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [billingIncrementDraft, setBillingIncrementDraft] = useState<number | ''>('');
+  const [billingTouched, setBillingTouched] = useState(false);
+  const [isSavingBilling, setIsSavingBilling] = useState(false);
+
+  const savedBillingIncrement = useMemo(() => {
+    const raw = details?.billingIncrementMinutes ?? currentPractice?.billingIncrementMinutes ?? null;
+    return typeof raw === 'number' && Number.isFinite(raw) ? raw : 6;
+  }, [currentPractice?.billingIncrementMinutes, details?.billingIncrementMinutes]);
+  const displayedBillingIncrement = billingTouched ? billingIncrementDraft : savedBillingIncrement;
+  const isBillingValid = typeof displayedBillingIncrement === 'number'
+    && Number.isInteger(displayedBillingIncrement)
+    && displayedBillingIncrement >= 1
+    && displayedBillingIncrement <= 60;
 
   const fetchStatus = useCallback(async (signal: AbortSignal) => {
     if (!organizationId) {
@@ -202,15 +218,85 @@ export const PayoutsPage = ({
       ? 'Continue Stripe setup'
       : 'Start Stripe setup';
 
+  const handleSaveBillingIncrement = async () => {
+    if (!currentPractice) return;
+    if (!isBillingValid) {
+      showError('Payouts and Billing', 'Billing increment must be a whole number between 1 and 60 minutes.');
+      return;
+    }
+    const nextValue = displayedBillingIncrement as number;
+
+    if (nextValue === savedBillingIncrement) {
+      setBillingTouched(false);
+      setBillingIncrementDraft(nextValue);
+      return;
+    }
+
+    setIsSavingBilling(true);
+    try {
+      const savedDetails = await updateDetails({ billingIncrementMinutes: nextValue });
+      if (savedDetails != null) setDetails(savedDetails);
+      setBillingTouched(false);
+      setBillingIncrementDraft(nextValue);
+      showSuccess('Payouts and Billing', 'Billing increment updated.');
+    } catch (error) {
+      showError(
+        'Payouts and Billing',
+        error instanceof Error ? error.message : 'Failed to update billing increment.'
+      );
+    } finally {
+      setIsSavingBilling(false);
+    }
+  };
+
   return (
     <EditorShell
-      title="Payouts"
+      title="Payouts and Billing"
       showBack={Boolean(onBack)}
       onBack={onBack}
       className={className}
       contentMaxWidth={null}
     >
       <div className="space-y-6">
+        <SettingSection
+          title="Time entry billing increment"
+          description="Round billable time to this many minutes when entries are created."
+        >
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
+            <div className="w-full max-w-[220px]">
+              <label className="mb-2 block text-sm font-medium text-input-text" htmlFor="billing-increment-minutes">
+                Minutes
+              </label>
+              <Input
+                id="billing-increment-minutes"
+                type="number"
+                min={1}
+                max={60}
+                step={1}
+                value={displayedBillingIncrement === '' ? '' : String(displayedBillingIncrement)}
+                onChange={(value) => {
+                  const trimmed = value.trim();
+                  const parsed = trimmed === '' ? '' : Number.parseInt(trimmed, 10);
+                  setBillingTouched(true);
+                  setBillingIncrementDraft(Number.isFinite(parsed as number) ? (parsed as number) : '');
+                }}
+                disabled={isSavingBilling}
+                placeholder="6"
+              />
+            </div>
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => void handleSaveBillingIncrement()}
+              disabled={isSavingBilling || !billingTouched || !isBillingValid || displayedBillingIncrement === savedBillingIncrement}
+            >
+              {isSavingBilling ? 'Saving...' : 'Save'}
+            </Button>
+          </div>
+        </SettingSection>
+
+        <SectionDivider />
+
         <SettingSection
           title="External payout accounts"
           description="Connect Stripe to receive payouts for your practice."

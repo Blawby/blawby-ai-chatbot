@@ -206,6 +206,8 @@ export interface PracticeDetailsUpdate {
   services?: Array<Record<string, unknown>> | null;
   serviceStates?: string[] | null;
   supportedStates?: SupportedStateEntry[] | null;
+  /** Map of state code -> array of service ids offered in that state */
+  servicesByState?: Record<string, string[]> | null;
   businessOnboardingHasDraft?: boolean;
   businessOnboardingStatus?: 'not_required' | 'pending' | 'completed' | 'skipped';
   /** Raw JSON string stored in the practice settings column. Passed through as-is. */
@@ -244,6 +246,8 @@ export interface PracticeDetails {
   services?: Array<Record<string, unknown>> | null;
   serviceStates?: string[] | null;
   supportedStates?: SupportedStateEntry[] | null;
+  /** Map of state code -> array of service ids offered in that state */
+  servicesByState?: Record<string, string[]> | null;
   /** Raw JSON string stored in the practice settings column. */
   settings?: string | null;
   /** Arbitrary practice metadata. */
@@ -1356,15 +1360,102 @@ export async function updatePracticeDetails(
     throw new Error('practiceId is required');
   }
   const normalized = normalizePracticeDetailsPayload(details);
+  // Debug: only log payload in development. Redact known PII before logging.
   if (import.meta.env.DEV) {
-    console.info('[apiClient] updatePracticeDetails payload', { practiceId, payload: normalized });
+    try {
+      const sanitized: Record<string, unknown> = { ...(normalized as Record<string, unknown>) };
+      // Deep-clone the address object so deleting keys doesn't mutate the
+      // original `normalized` object (avoid side-effects).
+      if (sanitized.address && typeof sanitized.address === 'object') {
+        try {
+          // Use structuredClone when available, otherwise fallback to JSON round-trip.
+          const structuredCloneFn = (globalThis as unknown as { structuredClone?: (v: unknown) => unknown }).structuredClone;
+          sanitized.address = typeof structuredCloneFn === 'function'
+            ? structuredCloneFn(sanitized.address)
+            : JSON.parse(JSON.stringify(sanitized.address));
+        } catch {
+          sanitized.address = JSON.parse(JSON.stringify(sanitized.address));
+        }
+      }
+      // Remove or mask sensitive fields from the sanitized copy
+      delete sanitized.business_email;
+      delete sanitized.business_phone;
+      if (sanitized.address && typeof sanitized.address === 'object') {
+        try { delete (sanitized.address as Record<string, unknown>).line1; } catch { void 0; }
+        try { delete (sanitized.address as Record<string, unknown>).line2; } catch { void 0; }
+        try { delete (sanitized.address as Record<string, unknown>).postal_code; } catch { void 0; }
+        try { delete (sanitized.address as Record<string, unknown>).city; } catch { void 0; }
+        try { delete (sanitized.address as Record<string, unknown>).state; } catch { void 0; }
+      }
+      console.info('[apiClient] updatePracticeDetails payload (sanitized)', { practiceId, payload: sanitized });
+    } catch {
+      void 0;
+    }
   }
   const response = await apiClient.put(
     `/api/practice/${encodeURIComponent(practiceId)}/details`,
     normalized,
     { signal: config?.signal }
   );
-  return normalizePracticeDetailsResponse(response.data);
+  // Inspect raw API payload to see what backend returned for `settings`.
+  if (import.meta.env.DEV) {
+    try {
+      const raw = unwrapApiData(response.data);
+      if (raw && typeof raw === 'object') {
+        const container = raw as Record<string, unknown>;
+        try {
+          console.info('[apiClient] updatePracticeDetails raw container keys', Object.keys(container));
+          if ('settings' in container) {
+            console.info('[apiClient] updatePracticeDetails raw settings (first 200 chars)', String(container.settings).slice(0, 200));
+          }
+        } catch {
+          void 0;
+        }
+      }
+    } catch {
+      void 0;
+    }
+  }
+  if (import.meta.env.DEV) {
+    try {
+      let dataSnippet: string | undefined;
+      try {
+        dataSnippet = JSON.stringify(response.data).slice(0, 1000);
+      } catch {
+        dataSnippet = String(response.data);
+      }
+      console.info('[apiClient] updatePracticeDetails response', { status: response.status, dataSnippet });
+    } catch {
+      void 0;
+    }
+  }
+  const normalizedResult = normalizePracticeDetailsResponse(response.data);
+  if (import.meta.env.DEV) {
+    try {
+      console.info('[apiClient] updatePracticeDetails normalized result', { result: normalizedResult });
+    } catch {
+      void 0;
+    }
+  }
+  // If we sent `settings` but the PUT response did not include `settings`,
+  // re-fetch the details to ensure we surface persisted values (some backend
+  // implementations don't echo settings on update).
+  try {
+    if (normalized.settings !== undefined && (normalizedResult === null || normalizedResult.settings === undefined)) {
+      const refetch = await getPracticeDetails(practiceId);
+      if (refetch !== null) return refetch;
+    }
+  } catch (err) {
+    if (import.meta.env.DEV) console.error('[apiClient] updatePracticeDetails: failed refetching practice details', err);
+    // If we already have a normalized result from the PUT response, prefer
+    // returning that rather than rethrowing — refetch failures should be
+    // best-effort and not surface as hard failures for callers who already
+    // received a successful update payload.
+    if (normalizedResult !== null) return normalizedResult;
+    throw err;
+  }
+
+  return normalizedResult;
 }
 
 export async function getPracticeDetails(
@@ -1378,6 +1469,19 @@ export async function getPracticeDetails(
     `/api/practice/${encodeURIComponent(practiceId)}/details`,
     { signal: config?.signal }
   );
+  if (import.meta.env.DEV) {
+    try {
+      let dataSnippet: string | undefined;
+      try { dataSnippet = JSON.stringify(response.data).slice(0, 1000); } catch { dataSnippet = String(response.data); }
+      console.info('[apiClient] getPracticeDetails response', { status: response.status, dataSnippet });
+      const raw = unwrapApiData(response.data);
+      if (raw && typeof raw === 'object') {
+        try { console.info('[apiClient] getPracticeDetails raw container keys', Object.keys(raw)); } catch { void 0; }
+      }
+    } catch {
+      void 0;
+    }
+  }
   return normalizePracticeDetailsResponse(response.data);
 }
 
@@ -1725,6 +1829,38 @@ function normalizePracticeDetailsPayload(payload: PracticeDetailsUpdate): Record
       : payload.serviceStates;
   }
 
+  // If callers provided a top-level `servicesByState`, serialize and merge
+  // it into the opaque `settings` JSON so the backend receives the
+  // `services_by_state` key. This preserves the write-time type while
+  // ensuring the data is sent inside `settings` as expected by the API.
+  if ('servicesByState' in payload && payload.servicesByState !== undefined) {
+    try {
+      const existingSettingsRaw = (payload as Record<string, unknown>).settings;
+      let base: Record<string, unknown> = {};
+      if (typeof existingSettingsRaw === 'string' && existingSettingsRaw.trim().length > 0) {
+        try {
+          const parsed = JSON.parse(existingSettingsRaw);
+          if (typeof parsed === 'object' && parsed !== null) base = parsed as Record<string, unknown>;
+        } catch {
+          base = {};
+        }
+      }
+      base.services_by_state = payload.servicesByState;
+      normalized.settings = JSON.stringify(base);
+    } catch (err) {
+      // If merging the provided settings failed, surface the error in DEV
+      // and ensure we still send the services_by_state payload so callers
+      // don't lose this write. Preserve the expected shape inside `settings`.
+      if (import.meta.env.DEV) console.error('[apiClient] Failed to merge servicesByState into settings', err);
+      try {
+        normalized.settings = JSON.stringify({ services_by_state: payload.servicesByState });
+      } catch {
+        // Last-resort: stringify a minimal fallback representation.
+        normalized.settings = `{"services_by_state":${JSON.stringify(payload.servicesByState)}}`;
+      }
+    }
+  }
+
   if ('supportedStates' in payload && payload.supportedStates !== undefined) {
     if (Array.isArray(payload.supportedStates)) {
       normalized.supported_states = payload.supportedStates
@@ -1753,6 +1889,11 @@ function normalizePracticeDetailsPayload(payload: PracticeDetailsUpdate): Record
       normalized.supported_states = payload.supportedStates;
     }
   }
+
+  // NOTE: Persist `services_by_state` inside `settings` (opaque JSON string).
+  // The frontend MUST set `payload.settings` to a JSON string that contains
+  // a `services_by_state` property when saving per-state services. Do NOT
+  // create a top-level `services_by_state` field — the backend does not accept it.
 
   return normalized;
 }
@@ -1934,6 +2075,30 @@ export function normalizePracticeDetailsResponse(payload: unknown): PracticeDeta
          .filter((e): e is SupportedStateEntry => e !== null);
        return result;
      })(),
+    servicesByState: (() => {
+      // Persisted location: `settings.services_by_state` (opaque JSON string).
+      // No fallbacks: if not present in `settings`, treat as undefined.
+      if (!('settings' in container)) return undefined;
+      const rawSettings = container.settings;
+      if (typeof rawSettings !== 'string') return undefined;
+      try {
+        const parsed = JSON.parse(rawSettings);
+        if (!isRecord(parsed) || !('services_by_state' in parsed)) return undefined;
+        const raw = (parsed as Record<string, unknown>).services_by_state;
+        if (!isRecord(raw)) return null;
+        const result: Record<string, string[]> = {};
+        for (const [k, v] of Object.entries(raw)) {
+          if (!Array.isArray(v)) continue;
+          const services = v.filter((s): s is string => typeof s === 'string').map((s) => s.trim()).filter(Boolean);
+          if (services.length > 0) {
+            result[k.trim().toUpperCase()] = services;
+          }
+        }
+        return result;
+      } catch {
+        return undefined;
+      }
+    })(),
      // Pass settings through as an opaque string so the UI can read/write it.
      settings: 'settings' in container
        ? (typeof container.settings === 'string' ? container.settings : null)

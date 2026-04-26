@@ -77,7 +77,7 @@ const InvoiceEmailPlaceholder = () => (
   </div>
 );
 
-const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 
 const buildInvoiceUpdatePayload = ({
   dueDate,
@@ -232,8 +232,12 @@ export const InvoiceForm = forwardRef<InvoiceFormHandle, InvoiceFormProps>(({
   const [showPreview, setShowPreview] = useState(true);
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
 
+  // Use backend/real data to determine Stripe readiness — accept any
+  // non-empty connectedAccountId here instead of enforcing a UUID pattern.
+  // This removes a custom client-side gate and relies on server-side
+  // validation/ownership for correctness.
   const isValidConnectedAccount = useMemo(
-    () => Boolean(connectedAccountId && UUID_REGEX.test(connectedAccountId)),
+    () => Boolean(connectedAccountId && String(connectedAccountId).trim().length > 0),
     [connectedAccountId]
   );
   const disableActions = isSaving || isSending || resolvedReadOnly || !isValidConnectedAccount || lineItems.length === 0;

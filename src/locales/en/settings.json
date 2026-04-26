@@ -22,9 +22,82 @@
   },
   "redirecting": "Redirecting settings...",
   "practice": {
-    "services": "Services",
+    "servicesNavLabel": "Services",
     "manageServices": "Manage services",
-    "team": "Team Members"
+    "team": "Team Members",
+    "page": {
+      "title": "Practice",
+      "subtitle": "Identity, brand, contact, services, and states"
+    },
+    "noPracticeSelected": "No practice selected.",
+    "identity": {
+      "title": "Identity",
+      "description": "Practice name and public slug used in the workspace URL.",
+      "nameLabel": "Practice name",
+      "namePlaceholder": "Smith & Associates",
+      "slugLabel": "Public slug",
+      "slugPlaceholder": "smith-associates",
+      "slugDescription": "This controls the workspace URL."
+    },
+    "brand": {
+      "title": "Brand",
+      "description": "Avatar and accent color used throughout the widget experience.",
+      "avatarLabel": "Upload brand avatar",
+      "avatarDescription": "Upload a square image. Maximum 5 MB.",
+      "colorLabel": "Brand color",
+      "colorAriaLabel": "Brand color",
+      "currentColorAria": "Current brand color {{color}}",
+      "colorHexAria": "Brand color hex",
+      "colorPlaceholder": "#D4AF37"
+    },
+    "contact": {
+      "title": "Contact details",
+      "description": "Website, business email, and phone number for this practice.",
+      "websiteLabel": "Website",
+      "websitePlaceholder": "https://example.com",
+      "businessEmailLabel": "Business email",
+      "businessEmailPlaceholder": "business@example.com",
+      "phoneLabel": "Contact phone",
+      "phonePlaceholder": "+1 (555) 123-4567"
+    },
+    "address": {
+      "title": "Address",
+      "description": "Used in public practice details and intake flows.",
+      "helper": "Leave fields blank to clear them."
+    },
+    "services": {
+      "title": "Services",
+      "description": "Choose the legal service areas this practice accepts for routing and intake setup.",
+      "addStatesHeading": "Add state",
+      "servicesPerStateHeading": "Services per state"
+    },
+    "licensedStates": {
+      "placeholder": "Select states"
+    },
+    "servicesByState": {
+      "empty": "No states selected. Add a state to assign services.",
+      "placeholder": "Select services offered",
+      "remove": "Remove {{label}}",
+      "removeShort": "Remove"
+    },
+    "toasts": {
+      "practiceSettingsSaved": {
+        "title": "Practice settings saved",
+        "body": "Your practice settings have been saved."
+      },
+      "practiceSettingsSaveFailed": {
+        "title": "Practice settings save failed",
+        "body": "Unable to save your practice settings. Please try again."
+      },
+      "logoUploadFailed": {
+        "title": "Logo upload failed",
+        "body": "Unable to upload your logo. Please try again."
+      },
+      "brandColorInvalid": {
+        "title": "Brand color",
+        "body": "Brand color must be a valid hex value."
+      }
+    }
   },
   "general": {
     "title": "General",
