@@ -138,7 +138,7 @@ export default [
       'react/no-unknown-property': 'warn', // Allow class instead of className in some cases
       'react/self-closing-comp': 'warn',
       'react-hooks/rules-of-hooks': 'error', // Keep this as error for safety
-      'react-hooks/exhaustive-deps': 'warn', // TODO: consider error once deps are stabilized
+      'react-hooks/exhaustive-deps': 'error',
 
       // General best practices
       'no-console': 'off', // Allow console in development

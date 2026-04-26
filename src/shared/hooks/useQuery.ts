@@ -43,7 +43,7 @@ export function useQuery<T>({ key, fetcher, ttl, enabled = true }: UseQueryOptio
 
   useEffect(() => {
     if (!enabled) { setIsLoading(false); return; }
-    if (data !== undefined) { setIsLoading(false); return; }
+    if (queryCache.get(key) !== undefined) { setIsLoading(false); return; }
     const controller = new AbortController();
     void load(controller.signal);
     return () => controller.abort();
