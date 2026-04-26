@@ -375,7 +375,10 @@ export default defineConfig(({ mode }: ConfigEnv) => {
 					// Manualchunks configuration for better code splitting
 					manualChunks: {
 						vendor: ['preact', 'preact/hooks', 'preact/jsx-runtime', 'preact/compat'],
-						ui: ['./src/app/ErrorBoundary.tsx']
+						ui: ['./src/app/ErrorBoundary.tsx'],
+						i18n: ['i18next', 'react-i18next', 'i18next-browser-languagedetector'],
+						motion: ['framer-motion'],
+						markdown: ['react-markdown', 'remark-gfm'],
 					}
 				},
 			},

@@ -1051,6 +1051,21 @@ function AppWithProviders() {
   );
 }
 
+function loadOneSignalSdk(): void {
+  const path = window.location.pathname;
+  if (
+    path.startsWith('/auth') ||
+    path.startsWith('/public/') ||
+    path.startsWith('/debug/') ||
+    window.location.search.includes('v=widget')
+  ) return;
+
+  const script = document.createElement('script');
+  script.src = 'https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js';
+  script.async = true;
+  document.head.appendChild(script);
+}
+
 async function mountClientApp() {
   let savedTheme: string | null = null;
   try {
@@ -1083,6 +1098,13 @@ async function mountClientApp() {
         if (mountEl) hydrate(<AppWithProviders />, mountEl);
       }
     });
+
+  // Load OneSignal SDK during idle time so it doesn't compete with initial render.
+  if ('requestIdleCallback' in window) {
+    requestIdleCallback(loadOneSignalSdk);
+  } else {
+    setTimeout(loadOneSignalSdk, 200);
+  }
 }
 
 if (typeof window !== 'undefined') {
