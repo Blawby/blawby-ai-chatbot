@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState, useEffect, useCallback } from 'preact/hooks';
-import axios from 'axios';
+import { isHttpError, isAbortError } from '@/shared/lib/apiClient';
 import { SessionNotReadyError } from '@/shared/types/errors';
 import { usePracticeBillingData, type BillingWindow } from '@/features/practice-dashboard/hooks/usePracticeBillingData';
 import {
@@ -391,8 +391,8 @@ export const useWorkspaceSetup = ({
       const status = extractStripeStatusFromPayload(payload);
       setStripeStatus(status ?? null);
     } catch (error) {
-      if (axios.isCancel(error) || (error instanceof Error && error.name === 'AbortError')) return;
-      if (axios.isAxiosError(error) && error.response?.status === 404) {
+      if (isAbortError(error)) return;
+      if (isHttpError(error) && error.response.status === 404) {
         setStripeStatus(null);
         return;
       }

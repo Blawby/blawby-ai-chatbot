@@ -42,7 +42,7 @@ import {
   removeMessageReaction,
 } from '@/shared/lib/conversationApi';
 import { applyConsultationPatchToMetadata, hasConsultationSignals, resolveConsultationState } from '@/shared/utils/consultationState';
-import axios from 'axios';
+import { isHttpError } from '@/shared/lib/apiClient';
 import { linkConversationToUser } from '@/shared/lib/apiClient';
 import {
   rememberConversationAnonymousParticipant,
@@ -238,7 +238,7 @@ export const useConversation = ({
         clearConversationAnonymousParticipant(conversationId);
       } catch (error) {
         console.warn('[useConversation] Conversation relink failed', { conversationId, practiceId, error });
-        const is409 = axios.isAxiosError(error) && error.response?.status === 409;
+        const is409 = isHttpError(error) && error.response.status === 409;
         if (is409) { if (!cancelled) setIsConversationLinkReady(true); return; }
         onError?.(error instanceof Error ? error.message : 'Failed to link conversation');
       } finally {

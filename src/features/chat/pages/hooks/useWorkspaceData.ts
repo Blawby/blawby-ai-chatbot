@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect } from 'preact/hooks';
-import axios from 'axios';
+import { isAbortError } from '@/shared/lib/apiClient';
 import { useMattersData } from '@/shared/hooks/useMattersData';
 import { useClientsData } from '@/shared/hooks/useClientsData';
 import { formatLongDate } from '@/shared/utils/dateFormatter';
@@ -224,7 +224,7 @@ export function useWorkspaceData({
           setHasDesktopInvoiceListItems(result.total > 0);
         }
       } catch (error) {
-        if ((error as DOMException)?.name === 'AbortError' || axios.isCancel(error)) {
+        if (isAbortError(error)) {
           return;
         }
         if (!controller.signal.aborted) {

@@ -1,4 +1,3 @@
-import axios, { AxiosHeaders, type AxiosRequestConfig } from 'axios';
 import { queryCache } from '@/shared/lib/queryCache';
 import {
   getSubscriptionBillingPortalEndpoint,
@@ -81,43 +80,108 @@ function ensureApiBaseUrl(): string {
   return cachedBaseUrl;
 }
 
-// Create axios instance without default baseURL
-// We'll set it dynamically in the interceptor to avoid stale base URLs.
-export const apiClient = axios.create({
-  // Don't set baseURL here - let interceptor handle it dynamically
-});
+export class HttpError extends Error {
+  readonly response: { status: number; data: unknown };
+  constructor(status: number, data: unknown, message: string) {
+    super(message);
+    this.name = 'HttpError';
+    this.response = { status, data };
+  }
+}
 
-apiClient.interceptors.request.use(
-  (config) => {
-    // Always get fresh baseURL in development.
-    // Force override any cached baseURL to avoid stale endpoints.
-    const baseUrl = ensureApiBaseUrl();
-    // Always set baseURL fresh - don't rely on existing value
-    if (config.baseURL !== baseUrl) {
-      config.baseURL = baseUrl;
-    }
+export const isHttpError = (error: unknown): error is HttpError => error instanceof HttpError;
+export const isAbortError = (error: unknown): boolean =>
+  error instanceof Error && (error.name === 'AbortError' || error.name === 'CanceledError');
 
-    // Use session cookies for auth; include credentials for cross-origin requests when allowed.
-    config.withCredentials = true;
-    const widgetToken = getWidgetAuthToken();
-    if (widgetToken) {
-      const requestUrl = typeof config.url === 'string' ? config.url : '';
-      if (isWidgetTokenEligibleRequestUrl(requestUrl)) {
-        if (!config.headers) {
-          config.headers = new AxiosHeaders();
+export type ApiRequestConfig = { signal?: AbortSignal };
+
+function extractFetchErrorMessage(data: unknown, fallback: string): string {
+  if (typeof data === 'string' && data.trim()) return data.trim();
+  if (data && typeof data === 'object') {
+    const rec = data as Record<string, unknown>;
+    if (typeof rec.message === 'string' && rec.message) return rec.message;
+    if (typeof rec.error === 'string' && rec.error) return rec.error;
+  }
+  return fallback;
+}
+
+async function apiFetch<T>(
+  method: string,
+  url: string,
+  body?: unknown,
+  signal?: AbortSignal,
+  params?: Record<string, unknown>
+): Promise<{ data: T; status: number }> {
+  let fullUrl = /^https?:\/\//.test(url) ? url : `${ensureApiBaseUrl()}${url}`;
+  if (params && Object.keys(params).length > 0) {
+    const qs = new URLSearchParams(
+      Object.entries(params)
+        .filter(([, v]) => v != null)
+        .map(([k, v]) => [k, String(v)])
+    ).toString();
+    fullUrl = `${fullUrl}${fullUrl.includes('?') ? '&' : '?'}${qs}`;
+  }
+  const headers: Record<string, string> = {};
+  if (body !== undefined) headers['Content-Type'] = 'application/json';
+  const widgetToken = getWidgetAuthToken();
+  if (widgetToken && isWidgetTokenEligibleRequestUrl(url)) {
+    headers['Authorization'] = `Bearer ${widgetToken}`;
+  }
+
+  const response = await fetch(fullUrl, {
+    method,
+    credentials: 'include',
+    headers,
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+    signal,
+  });
+
+  if (response.status === 401) {
+    if (!isHandling401) {
+      const doHandle = async () => {
+        try {
+          if (typeof window !== 'undefined') {
+            try {
+              window.dispatchEvent(new CustomEvent('auth:unauthorized'));
+            } catch (eventErr) {
+              console.error('Error dispatching auth:unauthorized event:', eventErr);
+            }
+          }
+        } finally {
+          isHandling401 = null;
         }
-        if (config.headers instanceof AxiosHeaders) {
-          config.headers.set('Authorization', `Bearer ${widgetToken}`);
-        } else {
-          (config.headers as Record<string, string>).Authorization = `Bearer ${widgetToken}`;
-        }
-      }
+      };
+      isHandling401 = doHandle();
     }
+    await isHandling401;
+  }
 
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
+  const contentType = response.headers.get('content-type') ?? '';
+  const data: unknown = contentType.includes('application/json')
+    ? await response.json() as unknown
+    : await response.text();
+
+  if (!response.ok) {
+    throw new HttpError(response.status, data, extractFetchErrorMessage(data, `HTTP ${response.status}`));
+  }
+
+  return { data: data as T, status: response.status };
+}
+
+type FetchConfig = { signal?: AbortSignal; params?: Record<string, unknown>; baseURL?: string };
+
+export const apiClient = {
+  get: <T>(url: string, config?: FetchConfig) =>
+    apiFetch<T>('GET', url, undefined, config?.signal, config?.params),
+  post: <T>(url: string, body?: unknown, config?: FetchConfig) =>
+    apiFetch<T>('POST', url, body, config?.signal, config?.params),
+  put: <T>(url: string, body?: unknown, config?: FetchConfig) =>
+    apiFetch<T>('PUT', url, body, config?.signal, config?.params),
+  patch: <T>(url: string, body?: unknown, config?: FetchConfig) =>
+    apiFetch<T>('PATCH', url, body, config?.signal, config?.params),
+  delete: <T>(url: string, config?: FetchConfig) =>
+    apiFetch<T>('DELETE', url, undefined, config?.signal, config?.params),
+};
 
 type PracticeMetadata = Record<string, unknown> | null | undefined;
 
@@ -382,7 +446,7 @@ export async function linkConversationToUser(
 export async function updateConversationMatter(
   conversationId: string,
   matterId: string | null,
-  config?: Pick<AxiosRequestConfig, 'signal'>
+  config?: ApiRequestConfig
 ): Promise<Conversation> {
   if (!conversationId) {
     throw new Error('conversationId is required to update a conversation matter');
@@ -416,7 +480,7 @@ export type ConversationParticipant = {
 export async function getConversationParticipants(
   conversationId: string,
   practiceId: string,
-  config?: Pick<AxiosRequestConfig, 'signal'>
+  config?: ApiRequestConfig
 ): Promise<ConversationParticipant[]> {
   if (!conversationId) {
     throw new Error('conversationId is required');
@@ -455,7 +519,7 @@ export async function getConversationParticipants(
 export async function listMatterConversations(
   practiceId: string,
   matterId: string,
-  config?: Pick<AxiosRequestConfig, 'signal'>
+  config?: ApiRequestConfig
 ): Promise<Conversation[]> {
   // Legacy/undocumented: this endpoint is not part of the supplied matters contract.
   if (!practiceId) {
@@ -492,11 +556,11 @@ async function postSubscriptionEndpoint(
       data: response.data ?? null
     };
   } catch (error) {
-    if (axios.isAxiosError(error)) {
+    if (isHttpError(error)) {
       return {
         ok: false,
-        status: error.response?.status ?? 0,
-        data: error.response?.data ?? null
+        status: error.response.status,
+        data: error.response.data ?? null
       };
     }
     return {
@@ -732,7 +796,7 @@ function normalizeOnboardingStatus(payload: unknown): OnboardingStatus {
   };
 }
 
-type ListPracticesOptions = Pick<AxiosRequestConfig, 'signal'> & {
+type ListPracticesOptions = ApiRequestConfig & {
   scope?: 'all' | 'tenant' | 'platform';
 };
 
@@ -753,7 +817,7 @@ export async function listPractices(configOrOptions?: ListPracticesOptions): Pro
   return practices;
 }
 
-export async function getPractice(practiceId: string, config?: Pick<AxiosRequestConfig, 'signal'>): Promise<Practice> {
+export async function getPractice(practiceId: string, config?: ApiRequestConfig): Promise<Practice> {
   if (!practiceId) {
     throw new Error('practiceId is required');
   }
@@ -770,7 +834,7 @@ export async function getPractice(practiceId: string, config?: Pick<AxiosRequest
 
 export async function createPractice(
   payload: CreatePracticeRequest,
-  config?: Pick<AxiosRequestConfig, 'signal'>
+  config?: ApiRequestConfig
 ): Promise<Practice> {
   const response = await apiClient.post('/api/practice', payload, {
     signal: config?.signal
@@ -781,7 +845,7 @@ export async function createPractice(
 export async function updatePractice(
   practiceId: string,
   payload: UpdatePracticeRequest,
-  config?: Pick<AxiosRequestConfig, 'signal'>
+  config?: ApiRequestConfig
 ): Promise<Practice> {
   if (!practiceId) {
     throw new Error('practiceId is required');
@@ -804,7 +868,7 @@ export async function updatePractice(
 
 export async function deletePractice(
   practiceId: string,
-  config?: Pick<AxiosRequestConfig, 'signal'>
+  config?: ApiRequestConfig
 ): Promise<void> {
   if (!practiceId) {
     throw new Error('practiceId is required');
@@ -825,7 +889,7 @@ export async function setActivePractice(practiceId: string): Promise<void> {
 
 export async function listPracticeInvitations(
   practiceId: string,
-  config?: Pick<AxiosRequestConfig, 'signal'>
+  config?: ApiRequestConfig
 ): Promise<unknown[]> {
   if (!practiceId || practiceId.trim().length === 0) {
     throw new Error('practiceId is required');
@@ -915,7 +979,7 @@ export async function cancelPracticeInvitation(invitationId: string): Promise<vo
 
 export async function listPracticeTeam(
   practiceId: string,
-  config?: Pick<AxiosRequestConfig, 'signal'>
+  config?: ApiRequestConfig
 ): Promise<PracticeTeamResponse> {
   if (!practiceId) {
     throw new Error('practiceId is required');
@@ -1047,7 +1111,7 @@ export async function listUserDetails(
 export async function getUserDetail(
   practiceId: string,
   userDetailId: string,
-  config?: Pick<AxiosRequestConfig, 'signal'>
+  config?: ApiRequestConfig
 ): Promise<UserDetailRecord | null> {
   if (!practiceId || !userDetailId) {
     throw new Error('practiceId and userDetailId are required');
@@ -1070,7 +1134,7 @@ export async function getUserDetail(
 export async function getUserDetailAddressById(
   practiceId: string,
   addressId: string,
-  config?: Pick<AxiosRequestConfig, 'signal'>
+  config?: ApiRequestConfig
 ): Promise<Record<string, unknown> | null> {
   if (!practiceId || !addressId) {
     throw new Error('practiceId and addressId are required');
@@ -1318,7 +1382,7 @@ export async function deleteUserDetailMemo(
 
 export async function getOnboardingStatus(
   organizationId: string,
-  config?: Pick<AxiosRequestConfig, 'signal'>
+  config?: ApiRequestConfig
 ): Promise<OnboardingStatus> {
   if (!organizationId) {
     throw new Error('organizationId is required');
@@ -1332,7 +1396,7 @@ export async function getOnboardingStatus(
 
 export async function getOnboardingStatusPayload(
   organizationId: string,
-  config?: Pick<AxiosRequestConfig, 'signal'>
+  config?: ApiRequestConfig
 ): Promise<unknown> {
   if (!organizationId) {
     throw new Error('organizationId is required');
@@ -1371,7 +1435,7 @@ export async function createConnectedAccount(
 export async function updatePracticeDetails(
   practiceId: string,
   details: PracticeDetailsUpdate,
-  config?: Pick<AxiosRequestConfig, 'signal'>
+  config?: ApiRequestConfig
 ): Promise<PracticeDetails | null> {
   if (!practiceId) {
     throw new Error('practiceId is required');
@@ -1391,7 +1455,7 @@ export async function updatePracticeDetails(
 
 export async function getPracticeDetails(
   practiceId: string,
-  config?: Pick<AxiosRequestConfig, 'signal'>
+  config?: ApiRequestConfig
 ): Promise<PracticeDetails | null> {
   if (!practiceId) {
     throw new Error('practiceId is required');
@@ -1411,7 +1475,7 @@ export async function getPracticeDetails(
 
 export async function getPracticeDetailsBySlug(
   slug: string,
-  config?: Pick<AxiosRequestConfig, 'signal'>
+  config?: ApiRequestConfig
 ): Promise<PracticeDetails | null> {
   if (!slug) {
     throw new Error('practice slug is required');
@@ -1437,7 +1501,7 @@ export interface PublicPracticeDetails {
 
 export async function getPublicPracticeDetails(
   slug: string,
-  config?: Pick<AxiosRequestConfig, 'signal'>
+  config?: ApiRequestConfig
 ): Promise<PublicPracticeDetails | null> {
   if (!slug) {
     throw new Error('practice slug is required');
@@ -1459,13 +1523,7 @@ export async function getPublicPracticeDetails(
     try {
       const apiUrl = `${getWorkerApiUrl()}/api/practice/details/${encodeURIComponent(normalizedSlug)}`;
 
-      const response = await axios.get(
-        apiUrl,
-        {
-          signal: config?.signal,
-          withCredentials: true
-        }
-      );
+      const response = await apiFetch<unknown>('GET', apiUrl, undefined, config?.signal);
       const details = normalizePracticeDetailsResponse(response.data);
       const displayDetails = extractPublicPracticeDisplayDetails(response.data);
       const practiceId = extractPublicPracticeId(response.data);
@@ -1484,12 +1542,10 @@ export async function getPublicPracticeDetails(
       publicPracticeDetailsCache.set(normalizedSlug, result);
       return result;
     } catch (error) {
-      if (axios.isAxiosError(error)) {
-        if (error.response?.status === 404) {
-          // Cache null for 404 — the practice doesn't exist, no point retrying.
-          publicPracticeDetailsCache.set(normalizedSlug, null);
-          return null;
-        }
+      if (isHttpError(error) && error.response.status === 404) {
+        // Cache null for 404 — the practice doesn't exist, no point retrying.
+        publicPracticeDetailsCache.set(normalizedSlug, null);
+        return null;
       }
       // Do NOT cache transient errors (rate limit, network failure) so callers can retry.
       throw error;
@@ -1991,7 +2047,7 @@ export async function requestBillingPortalSession(
 }
 
 export async function getCurrentSubscription(
-  config?: Pick<AxiosRequestConfig, 'signal'>
+  config?: ApiRequestConfig
 ): Promise<CurrentSubscription | null> {
   const response = await apiClient.get('/api/subscriptions/current', {
     signal: config?.signal
@@ -2104,7 +2160,7 @@ function normalizeSubscriptionListResponse(payload: unknown): Record<string, unk
 
 export async function listAuthSubscriptions(
   referenceId: string,
-  config?: Pick<AxiosRequestConfig, 'signal'>
+  config?: ApiRequestConfig
 ): Promise<AuthSubscriptionListItem[]> {
   if (!referenceId) {
     throw new Error('referenceId is required');
@@ -2124,7 +2180,7 @@ export async function listAuthSubscriptions(
 
 export async function listSubscriptions(
   referenceId: string,
-  config?: Pick<AxiosRequestConfig, 'signal'>
+  config?: ApiRequestConfig
 ): Promise<SubscriptionListItem[]> {
   if (!referenceId) {
     throw new Error('referenceId is required');
@@ -2145,35 +2201,3 @@ export async function listSubscriptions(
   return normalizeSubscriptionListResponse(data) as SubscriptionListItem[];
 }
 
-apiClient.interceptors.response.use(
-  (response) => response,
-  async (error) => {
-    if (error.response?.status === 401) {
-      // Guard against concurrent 401s - only handle once
-      if (!isHandling401) {
-        // Create the handler promise immediately and assign it
-        const handle401 = async () => {
-          try {
-            if (typeof window !== 'undefined') {
-              try {
-                window.dispatchEvent(new CustomEvent('auth:unauthorized'));
-              } catch (eventErr) {
-                console.error('Error dispatching auth:unauthorized event:', eventErr);
-                // Don't rethrow - let the original 401 error be the main error
-              }
-            }
-          } finally {
-            // Reset guard after handling completes, regardless of errors
-            isHandling401 = null;
-          }
-        };
-
-        // Assign the promise immediately before any async work
-        isHandling401 = handle401();
-      }
-      // Wait for the handling to complete (or already in progress)
-      await isHandling401;
-    }
-    return Promise.reject(error);
-  }
-);

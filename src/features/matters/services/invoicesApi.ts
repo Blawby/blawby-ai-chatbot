@@ -1,5 +1,4 @@
-import axios from 'axios';
-import { apiClient } from '@/shared/lib/apiClient';
+import { apiClient, isHttpError, isAbortError } from '@/shared/lib/apiClient';
 import { urls } from '@/config/urls';
 import {
   assertMajorUnits,
@@ -71,8 +70,8 @@ export type BackendInvoice = {
 };
 
 const getErrorMessage = (error: unknown, fallback: string) => {
-  if (axios.isAxiosError(error)) {
-    const data = error.response?.data;
+  if (isHttpError(error)) {
+    const data = error.response.data;
     if (typeof data === 'string' && data.trim().length > 0) return data;
     if (data && typeof data === 'object') {
       const record = data as Record<string, unknown>;
@@ -91,13 +90,9 @@ const requestData = async <T>(promise: Promise<{ data: T }>, fallbackMessage: st
     const response = await promise;
     return response.data;
   } catch (error) {
-    if (axios.isCancel(error) || (error instanceof Error && error.name === 'AbortError')) {
-      throw error;
-    }
+    if (isAbortError(error)) throw error;
     const normalized = new Error(getErrorMessage(error, fallbackMessage)) as Error & { status?: number };
-    if (axios.isAxiosError(error)) {
-      normalized.status = error.response?.status;
-    }
+    if (isHttpError(error)) normalized.status = error.response.status;
     throw normalized;
   }
 };

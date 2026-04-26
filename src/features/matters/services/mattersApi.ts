@@ -1,4 +1,4 @@
-import axios from 'axios';
+import { isHttpError, isAbortError } from '@/shared/lib/apiClient';
 import {
   matterCollectionPath,
   matterItemPath,
@@ -274,11 +274,9 @@ const normalizeMilestonePayload = (payload: {
 };
 
 const getErrorMessage = (error: unknown, fallback: string) => {
-  if (axios.isAxiosError(error)) {
-    const data = error.response?.data;
-    if (typeof data === 'string' && data.trim().length > 0) {
-      return data;
-    }
+  if (isHttpError(error)) {
+    const data = error.response.data;
+    if (typeof data === 'string' && data.trim().length > 0) return data;
     if (data && typeof data === 'object') {
       const record = data as Record<string, unknown>;
       const err = typeof record.error === 'string' ? record.error : null;
@@ -287,9 +285,7 @@ const getErrorMessage = (error: unknown, fallback: string) => {
     }
     return error.message || fallback;
   }
-  if (error instanceof Error) {
-    return error.message || fallback;
-  }
+  if (error instanceof Error) return error.message || fallback;
   return fallback;
 };
 
@@ -298,11 +294,7 @@ const requestData = async <T>(promise: Promise<{ data: T }>, fallbackMessage: st
     const response = await promise;
     return response.data;
   } catch (error) {
-    // Preserve abort/cancel errors so callers can treat them as non-fatal
-    // (many hooks abort on cleanup and expect to ignore those errors).
-    if (axios.isCancel(error) || (error instanceof Error && (error.name === 'AbortError' || error.name === 'CanceledError'))) {
-      throw error;
-    }
+    if (isAbortError(error)) throw error;
     throw new Error(getErrorMessage(error, fallbackMessage));
   }
 };

@@ -1,4 +1,4 @@
-import axios, { type AxiosRequestConfig } from 'axios';
+import { isHttpError, type ApiRequestConfig } from '@/shared/lib/apiClient';
 import { useState, useCallback, useEffect, useRef, useContext } from 'preact/hooks';
 import { getPracticeWorkspaceEndpoint } from '@/config/api';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
@@ -450,7 +450,7 @@ function normalizePracticeRecord(raw: Record<string, unknown>): Practice {
 
 const fetchPracticeDetailsFor = async (
   practice: Practice,
-  config?: Pick<AxiosRequestConfig, 'signal'>
+  config?: ApiRequestConfig
 ): Promise<PracticeDetails | null> => {
   const byId = await getPracticeDetails(practice.id, config);
   if (byId) {
@@ -962,7 +962,7 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
       }
       // A 403 means the user has no org (pre-subscription or mid-onboarding).
       // Mark as terminal so we don't hammer the endpoint on every re-render.
-      if (axios.isAxiosError(err) && err.response?.status === 403) {
+      if (isHttpError(err) && err.response.status === 403) {
         practicesFetchForbidden = true;
         setPractices([]);
         setCurrentPractice(null);
