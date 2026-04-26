@@ -675,7 +675,8 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                         avatar: replyAvatar,
                         isMissing: !replySource
                     } : null;
-                    const canReply = Boolean(onReply && message.id);
+                    const isViewerAnonymous = session?.user?.is_anonymous === true;
+                    const canReply = Boolean(onReply && message.id && resolvedViewerContext !== 'public' && !isViewerAnonymous);
                     const isLast = (_index + derivedStart) === (dedupedMessages.length - 1);
                     const isStreamingMessage = Boolean(message.id?.startsWith(STREAMING_BUBBLE_PREFIX));
 

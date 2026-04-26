@@ -405,7 +405,7 @@ export class ChatRoom {
     }, frame.request_id);
 
     if (result.broadcast) {
-      this.broadcastFrame('message.new', result.broadcast);
+      await this.broadcastFrame('message.new', result.broadcast);
     }
   }
 
@@ -615,7 +615,7 @@ export class ChatRoom {
     }
 
     if (result.broadcast) {
-      this.broadcastFrame('message.new', result.broadcast);
+      await this.broadcastFrame('message.new', result.broadcast);
     }
 
     return new Response(JSON.stringify({
@@ -1450,7 +1450,52 @@ export class ChatRoom {
     });
   }
 
-  private broadcastFrame(type: string, data: Record<string, unknown>): void {
+  private async broadcastFrame(type: string, data: Record<string, unknown>): Promise<void> {
+    // Special-case message broadcasts: sanitize per-connection for anonymous
+    // viewers when the conversation requests assistant replies to be hidden.
+    if (type === 'message.new' && typeof data.conversation_id === 'string') {
+      const convId = data.conversation_id as string;
+      let hideReplies = false;
+      try {
+        const row = await this.env.DB.prepare(`SELECT user_info FROM conversations WHERE id = ?`).bind(convId).first<Record<string, unknown> | null>();
+        if (row && row.user_info) {
+          try {
+            const parsed = JSON.parse(String(row.user_info));
+            hideReplies = Boolean(parsed && (parsed.hideReplies ?? parsed.hide_replies));
+          } catch {
+            hideReplies = false;
+          }
+        }
+      } catch {
+        hideReplies = false;
+      }
+
+      for (const socket of this.state.getWebSockets()) {
+        const attachment = this.getAttachment(socket);
+        if (!attachment?.negotiated) continue;
+
+        if (hideReplies && attachment.isAnonymous) {
+          const role = typeof data.role === 'string' ? data.role : null;
+          const metadata = (data.metadata && typeof data.metadata === 'object') ? data.metadata as Record<string, unknown> : null;
+          const source = metadata && metadata.source ? String(metadata.source).toLowerCase() : '';
+          const isAi = role === 'assistant' || source.startsWith('ai') || source.includes('ai_stream');
+          if (isAi) {
+            const masked: Record<string, unknown> = {
+              ...data,
+              content: '',
+              metadata: { ...(metadata || {}), hidden_reply: true }
+            };
+            if ('attachments' in masked) delete masked.attachments;
+            this.sendFrame(socket, type, masked);
+            continue;
+          }
+        }
+
+        this.sendFrame(socket, type, data);
+      }
+      return;
+    }
+
     for (const socket of this.state.getWebSockets()) {
       const attachment = this.getAttachment(socket);
       if (!attachment?.negotiated) {
