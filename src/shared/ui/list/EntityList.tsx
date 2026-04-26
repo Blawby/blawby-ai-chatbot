@@ -2,6 +2,7 @@ import type { ComponentChildren } from 'preact';
 import { cn } from '@/shared/utils/cn';
 import { LoadingBlock } from '@/shared/ui/layout/LoadingBlock';
 import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
+import { SELECTED_ACCENT_SURFACE_CLASS } from '@/shared/ui/layout/selectionStyles';
 
 type RefObject<T> = { current: T | null };
 
@@ -63,15 +64,15 @@ export function EntityList<T extends { id: string }>({
         {items.map((item) => {
           const isSelected = selectedId === item.id;
           return (
-            <button
-              key={item.id}
-              type="button"
-              className={cn(
-                'w-full text-left transition-colors duration-150',
-                isSelected ? 'bg-surface-utility/60' : 'hover:bg-surface-utility/40',
-                onSelect && 'cursor-pointer'
-              )}
-              onClick={onSelect ? () => onSelect(item) : undefined}
+              <button
+                key={item.id}
+                type="button"
+                className={cn(
+                  'w-full text-left transition-colors duration-150',
+                  isSelected ? SELECTED_ACCENT_SURFACE_CLASS : 'hover:bg-surface-utility/40',
+                  onSelect && 'cursor-pointer'
+                )}
+                onClick={onSelect ? () => onSelect(item) : undefined}
             >
               {renderItem(item, isSelected)}
             </button>

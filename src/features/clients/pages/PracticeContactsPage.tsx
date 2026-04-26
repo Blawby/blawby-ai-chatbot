@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks'
 import { useLocation } from 'preact-iso';
 import { DocumentDuplicateIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import { DetailHeader } from '@/shared/ui/layout/DetailHeader';
+import { AccentHeroSurface } from '@/shared/ui/layout/AccentHeroSurface';
+import { ResponsiveDefinitionGrid } from '@/shared/ui/layout/ResponsiveDefinitionGrid';
 import { Panel } from '@/shared/ui/layout/Panel';
 import { WorkspacePlaceholderState } from '@/shared/ui/layout/WorkspacePlaceholderState';
 import { LoadingBlock, InteractiveListItem } from '@/shared/ui/layout';
@@ -99,11 +101,10 @@ const PendingInvitationDetailPanel = ({
 }) => {
   const roleLabel = getPracticeRoleLabel(normalizePracticeRole(invitation.role) ?? 'client');
   return (
-    <div className="h-full overflow-y-auto">
+    <div className="h-full overflow-y-auto @container">
       <div className="space-y-6">
-        <section className="relative overflow-hidden rounded-[28px] bg-gradient-to-b from-accent-500/30 via-surface-overlay/70 to-surface-overlay/85 [--accent-foreground:var(--input-text)]">
-          <div className="absolute inset-0 bg-gradient-to-t from-surface-base/45 via-transparent to-transparent" />
-          <div className="relative px-6 pb-12 pt-10">
+        <AccentHeroSurface>
+          <div className="px-6 pb-12 pt-10">
             <div className="flex flex-col items-center text-center">
               <Avatar name={invitation.email} size="xl" />
               <div className="mt-8 min-w-0 max-w-full">
@@ -114,10 +115,10 @@ const PendingInvitationDetailPanel = ({
               </div>
             </div>
           </div>
-        </section>
+        </AccentHeroSurface>
 
         <section className="glass-panel rounded-2xl">
-          <div className="grid grid-cols-1 divide-y divide-line-glass/5 md:grid-cols-2 md:divide-x md:divide-y-0 md:divide-line-glass/5">
+          <ResponsiveDefinitionGrid>
             <dl className="divide-y divide-line-glass/5">
               <div className="px-5 py-4">
                 <dt className="text-sm font-medium text-input-placeholder">Email</dt>
@@ -138,7 +139,7 @@ const PendingInvitationDetailPanel = ({
                 <dd className="mt-1 text-sm text-input-text">{formatDate(new Date(invitation.expiresAt))}</dd>
               </div>
             </dl>
-          </div>
+          </ResponsiveDefinitionGrid>
         </section>
 
         <section className="px-1 py-1">
@@ -212,11 +213,10 @@ const ClientDetailPanel = ({
     : null;
 
   return (
-    <div className={cn('h-full overflow-y-auto', paddingClassName)}>
+    <div className={cn('h-full overflow-y-auto @container', paddingClassName)}>
       <div className="space-y-6">
-        <section className="relative overflow-hidden rounded-[28px] bg-gradient-to-b from-accent-500/30 via-surface-overlay/70 to-surface-overlay/85 [--accent-foreground:var(--input-text)]">
-          <div className="absolute inset-0 bg-gradient-to-t from-surface-base/45 via-transparent to-transparent" />
-          <div className="relative px-6 pb-12 pt-10">
+        <AccentHeroSurface>
+          <div className="px-6 pb-12 pt-10">
             <div className="flex flex-col items-center text-center">
               <Avatar name={client.name} size="xl" />
               <div className="mt-8 min-w-0 max-w-full">
@@ -228,10 +228,10 @@ const ClientDetailPanel = ({
               </div>
             </div>
           </div>
-        </section>
+        </AccentHeroSurface>
 
         <section className="glass-panel rounded-2xl">
-          <div className="grid grid-cols-1 divide-y divide-line-glass/5 md:grid-cols-2 md:divide-x md:divide-y-0 md:divide-line-glass/5">
+          <ResponsiveDefinitionGrid>
             <dl className="divide-y divide-line-glass/5">
               <div className="px-5 py-4">
                 <dt className="text-sm font-medium text-input-placeholder">Email</dt>
@@ -256,7 +256,7 @@ const ClientDetailPanel = ({
                 </dd>
               </div>
             </dl>
-          </div>
+          </ResponsiveDefinitionGrid>
         </section>
 
         <section className="px-1 py-1">
@@ -904,7 +904,7 @@ export const PracticeContactsPage = ({
         </ul>
       </div>
           {letters.length > 0 ? (
-        <div className="pointer-events-auto absolute right-1 top-1/2 z-20 -translate-y-1/2 hidden md:flex flex-col items-center gap-1 text-[11px] font-medium text-input-placeholder border border-line-utility bg-surface-workspace/80">
+        <div className="pointer-events-auto absolute right-1 top-1/2 z-20 -translate-y-1/2 hidden md:flex flex-col items-center gap-1 text-[11px] font-medium text-input-placeholder bg-surface-workspace/80">
           {letters.map((letter) => (
             <Button
               key={letter}
