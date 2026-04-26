@@ -1,5 +1,6 @@
 import { EllipsisHorizontalIcon } from '@heroicons/react/24/outline';
 import { Icon } from '@/shared/ui/Icon';
+import { Button } from '@/shared/ui/Button';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/shared/ui/dropdown';
 import { Avatar } from '@/shared/ui/profile';
 import { SkeletonLoader } from '@/shared/ui/layout/SkeletonLoader';
@@ -35,13 +36,9 @@ export const RecentClientsGrid = ({
     <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
       <div className="flex items-center justify-between">
         <h2 className="text-base font-semibold text-input-text">Recent clients</h2>
-        <button
-          type="button"
-          onClick={() => onViewAll?.()}
-          className="text-sm font-semibold text-accent-400 hover:text-accent-300"
-        >
+        <Button variant="link" size="sm" onClick={() => onViewAll?.()}>
           View all
-        </button>
+        </Button>
       </div>
       {loading ? (
         <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">

@@ -25,7 +25,6 @@
     --line-glass: 255 255 255;
     --input-text: 17 24 39;
     --input-placeholder: 55 65 81;
-    --accent-foreground: 255 255 255;
     --info-foreground: 29 78 216;
     --success-foreground: 22 101 52;
     --warning-foreground: 154 52 18;
@@ -33,8 +32,8 @@
 
     /* Navigation Tokens - Manage all nav colors here */
     --nav-surface: var(--surface-nav-rail);
-    --nav-active-text: var(--accent-500);
-    --nav-active-bg: var(--nav-active-text) / 0.18;
+    --nav-active-text: var(--accent-foreground);
+    --nav-active-bg: var(--accent-500) / 0.18;
 
     /* Glass rim lighting tokens — tune these to adjust the glass edge feel globally */
     --glass-rim-strong: inset 2px 2px 0px -2px rgba(255, 255, 255, 0.70),
@@ -89,8 +88,8 @@
 
     /* Navigation Tokens (Dark Mode) */
     --nav-surface: var(--surface-nav-rail);
-    --nav-active-text: var(--accent-500);
-    --nav-active-bg: var(--nav-active-text) / 0.18;
+    --nav-active-text: var(--accent-foreground);
+    --nav-active-bg: var(--accent-500) / 0.18;
     --shadow-glass: 0 20px 44px rgb(0 0 0 / 40%), 0 0 1px rgb(255 255 255 / 10%);
 
     /* Slightly brighter rims in dark mode — more contrast against dark bg */
@@ -572,7 +571,7 @@
 
   /* Inverted — for use on dark surfaces */
   .btn-inverted {
-    @apply bg-white/20 backdrop-blur-2xl text-white;
+    @apply bg-white/20 backdrop-blur-2xl text-[rgb(var(--accent-foreground))];
     box-shadow: var(--glass-rim-medium), 0 4px 12px rgb(0 0 0 / 0.2);
   }
 
