@@ -305,22 +305,7 @@ export default defineConfig(({ mode }: ConfigEnv) => {
 						/\/widget-[^/]+$/,
 						/\.html$/,
 					],
-					runtimeCaching: [
-						{
-							urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
-							handler: 'CacheFirst',
-							options: {
-								cacheName: 'google-fonts-cache',
-								expiration: {
-									maxEntries: 10,
-									maxAgeSeconds: 60 * 60 * 24 * 365 // 1 year
-								},
-								cacheableResponse: {
-									statuses: [0, 200]
-								}
-							}
-						}
-					]
+					runtimeCaching: []
 				}
 			}),
 			// Process HTML with critical CSS extraction
@@ -377,8 +362,7 @@ export default defineConfig(({ mode }: ConfigEnv) => {
 					},
 					// Manualchunks configuration for better code splitting
 					manualChunks: {
-						vendor: ['preact', 'preact/hooks', 'preact/jsx-runtime', 'preact/compat'],
-						ui: ['./src/app/ErrorBoundary.tsx'],
+						vendor: ['preact', 'preact/hooks', 'preact/jsx-runtime', 'preact/compat', 'nanostores', '@nanostores/preact'],
 						i18n: ['i18next', 'react-i18next', 'i18next-browser-languagedetector'],
 						stripe: ['@stripe/stripe-js', '@stripe/react-stripe-js'],
 						motion: ['framer-motion'],
