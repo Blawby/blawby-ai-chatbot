@@ -83,6 +83,7 @@ export interface GetMessagesOptions {
   traceId?: string;
   requestSource?: string;
   viewerId?: string | null;
+  viewerIsAnonymous?: boolean;
 }
 
 export interface GetConversationOptions {
@@ -975,6 +976,31 @@ export class ConversationService {
       WHERE id = ? AND practice_id = ?
     `).bind(...bindings).run();
 
+    // Notify ChatRoom Durable Object to invalidate any cached hideReplies flag
+    try {
+      if (this.env.CHAT_ROOM) {
+        const stub = this.env.CHAT_ROOM.get(this.env.CHAT_ROOM.idFromName(conversationId));
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        // Await the DO invalidation so we know the ChatRoom instance has seen
+        // the update before returning. Log any failures but do not fail the
+        // conversation update operation.
+        try {
+          await stub.fetch('https://chat-room/internal/invalidate-hide-replies', {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({ conversation_id: conversationId })
+          });
+        } catch (err) {
+          Logger.warn('Failed to notify ChatRoom to invalidate hideReplies cache', {
+            conversationId,
+            error: err instanceof Error ? err.message : String(err)
+          });
+        }
+      }
+    } catch (err) {
+      Logger.warn('ChatRoom invalidation attempt failed', { conversationId, error: err instanceof Error ? err.message : String(err) });
+    }
+
     return this.getConversation(conversationId, practiceId);
   }
 
@@ -1723,8 +1749,10 @@ export class ConversationService {
     practiceId: string,
     options: GetMessagesOptions = {}
   ): Promise<GetMessagesResult> {
-    // Verify conversation exists
-    await this.getConversation(conversationId, practiceId);
+    // Verify conversation exists and read conversation metadata
+    const conversation = await this.getConversation(conversationId, practiceId);
+    const userInfo = conversation.user_info || {};
+    const hideFlag = Boolean((userInfo as any).hideReplies ?? (userInfo as any).hide_replies);
 
     const limit = Math.min(options.limit || 50, 100); // Max 100
 
@@ -1799,6 +1827,21 @@ export class ConversationService {
         token_count: record.token_count,
         created_at: record.created_at
       }));
+
+      // If conversation metadata requests hiding assistant replies, apply
+      // a server-side mask for anonymous/widget viewers. We preserve the
+      // message record but strip content and add a hidden marker so the
+      // client can render a placeholder while maintaining sequence IDs.
+      const shouldHideForViewer = hideFlag && (options.viewerIsAnonymous === true || options.requestSource === 'widget');
+      if (shouldHideForViewer) {
+        for (const m of messages) {
+          if (m.role === 'assistant') {
+            m.content = '';
+            m.metadata = { ...(m.metadata || {}), hidden_reply: true } as Record<string, unknown>;
+            m.reactions = [];
+          }
+        }
+      }
 
       await this.attachReactionsToMessages(messages, options.viewerId ?? null);
 
@@ -1879,6 +1922,17 @@ export class ConversationService {
       token_count: record.token_count,
       created_at: record.created_at
     }));
+
+    const shouldHideForViewer = hideFlag && (options.viewerIsAnonymous === true || options.requestSource === 'widget');
+    if (shouldHideForViewer) {
+      for (const m of messages) {
+        if (m.role === 'assistant') {
+          m.content = '';
+          m.metadata = { ...(m.metadata || {}), hidden_reply: true } as Record<string, unknown>;
+          m.reactions = [];
+        }
+      }
+    }
 
     await this.attachReactionsToMessages(messages, options.viewerId ?? null);
 
@@ -1976,9 +2030,22 @@ export class ConversationService {
 
   private async attachReactionsToMessages(messages: ConversationMessage[], viewerId: string | null): Promise<void> {
     if (messages.length === 0) return;
-    const ids = messages.map((message) => message.id);
+    // Exclude messages that are server-marked as hidden (e.g., assistant
+    // replies masked for anonymous/widget viewers) from reaction lookup.
+    const visibleMessages = messages.filter((message) => {
+      const hidden = message.metadata && (message.metadata as Record<string, unknown>).hidden_reply === true;
+      return !hidden;
+    });
+    const ids = visibleMessages.map((message) => message.id);
     const placeholders = ids.map(() => '?').join(', ');
     const viewer = viewerId ?? '';
+
+    if (ids.length === 0) {
+      // No visible messages to fetch reactions for; ensure hidden messages
+      // have empty reaction arrays and return early.
+      for (const message of messages) message.reactions = message.reactions ?? [];
+      return;
+    }
 
     const query = `
       SELECT
@@ -2013,6 +2080,8 @@ export class ConversationService {
     }
 
     for (const message of messages) {
+      // Hidden messages were excluded above; give them an empty reactions
+      // array to avoid leaking counts to anonymous viewers.
       message.reactions = reactionMap.get(message.id) ?? [];
     }
   }

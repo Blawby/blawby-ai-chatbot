@@ -280,6 +280,37 @@ export const urls = {
 	matterNestedItemPath
 };
 
+/**
+ * Widget/script helpers
+ */
+export function getWidgetScriptUrl(templateSlug?: string): string {
+	// Prefer same-origin in browser to support self-hosted widget loaders.
+	let base: string;
+	if (typeof window !== 'undefined' && window.location?.origin) {
+		base = window.location.origin;
+	} else if (import.meta.env.VITE_WIDGET_ORIGIN) {
+		base = import.meta.env.VITE_WIDGET_ORIGIN;
+	} else if (isDevelopment()) {
+		base = 'http://localhost:8787';
+    } else {
+        base = 'https://app.blawby.com';
+    }
+
+	const url = new URL('/widget.js', base);
+	if (templateSlug) url.searchParams.set('template', String(templateSlug));
+	return url.toString();
+}
+
+export function getPublicFormOrigin(): string {
+    if (typeof window !== 'undefined' && window.location?.origin) {
+        return window.location.origin;
+    }
+    if (import.meta.env.VITE_PUBLIC_FORM_ORIGIN) {
+        return import.meta.env.VITE_PUBLIC_FORM_ORIGIN;
+    }
+    return 'https://app.blawby.com';
+}
+
 const WIDGET_TOKEN_ALLOWLIST_PATTERNS: RegExp[] = [
 	/^\/api\/conversations(?:\/|$)/,
 	/^\/api\/ai(?:\/|$)/,

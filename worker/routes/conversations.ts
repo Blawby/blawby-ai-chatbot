@@ -220,7 +220,8 @@ export async function handleConversations(request: Request, env: Env): Promise<R
         fromSeq,
         traceId,
         requestSource,
-        viewerId: userId
+        viewerId: userId,
+        viewerIsAnonymous: authContext.isAnonymous
       });
     } catch (error) {
       Logger.error('[Conversations][messages][debug] error in getMessages', {

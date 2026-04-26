@@ -45,6 +45,7 @@ import { resolveIntakeTitle } from '@/features/intake/utils/intakeTitle';
 import { applyConsultationPatchToMetadata } from '@/shared/utils/consultationState';
 import { DEFAULT_INTAKE_TEMPLATE } from '@/shared/constants/intakeTemplates';
 import type { IntakeTemplate, IntakeFieldDefinition } from '@/shared/types/intake';
+import EmbedCodeBlock from '@/features/intake/components/EmbedCodeBlock';
 
 // ── Template helpers ──────────────────────────────────────────────────────────
 
@@ -908,6 +909,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
                 </span>
               ) : null}
             </div>
+            
             {activeTemplate && (practiceDetails as { slug?: string })?.slug ? (
               <Button
                 type="button"
@@ -920,6 +922,14 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
               </Button>
             ) : null}
           </div>
+          {activeTemplate && (practiceDetails as { slug?: string })?.slug && (
+            <div className="mt-4">
+              <EmbedCodeBlock
+                practiceSlug={(practiceDetails as { slug?: string }).slug}
+                templateSlug={activeTemplate.slug}
+              />
+            </div>
+          )}
           {enrichmentFields.length > 0 ? (
             <dl className="grid grid-cols-1 gap-5 md:grid-cols-3">
               {enrichmentFields.map((field) => (

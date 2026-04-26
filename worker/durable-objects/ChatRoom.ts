@@ -111,6 +111,20 @@ export class ChatRoom {
   private readonly presenceCounts = new Map<string, number>();
   private cachedMembershipVersion: number | null = null;
   private membershipCheckedAt: number | null = null;
+  // Cache for conversation.user_info.hideReplies / hide_replies
+  private hideRepliesCache: boolean | null = null;
+
+  private parseUserInfo(value: unknown): Record<string, unknown> | null {
+    if (!value) return null;
+    if (typeof value === 'object' && !Array.isArray(value)) return value as Record<string, unknown>;
+    if (typeof value !== 'string') return null;
+    try {
+      const parsed = JSON.parse(value) as unknown;
+      return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed as Record<string, unknown> : null;
+    } catch {
+      return null;
+    }
+  }
 
   constructor(state: DurableObjectState, env: Env) {
     this.state = state;
@@ -126,6 +140,21 @@ export class ChatRoom {
         return new Response('Method not allowed', { status: 405 });
       }
       return this.handleMembershipRevocation(request);
+    }
+
+    if (url.pathname === '/internal/invalidate-hide-replies') {
+      if (request.method !== 'POST') {
+        return new Response('Method not allowed', { status: 405 });
+      }
+      try {
+        // Accept a body with conversation_id but we clear cache regardless for this DO instance
+        // so that tokenized/negotiated connections won't receive stale behavior.
+        await request.json().catch(() => null);
+      } catch {
+        // ignore
+      }
+      this.hideRepliesCache = null;
+      return new Response(JSON.stringify({ success: true }), { headers: { 'Content-Type': 'application/json' } });
     }
 
     if (url.pathname === '/internal/message') {
@@ -405,7 +434,7 @@ export class ChatRoom {
     }, frame.request_id);
 
     if (result.broadcast) {
-      this.broadcastFrame('message.new', result.broadcast);
+      await this.broadcastFrame('message.new', result.broadcast);
     }
   }
 
@@ -468,7 +497,7 @@ export class ChatRoom {
       return;
     }
 
-    this.broadcastFrame('typing', {
+    void this.broadcastFrame('typing', {
       conversation_id: conversationId,
       user_id: attachment.userId,
       is_typing: isTyping
@@ -526,7 +555,7 @@ export class ChatRoom {
       return;
     }
 
-    this.broadcastFrame('read', {
+    await this.broadcastFrame('read', {
       conversation_id: conversationId,
       user_id: attachment.userId,
       last_read_seq: clamped
@@ -615,7 +644,7 @@ export class ChatRoom {
     }
 
     if (result.broadcast) {
-      this.broadcastFrame('message.new', result.broadcast);
+      await this.broadcastFrame('message.new', result.broadcast);
     }
 
     return new Response(JSON.stringify({
@@ -1058,7 +1087,7 @@ export class ChatRoom {
     this.cachedMembershipVersion = membershipVersion;
     this.membershipCheckedAt = Date.now();
 
-    this.broadcastFrame('membership.changed', {
+    await this.broadcastFrame('membership.changed', {
       conversation_id: conversationId,
       membership_version: membershipVersion
     });
@@ -1133,7 +1162,7 @@ export class ChatRoom {
     if (lastSeen) {
       data.last_seen = lastSeen;
     }
-    this.broadcastFrame('presence', data);
+    void this.broadcastFrame('presence', data);
   }
 
   async alarm(): Promise<void> {
@@ -1443,14 +1472,66 @@ export class ChatRoom {
       data.count = count;
     }
 
-    this.broadcastFrame('reaction.update', data);
+    await this.broadcastFrame('reaction.update', data);
 
     return new Response(JSON.stringify({ success: true }), {
       headers: { 'Content-Type': 'application/json' }
     });
   }
 
-  private broadcastFrame(type: string, data: Record<string, unknown>): void {
+  private async broadcastFrame(type: string, data: Record<string, unknown>): Promise<void> {
+    // Special-case message broadcasts: sanitize per-connection for anonymous
+    // viewers when the conversation requests assistant replies to be hidden.
+    if (type === 'message.new' && typeof data.conversation_id === 'string') {
+      const convId = data.conversation_id as string;
+
+      // Use cached value when available to avoid per-broadcast DB reads.
+      let hideReplies: boolean | null = this.hideRepliesCache;
+      if (hideReplies === null) {
+        try {
+          const row = await this.env.DB.prepare(`SELECT user_info FROM conversations WHERE id = ?`).bind(convId).first<Record<string, unknown> | null>();
+          const parsed = this.parseUserInfo(row?.user_info);
+          hideReplies = Boolean(parsed && (parsed.hideReplies ?? parsed.hide_replies));
+          this.hideRepliesCache = hideReplies;
+        } catch (err) {
+          console.warn('[ChatRoom] Failed to read conversation.user_info for hideReplies, treating this broadcast as hide (fail-closed) but not caching', err);
+          // Fail-closed for this attempt only: set local flag so this broadcast masks replies,
+          // but do NOT persist into `this.hideRepliesCache` so transient DB errors don't
+          // cause prolonged incorrect masking; leave cache population to successful reads.
+          hideReplies = true;
+        }
+      }
+
+      for (const socket of this.state.getWebSockets()) {
+        const attachment = this.getAttachment(socket);
+        if (!attachment?.negotiated) continue;
+
+        if (hideReplies && attachment.isAnonymous) {
+          const role = typeof data.role === 'string' ? data.role : null;
+          const metadata = (data.metadata && typeof data.metadata === 'object') ? data.metadata as Record<string, unknown> : null;
+          const source = metadata && metadata.source ? String(metadata.source).toLowerCase() : '';
+          const isAi = role === 'assistant' || source.startsWith('ai');
+          if (isAi) {
+            const masked: Record<string, unknown> = {
+              ...data,
+              content: '',
+              metadata: { ...(metadata || {}), hidden_reply: true }
+            };
+            if ('attachments' in masked) delete masked.attachments;
+            if (masked.metadata && typeof masked.metadata === 'object' && 'attachments' in (masked.metadata as Record<string, unknown>)) {
+              // Remove any attachment urls in metadata to avoid leaking
+              delete (masked.metadata as Record<string, unknown>).attachments;
+            }
+            this.sendFrame(socket, type, masked);
+            continue;
+          }
+        }
+
+        this.sendFrame(socket, type, data);
+      }
+      return;
+    }
+
     for (const socket of this.state.getWebSockets()) {
       const attachment = this.getAttachment(socket);
       if (!attachment?.negotiated) {
