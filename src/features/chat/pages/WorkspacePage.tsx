@@ -18,20 +18,15 @@ import { Panel } from '@/shared/ui/layout/Panel';
 import { WorkspaceListHeader } from '@/shared/ui/layout/WorkspaceListHeader';
 import type { WorkspacePlaceholderAction } from '@/shared/ui/layout/WorkspacePlaceholderState';
 import { Button } from '@/shared/ui/Button';
-import {
-  addConversationTag,
-  removeConversationTag,
-  updateConversationTriage,
-} from '@/shared/lib/conversationApi';
 import { useWorkspaceConversations } from './hooks/useWorkspaceConversations';
 import { useWorkspaceNavigation, previewTabOptions } from './hooks/useWorkspaceNavigation';
-import { updateConversationMatter } from '@/shared/lib/apiClient';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
 import { resolveConversationDisplayTitle } from '@/shared/utils/conversationDisplay';
 import { resolveConsultationState } from '@/shared/utils/consultationState';
 import { useWorkspaceSetup } from './hooks/useWorkspaceSetup';
 import { useWorkspaceData } from './hooks/useWorkspaceData';
 import { useConversationPreviews } from './hooks/useConversationPreviews';
+import { useWorkspaceInspectorActions } from './hooks/useWorkspaceInspectorActions';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { normalizePracticeRole } from '@/shared/utils/practiceRoles';
@@ -54,7 +49,6 @@ import type { Conversation, ConversationMode } from '@/shared/types/conversation
 import type { LayoutMode } from '@/app/MainApp';
 import type { UserDetailRecord, UserDetailStatus, PracticeDetails } from '@/shared/lib/apiClient';
 import type { BackendMatter } from '@/features/matters/services/mattersApi';
-import type { MatterStatus } from '@/shared/types/matterStatus';
 import type { IntakeConversationState, DerivedIntakeStatus, IntakeFieldChangeOptions } from '@/shared/types/intake';
 import { features } from '@/config/features';
 
@@ -541,6 +535,15 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     handleSaveOnboardingServices,
     handleStartStripeOnboarding,
   } = setup;
+
+  const inspectorActions = useWorkspaceInspectorActions({
+    practiceId: workspacePracticeId,
+    isPracticeWorkspace,
+    selectedConversation,
+    selectedMatterIdFromPath,
+    refreshConversations,
+    showError,
+  });
 
   const recentIntakes = useMemo(() => {
     return allIntakes.slice(0, 3);
@@ -1137,79 +1140,9 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       intakeStatus={intakeStatus}
       onIntakeFieldsChange={onIntakeFieldsChange}
       practiceDetails={practiceDetails}
-      onConversationAssignedToChange={isPracticeWorkspace ? async (assignedTo) => {
-        if (!selectedConversation?.id) return;
-        try {
-          await updateConversationTriage(selectedConversation.id, workspacePracticeId, { assignedTo });
-          await refreshConversations();
-        } catch (error) {
-          console.error('[WorkspacePage] Failed to update assignment:', error);
-          showError('Update Failed', 'Failed to update conversation assignment.');
-        }
-      } : undefined}
-      onConversationPriorityChange={isPracticeWorkspace ? async (priority) => {
-        if (!selectedConversation?.id) return;
-        try {
-          await updateConversationTriage(selectedConversation.id, workspacePracticeId, { priority });
-          await refreshConversations();
-        } catch (error) {
-          console.error('[WorkspacePage] Failed to update priority:', error);
-          showError('Update Failed', 'Failed to update conversation priority.');
-        }
-      } : undefined}
-      onConversationTagsChange={isPracticeWorkspace ? async (nextTags) => {
-        if (!selectedConversation?.id) return;
-        try {
-          const current = new Set((selectedConversation.tags ?? []).map((tag) => tag.trim()).filter(Boolean));
-          const next = new Set(nextTags.map((tag) => tag.trim()).filter(Boolean));
-          const toAdd = [...next].filter((tag) => !current.has(tag));
-          const toRemove = [...current].filter((tag) => !next.has(tag));
-          
-          for (const tag of toAdd) {
-            await addConversationTag(selectedConversation.id, workspacePracticeId, tag);
-          }
-          for (const tag of toRemove) {
-            await removeConversationTag(selectedConversation.id, workspacePracticeId, tag);
-          }
-          
-          await refreshConversations();
-        } catch (error) {
-          console.error('[WorkspacePage] Failed to update tags:', error);
-          showError('Update Failed', 'Failed to update conversation tags.');
-        }
-      } : undefined}
-      onConversationMatterChange={isPracticeWorkspace ? async (matterId) => {
-        if (!selectedConversation?.id) return;
-        try {
-          await updateConversationMatter(selectedConversation.id, matterId);
-          await refreshConversations();
-        } catch (error) {
-          console.error('[WorkspacePage] Failed to update matter:', error);
-          showError('Update Failed', 'Failed to link matter to conversation.');
-        }
-      } : undefined}
+      {...inspectorActions}
       onClose={() => setIsInspectorOpen(false)}
       matters={mattersData.items}
-      onMatterStatusChange={(status: MatterStatus) => {
-        if (typeof window === 'undefined' || !selectedMatterIdFromPath) return;
-        window.dispatchEvent(
-          new CustomEvent('workspace:matter-status-change', {
-            detail: { matterId: selectedMatterIdFromPath, status },
-          })
-        );
-      }}
-      onMatterPatchChange={(patch) => {
-        if (typeof window === 'undefined' || !selectedMatterIdFromPath) {
-          return Promise.resolve();
-        }
-        return new Promise<void>((resolve, reject) => {
-          window.dispatchEvent(
-            new CustomEvent('workspace:matter-patch-change', {
-              detail: { matterId: selectedMatterIdFromPath, patch, resolve, reject },
-            })
-          );
-        });
-      }}
       matterClientOptions={matterClientOptions}
       matterClients={matterClientPeople}
       matterAssigneeOptions={matterAssigneeOptions}
