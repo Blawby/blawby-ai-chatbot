@@ -63,7 +63,7 @@ const criticalCssPlugin = (): Plugin => {
 				globalThis.setTimeout(() => resolve(), 100);
 			});
 
-			const Critters = (await import('critters')).default;
+			const Critters = (await import('beasties')).default;
 			const critters = new Critters({
 				// Critters options
 				preload: 'media',
@@ -86,7 +86,7 @@ const criticalCssPlugin = (): Plugin => {
 
 				// Process the main HTML file
 				const html = await fs.readFile('dist/index.html', 'utf8');
-				const processed = await critters.process(html, { path: 'dist/index.html' });
+				const processed = await critters.process(html);
 				await fs.writeFile('dist/index.html', processed);
 				console.log('✅ Critical CSS inlined successfully');
 			} catch (e) {
@@ -293,15 +293,10 @@ export default defineConfig(({ mode }: ConfigEnv) => {
 					]
 				},
 				workbox: {
-					// Precache app shell assets only — exclude static standalone pages
-					// and the widget script (they are served directly by Cloudflare Pages).
-					globPatterns: ['**/*.{js,css,svg,png,jpg,jpeg,gif,webp,html}'],
-					globIgnores: [
-						'widget-loader.js',
-						'widget-test.html',
-						'mock-embed.html',
-						'stats.html',
-					],
+					// Precache only app shell JS/CSS and PWA icons.
+					// Images, HTML pages, and widget assets are served by Cloudflare Pages directly.
+					globPatterns: ['assets/**/*.{js,css}', 'assets/images/icon-*.svg'],
+					globIgnores: [],
 					navigateFallbackDenylist: [
 						// Never route API or auth requests through the SPA
 						/^\/api\//,

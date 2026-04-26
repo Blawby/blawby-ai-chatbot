@@ -95,7 +95,6 @@
     "autoprefixer": "^10.4.21",
     "baseline-browser-mapping": "^2.9.15",
     "concurrently": "^8.2.2",
-    "critters": "^0.0.25",
     "eslint": "^9.39.2",
     "eslint-plugin-jsx-a11y": "^6.10.2",
     "eslint-plugin-react": "^7.37.5",
