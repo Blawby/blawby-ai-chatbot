@@ -49,7 +49,7 @@ export const Switch = ({
       : 'border border-slate-400/35 bg-slate-300 focus:ring-slate-400 dark:border-slate-500/40 dark:bg-slate-600';
 
   const thumbClasses = disabled
-    ? 'bg-slate-50 dark:bg-slate-100'
+    ? 'bg-slate-300 dark:bg-slate-100'
     : 'bg-white';
 
   return (
