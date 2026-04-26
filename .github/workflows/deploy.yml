@@ -171,6 +171,9 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Bundle size budget check
+        run: npm run build:check-size
+
       - name: Debug - list build output
         run: |
           pwd
