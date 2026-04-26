@@ -87,6 +87,13 @@ tests/e2e/fixtures/e2e-credentials.json
 
 # Playwright test results and artifacts
 playwright/results/
+playwright-report/
+test-results/
+.playwright-mcp/
+.playwright-artifacts-*/
+*.trace
+trace.zip
+*.network
 
 # Billing plan (sensitive financial/pricing information)
 BILLING_PLAN.md
