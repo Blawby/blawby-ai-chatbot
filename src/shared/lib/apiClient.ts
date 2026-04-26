@@ -1364,7 +1364,20 @@ export async function updatePracticeDetails(
   if (import.meta.env.DEV) {
     try {
       const sanitized: Record<string, unknown> = { ...(normalized as Record<string, unknown>) };
-      // Remove or mask sensitive fields
+      // Deep-clone the address object so deleting keys doesn't mutate the
+      // original `normalized` object (avoid side-effects).
+      if (sanitized.address && typeof sanitized.address === 'object') {
+        try {
+          // Use structuredClone when available, otherwise fallback to JSON round-trip.
+          const structuredCloneFn = (globalThis as unknown as { structuredClone?: (v: unknown) => unknown }).structuredClone;
+          sanitized.address = typeof structuredCloneFn === 'function'
+            ? structuredCloneFn(sanitized.address)
+            : JSON.parse(JSON.stringify(sanitized.address));
+        } catch {
+          sanitized.address = JSON.parse(JSON.stringify(sanitized.address));
+        }
+      }
+      // Remove or mask sensitive fields from the sanitized copy
       delete sanitized.business_email;
       delete sanitized.business_phone;
       if (sanitized.address && typeof sanitized.address === 'object') {
@@ -1434,6 +1447,11 @@ export async function updatePracticeDetails(
     }
   } catch (err) {
     if (import.meta.env.DEV) console.error('[apiClient] updatePracticeDetails: failed refetching practice details', err);
+    // If we already have a normalized result from the PUT response, prefer
+    // returning that rather than rethrowing — refetch failures should be
+    // best-effort and not surface as hard failures for callers who already
+    // received a successful update payload.
+    if (normalizedResult !== null) return normalizedResult;
     throw err;
   }
 
@@ -1829,8 +1847,17 @@ function normalizePracticeDetailsPayload(payload: PracticeDetailsUpdate): Record
       }
       base.services_by_state = payload.servicesByState;
       normalized.settings = JSON.stringify(base);
-    } catch {
-      // Fall back to leaving settings alone if merge fails.
+    } catch (err) {
+      // If merging the provided settings failed, surface the error in DEV
+      // and ensure we still send the services_by_state payload so callers
+      // don't lose this write. Preserve the expected shape inside `settings`.
+      if (import.meta.env.DEV) console.error('[apiClient] Failed to merge servicesByState into settings', err);
+      try {
+        normalized.settings = JSON.stringify({ services_by_state: payload.servicesByState });
+      } catch {
+        // Last-resort: stringify a minimal fallback representation.
+        normalized.settings = `{"services_by_state":${JSON.stringify(payload.servicesByState)}}`;
+      }
     }
   }
 

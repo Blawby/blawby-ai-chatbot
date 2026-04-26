@@ -51,7 +51,7 @@ export const ServicesByStateEditor = ({ licensedStates, value, onChange, onRemov
                 type="button"
                 className="text-sm text-accent-error"
                 onClick={() => onRemove(stateCode)}
-                aria-label={t('settings:practice.servicesByState.remove', { defaultValue: `Remove ${label}`, label })}
+                aria-label={t('settings:practice.servicesByState.remove', { defaultValue: 'Remove {{label}}', label })}
               >
                 {t('settings:practice.servicesByState.removeShort', { defaultValue: 'Remove' })}
               </button>

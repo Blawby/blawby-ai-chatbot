@@ -22,7 +22,7 @@
   },
   "redirecting": "Redirecting settings...",
   "practice": {
-    "services": "Services",
+    "servicesNavLabel": "Services",
     "manageServices": "Manage services",
     "team": "Team Members",
     "page": {
@@ -65,11 +65,13 @@
       "description": "Used in public practice details and intake flows.",
       "helper": "Leave fields blank to clear them."
     },
-    "servicesTitle": "Services",
-    "servicesDescription": "Choose the legal service areas this practice accepts for routing and intake setup.",
+    "services": {
+      "title": "Services",
+      "description": "Choose the legal service areas this practice accepts for routing and intake setup.",
+      "addStatesHeading": "Add state",
+      "servicesPerStateHeading": "Services per state"
+    },
     "licensedStates": {
-      "title": "States",
-      "description": "Choose one or more states where this practice operates.",
       "placeholder": "Select states"
     },
     "servicesByState": {
@@ -87,7 +89,6 @@
         "title": "Practice settings save failed",
         "body": "Unable to save your practice settings. Please try again."
       },
-      
       "logoUploadFailed": {
         "title": "Logo upload failed",
         "body": "Unable to upload your logo. Please try again."

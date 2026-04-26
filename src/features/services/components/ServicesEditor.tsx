@@ -53,7 +53,7 @@ export const ServicesEditor = ({
 
   return (
     <Combobox
-      label={t('settings:practice.services')}
+      label={t('settings:practice.servicesNavLabel')}
       placeholder={t('common:forms.placeholders.select')}
       addNewLabel={t('settings:account.links.addButton')}
       options={options}
