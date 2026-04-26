@@ -330,6 +330,14 @@ export default defineConfig(({ mode }: ConfigEnv) => {
 					data: {
 						title: 'Blawby Chat',
 						description: 'Chat interface for Blawby AI assistant',
+						workerApiOrigin: (() => {
+							try {
+								const raw = process.env.VITE_WORKER_API_URL ?? '';
+								return raw ? new URL(raw).origin : '';
+							} catch {
+								return '';
+							}
+						})(),
 					}
 				}
 			}),
