@@ -10,7 +10,6 @@ import { StatusDot } from '../atoms/StatusDot';
 import { NotificationDot } from '../atoms/NotificationDot';
 import { MatterStatus } from '@/shared/types/matter';
 import type { IconComponent } from '@/shared/ui/Icon';
-import { SELECTED_ACCENT_SURFACE_CLASS, SELECTED_ACCENT_TEXT_CLASS } from '@/shared/ui/layout/selectionStyles';
 
 /**
  * Translates matter status to user-friendly screen reader text
@@ -56,7 +55,7 @@ export const NavigationItem = ({
   const baseClasses = 'flex items-center w-full rounded-xl text-left transition-colors';
   const collapsedClasses = isCollapsed ? 'justify-center py-2' : 'gap-2 px-2 py-2';
   const activeClasses = isActive
-    ? `${SELECTED_ACCENT_SURFACE_CLASS} ${SELECTED_ACCENT_TEXT_CLASS} shadow-sm`
+    ? 'nav-item-active'
     : 'text-input-text hover:bg-surface-utility/40 dark:hover:bg-surface-utility/10';
   const labelClasses = hasUnread ? 'font-semibold' : 'font-medium';
 
