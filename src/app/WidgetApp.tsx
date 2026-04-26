@@ -38,6 +38,10 @@ import type { IntakeTemplate } from '@/shared/types/intake';
 import type { AuthSessionPayload } from '@/shared/types/user';
 import { DEFAULT_INTAKE_TEMPLATE } from '@/shared/constants/intakeTemplates';
 
+// Widget mode never supports file uploads — stable references avoid ChatContainer re-renders.
+const EMPTY_FILE_ATTACHMENTS: FileAttachment[] = [];
+const EMPTY_UPLOADING_FILES: UploadingFile[] = [];
+
 const safeGetSessionItem = (key: string): string | null => {
   if (typeof window === 'undefined') return null;
   try {
@@ -431,8 +435,8 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
   const attachmentsDisabledMessage = t('chat.attachments.disabled');
 
   // File Uploads
-  const previewFiles = useMemo<FileAttachment[]>(() => [], []);
-  const uploadingFiles = useMemo<UploadingFile[]>(() => [], []);
+  const previewFiles = EMPTY_FILE_ATTACHMENTS;
+  const uploadingFiles = EMPTY_UPLOADING_FILES;
   const isReadyToUpload = features.enableFileAttachments;
   const handleFileSelect = useCallback(async (_files: File[]) => {
     if (!features.enableFileAttachments) {
