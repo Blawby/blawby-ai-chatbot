@@ -3,7 +3,7 @@ import type { ComponentChildren } from 'preact';
 import ChatContainer from '@/features/chat/components/ChatContainer';
 import DragDropOverlay from '@/shared/ui/DragDropOverlay';
 import WorkspacePage from '@/features/chat/pages/WorkspacePage';
-import { useSessionContext } from '@/shared/contexts/SessionContext';
+import { useSessionContext, useMemberRoleContext } from '@/shared/contexts/SessionContext';
 import { RoutePracticeProvider } from '@/shared/contexts/RoutePracticeContext';
 import { IntakeProvider } from '@/shared/contexts/IntakeContext';
 import type { UIPracticeConfig } from '@/shared/hooks/usePracticeConfig';
@@ -126,7 +126,8 @@ export function MainApp({
   });
 
   // ── workspace routing — single source of truth ────────────────────────────
-  const { session, isPending: sessionIsPending, isAnonymous, activeMemberRole } = useSessionContext();
+  const { session, isPending: sessionIsPending, isAnonymous } = useSessionContext();
+  const { activeMemberRole } = useMemberRoleContext();
 
   // ── practice details (accent color) ───────────────────────────────────────
   // For the public workspace, prefer practiceConfig.id (UUID) as the store key.

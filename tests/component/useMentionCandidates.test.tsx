@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/preact';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useMentionCandidates } from '@/shared/hooks/useMentionCandidates';
-import { SessionContext, type SessionContextValue } from '@/shared/contexts/SessionContext';
+import { SessionContext, MemberRoleContext, type SessionContextValue, type MemberRoleContextValue } from '@/shared/contexts/SessionContext';
 
 const mocks = vi.hoisted(() => ({
   getParticipantsMock: vi.fn(),
@@ -28,15 +28,25 @@ const createSessionContext = (overrides: Partial<SessionContextValue> = {}): Ses
   isAnonymous: false,
   stripeCustomerId: null,
   activePracticeId: 'practice-1',
+  ...overrides,
+});
+
+const createMemberRoleContext = (overrides: Partial<MemberRoleContextValue> = {}): MemberRoleContextValue => ({
   activeMemberRole: null,
   activeMemberRoleLoading: false,
   ...overrides,
 });
 
-const renderHarness = (contextValue: SessionContextValue, props: { practiceId: string | null; conversationId: string | null }) => (
+const renderHarness = (
+  contextValue: SessionContextValue,
+  roleValue: MemberRoleContextValue,
+  props: { practiceId: string | null; conversationId: string | null }
+) => (
   render(
     <SessionContext.Provider value={contextValue}>
-      <Harness {...props} />
+      <MemberRoleContext.Provider value={roleValue}>
+        <Harness {...props} />
+      </MemberRoleContext.Provider>
     </SessionContext.Provider>
   )
 );
@@ -52,7 +62,7 @@ describe('useMentionCandidates', () => {
       { userId: 'blocked-1', name: 'Blocked Client', image: null, role: null, isTeamMember: false, canBeMentionedByTeamMember: false, canBeMentionedByClient: true },
     ]);
 
-    renderHarness(createSessionContext({ activeMemberRole: 'attorney' }), {
+    renderHarness(createSessionContext(), createMemberRoleContext({ activeMemberRole: 'attorney' }), {
       practiceId: 'practice-1',
       conversationId: 'conversation-1',
     });
@@ -70,7 +80,7 @@ describe('useMentionCandidates', () => {
       { userId: 'blocked-1', name: 'Blocked Client', image: null, role: null, isTeamMember: false, canBeMentionedByTeamMember: true, canBeMentionedByClient: false },
     ]);
 
-    renderHarness(createSessionContext({ activeMemberRole: null }), {
+    renderHarness(createSessionContext(), createMemberRoleContext({ activeMemberRole: null }), {
       practiceId: 'practice-1',
       conversationId: 'conversation-1',
     });
@@ -89,7 +99,7 @@ describe('useMentionCandidates', () => {
       { userId: 'team-3', name: 'Valid Name', image: null, role: 'attorney', isTeamMember: true, canBeMentionedByTeamMember: true, canBeMentionedByClient: true },
     ]);
 
-    renderHarness(createSessionContext({ activeMemberRole: 'attorney' }), {
+    renderHarness(createSessionContext(), createMemberRoleContext({ activeMemberRole: 'attorney' }), {
       practiceId: 'practice-1',
       conversationId: 'conversation-1',
     });
@@ -107,7 +117,7 @@ describe('useMentionCandidates', () => {
     ];
     mocks.getParticipantsMock.mockResolvedValue(participants);
 
-    renderHarness(createSessionContext({ activeMemberRole: 'attorney' }), {
+    renderHarness(createSessionContext(), createMemberRoleContext({ activeMemberRole: 'attorney' }), {
       practiceId: 'practice-1',
       conversationId: 'conversation-1',
     });
@@ -124,8 +134,9 @@ describe('useMentionCandidates', () => {
   it('clears participant cache when the practice changes', async () => {
     mocks.getParticipantsMock.mockResolvedValue([]);
 
-    const contextValue = createSessionContext({ activeMemberRole: 'attorney' });
-    const view = renderHarness(contextValue, {
+    const contextValue = createSessionContext();
+    const roleValue = createMemberRoleContext({ activeMemberRole: 'attorney' });
+    const view = renderHarness(contextValue, roleValue, {
       practiceId: 'practice-1',
       conversationId: 'conversation-1',
     });
@@ -136,7 +147,9 @@ describe('useMentionCandidates', () => {
 
     view.rerender(
       <SessionContext.Provider value={contextValue}>
-        <Harness practiceId="practice-2" conversationId="conversation-1" />
+        <MemberRoleContext.Provider value={roleValue}>
+          <Harness practiceId="practice-2" conversationId="conversation-1" />
+        </MemberRoleContext.Provider>
       </SessionContext.Provider>
     );
 

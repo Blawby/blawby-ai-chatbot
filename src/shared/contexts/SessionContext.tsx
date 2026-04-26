@@ -12,11 +12,15 @@ export interface SessionContextValue {
   isAnonymous: boolean;
   stripeCustomerId: string | null;
   activePracticeId: string | null;
+}
+
+export interface MemberRoleContextValue {
   activeMemberRole: string | null;
   activeMemberRoleLoading: boolean;
 }
 
 export const SessionContext = createContext<SessionContextValue | undefined>(undefined);
+export const MemberRoleContext = createContext<MemberRoleContextValue>({ activeMemberRole: null, activeMemberRoleLoading: false });
 
 type SessionData = AuthSessionPayload | null | undefined;
 type ActiveMemberRoleState = {
@@ -38,17 +42,12 @@ const buildSessionContextValue = ({
   sessionData,
   isPending,
   error,
-  activeMemberRole,
-  activeMemberRoleLoading,
 }: {
   sessionData: SessionData | null | undefined;
   isPending: boolean;
   error: unknown;
-  activeMemberRole: string | null;
-  activeMemberRoleLoading: boolean;
 }): SessionContextValue => {
   const userRecord = sessionData?.user as BackendSessionUser | undefined;
-  // Rely on backend field names only
   const isAnonymous = userRecord?.is_anonymous === true;
   const stripeCustomerId = typeof userRecord?.stripe_customer_id === 'string'
     ? userRecord.stripe_customer_id
@@ -62,8 +61,6 @@ const buildSessionContextValue = ({
     isAnonymous,
     stripeCustomerId,
     activePracticeId,
-    activeMemberRole,
-    activeMemberRoleLoading,
   };
 };
 
@@ -176,10 +173,16 @@ export function SessionProvider({ children }: { children: ComponentChildren }) {
       sessionData,
       isPending,
       error: error || activeMemberRoleState.error,
+    }),
+    [activeMemberRoleState.error, error, isPending, sessionData]
+  );
+
+  const memberRoleValue = useMemo(
+    () => ({
       activeMemberRole: activeMemberRoleState.role,
       activeMemberRoleLoading: effectiveActiveMemberRoleLoading,
     }),
-    [activeMemberRoleState.role, activeMemberRoleState.error, effectiveActiveMemberRoleLoading, error, isPending, sessionData]
+    [activeMemberRoleState.role, effectiveActiveMemberRoleLoading]
   );
 
   const valueUserId = value.session?.user?.id ?? null;
@@ -199,15 +202,21 @@ export function SessionProvider({ children }: { children: ComponentChildren }) {
 
   return (
     <SessionContext.Provider value={value}>
-      {shouldResolveActiveMemberRole ? (
-        <ActiveMemberRoleBridge 
-          onChange={setActiveMemberRoleState} 
-          activePracticeId={sessionActivePracticeId} 
-        />
-      ) : null}
-      {children}
+      <MemberRoleContext.Provider value={memberRoleValue}>
+        {shouldResolveActiveMemberRole ? (
+          <ActiveMemberRoleBridge
+            onChange={setActiveMemberRoleState}
+            activePracticeId={sessionActivePracticeId}
+          />
+        ) : null}
+        {children}
+      </MemberRoleContext.Provider>
     </SessionContext.Provider>
   );
+}
+
+export function useMemberRoleContext(): MemberRoleContextValue {
+  return useContext(MemberRoleContext);
 }
 
 export function useSessionContext() {

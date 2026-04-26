@@ -14,7 +14,7 @@ import { Switch } from '@/shared/ui/input/Switch';
 import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
 import { usePracticeTeam } from '@/shared/hooks/usePracticeTeam';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
-import { useSessionContext } from '@/shared/contexts/SessionContext';
+import { useSessionContext, useMemberRoleContext } from '@/shared/contexts/SessionContext';
 import { normalizePracticeRole } from '@/shared/utils/practiceRoles';
 import { useLocation } from 'preact-iso';
 interface PracticeService {
@@ -45,7 +45,8 @@ export const PracticeOverviewPage = ({
   className,
   onNavigate,
 }: PracticeOverviewPageProps) => {
-  const { session, activeMemberRole } = useSessionContext();
+  const { session } = useSessionContext();
+  const { activeMemberRole } = useMemberRoleContext();
   const { currentPractice, updatePracticeDetails } = usePracticeManagement({ fetchPracticeDetails: true });
   const practice = currentPractice ?? null;
   const practiceId = practice?.id ?? null;

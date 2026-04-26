@@ -579,7 +579,7 @@ function PracticeAppRoute({
   settingsView?: 'general' | 'notifications' | 'account' | 'practice' | 'practice-contact' | 'practice-payouts' | 'practice-coverage' | 'practice-team' | 'apps' | 'app-detail' | 'security' | 'help';
   practiceSlug?: string;
 }) {
-  const { session, isPending, activeMemberRole: _activeMemberRole } = useSessionContext();
+  const { session, isPending } = useSessionContext();
   const normalizedPracticeSlug = (practiceSlug ?? '').trim();
   const hasPracticeSlug = normalizedPracticeSlug.length > 0;
   const {
@@ -832,7 +832,7 @@ function PublicPracticeRoute({
   workspaceView?: 'home' | 'list' | 'conversation' | 'matters';
 }) {
   const location = useLocation();
-  const { session: _session, isPending: _sessionIsPending, activeMemberRole: _activeMemberRole } = useSessionContext();
+  const { session: _session, isPending: _sessionIsPending } = useSessionContext();
   const { navigate: _navigate } = useNavigation();
   const _handlePracticeError = useCallback((error: string) => {
     console.error('Practice config error:', error);

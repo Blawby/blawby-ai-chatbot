@@ -17,7 +17,7 @@ import { splitName } from '@/shared/utils/name';
 import { usePracticeManagement, type Invitation } from '@/shared/hooks/usePracticeManagement';
 import { usePracticeInvitations } from '@/shared/hooks/usePracticeInvitations';
 import { useToastContext } from '@/shared/contexts/ToastContext';
-import { useSessionContext } from '@/shared/contexts/SessionContext';
+import { useSessionContext, useMemberRoleContext } from '@/shared/contexts/SessionContext';
 import { usePracticeTeam } from '@/shared/hooks/usePracticeTeam';
 import { SettingsHelperText } from '@/features/settings/components/SettingsHelperText';
 import {
@@ -325,7 +325,8 @@ export const PracticeContactsPage = ({
   const { t } = useTranslation();
   const location = useLocation();
   const { currentPractice } = usePracticeManagement();
-  const { session, activeMemberRole } = useSessionContext();
+  const { session } = useSessionContext();
+  const { activeMemberRole } = useMemberRoleContext();
   const { showError, showSuccess } = useToastContext();
   const normalizedActiveRole = normalizePracticeRole(activeMemberRole);
   const isAdmin = normalizedActiveRole === 'owner' || normalizedActiveRole === 'admin';

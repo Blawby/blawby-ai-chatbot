@@ -28,7 +28,7 @@ import { useWorkspaceData } from './hooks/useWorkspaceData';
 import { useConversationPreviews } from './hooks/useConversationPreviews';
 import { useWorkspaceInspectorActions } from './hooks/useWorkspaceInspectorActions';
 import { useToastContext } from '@/shared/contexts/ToastContext';
-import { useSessionContext } from '@/shared/contexts/SessionContext';
+import { useSessionContext, useMemberRoleContext } from '@/shared/contexts/SessionContext';
 import { normalizePracticeRole } from '@/shared/utils/practiceRoles';
 import {
   getWorkspaceActiveHref,
@@ -191,7 +191,8 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   const isPracticeWorkspace = workspace === 'practice';
   const isClientWorkspace = workspace === 'client';
 
-  const { session, isPending: isSessionPending, isAnonymous, activeMemberRole } = useSessionContext();
+  const { session, isPending: isSessionPending, isAnonymous } = useSessionContext();
+  const { activeMemberRole } = useMemberRoleContext();
   const sessionUserId = session?.user?.id ?? null;
   const normalizedRole = normalizePracticeRole(activeMemberRole);
 
