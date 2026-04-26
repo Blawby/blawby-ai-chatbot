@@ -1118,6 +1118,22 @@ async function mountClientApp() {
 
 if (typeof window !== 'undefined') {
   mountClientApp();
+  // Sample 10% of sessions for web vitals reporting
+  if (Math.random() < 0.1) {
+    import('web-vitals').then(({ onLCP, onINP, onCLS }) => {
+      const report = (metric: { name: string; value: number; id: string }) => {
+        void fetch('/api/metrics/vitals', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(metric),
+          keepalive: true,
+        });
+      };
+      onLCP(report);
+      onINP(report);
+      onCLS(report);
+    });
+  }
 }
 
 export async function prerender() {

@@ -17,6 +17,7 @@ import {
   handleParalegal,
   handleWidgetBootstrap,
   handleBillingSummary,
+  handleMetricsVitals,
 } from './routes';
 import { handleConversations } from './routes/conversations.js';
 import { handleAiChat } from './routes/aiChat.js';
@@ -127,6 +128,8 @@ async function handleRequestInternal(request: Request, env: Env, _ctx: Execution
       response = await handleSearch(request, env);
     } else if (path.startsWith('/api/ai/chat')) {
       response = await handleAiChat(request, env, _ctx);
+    } else if (path === '/api/metrics/vitals') {
+      response = await handleMetricsVitals(request, env);
     } else if (path === '/api/health') {
       response = await handleHealth(request, env);
     } else if (path === '/') {
