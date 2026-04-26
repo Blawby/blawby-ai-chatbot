@@ -80,7 +80,7 @@ export function useActivity(options: UseActivityOptions): UseActivityResult {
     return params.toString();
   }, [practiceId, matterId, conversationId, limit, since, until, type, actorType]);
 
-  const fetchActivity = useCallback(async (isLoadMore = false) => {
+  const fetchActivity = useCallback(async (isLoadMore = false, signal?: AbortSignal) => {
     if (!enabled) {
       // Feature-flagged off: Activity is not yet migrated to staging-api.
       // TODO(activity): switch to staging-api endpoint and remove this guard.
@@ -96,11 +96,11 @@ export function useActivity(options: UseActivityOptions): UseActivityResult {
     try {
       const queryParams = buildQueryParams();
       const url = `/api/activity?${queryParams}`;
-      
+
       const headers: Record<string, string> = {
         'Content-Type': 'application/json'
       };
-      
+
       // Add conditional request headers for caching
       if (etag && !isLoadMore) {
         headers['If-None-Match'] = etag;
@@ -112,7 +112,8 @@ export function useActivity(options: UseActivityOptions): UseActivityResult {
       const response = await fetch(url, {
         method: 'GET',
         headers,
-        credentials: 'include' // Include cookies for session authentication
+        credentials: 'include',
+        signal,
       });
 
       // Handle 304 Not Modified
@@ -163,13 +164,9 @@ export function useActivity(options: UseActivityOptions): UseActivityResult {
       nextCursorRef.current = result.nextCursor;
 
     } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') return;
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch activity';
       setError(errorMessage);
-      // Log error for debugging in development
-      if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
-         
-        console.error('Activity fetch error:', err);
-      }
     } finally {
       setLoading(false);
     }
@@ -198,10 +195,11 @@ export function useActivity(options: UseActivityOptions): UseActivityResult {
 
   // Initial load
   useEffect(() => {
-    if (enabled && practiceId) {
-      refresh();
-    }
-  }, [enabled, practiceId, refresh]);
+    if (!enabled || !practiceId) return;
+    const controller = new AbortController();
+    void fetchActivity(false, controller.signal);
+    return () => controller.abort();
+  }, [enabled, practiceId, fetchActivity]);
 
   return {
     events,
