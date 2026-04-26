@@ -762,15 +762,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                             replyPreview={replyPreview ?? undefined}
                             onReplyPreviewClick={replyPreview ? () => scrollToMessage(replyPreview.messageId) : undefined}
                             reactions={message.reactions}
-                            onReply={canReply ? () => {
-                                if (!onReply) return;
-                                onReply({
-                                    messageId: message.id,
-                                    authorName: avatar?.name || 'Unknown',
-                                    content: message.content,
-                                    avatar
-                                });
-                            } : undefined}
+                            onReply={canReply ? onReply : undefined}
                             onToggleReaction={onToggleReaction && features.enableMessageReactions ? (emoji: string) => {
                                 if (!message.id) return;
                                 onToggleReaction(message.id, emoji);

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'preact/hooks';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { forwardRef, useImperativeHandle } from 'preact/compat';
 import { PlusIcon } from '@heroicons/react/24/outline';
 import { Button } from '@/shared/ui/Button';
@@ -225,7 +225,8 @@ export const InvoiceForm = forwardRef<InvoiceFormHandle, InvoiceFormProps>(({
   }, [markDirty]);
 
   const total = useMemo(() => lineItems.reduce((acc, item) => safeAdd(acc, item.line_total), asMajor(0)), [lineItems]);
-  const previewIssueDate = useMemo(() => new Date(), []);
+  const previewIssueDateRef = useRef(new Date());
+  const previewIssueDate = previewIssueDateRef.current;
 
   // Preview toggle and last-saved timestamp
   const [showPreview, setShowPreview] = useState(true);

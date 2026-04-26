@@ -1,4 +1,4 @@
-import { FunctionComponent } from 'preact';
+import { FunctionComponent, memo } from 'preact/compat';
 import { useEffect, useRef, useCallback } from 'preact/hooks';
 import { CheckCircleIcon, ExclamationTriangleIcon, InformationCircleIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import { Icon } from '@/shared/ui/Icon';
@@ -92,4 +92,4 @@ const ToastComponent: FunctionComponent<ToastProps> = ({ toast, onRemove }) => {
   );
 };
 
-export default ToastComponent;
+export default memo(ToastComponent);

@@ -1,5 +1,6 @@
 import { FunctionComponent } from 'preact';
 import { memo } from 'preact/compat';
+import { useCallback } from 'preact/hooks';
 import { FileAttachment, MessageReaction } from '../../../../worker/types';
 import type { IntakePaymentRequest } from '@/shared/utils/intakePayments';
 import { AIThinkingIndicator } from './AIThinkingIndicator';
@@ -77,7 +78,7 @@ interface MessageProps {
 	replyPreview?: ReplyTarget;
 	reactions?: MessageReaction[];
 	onReplyPreviewClick?: () => void;
-	onReply?: () => void;
+	onReply?: (target: ReplyTarget) => void;
 	onToggleReaction?: (emoji: string) => void;
 	practiceConfig?: {
 		name: string;
@@ -183,6 +184,16 @@ const Message: FunctionComponent<MessageProps> = memo(({
 	// Avatar size based on message size
 	const avatarSize = size === 'sm' ? 'sm' : 'lg';
 	const quickReactions = ['👍', '👀', '😂', '❤️'];
+	const handleReply = useCallback(() => {
+		if (!onReply) return;
+		onReply({
+			messageId: _id ?? '',
+			authorName: authorName ?? avatar?.name ?? 'Unknown',
+			content,
+			avatar,
+		});
+	}, [onReply, _id, authorName, avatar, content]);
+
 	const showActions = !hideMessageActions && Boolean(onReply || (onToggleReaction && features.enableMessageReactions));
 	const hasReactions = reactions.length > 0 && features.enableMessageReactions;
 	const hasReplyPreview = Boolean(replyPreview);
@@ -225,7 +236,7 @@ const Message: FunctionComponent<MessageProps> = memo(({
 							type="button"
 							className="message-action-btn"
 							aria-label="Reply to message"
-							onClick={onReply}
+							onClick={handleReply}
 						>
 							<Icon icon={ArrowUturnLeftIcon} className="h-4 w-4"  />
 						</button>
