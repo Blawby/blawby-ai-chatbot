@@ -797,6 +797,8 @@ export async function updatePractice(
       signal: config?.signal
     }
   );
+  queryCache.invalidate(`practice:${practiceId}`);
+  queryCache.invalidate('practices:list');
   return unwrapPracticeResponse(response.data);
 }
 
@@ -810,6 +812,8 @@ export async function deletePractice(
   await apiClient.delete(`/api/practice/${encodeURIComponent(practiceId)}`, {
     signal: config?.signal
   });
+  queryCache.invalidate(`practice:${practiceId}`);
+  queryCache.invalidate('practices:list');
 }
 
 export async function setActivePractice(practiceId: string): Promise<void> {
@@ -1381,6 +1385,7 @@ export async function updatePracticeDetails(
     normalized,
     { signal: config?.signal }
   );
+  queryCache.invalidate(`practice:details:${practiceId}`);
   return normalizePracticeDetailsResponse(response.data);
 }
 
