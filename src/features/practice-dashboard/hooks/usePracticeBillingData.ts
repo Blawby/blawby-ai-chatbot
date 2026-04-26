@@ -72,6 +72,15 @@ type UsePracticeBillingDataProps = {
   windowSize?: BillingWindow;
   /** Pre-fetched matters list. When provided, the internal listMatters call is skipped. */
   matters?: BackendMatter[];
+  /**
+   * Whether to fetch per-matter unbilled summaries. Defaults to true.
+   * When false, the N+1 fan-out loop is skipped: `unbilledTotal` is null for
+   * every matter, the "Ready to invoice" stat reads $0, and "Create invoice"
+   * billing actions are not surfaced. The dashboard opts out of this fetch to
+   * eliminate ~50 backend calls on cold load (issue #529, Phase 1.1). A worker
+   * aggregation endpoint will replace the per-matter fan-out in a follow-up.
+   */
+  loadUnbilled?: boolean;
 };
 
 type MatterBillingSnapshot = {
@@ -177,6 +186,7 @@ export const usePracticeBillingData = ({
   matterLimit = 15,
   windowSize = '7d',
   matters: externalMatters,
+  loadUnbilled = true,
 }: UsePracticeBillingDataProps) => {
   const [billingActions, setBillingActions] = useState<BillingAction[]>([]);
   const [outstandingSummary, setOutstandingSummary] = useState<OutstandingPaymentsSummary | null>(null);
@@ -291,33 +301,35 @@ export const usePracticeBillingData = ({
         return map;
       }, new Map());
 
-      // Run unbilled summary requests in small batches to avoid large
-      // concurrent request bursts which increase the chance of AbortErrors
-      // when parent effects clean up. This reduces network churn and
-      // improves stability on slow/latency-sensitive networks.
-      const batchSize = 4;
-      const unbilledSnapshots: PromiseSettledResult<MajorAmount | null>[] = [];
-      for (let i = 0; i < matterSubset.length; i += batchSize) {
-        const batch = matterSubset.slice(i, i + batchSize);
-        const batchPromises = batch.map(async (matter) => {
-          try {
-            const summary = await getUnbilledSummary(practiceId, matter.id, { signal });
-            return summary.totalUnbilled ?? null;
-          } catch (err) {
-            if ((err as DOMException)?.name === 'AbortError' || (err as { name?: string })?.name === 'CanceledError') {
+      // Per-matter unbilled summaries fan out N+1 requests (one per matter).
+      // When `loadUnbilled` is false, skip the loop entirely — see prop docs.
+      let unbilledSnapshots: PromiseSettledResult<MajorAmount | null>[];
+      if (loadUnbilled) {
+        // Run unbilled summary requests in small batches to avoid large
+        // concurrent request bursts which increase the chance of AbortErrors
+        // when parent effects clean up.
+        const batchSize = 4;
+        unbilledSnapshots = [];
+        for (let i = 0; i < matterSubset.length; i += batchSize) {
+          const batch = matterSubset.slice(i, i + batchSize);
+          const batchPromises = batch.map(async (matter) => {
+            try {
+              const summary = await getUnbilledSummary(practiceId, matter.id, { signal });
+              return summary.totalUnbilled ?? null;
+            } catch (err) {
+              if ((err as DOMException)?.name === 'AbortError' || (err as { name?: string })?.name === 'CanceledError') {
+                return null;
+              }
+              console.warn('[usePracticeBillingData] Failed to load unbilled summary', err);
               return null;
             }
-            console.warn('[usePracticeBillingData] Failed to load unbilled summary', err);
-            return null;
-          }
-        });
-
-        // Wait for this batch to settle before launching the next batch.
-        // If the parent signal has been aborted, stop processing further.
-        // This keeps ordering consistent with matterSubset indices.
-        const settled = await Promise.allSettled(batchPromises);
-        unbilledSnapshots.push(...settled);
-        if (signal?.aborted) break;
+          });
+          const settled = await Promise.allSettled(batchPromises);
+          unbilledSnapshots.push(...settled);
+          if (signal?.aborted) break;
+        }
+      } else {
+        unbilledSnapshots = matterSubset.map(() => ({ status: 'fulfilled' as const, value: null }));
       }
       if (signal?.aborted) return;
 
@@ -492,7 +504,7 @@ export const usePracticeBillingData = ({
         setLoading(false);
       }
     }
-  }, [practiceId, enabled, matterLimit, windowSize, buildActions, externalMatters]);
+  }, [practiceId, enabled, matterLimit, windowSize, buildActions, externalMatters, loadUnbilled]);
 
   useEffect(() => {
     const controller = new AbortController();
