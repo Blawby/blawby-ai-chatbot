@@ -739,10 +739,14 @@ type ListPracticesOptions = Pick<AxiosRequestConfig, 'signal'> & {
 export async function listPractices(configOrOptions?: ListPracticesOptions): Promise<Practice[]> {
   const opts = configOrOptions ?? {};
   const scope = opts.scope ?? 'tenant';
-  const response = await apiClient.get('/api/practice/list', {
-    signal: opts.signal
-  });
-  const practices = unwrapPracticeListResponse(response.data);
+  const practices = await queryCache.coalesceGet(
+    'practices:list',
+    async (signal) => {
+      const response = await apiClient.get('/api/practice/list', { signal });
+      return unwrapPracticeListResponse(response.data);
+    },
+    { ttl: 60_000, signal: opts.signal as AbortSignal | undefined }
+  );
   if (scope === 'platform') {
     return [];
   }
@@ -753,10 +757,14 @@ export async function getPractice(practiceId: string, config?: Pick<AxiosRequest
   if (!practiceId) {
     throw new Error('practiceId is required');
   }
-  const response = await apiClient.get(`/api/practice/${encodeURIComponent(practiceId)}`, {
-    signal: config?.signal
-  });
-  return unwrapPracticeResponse(response.data);
+  return queryCache.coalesceGet(
+    `practice:${practiceId}`,
+    async (signal) => {
+      const response = await apiClient.get(`/api/practice/${encodeURIComponent(practiceId)}`, { signal });
+      return unwrapPracticeResponse(response.data);
+    },
+    { ttl: 60_000, signal: config?.signal as AbortSignal | undefined }
+  );
 }
 
 
@@ -1383,11 +1391,17 @@ export async function getPracticeDetails(
   if (!practiceId) {
     throw new Error('practiceId is required');
   }
-  const response = await apiClient.get(
-    `/api/practice/${encodeURIComponent(practiceId)}/details`,
-    { signal: config?.signal }
+  return queryCache.coalesceGet(
+    `practice:details:${practiceId}`,
+    async (signal) => {
+      const response = await apiClient.get(
+        `/api/practice/${encodeURIComponent(practiceId)}/details`,
+        { signal }
+      );
+      return normalizePracticeDetailsResponse(response.data);
+    },
+    { ttl: 60_000, signal: config?.signal as AbortSignal | undefined }
   );
-  return normalizePracticeDetailsResponse(response.data);
 }
 
 export async function getPracticeDetailsBySlug(
