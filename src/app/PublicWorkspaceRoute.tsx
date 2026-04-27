@@ -33,15 +33,13 @@ export const PublicWorkspaceRoute: FunctionComponent<PublicWorkspaceRouteProps> 
   
   // variant="preview" implies we are in widget mode.
   // Otherwise, check if we should be in widget mode based on the URL.
-  const isWidget = variant === 'preview' || variant === 'card' || typeof window !== 'undefined'
-    ? (() => {
-        const params = new URLSearchParams(window.location.search);
-        return params.get('v') === 'widget' || params.has('template') || !!templateSlug;
-      })()
-    : (location.query?.v === 'widget'
-      || typeof location.query?.template === 'string'
-      || !!templateSlug
-      || /(?:^|[?&])v=widget(?:[&#]|$)|(?:^|[?&])template=[^&]+(?:[&#]|$)/.test(location.url ?? ''));
+  const isWidget = variant === 'preview' || variant === 'card' || (() => {
+    if (typeof window === 'undefined') {
+      return location.query?.v === 'widget' || !!templateSlug;
+    }
+    const params = new URLSearchParams(window.location.search);
+    return params.get('v') === 'widget' || params.has('template') || !!templateSlug;
+  })();
 
   const { data, isLoading, error } = useWidgetBootstrap(slug, isWidget);
 
@@ -66,11 +64,12 @@ export const PublicWorkspaceRoute: FunctionComponent<PublicWorkspaceRouteProps> 
   const [previewConfig, setPreviewConfig] = useState<WidgetPreviewConfig>({});
 
   useEffect(() => {
+    if (!isWidget) return;
     setWidgetRuntimeContext(true);
     return () => {
       setWidgetRuntimeContext(false);
     };
-  }, []);
+  }, [isWidget]);
 
   useEffect(() => {
     if (!isPreviewRequested) return;
