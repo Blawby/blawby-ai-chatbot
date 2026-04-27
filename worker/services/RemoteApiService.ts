@@ -20,7 +20,7 @@ export class RemoteApiService {
   /** Per-isolate cache for practice data - resets when isolate is evicted */
   private static practiceCache = new Map<string, { data: PracticeOrWorkspace; timestamp: number }>();
   /** Per-isolate cache for conversation config - resets when isolate is evicted */
-  private static configCache = new Map<string, { data: ConversationConfig; timestamp: number }>();
+  private static configCache = new Map<string, { data: ConversationConfig | null; timestamp: number }>();
   /** Per-isolate cache for subscription status - resets when isolate is evicted */
   private static subscriptionCache = new Map<string, { status: SubscriptionLifecycleStatus; timestamp: number }>();
 

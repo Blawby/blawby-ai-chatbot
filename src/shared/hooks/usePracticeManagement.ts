@@ -1,5 +1,14 @@
 import axios, { type AxiosRequestConfig } from 'axios';
-import { useState, useCallback, useEffect, useRef, useContext, useMemo } from 'preact/hooks';
+import { useCallback, useEffect, useRef, useContext, useMemo, useState } from 'preact/hooks';
+import { useStore } from '@nanostores/preact';
+import {
+  practiceListStore,
+  resetPracticeListStore,
+  setPracticeList,
+  setCurrentPractice,
+  setPracticeListLoading,
+  setPracticeListError
+} from '@/shared/stores/practiceListStore';
 import { getPracticeWorkspaceEndpoint } from '@/config/api';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { RoutePracticeContext } from '@/shared/contexts/RoutePracticeContext';
@@ -38,28 +47,10 @@ let sharedPracticeUserId: string | null = null;
 let sharedPracticeIncludesDetails = false;
 let practicesLoaded = false;
 let practicesInFlight: Promise<void> | null = null;
-let isGloballyFetching = false;
 // Treat 403 as a terminal state: a user with no org is not allowed to list
 // practices by design. Setting this flag prevents infinite retry loops when
 // the caller is re-rendered (e.g. during onboarding). Cleared on cache reset.
 let practicesFetchForbidden = false;
-
-// Broadcast loading state to all active hook instances so that when any
-// instance starts a fetch, ALL instances immediately see loading=true.
-const loadingSubscribers = new Set<(v: boolean) => void>();
-const setGlobalLoading = (value: boolean) => {
-  isGloballyFetching = value;
-  for (const sub of loadingSubscribers) sub(value);
-};
-
-// Broadcast the fetched snapshot to all active hook instances so that
-// regardless of which instance triggered the fetch, all instances get
-// their practices/currentPractice state updated from the same data.
-type SnapshotSubscriber = (snapshot: SharedPracticeSnapshot, requestedSlug: string | null) => void;
-const snapshotSubscribers = new Set<SnapshotSubscriber>();
-const broadcastSnapshot = (snapshot: SharedPracticeSnapshot, requestedSlug: string | null) => {
-  for (const sub of snapshotSubscribers) sub(snapshot, requestedSlug);
-};
 
 const resetSharedPracticeCache = () => {
   sharedPracticeSnapshot = null;
@@ -68,7 +59,6 @@ const resetSharedPracticeCache = () => {
   sharedPracticeIncludesDetails = false;
   practicesLoaded = false;
   practicesInFlight = null;
-  isGloballyFetching = false;
   practicesFetchForbidden = false;
 };
 
@@ -544,41 +534,17 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
   } = options;
   const { session, isPending: sessionLoading, isAnonymous } = useSessionContext();
   const routePractice = useContext(RoutePracticeContext);
-  const [practices, setPractices] = useState<Practice[]>([]);
-  const [currentPractice, setCurrentPractice] = useState<Practice | null>(null);
+  const store = useStore(practiceListStore);
+  const practices = store.practices;
+  const currentPractice = store.currentPractice;
+  const loading = store.loading;
+  const error = store.error;
   const [workspaceData, setWorkspaceData] = useState<Record<string, Record<string, Record<string, unknown>[]>>>({});
-  // Only show loading when we can actually start an authenticated fetch.
-  // Starting in "true" before session readiness can deadlock route guards on
-  // soft navigations (login -> /practice/:slug) where the first fetch effect
-  // is delayed and no network request ever starts.
   const sessionUserId = session?.user?.id ?? null;
-  const [loading, setLoading] = useState(() => isGloballyFetching || Boolean(
-    autoFetchPractices && !sessionLoading && sessionUserId && !isAnonymous && !practicesLoaded && !practicesFetchForbidden
-  ));
 
-  // Subscribe this instance to the global loading and snapshot broadcasters.
-  // This ensures all instances (RootRoute, PracticeAppRoute, etc.) update
-  // together when any one instance starts or finishes a fetch.
-  useEffect(() => {
-    loadingSubscribers.add(setLoading);
-    const onSnapshot: SnapshotSubscriber = (snapshot, _callerSlug) => {
-      // Re-select currentPractice for this instance's own requested slug.
-      const mySlug = requestedPracticeSlugRef.current;
-      let selectedCurrentPractice = snapshot.currentPractice;
-      if (mySlug) {
-        selectedCurrentPractice = snapshot.practices.find((p) => p.slug === mySlug) ?? null;
-      }
-      setPractices(snapshot.practices);
-      setCurrentPractice(selectedCurrentPractice);
-    };
-    snapshotSubscribers.add(onSnapshot);
-    return () => {
-      loadingSubscribers.delete(setLoading);
-      snapshotSubscribers.delete(onSnapshot);
-    };
-  }, []);
+  // No pub/sub needed; nanostore handles reactivity
 
-  const [error, setError] = useState<string | null>(null);
+  // error is now from nanostore
   const requestedPracticeSlug = useMemo(() => {
     const explicit = typeof practiceSlug === 'string' ? practiceSlug.trim() : '';
     if (explicit.length > 0) return explicit;
@@ -665,7 +631,7 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
     // fetchPractices: triggered to refresh the practices snapshot. Avoid
     // noisy debugging logs in production.
     let currentFetchPromise: Promise<SharedPracticeSnapshot> | null = null;
-    setGlobalLoading(true);
+    setPracticeListLoading(true);
     try {
 
       // A previous fetch was rejected with 403 — the user had no org at that time.
@@ -678,7 +644,7 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
           typeof sessionRecord?.active_organization_id === 'string' &&
           sessionRecord.active_organization_id.length > 0;
         if (!hasOrg) {
-          setGlobalLoading(false);
+          setPracticeListLoading(false);
           return;
         }
         practicesFetchForbidden = false;
@@ -687,16 +653,14 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
       const slugChanged = lastSelectedSlugRef.current !== requestedPracticeSlug;
       // applySnapshot broadcasts to all instances so every route gets updated data.
       const applySnapshot = (snapshot: SharedPracticeSnapshot) => {
-        broadcastSnapshot(snapshot, requestedPracticeSlug);
-        // Also update this instance's own state directly (the subscriber fires
-        // after the effect loop which is too late for the calling instance).
+        // Update this instance's own state directly.
         let selectedCurrentPractice = snapshot.currentPractice;
         if (requestedPracticeSlug) {
           selectedCurrentPractice = snapshot.practices.find((p) => p.slug === requestedPracticeSlug) ?? null;
         }
-        setPractices(snapshot.practices);
+        setPracticeList(snapshot.practices);
         setCurrentPractice(selectedCurrentPractice);
-        setGlobalLoading(false);
+        setPracticeListLoading(false);
         practicesFetchedRef.current = true;
         lastSelectedSlugRef.current = requestedPracticeSlug ?? undefined;
       };
@@ -724,9 +688,8 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
 
       const userId = sessionRef.current?.user?.id ?? null;
       if (!userId || isAnonymous) {
-        setPractices([]);
-        setCurrentPractice(null);
-        setGlobalLoading(false);
+        resetPracticeListStore();
+        setPracticeListLoading(false);
         practicesFetchedRef.current = false;
         resetSharedPracticeCache();
         resetPracticeDetailsStore();
@@ -817,8 +780,8 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
           applySnapshot(snapshotToApply);
           if (!fetchOnboardingStatus) return;
         } else {
-          setGlobalLoading(true);
-          setError(null);
+          setPracticeListLoading(true);
+          setPracticeListError(null);
           const hydrated = await hydrateSnapshotDetails(snapshotToApply);
           applySnapshot(hydrated);
           if (!fetchOnboardingStatus) return;
@@ -843,8 +806,8 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
           };
 
           if (fetchPracticeDetails && !sharedPracticeIncludesDetails && cachedToApply.currentPractice) {
-            setGlobalLoading(true);
-            setError(null);
+            setPracticeListLoading(true);
+            setPracticeListError(null);
             const hydrated = await hydrateSnapshotDetails(cachedToApply);
             applySnapshot(hydrated);
             if (!fetchOnboardingStatus) return;
@@ -867,8 +830,8 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
       const controller = new AbortController();
       currentRequestRef.current = controller;
 
-      setGlobalLoading(true);
-      setError(null);
+      setPracticeListLoading(true);
+      setPracticeListError(null);
 
       sharedPracticePromise = (async () => {
         const rawPracticeList = await listPractices({ signal: controller.signal, scope: 'all' });
@@ -968,17 +931,15 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
       // Mark as terminal so we don't hammer the endpoint on every re-render.
       if (axios.isAxiosError(err) && err.response?.status === 403) {
         practicesFetchForbidden = true;
-        setPractices([]);
-        setCurrentPractice(null);
-        setGlobalLoading(false);
+        resetPracticeListStore();
+        setPracticeListLoading(false);
         return;
       }
       console.error('Error in fetchPractices:', err);
-      setError(err instanceof Error ? err.message : 'Failed to fetch practices');
-      setCurrentPractice(null);
-      setPractices([]);
+      setPracticeListError(err instanceof Error ? err.message : 'Failed to fetch practices');
+      resetPracticeListStore();
     } finally {
-      setGlobalLoading(false);
+      setPracticeListLoading(false);
       currentRequestRef.current = null;
       if (sharedPracticePromise === currentFetchPromise) {
         sharedPracticePromise = null;
@@ -1057,7 +1018,7 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
       payload.logo = data.logo.trim();
     }
 
-    const existingPractice = practices.find(practice => practice.id === id);
+    const existingPractice = practiceListStore.get().practices.find(practice => practice.id === id);
     const metadataBase = (() => {
       const direct = existingPractice?.metadata;
       if (isPlainObject(direct)) {
@@ -1133,12 +1094,15 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
       };
     }
 
-    setCurrentPractice((prev) => (prev?.id === id ? updatedPractice : prev));
-    setPractices((prev) =>
-      prev.map((practice) => (practice.id === id ? updatedPractice : practice))
+    const snapshot = practiceListStore.get();
+    setPracticeList(
+      (snapshot.practices || []).map((practice) => (practice.id === id ? updatedPractice : practice))
+    );
+    setCurrentPractice(
+      snapshot.currentPractice?.id === id ? updatedPractice : snapshot.currentPractice
     );
 
-  }, [practices]);
+  }, []);
 
   const updatePracticeDetails = useCallback(async (id: string, details: PracticeDetailsUpdate): Promise<PracticeDetails | null> => {
     if (!id) {
@@ -1162,14 +1126,16 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
           sharedPracticeIncludesDetails = true;
         }
       }
-      setCurrentPractice((prev) => {
-        if (!prev || prev.id !== id) return prev;
-        return mergePracticeDetails(prev, updatedDetails);
-      });
-      setPractices((prev) =>
-        prev.map((practice) =>
+      const snapshot = practiceListStore.get();
+      setPracticeList(
+        (snapshot.practices || []).map((practice) =>
           practice.id === id ? mergePracticeDetails(practice, updatedDetails) : practice
         )
+      );
+      setCurrentPractice(
+        snapshot.currentPractice?.id === id
+          ? mergePracticeDetails(snapshot.currentPractice, updatedDetails)
+          : snapshot.currentPractice
       );
     }
     return updatedDetails;
@@ -1209,7 +1175,7 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
         }
       }));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch workspace data');
+      setPracticeListError(err instanceof Error ? err.message : 'Failed to fetch workspace data');
     }
   }, [workspaceCall]);
 
@@ -1234,7 +1200,8 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
     sessionLoading,
     sessionUserId,
     isAnonymous,
-    requestedPracticeSlug
+    requestedPracticeSlug,
+    fetchPractices
   ]);
 
   return {

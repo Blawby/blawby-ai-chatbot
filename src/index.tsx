@@ -183,8 +183,8 @@ function AppShell() {
   const { session, isPending: sessionPending } = useSessionContext();
   const onboardingIncomplete =
     Boolean(session?.user) &&
-    !session.user.is_anonymous &&
-    session.user.onboarding_complete !== true;
+    !session?.user?.is_anonymous &&
+    session?.user?.onboarding_complete !== true;
   const shouldFetchWorkspacePractices =
     !location.path.startsWith('/public/') &&
     !location.path.startsWith('/auth') &&
@@ -596,7 +596,7 @@ function PracticeAppRoute({
     id: currentPractice?.id ?? '',
     slug: currentPractice?.slug ?? normalizedPracticeSlug,
     name: currentPractice?.name ?? '',
-    profileImage: currentPractice?.logo ?? null,
+    profileImage: currentPractice?.logo || undefined,
     description: '',
     availableServices: [],
     serviceQuestions: {},
@@ -777,7 +777,7 @@ function ClientPracticeRoute({
     id: currentPractice?.id ?? '',
     slug: currentPractice?.slug ?? slug,
     name: currentPractice?.name ?? '',
-    profileImage: currentPractice?.logo ?? null,
+    profileImage: currentPractice?.logo || undefined,
     description: '',
     availableServices: [],
     serviceQuestions: {},

@@ -1752,7 +1752,7 @@ export class ConversationService {
     // Verify conversation exists and read conversation metadata
     const conversation = await this.getConversation(conversationId, practiceId);
     const userInfo = conversation.user_info || {};
-    const hideFlag = Boolean((userInfo as any).hideReplies ?? (userInfo as any).hide_replies);
+    const hideFlag = Boolean((userInfo as Record<string, unknown>).hideReplies ?? (userInfo as Record<string, unknown>).hide_replies);
 
     const limit = Math.min(options.limit || 50, 100); // Max 100
 
@@ -1825,7 +1825,8 @@ export class ConversationService {
         seq: record.seq,
         server_ts: record.server_ts,
         token_count: record.token_count,
-        created_at: record.created_at
+        created_at: record.created_at,
+        reactions: []
       }));
 
       // If conversation metadata requests hiding assistant replies, apply
@@ -1920,7 +1921,8 @@ export class ConversationService {
       seq: record.seq,
       server_ts: record.server_ts,
       token_count: record.token_count,
-      created_at: record.created_at
+      created_at: record.created_at,
+      reactions: []
     }));
 
     const shouldHideForViewer = hideFlag && (options.viewerIsAnonymous === true || options.requestSource === 'widget');

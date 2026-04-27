@@ -2,7 +2,6 @@ import { useState, useRef, useEffect } from 'preact/hooks';
 import { Button } from '@/shared/ui/Button';
 import { getWidgetScriptUrl, getPublicFormOrigin } from '@/config/urls';
 import { useToastContext } from '@/shared/contexts/ToastContext';
-import type { JSX } from 'preact';
 import { Dialog, DialogBody, DialogFooter } from '@/shared/ui/dialog';
 
 export function getEmbedSnippet(practiceSlug: string, templateSlug: string): string {
@@ -232,7 +231,7 @@ export function EmbedCodeDialog({ isOpen, onClose, practiceSlug, templateSlug }:
   return (
     <Dialog isOpen={isOpen} onClose={onClose} title="Embed code" description="Copy or inspect the embed snippet for this intake template.">
       <DialogBody>
-        <p className="mb-3 text-sm text-input-placeholder">Paste this script into your site's <code>&lt;head&gt;</code> or before <code>&lt;/body&gt;</code>.</p>
+        <p className="mb-3 text-sm text-input-placeholder">Paste this script into your site&apos;s <code>&lt;head&gt;</code> or before <code>&lt;/body&gt;</code>.</p>
         <textarea
           ref={textareaRef}
           readOnly

@@ -260,8 +260,15 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
 
   const { t } = useTranslation('common');
 
-  const handleMessageError = useCallback((error: string | Error) => {
-    const message = typeof error === 'string' ? error : error.message;
+  const handleMessageError = useCallback((error: unknown, _context?: Record<string, unknown>) => {
+    let message: string;
+    if (typeof error === 'string') {
+      message = error;
+    } else if (error instanceof Error) {
+      message = error.message;
+    } else {
+      message = t('weHitASnag.sendingMessage');
+    }
     if (message.toLowerCase().includes('chat connection closed')) return;
     showErrorRef.current?.(message || t('weHitASnag.sendingMessage'));
   }, [t]);
@@ -684,7 +691,6 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
         {view === 'chat' && (
           <>
             {/* Debug: log readiness and bootstrap session user id to help diagnose disabled composer */}
-            {/* eslint-disable-next-line no-console */}
             {typeof window !== 'undefined' && console.debug('[WidgetApp isReady]', {
               currentUserId,
               isSocketReady,
@@ -768,7 +774,14 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
                       onClose={() => setIsInspectorOpen(false)}
                       intakeConversationState={intakeConversationState}
                       intakeStatus={intakeStatus}
-                      onIntakeFieldsChange={applyIntakeFields}
+                      onIntakeFieldsChange={(patch, options) => {
+                        // Remove all null values for IntakeFieldsPayload compatibility
+                        const payload: Record<string, unknown> = {};
+                        Object.entries(patch).forEach(([key, value]) => {
+                          if (value !== null) payload[key] = value;
+                        });
+                        return applyIntakeFields(payload, options);
+                      }}
                       practiceDetails={cachedPracticeDetails}
                       intakeSlimContactDraft={slimContactDraft}
                     />
@@ -792,7 +805,13 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
                   onClose={() => setIsInspectorOpen(false)}
                   intakeConversationState={intakeConversationState}
                   intakeStatus={intakeStatus}
-                  onIntakeFieldsChange={applyIntakeFields}
+                  onIntakeFieldsChange={(patch, options) => {
+                    const payload: Record<string, unknown> = {};
+                    Object.entries(patch).forEach(([key, value]) => {
+                      if (value !== null) payload[key] = value;
+                    });
+                    return applyIntakeFields(payload, options);
+                  }}
                   practiceDetails={cachedPracticeDetails}
                   intakeSlimContactDraft={slimContactDraft}
                 />

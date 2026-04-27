@@ -255,8 +255,15 @@ export function MainApp({
   const liveConversationId = shouldEnableConversationTransport ? activeConversationId : null;
 
   // ── message handling ───────────────────────────────────────────────────────
-  const handleMessageError = useCallback((error: string | Error) => {
-    const message = typeof error === 'string' ? error : error.message;
+  const handleMessageError = useCallback((error: unknown, _context?: Record<string, unknown>) => {
+    let message: string;
+    if (typeof error === 'string') {
+      message = error;
+    } else if (error instanceof Error) {
+      message = error.message;
+    } else {
+      message = 'We hit a snag sending that message.';
+    }
     if (message.toLowerCase().includes('chat connection closed')) return;
     console.error('Message handling error:', error);
     showErrorRef.current?.(message || 'We hit a snag sending that message.');
@@ -701,7 +708,13 @@ export function MainApp({
       activeConversationId={activeConversationId}
       intakeConversationState={intakeConversationState}
       intakeStatus={intakeStatus}
-      onIntakeFieldsChange={applyIntakeFields}
+      onIntakeFieldsChange={(patch, options) => {
+        const payload: Record<string, unknown> = {};
+        Object.entries(patch).forEach(([key, value]) => {
+          if (value !== null) payload[key] = value;
+        });
+        return applyIntakeFields(payload, options);
+      }}
       practiceDetails={practiceDetails}
       chatView={chatPanel}
       mattersView={
