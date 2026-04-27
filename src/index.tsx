@@ -18,15 +18,11 @@ import { ToastProvider } from '@/shared/contexts/ToastContext';
 import { SessionProvider, useSessionContext } from '@/shared/contexts/SessionContext';
 import { getSession } from '@/shared/lib/authClient';
 import { MainApp } from '@/app/MainApp';
-import { WidgetApp } from '@/app/WidgetApp';
-import { WidgetPreviewApp } from '@/app/WidgetPreviewApp';
-import PublicIntakeCard from '@/shared/ui/layout/PublicIntakeCard';
+import { PublicWorkspaceRoute } from '@/app/PublicWorkspaceRoute';
 import { useNavigation } from '@/shared/utils/navigation';
-import { usePracticeConfig, resolvePracticeConfigFromBootstrap } from '@/shared/hooks/usePracticeConfig';
+import { usePracticeConfig } from '@/shared/hooks/usePracticeConfig';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import type { UIPracticeConfig } from '@/shared/hooks/usePracticeConfig';
-import type { MinorAmount } from '../worker/types';
-import { useWidgetBootstrap } from '@/shared/hooks/useWidgetBootstrap';
 import { handleError as _handleError } from '@/shared/utils/errorHandler';
 import { useWorkspaceResolver } from '@/shared/hooks/useWorkspaceResolver';
 import {
@@ -49,11 +45,9 @@ import './index.css';
 import { i18n, initI18n } from '@/shared/i18n';
 import { initializeAccentColor } from '@/shared/utils/accentColors';
 import { consumePostAuthConversationContext } from '@/shared/utils/anonymousIdentity';
-import { isWidgetRuntimeContext as _isWidgetRuntimeContext, setWidgetRuntimeContext } from '@/shared/utils/widgetAuth';
+import { isWidgetRuntimeContext as _isWidgetRuntimeContext } from '@/shared/utils/widgetAuth';
 import { useTheme } from '@/shared/hooks/useTheme';
-import { normalizePracticeDetailsResponse, setActivePractice } from '@/shared/lib/apiClient';
-import { setPracticeDetailsEntry } from '@/shared/stores/practiceDetailsStore';
-import type { WidgetPreviewConfig, WidgetPreviewMessage, WidgetPreviewScenario } from '@/shared/types/widgetPreview';
+import { setActivePractice } from '@/shared/lib/apiClient';
 import { lazy } from 'preact/compat';
 const PracticeMatterCreatePage = lazy(() => import('@/features/matters/pages/PracticeMatterCreatePage').then((m) => ({ default: m.PracticeMatterCreatePage })));
 const PracticeContactEditorPage = lazy(() => import('@/features/clients/pages/PracticeContactEditorPage').then((m) => ({ default: m.PracticeContactEditorPage })));
@@ -317,11 +311,11 @@ function AppShell() {
           <Route path="/debug/conversations" component={DevDebugConversationsRoute} />
           <Route path="/debug/matters" component={DevDebugMatterRoute} />
           <Route path="/pay" component={PayRedirect} />
-          <Route path="/public/:practiceSlug/intake/:templateSlug" component={PublicPracticeRoute} workspaceView="intake" />
-          <Route path="/public/:practiceSlug" component={PublicPracticeRoute} workspaceView="home" />
-          <Route path="/public/:practiceSlug/conversations" component={PublicPracticeRoute} workspaceView="list" />
-          <Route path="/public/:practiceSlug/conversations/:conversationId" component={PublicPracticeRoute} workspaceView="conversation" />
-          <Route path="/public/:practiceSlug/matters" component={PublicPracticeRoute} workspaceView="matters" />
+          <Route path="/public/:practiceSlug/intake/:templateSlug" component={(props) => <PublicWorkspaceRoute {...props} variant="card" />} />
+          <Route path="/public/:practiceSlug" component={(props) => <PublicWorkspaceRoute {...props} variant="widget" />} />
+          <Route path="/public/:practiceSlug/conversations" component={(props) => <PublicWorkspaceRoute {...props} variant="widget" />} />
+          <Route path="/public/:practiceSlug/conversations/:conversationId" component={(props) => <PublicWorkspaceRoute {...props} variant="widget" />} />
+          <Route path="/public/:practiceSlug/matters" component={(props) => <PublicWorkspaceRoute {...props} variant="widget" />} />
           <Route path="/client" component={App404} />
           <Route path="/client/:practiceSlug" component={ClientPracticeRoute} workspaceView="home" />
           <Route path="/client/:practiceSlug/conversations" component={ClientPracticeRoute} workspaceView="list" />
@@ -867,152 +861,6 @@ function ClientPracticeRoute({
   );
 }
 
-function PublicPracticeRoute({
-  practiceSlug,
-  templateSlug,
-  conversationId,
-  workspaceView: _workspaceView = 'home'
-}: {
-  practiceSlug?: string;
-  templateSlug?: string;
-  conversationId?: string;
-  workspaceView?: 'home' | 'list' | 'conversation' | 'matters' | 'intake';
-}) {
-  const location = useLocation();
-  const { session: _session, isPending: _sessionIsPending, activeMemberRole: _activeMemberRole } = useSessionContext();
-  const { navigate: _navigate } = useNavigation();
-  const _handlePracticeError = useCallback((error: string) => {
-    console.error('Practice config error:', error);
-  }, []);
-
-  const slug = (practiceSlug ?? '').trim();
-  const isWidget = typeof window !== 'undefined'
-    ? (() => {
-        const params = new URLSearchParams(window.location.search);
-        return params.get('v') === 'widget' || params.has('template');
-      })()
-    : (location.query?.v === 'widget'
-      || typeof location.query?.template === 'string'
-      || /(?:^|[?&])v=widget(?:[&#]|$)|(?:^|[?&])template=[^&]+(?:[&#]|$)/.test(location.url ?? ''));
-
-  // --- Widget bootstrap and preview state ---
-  const { data, isLoading, error } = useWidgetBootstrap(slug, isWidget);
-  
-  // isPreview should ONLY be true if we are in widget mode AND the preview flag is explicitly set.
-  // The WidgetPreviewFrame in settings passes preview=1.
-  const isPreview = isWidget && (
-    (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('preview') === '1') ||
-    location.query?.preview === '1'
-  );
-
-  const initialScenario = useMemo<WidgetPreviewScenario>(() => {
-    const raw = typeof location.query?.scenario === 'string'
-      ? location.query.scenario
-      : new URLSearchParams((location.url ?? '').split('?')[1] ?? '').get('scenario');
-    return raw === 'consultation-payment' || raw === 'service-routing' || raw === 'messenger-start'
-      ? raw
-      : 'messenger-start';
-  }, [location.query?.scenario, location.url]);
-  const [previewScenario, setPreviewScenario] = useState<WidgetPreviewScenario>(initialScenario);
-  const [previewConfig, setPreviewConfig] = useState<WidgetPreviewConfig>({});
-
-  useEffect(() => {
-    setWidgetRuntimeContext(true);
-    return () => {
-      setWidgetRuntimeContext(false);
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!isPreview) return;
-    const handleMessage = (event: MessageEvent<WidgetPreviewMessage>) => {
-      if (event.origin !== window.location.origin) return;
-      if (!event.data || event.data.type !== 'blawby:widget-preview-config') return;
-      setPreviewScenario(event.data.scenario);
-      setPreviewConfig(event.data.payload ?? {});
-    };
-
-    window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
-  }, [isPreview]);
-
-  const basePracticeConfig = useMemo<UIPracticeConfig | null>(() => {
-    if (!data?.practiceDetails) return null;
-    return resolvePracticeConfigFromBootstrap(data.practiceDetails as Record<string, unknown>, practiceSlug);
-  }, [data, practiceSlug]);
-
-  const practiceConfig = useMemo<UIPracticeConfig | null>(() => {
-    if (!basePracticeConfig) return null;
-    if (!isPreview) return basePracticeConfig;
-    return {
-      ...basePracticeConfig,
-      name: previewConfig.name ?? basePracticeConfig.name,
-      profileImage: previewConfig.profileImage !== undefined ? (previewConfig.profileImage ?? undefined) : basePracticeConfig.profileImage,
-      accentColor: previewConfig.accentColor ?? basePracticeConfig.accentColor,
-      introMessage: previewConfig.introMessage !== undefined ? (previewConfig.introMessage ?? undefined) : basePracticeConfig.introMessage,
-      legalDisclaimer: previewConfig.legalDisclaimer !== undefined ? (previewConfig.legalDisclaimer ?? undefined) : basePracticeConfig.legalDisclaimer,
-      consultationFee: (previewConfig.consultationFee !== undefined ? (previewConfig.consultationFee ?? undefined) : basePracticeConfig.consultationFee) as MinorAmount | undefined,
-      billingIncrementMinutes: previewConfig.billingIncrementMinutes !== undefined ? (previewConfig.billingIncrementMinutes ?? undefined) : basePracticeConfig.billingIncrementMinutes,
-    };
-  }, [basePracticeConfig, isPreview, previewConfig]);
-
-  const resolvedPracticeId = practiceConfig?.id || '';
-
-  useEffect(() => {
-    if (data?.practiceDetails && resolvedPracticeId) {
-      const details = normalizePracticeDetailsResponse(data.practiceDetails);
-      if (details) {
-        setPracticeDetailsEntry(resolvedPracticeId, details);
-      }
-    }
-  }, [data, resolvedPracticeId]);
-
-  if (isLoading || !data) {
-    return <LoadingScreen />;
-  }
-
-  if (error || !practiceConfig || !resolvedPracticeId) {
-    return <App404 />;
-  }
-  
-  const currentUrl = typeof window !== 'undefined'
-    ? `${window.location.origin}${location.url}`
-    : undefined;
-
-  const widgetContent = (
-    <WidgetApp
-      practiceId={resolvedPracticeId}
-      practiceConfig={practiceConfig}
-      routeConversationId={conversationId}
-      bootstrapConversationId={data.conversationId}
-      bootstrapSession={data.session}
-      intakeTemplate={data.intakeTemplate ?? null}
-    />
-  );
-
-  return (
-    <>
-      <SEOHead
-        practiceConfig={practiceConfig}
-        currentUrl={currentUrl}
-      />
-      {isPreview ? (
-        <WidgetPreviewApp
-          practiceId={resolvedPracticeId}
-          practiceConfig={practiceConfig}
-          scenario={previewScenario}
-          previewConfig={previewConfig}
-        />
-      ) : (
-        (templateSlug || typeof location.query?.template === 'string' || (typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('template'))) ? (
-          <PublicIntakeCard>
-            {widgetContent}
-          </PublicIntakeCard>
-        ) : widgetContent
-      )}
-    </>
-  );
-}
 
 
 
