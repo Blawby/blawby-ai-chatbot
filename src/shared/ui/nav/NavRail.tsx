@@ -13,6 +13,7 @@ export interface NavRailItem {
   badge?: number | null;
   variant?: 'default' | 'danger';
   isAction?: boolean;
+  isActive?: boolean;
   onClick?: () => void;
 }
 
@@ -71,20 +72,37 @@ export const NavRail: FunctionComponent<NavRailProps> = ({
     return best;
   }, { id: null, score: -1 }).id;
 
-  const baseButtonClass = 'relative flex items-center justify-center rounded-xl font-medium transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50';
+  const getIsActive = (item: NavRailItem) =>
+    item.isActive !== undefined ? item.isActive : (!item.isAction && activeItemId === item.id);
+
+  const activeIndex = variant === 'bottom'
+    ? items.findIndex(getIsActive)
+    : -1;
+
+  const baseButtonClass = 'relative z-10 flex items-center justify-center rounded-xl font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50';
   const layoutClass = variant === 'rail'
     ? 'h-11 w-11'
     : 'min-w-0 flex-1 flex-col gap-1 rounded-2xl px-2 py-2 text-xs';
 
   const containerClass = variant === 'rail'
     ? 'flex h-full flex-col items-center gap-2 bg-[rgb(var(--nav-surface))] px-3 py-4'
-    : 'flex w-full items-center justify-around bg-[rgb(var(--nav-surface))] px-4 py-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] nav-rail--bottom';
+    : 'relative flex w-full items-center bg-[rgb(var(--nav-surface))] py-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] nav-rail--bottom';
 
   return (
     <div className={cn(containerClass, className)}>
+      {variant === 'bottom' && activeIndex >= 0 && (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-y-1.5 rounded-2xl bg-[rgb(var(--nav-active-bg))] transition-transform duration-300 ease-out"
+          style={{
+            width: `${100 / items.length}%`,
+            transform: `translateX(${activeIndex * 100}%)`,
+          }}
+        />
+      )}
       {items.map((item) => {
         const icon = item.icon;
-        const isActive = !item.isAction && activeItemId === item.id;
+        const isActive = getIsActive(item);
         const isDanger = item.variant === 'danger';
 
         return (
@@ -99,9 +117,13 @@ export const NavRail: FunctionComponent<NavRailProps> = ({
               layoutClass,
               isDanger
                 ? 'text-red-400 hover:bg-red-500/10'
-                : isActive
-                  ? 'nav-item-active'
-                  : 'nav-item-inactive',
+                : variant === 'bottom'
+                  ? isActive
+                    ? 'text-[rgb(var(--nav-active-text))]'
+                    : 'text-[rgb(var(--input-text)_/_0.75)]'
+                  : isActive
+                    ? 'nav-item-active'
+                    : 'nav-item-inactive',
             )}
             onClick={() => {
               if (item.isAction) {

@@ -830,6 +830,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
               icon: HomeIcon,
               href: '#home',
               isAction: true,
+              isActive: view === 'home',
               onClick: () => {
                 setConversationMode(null);
                 setView('home');
@@ -841,6 +842,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
               icon: ChatBubbleLeftRightIcon,
               href: '#list',
               isAction: true,
+              isActive: view === 'list',
               onClick: () => setView('list')
             }
           ]}
