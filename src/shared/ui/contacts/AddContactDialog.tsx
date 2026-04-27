@@ -3,12 +3,12 @@ import { Dialog } from '../dialog/Dialog';
 import { FormActions } from '../form/FormActions';
 
 type AddContactDialogProps = {
-  practiceId: string | null;
+  _practiceId?: string | null;
   isOpen: boolean;
   onClose: () => void;
-  onSuccess?: () => void | Promise<void>;
+  _onSuccess?: () => void | Promise<void>;
   title?: ComponentChildren;
-  submitText?: string;
+  _submitText?: string;
 };
 
 export const AddContactDialog = ({

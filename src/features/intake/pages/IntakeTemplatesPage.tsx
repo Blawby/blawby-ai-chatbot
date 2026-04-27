@@ -2033,7 +2033,7 @@ export default function IntakeTemplatesPage({
           const hasResponses = result.intakes.some((i) => getResponseTemplateSlug(i) === editTarget.slug);
           if (!hasResponses && result.total > 100) {
             // Too many to check client-side — block rename conservatively
-            showError('Rename not allowed', 'This form has existing responses and cannot be renamed.');
+            showError('Rename check failed', 'Unable to verify whether this form has existing responses. Rename aborted.');
             setIsSaving(false);
             return;
           }

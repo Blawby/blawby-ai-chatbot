@@ -2,19 +2,17 @@ import type { ComponentChildren } from 'preact';
 import { Dialog } from '../dialog/Dialog';
 import { FormActions } from '../form/FormActions';
 
-type AddContactDialogProps = {
-  practiceId: string | null;
+type AddPersonDialogProps = {
   isOpen: boolean;
   onClose: () => void;
   title?: ComponentChildren;
-  submitText?: string;
 };
 
-export const AddContactDialog = ({
+export const AddPersonDialog = ({
   isOpen,
   onClose,
-  title = 'Invite contact',
-}: Omit<AddContactDialogProps, 'practiceId' | 'submitText'>) => {
+  title = 'Invite person',
+}: AddPersonDialogProps) => {
   const handleClose = () => {
     onClose();
   };
@@ -27,7 +25,8 @@ export const AddContactDialog = ({
       contentClassName="!max-w-2xl"
     >
       <div className="space-y-5 px-6 pb-6">
-        {/* Contact email input removed due to missing createContact */}
+        {/* TODO/FIXME: Add contact email input and wire to useCreateContact when available.
+            Currently a placeholder. */}
         <FormActions
           className="justify-end gap-2"
           onCancel={handleClose}

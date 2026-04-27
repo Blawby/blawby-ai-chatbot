@@ -1175,7 +1175,7 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
         }
       }));
     } catch (err) {
-      setPracticeListError(err instanceof Error ? err.message : 'Failed to fetch workspace data');
+      console.error('[usePracticeManagement] Failed to fetch workspace data', err);
     }
   }, [workspaceCall]);
 
