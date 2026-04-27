@@ -822,7 +822,6 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
         
         <NavRail
           variant="bottom"
-          activeHref={view === 'home' ? '#home' : '#list'}
           items={[
             {
               id: 'home',

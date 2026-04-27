@@ -19,7 +19,7 @@ export interface NavRailItem {
 
 export interface NavRailProps {
   items: NavRailItem[];
-  activeHref: string;
+  activeHref?: string;
   variant: 'rail' | 'bottom';
   showLabels?: boolean;
   hidden?: boolean;
