@@ -34,11 +34,9 @@ export const PublicWorkspaceRoute: FunctionComponent<PublicWorkspaceRouteProps> 
   // variant="preview" implies we are in widget mode.
   // Otherwise, check if we should be in widget mode based on the URL.
   const isWidget = variant === 'preview' || variant === 'card' || (() => {
-    if (typeof window === 'undefined') {
-      return location.query?.v === 'widget' || !!templateSlug;
-    }
-    const params = new URLSearchParams(window.location.search);
-    return params.get('v') === 'widget' || params.has('template') || !!templateSlug;
+    const isWidgetParam = (location.query?.v === 'widget' || (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('v') === 'widget'));
+    const hasTemplate = !!templateSlug || !!location.query?.template || (typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('template'));
+    return isWidgetParam || hasTemplate;
   })();
 
   const { data, isLoading, error } = useWidgetBootstrap(slug, isWidget);
@@ -62,6 +60,7 @@ export const PublicWorkspaceRoute: FunctionComponent<PublicWorkspaceRouteProps> 
 
   const [previewScenario, setPreviewScenario] = useState<WidgetPreviewScenario>(initialScenario);
   const [previewConfig, setPreviewConfig] = useState<WidgetPreviewConfig>({});
+  const isMinorAmount = (val: unknown): val is MinorAmount => typeof val === 'number' && val >= 0;
 
   useEffect(() => {
     if (!isWidget) return;
@@ -76,7 +75,13 @@ export const PublicWorkspaceRoute: FunctionComponent<PublicWorkspaceRouteProps> 
     const handleMessage = (event: MessageEvent<WidgetPreviewMessage>) => {
       if (event.origin !== window.location.origin) return;
       if (!event.data || event.data.type !== 'blawby:widget-preview-config') return;
-      setPreviewScenario(event.data.scenario);
+      
+      const scenario = event.data.scenario;
+      if (scenario !== 'messenger-start' && scenario !== 'consultation-payment' && scenario !== 'service-routing' && scenario !== 'intake-template') {
+        return;
+      }
+
+      setPreviewScenario(scenario);
       setPreviewConfig(event.data.payload ?? {});
     };
 
@@ -99,7 +104,7 @@ export const PublicWorkspaceRoute: FunctionComponent<PublicWorkspaceRouteProps> 
       accentColor: previewConfig.accentColor ?? basePracticeConfig.accentColor,
       introMessage: previewConfig.introMessage !== undefined ? (previewConfig.introMessage ?? undefined) : basePracticeConfig.introMessage,
       legalDisclaimer: previewConfig.legalDisclaimer !== undefined ? (previewConfig.legalDisclaimer ?? undefined) : basePracticeConfig.legalDisclaimer,
-      consultationFee: (previewConfig.consultationFee !== undefined ? (previewConfig.consultationFee ?? undefined) : basePracticeConfig.consultationFee) as MinorAmount | undefined,
+      consultationFee: (previewConfig.consultationFee !== undefined && previewConfig.consultationFee !== null && isMinorAmount(previewConfig.consultationFee)) ? previewConfig.consultationFee : basePracticeConfig.consultationFee,
       billingIncrementMinutes: previewConfig.billingIncrementMinutes !== undefined ? (previewConfig.billingIncrementMinutes ?? undefined) : basePracticeConfig.billingIncrementMinutes,
     };
   }, [basePracticeConfig, isPreviewRequested, previewConfig]);

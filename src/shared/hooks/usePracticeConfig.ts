@@ -142,13 +142,10 @@ export const resolvePracticeConfigFromBootstrap = (
       ?? resolveString(nestedDetailsRecord?.intro_message),
     legalDisclaimer: resolveString(pd.legalDisclaimer)
       ?? resolveString(pd.legal_disclaimer)
-      ?? resolveString(pd.overview)
       ?? resolveString(detailsRecord?.legalDisclaimer)
       ?? resolveString(detailsRecord?.legal_disclaimer)
       ?? resolveString(nestedDetailsRecord?.legalDisclaimer)
-      ?? resolveString(nestedDetailsRecord?.legal_disclaimer)
-      ?? resolveString(nestedDetailsRecord?.overview)
-      ?? resolveString(detailsRecord?.overview),
+      ?? resolveString(nestedDetailsRecord?.legal_disclaimer),
   };
 };
 
