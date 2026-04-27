@@ -1,0 +1,37 @@
+
+> lint
+> eslint src/ worker/ --ext .ts,.tsx,.js,.jsx,.mjs --ignore-pattern '**/.wrangler/**' --max-warnings 50
+
+
+/Users/paulchrisluke/Repos2025/preact-cloudflare-intake-chatbot/blawby-ai-chatbot/src/app/WidgetApp.tsx
+  694:14  warning  Unused eslint-disable directive (no problems were reported from 'no-console')
+
+/Users/paulchrisluke/Repos2025/preact-cloudflare-intake-chatbot/blawby-ai-chatbot/src/features/intake/components/EmbedCodeBlock.tsx
+    5:15  warning  'JSX' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  235:92  error    `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`        react/no-unescaped-entities
+
+/Users/paulchrisluke/Repos2025/preact-cloudflare-intake-chatbot/blawby-ai-chatbot/src/features/intake/pages/IntakeTemplatesPage.tsx
+  2065:6  error  Parsing error: 'catch' or 'finally' expected
+
+/Users/paulchrisluke/Repos2025/preact-cloudflare-intake-chatbot/blawby-ai-chatbot/src/shared/hooks/usePracticeManagement.ts
+  1198:6  warning  React Hook useEffect has a missing dependency: 'fetchPractices'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/Users/paulchrisluke/Repos2025/preact-cloudflare-intake-chatbot/blawby-ai-chatbot/src/shared/hooks/useWidgetBootstrap.ts
+  138:13  warning  Unused eslint-disable directive (no problems were reported from 'no-console')
+
+/Users/paulchrisluke/Repos2025/preact-cloudflare-intake-chatbot/blawby-ai-chatbot/src/shared/ui/contacts/AddContactDialog.tsx
+   3:10  warning  'Input' is defined but never used. Allowed unused vars must match /^_/u                 @typescript-eslint/no-unused-vars
+  18:3   warning  'practiceId' is defined but never used. Allowed unused args must match /^_/u            @typescript-eslint/no-unused-vars
+  21:3   warning  'onSuccess' is defined but never used. Allowed unused args must match /^_/u             @typescript-eslint/no-unused-vars
+  23:3   warning  'submitText' is assigned a value but never used. Allowed unused args must match /^_/u   @typescript-eslint/no-unused-vars
+  25:11  warning  'showSuccess' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  25:24  warning  'showError' is assigned a value but never used. Allowed unused vars must match /^_/u    @typescript-eslint/no-unused-vars
+  25:35  warning  'showWarning' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/paulchrisluke/Repos2025/preact-cloudflare-intake-chatbot/blawby-ai-chatbot/worker/services/ConversationService.ts
+  1755:43  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  1755:76  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+✖ 15 problems (4 errors, 11 warnings)
+  0 errors and 2 warnings potentially fixable with the `--fix` option.
+

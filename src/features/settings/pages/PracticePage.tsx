@@ -352,7 +352,33 @@ export const PracticePage = ({ className, onBack }: PracticePageProps) => {
       }
 
       if (Object.keys(practicePayload).length > 0) {
-        await updatePractice(currentPractice.id, practicePayload);
+        // Only pass allowed fields and filter out nulls for updatePractice
+        const safePracticePayload: {
+          name?: string;
+          slug?: string;
+          businessPhone?: string;
+          businessEmail?: string;
+          consultationFee?: typeof practicePayload.consultationFee;
+          logo?: string;
+          metadata?: Record<string, unknown>;
+          businessOnboardingStatus?: typeof practicePayload.businessOnboardingStatus;
+          businessOnboardingHasDraft?: typeof practicePayload.businessOnboardingHasDraft;
+        } = {};
+        if (typeof practicePayload.name === 'string') safePracticePayload.name = practicePayload.name;
+        if (typeof practicePayload.slug === 'string') safePracticePayload.slug = practicePayload.slug;
+        if (typeof practicePayload.businessPhone === 'string') safePracticePayload.businessPhone = practicePayload.businessPhone;
+        if (typeof practicePayload.businessEmail === 'string') safePracticePayload.businessEmail = practicePayload.businessEmail;
+        if (practicePayload.consultationFee !== null && practicePayload.consultationFee !== undefined) safePracticePayload.consultationFee = practicePayload.consultationFee;
+        if (typeof practicePayload.logo === 'string') safePracticePayload.logo = practicePayload.logo;
+        if (practicePayload.metadata !== null && practicePayload.metadata !== undefined) {
+          safePracticePayload.metadata = practicePayload.metadata as Record<string, unknown>;
+        } else {
+          // Ensure metadata is not set at all if null/undefined
+          delete safePracticePayload.metadata;
+        }
+        if (practicePayload.businessOnboardingStatus !== null && practicePayload.businessOnboardingStatus !== undefined) safePracticePayload.businessOnboardingStatus = practicePayload.businessOnboardingStatus;
+        if (practicePayload.businessOnboardingHasDraft !== null && practicePayload.businessOnboardingHasDraft !== undefined) safePracticePayload.businessOnboardingHasDraft = practicePayload.businessOnboardingHasDraft;
+        await updatePractice(currentPractice.id, safePracticePayload);
       }
 
       const savedDetails = await updateDetails(detailsPayload);

@@ -36,7 +36,7 @@ import { fromMinorUnits, toMinorUnitsValue } from '@/shared/utils/money';
 import { getOnboardingStatusPayload } from '@/shared/lib/apiClient';
 import { STANDARD_FIELD_DEFINITIONS, DEFAULT_INTAKE_TEMPLATE } from '@/shared/constants/intakeTemplates';
 import type { FieldPhase, IntakeFieldDefinition, IntakeTemplate } from '@/shared/types/intake';
-import EmbedCodeBlock, { EmbedCodeDialog, getEmbedSnippet, getPublicFormUrl, copyTextToClipboard } from '@/features/intake/components/EmbedCodeBlock';
+import { EmbedCodeDialog, getPublicFormUrl, copyTextToClipboard } from '@/features/intake/components/EmbedCodeBlock';
 
 type IntakeTemplatesPageProps = {
   onBack?: () => void;
@@ -994,7 +994,6 @@ function TemplateEditor({
   const initialState = useMemo(() => buildEditorState(initial, editorDefaults), [editorDefaults, initial]);
   const initialSnapshot = useMemo(() => serializeTemplate(editorStateToTemplate(initialState)), [initialState]);
   const [state, setState] = useState<EditorState>(initialState);
-  const stateRef = useRef(initialState);
   const [slugError, setSlugError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [stripeStatus, setStripeStatus] = useState<StripeConnectStatus | null>(null);
@@ -1003,10 +1002,7 @@ function TemplateEditor({
   const [replacementFieldKey, setReplacementFieldKey] = useState('');
 
   const applyEditorState = useCallback((updater: (prev: EditorState) => EditorState) => {
-    const nextState = updater(stateRef.current);
-    stateRef.current = nextState;
-    setState(nextState);
-    return nextState;
+    setState(updater);
   }, []);
 
   const draftTemplate = useMemo(() => editorStateToTemplate(state), [state]);
@@ -1062,9 +1058,7 @@ function TemplateEditor({
     applyEditorState((prev) => ({ ...prev, enrichmentFields: next }));
   });
 
-  useEffect(() => {
-    stateRef.current = state;
-  }, [state]);
+
 
   useEffect(() => {
     const organizationId = practiceOrganizationId?.trim();
@@ -1364,12 +1358,10 @@ function TemplateEditor({
   };
 
   const handleSave = async () => {
-    const currentState = stateRef.current;
-    if (!validatePublish(currentState)) return;
-
+    if (!validatePublish(state)) return;
     setIsSaving(true);
     try {
-      await onSave(editorStateToTemplate(currentState));
+      await onSave(editorStateToTemplate(state));
     } finally {
       setIsSaving(false);
     }
@@ -1992,8 +1984,10 @@ export default function IntakeTemplatesPage({
 
     const nextMetadata = { ...currentMetadata, intakeTemplates: JSON.stringify(nextTemplates) };
 
+    // Snapshot BEFORE optimistic update
+    const snapshot = practiceDetails;
     const optimisticDetails = {
-      ...(practiceDetails ?? {}),
+      ...(snapshot ?? {}),
       metadata: nextMetadata,
     };
 
@@ -2002,7 +1996,7 @@ export default function IntakeTemplatesPage({
     try {
       await updatePractice(currentPractice.id, { metadata: nextMetadata });
     } catch (error) {
-      setDetails(practiceDetails ?? null);
+      setDetails(snapshot ?? null);
       throw error;
     }
   }, [currentPractice, practiceDetails, setDetails, updatePractice]);
@@ -2033,43 +2027,27 @@ export default function IntakeTemplatesPage({
       // Prevent renaming if there are existing intake responses tied to the
       // current edit target's slug, since renaming would orphan those links.
       if (editTarget && template.slug !== editTarget.slug && currentPractice) {
-        // Fetch a bounded set of intakes and check for any that reference the
-        // editTarget.slug. This avoids breaking existing links.
+        // Fetch only the first page of intakes and check for any that reference the editTarget.slug
         try {
-          let hasResponses = false;
-          let page = 1;
-          while (true) {
-            const result = await listIntakes(currentPractice.id, { page, limit: 100 });
-            if (result.intakes.some((i) => getResponseTemplateSlug(i) === editTarget.slug)) {
-              hasResponses = true;
-              break;
-            }
-            if (page >= result.total_pages || result.intakes.length === 0) {
-              break;
-            }
-            page++;
+          const result = await listIntakes(currentPractice.id, { page: 1, limit: 100 });
+          const hasResponses = result.intakes.some((i) => getResponseTemplateSlug(i) === editTarget.slug);
+          if (!hasResponses && result.total > 100) {
+            // Too many to check client-side — block rename conservatively
+            showError('Rename check failed', 'Unable to verify whether this form has existing responses. Rename aborted.');
+            setIsSaving(false);
+            return;
           }
-
           if (hasResponses) {
             showError('Rename not allowed', 'This form has existing responses and cannot be renamed.');
             setIsSaving(false);
             return;
           }
         } catch (_err) {
-          // If the check fails, be conservative and prevent rename to avoid
-          // accidental orphaning.
+          // If the check fails, be conservative and prevent rename to avoid accidental orphaning.
           showError('Rename check failed', 'Unable to verify whether this form has existing responses. Rename aborted.');
           setIsSaving(false);
           return;
         }
-      }
-
-      // Prevent slug collision with another template (except when it's the same
-      // template being edited).
-      if (existingTemplates.some((e) => e.slug === template.slug && e.slug !== (editTarget?.slug ?? ''))) {
-        showError('Slug conflict', 'Another form already uses this slug. Choose a different slug.');
-        setIsSaving(false);
-        return;
       }
 
       // Build the next templates list by removing any existing entries with the

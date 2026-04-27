@@ -1582,7 +1582,10 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
         isLoadingMoreMessages: onboardingMessageHandling.isLoadingMoreMessages,
         onLoadMoreMessages: onboardingMessageHandling.loadMoreMessages,
         onToggleReaction: features.enableMessageReactions ? onboardingMessageHandling.toggleMessageReaction : undefined,
-        onRequestReactions: onboardingMessageHandling.requestMessageReactions,
+        onRequestReactions: (messageId: string) => {
+          // Always return void for SetupChatAdapter compatibility
+          void onboardingMessageHandling.requestMessageReactions(messageId);
+        },
       } : null}
       fallbackContent={workspaceFallbackHome}
     />

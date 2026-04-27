@@ -5,6 +5,7 @@ import type { PracticeConfig, MinorAmount } from '../../../worker/types';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { getPractice, getPublicPracticeDetails } from '@/shared/lib/apiClient';
 import { setPracticeDetailsEntry } from '@/shared/stores/practiceDetailsStore';
+import { toMinorUnitsValue } from '@/shared/utils/money';
 
 // Zod schema for API response validation
 // Note: createdAt/updatedAt can be either number (timestamp) or string (ISO date) depending on the API
@@ -34,6 +35,9 @@ export interface UIPracticeConfig extends PracticeConfig {
   legalDisclaimer?: string | null; // Optional - comes from public practice details
   consultationFee?: MinorAmount;
   billingIncrementMinutes?: number;
+  paymentUrl?: string | null;
+  calendlyUrl?: string | null;
+  isPublic?: boolean;
 }
 
 const buildDefaultPracticeConfig = (overrides: Partial<UIPracticeConfig> = {}): UIPracticeConfig => ({
@@ -58,6 +62,94 @@ const buildDefaultPracticeConfig = (overrides: Partial<UIPracticeConfig> = {}): 
   },
   ...overrides
 });
+
+/**
+ * Maps raw bootstrap practice details into a standardized UIPracticeConfig.
+ * This logic is used by both the standalone WidgetApp and the public intake flow
+ * to ensure consistent field resolution across different API response formats.
+ */
+export const resolvePracticeConfigFromBootstrap = (
+  bootstrapDetails: Record<string, unknown>,
+  fallbackSlug?: string | null
+): UIPracticeConfig => {
+  const pd = bootstrapDetails;
+  const dataRecord = (pd.data && typeof pd.data === 'object' ? pd.data as Record<string, unknown> : null);
+  const detailsRecord = (pd.details && typeof pd.details === 'object' ? pd.details as Record<string, unknown> : null);
+  const nestedDetailsRecord = (dataRecord?.details && typeof dataRecord.details === 'object' ? dataRecord.details as Record<string, unknown> : null);
+
+  const resolveString = (value: unknown): string | null => typeof value === 'string' && value.trim().length > 0 ? value : null;
+  const resolveBoolean = (value: unknown): boolean | undefined => typeof value === 'boolean' ? value : undefined;
+  const resolveNumber = (value: unknown): number | undefined => typeof value === 'number' ? value : undefined;
+
+  const practiceId = resolveString(pd.organizationId)
+    ?? resolveString(pd.organization_id)
+    ?? resolveString(dataRecord?.organizationId)
+    ?? resolveString(dataRecord?.organization_id)
+    ?? resolveString(detailsRecord?.organizationId)
+    ?? resolveString(detailsRecord?.organization_id)
+    ?? resolveString(detailsRecord?.practiceId)
+    ?? resolveString(detailsRecord?.id)
+    ?? resolveString(nestedDetailsRecord?.organizationId)
+    ?? resolveString(nestedDetailsRecord?.organization_id)
+    ?? resolveString(nestedDetailsRecord?.practiceId)
+    ?? resolveString(nestedDetailsRecord?.id)
+    ?? resolveString((pd as Record<string, unknown>).practiceId)
+    ?? resolveString((pd as Record<string, unknown>).id)
+    ?? resolveString(dataRecord?.practiceId)
+    ?? resolveString(dataRecord?.id);
+
+  const accentColor = resolveString(pd.accentColor)
+    ?? resolveString(pd.accent_color)
+    ?? resolveString(dataRecord?.accentColor)
+    ?? resolveString(dataRecord?.accent_color)
+    ?? resolveString(detailsRecord?.accentColor)
+    ?? resolveString(detailsRecord?.accent_color)
+    ?? resolveString(nestedDetailsRecord?.accentColor)
+    ?? resolveString(nestedDetailsRecord?.accent_color);
+
+  const description = resolveString(pd.description)
+    ?? resolveString(pd.overview)
+    ?? resolveString(detailsRecord?.description)
+    ?? resolveString(detailsRecord?.overview);
+
+  return {
+    id: practiceId ?? '',
+    slug: resolveString(pd.slug) ?? fallbackSlug ?? '',
+    name: resolveString(pd.name) ?? '',
+    profileImage: resolveString(pd.logo) ?? undefined,
+    description: description ?? '',
+    availableServices: [],
+    serviceQuestions: {},
+    domain: '',
+    brandColor: '#000000',
+    accentColor: accentColor ?? 'gold',
+    voice: {
+      enabled: false,
+      provider: 'cloudflare',
+      voiceId: null,
+      displayName: null,
+      previewUrl: null,
+    },
+    consultationFee: toMinorUnitsValue(resolveNumber(pd.consultation_fee) ?? resolveNumber(detailsRecord?.consultationFee)) ?? undefined,
+    paymentUrl: resolveString(pd.payment_url) ?? resolveString(detailsRecord?.paymentUrl),
+    calendlyUrl: resolveString(pd.calendly_url) ?? resolveString(detailsRecord?.calendlyUrl),
+    isPublic: resolveBoolean(pd.is_public) ?? resolveBoolean(detailsRecord?.isPublic),
+    billingIncrementMinutes: resolveNumber(pd.billing_increment_minutes) ?? resolveNumber(detailsRecord?.billingIncrementMinutes) ?? undefined,
+    introMessage: resolveString(pd.introMessage)
+      ?? resolveString(pd.intro_message)
+      ?? resolveString(detailsRecord?.introMessage)
+      ?? resolveString(detailsRecord?.intro_message)
+      ?? resolveString(nestedDetailsRecord?.introMessage)
+      ?? resolveString(nestedDetailsRecord?.intro_message),
+    legalDisclaimer: resolveString(pd.legalDisclaimer)
+      ?? resolveString(pd.legal_disclaimer)
+      ?? resolveString(detailsRecord?.legalDisclaimer)
+      ?? resolveString(detailsRecord?.legal_disclaimer)
+      ?? resolveString(nestedDetailsRecord?.legalDisclaimer)
+      ?? resolveString(nestedDetailsRecord?.legal_disclaimer),
+  };
+};
+
 
 
 interface UsePracticeConfigOptions {
