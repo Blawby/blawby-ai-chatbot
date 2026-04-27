@@ -1,4 +1,5 @@
 import type { FunctionComponent } from 'preact';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import { useLocation } from 'preact-iso';
 import { Icon, type IconComponent } from '@/shared/ui/Icon';
 import { useNavigation } from '@/shared/utils/navigation';
@@ -49,6 +50,9 @@ const getBestMatchScore = (currentPath: string, item: NavRailItem): number => {
   return bestScore;
 };
 
+const getDocumentSide = (): 'left' | 'right' =>
+  typeof document !== 'undefined' && document.documentElement.dir === 'rtl' ? 'right' : 'left';
+
 export const NavRail: FunctionComponent<NavRailProps> = ({
   items,
   activeHref,
@@ -61,26 +65,56 @@ export const NavRail: FunctionComponent<NavRailProps> = ({
   const location = useLocation();
   const { navigate } = useNavigation();
   const resolvedPath = normalizePath(activeHref || location.path);
-  if (hidden) return null;
+
   const activeItemId = items.reduce<{ id: string | null; score: number }>((best, item) => {
     if (item.isAction) return best;
     const score = getBestMatchScore(resolvedPath, item);
     if (score < 0) return best;
-    if (score > best.score) {
-      return { id: item.id, score };
-    }
+    if (score > best.score) return { id: item.id, score };
     return best;
   }, { id: null, score: -1 }).id;
 
   const getIsActive = (item: NavRailItem) =>
     item.isActive !== undefined ? item.isActive : (!item.isAction && activeItemId === item.id);
 
-  const activeIndex = variant === 'bottom'
-    ? items.findIndex(getIsActive)
-    : -1;
+  const activeIndex = variant === 'bottom' ? items.findIndex(getIsActive) : -1;
 
-  const isRTL = typeof document !== 'undefined' && document.documentElement.dir === 'rtl';
-  const directionMultiplier = isRTL ? -1 : 1;
+  const baseW = 100 / items.length;
+  const prevIndexRef = useRef(activeIndex);
+
+  const [pillStyle, setPillStyle] = useState<Record<string, string>>(() => {
+    const side = getDocumentSide();
+    const opp = side === 'left' ? 'right' : 'left';
+    const idx = activeIndex >= 0 ? activeIndex : 0;
+    return { [side]: `${idx * baseW}%`, [opp]: 'auto', width: `${baseW}%` };
+  });
+
+  useEffect(() => {
+    if (variant !== 'bottom') return;
+    if (activeIndex < 0) { prevIndexRef.current = -1; return; }
+    if (prevIndexRef.current === activeIndex) return;
+
+    const side = getDocumentSide();
+    const opp = side === 'left' ? 'right' : 'left';
+    const prevIdx = prevIndexRef.current >= 0 ? prevIndexRef.current : activeIndex;
+    const minIdx = Math.min(prevIdx, activeIndex);
+    const spanCount = Math.abs(activeIndex - prevIdx) + 1;
+
+    prevIndexRef.current = activeIndex;
+
+    // Phase 1: stretch pill to span source → destination tabs
+    setPillStyle({ [side]: `${minIdx * baseW}%`, [opp]: 'auto', width: `${spanCount * baseW}%` });
+
+    // Phase 2: contract to destination tab
+    const timer = setTimeout(() => {
+      setPillStyle({ [side]: `${activeIndex * baseW}%`, [opp]: 'auto', width: `${baseW}%` });
+    }, 160);
+
+    return () => clearTimeout(timer);
+  }, [activeIndex, variant, baseW]);
+
+  // All hooks above — early return must come after
+  if (hidden) return null;
 
   const baseButtonClass = 'relative z-10 flex items-center justify-center rounded-xl font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50';
   const layoutClass = variant === 'rail'
@@ -96,13 +130,12 @@ export const NavRail: FunctionComponent<NavRailProps> = ({
       {variant === 'bottom' && activeIndex >= 0 && (
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute rounded-2xl bg-[rgb(var(--nav-active-bg))] transition-transform duration-300 ease-out"
+          className="pointer-events-none absolute rounded-2xl bg-[rgb(var(--nav-active-bg))]"
           style={{
-            width: `${100 / items.length}%`,
+            ...pillStyle,
             top: '0.375rem',
             bottom: 'calc(env(safe-area-inset-bottom) + 0.5rem)',
-            insetInlineStart: 0,
-            transform: `translateX(${activeIndex * 100 * directionMultiplier}%)`,
+            transition: 'left 150ms ease-in-out, right 150ms ease-in-out, width 150ms ease-in-out',
           }}
         />
       )}
