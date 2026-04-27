@@ -79,6 +79,9 @@ export const NavRail: FunctionComponent<NavRailProps> = ({
     ? items.findIndex(getIsActive)
     : -1;
 
+  const isRTL = typeof document !== 'undefined' && document.documentElement.dir === 'rtl';
+  const directionMultiplier = isRTL ? -1 : 1;
+
   const baseButtonClass = 'relative z-10 flex items-center justify-center rounded-xl font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50';
   const layoutClass = variant === 'rail'
     ? 'h-11 w-11'
@@ -93,10 +96,13 @@ export const NavRail: FunctionComponent<NavRailProps> = ({
       {variant === 'bottom' && activeIndex >= 0 && (
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-y-1.5 rounded-2xl bg-[rgb(var(--nav-active-bg))] transition-transform duration-300 ease-out"
+          className="pointer-events-none absolute rounded-2xl bg-[rgb(var(--nav-active-bg))] transition-transform duration-300 ease-out"
           style={{
             width: `${100 / items.length}%`,
-            transform: `translateX(${activeIndex * 100}%)`,
+            top: '0.375rem',
+            bottom: 'calc(env(safe-area-inset-bottom) + 0.5rem)',
+            insetInlineStart: 0,
+            transform: `translateX(${activeIndex * 100 * directionMultiplier}%)`,
           }}
         />
       )}
@@ -120,7 +126,7 @@ export const NavRail: FunctionComponent<NavRailProps> = ({
                 : variant === 'bottom'
                   ? isActive
                     ? 'text-[rgb(var(--nav-active-text))]'
-                    : 'text-[rgb(var(--input-text)_/_0.75)]'
+                    : 'text-[rgb(var(--input-text)_/_0.75)] hover:text-[rgb(var(--input-text))] hover:bg-[rgb(255_255_255_/_0.06)]'
                   : isActive
                     ? 'nav-item-active'
                     : 'nav-item-inactive',
