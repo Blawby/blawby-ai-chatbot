@@ -5,6 +5,7 @@ import type { PracticeConfig, MinorAmount } from '../../../worker/types';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { getPractice, getPublicPracticeDetails } from '@/shared/lib/apiClient';
 import { setPracticeDetailsEntry } from '@/shared/stores/practiceDetailsStore';
+import { toMinorUnitsValue } from '@/shared/utils/money';
 
 // Zod schema for API response validation
 // Note: createdAt/updatedAt can be either number (timestamp) or string (ISO date) depending on the API
@@ -129,7 +130,7 @@ export const resolvePracticeConfigFromBootstrap = (
       displayName: null,
       previewUrl: null,
     },
-    consultationFee: (resolveNumber(pd.consultation_fee) ?? resolveNumber(detailsRecord?.consultationFee)) as MinorAmount | undefined,
+    consultationFee: toMinorUnitsValue(resolveNumber(pd.consultation_fee) ?? resolveNumber(detailsRecord?.consultationFee)) ?? undefined,
     paymentUrl: resolveString(pd.payment_url) ?? resolveString(detailsRecord?.paymentUrl),
     calendlyUrl: resolveString(pd.calendly_url) ?? resolveString(detailsRecord?.calendlyUrl),
     isPublic: resolveBoolean(pd.is_public) ?? resolveBoolean(detailsRecord?.isPublic),

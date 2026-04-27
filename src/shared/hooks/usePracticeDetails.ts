@@ -108,9 +108,6 @@ export const usePracticeDetails = (
     async (payload: Parameters<typeof updatePracticeDetailsStandalone>[1]) => {
       if (!practiceId) throw new Error('Practice id is required for details update');
       const result = await updatePracticeDetailsStandalone(practiceId, payload);
-      if (result !== undefined) {
-        setPracticeDetailsEntry(practiceId, result);
-      }
       return result;
     },
     [practiceId],

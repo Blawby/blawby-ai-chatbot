@@ -13,7 +13,7 @@ import { setWidgetRuntimeContext } from '@/shared/utils/widgetAuth';
 import { normalizePracticeDetailsResponse } from '@/shared/lib/apiClient';
 import { setPracticeDetailsEntry } from '@/shared/stores/practiceDetailsStore';
 import type { WidgetPreviewConfig, WidgetPreviewMessage, WidgetPreviewScenario } from '@/shared/types/widgetPreview';
-import type { MinorAmount } from '../../worker/types';
+import { toMinorUnitsValue } from '@/shared/utils/money';
 
 interface PublicWorkspaceRouteProps {
   practiceSlug?: string;
@@ -60,7 +60,6 @@ export const PublicWorkspaceRoute: FunctionComponent<PublicWorkspaceRouteProps> 
 
   const [previewScenario, setPreviewScenario] = useState<WidgetPreviewScenario>(initialScenario);
   const [previewConfig, setPreviewConfig] = useState<WidgetPreviewConfig>({});
-  const isMinorAmount = (val: unknown): val is MinorAmount => typeof val === 'number' && val >= 0;
 
   useEffect(() => {
     if (!isWidget) return;
@@ -104,7 +103,7 @@ export const PublicWorkspaceRoute: FunctionComponent<PublicWorkspaceRouteProps> 
       accentColor: previewConfig.accentColor ?? basePracticeConfig.accentColor,
       introMessage: previewConfig.introMessage !== undefined ? (previewConfig.introMessage ?? undefined) : basePracticeConfig.introMessage,
       legalDisclaimer: previewConfig.legalDisclaimer !== undefined ? (previewConfig.legalDisclaimer ?? undefined) : basePracticeConfig.legalDisclaimer,
-      consultationFee: (previewConfig.consultationFee !== undefined && previewConfig.consultationFee !== null && isMinorAmount(previewConfig.consultationFee)) ? previewConfig.consultationFee : basePracticeConfig.consultationFee,
+      consultationFee: (previewConfig.consultationFee !== undefined && previewConfig.consultationFee !== null) ? toMinorUnitsValue(previewConfig.consultationFee) : basePracticeConfig.consultationFee,
       billingIncrementMinutes: previewConfig.billingIncrementMinutes !== undefined ? (previewConfig.billingIncrementMinutes ?? undefined) : basePracticeConfig.billingIncrementMinutes,
     };
   }, [basePracticeConfig, isPreviewRequested, previewConfig]);

@@ -525,6 +525,11 @@ function _generateIdempotencyKey(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
+/**
+ * Updates practice details and synchronizes with all active store instances.
+ * @returns Promise<PracticeDetails | null> - Returns the updated details, or null if no update was applied.
+ * Callers should treat null as terminal/no-op and avoid further side effects.
+ */
 export const updatePracticeDetailsStandalone = async (id: string, details: PracticeDetailsUpdate): Promise<PracticeDetails | null> => {
   if (!id) {
     throw new Error('Practice id is required for details update');
