@@ -525,6 +525,43 @@ function _generateIdempotencyKey(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
+export const updatePracticeDetailsStandalone = async (id: string, details: PracticeDetailsUpdate): Promise<PracticeDetails | null> => {
+  if (!id) {
+    throw new Error('Practice id is required for details update');
+  }
+  const updatedDetails = await apiUpdatePracticeDetails(id, details);
+  setPracticeDetailsEntry(id, updatedDetails);
+  if (updatedDetails) {
+    if (sharedPracticeSnapshot) {
+      const nextPractices = sharedPracticeSnapshot.practices.map((practice) =>
+        practice.id === id ? mergePracticeDetails(practice, updatedDetails) : practice
+      );
+      const nextCurrentPractice = sharedPracticeSnapshot.currentPractice?.id === id
+        ? mergePracticeDetails(sharedPracticeSnapshot.currentPractice, updatedDetails)
+        : sharedPracticeSnapshot.currentPractice;
+      sharedPracticeSnapshot = {
+        practices: nextPractices,
+        currentPractice: nextCurrentPractice
+      };
+      if (sharedPracticeSnapshot.currentPractice?.id === id) {
+        sharedPracticeIncludesDetails = true;
+      }
+    }
+    const snapshot = practiceListStore.get();
+    setPracticeList(
+      (snapshot.practices || []).map((practice) =>
+        practice.id === id ? mergePracticeDetails(practice, updatedDetails) : practice
+      )
+    );
+    setCurrentPractice(
+      snapshot.currentPractice?.id === id
+        ? mergePracticeDetails(snapshot.currentPractice, updatedDetails)
+        : snapshot.currentPractice
+    );
+  }
+  return updatedDetails;
+};
+
 export function usePracticeManagement(options: UsePracticeManagementOptions = {}): UsePracticeManagementReturn {
   const {
     autoFetchPractices = true,
@@ -1104,42 +1141,7 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
 
   }, []);
 
-  const updatePracticeDetails = useCallback(async (id: string, details: PracticeDetailsUpdate): Promise<PracticeDetails | null> => {
-    if (!id) {
-      throw new Error('Practice id is required for details update');
-    }
-    const updatedDetails = await apiUpdatePracticeDetails(id, details);
-    setPracticeDetailsEntry(id, updatedDetails);
-    if (updatedDetails) {
-      if (sharedPracticeSnapshot) {
-        const nextPractices = sharedPracticeSnapshot.practices.map((practice) =>
-          practice.id === id ? mergePracticeDetails(practice, updatedDetails) : practice
-        );
-        const nextCurrentPractice = sharedPracticeSnapshot.currentPractice?.id === id
-          ? mergePracticeDetails(sharedPracticeSnapshot.currentPractice, updatedDetails)
-          : sharedPracticeSnapshot.currentPractice;
-        sharedPracticeSnapshot = {
-          practices: nextPractices,
-          currentPractice: nextCurrentPractice
-        };
-        if (sharedPracticeSnapshot.currentPractice?.id === id) {
-          sharedPracticeIncludesDetails = true;
-        }
-      }
-      const snapshot = practiceListStore.get();
-      setPracticeList(
-        (snapshot.practices || []).map((practice) =>
-          practice.id === id ? mergePracticeDetails(practice, updatedDetails) : practice
-        )
-      );
-      setCurrentPractice(
-        snapshot.currentPractice?.id === id
-          ? mergePracticeDetails(snapshot.currentPractice, updatedDetails)
-          : snapshot.currentPractice
-      );
-    }
-    return updatedDetails;
-  }, []);
+  const updatePracticeDetails = useCallback(updatePracticeDetailsStandalone, []);
 
   // Delete practice
   const deletePractice = useCallback(async (id: string): Promise<void> => {

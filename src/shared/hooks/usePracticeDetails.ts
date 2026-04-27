@@ -1,7 +1,7 @@
 import { useCallback } from 'preact/hooks';
 import { useStore } from '@nanostores/preact';
 import { getPracticeDetails, getPublicPracticeDetails, type PracticeDetails } from '@/shared/lib/apiClient';
-import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
+import { updatePracticeDetailsStandalone } from '@/shared/hooks/usePracticeManagement';
 import { practiceDetailsStore, setPracticeDetailsEntry } from '@/shared/stores/practiceDetailsStore';
 
 const practiceDetailsInFlight = new Map<string, Promise<PracticeDetails | null>>();
@@ -45,9 +45,7 @@ export const usePracticeDetails = (
       ? detailsMap[practiceId] ?? null
       : null;
 
-  const { updatePracticeDetails } = usePracticeManagement({
-    autoFetchPractices: false,
-  });
+
 
   // ------------------------------------------------------------------
   // fetchDetails — only hits the network when the store has no entry.
@@ -107,15 +105,15 @@ export const usePracticeDetails = (
   // updateDetails — for practice-owner settings saves.
   // ------------------------------------------------------------------
   const updateDetails = useCallback(
-    async (payload: Parameters<typeof updatePracticeDetails>[1]) => {
+    async (payload: Parameters<typeof updatePracticeDetailsStandalone>[1]) => {
       if (!practiceId) throw new Error('Practice id is required for details update');
-      const result = await updatePracticeDetails(practiceId, payload);
+      const result = await updatePracticeDetailsStandalone(practiceId, payload);
       if (result !== undefined) {
         setPracticeDetailsEntry(practiceId, result);
       }
       return result;
     },
-    [practiceId, updatePracticeDetails],
+    [practiceId],
   );
 
   // ------------------------------------------------------------------
