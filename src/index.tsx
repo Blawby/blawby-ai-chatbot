@@ -20,9 +20,9 @@ import { getSession } from '@/shared/lib/authClient';
 import { MainApp } from '@/app/MainApp';
 import { WidgetApp } from '@/app/WidgetApp';
 import { WidgetPreviewApp } from '@/app/WidgetPreviewApp';
-import { PublicIntakeApp } from '@/app/PublicIntakeApp';
+import PublicIntakeCard from '@/shared/ui/layout/PublicIntakeCard';
 import { useNavigation } from '@/shared/utils/navigation';
-import { usePracticeConfig } from '@/shared/hooks/usePracticeConfig';
+import { usePracticeConfig, resolvePracticeConfigFromBootstrap } from '@/shared/hooks/usePracticeConfig';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import type { UIPracticeConfig } from '@/shared/hooks/usePracticeConfig';
 import type { MinorAmount } from '../worker/types';
@@ -317,7 +317,7 @@ function AppShell() {
           <Route path="/debug/conversations" component={DevDebugConversationsRoute} />
           <Route path="/debug/matters" component={DevDebugMatterRoute} />
           <Route path="/pay" component={PayRedirect} />
-          <Route path="/public/:practiceSlug/intake/:templateSlug" component={PublicIntakeApp} />
+          <Route path="/public/:practiceSlug/intake/:templateSlug" component={PublicPracticeRoute} workspaceView="intake" />
           <Route path="/public/:practiceSlug" component={PublicPracticeRoute} workspaceView="home" />
           <Route path="/public/:practiceSlug/conversations" component={PublicPracticeRoute} workspaceView="list" />
           <Route path="/public/:practiceSlug/conversations/:conversationId" component={PublicPracticeRoute} workspaceView="conversation" />
@@ -869,12 +869,14 @@ function ClientPracticeRoute({
 
 function PublicPracticeRoute({
   practiceSlug,
+  templateSlug,
   conversationId,
   workspaceView: _workspaceView = 'home'
 }: {
   practiceSlug?: string;
+  templateSlug?: string;
   conversationId?: string;
-  workspaceView?: 'home' | 'list' | 'conversation' | 'matters';
+  workspaceView?: 'home' | 'list' | 'conversation' | 'matters' | 'intake';
 }) {
   const location = useLocation();
   const { session: _session, isPending: _sessionIsPending, activeMemberRole: _activeMemberRole } = useSessionContext();
@@ -936,91 +938,7 @@ function PublicPracticeRoute({
 
   const basePracticeConfig = useMemo<UIPracticeConfig | null>(() => {
     if (!data?.practiceDetails) return null;
-    const pd = data.practiceDetails as Record<string, unknown>;
-    const dataRecord = (pd.data && typeof pd.data === 'object'
-      ? pd.data as Record<string, unknown>
-      : null);
-    const detailsRecord = (pd.details && typeof pd.details === 'object'
-      ? pd.details as Record<string, unknown>
-      : null);
-    const nestedDetailsRecord = (dataRecord?.details && typeof dataRecord.details === 'object'
-      ? dataRecord.details as Record<string, unknown>
-      : null);
-    const resolveString = (value: unknown): string | null =>
-      typeof value === 'string' && value.trim().length > 0 ? value : null;
-    const resolveBoolean = (value: unknown): boolean | undefined =>
-      typeof value === 'boolean' ? value : undefined;
-    const resolveNumber = (value: unknown): number | undefined =>
-      typeof value === 'number' ? value : undefined;
-
-    const practiceId = resolveString(pd.organizationId)
-      ?? resolveString(pd.organization_id)
-      ?? resolveString(dataRecord?.organizationId)
-      ?? resolveString(dataRecord?.organization_id)
-      ?? resolveString(detailsRecord?.organizationId)
-      ?? resolveString(detailsRecord?.organization_id)
-      ?? resolveString(detailsRecord?.practiceId)
-      ?? resolveString(detailsRecord?.id)
-      ?? resolveString(nestedDetailsRecord?.organizationId)
-      ?? resolveString(nestedDetailsRecord?.organization_id)
-      ?? resolveString(nestedDetailsRecord?.practiceId)
-      ?? resolveString(nestedDetailsRecord?.id)
-      ?? resolveString((pd as Record<string, unknown>).practiceId)
-      ?? resolveString((pd as Record<string, unknown>).id)
-      ?? resolveString(dataRecord?.practiceId)
-      ?? resolveString(dataRecord?.id);
-    const accentColor = resolveString(pd.accentColor)
-      ?? resolveString(pd.accent_color)
-      ?? resolveString(dataRecord?.accentColor)
-      ?? resolveString(dataRecord?.accent_color)
-      ?? resolveString(detailsRecord?.accentColor)
-      ?? resolveString(detailsRecord?.accent_color)
-      ?? resolveString(nestedDetailsRecord?.accentColor)
-      ?? resolveString(nestedDetailsRecord?.accent_color);
-    const description = resolveString(pd.description)
-      ?? resolveString(pd.overview)
-      ?? resolveString(detailsRecord?.description)
-      ?? resolveString(detailsRecord?.overview);
-
-    return {
-      id: practiceId ?? '',
-      slug: resolveString(pd.slug) ?? practiceSlug,
-      name: resolveString(pd.name) ?? '',
-      profileImage: resolveString(pd.logo) ?? undefined,
-      description: description ?? '',
-      availableServices: [],
-      serviceQuestions: {},
-      domain: '',
-      brandColor: '#000000',
-      accentColor: accentColor ?? 'gold',
-      voice: {
-        enabled: false,
-        provider: 'cloudflare',
-        voiceId: undefined,
-        displayName: undefined,
-        previewUrl: undefined,
-      },
-      consultationFee: (resolveNumber(pd.consultation_fee) ?? resolveNumber(detailsRecord?.consultationFee)) as MinorAmount | undefined,
-      paymentUrl: resolveString(pd.payment_url) ?? resolveString(detailsRecord?.paymentUrl),
-      calendlyUrl: resolveString(pd.calendly_url) ?? resolveString(detailsRecord?.calendlyUrl),
-      isPublic: resolveBoolean(pd.is_public) ?? resolveBoolean(detailsRecord?.isPublic),
-      billingIncrementMinutes: resolveNumber(pd.billing_increment_minutes) ?? resolveNumber(detailsRecord?.billingIncrementMinutes) ?? undefined,
-      introMessage: resolveString(pd.introMessage)
-        ?? resolveString(pd.intro_message)
-        ?? resolveString(detailsRecord?.introMessage)
-        ?? resolveString(detailsRecord?.intro_message)
-        ?? resolveString(nestedDetailsRecord?.introMessage)
-        ?? resolveString(nestedDetailsRecord?.intro_message),
-      legalDisclaimer: resolveString(pd.legalDisclaimer)
-        ?? resolveString(pd.legal_disclaimer)
-        ?? resolveString(pd.overview)
-        ?? resolveString(detailsRecord?.legalDisclaimer)
-        ?? resolveString(detailsRecord?.legal_disclaimer)
-        ?? resolveString(nestedDetailsRecord?.legalDisclaimer)
-        ?? resolveString(nestedDetailsRecord?.legal_disclaimer)
-        ?? resolveString(nestedDetailsRecord?.overview)
-        ?? resolveString(detailsRecord?.overview),
-    };
+    return resolvePracticeConfigFromBootstrap(data.practiceDetails as Record<string, unknown>, practiceSlug);
   }, [data, practiceSlug]);
 
   const practiceConfig = useMemo<UIPracticeConfig | null>(() => {
@@ -1061,6 +979,17 @@ function PublicPracticeRoute({
     ? `${window.location.origin}${location.url}`
     : undefined;
 
+  const widgetContent = (
+    <WidgetApp
+      practiceId={resolvedPracticeId}
+      practiceConfig={practiceConfig}
+      routeConversationId={conversationId}
+      bootstrapConversationId={data.conversationId}
+      bootstrapSession={data.session}
+      intakeTemplate={data.intakeTemplate ?? null}
+    />
+  );
+
   return (
     <>
       <SEOHead
@@ -1075,21 +1004,11 @@ function PublicPracticeRoute({
           previewConfig={previewConfig}
         />
       ) : (
-        // If a template query param is present on the public route, render the
-        // card-based public intake wrapper so direct URLs like
-        // /public/:practiceSlug?template=default show the centered card.
-        (typeof location.query?.template === 'string' || (typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('template'))) ? (
-          <PublicIntakeApp practiceSlug={slug} templateSlug={typeof location.query?.template === 'string' ? location.query.template : undefined} />
-        ) : (
-          <WidgetApp
-            practiceId={resolvedPracticeId}
-            practiceConfig={practiceConfig}
-            routeConversationId={conversationId}
-            bootstrapConversationId={data.conversationId}
-            bootstrapSession={data.session}
-            intakeTemplate={data.intakeTemplate ?? null}
-          />
-        )
+        (templateSlug || typeof location.query?.template === 'string' || (typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('template'))) ? (
+          <PublicIntakeCard>
+            {widgetContent}
+          </PublicIntakeCard>
+        ) : widgetContent
       )}
     </>
   );
