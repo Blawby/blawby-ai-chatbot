@@ -78,9 +78,7 @@ export const NavRail: FunctionComponent<NavRailProps> = ({
 
   const activeIndex = variant === 'bottom' ? items.findIndex(getIsActive) : -1;
 
-  const isRTL = typeof document !== 'undefined' && document.documentElement.dir === 'rtl';
   const baseW = 100 / items.length;
-  const side = isRTL ? 'right' : 'left';
 
   const baseButtonClass = 'relative z-10 flex items-center justify-center rounded-xl font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50';
   const layoutClass = variant === 'rail'
@@ -99,11 +97,11 @@ export const NavRail: FunctionComponent<NavRailProps> = ({
           className="pointer-events-none absolute rounded-2xl bg-[rgb(var(--nav-active-bg))]"
           style={{
             width: `${baseW}%`,
-            [side]: `${activeIndex * baseW}%`,
-            [isRTL ? 'left' : 'right']: 'auto',
+            insetInlineStart: `${activeIndex * baseW}%`,
+            insetInlineEnd: 'auto',
             top: '0.375rem',
             bottom: 'calc(env(safe-area-inset-bottom) + 0.5rem)',
-            transition: `${side} 250ms cubic-bezier(0.4, 0, 0.2, 1)`,
+            transition: 'inset-inline-start 250ms cubic-bezier(0.4, 0, 0.2, 1)',
           }}
         />
       )}
