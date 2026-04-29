@@ -2,6 +2,7 @@ import { FunctionComponent } from 'preact';
 import { useLocation } from 'preact-iso';
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 import { useMessageHandling } from '@/shared/hooks/useMessageHandling';
+import { apiClient, isHttpError } from '@/shared/lib/apiClient';
 import {
   CheckCircleIcon,
   UserIcon,
@@ -373,21 +374,16 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
         }
 
         try {
-          const participantRes = await fetch(
-            `/api/conversations/${encodeURIComponent(responseConversationId)}/participants?practiceId=${encodeURIComponent(targetPracticeId)}`,
-            {
-              method: 'POST',
-              credentials: 'include',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ participantUserIds: [session.user.id] }),
-            }
+          await apiClient.post(
+            `/api/conversations/${encodeURIComponent(responseConversationId)}/participants`,
+            { participantUserIds: [session.user.id] },
+            { params: { practiceId: targetPracticeId } },
           );
-          if (!participantRes.ok) {
-            participantFailed = true;
-          }
         } catch (participantErr) {
           participantFailed = true;
-          console.warn('[IntakeDetailPage] Failed to add participant', participantErr);
+          if (!isHttpError(participantErr)) {
+            console.warn('[IntakeDetailPage] Failed to add participant', participantErr);
+          }
         }
 
         try {

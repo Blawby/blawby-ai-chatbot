@@ -4,7 +4,7 @@ import {
   getPracticeClientIntakeSettingsEndpoint
 } from '@/config/api';
 import { asMinor, assertMinorUnits, toMinorUnitsValue, type MinorAmount } from '@/shared/utils/money';
-import { getPublicPracticeDetails } from '@/shared/lib/apiClient';
+import { apiClient, getPublicPracticeDetails, isHttpError } from '@/shared/lib/apiClient';
 
 const getTrimmedString = (value: unknown): string | undefined => {
   if (typeof value !== 'string') return undefined;
@@ -204,48 +204,33 @@ const sanitizeErrorBody = (raw: string): string => {
 
 const createCheckoutSession = async (intakeUuid: string): Promise<{ url?: string; sessionId?: string }> => {
   try {
-    const response = await fetch(getPracticeClientIntakeCheckoutSessionEndpoint(intakeUuid), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include'
-    });
-    if (!response.ok) {
-      const errorBody = await response.text();
-      const safeErrorBody = import.meta.env.DEV ? errorBody : sanitizeErrorBody(errorBody);
-      const errorLog = {
-        status: response.status,
-        statusText: response.statusText,
-        errorBody: safeErrorBody,
-        intakeUuid
-      };
-      if (import.meta.env.DEV) {
-        console.warn('[Intake] Checkout session creation failed', errorLog);
-      } else {
-        // Production logging
-        console.error('[Intake] Checkout session creation failed', JSON.stringify(errorLog));
-      }
-      const error = new Error(`Failed to create checkout session: ${response.status} ${response.statusText}`) as LoggedError;
-      error._logged = true;
-      throw error;
-    }
     let result: CheckoutSessionResponse;
     try {
-      result = await response.json() as CheckoutSessionResponse;
-    } catch (parseError) {
-      const errorLog = {
-        status: response.status,
-        statusText: response.statusText,
-        parseError: parseError instanceof Error ? parseError.message : String(parseError),
-        intakeUuid
-      };
-      if (import.meta.env.DEV) {
-        console.warn('[Intake] Failed to parse checkout session JSON', errorLog);
-      } else {
-        console.error('[Intake] Failed to parse checkout session JSON', JSON.stringify(errorLog));
+      const apiResult = await apiClient.post<CheckoutSessionResponse>(
+        getPracticeClientIntakeCheckoutSessionEndpoint(intakeUuid),
+      );
+      result = apiResult.data;
+    } catch (apiError) {
+      if (isHttpError(apiError)) {
+        const errorBody = typeof apiError.response.data === 'string'
+          ? apiError.response.data
+          : JSON.stringify(apiError.response.data ?? {});
+        const safeErrorBody = import.meta.env.DEV ? errorBody : sanitizeErrorBody(errorBody);
+        const errorLog = {
+          status: apiError.response.status,
+          errorBody: safeErrorBody,
+          intakeUuid,
+        };
+        if (import.meta.env.DEV) {
+          console.warn('[Intake] Checkout session creation failed', errorLog);
+        } else {
+          console.error('[Intake] Checkout session creation failed', JSON.stringify(errorLog));
+        }
+        const error = new Error(`Failed to create checkout session: ${apiError.response.status}`) as LoggedError;
+        error._logged = true;
+        throw error;
       }
-      const error = new Error(`Invalid server response (invalid JSON): ${response.status}`) as LoggedError;
-      error._logged = true;
-      throw error;
+      throw apiError;
     }
 
     if (!result.success || !result.data?.url) {
@@ -281,22 +266,14 @@ async function fetchIntakeSettings(
   practiceSlug: string
 ): Promise<IntakeSettingsResponse | null> {
   try {
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json'
-    };
-    const response = await fetch(getPracticeClientIntakeSettingsEndpoint(practiceSlug), {
-      method: 'GET',
-      headers,
-      credentials: 'include'
-    });
-
-    if (!response.ok) {
-      return null;
-    }
-
-    return await response.json() as IntakeSettingsResponse;
+    const { data } = await apiClient.get<IntakeSettingsResponse>(
+      getPracticeClientIntakeSettingsEndpoint(practiceSlug),
+    );
+    return data;
   } catch (error) {
-    console.warn('[Intake] Failed to fetch intake settings', error);
+    if (!isHttpError(error)) {
+      console.warn('[Intake] Failed to fetch intake settings', error);
+    }
     return null;
   }
 }
@@ -405,19 +382,31 @@ export async function submitContactForm(
       on_behalf_of: '' // Always include on_behalf_of
     };
 
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json'
-    };
+    let result: IntakeCreateResponse;
+    try {
+      const apiResult = await apiClient.post<IntakeCreateResponse>(
+        getPracticeClientIntakeCreateEndpoint(),
+        createPayload,
+      );
+      result = apiResult.data;
+    } catch (apiError) {
+      if (isHttpError(apiError)) {
+        const errorBody = typeof apiError.response.data === 'string'
+          ? apiError.response.data
+          : JSON.stringify(apiError.response.data ?? {});
+        console.error('[Forms] Backend error response:', {
+          status: apiError.response.status,
+          errorBody,
+        });
+        const errorData = (apiError.response.data && typeof apiError.response.data === 'object'
+          ? apiError.response.data as { error?: string; message?: string }
+          : {});
+        throw new Error(errorData.error || errorData.message || `Backend error: ${apiError.response.status}`);
+      }
+      throw apiError;
+    }
 
-    const response = await fetch(getPracticeClientIntakeCreateEndpoint(), {
-      method: 'POST',
-      headers,
-      credentials: 'include',
-      body: JSON.stringify(createPayload)
-    });
-
-    if (response.ok) {
-      const result = await response.json() as IntakeCreateResponse;
+    {
       if (result.success === false) {
         throw new Error(result.error || 'Form submission failed');
       }
@@ -471,23 +460,6 @@ export async function submitContactForm(
           organizationLogo: intakeData?.organization?.logo ?? settings?.data?.organization?.logo
         }
       };
-    } else {
-      const errorText = await response.text();
-      console.error('[Forms] Backend error response:', {
-        status: response.status,
-        statusText: response.statusText,
-        errorBody: errorText
-      });
-      
-      // Parse error text once to avoid double consumption
-      let errorData: { error?: string; message?: string } = {};
-      try {
-        errorData = JSON.parse(errorText) as { error?: string; message?: string };
-      } catch {
-        // If parsing fails, errorData remains empty object
-      }
-      
-      throw new Error(errorData.error || errorData.message || `Backend error: ${response.status} ${response.statusText}`);
     }
   } catch (error) {
     console.error('Error submitting form:', error);

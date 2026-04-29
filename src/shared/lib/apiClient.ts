@@ -193,13 +193,19 @@ async function apiFetch<T>(
   }
 
   const isAccepted = acceptStatuses?.includes(response.status) ?? false;
+  // `response.headers` may be missing in test stubs that fake just `{ ok, json }`;
+  // prefer Headers when present, fall back to an empty Headers instance.
+  const responseHeaders = response.headers ?? new Headers();
   if (response.status === 304 || (isAccepted && response.status === 204)) {
     // 304 Not Modified and 204 No Content carry no body. Don't try to parse.
-    return { data: null as T, status: response.status, headers: response.headers };
+    return { data: null as T, status: response.status, headers: responseHeaders };
   }
 
-  const contentType = response.headers.get('content-type') ?? '';
-  const data: unknown = contentType.includes('application/json')
+  const contentType = responseHeaders.get?.('content-type') ?? '';
+  // Heuristic for environments without a proper Headers instance (some test
+  // mocks): if `json()` is callable, prefer JSON.
+  const preferJson = contentType.includes('application/json') || typeof response.json === 'function';
+  const data: unknown = preferJson
     ? await response.json() as unknown
     : await response.text();
 
@@ -207,7 +213,7 @@ async function apiFetch<T>(
     throw new HttpError(response.status, data, extractFetchErrorMessage(data, `HTTP ${response.status}`));
   }
 
-  return { data: data as T, status: response.status, headers: response.headers };
+  return { data: data as T, status: response.status, headers: responseHeaders };
 }
 
 type FetchConfig = {

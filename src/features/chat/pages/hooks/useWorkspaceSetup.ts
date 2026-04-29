@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState, useEffect, useCallback } from 'preact/hooks';
-import { isHttpError, isAbortError } from '@/shared/lib/apiClient';
+import { apiClient, isHttpError, isAbortError } from '@/shared/lib/apiClient';
 import { SessionNotReadyError } from '@/shared/types/errors';
 import { usePracticeBillingData, type BillingWindow } from '@/features/practice-dashboard/hooks/usePracticeBillingData';
 import {
@@ -87,24 +87,26 @@ export const useWorkspaceSetup = ({
     if (!practiceId) throw new Error('Practice context is required');
     if (!sessionUserId || isAnonymous) throw new SessionNotReadyError();
 
-    const params = new URLSearchParams({ practiceId });
-    const response = await fetch(`/api/conversations?${params.toString()}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({
-        participantUserIds: [sessionUserId],
-        metadata: { source: 'chat', mode: 'PRACTICE_ONBOARDING', title: 'Practice setup' },
-        practiceId,
-      }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({})) as { error?: string };
-      throw new Error(errorData.error || `HTTP ${response.status}`);
+    let data: { success?: boolean; data?: { id?: string }; error?: string };
+    try {
+      const result = await apiClient.post<{ success?: boolean; data?: { id?: string }; error?: string }>(
+        '/api/conversations',
+        {
+          participantUserIds: [sessionUserId],
+          metadata: { source: 'chat', mode: 'PRACTICE_ONBOARDING', title: 'Practice setup' },
+          practiceId,
+        },
+        { params: { practiceId } },
+      );
+      data = result.data;
+    } catch (apiError) {
+      if (isHttpError(apiError)) {
+        const errorData = apiError.response.data as { error?: string } | undefined;
+        throw new Error(errorData?.error || `HTTP ${apiError.response.status}`);
+      }
+      throw apiError;
     }
 
-    const data = await response.json() as { success?: boolean; data?: { id?: string }; error?: string };
     const conversationId = data.data?.id;
     if (!data.success || !conversationId) {
       throw new Error(data.error || 'Failed to create onboarding conversation');

@@ -1,17 +1,15 @@
 import { useCallback, useState } from 'preact/hooks';
 import type { ConversationMode, SetupFieldsPayload } from '@/shared/types/conversation';
 import { normalizeSetupFieldsPayload } from '@/shared/utils/setupState';
-import { getWorkerApiUrl } from '@/config/urls';
+import { apiClient, isHttpError } from '@/shared/lib/apiClient';
 
 const URL_RE = /https?:\/\/[^\s]+|(?:www\.)[^\s]+\.[a-z]{2,}/i;
 
-const readErrorMessage = async (res: Response, fallback: string): Promise<string> => {
-  try {
-    const payload = await res.json() as { error?: string; message?: string };
-    if (typeof payload.message === 'string' && payload.message.trim()) return payload.message;
-    if (typeof payload.error === 'string' && payload.error.trim()) return payload.error;
-  } catch {
-    // ignore parse failures
+const messageFromHttpError = (error: unknown, fallback: string): string => {
+  if (isHttpError(error)) {
+    const data = error.response.data as { message?: string; error?: string } | undefined;
+    if (data?.message?.trim()) return data.message;
+    if (data?.error?.trim()) return data.error;
   }
   return fallback;
 };
@@ -52,35 +50,41 @@ export function usePreSendEnrichment({
 
     let additionalContext: string | undefined;
     try {
-      const searchRes = await fetch(`${getWorkerApiUrl()}/api/tools/search?q=${encodeURIComponent(query)}`, {
-        credentials: 'include',
-      });
-      if (searchRes.ok) {
-        const searchData = await searchRes.json() as { contextBlock?: string };
-        if (searchData.contextBlock) {
+      try {
+        const { data: searchData } = await apiClient.get<{ contextBlock?: string }>(
+          '/api/tools/search',
+          { params: { q: query } },
+        );
+        if (searchData?.contextBlock) {
           additionalContext = searchData.contextBlock;
         }
+      } catch (searchError) {
+        // Search is best-effort: any HTTP/network error → no context block.
+        if (!isHttpError(searchError)) throw searchError;
       }
 
       if (cleanedUrl && practiceId) {
         const raw = cleanedUrl;
         const normalizedUrl = raw.startsWith('http') ? raw : `https://${raw}`;
         setStatusText(`Scanning ${normalizedUrl.replace(/^https?:\/\//, '')} for practice details…`);
-        const extractRes = await fetch(`${getWorkerApiUrl()}/api/ai/extract-website`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({ practiceId, url: normalizedUrl }),
-        });
-        if (!extractRes.ok) {
-          const errorMessage = await readErrorMessage(extractRes, 'I could not scan that website. You can continue by answering a few quick questions.');
-          setStatusText(errorMessage);
-          return { additionalContext };
-        }
-        const extractData = await extractRes.json() as { fields?: Record<string, unknown> };
-        const normalizedFields = normalizeSetupFieldsPayload(extractData.fields ?? null);
-        if (Object.keys(normalizedFields).length > 0) {
-          await onFieldsExtracted?.(normalizedFields);
+        try {
+          const { data: extractData } = await apiClient.post<{ fields?: Record<string, unknown> }>(
+            '/api/ai/extract-website',
+            { practiceId, url: normalizedUrl },
+          );
+          const normalizedFields = normalizeSetupFieldsPayload(extractData.fields ?? null);
+          if (Object.keys(normalizedFields).length > 0) {
+            await onFieldsExtracted?.(normalizedFields);
+          }
+        } catch (extractError) {
+          if (isHttpError(extractError)) {
+            setStatusText(messageFromHttpError(
+              extractError,
+              'I could not scan that website. You can continue by answering a few quick questions.',
+            ));
+            return { additionalContext };
+          }
+          throw extractError;
         }
       }
 
