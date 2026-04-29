@@ -1,11 +1,17 @@
-import { isHttpError, isAbortError } from '@/shared/lib/apiClient';
+import {
+  isHttpError,
+  isAbortError,
+  pluckCollection,
+  pluckRecord,
+  unwrapApiResponse,
+  apiClient,
+} from '@/shared/lib/apiClient';
 import {
   matterCollectionPath,
   matterItemPath,
   matterNestedItemPath,
   matterNestedPath
 } from '@/config/urls';
-import { apiClient } from '@/shared/lib/apiClient';
 import {
   toMajorUnits,
   toMinorUnitsValue,
@@ -212,166 +218,49 @@ const requestData = async <T>(promise: Promise<{ data: T }>, fallbackMessage: st
   }
 };
 
+// Extract helpers — all delegate to the shared `pluckCollection` /
+// `pluckRecord` primitives in `apiClient.ts`. Each helper just declares
+// the keys the backend uses for its resource.
 const extractMatterArray = (payload: unknown): BackendMatter[] => {
-  if (Array.isArray(payload)) {
-    return payload.filter((item): item is BackendMatter => !!item && typeof item === 'object');
-  }
-  if (!payload || typeof payload !== 'object') return [];
-
-  const record = payload as Record<string, unknown>;
-  
-  // Try 'matters' key first (standard paginated response)
-  if (Array.isArray(record.matters)) {
-    return record.matters.filter((item): item is BackendMatter => !!item && typeof item === 'object');
-  }
-  
-  // Try 'items' key (alternative paginated response)
-  if (Array.isArray(record.items)) {
-    return record.items.filter((item): item is BackendMatter => !!item && typeof item === 'object');
-  }
-
-  // Handle nested 'data' key (standard worker wrapping)
-  if (record.data) {
-    return extractMatterArray(record.data);
-  }
-
-  // Handle single matter object returned as 'matter'
-  if (record.matter && typeof record.matter === 'object' && !Array.isArray(record.matter)) {
-    return [record.matter as BackendMatter];
-  }
-  
-  // Handle flat objects that have an 'id' - fallback if not in known keys
-  if (record.id && ('title' in record || 'slug' in record || 'organization_id' in record)) {
-    return [record as BackendMatter];
-  }
-
-  console.warn('[mattersApi] extractMatterArray: could not extract array from payload', payload);
-  return [];
-};
-
-const extractMatter = (payload: unknown): BackendMatter | null => {
-  if (!payload || typeof payload !== 'object') return null;
-  if (Array.isArray(payload)) {
-    return (payload.find((item) => item && typeof item === 'object') ?? null) as BackendMatter | null;
-  }
-  const record = payload as Record<string, unknown>;
-  if (record.matter && typeof record.matter === 'object') {
-    return record.matter as BackendMatter;
-  }
-  if (record.data) {
-    return extractMatter(record.data);
-  }
-  return record as BackendMatter;
-};
-
-const extractActivityArray = (payload: unknown): BackendMatterActivity[] => {
-  if (Array.isArray(payload)) {
-    return payload.filter((item): item is BackendMatterActivity => !!item && typeof item === 'object');
-  }
-  if (!payload || typeof payload !== 'object') return [];
-  const record = payload as Record<string, unknown>;
-  // New: backend now wraps activity in 'activities' key
-  if (Array.isArray(record.activities)) {
-    return record.activities.filter((item): item is BackendMatterActivity => !!item && typeof item === 'object');
-  }
-  if (Array.isArray(record.activity)) {
-    return record.activity.filter((item): item is BackendMatterActivity => !!item && typeof item === 'object');
-  }
-  if (record.data) {
-    return extractActivityArray(record.data);
+  const unwrapped = unwrapApiResponse<unknown>(payload, 'Failed to load matters');
+  const list = pluckCollection<BackendMatter>(unwrapped, ['matters', 'items']);
+  if (list.length > 0) return list;
+  // Fallback: backend occasionally returns a single matter at the top level.
+  if (unwrapped && typeof unwrapped === 'object' && !Array.isArray(unwrapped)) {
+    const record = unwrapped as Record<string, unknown>;
+    if (record.matter && typeof record.matter === 'object' && !Array.isArray(record.matter)) {
+      return [record.matter as BackendMatter];
+    }
+    if (record.id && ('title' in record || 'slug' in record || 'organization_id' in record)) {
+      return [record as BackendMatter];
+    }
   }
   return [];
 };
 
-const extractNotesArray = (payload: unknown): BackendMatterNote[] => {
-  if (Array.isArray(payload)) {
-    return payload.filter((item): item is BackendMatterNote => !!item && typeof item === 'object');
-  }
-  if (!payload || typeof payload !== 'object') return [];
-  const record = payload as Record<string, unknown>;
-  if (Array.isArray(record.notes)) {
-    return record.notes.filter((item): item is BackendMatterNote => !!item && typeof item === 'object');
-  }
-  if (record.data) {
-    return extractNotesArray(record.data);
-  }
-  return [];
-};
+const extractMatter = (payload: unknown): BackendMatter | null =>
+  pluckRecord<BackendMatter>(unwrapApiResponse<unknown>(payload), ['matter']);
 
-const extractTimeEntriesArray = (payload: unknown): BackendMatterTimeEntry[] => {
-  if (Array.isArray(payload)) {
-    return payload.filter((item): item is BackendMatterTimeEntry => !!item && typeof item === 'object');
-  }
-  if (!payload || typeof payload !== 'object') return [];
-  const record = payload as Record<string, unknown>;
-  if (Array.isArray(record.timeEntries)) {
-    return record.timeEntries.filter((item): item is BackendMatterTimeEntry => !!item && typeof item === 'object');
-  }
-  if (record.data) {
-    return extractTimeEntriesArray(record.data);
-  }
-  return [];
-};
+const extractActivityArray = (payload: unknown): BackendMatterActivity[] =>
+  pluckCollection<BackendMatterActivity>(unwrapApiResponse<unknown>(payload), ['activities', 'activity']);
 
-const extractExpensesArray = (payload: unknown): BackendMatterExpense[] => {
-  if (Array.isArray(payload)) {
-    return payload.filter((item): item is BackendMatterExpense => !!item && typeof item === 'object');
-  }
-  if (!payload || typeof payload !== 'object') return [];
-  const record = payload as Record<string, unknown>;
-  if (Array.isArray(record.expenses)) {
-    return record.expenses.filter((item): item is BackendMatterExpense => !!item && typeof item === 'object');
-  }
-  if (record.data) {
-    return extractExpensesArray(record.data);
-  }
-  return [];
-};
+const extractNotesArray = (payload: unknown): BackendMatterNote[] =>
+  pluckCollection<BackendMatterNote>(unwrapApiResponse<unknown>(payload), ['notes']);
 
-const extractMilestonesArray = (payload: unknown): BackendMatterMilestone[] => {
-  if (Array.isArray(payload)) {
-    return payload.filter((item): item is BackendMatterMilestone => !!item && typeof item === 'object');
-  }
-  if (!payload || typeof payload !== 'object') return [];
-  const record = payload as Record<string, unknown>;
-  if (Array.isArray(record.milestones)) {
-    return record.milestones.filter((item): item is BackendMatterMilestone => !!item && typeof item === 'object');
-  }
-  if (record.data) {
-    return extractMilestonesArray(record.data);
-  }
-  return [];
-};
+const extractTimeEntriesArray = (payload: unknown): BackendMatterTimeEntry[] =>
+  pluckCollection<BackendMatterTimeEntry>(unwrapApiResponse<unknown>(payload), ['timeEntries']);
 
-const extractTasksArray = (payload: unknown): BackendMatterTask[] => {
-  if (Array.isArray(payload)) {
-    return payload.filter((item): item is BackendMatterTask => !!item && typeof item === 'object');
-  }
-  if (!payload || typeof payload !== 'object') return [];
-  const record = payload as Record<string, unknown>;
-  if (Array.isArray(record.tasks)) {
-    return record.tasks.filter((item): item is BackendMatterTask => !!item && typeof item === 'object');
-  }
-  if (record.data) {
-    return extractTasksArray(record.data);
-  }
-  return [];
-};
+const extractExpensesArray = (payload: unknown): BackendMatterExpense[] =>
+  pluckCollection<BackendMatterExpense>(unwrapApiResponse<unknown>(payload), ['expenses']);
 
-const extractTask = (payload: unknown): BackendMatterTask | null => {
-  if (!payload || typeof payload !== 'object') return null;
-  if (Array.isArray(payload)) {
-    return (payload.find((item) => item && typeof item === 'object') ?? null) as BackendMatterTask | null;
-  }
-  const record = payload as Record<string, unknown>;
-  if (record.task && typeof record.task === 'object') {
-    return record.task as BackendMatterTask;
-  }
-  if (record.data) {
-    return extractTask(record.data);
-  }
-  return record as BackendMatterTask;
-};
+const extractMilestonesArray = (payload: unknown): BackendMatterMilestone[] =>
+  pluckCollection<BackendMatterMilestone>(unwrapApiResponse<unknown>(payload), ['milestones']);
+
+const extractTasksArray = (payload: unknown): BackendMatterTask[] =>
+  pluckCollection<BackendMatterTask>(unwrapApiResponse<unknown>(payload), ['tasks']);
+
+const extractTask = (payload: unknown): BackendMatterTask | null =>
+  pluckRecord<BackendMatterTask>(unwrapApiResponse<unknown>(payload), ['task']);
 
 
 export const listMatters = async (

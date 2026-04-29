@@ -202,18 +202,39 @@ export function unwrapApiResponse<T>(payload: unknown, fallbackMessage = 'Reques
 
 /**
  * After unwrapping the envelope, lift a nested collection out of the resource
- * shape (e.g. `{ matters: [...] }` → `[...]`). If no candidate key matches,
- * the unwrapped value is returned as-is.
+ * shape (e.g. `{ matters: [...] }` → `[...]`). Looks at `candidates` keys
+ * first, then falls back to one level of `.data` (handles responses that
+ * still nest inside an extra `data` wrapper after the envelope is stripped).
+ * Returns `[]` if no array can be found.
  */
 export function pluckCollection<T>(unwrapped: unknown, candidates: string[]): T[] {
   if (Array.isArray(unwrapped)) return unwrapped as T[];
-  if (unwrapped && typeof unwrapped === 'object') {
-    const record = unwrapped as Record<string, unknown>;
-    for (const key of candidates) {
-      if (Array.isArray(record[key])) return record[key] as T[];
-    }
+  if (!unwrapped || typeof unwrapped !== 'object') return [];
+  const record = unwrapped as Record<string, unknown>;
+  for (const key of candidates) {
+    if (Array.isArray(record[key])) return record[key] as T[];
   }
+  if (record.data) return pluckCollection<T>(record.data, candidates);
   return [];
+}
+
+/**
+ * Pluck a single resource record. Looks at `candidates` keys for a single
+ * non-array object, then falls back to one level of `.data`, then to the
+ * unwrapped value itself. Returns `null` if none match.
+ */
+export function pluckRecord<T>(unwrapped: unknown, candidates: string[]): T | null {
+  if (!unwrapped || typeof unwrapped !== 'object') return null;
+  if (Array.isArray(unwrapped)) {
+    return (unwrapped.find((item) => item && typeof item === 'object') ?? null) as T | null;
+  }
+  const record = unwrapped as Record<string, unknown>;
+  for (const key of candidates) {
+    const value = record[key];
+    if (value && typeof value === 'object' && !Array.isArray(value)) return value as T;
+  }
+  if (record.data) return pluckRecord<T>(record.data, candidates);
+  return record as T;
 }
 
 export const apiClient = {

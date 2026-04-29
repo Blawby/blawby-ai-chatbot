@@ -10,12 +10,45 @@ const { mockApiClient } = vi.hoisted(() => ({
   }
 }));
 
-vi.mock('@/shared/lib/apiClient', () => ({
-  apiClient: mockApiClient,
-  isAbortError: (e: unknown) => e instanceof Error && e.name === 'AbortError',
-  isHttpError: (e: unknown): e is { response: { data: unknown }; message?: string } =>
-    typeof e === 'object' && e !== null && 'response' in e,
-}));
+vi.mock('@/shared/lib/apiClient', () => {
+  function pluckCollection<T>(unwrapped: unknown, candidates: string[]): T[] {
+    if (Array.isArray(unwrapped)) return unwrapped as T[];
+    if (!unwrapped || typeof unwrapped !== 'object') return [];
+    const record = unwrapped as Record<string, unknown>;
+    for (const key of candidates) if (Array.isArray(record[key])) return record[key] as T[];
+    if (record.data) return pluckCollection<T>(record.data, candidates);
+    return [];
+  }
+  function pluckRecord<T>(unwrapped: unknown, candidates: string[]): T | null {
+    if (!unwrapped || typeof unwrapped !== 'object') return null;
+    if (Array.isArray(unwrapped)) {
+      return (unwrapped.find((item) => item && typeof item === 'object') ?? null) as T | null;
+    }
+    const record = unwrapped as Record<string, unknown>;
+    for (const key of candidates) {
+      const value = record[key];
+      if (value && typeof value === 'object' && !Array.isArray(value)) return value as T;
+    }
+    if (record.data) return pluckRecord<T>(record.data, candidates);
+    return record as T;
+  }
+  return {
+    apiClient: mockApiClient,
+    isAbortError: (e: unknown) => e instanceof Error && e.name === 'AbortError',
+    isHttpError: (e: unknown): e is { response: { data: unknown }; message?: string } =>
+      typeof e === 'object' && e !== null && 'response' in e,
+    unwrapApiResponse: <T>(payload: unknown): T => {
+      if (payload && typeof payload === 'object' && 'success' in payload) {
+        const env = payload as { success: boolean; data?: unknown; error?: unknown };
+        if (env.success === false) throw new Error(typeof env.error === 'string' ? env.error : 'Request failed');
+        if ('data' in env) return env.data as T;
+      }
+      return payload as T;
+    },
+    pluckCollection,
+    pluckRecord,
+  };
+});
 
 import {
   createMatterTask,
