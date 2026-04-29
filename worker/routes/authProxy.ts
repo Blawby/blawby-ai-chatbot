@@ -3,6 +3,7 @@ import { HttpErrors } from '../errorHandler.js';
 import { getDomain } from 'tldts';
 import { optionalAuth } from '../middleware/auth.js';
 import { invalidatePracticeDetailsCache } from '../utils/practiceDetailsCache.js';
+import { edgeCache } from '../utils/edgeCache.js';
 import { Logger } from '../utils/logger.js';
 
 const AUTH_PATH_PREFIX = '/api/auth';
@@ -17,10 +18,8 @@ type CachedProxyResponse = {
   statusText: string;
   headers: Array<[string, string]>;
   body: ArrayBuffer;
-  expiresAt: number;
+  hasSetCookie: boolean;
 };
-const subscriptionsPlansCache = new Map<string, CachedProxyResponse>();
-const subscriptionsPlansInflight = new Map<string, Promise<void>>();
 const BACKEND_PATH_PREFIXES = [
   '/api/onboarding',
   '/api/matters',
@@ -284,23 +283,12 @@ const getPracticeIdForDetailsCacheInvalidation = (pathname: string): string | nu
   return null;
 };
 
-const getSubscriptionsPlansCacheKey = (url: URL): string => `${url.pathname}${url.search}`;
-
 const responseFromCache = (cached: CachedProxyResponse): Response =>
   new Response(cached.body.slice(0), {
     status: cached.status,
     statusText: cached.statusText,
     headers: new Headers(cached.headers)
   });
-
-const cleanupExpiredCache = () => {
-  const now = Date.now();
-  for (const [key, cached] of subscriptionsPlansCache.entries()) {
-    if (cached.expiresAt <= now) {
-      subscriptionsPlansCache.delete(key);
-    }
-  }
-};
 
 export async function handleBackendProxy(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);
@@ -347,30 +335,8 @@ export async function handleBackendProxy(request: Request, env: Env): Promise<Re
     }
   }
   const plansCacheKey = isSubscriptionsPlansRequest
-    ? `${getSubscriptionsPlansCacheKey(url)}:${plansAuthContext?.user?.id ?? 'anonymous'}`
+    ? `subscriptions:plans:${url.pathname}${url.search}:${plansAuthContext?.user?.id ?? 'anonymous'}`
     : null;
-
-  if (isSubscriptionsPlansRequest && plansCacheKey) {
-    const cached = subscriptionsPlansCache.get(plansCacheKey);
-    if (cached && cached.expiresAt > Date.now()) {
-      return responseFromCache(cached);
-    }
-    if (cached) {
-      subscriptionsPlansCache.delete(plansCacheKey);
-    }
-
-    const inflight = subscriptionsPlansInflight.get(plansCacheKey);
-    if (inflight) {
-      await inflight.catch(() => undefined);
-      const refreshed = subscriptionsPlansCache.get(plansCacheKey);
-      if (refreshed && refreshed.expiresAt > Date.now()) {
-        return responseFromCache(refreshed);
-      }
-      if (refreshed) {
-        subscriptionsPlansCache.delete(plansCacheKey);
-      }
-    }
-  }
 
   let resolvedReferenceId: string | null = null;
   if (url.pathname === SUBSCRIPTIONS_CURRENT_PATH) {
@@ -498,60 +464,30 @@ export async function handleBackendProxy(request: Request, env: Env): Promise<Re
   };
 
   if (isSubscriptionsPlansRequest && plansCacheKey) {
-    // Check for existing inflight request (before creating new one)
-    let inflight = subscriptionsPlansInflight.get(plansCacheKey);
-    if (inflight) {
-      await inflight.catch(() => undefined);
-      const cached = subscriptionsPlansCache.get(plansCacheKey);
-      if (cached && cached.expiresAt > Date.now()) {
-        return responseFromCache(cached);
-      }
-      if (cached) {
-        subscriptionsPlansCache.delete(plansCacheKey);
-      }
-    }
-
-    // No existing inflight found; create a new one
-    let resolveInflight: (() => void) | null = null;
-    let rejectInflight: ((reason?: unknown) => void) | null = null;
-    const inflightPromise = new Promise<void>((resolve, reject) => {
-      resolveInflight = resolve;
-      rejectInflight = reject;
-    });
-    subscriptionsPlansInflight.set(plansCacheKey, inflightPromise);
-
-    try {
-      const response = await fetchBackendResponse();
-      const { headers: proxyHeaders, hasSetCookie } = buildProxyHeaders(response, requestHost);
-      const body = await response.arrayBuffer();
-
-      if (response.ok && !hasSetCookie) {
+    const cached = await edgeCache.get_or_fetch<CachedProxyResponse>(
+      plansCacheKey,
+      async () => {
+        const response = await fetchBackendResponse();
+        const { headers: proxyHeaders, hasSetCookie } = buildProxyHeaders(response, requestHost);
+        const body = await response.arrayBuffer();
         const serializedHeaders: Array<[string, string]> = [];
-        proxyHeaders.forEach((value, key) => {
-          serializedHeaders.push([key, value]);
-        });
-        cleanupExpiredCache();
-        subscriptionsPlansCache.set(plansCacheKey, {
+        proxyHeaders.forEach((value, key) => { serializedHeaders.push([key, value]); });
+        return {
           status: response.status,
           statusText: response.statusText,
           headers: serializedHeaders,
           body,
-          expiresAt: Date.now() + SUBSCRIPTIONS_PLANS_CACHE_TTL_MS
-        });
-      }
-
-      (resolveInflight as unknown as (() => void) | undefined)?.();
-      return new Response(body, {
-        status: response.status,
-        statusText: response.statusText,
-        headers: proxyHeaders
-      });
-    } catch (error) {
-      (rejectInflight as unknown as ((reason?: unknown) => void) | undefined)?.(error);
-      throw error;
-    } finally {
-      subscriptionsPlansInflight.delete(plansCacheKey);
-    }
+          hasSetCookie,
+        };
+      },
+      {
+        ttlMs: SUBSCRIPTIONS_PLANS_CACHE_TTL_MS,
+        // Don't pollute the cache with auth-mutating responses (Set-Cookie)
+        // or upstream errors.
+        cacheable: (r) => r.status >= 200 && r.status < 300 && !r.hasSetCookie,
+      },
+    );
+    return responseFromCache(cached);
   }
 
   const response = await fetchBackendResponse();

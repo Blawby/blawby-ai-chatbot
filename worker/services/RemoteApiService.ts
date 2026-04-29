@@ -3,26 +3,21 @@ import { HttpError } from '../types.js';
 import { HttpErrors } from '../errorHandler.js';
 import { Logger } from '../utils/logger.js';
 import { warnIfNotMinorUnits } from '../utils/money.js';
+import { edgeCache } from '../utils/edgeCache.js';
 import { canAssignTeamMemberToMatter, isTeamRole, type PracticeTeamResponse } from '../../src/shared/types/team.js';
 
 /**
  * Service for fetching practice and subscription data from the remote API.
- * 
- * @note Cache Limitation: The static caches (practiceCache, configCache, subscriptionCache)
- * are per-V8-isolate and do not persist across different Cloudflare Worker isolates.
- * Each isolate starts with an empty cache, so these caches provide warm-up optimization
- * within a single isolate's lifetime only. For cross-isolate consistency, consider
- * migrating to Workers KV or Durable Objects in the future if needed.
+ *
+ * Caching is delegated to `worker/utils/edgeCache.ts` (per-isolate Map +
+ * in-flight dedup + LRU). Per-isolate scope is inherent — Cloudflare may
+ * evict isolates at any time, so cold isolates refetch once. For
+ * cross-isolate consistency, layer KV behind specific keys at call sites
+ * (see `practiceDetailsCache.ts`).
  */
 export class RemoteApiService {
   private static readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes
   private static readonly DEFAULT_SEAT_COUNT = 1;
-  /** Per-isolate cache for practice data - resets when isolate is evicted */
-  private static practiceCache = new Map<string, { data: PracticeOrWorkspace; timestamp: number }>();
-  /** Per-isolate cache for conversation config - resets when isolate is evicted */
-  private static configCache = new Map<string, { data: ConversationConfig; timestamp: number }>();
-  /** Per-isolate cache for subscription status - resets when isolate is evicted */
-  private static subscriptionCache = new Map<string, { status: SubscriptionLifecycleStatus; timestamp: number }>();
 
   /**
    * Get the base URL for the remote API
@@ -240,70 +235,49 @@ export class RemoteApiService {
     practiceId: string,
     request?: Request
   ): Promise<PracticeOrWorkspace | null> {
-    // Check cache first
-    const cached = this.practiceCache.get(practiceId);
-    if (cached && Date.now() - cached.timestamp < this.CACHE_TTL) {
-      return cached.data;
-    }
-
-    try {
-      // Try by ID first
-      let response: Response;
-      try {
-        response = await this.fetchFromRemoteApi(env, `/api/practice/${practiceId}`, request);
-      } catch (error) {
-        // If 404, try by slug
-        if (error instanceof HttpError && error.status === 404) {
+    return edgeCache.get_or_fetch<PracticeOrWorkspace | null>(
+      `practice:${practiceId}`,
+      async () => {
+        try {
+          let response: Response;
           try {
-            response = await this.fetchFromRemoteApi(env, `/api/practice?slug=${encodeURIComponent(practiceId)}`, request);
-          } catch (slugError) {
-            // If slug lookup also fails with 404, return null
-            if (slugError instanceof HttpError && slugError.status === 404) {
-              return null;
+            response = await this.fetchFromRemoteApi(env, `/api/practice/${practiceId}`, request);
+          } catch (error) {
+            if (error instanceof HttpError && error.status === 404) {
+              try {
+                response = await this.fetchFromRemoteApi(env, `/api/practice?slug=${encodeURIComponent(practiceId)}`, request);
+              } catch (slugError) {
+                if (slugError instanceof HttpError && slugError.status === 404) return null;
+                throw slugError;
+              }
+            } else {
+              throw error;
             }
-            throw slugError;
           }
-        } else {
+
+          const data = await response.json() as Practice | { data?: Practice; practice?: Practice };
+          let practice: Practice | undefined;
+          if (data && typeof data === 'object' && !Array.isArray(data)) {
+            if ('data' in data && data.data) practice = data.data;
+            else if ('practice' in data && data.practice) practice = data.practice;
+            else if ('id' in data) practice = data as Practice;
+          }
+          return practice ?? null;
+        } catch (error) {
+          if (error instanceof HttpError && error.status === 404) {
+            Logger.debug('Practice not found in remote API', { practiceId });
+            return null;
+          }
+          Logger.error('Failed to fetch practice from remote API', {
+            practiceId,
+            error: error instanceof Error ? error.message : String(error),
+            status: error instanceof HttpError ? error.status : undefined,
+          });
           throw error;
         }
-      }
-
-      const data = await response.json() as Practice | { data?: Practice; practice?: Practice };
-      let practice: Practice | undefined;
-      if (data && typeof data === 'object' && !Array.isArray(data)) {
-        if ('data' in data && data.data) {
-          practice = data.data;
-        } else if ('practice' in data && data.practice) {
-          practice = data.practice;
-        } else if ('id' in data) {
-          practice = data as Practice;
-        }
-      }
-
-      if (!practice) {
-        return null;
-      }
-
-      // Cache the result
-      this.practiceCache.set(practiceId, { data: practice, timestamp: Date.now() });
-      
-      return practice;
-    } catch (error) {
-      // Distinguish between 404 (not found) and other errors (API down, network failures)
-      if (error instanceof HttpError && error.status === 404) {
-        // Practice genuinely not found
-        Logger.debug('Practice not found in remote API', { practiceId });
-        return null;
-      }
-      
-      // Re-throw connectivity/server errors (including 401) instead of swallowing them
-      Logger.error('Failed to fetch practice from remote API', {
-        practiceId,
-        error: error instanceof Error ? error.message : String(error),
-        status: error instanceof HttpError ? error.status : undefined,
-      });
-      throw error;
-    }
+      },
+      { ttlMs: this.CACHE_TTL },
+    );
   }
 
   /**
@@ -326,24 +300,15 @@ export class RemoteApiService {
     practiceId: string,
     request?: Request
   ): Promise<ConversationConfig | null> {
-    // Check cache first
-    const cached = this.configCache.get(practiceId);
-    if (cached && Date.now() - cached.timestamp < this.CACHE_TTL) {
-      return cached.data;
-    }
-
-    const practice = await this.getPractice(env, practiceId, request);
-    if (!practice) {
-      return null;
-    }
-
-    // Extract conversation config from practice.metadata.conversationConfig
-    const conversationConfig = this.extractConversationConfig(practice.metadata);
-    
-    // Cache the config
-    this.configCache.set(practiceId, { data: conversationConfig, timestamp: Date.now() });
-    
-    return conversationConfig;
+    return edgeCache.get_or_fetch<ConversationConfig | null>(
+      `practice:config:${practiceId}`,
+      async () => {
+        const practice = await this.getPractice(env, practiceId, request);
+        if (!practice) return null;
+        return this.extractConversationConfig(practice.metadata);
+      },
+      { ttlMs: this.CACHE_TTL },
+    );
   }
 
   /**
@@ -721,8 +686,8 @@ export class RemoteApiService {
       }
     );
 
-    this.configCache.delete(practiceId);
-    this.practiceCache.delete(practiceId);
+    edgeCache.invalidate(`practice:config:${practiceId}`);
+    edgeCache.invalidate(`practice:${practiceId}`);
 
     return true;
   }
@@ -735,23 +700,15 @@ export class RemoteApiService {
     practiceId: string,
     request?: Request
   ): Promise<SubscriptionLifecycleStatus> {
-    // Check cache first
-    const cached = this.subscriptionCache.get(practiceId);
-    if (cached && Date.now() - cached.timestamp < this.CACHE_TTL) {
-      return cached.status;
-    }
-
-    const practice = await this.getPractice(env, practiceId, request);
-    if (!practice) {
-      return 'none';
-    }
-
-    const status = practice.subscriptionStatus || 'none';
-    
-    // Cache the status
-    this.subscriptionCache.set(practiceId, { status, timestamp: Date.now() });
-    
-    return status;
+    return edgeCache.get_or_fetch<SubscriptionLifecycleStatus>(
+      `subscription:status:${practiceId}`,
+      async () => {
+        const practice = await this.getPractice(env, practiceId, request);
+        if (!practice) return 'none';
+        return practice.subscriptionStatus || 'none';
+      },
+      { ttlMs: this.CACHE_TTL },
+    );
   }
 
   /**
@@ -1123,13 +1080,12 @@ export class RemoteApiService {
    */
   static clearCache(practiceId?: string): void {
     if (practiceId) {
-      this.practiceCache.delete(practiceId);
-      this.configCache.delete(practiceId);
-      this.subscriptionCache.delete(practiceId);
+      edgeCache.invalidate(`practice:${practiceId}`);
+      edgeCache.invalidate(`practice:config:${practiceId}`);
+      edgeCache.invalidate(`subscription:status:${practiceId}`);
     } else {
-      this.practiceCache.clear();
-      this.configCache.clear();
-      this.subscriptionCache.clear();
+      edgeCache.invalidate('practice:', /* prefix */ true);
+      edgeCache.invalidate('subscription:', /* prefix */ true);
     }
   }
 }

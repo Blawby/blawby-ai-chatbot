@@ -90,11 +90,15 @@ export const edgeCache = {
    * caches the result for the given TTL. The captured generation is
    * checked before writing — if `invalidate` ran while the fetch was in
    * flight, the value is returned to the caller but not written.
+   *
+   * Pass `cacheable` to opt out of caching individual results based on
+   * the resolved value (e.g. don't cache 5xx responses, or responses
+   * that include Set-Cookie headers).
    */
   async get_or_fetch<T>(
     key: string,
     fetcher: () => Promise<T>,
-    opts: { ttlMs?: number } = {},
+    opts: { ttlMs?: number; cacheable?: (result: T) => boolean } = {},
   ): Promise<T> {
     pruneExpired(Date.now());
 
@@ -107,7 +111,10 @@ export const edgeCache = {
     const generation = getGen(key);
     const p = fetcher().then(
       (data) => {
-        if (getGen(key) === generation) edgeCache.set(key, data, opts.ttlMs);
+        const shouldCache = opts.cacheable ? opts.cacheable(data) : true;
+        if (shouldCache && getGen(key) === generation) {
+          edgeCache.set(key, data, opts.ttlMs);
+        }
         inflight.delete(key);
         return data;
       },
