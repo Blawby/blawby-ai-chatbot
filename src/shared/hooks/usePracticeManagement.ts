@@ -1,4 +1,4 @@
-import { isHttpError, type ApiRequestConfig } from '@/shared/lib/apiClient';
+import { apiClient, isHttpError, type ApiRequestConfig } from '@/shared/lib/apiClient';
 import { useState, useCallback, useEffect, useRef, useContext } from 'preact/hooks';
 import { getPracticeWorkspaceEndpoint } from '@/config/api';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
@@ -610,50 +610,6 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
     queryCache.invalidate('practice:team:', /* prefix */ true);
   }, [resolvedUserId]);
 
-  // Helper for workspace/local endpoints still served by the Worker
-  const workspaceCall = useCallback(async (url: string, options: RequestInit = {}, timeoutMs: number = 15000) => {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-
-    try {
-      const headers = new Headers(options.headers || {});
-      headers.set('Content-Type', 'application/json');
-
-      const response = await fetch(url, {
-        ...options,
-        credentials: 'include',
-        headers,
-        signal: controller.signal,
-      });
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        throw new Error(response.statusText || `HTTP ${response.status}`);
-      }
-
-      if (response.status === 204) {
-        return {};
-      }
-
-      const contentType = response.headers.get('content-type');
-      if (!contentType || !contentType.includes('application/json')) {
-        return {};
-      }
-
-      try {
-        return await response.json();
-      } catch {
-        return {};
-      }
-    } catch (error) {
-      clearTimeout(timeoutId);
-      if (error instanceof Error && error.name === 'AbortError') {
-        throw new Error('Request timed out');
-      }
-      throw error;
-    }
-  }, []);
-
   const getWorkspaceData = useCallback((practiceId: string, resource: string): Record<string, unknown>[] => {
     return workspaceData[practiceId]?.[resource] || [];
   }, [workspaceData]);
@@ -1197,18 +1153,27 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
   // Fetch workspace data
   const fetchWorkspaceData = useCallback(async (practiceId: string, resource: string): Promise<void> => {
     try {
-      const data = await workspaceCall(getPracticeWorkspaceEndpoint(practiceId, resource));
+      const { data } = await apiClient.get<Record<string, unknown>>(
+        getPracticeWorkspaceEndpoint(practiceId, resource),
+        { timeout: 15_000 },
+      );
+      const items = data && typeof data === 'object' && !Array.isArray(data)
+        ? (data as Record<string, unknown>)[resource]
+        : null;
       setWorkspaceData(prev => ({
         ...prev,
         [practiceId]: {
           ...prev[practiceId],
-          [resource]: (data && data[resource]) || []
+          [resource]: Array.isArray(items) ? items as Record<string, unknown>[] : []
         }
       }));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch workspace data');
+      const message = err instanceof DOMException && err.name === 'TimeoutError'
+        ? 'Request timed out'
+        : err instanceof Error ? err.message : 'Failed to fetch workspace data';
+      setError(message);
     }
-  }, [workspaceCall]);
+  }, []);
 
   // Refetch all data
   const refetch = useCallback(async () => {

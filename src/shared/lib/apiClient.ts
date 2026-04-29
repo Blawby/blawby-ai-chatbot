@@ -99,13 +99,47 @@ function extractFetchErrorMessage(data: unknown, fallback: string): string {
   return fallback;
 }
 
+type ApiFetchConfig = {
+  signal?: AbortSignal;
+  params?: Record<string, unknown>;
+  headers?: Record<string, string>;
+  /** Abort the request after `timeout` ms. Composes with `signal` if both set. */
+  timeout?: number;
+  /** Statuses outside 2xx that should resolve (not throw). E.g. [304] for conditional GETs. */
+  acceptStatuses?: number[];
+};
+
+const composeAbortSignals = (signal: AbortSignal | undefined, timeout: number | undefined): { signal: AbortSignal | undefined; cleanup: () => void } => {
+  if (timeout == null) return { signal, cleanup: () => {} };
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(new DOMException('Request timed out', 'TimeoutError')), timeout);
+  let unlink: (() => void) | null = null;
+  if (signal) {
+    if (signal.aborted) {
+      clearTimeout(timer);
+      controller.abort(signal.reason);
+    } else {
+      const onAbort = () => controller.abort(signal.reason);
+      signal.addEventListener('abort', onAbort, { once: true });
+      unlink = () => signal.removeEventListener('abort', onAbort);
+    }
+  }
+  return {
+    signal: controller.signal,
+    cleanup: () => {
+      clearTimeout(timer);
+      if (unlink) unlink();
+    },
+  };
+};
+
 async function apiFetch<T>(
   method: string,
   url: string,
   body?: unknown,
-  signal?: AbortSignal,
-  params?: Record<string, unknown>
-): Promise<{ data: T; status: number }> {
+  config?: ApiFetchConfig,
+): Promise<{ data: T; status: number; headers: Headers }> {
+  const { signal: callerSignal, params, headers: extraHeaders, timeout, acceptStatuses } = config ?? {};
   let fullUrl = /^https?:\/\//.test(url) ? url : `${ensureApiBaseUrl()}${url}`;
   if (params && Object.keys(params).length > 0) {
     const qs = new URLSearchParams(
@@ -115,20 +149,28 @@ async function apiFetch<T>(
     ).toString();
     fullUrl = `${fullUrl}${fullUrl.includes('?') ? '&' : '?'}${qs}`;
   }
-  const headers: Record<string, string> = {};
-  if (body !== undefined) headers['Content-Type'] = 'application/json';
+  const headers: Record<string, string> = { ...(extraHeaders ?? {}) };
+  if (body !== undefined && !headers['Content-Type'] && !headers['content-type']) {
+    headers['Content-Type'] = 'application/json';
+  }
   const widgetToken = getWidgetAuthToken();
-  if (widgetToken && isWidgetTokenEligibleRequestUrl(url)) {
+  if (widgetToken && isWidgetTokenEligibleRequestUrl(url) && !headers['Authorization'] && !headers['authorization']) {
     headers['Authorization'] = `Bearer ${widgetToken}`;
   }
 
-  const response = await fetch(fullUrl, {
-    method,
-    credentials: 'include',
-    headers,
-    body: body !== undefined ? JSON.stringify(body) : undefined,
-    signal,
-  });
+  const { signal, cleanup } = composeAbortSignals(callerSignal, timeout);
+  let response: Response;
+  try {
+    response = await fetch(fullUrl, {
+      method,
+      credentials: 'include',
+      headers,
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+      signal,
+    });
+  } finally {
+    cleanup();
+  }
 
   if (response.status === 401) {
     if (!isHandling401) {
@@ -150,22 +192,34 @@ async function apiFetch<T>(
     await isHandling401;
   }
 
+  const isAccepted = acceptStatuses?.includes(response.status) ?? false;
+  if (response.status === 304 || (isAccepted && response.status === 204)) {
+    // 304 Not Modified and 204 No Content carry no body. Don't try to parse.
+    return { data: null as T, status: response.status, headers: response.headers };
+  }
+
   const contentType = response.headers.get('content-type') ?? '';
   const data: unknown = contentType.includes('application/json')
     ? await response.json() as unknown
     : await response.text();
 
-  if (!response.ok) {
+  if (!response.ok && !isAccepted) {
     throw new HttpError(response.status, data, extractFetchErrorMessage(data, `HTTP ${response.status}`));
   }
 
-  return { data: data as T, status: response.status };
+  return { data: data as T, status: response.status, headers: response.headers };
 }
 
 type FetchConfig = {
   signal?: AbortSignal;
   params?: Record<string, unknown>;
   baseURL?: string;
+  /** Extra request headers (e.g. If-None-Match for conditional GETs). */
+  headers?: Record<string, string>;
+  /** Abort the request after `timeout` ms. Composes with `signal` if both set. */
+  timeout?: number;
+  /** Statuses outside 2xx that should resolve (not throw). E.g. [304] for conditional GETs. */
+  acceptStatuses?: number[];
   /**
    * Optional JSON body for DELETE. RFC 7231 allows DELETE-with-body, and the
    * conversation-tag endpoint relies on it. POST/PUT/PATCH receive their body
@@ -343,8 +397,8 @@ const mutate = async <T>(
   url: string,
   body: unknown,
   config?: FetchConfig,
-): Promise<{ data: T; status: number }> => {
-  const result = await apiFetch<T>(method, url, body, config?.signal, config?.params);
+): Promise<{ data: T; status: number; headers: Headers }> => {
+  const result = await apiFetch<T>(method, url, body, config);
   // Invalidate on 2xx only — apiFetch throws HttpError otherwise, so reaching
   // this line means the mutation succeeded.
   applyInvalidations(config?.invalidates);
@@ -353,7 +407,7 @@ const mutate = async <T>(
 
 export const apiClient = {
   get: <T>(url: string, config?: FetchConfig) =>
-    apiFetch<T>('GET', url, undefined, config?.signal, config?.params),
+    apiFetch<T>('GET', url, undefined, config),
   post: <T>(url: string, body?: unknown, config?: FetchConfig) =>
     mutate<T>('POST', url, body, config),
   put: <T>(url: string, body?: unknown, config?: FetchConfig) =>
@@ -1708,7 +1762,7 @@ export async function getPublicPracticeDetails(
     async (signal) => {
       const apiUrl = `${getWorkerApiUrl()}/api/practice/details/${encodeURIComponent(normalizedSlug)}`;
       try {
-        const response = await apiFetch<unknown>('GET', apiUrl, undefined, signal);
+        const response = await apiFetch<unknown>('GET', apiUrl, undefined, { signal });
         const details = normalizePracticeDetailsResponse(response.data);
         if (!details) return null;
         const displayDetails = extractPublicPracticeDisplayDetails(response.data);
