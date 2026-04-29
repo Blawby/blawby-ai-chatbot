@@ -405,6 +405,87 @@ const mutate = async <T>(
   return result;
 };
 
+type StreamConfig = {
+  signal?: AbortSignal;
+  params?: Record<string, unknown>;
+  headers?: Record<string, string>;
+  body?: unknown;
+};
+
+/**
+ * Issue a request and return the raw `Response` with body intact, so the
+ * caller can branch on `content-type` (JSON short-circuit vs. SSE) and
+ * consume `response.body.getReader()` for streaming.
+ *
+ * Mirrors `apiClient.{get,post}` for header normalization (Content-Type,
+ * widget bearer for allowlisted URLs), URL resolution, and 401 → event
+ * dispatch. Throws `HttpError` on non-2xx so caller's catch sees the same
+ * error contract as the rest of the API surface.
+ */
+async function apiStream(
+  method: 'GET' | 'POST',
+  url: string,
+  config?: StreamConfig,
+): Promise<Response> {
+  const { signal, params, headers: extraHeaders, body } = config ?? {};
+  let fullUrl = /^https?:\/\//.test(url) ? url : `${ensureApiBaseUrl()}${url}`;
+  if (params && Object.keys(params).length > 0) {
+    const qs = new URLSearchParams(
+      Object.entries(params)
+        .filter(([, v]) => v != null)
+        .map(([k, v]) => [k, String(v)])
+    ).toString();
+    fullUrl = `${fullUrl}${fullUrl.includes('?') ? '&' : '?'}${qs}`;
+  }
+  const headers: Record<string, string> = { ...(extraHeaders ?? {}) };
+  if (body !== undefined && !headers['Content-Type'] && !headers['content-type']) {
+    headers['Content-Type'] = 'application/json';
+  }
+  const widgetToken = getWidgetAuthToken();
+  if (widgetToken && isWidgetTokenEligibleRequestUrl(url) && !headers['Authorization'] && !headers['authorization']) {
+    headers['Authorization'] = `Bearer ${widgetToken}`;
+  }
+
+  const response = await fetch(fullUrl, {
+    method,
+    credentials: 'include',
+    headers,
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+    signal,
+  });
+
+  if (response.status === 401) {
+    if (!isHandling401) {
+      const doHandle = async () => {
+        try {
+          if (typeof window !== 'undefined') {
+            try {
+              window.dispatchEvent(new CustomEvent('auth:unauthorized'));
+            } catch (eventErr) {
+              console.error('Error dispatching auth:unauthorized event:', eventErr);
+            }
+          }
+        } finally {
+          isHandling401 = null;
+        }
+      };
+      isHandling401 = doHandle();
+    }
+    await isHandling401;
+  }
+
+  if (!response.ok) {
+    // Drain the body so caller's catch path can read structured error data.
+    const contentType = response.headers.get('content-type') ?? '';
+    const data: unknown = contentType.includes('application/json')
+      ? await response.json().catch(() => null)
+      : await response.text().catch(() => '');
+    throw new HttpError(response.status, data, extractFetchErrorMessage(data, `HTTP ${response.status}`));
+  }
+
+  return response;
+}
+
 export const apiClient = {
   get: <T>(url: string, config?: FetchConfig) =>
     apiFetch<T>('GET', url, undefined, config),
@@ -418,6 +499,8 @@ export const apiClient = {
     mutate<T>('DELETE', url, config?.body, config),
   upload: <T>(url: string, body: FormData, config?: UploadConfig) =>
     apiUpload<T>(url, body, config),
+  stream: (url: string, config?: StreamConfig & { method?: 'GET' | 'POST' }) =>
+    apiStream(config?.method ?? 'POST', url, config),
 };
 
 type PracticeMetadata = Record<string, unknown> | null | undefined;
