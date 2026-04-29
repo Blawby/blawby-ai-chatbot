@@ -64,7 +64,12 @@ interface ConversationUserInfo {
 
 type IntakeSettings = NonNullable<Awaited<ReturnType<typeof RemoteApiService.getPracticeClientIntakeSettings>>>;
 
-import type { BackendIntakeCreatePayload, BackendIntakeCreateResponse } from '../types/wire/intake.js';
+import {
+  BackendIntakeCreatePayloadSchema,
+  type BackendIntakeCreatePayload,
+  type BackendIntakeCreateResponse,
+} from '../types/wire/intake.js';
+import { validateWire } from '../utils/validateWire.js';
 
 const INTAKE_TITLE_MAX_LENGTH = 80;
 const INTAKE_TITLE_MAX_TOKENS = 24;
@@ -883,12 +888,20 @@ export async function handleSubmitIntake(
   const intakeTitle = await generateIntakeTitle(env, draft, intake, transcriptSummary);
   await persistConversationIntakeTitle(env, conversationId, intakeTitle);
 
+  // Validate the outbound wire shape before sending. In production this
+  // logs schema mismatches; in dev/test it throws so bugs surface early.
+  const validatedPayload = validateWire(
+    BackendIntakeCreatePayloadSchema,
+    intakePayload,
+    'submitIntake.outbound',
+  );
+
   // Call backend API via existing RemoteApiService pattern
   let backendResponse: Response;
   try {
     backendResponse = await RemoteApiService.createIntake(
       env,
-      intakePayload as unknown as Record<string, unknown>,
+      validatedPayload as unknown as Record<string, unknown>,
       request
     );
   } catch (error) {

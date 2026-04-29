@@ -3,22 +3,23 @@
  *
  * snake_case fields, exactly matching the backend at
  * `BACKEND_API_URL` (staging-api.blawby.com / production-api.blawby.com).
- *
- * Frontend code imports these via `@/shared/types/wire`.
  */
 
-export interface BackendUploadRecord {
-  id: string;
-  upload_context: string;
-  sub_context?: string | null;
-  entity_id?: string | null;
-  matter_id?: string | null;
-  file_name: string;
-  mime_type: string;
-  file_size: number;
-  storage_key: string;
-  public_url: string | null;
-  status: 'pending' | 'verified' | 'rejected';
-  created_at: string;
-  updated_at?: string | null;
-}
+import { z } from 'zod';
+
+export const BackendUploadRecordSchema = z.object({
+  id: z.string(),
+  upload_context: z.string(),
+  sub_context: z.string().nullable().optional(),
+  entity_id: z.string().nullable().optional(),
+  matter_id: z.string().nullable().optional(),
+  file_name: z.string(),
+  mime_type: z.string(),
+  file_size: z.number(),
+  storage_key: z.string(),
+  public_url: z.string().nullable(),
+  status: z.enum(['pending', 'verified', 'rejected']),
+  created_at: z.string(),
+  updated_at: z.string().nullable().optional(),
+}).passthrough();
+export type BackendUploadRecord = z.infer<typeof BackendUploadRecordSchema>;

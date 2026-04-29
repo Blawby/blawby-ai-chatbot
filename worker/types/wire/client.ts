@@ -6,41 +6,43 @@
  * adapt them. Snake_case preserved.
  */
 
-export type UserDetailStatus = 'active' | 'archived';
+import { z } from 'zod';
 
-export interface BackendUserDetailAddress {
-  street?: string | null;
-  street_2?: string | null;
-  city?: string | null;
-  state?: string | null;
-  postal_code?: string | null;
-  country?: string | null;
-  [key: string]: unknown;
-}
+export const UserDetailStatusSchema = z.enum(['active', 'archived']);
+export type UserDetailStatus = z.infer<typeof UserDetailStatusSchema>;
 
-export interface BackendUserDetail {
-  id: string;
-  practice_id?: string;
-  user_id?: string | null;
-  client_id?: string | null;
-  name?: string | null;
-  email?: string | null;
-  phone?: string | null;
-  status?: UserDetailStatus;
-  currency?: string | null;
-  address?: BackendUserDetailAddress | null;
-  created_at?: string | null;
-  updated_at?: string | null;
-  /** Free-form metadata; specific keys vary by backend version. */
-  [key: string]: unknown;
-}
+export const BackendUserDetailAddressSchema = z.object({
+  street: z.string().nullable().optional(),
+  street_2: z.string().nullable().optional(),
+  city: z.string().nullable().optional(),
+  state: z.string().nullable().optional(),
+  postal_code: z.string().nullable().optional(),
+  country: z.string().nullable().optional(),
+}).passthrough();
+export type BackendUserDetailAddress = z.infer<typeof BackendUserDetailAddressSchema>;
 
-export interface BackendUserDetailMemo {
-  id: string;
-  user_detail_id?: string;
-  content?: string | null;
-  event_time?: string | null;
-  created_at?: string | null;
-  updated_at?: string | null;
-  [key: string]: unknown;
-}
+export const BackendUserDetailSchema = z.object({
+  id: z.string(),
+  practice_id: z.string().optional(),
+  user_id: z.string().nullable().optional(),
+  client_id: z.string().nullable().optional(),
+  name: z.string().nullable().optional(),
+  email: z.string().nullable().optional(),
+  phone: z.string().nullable().optional(),
+  status: UserDetailStatusSchema.optional(),
+  currency: z.string().nullable().optional(),
+  address: BackendUserDetailAddressSchema.nullable().optional(),
+  created_at: z.string().nullable().optional(),
+  updated_at: z.string().nullable().optional(),
+}).passthrough();
+export type BackendUserDetail = z.infer<typeof BackendUserDetailSchema>;
+
+export const BackendUserDetailMemoSchema = z.object({
+  id: z.string(),
+  user_detail_id: z.string().optional(),
+  content: z.string().nullable().optional(),
+  event_time: z.string().nullable().optional(),
+  created_at: z.string().nullable().optional(),
+  updated_at: z.string().nullable().optional(),
+}).passthrough();
+export type BackendUserDetailMemo = z.infer<typeof BackendUserDetailMemoSchema>;

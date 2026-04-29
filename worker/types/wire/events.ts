@@ -6,21 +6,23 @@
  * event schema.
  */
 
-export interface BackendEventPayload {
-  event_type: string;
-  event_id?: string;
-  occurred_at?: string;
-  practice_id?: string;
-  conversation_id?: string;
-  matter_id?: string;
-  intake_id?: string;
-  sender_type?: string;
-  sender_id?: string;
-  contact_identifier?: string;
-  contact_email?: string;
-  message_id?: string;
-  message_preview?: string;
-  file_metadata?: Record<string, unknown>;
-  sla_metadata?: Record<string, unknown>;
-  [key: string]: unknown;
-}
+import { z } from 'zod';
+
+export const BackendEventPayloadSchema = z.object({
+  event_type: z.string(),
+  event_id: z.string().optional(),
+  occurred_at: z.string().optional(),
+  practice_id: z.string().optional(),
+  conversation_id: z.string().optional(),
+  matter_id: z.string().optional(),
+  intake_id: z.string().optional(),
+  sender_type: z.string().optional(),
+  sender_id: z.string().optional(),
+  contact_identifier: z.string().optional(),
+  contact_email: z.string().optional(),
+  message_id: z.string().optional(),
+  message_preview: z.string().optional(),
+  file_metadata: z.record(z.string(), z.unknown()).optional(),
+  sla_metadata: z.record(z.string(), z.unknown()).optional(),
+}).passthrough();
+export type BackendEventPayload = z.infer<typeof BackendEventPayloadSchema>;

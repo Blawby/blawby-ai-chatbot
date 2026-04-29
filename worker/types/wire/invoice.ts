@@ -4,55 +4,64 @@
  * snake_case fields, exactly matching the backend at
  * `BACKEND_API_URL` (staging-api.blawby.com / production-api.blawby.com).
  *
- * Frontend code imports these via `@/shared/types/wire`.
- * Worker code imports directly from this module.
+ * Each TS type is derived from a Zod schema so runtime validation and
+ * the static type stay in lockstep.
  */
 
-export type BackendInvoiceLineItem = {
-  id?: string;
-  type?: string;
-  description?: string;
-  quantity?: number;
-  unit_price?: number;
-  line_total?: number;
-  time_entry_id?: string | null;
-  expense_id?: string | null;
-  sort_order?: number;
-};
+import { z } from 'zod';
 
-export type BackendInvoice = {
-  id: string;
-  organization_id: string;
-  client_id: string;
-  matter_id?: string | null;
-  connected_account_id: string;
-  invoice_number?: string | null;
-  stripe_invoice_id?: string | null;
-  stripe_invoice_number?: string | null;
-  stripe_charge_id?: string | null;
-  stripe_transfer_id?: string | null;
-  stripe_payment_intent_id?: string | null;
-  stripe_hosted_invoice_url?: string | null;
-  invoice_type?: string | null;
-  status?: string | null;
-  subtotal?: number | null;
-  tax_amount?: number | null;
-  discount_amount?: number | null;
-  total?: number | null;
-  amount_paid?: number | null;
-  amount_due?: number | null;
-  fund_destination?: string | null;
-  payment_from_retainer?: boolean | null;
-  issue_date?: string | Date | null;
-  due_date?: string | Date | null;
-  paid_at?: string | Date | null;
-  notes?: string | null;
-  memo?: string | null;
-  created_at?: string | Date | null;
-  updated_at?: string | Date | null;
-  line_items?: BackendInvoiceLineItem[] | null;
-  lineItems?: BackendInvoiceLineItem[] | null;
-  client?: Record<string, unknown> | null;
-  matter?: Record<string, unknown> | null;
-  connectedAccount?: Record<string, unknown> | null;
-};
+const nullableString = () => z.string().nullable().optional();
+const nullableNumber = () => z.number().nullable().optional();
+const nullableBoolean = () => z.boolean().nullable().optional();
+const nullableDate = () => z.union([z.string(), z.date()]).nullable().optional();
+
+export const BackendInvoiceLineItemSchema = z.object({
+  id: z.string().optional(),
+  type: z.string().optional(),
+  description: z.string().optional(),
+  quantity: z.number().optional(),
+  unit_price: z.number().optional(),
+  line_total: z.number().optional(),
+  time_entry_id: z.string().nullable().optional(),
+  expense_id: z.string().nullable().optional(),
+  sort_order: z.number().optional(),
+}).passthrough();
+export type BackendInvoiceLineItem = z.infer<typeof BackendInvoiceLineItemSchema>;
+
+export const BackendInvoiceSchema = z.object({
+  id: z.string(),
+  organization_id: z.string(),
+  client_id: z.string(),
+  matter_id: nullableString(),
+  connected_account_id: z.string(),
+  invoice_number: nullableString(),
+  stripe_invoice_id: nullableString(),
+  stripe_invoice_number: nullableString(),
+  stripe_charge_id: nullableString(),
+  stripe_transfer_id: nullableString(),
+  stripe_payment_intent_id: nullableString(),
+  stripe_hosted_invoice_url: nullableString(),
+  invoice_type: nullableString(),
+  status: nullableString(),
+  subtotal: nullableNumber(),
+  tax_amount: nullableNumber(),
+  discount_amount: nullableNumber(),
+  total: nullableNumber(),
+  amount_paid: nullableNumber(),
+  amount_due: nullableNumber(),
+  fund_destination: nullableString(),
+  payment_from_retainer: nullableBoolean(),
+  issue_date: nullableDate(),
+  due_date: nullableDate(),
+  paid_at: nullableDate(),
+  notes: nullableString(),
+  memo: nullableString(),
+  created_at: nullableDate(),
+  updated_at: nullableDate(),
+  line_items: z.array(BackendInvoiceLineItemSchema).nullable().optional(),
+  lineItems: z.array(BackendInvoiceLineItemSchema).nullable().optional(),
+  client: z.record(z.string(), z.unknown()).nullable().optional(),
+  matter: z.record(z.string(), z.unknown()).nullable().optional(),
+  connectedAccount: z.record(z.string(), z.unknown()).nullable().optional(),
+}).passthrough();
+export type BackendInvoice = z.infer<typeof BackendInvoiceSchema>;

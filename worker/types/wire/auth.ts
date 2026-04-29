@@ -3,15 +3,13 @@
  *
  * snake_case fields, exactly matching the backend at
  * `BACKEND_API_URL` (staging-api.blawby.com / production-api.blawby.com).
- *
- * Frontend code imports these via `@/shared/types/wire`.
  */
 
-// Minimal backend session record shape (extendable by backend).
-export interface BackendSession {
-  id?: string | null;
-  created_at?: string | null;
-  expires_at?: string | null;
-  // allow additional backend-provided fields
-  [key: string]: unknown;
-}
+import { z } from 'zod';
+
+export const BackendSessionSchema = z.object({
+  id: z.string().nullable().optional(),
+  created_at: z.string().nullable().optional(),
+  expires_at: z.string().nullable().optional(),
+}).passthrough();
+export type BackendSession = z.infer<typeof BackendSessionSchema>;
