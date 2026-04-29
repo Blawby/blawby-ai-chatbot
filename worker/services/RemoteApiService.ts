@@ -6,6 +6,8 @@ import { warnIfNotMinorUnits } from '../utils/money.js';
 import { edgeCache } from '../utils/edgeCache.js';
 import { redactSensitiveFields } from '../utils/redactResponse.js';
 import { policyTtlMs } from '../utils/cachePolicy.js';
+import { validateWire } from '../utils/validateWire.js';
+import { PracticeSchema } from '../types/wire/practice.js';
 import { canAssignTeamMemberToMatter, isTeamRole, type PracticeTeamResponse } from '../../src/shared/types/team.js';
 
 /**
@@ -223,14 +225,19 @@ export class RemoteApiService {
             }
           }
 
-          const data = await response.json() as Practice | { data?: Practice; practice?: Practice };
-          let practice: Practice | undefined;
-          if (data && typeof data === 'object' && !Array.isArray(data)) {
-            if ('data' in data && data.data) practice = data.data;
-            else if ('practice' in data && data.practice) practice = data.practice;
-            else if ('id' in data) practice = data as Practice;
-          }
-          return practice ?? null;
+          const json = await response.json() as unknown;
+          const candidate = (() => {
+            if (!json || typeof json !== 'object' || Array.isArray(json)) return null;
+            const record = json as Record<string, unknown>;
+            if (record.data && typeof record.data === 'object') return record.data;
+            if (record.practice && typeof record.practice === 'object') return record.practice;
+            if ('id' in record) return record;
+            return null;
+          })();
+          if (!candidate) return null;
+          // Validate the wire shape — strict in dev (catches drift), loose
+          // in prod (logs + returns the raw value to avoid availability impact).
+          return validateWire(PracticeSchema, candidate, 'getPractice', { strict: false });
         } catch (error) {
           if (error instanceof HttpError && error.status === 404) {
             Logger.debug('Practice not found in remote API', { practiceId });
