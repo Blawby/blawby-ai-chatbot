@@ -133,7 +133,13 @@ const routes: RouteEntry[] = [
   },
   { mode: 'owned', match: prefix('/api/widget/bootstrap'), handler: (req, env) => handleWidgetBootstrap(req, env) },
   { mode: 'owned', match: prefix('/api/geo/autocomplete'), handler: handleAutocompleteWithCORS },
-  { mode: 'owned', match: prefix('/api/conversations'), handler: (req, env) => handleConversations(req, env) },
+  {
+    mode: 'owned',
+    match: prefix('/api/conversations'),
+    // Anonymous and authenticated users are both admitted; downstream
+    // operations gate via requirePracticeMember per-branch where needed.
+    handler: withAuth((req, env) => handleConversations(req, env), { required: false }),
+  },
   {
     mode: 'owned',
     match: prefix('/api/ai/intent'),
