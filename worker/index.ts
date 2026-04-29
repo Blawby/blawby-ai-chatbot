@@ -53,9 +53,19 @@ function validateRequest(request: Request): boolean {
 
 type RouteHandler = (request: Request, env: Env, ctx: ExecutionContext) => Promise<Response>;
 type RouteMatcher = (path: string, env: Env) => boolean;
+type RouteMode = 'proxy' | 'owned';
 type RouteEntry = {
   match: RouteMatcher;
   handler: RouteHandler;
+  /**
+   * `'proxy'` — forwards to BACKEND_API_URL (cookies/headers normalized
+   *             via worker/utils/proxy.ts; not the worker's data).
+   * `'owned'` — worker-owned logic (chat, file storage, intake DB
+   *             writes, edge-cached aggregations). Annotation only at
+   *             the moment; future middleware (rate-limiting, audit)
+   *             can branch on this.
+   */
+  mode: RouteMode;
 };
 
 const exact = (target: string): RouteMatcher => (path) => path === target;
@@ -83,35 +93,36 @@ const matchesBackendProxy: RouteMatcher = (path) =>
 // ones (e.g. `/api/widget/practice-details/*` before `/api/widget/bootstrap`,
 // `/api/ai/intent` before `/api/ai/chat`).
 const routes: RouteEntry[] = [
-  { match: prefix('/api/auth'), handler: (req, env) => handleAuthProxy(req, env) },
-  { match: regex(/^\/api\/practice\/[^/]+\/team$/), handler: (req, env) => handlePracticeTeam(req, env) },
-  { match: regex(/^\/api\/practice\/[^/]+\/billing\/summary$/), handler: (req, env) => handleBillingSummary(req, env) },
-  { match: matchesBackendProxy, handler: (req, env) => handleBackendProxy(req, env) },
-  { match: prefix('/api/practices'), handler: (req, env) => handlePractices(req, env) },
-  { match: prefix('/api/paralegal'), handler: (req, env) => handleParalegal(req, env) },
-  { match: prefix('/api/activity'), handler: (req, env) => handleActivity(req, env) },
-  { match: prefix('/api/files'), handler: (req, env) => handleFiles(req, env) },
-  { match: exact('/api/analyze'), handler: (req, env) => handleAnalyze(req, env) },
-  { match: prefix('/api/pdf'), handler: (req, env) => handlePDF(req, env) },
+  { mode: 'proxy', match: prefix('/api/auth'), handler: (req, env) => handleAuthProxy(req, env) },
+  { mode: 'proxy', match: regex(/^\/api\/practice\/[^/]+\/team$/), handler: (req, env) => handlePracticeTeam(req, env) },
+  { mode: 'owned', match: regex(/^\/api\/practice\/[^/]+\/billing\/summary$/), handler: (req, env) => handleBillingSummary(req, env) },
+  { mode: 'proxy', match: matchesBackendProxy, handler: (req, env) => handleBackendProxy(req, env) },
+  { mode: 'proxy', match: prefix('/api/practices'), handler: (req, env) => handlePractices(req, env) },
+  { mode: 'owned', match: prefix('/api/paralegal'), handler: (req, env) => handleParalegal(req, env) },
+  { mode: 'owned', match: prefix('/api/activity'), handler: (req, env) => handleActivity(req, env) },
+  { mode: 'owned', match: prefix('/api/files'), handler: (req, env) => handleFiles(req, env) },
+  { mode: 'owned', match: exact('/api/analyze'), handler: (req, env) => handleAnalyze(req, env) },
+  { mode: 'owned', match: prefix('/api/pdf'), handler: (req, env) => handlePDF(req, env) },
   {
+    mode: 'owned',
     match: (path, env) => (path.startsWith('/api/debug') || path.startsWith('/api/test')) && env.ALLOW_DEBUG === 'true',
     handler: (req, env) => handleDebug(req, env),
   },
-  { match: prefix('/api/status'), handler: (req, env) => handleStatus(req, env) },
-  { match: prefix('/api/notifications'), handler: (req, env) => handleNotifications(req, env) },
-  { match: prefix('/api/widget/practice-details/'), handler: (req, env) => handleWidgetPracticeDetails(req, env) },
-  { match: prefix('/api/practice/details/'), handler: (req, env) => handlePracticeDetails(req, env) },
-  { match: prefix('/api/config'), handler: (req, env) => handleConfig(req, env) },
-  { match: prefix('/api/widget/bootstrap'), handler: (req, env) => handleWidgetBootstrap(req, env) },
-  { match: prefix('/api/geo/autocomplete'), handler: handleAutocompleteWithCORS },
-  { match: prefix('/api/conversations'), handler: (req, env) => handleConversations(req, env) },
-  { match: prefix('/api/ai/intent'), handler: (req, env) => handleAiIntent(req, env) },
-  { match: prefix('/api/ai/extract-website'), handler: (req, env) => handleWebsiteExtract(req, env) },
-  { match: prefix('/api/tools/search'), handler: (req, env) => handleSearch(req, env) },
-  { match: prefix('/api/ai/chat'), handler: handleAiChat },
-  { match: exact('/api/metrics/vitals'), handler: (req, env) => handleMetricsVitals(req, env) },
-  { match: exact('/api/health'), handler: (req, env) => handleHealth(req, env) },
-  { match: exact('/'), handler: (req, env) => handleRoot(req, env) },
+  { mode: 'owned', match: prefix('/api/status'), handler: (req, env) => handleStatus(req, env) },
+  { mode: 'owned', match: prefix('/api/notifications'), handler: (req, env) => handleNotifications(req, env) },
+  { mode: 'owned', match: prefix('/api/widget/practice-details/'), handler: (req, env) => handleWidgetPracticeDetails(req, env) },
+  { mode: 'owned', match: prefix('/api/practice/details/'), handler: (req, env) => handlePracticeDetails(req, env) },
+  { mode: 'owned', match: prefix('/api/config'), handler: (req, env) => handleConfig(req, env) },
+  { mode: 'owned', match: prefix('/api/widget/bootstrap'), handler: (req, env) => handleWidgetBootstrap(req, env) },
+  { mode: 'owned', match: prefix('/api/geo/autocomplete'), handler: handleAutocompleteWithCORS },
+  { mode: 'owned', match: prefix('/api/conversations'), handler: (req, env) => handleConversations(req, env) },
+  { mode: 'owned', match: prefix('/api/ai/intent'), handler: (req, env) => handleAiIntent(req, env) },
+  { mode: 'owned', match: prefix('/api/ai/extract-website'), handler: (req, env) => handleWebsiteExtract(req, env) },
+  { mode: 'owned', match: prefix('/api/tools/search'), handler: (req, env) => handleSearch(req, env) },
+  { mode: 'owned', match: prefix('/api/ai/chat'), handler: handleAiChat },
+  { mode: 'owned', match: exact('/api/metrics/vitals'), handler: (req, env) => handleMetricsVitals(req, env) },
+  { mode: 'owned', match: exact('/api/health'), handler: (req, env) => handleHealth(req, env) },
+  { mode: 'owned', match: exact('/'), handler: (req, env) => handleRoot(req, env) },
 ];
 
 const apiNotFoundResponse = () =>
