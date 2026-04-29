@@ -3,6 +3,7 @@ import { AddressFields } from './AddressFields';
 import { cn } from '@/shared/utils/cn';
 import type { Address, AddressSuggestion } from '@/shared/types/address';
 import type { ComboboxOption } from '@/shared/ui/input/Combobox';
+import { apiClient, isHttpError } from '@/shared/lib/apiClient';
 
 export interface AddressInputProps {
   value: Partial<Address>;
@@ -108,48 +109,31 @@ export const AddressInput = ({
     setAutocompleteState(prev => ({ ...prev, isLoading: true, error: null }));
 
     try {
-      // In development with tunnel, use the tunnel URL for worker API calls
-      const isDev = import.meta.env.DEV;
-      const tunnelUrl = import.meta.env.VITE_TUNNEL_URL;
-      const baseUrl = isDev && tunnelUrl ? tunnelUrl : window.location.origin;
-      const url = new URL(autocompleteUrl, baseUrl);
-      url.searchParams.set('text', text);
-      url.searchParams.set('limit', limit.toString());
-      
-      // Add country filter to favor specific country (default US)
-      if (country) {
-        url.searchParams.set('country', country);
-      } else if (value?.country) {
-        url.searchParams.set('country', value.country);
-      }
+      const params: Record<string, string> = { text, limit: limit.toString() };
+      if (country) params.country = country;
+      else if (value?.country) params.country = value.country;
 
-      const response = await fetch(url.toString());
-      
-      if (!response.ok) {
-        if (response.status === 429) {
-          // Rate limited - disable autocomplete for session
-          setAutocompleteState(prev => ({ 
-            ...prev, 
-            disabled: true, 
-            isLoading: false, 
-            error: 'Autocomplete temporarily unavailable' 
-          }));
-          return;
-        }
-        throw new Error(`HTTP ${response.status}`);
-      }
-
-      const data = await response.json() as { suggestions: AddressSuggestion[] };
-      setAutocompleteState(prev => {
-        const newState = {
+      const { data } = await apiClient.get<{ suggestions: AddressSuggestion[] }>(
+        autocompleteUrl,
+        { params },
+      );
+      setAutocompleteState(prev => ({
+        ...prev,
+        suggestions: data.suggestions || [],
+        isLoading: false,
+        isOpen: (data.suggestions?.length ?? 0) > 0,
+      }));
+    } catch (error) {
+      if (isHttpError(error) && error.response.status === 429) {
+        // Rate limited - disable autocomplete for session
+        setAutocompleteState(prev => ({
           ...prev,
-          suggestions: data.suggestions || [],
+          disabled: true,
           isLoading: false,
-          isOpen: data.suggestions?.length > 0,
-        };
-        return newState;
-      });
-    } catch (_error) {
+          error: 'Autocomplete temporarily unavailable',
+        }));
+        return;
+      }
       setAutocompleteState(prev => ({
         ...prev,
         suggestions: [],
