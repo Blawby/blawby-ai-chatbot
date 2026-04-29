@@ -51,7 +51,76 @@ function validateRequest(request: Request): boolean {
   return true;
 }
 
-async function handleRequestInternal(request: Request, env: Env, _ctx: ExecutionContext): Promise<Response> {
+type RouteHandler = (request: Request, env: Env, ctx: ExecutionContext) => Promise<Response>;
+type RouteMatcher = (path: string, env: Env) => boolean;
+type RouteEntry = {
+  match: RouteMatcher;
+  handler: RouteHandler;
+};
+
+const exact = (target: string): RouteMatcher => (path) => path === target;
+const prefix = (target: string): RouteMatcher => (path) => path.startsWith(target);
+const regex = (re: RegExp): RouteMatcher => (path) => re.test(path);
+
+// Backend proxy paths — these all forward to BACKEND_API_URL via handleBackendProxy.
+// The (!practice/details, !practices) carve-out preserves the original if/else
+// precedence: those paths have dedicated handlers further down.
+const matchesBackendProxy: RouteMatcher = (path) =>
+  path.startsWith('/api/onboarding') ||
+  path.startsWith('/api/matters') ||
+  path.startsWith('/api/invoices') ||
+  path.startsWith('/api/practice-client-intakes') ||
+  path.startsWith('/api/clients') ||
+  ((path === '/api/practice' || path.startsWith('/api/practice/')) &&
+    !path.startsWith('/api/practice/details/') &&
+    !path.startsWith('/api/practices')) ||
+  path.startsWith('/api/preferences') ||
+  path.startsWith('/api/subscriptions') ||
+  path.startsWith('/api/subscription') ||
+  path.startsWith('/api/uploads');
+
+// Order is significant: more specific patterns must come before more general
+// ones (e.g. `/api/widget/practice-details/*` before `/api/widget/bootstrap`,
+// `/api/ai/intent` before `/api/ai/chat`).
+const routes: RouteEntry[] = [
+  { match: prefix('/api/auth'), handler: (req, env) => handleAuthProxy(req, env) },
+  { match: regex(/^\/api\/practice\/[^/]+\/team$/), handler: (req, env) => handlePracticeTeam(req, env) },
+  { match: regex(/^\/api\/practice\/[^/]+\/billing\/summary$/), handler: (req, env) => handleBillingSummary(req, env) },
+  { match: matchesBackendProxy, handler: (req, env) => handleBackendProxy(req, env) },
+  { match: prefix('/api/practices'), handler: (req, env) => handlePractices(req, env) },
+  { match: prefix('/api/paralegal'), handler: (req, env) => handleParalegal(req, env) },
+  { match: prefix('/api/activity'), handler: (req, env) => handleActivity(req, env) },
+  { match: prefix('/api/files'), handler: (req, env) => handleFiles(req, env) },
+  { match: exact('/api/analyze'), handler: (req, env) => handleAnalyze(req, env) },
+  { match: prefix('/api/pdf'), handler: (req, env) => handlePDF(req, env) },
+  {
+    match: (path, env) => (path.startsWith('/api/debug') || path.startsWith('/api/test')) && env.ALLOW_DEBUG === 'true',
+    handler: (req, env) => handleDebug(req, env),
+  },
+  { match: prefix('/api/status'), handler: (req, env) => handleStatus(req, env) },
+  { match: prefix('/api/notifications'), handler: (req, env) => handleNotifications(req, env) },
+  { match: prefix('/api/widget/practice-details/'), handler: (req, env) => handleWidgetPracticeDetails(req, env) },
+  { match: prefix('/api/practice/details/'), handler: (req, env) => handlePracticeDetails(req, env) },
+  { match: prefix('/api/config'), handler: (req, env) => handleConfig(req, env) },
+  { match: prefix('/api/widget/bootstrap'), handler: (req, env) => handleWidgetBootstrap(req, env) },
+  { match: prefix('/api/geo/autocomplete'), handler: handleAutocompleteWithCORS },
+  { match: prefix('/api/conversations'), handler: (req, env) => handleConversations(req, env) },
+  { match: prefix('/api/ai/intent'), handler: (req, env) => handleAiIntent(req, env) },
+  { match: prefix('/api/ai/extract-website'), handler: (req, env) => handleWebsiteExtract(req, env) },
+  { match: prefix('/api/tools/search'), handler: (req, env) => handleSearch(req, env) },
+  { match: prefix('/api/ai/chat'), handler: handleAiChat },
+  { match: exact('/api/metrics/vitals'), handler: (req, env) => handleMetricsVitals(req, env) },
+  { match: exact('/api/health'), handler: (req, env) => handleHealth(req, env) },
+  { match: exact('/'), handler: (req, env) => handleRoot(req, env) },
+];
+
+const apiNotFoundResponse = () =>
+  new Response(JSON.stringify({ error: 'API endpoint not found', errorCode: 'NOT_FOUND' }), {
+    status: 404,
+    headers: { 'Content-Type': 'application/json' },
+  });
+
+async function handleRequestInternal(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
   const url = new URL(request.url);
   const path = url.pathname;
 
@@ -67,87 +136,10 @@ async function handleRequestInternal(request: Request, env: Env, _ctx: Execution
   }
 
   try {
-    let response: Response;
-
-    if (path.startsWith('/api/auth')) {
-      response = await handleAuthProxy(request, env);
-    } else if (/^\/api\/practice\/[^/]+\/team$/.test(path)) {
-      response = await handlePracticeTeam(request, env);
-    } else if (/^\/api\/practice\/[^/]+\/billing\/summary$/.test(path)) {
-      response = await handleBillingSummary(request, env);
-    } else if (
-      path.startsWith('/api/onboarding') ||
-      path.startsWith('/api/matters') ||
-      path.startsWith('/api/invoices') ||
-      path.startsWith('/api/practice-client-intakes') ||
-      path.startsWith('/api/clients') ||
-      ((path === '/api/practice' || path.startsWith('/api/practice/')) &&
-        !path.startsWith('/api/practice/details/') &&
-        !path.startsWith('/api/practices')) ||
-      path.startsWith('/api/preferences') ||
-      path.startsWith('/api/subscriptions') ||
-      path.startsWith('/api/subscription') ||
-      path.startsWith('/api/uploads')
-    ) {
-      response = await handleBackendProxy(request, env);
-    } else if (path.startsWith('/api/practices')) {
-      response = await handlePractices(request, env);
-    } else if (path.startsWith('/api/paralegal')) {
-      response = await handleParalegal(request, env);
-    } else if (path.startsWith('/api/activity')) {
-      response = await handleActivity(request, env);
-    } else if (path.startsWith('/api/files')) {
-      response = await handleFiles(request, env);
-    } else if (path === '/api/analyze') {
-      response = await handleAnalyze(request, env);
-    } else if (path.startsWith('/api/pdf')) {
-      response = await handlePDF(request, env);
-    } else if ((path.startsWith('/api/debug') || path.startsWith('/api/test')) && env.ALLOW_DEBUG === 'true') {
-      response = await handleDebug(request, env);
-    } else if (path.startsWith('/api/status')) {
-      response = await handleStatus(request, env);
-    } else if (path.startsWith('/api/notifications')) {
-      response = await handleNotifications(request, env);
-    } else if (path.startsWith('/api/widget/practice-details/')) {
-      response = await handleWidgetPracticeDetails(request, env);
-    } else if (path.startsWith('/api/practice/details/')) {
-      response = await handlePracticeDetails(request, env);
-    } else if (path.startsWith('/api/config')) {
-      response = await handleConfig(request, env);
-    } else if (path.startsWith('/api/widget/bootstrap')) {
-      response = await handleWidgetBootstrap(request, env);
-    } else if (path.startsWith('/api/geo/autocomplete')) {
-      response = await handleAutocompleteWithCORS(request, env, _ctx);
-    } else if (path.startsWith('/api/conversations')) {
-      response = await handleConversations(request, env);
-    } else if (path.startsWith('/api/ai/intent')) {
-      response = await handleAiIntent(request, env);
-    } else if (path.startsWith('/api/ai/extract-website')) {
-      response = await handleWebsiteExtract(request, env);
-    } else if (path.startsWith('/api/tools/search')) {
-      response = await handleSearch(request, env);
-    } else if (path.startsWith('/api/ai/chat')) {
-      response = await handleAiChat(request, env, _ctx);
-    } else if (path === '/api/metrics/vitals') {
-      response = await handleMetricsVitals(request, env);
-    } else if (path === '/api/health') {
-      response = await handleHealth(request, env);
-    } else if (path === '/') {
-      response = await handleRoot(request, env);
-    } else if (path.startsWith('/api/')) {
-      response = new Response(JSON.stringify({
-        error: 'API endpoint not found',
-        errorCode: 'NOT_FOUND'
-      }), {
-        status: 404,
-        headers: { 'Content-Type': 'application/json' }
-      });
-    } else {
-      response = await handleRoot(request, env);
-    }
-
-    return response;
-
+    const route = routes.find((r) => r.match(path, env));
+    if (route) return await route.handler(request, env, ctx);
+    if (path.startsWith('/api/')) return apiNotFoundResponse();
+    return await handleRoot(request, env);
   } catch (error) {
     return handleError(error);
   }
