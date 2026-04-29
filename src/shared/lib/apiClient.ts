@@ -167,6 +167,12 @@ type FetchConfig = {
   params?: Record<string, unknown>;
   baseURL?: string;
   /**
+   * Optional JSON body for DELETE. RFC 7231 allows DELETE-with-body, and the
+   * conversation-tag endpoint relies on it. POST/PUT/PATCH receive their body
+   * via the explicit `body` parameter and ignore this field.
+   */
+  body?: unknown;
+  /**
    * Cache keys/prefixes to invalidate on a successful (2xx) mutation. Items
    * are exact keys; items ending in `:` are treated as prefix invalidations.
    * The wrapper invalidates AFTER the await resolves, so callers don't have
@@ -355,7 +361,7 @@ export const apiClient = {
   patch: <T>(url: string, body?: unknown, config?: FetchConfig) =>
     mutate<T>('PATCH', url, body, config),
   delete: <T>(url: string, config?: FetchConfig) =>
-    mutate<T>('DELETE', url, undefined, config),
+    mutate<T>('DELETE', url, config?.body, config),
   upload: <T>(url: string, body: FormData, config?: UploadConfig) =>
     apiUpload<T>(url, body, config),
 };
