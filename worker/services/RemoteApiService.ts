@@ -4,6 +4,7 @@ import { HttpErrors } from '../errorHandler.js';
 import { Logger } from '../utils/logger.js';
 import { warnIfNotMinorUnits } from '../utils/money.js';
 import { edgeCache } from '../utils/edgeCache.js';
+import { redactSensitiveFields } from '../utils/redactResponse.js';
 import { canAssignTeamMemberToMatter, isTeamRole, type PracticeTeamResponse } from '../../src/shared/types/team.js';
 
 /**
@@ -48,40 +49,6 @@ export class RemoteApiService {
     return authHeader && authHeader.trim() ? authHeader.trim() : null;
   }
 
-  private static redactSensitiveFields(value: unknown): unknown {
-    if (Array.isArray(value)) {
-      return value.map((item) => this.redactSensitiveFields(item));
-    }
-
-    if (!value || typeof value !== 'object') {
-      return value;
-    }
-
-    const record = value as Record<string, unknown>;
-    const redacted: Record<string, unknown> = {};
-    const sensitiveKeys = new Set([
-      'password',
-      'token',
-      'access_token',
-      'authorization',
-      'email',
-      'ssn',
-      'secret',
-      'refresh_token',
-      'api_key',
-      'client_secret',
-    ]);
-
-    for (const [key, fieldValue] of Object.entries(record)) {
-      if (sensitiveKeys.has(key.toLowerCase())) {
-        redacted[key] = '[redacted]';
-        continue;
-      }
-      redacted[key] = this.redactSensitiveFields(fieldValue);
-    }
-
-    return redacted;
-  }
 
   /**
    * Fetch data from remote API with error handling
@@ -163,7 +130,7 @@ export class RemoteApiService {
           if (rawBody) {
             try {
               const parsedPreview = JSON.parse(rawBody);
-              upstreamBodyPreview = JSON.stringify(this.redactSensitiveFields(parsedPreview)).slice(0, 500);
+              upstreamBodyPreview = JSON.stringify(redactSensitiveFields(parsedPreview)).slice(0, 500);
             } catch {
               upstreamBodyPreview = '[non-json body omitted]';
             }
@@ -840,7 +807,7 @@ export class RemoteApiService {
         ? (error as { context: Record<string, unknown> }).context
         : null;
       const upstream = context && typeof context.upstream === 'object'
-        ? this.redactSensitiveFields(context.upstream)
+        ? redactSensitiveFields(context.upstream)
         : null;
       Logger.error('[RemoteApiService] createIntake failed', {
         endpoint,

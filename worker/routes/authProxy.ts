@@ -5,6 +5,7 @@ import { optionalAuth } from '../middleware/auth.js';
 import { invalidatePracticeDetailsCache } from '../utils/practiceDetailsCache.js';
 import { edgeCache } from '../utils/edgeCache.js';
 import { Logger } from '../utils/logger.js';
+import { redactErrorResponseBody, redactSensitiveFields } from '../utils/redactResponse.js';
 
 const AUTH_PATH_PREFIX = '/api/auth';
 const SUBSCRIPTIONS_CURRENT_PATH = '/api/subscriptions/current';
@@ -213,35 +214,7 @@ export async function handleAuthProxy(request: Request, env: Env): Promise<Respo
     if (contentType.includes('application/json')) {
       try {
         const json = await response.clone().json() as unknown;
-        const safeData: Record<string, unknown> = {};
-        
-        // Allowlist safe fields
-        const allowlist = ['code', 'type', 'message', 'error', 'status', 'success'];
-        
-        // Helper to extract safe fields from error object or root
-        const extractSafe = (source: unknown) => {
-          if (!source || typeof source !== 'object') return;
-          for (const key of allowlist) {
-            const sourceRecord = source as Record<string, unknown>;
-            if (sourceRecord[key] !== undefined) {
-              if (typeof sourceRecord[key] === 'object' && key === 'error') {
-                extractSafe(sourceRecord[key]);
-              } else {
-                safeData[key] = sourceRecord[key];
-              }
-            }
-          }
-        };
-        
-        extractSafe(json);
-        
-        // Ensure sensitive fields are never included even if they were in allowlist somehow
-        const blacklist = ['token', 'access_token', 'refresh_token', 'user_id', 'email', 'password'];
-        for (const key of blacklist) {
-          delete safeData[key];
-        }
-        
-        responseSnippet = JSON.stringify(safeData);
+        responseSnippet = JSON.stringify(redactErrorResponseBody(json));
       } catch {
         // Fallback to "withheld" if parsing fails
       }
@@ -386,27 +359,7 @@ export async function handleBackendProxy(request: Request, env: Env): Promise<Re
           bodyObj = JSON.parse(init.body);
         }
         if (bodyObj && typeof bodyObj === 'object') {
-          // Recursively redact sensitive fields (deep clone)
-          const SENSITIVE_KEYS = ['token', 'access_token', 'refresh_token', 'user_id', 'email', 'password'];
-          function redactDeep(obj: unknown): unknown {
-            if (Array.isArray(obj)) {
-              return obj.map((item) => redactDeep(item));
-            } else if (obj && typeof obj === 'object') {
-              const clone: Record<string, unknown> = {};
-              const record = obj as Record<string, unknown>;
-              for (const key in record) {
-                if (SENSITIVE_KEYS.includes(key)) {
-                  clone[key] = '[REDACTED]';
-                } else {
-                  clone[key] = redactDeep(record[key]);
-                }
-              }
-              return clone;
-            }
-            return obj;
-          }
-          const redacted = redactDeep(bodyObj);
-          Logger.debug('PUT /matters/ payload', redacted);
+          Logger.debug('PUT /matters/ payload', redactSensitiveFields(bodyObj));
         }
       } catch (e) {
         Logger.debug('PUT /matters/ payload (unparseable)', { error: String(e) });
@@ -422,29 +375,7 @@ export async function handleBackendProxy(request: Request, env: Env): Promise<Re
       if (contentType.includes('application/json')) {
         try {
           const json = await response.clone().json() as unknown;
-          const safeData: Record<string, unknown> = {};
-          const allowlist = ['code', 'type', 'message', 'error', 'status', 'success'];
-
-          const extractSafe = (source: unknown) => {
-            if (!source || typeof source !== 'object') return;
-            for (const key of allowlist) {
-              const sourceRecord = source as Record<string, unknown>;
-              if (sourceRecord[key] !== undefined) {
-                if (typeof sourceRecord[key] === 'object' && key === 'error') {
-                  extractSafe(sourceRecord[key]);
-                } else {
-                  safeData[key] = sourceRecord[key];
-                }
-              }
-            }
-          };
-
-          extractSafe(json);
-          const blacklist = ['token', 'access_token', 'refresh_token', 'user_id', 'email', 'password'];
-          for (const key of blacklist) {
-            delete safeData[key];
-          }
-          responseSnippet = JSON.stringify(safeData);
+          responseSnippet = JSON.stringify(redactErrorResponseBody(json));
         } catch {
           // ignore parsing failures
         }
