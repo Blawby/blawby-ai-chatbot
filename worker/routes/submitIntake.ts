@@ -13,6 +13,7 @@ import { HttpErrors } from '../errorHandler.js';
 import { ConversationService } from '../services/ConversationService.js';
 import { RemoteApiService } from '../services/RemoteApiService.js';
 import { optionalAuth, checkPracticeMembership } from '../middleware/auth.js';
+import { getAttachedAuthContext } from '../middleware/compose.js';
 import type { AuthContext } from '../middleware/auth.js';
 import { withPracticeContext, getPracticeId } from '../middleware/practiceContext.js';
 import { Logger } from '../utils/logger.js';
@@ -636,8 +637,13 @@ export async function handleSubmitIntake(
   /** Pre-resolved auth context from the outer conversations handler; avoids a redundant remote auth round-trip. */
   callerAuthContext?: AuthContext
 ): Promise<Response> {
-  // Auth — accept a pre-resolved context from the caller, or resolve it now.
-  const authContext = callerAuthContext ?? await optionalAuth(request, env);
+  // Auth — accept a pre-resolved context from the caller; otherwise read
+  // from the route-table withAuth wrapper. Direct unit-test callers fall
+  // back to a fresh optionalAuth so the route can be exercised without
+  // wiring the wrapper.
+  const authContext = callerAuthContext
+    ?? getAttachedAuthContext(request)
+    ?? await optionalAuth(request, env);
   if (!authContext) {
     throw HttpErrors.unauthorized('Authentication required');
   }
