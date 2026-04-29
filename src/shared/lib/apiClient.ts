@@ -162,7 +162,26 @@ async function apiFetch<T>(
   return { data: data as T, status: response.status };
 }
 
-type FetchConfig = { signal?: AbortSignal; params?: Record<string, unknown>; baseURL?: string };
+type FetchConfig = {
+  signal?: AbortSignal;
+  params?: Record<string, unknown>;
+  baseURL?: string;
+  /**
+   * Cache keys/prefixes to invalidate on a successful (2xx) mutation. Items
+   * are exact keys; items ending in `:` are treated as prefix invalidations.
+   * The wrapper invalidates AFTER the await resolves, so callers don't have
+   * to remember to call `queryCache.invalidate(...)` themselves.
+   */
+  invalidates?: string[];
+};
+
+const applyInvalidations = (invalidates: string[] | undefined): void => {
+  if (!invalidates || invalidates.length === 0) return;
+  for (const key of invalidates) {
+    const isPrefix = key.endsWith(':');
+    queryCache.invalidate(key, isPrefix);
+  }
+};
 
 export type UploadProgress = { loaded: number; total: number; percent: number };
 export type UploadConfig = {
@@ -313,17 +332,30 @@ export function pluckRecord<T>(unwrapped: unknown, candidates: string[]): T | nu
   return record as T;
 }
 
+const mutate = async <T>(
+  method: 'POST' | 'PUT' | 'PATCH' | 'DELETE',
+  url: string,
+  body: unknown,
+  config?: FetchConfig,
+): Promise<{ data: T; status: number }> => {
+  const result = await apiFetch<T>(method, url, body, config?.signal, config?.params);
+  // Invalidate on 2xx only — apiFetch throws HttpError otherwise, so reaching
+  // this line means the mutation succeeded.
+  applyInvalidations(config?.invalidates);
+  return result;
+};
+
 export const apiClient = {
   get: <T>(url: string, config?: FetchConfig) =>
     apiFetch<T>('GET', url, undefined, config?.signal, config?.params),
   post: <T>(url: string, body?: unknown, config?: FetchConfig) =>
-    apiFetch<T>('POST', url, body, config?.signal, config?.params),
+    mutate<T>('POST', url, body, config),
   put: <T>(url: string, body?: unknown, config?: FetchConfig) =>
-    apiFetch<T>('PUT', url, body, config?.signal, config?.params),
+    mutate<T>('PUT', url, body, config),
   patch: <T>(url: string, body?: unknown, config?: FetchConfig) =>
-    apiFetch<T>('PATCH', url, body, config?.signal, config?.params),
+    mutate<T>('PATCH', url, body, config),
   delete: <T>(url: string, config?: FetchConfig) =>
-    apiFetch<T>('DELETE', url, undefined, config?.signal, config?.params),
+    mutate<T>('DELETE', url, undefined, config),
   upload: <T>(url: string, body: FormData, config?: UploadConfig) =>
     apiUpload<T>(url, body, config),
 };
@@ -1003,11 +1035,11 @@ export async function updatePractice(
     `/api/practice/${encodeURIComponent(practiceId)}`,
     normalized,
     {
-      signal: config?.signal
+      signal: config?.signal,
+      invalidates: [`practice:${practiceId}`, 'practices:list'],
     }
   );
-  queryCache.invalidate(`practice:${practiceId}`);
-  queryCache.invalidate('practices:list');
+  // publicPracticeDetailsCache lives under `practice:public:` — also clear.
   clearPublicPracticeDetailsCache();
   return unwrapPracticeResponse(response.data);
 }
@@ -1020,10 +1052,9 @@ export async function deletePractice(
     throw new Error('practiceId is required');
   }
   await apiClient.delete(`/api/practice/${encodeURIComponent(practiceId)}`, {
-    signal: config?.signal
+    signal: config?.signal,
+    invalidates: [`practice:${practiceId}`, 'practices:list'],
   });
-  queryCache.invalidate(`practice:${practiceId}`);
-  queryCache.invalidate('practices:list');
   clearPublicPracticeDetailsCache();
 }
 
@@ -1183,7 +1214,11 @@ export async function updatePracticeMemberRole(
   if (!practiceId) {
     throw new Error('practiceId is required');
   }
-  await apiClient.patch(`/api/practice/${encodeURIComponent(practiceId)}/members`, payload);
+  await apiClient.patch(
+    `/api/practice/${encodeURIComponent(practiceId)}/members`,
+    payload,
+    { invalidates: ['practice:team:'] },
+  );
 }
 
 export async function deletePracticeMember(
@@ -1194,7 +1229,8 @@ export async function deletePracticeMember(
     throw new Error('practiceId is required');
   }
   await apiClient.delete(
-    `/api/practice/${encodeURIComponent(practiceId)}/members/${encodeURIComponent(userId)}`
+    `/api/practice/${encodeURIComponent(practiceId)}/members/${encodeURIComponent(userId)}`,
+    { invalidates: ['practice:team:'] },
   );
 }
 
@@ -1594,9 +1630,11 @@ export async function updatePracticeDetails(
   const response = await apiClient.put(
     `/api/practice/${encodeURIComponent(practiceId)}/details`,
     normalized,
-    { signal: config?.signal }
+    {
+      signal: config?.signal,
+      invalidates: [`practice:details:${practiceId}`],
+    }
   );
-  queryCache.invalidate(`practice:details:${practiceId}`);
   clearPublicPracticeDetailsCache();
   return normalizePracticeDetailsResponse(response.data);
 }

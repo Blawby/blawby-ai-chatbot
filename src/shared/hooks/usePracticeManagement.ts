@@ -1184,16 +1184,14 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
     await fetchPractices();
   }, [fetchPractices]);
 
-  // Update member role
+  // Update member role — apiClient invalidates `practice:team:` via the
+  // mutation→invalidation contract.
   const updateMemberRole = useCallback(async (practiceId: string, userId: string, role: Role): Promise<void> => {
     await apiUpdatePracticeMemberRole(practiceId, { userId, role });
-    queryCache.invalidate('practice:team:', /* prefix */ true);
   }, []);
 
-  // Remove member
   const removeMember = useCallback(async (practiceId: string, userId: string): Promise<void> => {
     await apiDeletePracticeMember(practiceId, userId);
-    queryCache.invalidate('practice:team:', /* prefix */ true);
   }, []);
 
   // Fetch workspace data
