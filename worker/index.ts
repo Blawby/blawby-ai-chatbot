@@ -22,6 +22,7 @@ import {
 import { handleConversations } from './routes/conversations.js';
 import { handleAiChat } from './routes/aiChat.js';
 import { handleAiIntent } from './routes/aiIntent.js';
+import { withRateLimit } from './middleware/compose.js';
 import { handleWebsiteExtract } from './routes/handleWebsiteExtract.js';
 import { handleSearch } from './routes/handleSearch.js';
 import { handleStatus } from './routes/status.js';
@@ -116,7 +117,17 @@ const routes: RouteEntry[] = [
   { mode: 'owned', match: prefix('/api/widget/bootstrap'), handler: (req, env) => handleWidgetBootstrap(req, env) },
   { mode: 'owned', match: prefix('/api/geo/autocomplete'), handler: handleAutocompleteWithCORS },
   { mode: 'owned', match: prefix('/api/conversations'), handler: (req, env) => handleConversations(req, env) },
-  { mode: 'owned', match: prefix('/api/ai/intent'), handler: (req, env) => handleAiIntent(req, env) },
+  {
+    mode: 'owned',
+    match: prefix('/api/ai/intent'),
+    // LLM call: rate-limit per client IP so a single abusive client can't
+    // burn through model quota. 30 req / 60s — generous for normal use.
+    handler: withRateLimit((req, env) => handleAiIntent(req, env), {
+      keyFn: (req) => req.headers.get('CF-Connecting-IP'),
+      max: 30,
+      windowMs: 60_000,
+    }),
+  },
   { mode: 'owned', match: prefix('/api/ai/extract-website'), handler: (req, env) => handleWebsiteExtract(req, env) },
   { mode: 'owned', match: prefix('/api/tools/search'), handler: (req, env) => handleSearch(req, env) },
   { mode: 'owned', match: prefix('/api/ai/chat'), handler: handleAiChat },
