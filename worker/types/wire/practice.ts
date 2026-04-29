@@ -10,7 +10,7 @@
  */
 
 import { z } from 'zod';
-import type { MinorAmount } from '../../types.js';
+import type { MinorAmount } from '../../../src/shared/utils/money';
 
 export const SubscriptionLifecycleStatusSchema = z.enum([
   'none',
