@@ -7,7 +7,7 @@ import { edgeCache } from '../utils/edgeCache.js';
 import { redactSensitiveFields } from '../utils/redactResponse.js';
 import { policyTtlMs } from '../utils/cachePolicy.js';
 import { validateWire } from '../utils/validateWire.js';
-import { PracticeSchema } from '../types/wire/practice.js';
+import { PracticeSchema, ConversationConfigPermissiveSchema } from '../types/wire/practice.js';
 import {
   BackendIntakeConvertResponseSchema,
   BackendPracticeIntakeSettingsResponseSchema,
@@ -568,72 +568,12 @@ export class RemoteApiService {
   }
 
   private static validateConversationConfig(config: Record<string, unknown>): ConversationConfig {
-    const requiredStringArray = (value: unknown): string[] => {
-      if (!Array.isArray(value) || !value.every(item => typeof item === 'string')) {
-        throw new Error('Expected array of strings');
-      }
-      return value;
-    };
-
-    const requiredRecord = (value: unknown): Record<string, string[]> => {
-      if (!value || typeof value !== 'object') {
-        throw new Error('Expected record');
-      }
-      const entries = Object.entries(value as Record<string, unknown>).map(([key, entryValue]) => {
-        return [key, requiredStringArray(entryValue)];
-      });
-      return Object.fromEntries(entries);
-    };
-
-    const voiceValue = config.voice;
-    if (voiceValue && typeof voiceValue !== 'object') {
-      throw new Error('voice must be an object');
-    }
-
-    const voiceObj = voiceValue && typeof voiceValue === 'object' ? (voiceValue as Record<string, unknown>) : {};
-    const voice: ConversationConfig['voice'] = {
-      enabled: Boolean(voiceObj.enabled),
-      provider: (typeof voiceObj.provider === 'string' && ['cloudflare', 'elevenlabs', 'custom'].includes(voiceObj.provider)
-        ? voiceObj.provider
-        : 'cloudflare') as ConversationConfig['voice']['provider'],
-      voiceId: typeof voiceObj.voiceId === 'string' ? voiceObj.voiceId : undefined,
-      displayName: typeof voiceObj.displayName === 'string' ? voiceObj.displayName : undefined,
-      previewUrl: typeof voiceObj.previewUrl === 'string' ? voiceObj.previewUrl : undefined
-    };
-
-    return {
-      ownerEmail: typeof config.ownerEmail === 'string' ? config.ownerEmail : undefined,
-      availableServices: requiredStringArray(config.availableServices ?? []),
-      serviceQuestions: requiredRecord(config.serviceQuestions ?? {}),
-      domain: typeof config.domain === 'string' ? config.domain : '',
-      description: typeof config.description === 'string' ? config.description : '',
-      brandColor: typeof config.brandColor === 'string' ? config.brandColor : '#000000',
-      accentColor: typeof config.accentColor === 'string' ? config.accentColor : '#000000',
-      profileImage: typeof config.profileImage === 'string' ? config.profileImage : undefined,
-      voice,
-      blawbyApi: (() => {
-        if (typeof config.blawbyApi !== 'object' || config.blawbyApi === null) {
-          return undefined;
-        }
-        const apiObj = config.blawbyApi as Record<string, unknown>;
-        const result: ConversationConfig['blawbyApi'] = {
-          enabled: Boolean(apiObj.enabled),
-        };
-        if (typeof apiObj.apiKeyHash === 'string') {
-          result.apiKeyHash = apiObj.apiKeyHash;
-        }
-        if (typeof apiObj.apiUrl === 'string') {
-          result.apiUrl = apiObj.apiUrl;
-        }
-        return result;
-      })(),
-      testMode: typeof config.testMode === 'boolean' ? config.testMode : undefined,
-      metadata: typeof config.metadata === 'object' && config.metadata !== null ? config.metadata as Record<string, unknown> : undefined,
-      betterAuthOrgId: typeof config.betterAuthOrgId === 'string' ? config.betterAuthOrgId : undefined,
-      tools: typeof config.tools === 'object' && config.tools !== null ? config.tools as ConversationConfig['tools'] : undefined,
-      agentMember: typeof config.agentMember === 'object' && config.agentMember !== null ? config.agentMember as ConversationConfig['agentMember'] : undefined,
-      isPublic: typeof config.isPublic === 'boolean' ? config.isPublic : undefined
-    };
+    // Tolerant Zod parse — schema's `.default()` + `.catch()` chains
+    // preserve the original "fall back on missing/invalid" semantics
+    // (defaults to '', '#000000', 'cloudflare' provider, etc.). The
+    // strict ConversationConfigSchema is used elsewhere; this permissive
+    // variant exists for upstream payloads of unknown quality.
+    return ConversationConfigPermissiveSchema.parse(config) as ConversationConfig;
   }
 
   /**

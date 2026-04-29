@@ -89,6 +89,63 @@ export type ConversationConfig = z.infer<typeof ConversationConfigSchema>;
 export const PracticeConfigSchema = ConversationConfigSchema;
 export type PracticeConfig = ConversationConfig;
 
+/**
+ * Permissive ConversationConfig schema for tolerant parsing of remote
+ * payloads. Provides defaults for missing required fields and falls back
+ * gracefully on invalid enum values. Used by RemoteApiService when
+ * extracting conversationConfig from `practice.metadata`.
+ *
+ * Defaults match the original hand-rolled validator semantics:
+ *   - availableServices: []
+ *   - serviceQuestions: {}
+ *   - domain / description: ''
+ *   - brandColor / accentColor: '#000000'
+ *   - voice.provider: 'cloudflare' if invalid
+ *   - voice.enabled: coerced via Boolean()
+ */
+const PermissiveVoiceSchema = z.object({
+  enabled: z.preprocess((v) => Boolean(v), z.boolean()),
+  provider: z.enum(['cloudflare', 'elevenlabs', 'custom']).catch('cloudflare'),
+  voiceId: z.string().nullable().optional().catch(undefined),
+  displayName: z.string().nullable().optional().catch(undefined),
+  previewUrl: z.string().nullable().optional().catch(undefined),
+}).passthrough();
+
+export const ConversationConfigPermissiveSchema = z.object({
+  ownerEmail: z.string().optional().catch(undefined),
+  availableServices: z.array(z.string()).default([]).catch([]),
+  serviceQuestions: z.record(z.string(), z.array(z.string())).default({}).catch({}),
+  domain: z.string().default('').catch(''),
+  description: z.string().default('').catch(''),
+  brandColor: z.string().default('#000000').catch('#000000'),
+  accentColor: z.string().default('#000000').catch('#000000'),
+  profileImage: z.string().optional().catch(undefined),
+  voice: PermissiveVoiceSchema.default({ enabled: false, provider: 'cloudflare' }),
+  blawbyApi: z.object({
+    enabled: z.preprocess((v) => Boolean(v), z.boolean()),
+    apiKey: z.string().nullable().optional(),
+    apiKeyHash: z.string().optional(),
+    apiUrl: z.string().optional(),
+  }).passthrough().optional().catch(undefined),
+  testMode: z.boolean().optional().catch(undefined),
+  metadata: z.record(z.string(), z.unknown()).optional().catch(undefined),
+  consultationFee: minorAmountField(),
+  billingIncrementMinutes: z.number().int().positive().optional().catch(undefined),
+  betterAuthOrgId: z.string().optional().catch(undefined),
+  tools: z.record(z.string(), z.object({
+    enabled: z.preprocess((v) => Boolean(v), z.boolean()),
+    requiredRole: z.enum(['owner', 'admin', 'attorney', 'paralegal']).nullable().optional(),
+    allowAnonymous: z.boolean().optional(),
+  }).passthrough()).optional().catch(undefined),
+  agentMember: z.object({
+    enabled: z.preprocess((v) => Boolean(v), z.boolean()),
+    userId: z.string().optional(),
+    autoInvoke: z.boolean().optional(),
+    tagRequired: z.boolean().optional(),
+  }).passthrough().optional().catch(undefined),
+  isPublic: z.boolean().optional().catch(undefined),
+}).passthrough();
+
 export const PracticeSchema = z.object({
   id: z.string(),
   name: z.string(),
