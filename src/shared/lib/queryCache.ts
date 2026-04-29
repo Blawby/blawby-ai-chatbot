@@ -78,23 +78,28 @@ export const queryCache = {
   /**
    * Invalidate one key (exact match) or all keys with a given prefix.
    * Bumps the generation for matching keys so any in-flight responses
-   * captured before the call are silently dropped on arrival.
+   * captured before the call are silently dropped on arrival. The bump
+   * covers BOTH cached entries and currently-in-flight keys (which may
+   * not have a cached value yet) — otherwise an invalidate-during-fetch
+   * race would let the resolving fetcher write a stale value.
    */
   invalidate(key: string, prefix = false): void {
     const snap = cacheStore.get();
     const match = (k: string) => prefix ? k.startsWith(key) : k === key;
+    const matched = new Set<string>();
     const next: typeof snap = {};
     for (const [k, v] of Object.entries(snap)) {
-      if (match(k)) {
-        generations.set(k, (generations.get(k) ?? globalGeneration) + 1);
-      } else {
-        next[k] = v;
-      }
+      if (match(k)) matched.add(k);
+      else next[k] = v;
+    }
+    for (const k of inflight.keys()) {
+      if (match(k)) matched.add(k);
+    }
+    for (const k of matched) {
+      generations.set(k, (generations.get(k) ?? globalGeneration) + 1);
+      inflight.delete(k);
     }
     cacheStore.set(next);
-    for (const k of inflight.keys()) {
-      if (match(k)) inflight.delete(k);
-    }
   },
 
   /** Clear everything. Bumps the global generation so all in-flight
