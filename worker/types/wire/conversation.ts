@@ -1,15 +1,35 @@
 /**
  * Wire types for chat / conversation API responses.
  *
- * ChatMessage and ChatSession are the worker's persistence shapes; the
- * frontend's `Conversation` (in src/shared/types/conversation.ts) layers
- * over them with extra metadata. This module is the canonical re-export
- * point for backend-shaped conversation types.
+ * Canonical declarations of ChatMessage / ChatSession live here. The
+ * legacy `worker/types.ts` re-exports from this module so old imports
+ * continue to work; new code should import from `@/shared/types/wire`
+ * (frontend) or `worker/types/wire/conversation.js` (worker).
  */
 
-export type { ChatMessage, ChatSession, ChatMessageUI } from '../../types';
+// MessageReaction is defined frontend-side (the worker doesn't own its shape);
+// re-exported here for parity with the rest of the wire module.
+import type { MessageReaction } from '../../../src/shared/types/conversation.js';
+export type { MessageReaction };
 
-export type { MessageReaction } from '../../types';
+export interface ChatMessage {
+  id: string;
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  timestamp: number;
+  reply_to_message_id?: string | null;
+  metadata?: Record<string, unknown>;
+}
+
+export interface ChatSession {
+  id: string;
+  /** Practice ID (workspaces are ephemeral practices). */
+  practiceId: string;
+  messages: ChatMessage[];
+  createdAt: number;
+  updatedAt: number;
+  metadata?: Record<string, unknown>;
+}
 
 /**
  * Server-shaped conversation envelope returned by /api/conversations.
@@ -33,3 +53,8 @@ export interface BackendConversation {
   }>;
   [key: string]: unknown;
 }
+
+// Note: ChatMessageUI (= ChatMessage + UIMessageExtras) is composed in
+// worker/types.ts because UIMessageExtras is worker-internal. Importing
+// ChatMessageUI here would create a circular re-export with types.ts;
+// frontend consumers import it via @/shared/types/wire instead.

@@ -57,10 +57,13 @@ export type {
 export type {
   ChatMessage,
   ChatSession,
-  ChatMessageUI,
   MessageReaction,
   BackendConversation,
 } from '../../../worker/types/wire/conversation';
+
+// ChatMessageUI is composed of wire ChatMessage + worker-internal
+// UIMessageExtras, so it stays declared in worker/types.ts.
+export type { ChatMessageUI } from '../../../worker/types';
 
 export type {
   BackendUserDetail,

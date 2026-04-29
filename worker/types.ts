@@ -201,27 +201,17 @@ export type ApiResponse<T = unknown> =
   | { success: true; data: T; message?: string }
   | { success: false; error: string; errorCode?: string; details?: unknown; message?: string };
 
-// Chat message types
-export interface ChatMessage {
-  id: string;
-  role: 'user' | 'assistant' | 'system';
-  content: string;
-  timestamp: number;
-  reply_to_message_id?: string | null;
-  metadata?: Record<string, unknown>;
-}
-
-import type { MessageReaction } from '../src/shared/types/conversation.js';
-export type { MessageReaction };
-
-export interface ChatSession {
-  id: string;
-  practiceId: string; // Practice ID (workspaces are ephemeral practices)
-  messages: ChatMessage[];
-  createdAt: number;
-  updatedAt: number;
-  metadata?: Record<string, unknown>;
-}
+// Conversation wire types — canonical declarations live in
+// worker/types/wire/conversation.ts. Re-exported here so legacy imports
+// (`from '../types'` etc.) keep resolving to the same shapes; we also
+// `import type` so this file can extend ChatMessage in ChatMessageUI.
+import type {
+  ChatMessage,
+  ChatSession,
+  MessageReaction,
+  BackendConversation,
+} from './types/wire/conversation';
+export type { ChatMessage, ChatSession, MessageReaction, BackendConversation };
 
 // Matter types
 export interface Matter {
@@ -235,122 +225,17 @@ export interface Matter {
   metadata?: Record<string, unknown>;
 }
 
-export type SubscriptionLifecycleStatus =
-  | 'none'
-  | 'trialing'
-  | 'active'
-  | 'past_due'
-  | 'canceled'
-  | 'incomplete'
-  | 'incomplete_expired'
-  | 'unpaid'
-  | 'paused';
-
-// Conversation configuration (conversation/messaging settings, not chatbot)
-export interface ConversationConfig {
-  ownerEmail?: string;
-  availableServices: string[];
-  serviceQuestions: Record<string, string[]>;
-  domain: string;
-  description: string;
-  brandColor: string;
-  accentColor: string;
-  profileImage?: string;
-  voice: {
-    enabled: boolean;
-    provider: 'cloudflare' | 'elevenlabs' | 'custom';
-    voiceId?: string | null;
-    displayName?: string | null;
-    previewUrl?: string | null;
-  };
-  blawbyApi?: {
-    enabled: boolean;
-    apiKey?: string | null;
-    apiKeyHash?: string;
-    apiUrl?: string;
-  };
-  testMode?: boolean;
-  metadata?: Record<string, unknown>;
-  /**
-   * The fee charged for an initial consultation.
-   * Represented in minor currency units (e.g., cents for USD).
-   * Must be an integer >= 0. Use MinorAmount to prevent unit confusion.
-   */
-  consultationFee?: MinorAmount;
-  /**
-   * The smallest unit of time (in minutes) used for billing purposes.
-   * Must be a positive integer. Typical increments are 6 (for tenths of an hour), 10, or 15.
-   */
-  billingIncrementMinutes?: number;
-  betterAuthOrgId?: string;
-  tools?: {
-    [toolName: string]: {
-      enabled: boolean;
-      requiredRole?: 'owner' | 'admin' | 'attorney' | 'paralegal' | null;
-      allowAnonymous?: boolean;
-    };
-  };
-  agentMember?: {
-    enabled: boolean;
-    userId?: string;
-    autoInvoke?: boolean;
-    tagRequired?: boolean;
-  };
-  isPublic?: boolean;
-}
-
-// Practice configuration extends conversation config
-// Currently identical to ConversationConfig, kept for future extensibility
-// Using type alias instead of interface to avoid empty interface lint error
-// If extension is needed in the future, convert to interface with additional properties
-export type PracticeConfig = ConversationConfig;
-
-// Practice type (business practice - law firm)
-export interface Practice {
-  id: string;
-  name: string;
-  slug: string;
-  domain?: string;
-  accentColor?: string;
-  metadata?: Record<string, unknown>;
-  conversationConfig: ConversationConfig; // Extracted from practice.metadata.conversationConfig in remote API
-  betterAuthOrgId?: string;
-  stripeCustomerId?: string | null;
-  seats?: number | null;
-  kind: 'practice';
-  subscriptionStatus: SubscriptionLifecycleStatus;
-  subscriptionPeriodEnd?: number | null;
-  createdAt: number;
-  updatedAt: number;
-  businessOnboardingCompletedAt?: number | null;
-  businessOnboardingSkipped?: boolean;
-  businessOnboardingData?: Record<string, unknown> | null;
-}
-
-// Workspace type (personal/ephemeral - no storage needed)
-export interface Workspace {
-  id: string;
-  name: string;
-  slug: string;
-  domain?: string;
-  accentColor?: string;
-  metadata?: Record<string, unknown>;
-  conversationConfig: ConversationConfig; // Hardcoded defaults
-  betterAuthOrgId?: string;
-  stripeCustomerId: null;
-  seats: 1;
-  kind: 'workspace';
-  subscriptionStatus: 'none';
-  subscriptionPeriodEnd: null;
-  createdAt: number;
-  updatedAt: number;
-  businessOnboardingCompletedAt: null;
-  businessOnboardingSkipped: false;
-  businessOnboardingData: null;
-}
-
-// Union type for practice or workspace
-export type PracticeOrWorkspace = Practice | Workspace;
+// Practice/workspace wire types — canonical declarations live in
+// worker/types/wire/practice.ts. Re-exported here so legacy imports
+// keep working (`import type { Practice } from '../types'` etc.).
+export type {
+  Practice,
+  Workspace,
+  PracticeOrWorkspace,
+  ConversationConfig,
+  PracticeConfig,
+  SubscriptionLifecycleStatus,
+} from './types/wire/practice';
 
 // Form types
 export interface ContactForm {
