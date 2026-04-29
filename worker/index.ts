@@ -22,7 +22,7 @@ import {
 import { handleConversations } from './routes/conversations.js';
 import { handleAiChat } from './routes/aiChat.js';
 import { handleAiIntent } from './routes/aiIntent.js';
-import { withRateLimit } from './middleware/compose.js';
+import { withAuth, withCache, withRateLimit } from './middleware/compose.js';
 import { handleWebsiteExtract } from './routes/handleWebsiteExtract.js';
 import { handleSearch } from './routes/handleSearch.js';
 import { handleStatus } from './routes/status.js';
@@ -96,7 +96,12 @@ const matchesBackendProxy: RouteMatcher = (path) =>
 const routes: RouteEntry[] = [
   { mode: 'proxy', match: prefix('/api/auth'), handler: (req, env) => handleAuthProxy(req, env) },
   { mode: 'proxy', match: regex(/^\/api\/practice\/[^/]+\/team$/), handler: (req, env) => handlePracticeTeam(req, env) },
-  { mode: 'owned', match: regex(/^\/api\/practice\/[^/]+\/billing\/summary$/), handler: (req, env) => handleBillingSummary(req, env) },
+  {
+    mode: 'owned',
+    match: regex(/^\/api\/practice\/[^/]+\/billing\/summary$/),
+    // Auth declared at the route table — handler reads via getAttachedAuthContext.
+    handler: withAuth((req, env) => handleBillingSummary(req, env), { required: true }),
+  },
   { mode: 'proxy', match: matchesBackendProxy, handler: (req, env) => handleBackendProxy(req, env) },
   { mode: 'proxy', match: prefix('/api/practices'), handler: (req, env) => handlePractices(req, env) },
   { mode: 'owned', match: prefix('/api/paralegal'), handler: (req, env) => handleParalegal(req, env) },
@@ -113,7 +118,15 @@ const routes: RouteEntry[] = [
   { mode: 'owned', match: prefix('/api/notifications'), handler: (req, env) => handleNotifications(req, env) },
   { mode: 'owned', match: prefix('/api/widget/practice-details/'), handler: (req, env) => handleWidgetPracticeDetails(req, env) },
   { mode: 'owned', match: prefix('/api/practice/details/'), handler: (req, env) => handlePracticeDetails(req, env) },
-  { mode: 'owned', match: prefix('/api/config'), handler: (req, env) => handleConfig(req, env) },
+  {
+    mode: 'owned',
+    match: prefix('/api/config'),
+    // Static-ish public config — edge-cache so cold requests don't hit
+    // the handler. Browser cache via Cache-Control still applies.
+    handler: withCache((req, env) => handleConfig(req, env), {
+      keyFn: () => 'practice:config:static',
+    }),
+  },
   { mode: 'owned', match: prefix('/api/widget/bootstrap'), handler: (req, env) => handleWidgetBootstrap(req, env) },
   { mode: 'owned', match: prefix('/api/geo/autocomplete'), handler: handleAutocompleteWithCORS },
   { mode: 'owned', match: prefix('/api/conversations'), handler: (req, env) => handleConversations(req, env) },
@@ -128,7 +141,17 @@ const routes: RouteEntry[] = [
       windowMs: 60_000,
     }),
   },
-  { mode: 'owned', match: prefix('/api/ai/extract-website'), handler: (req, env) => handleWebsiteExtract(req, env) },
+  {
+    mode: 'owned',
+    match: prefix('/api/ai/extract-website'),
+    // External fetch + LLM analysis — rate-limit per IP to prevent
+    // scraping abuse from a single client. 10 req / 60s.
+    handler: withRateLimit((req, env) => handleWebsiteExtract(req, env), {
+      keyFn: (req) => req.headers.get('CF-Connecting-IP'),
+      max: 10,
+      windowMs: 60_000,
+    }),
+  },
   { mode: 'owned', match: prefix('/api/tools/search'), handler: (req, env) => handleSearch(req, env) },
   { mode: 'owned', match: prefix('/api/ai/chat'), handler: handleAiChat },
   { mode: 'owned', match: exact('/api/metrics/vitals'), handler: (req, env) => handleMetricsVitals(req, env) },

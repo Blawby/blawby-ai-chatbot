@@ -1,6 +1,6 @@
 import type { Env } from '../types.js';
 import { HttpErrors, createSuccessResponse } from '../errorHandler.js';
-import { requireAuth } from '../middleware/auth.js';
+import { getAttachedAuthContext } from '../middleware/compose.js';
 import { edgeCache } from '../utils/edgeCache.js';
 import { policyTtlMs } from '../utils/cachePolicy.js';
 
@@ -80,7 +80,9 @@ export async function handleBillingSummary(request: Request, env: Env): Promise<
   const practiceId = decodeURIComponent(match[1] ?? '');
   if (!practiceId) throw HttpErrors.badRequest('Practice ID required');
 
-  const authContext = await requireAuth(request, env);
+  // Auth is attached by the route table's withAuth({ required: true }) wrapper.
+  const authContext = getAttachedAuthContext(request);
+  if (!authContext) throw HttpErrors.unauthorized('Authentication required');
   if (authContext.isAnonymous) throw HttpErrors.forbidden('Access denied');
 
   const matterIdsParam = url.searchParams.get('matterIds') ?? '';
