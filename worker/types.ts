@@ -196,15 +196,10 @@ export class HttpError extends Error {
   }
 }
 
-// Common response types
-export interface ApiResponse<T = unknown> {
-  success: boolean;
-  data?: T;
-  error?: string;
-  message?: string;
-  errorCode?: string; // Add errorCode property
-  details?: unknown;
-}
+// Common response envelope — discriminated union so consumers narrow on `success`.
+export type ApiResponse<T = unknown> =
+  | { success: true; data: T; message?: string }
+  | { success: false; error: string; errorCode?: string; details?: unknown; message?: string };
 
 // Chat message types
 export interface ChatMessage {

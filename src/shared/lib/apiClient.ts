@@ -170,6 +170,52 @@ async function apiFetch<T>(
 
 type FetchConfig = { signal?: AbortSignal; params?: Record<string, unknown>; baseURL?: string };
 
+/**
+ * Pull `data` out of a backend `ApiResponse<T>` envelope, throwing on the
+ * error branch.
+ *
+ * The backend (and our worker's `createSuccessResponse`) wrap GET responses
+ * in `{ success: true, data: T }`. Some endpoints additionally nest the
+ * payload under `data.matters` / `data.items` / `data.<resource>`. Callers
+ * pass an optional `pluck` to lift the inner array/object after unwrapping
+ * the envelope.
+ *
+ * Replaces the inline `.data ?? .matters ?? .items ?? recurse` patterns
+ * (`extractMatterArray`, `extractNotesArray`, `requestData`, …) that each
+ * service file used to reinvent.
+ */
+export function unwrapApiResponse<T>(payload: unknown, fallbackMessage = 'Request failed'): T {
+  if (payload && typeof payload === 'object' && 'success' in payload) {
+    const env = payload as { success: boolean; data?: unknown; error?: unknown; message?: unknown };
+    if (env.success === false) {
+      const message = typeof env.error === 'string' && env.error
+        ? env.error
+        : typeof env.message === 'string' && env.message
+          ? env.message
+          : fallbackMessage;
+      throw new Error(message);
+    }
+    if ('data' in env) return env.data as T;
+  }
+  return payload as T;
+}
+
+/**
+ * After unwrapping the envelope, lift a nested collection out of the resource
+ * shape (e.g. `{ matters: [...] }` → `[...]`). If no candidate key matches,
+ * the unwrapped value is returned as-is.
+ */
+export function pluckCollection<T>(unwrapped: unknown, candidates: string[]): T[] {
+  if (Array.isArray(unwrapped)) return unwrapped as T[];
+  if (unwrapped && typeof unwrapped === 'object') {
+    const record = unwrapped as Record<string, unknown>;
+    for (const key of candidates) {
+      if (Array.isArray(record[key])) return record[key] as T[];
+    }
+  }
+  return [];
+}
+
 export const apiClient = {
   get: <T>(url: string, config?: FetchConfig) =>
     apiFetch<T>('GET', url, undefined, config?.signal, config?.params),
