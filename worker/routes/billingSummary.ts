@@ -1,23 +1,13 @@
 import type { Env } from '../types.js';
 import { HttpErrors, createSuccessResponse } from '../errorHandler.js';
 import { requireAuth } from '../middleware/auth.js';
+import { edgeCache } from '../utils/edgeCache.js';
 
 const CACHE_TTL_MS = 30 * 1000;
 const MAX_MATTER_IDS = 100;
 const MATTER_ID_RE = /^[a-zA-Z0-9_-]{1,128}$/;
 
 type SummaryEntry = { matterId: string; totalUnbilled: number | null };
-type CacheEntry = { summaries: SummaryEntry[]; expiresAt: number };
-
-const summaryCache = new Map<string, CacheEntry>();
-const summaryInflight = new Map<string, Promise<void>>();
-
-const cleanupExpired = () => {
-  const now = Date.now();
-  for (const [key, entry] of summaryCache.entries()) {
-    if (entry.expiresAt <= now) summaryCache.delete(key);
-  }
-};
 
 const unwrapRecord = (raw: unknown): Record<string, unknown> => {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
@@ -104,23 +94,7 @@ export async function handleBillingSummary(request: Request, env: Env): Promise<
 
   if (!env.BACKEND_API_URL) throw HttpErrors.internalServerError('BACKEND_API_URL not configured');
 
-  const cacheKey = `${practiceId}:${authContext.user.id}:${[...matterIds].sort().join(',')}`;
-
-  const cached = summaryCache.get(cacheKey);
-  if (cached && cached.expiresAt > Date.now()) {
-    return createSuccessResponse({ summaries: cached.summaries });
-  }
-  if (cached) summaryCache.delete(cacheKey);
-
-  const existingInflight = summaryInflight.get(cacheKey);
-  if (existingInflight) {
-    await existingInflight.catch(() => undefined);
-    const refreshed = summaryCache.get(cacheKey);
-    if (refreshed && refreshed.expiresAt > Date.now()) {
-      return createSuccessResponse({ summaries: refreshed.summaries });
-    }
-    if (refreshed) summaryCache.delete(cacheKey);
-  }
+  const cacheKey = `billing:summary:${practiceId}:${authContext.user.id}:${[...matterIds].sort().join(',')}`;
 
   const forwardHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
   const cookie = request.headers.get('Cookie');
@@ -128,28 +102,13 @@ export async function handleBillingSummary(request: Request, env: Env): Promise<
   const authorization = request.headers.get('Authorization');
   if (authorization) forwardHeaders['Authorization'] = authorization;
 
-  let resolveInflight: (() => void) | null = null;
-  let rejectInflight: ((reason?: unknown) => void) | null = null;
-  const inflightPromise = new Promise<void>((resolve, reject) => {
-    resolveInflight = resolve;
-    rejectInflight = reject;
-  });
-  summaryInflight.set(cacheKey, inflightPromise);
+  const summaries = await edgeCache.get_or_fetch<SummaryEntry[]>(
+    cacheKey,
+    () => Promise.all(
+      matterIds.map((id) => fetchOneMatter(env.BACKEND_API_URL, practiceId, id, forwardHeaders)),
+    ),
+    { ttlMs: CACHE_TTL_MS },
+  );
 
-  try {
-    const summaries = await Promise.all(
-      matterIds.map((id) => fetchOneMatter(env.BACKEND_API_URL, practiceId, id, forwardHeaders))
-    );
-
-    cleanupExpired();
-    summaryCache.set(cacheKey, { summaries, expiresAt: Date.now() + CACHE_TTL_MS });
-    (resolveInflight as (() => void))();
-
-    return createSuccessResponse({ summaries });
-  } catch (error) {
-    (rejectInflight as (reason?: unknown) => void)(error);
-    throw error;
-  } finally {
-    summaryInflight.delete(cacheKey);
-  }
+  return createSuccessResponse({ summaries });
 }
