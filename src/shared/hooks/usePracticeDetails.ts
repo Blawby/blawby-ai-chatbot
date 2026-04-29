@@ -1,10 +1,8 @@
 import { useCallback } from 'preact/hooks';
 import { useStore } from '@nanostores/preact';
-import { getPracticeDetails, getPublicPracticeDetails, type PracticeDetails } from '@/shared/lib/apiClient';
+import { getPracticeDetails, getPublicPracticeDetails } from '@/shared/lib/apiClient';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { practiceDetailsStore, setPracticeDetailsEntry } from '@/shared/stores/practiceDetailsStore';
-
-const practiceDetailsInFlight = new Map<string, Promise<PracticeDetails | null>>();
 
 /**
  * usePracticeDetails
@@ -73,34 +71,22 @@ export const usePracticeDetails = (
       }
     }
 
-    const inFlightKey = `${practiceId}:${allowPublicFallback}:${practiceSlug?.trim() || ''}`;
-    const inFlight = practiceDetailsInFlight.get(inFlightKey);
-    if (inFlight) {
-      return inFlight;
+    // The underlying API calls (getPracticeDetails, getPublicPracticeDetails)
+    // are queryCache-backed and coalesce concurrent calls themselves, so no
+    // local in-flight map is needed.
+    if (!allowPublicFallback) {
+      const fetched = await getPracticeDetails(practiceId);
+      setPracticeDetailsEntry(practiceId, fetched);
+      return fetched;
     }
 
-    const loadDetails = (async (): Promise<PracticeDetails | null> => {
-      if (!allowPublicFallback) {
-        const fetched = await getPracticeDetails(practiceId);
-        setPracticeDetailsEntry(practiceId, fetched);
-        return fetched;
-      }
-
-      const slugToFetch = practiceSlug?.trim() || practiceId;
-      const publicDetails = await getPublicPracticeDetails(slugToFetch);
-      setPracticeDetailsEntry(practiceId, publicDetails?.details ?? null);
-      if (publicDetails?.practiceId && publicDetails.practiceId !== practiceId) {
-        setPracticeDetailsEntry(publicDetails.practiceId, publicDetails.details ?? null);
-      }
-      return publicDetails?.details ?? null;
-    })();
-
-    practiceDetailsInFlight.set(inFlightKey, loadDetails);
-    try {
-      return await loadDetails;
-    } finally {
-      practiceDetailsInFlight.delete(inFlightKey);
+    const slugToFetch = practiceSlug?.trim() || practiceId;
+    const publicDetails = await getPublicPracticeDetails(slugToFetch);
+    setPracticeDetailsEntry(practiceId, publicDetails?.details ?? null);
+    if (publicDetails?.practiceId && publicDetails.practiceId !== practiceId) {
+      setPracticeDetailsEntry(publicDetails.practiceId, publicDetails.details ?? null);
     }
+    return publicDetails?.details ?? null;
   }, [practiceId, practiceSlug, allowPublicFallback]);
 
   // ------------------------------------------------------------------
