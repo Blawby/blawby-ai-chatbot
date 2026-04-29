@@ -5,6 +5,7 @@ import { Logger } from '../utils/logger.js';
 import { warnIfNotMinorUnits } from '../utils/money.js';
 import { edgeCache } from '../utils/edgeCache.js';
 import { redactSensitiveFields } from '../utils/redactResponse.js';
+import { policyTtlMs } from '../utils/cachePolicy.js';
 import { canAssignTeamMemberToMatter, isTeamRole, type PracticeTeamResponse } from '../../src/shared/types/team.js';
 
 /**
@@ -17,7 +18,6 @@ import { canAssignTeamMemberToMatter, isTeamRole, type PracticeTeamResponse } fr
  * (see `practiceDetailsCache.ts`).
  */
 export class RemoteApiService {
-  private static readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes
   private static readonly DEFAULT_SEAT_COUNT = 1;
 
   /**
@@ -202,8 +202,9 @@ export class RemoteApiService {
     practiceId: string,
     request?: Request
   ): Promise<PracticeOrWorkspace | null> {
+    const cacheKey = `practice:${practiceId}`;
     return edgeCache.get_or_fetch<PracticeOrWorkspace | null>(
-      `practice:${practiceId}`,
+      cacheKey,
       async () => {
         try {
           let response: Response;
@@ -243,7 +244,7 @@ export class RemoteApiService {
           throw error;
         }
       },
-      { ttlMs: this.CACHE_TTL },
+      { ttlMs: policyTtlMs(cacheKey) },
     );
   }
 
@@ -267,14 +268,15 @@ export class RemoteApiService {
     practiceId: string,
     request?: Request
   ): Promise<ConversationConfig | null> {
+    const cacheKey = `practice:config:${practiceId}`;
     return edgeCache.get_or_fetch<ConversationConfig | null>(
-      `practice:config:${practiceId}`,
+      cacheKey,
       async () => {
         const practice = await this.getPractice(env, practiceId, request);
         if (!practice) return null;
         return this.extractConversationConfig(practice.metadata);
       },
-      { ttlMs: this.CACHE_TTL },
+      { ttlMs: policyTtlMs(cacheKey) },
     );
   }
 
@@ -667,14 +669,15 @@ export class RemoteApiService {
     practiceId: string,
     request?: Request
   ): Promise<SubscriptionLifecycleStatus> {
+    const cacheKey = `subscription:status:${practiceId}`;
     return edgeCache.get_or_fetch<SubscriptionLifecycleStatus>(
-      `subscription:status:${practiceId}`,
+      cacheKey,
       async () => {
         const practice = await this.getPractice(env, practiceId, request);
         if (!practice) return 'none';
         return practice.subscriptionStatus || 'none';
       },
-      { ttlMs: this.CACHE_TTL },
+      { ttlMs: policyTtlMs(cacheKey) },
     );
   }
 

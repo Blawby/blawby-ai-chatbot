@@ -6,12 +6,12 @@ import { invalidatePracticeDetailsCache } from '../utils/practiceDetailsCache.js
 import { edgeCache } from '../utils/edgeCache.js';
 import { Logger } from '../utils/logger.js';
 import { redactErrorResponseBody, redactSensitiveFields } from '../utils/redactResponse.js';
+import { policyTtlMs } from '../utils/cachePolicy.js';
 
 const AUTH_PATH_PREFIX = '/api/auth';
 const SUBSCRIPTIONS_CURRENT_PATH = '/api/subscriptions/current';
 const SUBSCRIPTIONS_PLANS_PATH = '/api/subscriptions/plans';
 const DOMAIN_PATTERN = /;\s*domain=[^;]+/i;
-const SUBSCRIPTIONS_PLANS_CACHE_TTL_MS = 60 * 1000;
 
 
 type CachedProxyResponse = {
@@ -412,7 +412,7 @@ export async function handleBackendProxy(request: Request, env: Env): Promise<Re
         };
       },
       {
-        ttlMs: SUBSCRIPTIONS_PLANS_CACHE_TTL_MS,
+        ttlMs: policyTtlMs(plansCacheKey),
         // Don't pollute the cache with auth-mutating responses (Set-Cookie)
         // or upstream errors.
         cacheable: (r) => r.status >= 200 && r.status < 300 && !r.hasSetCookie,

@@ -2,12 +2,12 @@ import type { Env } from '../types.js';
 import { HttpError } from '../types.js';
 import { RemoteApiService } from '../services/RemoteApiService.js';
 import { edgeCache } from './edgeCache.js';
+import { policyTtlMs } from './cachePolicy.js';
 
-const CACHE_TTL_SECONDS = 600;
-// In-isolate memoization tier in front of KV. KV stays as the cross-isolate
-// persistent cache (10 min); edgeCache absorbs repeated lookups within one
-// isolate so we don't pay a KV round-trip per request.
-const MEMORY_TTL_MS = 60_000;
+// KV is the cross-isolate persistence layer (10 min TTL). The in-memory
+// edgeCache tier above uses the shorter `practice:details:` policy TTL.
+// Different layers, different TTLs by design.
+const KV_PRACTICE_DETAILS_TTL_SECONDS = 600;
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -76,7 +76,7 @@ export const fetchPracticeDetailsWithCache = async (
   }
   const result = await fetchPracticeDetailsUncached(env, request, practiceId, trimmedSlug, options);
   if (!options?.bypassCache && result.details) {
-    edgeCache.set(memoKey, result, MEMORY_TTL_MS);
+    edgeCache.set(memoKey, result, policyTtlMs(memoKey));
   }
   return result;
 };
@@ -103,7 +103,7 @@ const fetchPracticeDetailsUncached = async (
   const writeToCache = async (payload: unknown, isPublicResponse: boolean): Promise<void> => {
     if (options?.bypassCache || !env.CHAT_SESSIONS || !payload) return;
     const serialized = JSON.stringify({ payload });
-    const ttl = { expirationTtl: CACHE_TTL_SECONDS };
+    const ttl = { expirationTtl: KV_PRACTICE_DETAILS_TTL_SECONDS };
     const writes: Promise<void>[] = [];
     
     // Always write to UUID key for authenticated responses

@@ -2,8 +2,8 @@ import type { Env } from '../types.js';
 import { HttpErrors, createSuccessResponse } from '../errorHandler.js';
 import { requireAuth } from '../middleware/auth.js';
 import { edgeCache } from '../utils/edgeCache.js';
+import { policyTtlMs } from '../utils/cachePolicy.js';
 
-const CACHE_TTL_MS = 30 * 1000;
 const MAX_MATTER_IDS = 100;
 const MATTER_ID_RE = /^[a-zA-Z0-9_-]{1,128}$/;
 
@@ -107,7 +107,7 @@ export async function handleBillingSummary(request: Request, env: Env): Promise<
     () => Promise.all(
       matterIds.map((id) => fetchOneMatter(env.BACKEND_API_URL, practiceId, id, forwardHeaders)),
     ),
-    { ttlMs: CACHE_TTL_MS },
+    { ttlMs: policyTtlMs(cacheKey) },
   );
 
   return createSuccessResponse({ summaries });
