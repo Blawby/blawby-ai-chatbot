@@ -156,9 +156,22 @@ const routes: RouteEntry[] = [
       windowMs: 60_000,
     }),
   },
-  { mode: 'owned', match: prefix('/api/tools/search'), handler: (req, env) => handleSearch(req, env) },
+  {
+    mode: 'owned',
+    match: prefix('/api/tools/search'),
+    handler: withAuth((req, env) => handleSearch(req, env), { required: false }),
+  },
   { mode: 'owned', match: prefix('/api/ai/chat'), handler: handleAiChat },
-  { mode: 'owned', match: exact('/api/metrics/vitals'), handler: (req, env) => handleMetricsVitals(req, env) },
+  {
+    mode: 'owned',
+    match: exact('/api/metrics/vitals'),
+    // Anonymous beacon endpoint — rate-limit per IP to discourage spam.
+    handler: withRateLimit((req, env) => handleMetricsVitals(req, env), {
+      keyFn: (req) => req.headers.get('CF-Connecting-IP'),
+      max: 60,
+      windowMs: 60_000,
+    }),
+  },
   { mode: 'owned', match: exact('/api/health'), handler: (req, env) => handleHealth(req, env) },
   { mode: 'owned', match: exact('/'), handler: (req, env) => handleRoot(req, env) },
 ];
