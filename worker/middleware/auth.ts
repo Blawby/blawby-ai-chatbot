@@ -430,6 +430,7 @@ export async function requireAuth(
   const widgetToken = extractedWidgetToken?.token ?? null;
   const widgetTokenSource = extractedWidgetToken?.tokenSource ?? null;
   const requestPath = new URL(request.url).pathname;
+  const isWebSocketPath = /\/ws(?:\/|$)/.test(requestPath);
 
   const cookieHeader = request.headers.get('Cookie');
   const normalizedCookie = cookieHeader?.trim() ?? '';
@@ -448,7 +449,6 @@ export async function requireAuth(
     }
     // Query tokens are only accepted for WS handshakes where custom headers
     // are unavailable in browser WebSocket APIs.
-    const isWebSocketPath = requestPath.endsWith('/ws') || requestPath.includes('/ws/');
     if (widgetTokenSource === 'query' && !isWebSocketPath) {
       throw HttpErrors.unauthorized('Widget query token is only allowed for WebSocket authentication');
     }
@@ -508,7 +508,7 @@ export async function requireAuth(
   let previousAnonUserId = authResult.previousAnonUserId ?? null;
   // If Better Auth session omitted previous_anon_user_id, recover it from a
   // valid widget token that was minted for the same browser session.
-  if (!isAnonymous && !previousAnonUserId && widgetToken && !(widgetTokenSource === 'query' && !requestPath.endsWith('/ws'))) {
+  if (!isAnonymous && !previousAnonUserId && widgetToken && !(widgetTokenSource === 'query' && !isWebSocketPath)) {
     try {
       const widgetAuth = await validateWidgetAuthToken(widgetToken, env);
       if (widgetAuth.userId !== authResult.user.id) {
