@@ -1461,7 +1461,8 @@ export async function updateUserDetail(
   const normalized = normalizeUserDetailPayload({ address, name, email, phone, status, currency, event_name });
   const response = await apiClient.patch(
     `/api/clients/${encodeURIComponent(practiceId)}/${encodeURIComponent(userDetailId)}`,
-    { ...rest, ...normalized }
+    { ...rest, ...normalized },
+    { invalidates: ['clients:'] }
   );
   const data = response.data;
   if (isRecord(data) && isRecord(data.data)) {
@@ -1478,7 +1479,8 @@ export async function deleteUserDetail(
     throw new Error('practiceId and userDetailId are required');
   }
   await apiClient.delete(
-    `/api/clients/${encodeURIComponent(practiceId)}/${encodeURIComponent(userDetailId)}`
+    `/api/clients/${encodeURIComponent(practiceId)}/${encodeURIComponent(userDetailId)}`,
+    { invalidates: ['clients:'] }
   );
 }
 

@@ -85,9 +85,8 @@ import type { Invoice, InvoiceLineItem } from '@/features/matters/types/billing.
 import { createPendingInvoiceDraftContext } from '@/features/invoices/utils/invoiceDraftContext';
 import { getPracticeIntake } from '@/features/intake/api/intakesApi';
 import { resolveIntakeTitle } from '@/features/intake/utils/intakeTitle';
-import { getOnboardingStatus, listUserDetails, type UserDetailRecord } from '@/shared/lib/apiClient';
+import { apiClient, isHttpError, getOnboardingStatus, listUserDetails, type UserDetailRecord } from '@/shared/lib/apiClient';
 import { getConversation } from '@/shared/lib/conversationApi';
-import { queryCache } from '@/shared/lib/queryCache';
 import { normalizePracticeOnboardingStatus } from '@/features/practice/types/onboarding.types';
 import {
   buildActivityTimelineItem,
@@ -961,7 +960,6 @@ export const PracticeMattersPage = ({
     if (values.practiceAreaId && !isUuid(values.practiceAreaId)) throw new Error(`Invalid practice_service_id UUID: "${values.practiceAreaId}"`);
 
     const created = await createMatter(activePracticeId, prunePayload(buildCreatePayload(values)));
-    queryCache.invalidate(`matters:${activePracticeId}:`, /* prefix */ true);
     refreshMatters();
     createdMatterIdRef.current = created?.id ?? null;
   }, [activePracticeId, refreshMatters]);
@@ -971,46 +969,40 @@ export const PracticeMattersPage = ({
       throw new Error('Practice ID and intake UUID are required to convert an intake.');
     }
 
-    const response = await fetch(
-      `/api/practice-client-intakes/${encodeURIComponent(convertIntakeUuid)}/convert`,
-      {
-        method: 'PATCH',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+    let payload: {
+      matter?: { id?: string };
+      data?: { matter?: { id?: string } };
+    };
+    try {
+      const result = await apiClient.patch<{
+        matter?: { id?: string };
+        data?: { matter?: { id?: string } };
+      }>(
+        `/api/practice-client-intakes/${encodeURIComponent(convertIntakeUuid)}/convert`,
+        {
           billing_type: values.billingType || undefined,
           responsible_attorney_id: values.responsibleAttorneyId || undefined,
           practice_service_id: values.practiceAreaId || undefined,
           title: values.title || undefined,
           status: values.status || 'engagement_pending',
           open_date: values.openDate || undefined,
-        })
+        },
+        { invalidates: [`matters:${activePracticeId}:`] }
+      );
+      payload = result.data;
+    } catch (apiError) {
+      if (isHttpError(apiError)) {
+        const err = apiError.response.data as { message?: string; error?: string } | undefined;
+        throw new Error(err?.message ?? err?.error ?? `Intake conversion failed (HTTP ${apiError.response.status})`);
       }
-    );
-
-    if (!response.ok) {
-      let err: { message?: string; error?: string } = {};
-      try {
-        const jsonBody = await response.json();
-        err = jsonBody as { message?: string; error?: string };
-      } catch {
-        const textBody = await response.text();
-        const message = textBody || `Intake conversion failed (HTTP ${response.status})`;
-        throw new Error(message);
-      }
-      throw new Error(err.message ?? err.error ?? `Intake conversion failed (HTTP ${response.status})`);
+      throw apiError;
     }
 
-    const payload = await response.json() as {
-      matter?: { id?: string };
-      data?: { matter?: { id?: string } };
-    };
     const matterId = payload.matter?.id ?? payload.data?.matter?.id;
     if (!matterId) {
       throw new Error('Intake conversion response did not include a matter ID.');
     }
 
-    queryCache.invalidate(`matters:${activePracticeId}:`, /* prefix */ true);
     refreshMatters();
     createdMatterIdRef.current = matterId;
   }, [activePracticeId, convertIntakeUuid, refreshMatters]);
@@ -1025,7 +1017,6 @@ export const PracticeMattersPage = ({
       selectedMatterId,
       prunePayload(buildUpdatePayload(values, selectedMatterDetail?.status))
     );
-    queryCache.invalidate(`matters:${activePracticeId}:`, /* prefix */ true);
     refreshMatters();
     await refreshSelectedMatter();
   }, [activePracticeId, selectedMatterId, selectedMatterDetail?.status, refreshMatters, refreshSelectedMatter]);
@@ -1630,7 +1621,6 @@ export const PracticeMattersPage = ({
       await updateMatter(activePracticeId, selectedMatterId, {
         settlement_amount: settlementDraft
       });
-      queryCache.invalidate(`matters:${activePracticeId}:`, /* prefix */ true);
       refreshMatters();
       setSelectedMatterDetail((prev) => prev ? { ...prev, settlementAmount: settlementDraft } : prev);
       setIsSettlementModalOpen(false);
@@ -1665,7 +1655,6 @@ export const PracticeMattersPage = ({
       selectedMatterId,
       prunePayload(buildUpdatePayload(merged, selectedMatterDetail.status))
     );
-    queryCache.invalidate(`matters:${activePracticeId}:`, /* prefix */ true);
     refreshMatters();
     await refreshSelectedMatter();
   }, [activePracticeId, selectedMatterId, selectedMatterDetail, refreshMatters, refreshSelectedMatter]);

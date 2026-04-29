@@ -322,7 +322,7 @@ export const createMatter = async (
     apiClient.post(
       matterCollectionPath(practiceId),
       normalizeMatterPayload(payload),
-      { signal: options.signal }
+      { signal: options.signal, invalidates: [`matters:${practiceId}:`] }
     ),
     'Failed to create matter'
   );
@@ -345,7 +345,7 @@ export const updateMatter = async (
     apiClient.put(
       matterItemPath(practiceId, matterId),
       normalizedPayload,
-      { signal: options.signal }
+      { signal: options.signal, invalidates: [`matters:${practiceId}:`] }
     ),
     'Failed to update matter'
   );
@@ -363,7 +363,8 @@ export const deleteMatter = async (
   }
   await requestData(
     apiClient.delete(matterItemPath(practiceId, matterId), {
-      signal: options.signal
+      signal: options.signal,
+      invalidates: [`matters:${practiceId}:`],
     }),
     'Failed to delete matter'
   );
