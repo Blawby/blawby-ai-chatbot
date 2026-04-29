@@ -1,4 +1,5 @@
 import { queryCache } from '@/shared/lib/queryCache';
+import { policyTtl } from '@/shared/lib/cachePolicy';
 import {
   getSubscriptionBillingPortalEndpoint,
   getSubscriptionCancelEndpoint,
@@ -21,14 +22,9 @@ import { getWidgetAuthToken } from '@/shared/utils/widgetAuth';
 
 let cachedBaseUrl: string | null = null;
 let isHandling401: Promise<void> | null = null;
-// In-flight deduplicator: prevents concurrent duplicate requests for the same slug.
-const publicPracticeDetailsInFlight = new Map<string, Promise<PublicPracticeDetails | null>>();
-// Persistent result cache: once a slug resolves, reuse the result for the entire session.
-// This is the primary fix for the "Too Many Requests" issue — previously every caller
-// (usePracticeConfig, usePracticeDetails, forms.ts) would fire
-// independent HTTP requests because the in-flight map was cleared after each request.
-const publicPracticeDetailsCache = new Map<string, PublicPracticeDetails | null>();
 const ABSOLUTE_URL_PATTERN = /^(https?:)?\/\//i;
+
+const publicPracticeDetailsKey = (slug: string) => `practice:public:${slug}`;
 
 /**
  * Clear the public practice details cache for a specific slug (or all slugs).
@@ -36,11 +32,9 @@ const ABSOLUTE_URL_PATTERN = /^(https?:)?\/\//i;
  */
 export const clearPublicPracticeDetailsCache = (slug?: string) => {
   if (slug) {
-    publicPracticeDetailsCache.delete(slug.trim());
-    publicPracticeDetailsInFlight.delete(slug.trim());
+    queryCache.invalidate(publicPracticeDetailsKey(slug.trim()));
   } else {
-    publicPracticeDetailsCache.clear();
-    publicPracticeDetailsInFlight.clear();
+    queryCache.invalidate('practice:public:', true);
   }
 };
 
@@ -1577,59 +1571,37 @@ export async function getPublicPracticeDetails(
     throw new Error('practice slug is required');
   }
   const normalizedSlug = slug.trim();
+  const cacheKey = publicPracticeDetailsKey(normalizedSlug);
 
-  // 1. Return from persistent cache if already resolved (primary dedup across all callers).
-  if (publicPracticeDetailsCache.has(normalizedSlug)) {
-    return publicPracticeDetailsCache.get(normalizedSlug) ?? null;
-  }
-
-  // 2. Return in-flight promise if a request is already underway (concurrent dedup).
-  const existing = publicPracticeDetailsInFlight.get(normalizedSlug);
-  if (existing) {
-    return existing;
-  }
-
-  const requestPromise = (async () => {
-    try {
+  return queryCache.coalesceGet<PublicPracticeDetails | null>(
+    cacheKey,
+    async (signal) => {
       const apiUrl = `${getWorkerApiUrl()}/api/practice/details/${encodeURIComponent(normalizedSlug)}`;
-
-      const response = await apiFetch<unknown>('GET', apiUrl, undefined, config?.signal);
-      const details = normalizePracticeDetailsResponse(response.data);
-      const displayDetails = extractPublicPracticeDisplayDetails(response.data);
-      const practiceId = extractPublicPracticeId(response.data);
-      if (!details) {
-        // Cache null so we don't keep retrying a practice that returned no details.
-        publicPracticeDetailsCache.set(normalizedSlug, null);
-        return null;
+      try {
+        const response = await apiFetch<unknown>('GET', apiUrl, undefined, signal);
+        const details = normalizePracticeDetailsResponse(response.data);
+        if (!details) return null;
+        const displayDetails = extractPublicPracticeDisplayDetails(response.data);
+        const practiceId = extractPublicPracticeId(response.data);
+        return {
+          practiceId: practiceId ?? undefined,
+          slug: normalizedSlug,
+          details,
+          name: displayDetails.name,
+          logo: displayDetails.logo,
+        };
+      } catch (error) {
+        if (isHttpError(error) && error.response.status === 404) {
+          // Cache null on 404 so we don't keep retrying for a missing practice.
+          return null;
+        }
+        // Re-throw transient errors (rate limit, network) — coalesceGet
+        // doesn't cache thrown values, so callers can retry.
+        throw error;
       }
-      const result: PublicPracticeDetails = {
-        practiceId: practiceId ?? undefined,
-        slug: normalizedSlug,
-        details,
-        name: displayDetails.name,
-        logo: displayDetails.logo
-      };
-      publicPracticeDetailsCache.set(normalizedSlug, result);
-      return result;
-    } catch (error) {
-      if (isHttpError(error) && error.response.status === 404) {
-        // Cache null for 404 — the practice doesn't exist, no point retrying.
-        publicPracticeDetailsCache.set(normalizedSlug, null);
-        return null;
-      }
-      // Do NOT cache transient errors (rate limit, network failure) so callers can retry.
-      throw error;
-    }
-  })();
-
-  publicPracticeDetailsInFlight.set(normalizedSlug, requestPromise);
-  try {
-    return await requestPromise;
-  } finally {
-    if (publicPracticeDetailsInFlight.get(normalizedSlug) === requestPromise) {
-      publicPracticeDetailsInFlight.delete(normalizedSlug);
-    }
-  }
+    },
+    { ttl: policyTtl(cacheKey), signal: config?.signal }
+  );
 }
 
 function normalizePracticeUpdatePayload(payload: UpdatePracticeRequest): Record<string, unknown> {
