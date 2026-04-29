@@ -63,20 +63,18 @@ const criticalCssPlugin = (): Plugin => {
 				globalThis.setTimeout(() => resolve(), 100);
 			});
 
-			const Critters = (await import('beasties')).default;
-			const critters = new Critters({
-				// Critters options
+			const Beasties = (await import('beasties')).default;
+			const beasties = new Beasties({
 				preload: 'media',
 				inlineFonts: true,
 				pruneSource: true,
 				compress: true,
 				mergeStylesheets: true,
-				minimumExternalSize: 4096, // Files larger than this will not be inlined (4kb)
-				path: resolve(__dirname, 'dist'), // Add explicit path to resolve stylesheet issues
+				minimumExternalSize: 4096,
+				path: resolve(__dirname, 'dist'),
 			});
 
 			try {
-				// Check if index.html exists before processing
 				try {
 					await fs.access('dist/index.html');
 				} catch {
@@ -84,9 +82,8 @@ const criticalCssPlugin = (): Plugin => {
 					return;
 				}
 
-				// Process the main HTML file
 				const html = await fs.readFile('dist/index.html', 'utf8');
-				const processed = await critters.process(html);
+				const processed = await beasties.process(html);
 				await fs.writeFile('dist/index.html', processed);
 				console.log('✅ Critical CSS inlined successfully');
 			} catch (e) {
@@ -96,6 +93,38 @@ const criticalCssPlugin = (): Plugin => {
 		}
 	};
 };
+
+// Chunk size budgets (gzip KB). Violations warn locally, fail in CI.
+const CHUNK_BUDGETS: Record<string, number> = {
+	vendor: 80,
+	i18n: 60,
+	main: 180,
+};
+const bundleBudgetPlugin = (): Plugin => ({
+	name: 'bundle-budget',
+	apply: 'build',
+	generateBundle(_options, bundle) {
+		const violations: string[] = [];
+		for (const [fileName, chunk] of Object.entries(bundle)) {
+			if (chunk.type !== 'chunk') continue;
+			const gzSize = zlib.gzipSync(Buffer.from(chunk.code)).length;
+			const gzKB = Math.round(gzSize / 1024);
+			const label = Object.keys(CHUNK_BUDGETS).find(k => fileName.includes(k));
+			const budget = label ? CHUNK_BUDGETS[label] : CHUNK_BUDGETS.main;
+			if (gzKB > budget) {
+				violations.push(`  ${fileName}: ${gzKB}KB gz (budget: ${budget}KB)`);
+			}
+		}
+		if (violations.length > 0) {
+			const msg = `Bundle budget exceeded:\n${violations.join('\n')}`;
+			if (process.env.CI) {
+				throw new Error(msg);
+			} else {
+				console.warn(`\n⚠️ ${msg}\n`);
+			}
+		}
+	},
+});
 
 // Worker API endpoints (proxied to localhost:8787)
 const workerEndpoints = [
@@ -295,7 +324,7 @@ export default defineConfig(({ mode }: ConfigEnv) => {
 				workbox: {
 					// Precache only app shell JS/CSS and PWA icons.
 					// Images, HTML pages, and widget assets are served by Cloudflare Pages directly.
-					globPatterns: ['assets/**/*.{js,css}', 'assets/images/icon-*.svg'],
+					globPatterns: ['assets/**/*.{js,css}'],
 					globIgnores: [],
 					navigateFallbackDenylist: [
 						// Never route API or auth requests through the SPA
@@ -328,6 +357,8 @@ export default defineConfig(({ mode }: ConfigEnv) => {
 			}),
 			// Critical CSS extraction
 			criticalCssPlugin(),
+			// Bundle size budget enforcement (warns locally, fails in CI)
+			bundleBudgetPlugin(),
 		],
 		build: {
 			minify: 'terser',
@@ -365,7 +396,6 @@ export default defineConfig(({ mode }: ConfigEnv) => {
 						vendor: ['preact', 'preact/hooks', 'preact/jsx-runtime', 'preact/compat', 'nanostores', '@nanostores/preact'],
 						i18n: ['i18next', 'react-i18next', 'i18next-browser-languagedetector'],
 						stripe: ['@stripe/stripe-js', '@stripe/react-stripe-js'],
-						motion: ['framer-motion'],
 						markdown: ['react-markdown', 'remark-gfm'],
 					}
 				},
@@ -388,7 +418,10 @@ export default defineConfig(({ mode }: ConfigEnv) => {
 				'react-dom': 'preact/compat',
 				'react/jsx-runtime': 'preact/jsx-runtime',
 				'worker_threads': resolve(__dirname, 'tests/stubs/worker_threads.ts'),
-				'node:worker_threads': resolve(__dirname, 'tests/stubs/worker_threads.ts')
+				'node:worker_threads': resolve(__dirname, 'tests/stubs/worker_threads.ts'),
+				// Force the non-DOM build of decode-named-character-reference so the
+				// markdown chunk doesn't blow up during Node-side prerender.
+				'decode-named-character-reference': resolve(__dirname, 'node_modules/decode-named-character-reference/index.js')
 			}
 		},
 		server: {

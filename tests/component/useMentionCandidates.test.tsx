@@ -6,11 +6,13 @@ import { SessionContext, MemberRoleContext, type SessionContextValue, type Membe
 const mocks = vi.hoisted(() => ({
   getParticipantsMock: vi.fn(),
   clearParticipantsMock: vi.fn(),
+  invalidateParticipantsMock: vi.fn(),
 }));
 
 vi.mock('@/shared/lib/conversationRepository', () => ({
   getParticipants: mocks.getParticipantsMock,
   clearParticipants: mocks.clearParticipantsMock,
+  invalidateParticipants: mocks.invalidateParticipantsMock,
 }));
 
 function Harness({ practiceId, conversationId }: { practiceId: string | null; conversationId: string | null }) {
@@ -54,6 +56,7 @@ describe('useMentionCandidates', () => {
   beforeEach(() => {
     mocks.getParticipantsMock.mockReset();
     mocks.clearParticipantsMock.mockReset();
+    mocks.invalidateParticipantsMock.mockReset();
   });
 
   it('shows only team-member-allowed targets for a team sender', async () => {
@@ -154,7 +157,7 @@ describe('useMentionCandidates', () => {
     );
 
     await waitFor(() => {
-      expect(mocks.clearParticipantsMock).toHaveBeenCalledTimes(1);
+      expect(mocks.invalidateParticipantsMock).toHaveBeenCalledWith('practice-1');
     });
   });
 });

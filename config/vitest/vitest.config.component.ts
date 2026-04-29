@@ -34,7 +34,6 @@ export default defineConfig({
   },
   esbuild: {
     target: 'es2020',
-    loader: 'tsx',
     jsxImportSource: 'preact'
   },
   resolve: {

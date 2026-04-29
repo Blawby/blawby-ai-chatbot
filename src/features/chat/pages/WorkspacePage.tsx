@@ -20,13 +20,14 @@ import type { WorkspacePlaceholderAction } from '@/shared/ui/layout/WorkspacePla
 import { Button } from '@/shared/ui/Button';
 import { useWorkspaceConversations } from './hooks/useWorkspaceConversations';
 import { useWorkspaceNavigation, previewTabOptions } from './hooks/useWorkspaceNavigation';
-import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
-import { resolveConversationDisplayTitle } from '@/shared/utils/conversationDisplay';
 import { resolveConsultationState } from '@/shared/utils/consultationState';
 import { useWorkspaceSetup } from './hooks/useWorkspaceSetup';
 import { useWorkspaceData } from './hooks/useWorkspaceData';
 import { useConversationPreviews } from './hooks/useConversationPreviews';
 import { useWorkspaceInspectorActions } from './hooks/useWorkspaceInspectorActions';
+import { useInvoiceBuilderTopBar } from './hooks/useInvoiceBuilderTopBar';
+import { useWorkspaceAutoNavigation } from './hooks/useWorkspaceAutoNavigation';
+import { useRecentMessage } from './hooks/useRecentMessage';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { useSessionContext, useMemberRoleContext } from '@/shared/contexts/SessionContext';
 import { normalizePracticeRole } from '@/shared/utils/practiceRoles';
@@ -114,6 +115,17 @@ interface WorkspacePageProps {
   onIntakeFieldsChange?: (patch: Partial<IntakeConversationState>, options?: IntakeFieldChangeOptions) => Promise<void> | void;
   practiceDetails?: PracticeDetails | null;
 }
+
+// Resolves a view prop that may be either ComponentChildren or a render function
+// taking some args, falling back to a default when neither produces output.
+const resolveViewContent = <TArgs extends unknown[]>(
+  source: ComponentChildren | ((...args: TArgs) => ComponentChildren) | undefined,
+  args: TArgs,
+  fallback: ComponentChildren = null
+): ComponentChildren => {
+  if (typeof source === 'function') return (source as (...a: TArgs) => ComponentChildren)(...args);
+  return source ?? fallback;
+};
 
 const filterWorkspaceMessages = (messages: ChatMessageUI[]) => {
   const base = messages.filter(
@@ -318,8 +330,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
 
   useEffect(() => {
     setup.resetForPracticeId();
-    navigationInitiatedRef.current = false;
-    hasAutoNavigatedRef.current = false;
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [practiceId]);
 
@@ -344,163 +354,43 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     navigate(withWidgetQuery(`${conversationsPath}/${encodeURIComponent(conversationId)}`));
   }, [conversationsPath, navigate, onSelectConversationOverride, withWidgetQuery]);
 
-  // Reset the initial-check ref as we enter the conversations view or when the
-  // active conversation changes. This must run before the auto-navigation
-  // effect so that the navigation logic sees the reset on view entry / id changes.
-  useEffect(() => {
-    isInitialConversationCheckRef.current = true;
-  }, [view, workspaceSection, activeConversationId, isInitialConversationCheckRef]);
 
-  useEffect(() => {
-    if (!isPracticeWorkspace || workspaceSection !== 'conversations' || view !== 'conversation') {
-      return;
-    }
-    // Only perform the auto-navigation on the initial check for this view to
-    // avoid background refreshes or later filter changes forcing navigation.
-    if (!isInitialConversationCheckRef.current) return;
-
-    if (!activeConversationId || resolvedConversationsLoading || !intakeLookupLoaded || acceptedIntakeConversationsLoading) {
-      // Still loading data — defer the initial check until data is ready.
-      return;
-    }
-
-    if (filteredConversations.some((conversation) => conversation.id === activeConversationId)) {
-      isInitialConversationCheckRef.current = false;
-      return;
-    }
-
-    // Verify whether the conversation truly no longer exists anywhere before
-    // navigating. If it still exists in the full resolved list or intake lookup
-    // (but is just hidden by filters), surface a non-disruptive notification
-    // instead of forcing navigation.
-    const existsInResolved = resolvedConversations.some((c) => c.id === activeConversationId);
-    const existsInAcceptedIntakes = intakeTriageStatusLookup.byConversationId.has(activeConversationId)
-      || acceptedIntakeConversationIds.includes(activeConversationId)
-      || acceptedIntakeConversationsRef.current.some((c) => c.id === activeConversationId);
-
-    if (existsInResolved || existsInAcceptedIntakes || resolvedConversationsLoading || !intakeLookupLoaded) {
-      setActiveConversationMissingNotification('The selected conversation is currently hidden by filters or still loading.');
-      isInitialConversationCheckRef.current = false;
-      return;
-    }
-
-    const firstConversationId = filteredConversations[0]?.id;
-    if (!firstConversationId) {
-      navigate(withWidgetQuery(conversationsPath));
-      isInitialConversationCheckRef.current = false;
-      return;
-    }
-    handleSelectConversation(firstConversationId);
-    isInitialConversationCheckRef.current = false;
-  }, [
-    activeConversationId,
-    acceptedIntakeConversationIds,
-    acceptedIntakeConversationsLoading,
-    acceptedIntakeConversationsRef,
-    conversationsPath,
-    filteredConversations,
-    handleSelectConversation,
-    intakeTriageStatusLookup.byConversationId,
-    intakeLookupLoaded,
-    isInitialConversationCheckRef,
-    isPracticeWorkspace,
-    navigate,
-    resolvedConversations,
-    resolvedConversationsLoading,
-    setActiveConversationMissingNotification,
+  useWorkspaceAutoNavigation({
     view,
-    withWidgetQuery,
     workspaceSection,
-  ]);
-
-  
-
-  useEffect(() => {
-    if (!isClientWorkspace || layoutMode !== 'desktop') {
-      return;
-    }
-    if (activeConversationId || hasAutoNavigatedRef.current) {
-      return;
-    }
-    if (resolvedConversationsLoading) return;
-    if (navigationInitiatedRef.current) return;
-
-    const firstConversationId = filteredConversations[0]?.id;
-    if (!firstConversationId) return;
-
-    navigationInitiatedRef.current = true;
-    hasAutoNavigatedRef.current = true;
-    handleSelectConversation(firstConversationId);
-  }, [
+    activeConversationId,
+    practiceId,
+    isPracticeWorkspace,
     isClientWorkspace,
     layoutMode,
-    activeConversationId,
-    resolvedConversationsLoading,
     filteredConversations,
+    resolvedConversations,
+    resolvedConversationsLoading,
+    intakeLookupLoaded,
+    acceptedIntakeConversationsLoading,
+    acceptedIntakeConversationIds,
+    acceptedIntakeConversationsRef,
+    intakeTriageStatusLookup,
+    isInitialConversationCheckRef,
+    navigationInitiatedRef,
+    hasAutoNavigatedRef,
+    conversationsPath,
+    navigate,
+    withWidgetQuery,
     handleSelectConversation,
-  ]);
+    setActiveConversationMissingNotification,
+    activeConversationMissingNotification,
+    showError,
+  });
 
-  const recentMessage = useMemo(() => {
-    const fallbackPracticeName = typeof practiceName === 'string'
-      ? practiceName.trim()
-      : '';
-    if (filteredConversations.length > 0) {
-      const sorted = [...filteredConversations].sort((a, b) => {
-        const aTime = new Date(a.updated_at).getTime();
-        const bTime = new Date(b.updated_at).getTime();
-        return bTime - aTime;
-      });
-      const top = sorted.find((conversation) => {
-        const preview = conversationPreviews[conversation.id];
-        return typeof preview?.content === 'string' && preview.content.trim().length > 0;
-      });
-      if (top) {
-        const preview = conversationPreviews[top.id];
-        const previewText = typeof preview?.content === 'string' ? preview.content.trim() : '';
-        const clipped = previewText
-          ? (previewText.length > 90 ? `${previewText.slice(0, 90)}…` : previewText)
-          : 'Open to view messages.';
-        const title = resolveConversationDisplayTitle(top, fallbackPracticeName);
-        const timestampLabel = formatRelativeTime(top.updated_at);
-        return {
-          preview: clipped,
-          timestampLabel,
-          senderLabel: title,
-          avatarSrc: practiceLogo ?? null,
-          conversationId: top.id
-        };
-      }
-    }
-    if (filteredMessages.length === 0) {
-      return null;
-    }
-    const candidate = [...filteredMessages]
-      .reverse()
-      .find((message) => message.role !== 'system' && typeof message.content === 'string' && message.content.trim().length > 0);
-    if (!candidate) {
-      return null;
-    }
-    const trimmedContent = candidate.content.trim();
-    const preview = trimmedContent.length > 90
-      ? `${trimmedContent.slice(0, 90)}…`
-      : trimmedContent;
-    const timestampLabel = candidate.timestamp
-      ? formatRelativeTime(new Date(candidate.timestamp))
-      : '';
-    return {
-      preview,
-      timestampLabel,
-      senderLabel: fallbackPracticeName,
-      avatarSrc: practiceLogo ?? null,
-      conversationId: null
-    };
-  }, [practiceLogo, practiceName, conversationPreviews, filteredConversations, filteredMessages]);
+  const recentMessage = useRecentMessage({
+    practiceName,
+    practiceLogo,
+    conversationPreviews,
+    filteredConversations,
+    filteredMessages,
+  });
 
-  useEffect(() => {
-    if (!activeConversationMissingNotification) return;
-    showError('Conversation', activeConversationMissingNotification);
-    setActiveConversationMissingNotification(null);
-  }, [activeConversationMissingNotification, setActiveConversationMissingNotification, showError]);
 
   const {
     setDraftBasics,
@@ -829,15 +719,10 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       activeConversationId={activeConversationId}
     />
   );
-  const mattersContent = (typeof mattersView === 'function'
-    ? mattersView(
-      mattersStatusFilter,
-      workspacePrefetchData,
-      toggleDetailInspector,
-      detailInspectorOpen,
-      layoutMode === 'desktop' ? desktopCreateButton ?? undefined : undefined
-    )
-    : mattersView) ?? (
+  const desktopCreate = layoutMode === 'desktop' ? desktopCreateButton ?? undefined : undefined;
+  const mattersContent = resolveViewContent(
+    mattersView,
+    [mattersStatusFilter, workspacePrefetchData, toggleDetailInspector, detailInspectorOpen, desktopCreate] as const,
     <div className="flex flex-1 flex-col glass-card">
       <div className="mx-6 my-6 glass-panel p-5">
         <div className="text-sm text-input-placeholder">
@@ -849,21 +734,11 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       </div>
     </div>
   );
-  const intakesContent = (typeof intakesView === 'function'
-    ? intakesView(activeSecondaryFilter)
-    : intakesView) ?? null;
-  const engagementsContent = (typeof engagementsView === 'function'
-    ? engagementsView()
-    : engagementsView) ?? null;
-  const contactsContent = (typeof contactsView === 'function'
-    ? contactsView(
-      contactsStatusFilter,
-      workspacePrefetchData,
-      toggleDetailInspector,
-      detailInspectorOpen,
-      layoutMode === 'desktop' ? desktopCreateButton ?? undefined : undefined
-    )
-    : contactsView) ?? (
+  const intakesContent = resolveViewContent(intakesView, [activeSecondaryFilter] as const);
+  const engagementsContent = resolveViewContent(engagementsView, [] as const);
+  const contactsContent = resolveViewContent(
+    contactsView,
+    [contactsStatusFilter, workspacePrefetchData, toggleDetailInspector, detailInspectorOpen, desktopCreate] as const,
     <div className="flex flex-1 flex-col glass-card">
       <div className="mx-6 my-6 glass-panel p-5">
         <p className="text-sm text-input-placeholder">
@@ -872,14 +747,9 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       </div>
     </div>
   );
-  const invoicesContent = (typeof invoicesView === 'function'
-    ? invoicesView(
-      invoicesStatusFilter,
-      toggleDetailInspector,
-      detailInspectorOpen,
-      layoutMode === 'desktop' ? desktopCreateButton ?? undefined : undefined
-    )
-    : invoicesView) ?? (
+  const invoicesContent = resolveViewContent(
+    invoicesView,
+    [invoicesStatusFilter, toggleDetailInspector, detailInspectorOpen, desktopCreate] as const,
     <div className="flex flex-1 flex-col glass-card">
       <div className="mx-6 my-6 glass-panel p-5">
         <p className="text-sm text-input-placeholder">
@@ -889,7 +759,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     </div>
   );
   const reportsTitle = WORKSPACE_REPORT_SECTION_TITLES[activeSecondaryFilter ?? 'all-reports'] ?? WORKSPACE_REPORT_SECTION_TITLES['all-reports'];
-  const reportsContent = (typeof reportsView === 'function' ? reportsView(reportsTitle) : reportsView) ?? null;
+  const reportsContent = resolveViewContent(reportsView, [reportsTitle] as const);
   const settingsContent = practiceSlug ? (
     <SettingsContent
       workspace={workspace === 'practice' ? 'practice' : 'client'}
@@ -906,17 +776,13 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     </div>
   );
   const matterListPanel = layoutMode === 'desktop' && (isPracticeWorkspace || isClientWorkspace) && view === 'matters' && shouldShowDesktopMattersListPanel
-    ? (typeof mattersListContent === 'function'
-      ? mattersListContent(mattersStatusFilter, workspacePrefetchData)
-      : mattersListContent)
+    ? resolveViewContent(mattersListContent, [mattersStatusFilter, workspacePrefetchData] as const)
     : undefined;
   const contactsListPanel = layoutMode === 'desktop' && isPracticeWorkspace && view === 'contacts' && shouldShowDesktopContactsListPanel
-    ? (typeof contactsListContent === 'function'
-      ? contactsListContent(contactsStatusFilter, workspacePrefetchData)
-      : contactsListContent)
+    ? resolveViewContent(contactsListContent, [contactsStatusFilter, workspacePrefetchData] as const)
     : undefined;
   const invoicesListPanel = layoutMode === 'desktop' && (isPracticeWorkspace || isClientWorkspace) && view === 'invoices' && shouldShowDesktopInvoicesListPanel
-    ? (typeof invoicesListContent === 'function' ? invoicesListContent(invoicesStatusFilter) : invoicesListContent)
+    ? resolveViewContent(invoicesListContent, [invoicesStatusFilter] as const)
     : undefined;
 
   const conversationListView = (
@@ -985,72 +851,14 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       />
     )
     : undefined;
-  // Global invoice draft timestamp shown in the top bar for invoice builder routes.
-  const [invoiceDraftSavedAt, setInvoiceDraftSavedAt] = useState<string | null>(null);
-  useEffect(() => {
-    const handler = (ev: Event) => {
-      const ce = ev as CustomEvent;
-      try {
-        const ts = ce?.detail?.timestamp;
-        if (!ts) return;
-        const d = new Date(ts);
-        if (!isNaN(d.getTime())) {
-          setInvoiceDraftSavedAt(d.toLocaleString());
-        }
-      } catch (_e) {
-        // ignore malformed events
-      }
-    };
-    window.addEventListener('invoice:draft-saved', handler as EventListener);
-    return () => window.removeEventListener('invoice:draft-saved', handler as EventListener);
-  }, []);
-  const invoiceBuilderTopBar = (view === 'invoiceCreate' || view === 'invoiceEdit') ? (
-    <WorkspaceListHeader
-      leftControls={(
-        <div className="flex items-center gap-3">
-          <Button
-            type="button"
-            variant="icon"
-            size="icon-sm"
-            aria-label={view === 'invoiceEdit' ? 'Close invoice editor' : 'Close invoice composer'}
-            onClick={() => {
-              if (workspace === 'practice' && practiceSlug) {
-                navigate(`/practice/${encodeURIComponent(practiceSlug)}/invoices`);
-                return;
-              }
-              if (workspace === 'client' && practiceSlug) {
-                navigate(`/client/${encodeURIComponent(practiceSlug)}/invoices`);
-                return;
-              }
-              navigate('/dashboard');
-            }}
-            icon={XMarkIcon}
-            iconClassName="h-5 w-5"
-          />
-          <div className="h-5 w-px bg-line-glass/30" aria-hidden="true" />
-        </div>
-      )}
-      title={<h1 className="workspace-header__title">{view === 'invoiceEdit' ? 'Edit Invoice' : 'Create Invoice'}</h1>}
-      controls={(
-        <div className="flex items-center gap-3">
-          {invoiceDraftSavedAt ? <div className="text-sm text-input-placeholder">Draft saved at {invoiceDraftSavedAt}</div> : null}
-          <Button type="button" variant="secondary" size="sm" onClick={() => window.dispatchEvent(new CustomEvent('invoice:hide-preview', { detail: { force: 'hide' } }))}>
-            Hide preview
-          </Button>
-          {primaryCreateAction ? (
-            <Button
-              type="button"
-              size="sm"
-              onClick={primaryCreateAction.onClick}
-            >
-              {primaryCreateAction.label}
-            </Button>
-          ) : null}
-        </div>
-      )}
-      className={layoutMode === 'desktop' ? 'px-4 py-2' : 'px-1 py-1'}
-    />
-  ) : undefined;
+  const invoiceBuilderTopBar = useInvoiceBuilderTopBar({
+    view,
+    workspace,
+    practiceSlug,
+    navigate,
+    layoutMode,
+    primaryCreateAction,
+  });
   const sectionContent = (() => {
     switch (view) {
       case 'setup':

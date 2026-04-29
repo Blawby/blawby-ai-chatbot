@@ -79,7 +79,7 @@ interface MessageProps {
 	reactions?: MessageReaction[];
 	onReplyPreviewClick?: () => void;
 	onReply?: (target: ReplyTarget) => void;
-	onToggleReaction?: (emoji: string) => void;
+	onToggleReaction?: (messageId: string, emoji: string) => void;
 	practiceConfig?: {
 		name: string;
 		profileImage: string | null;
@@ -227,7 +227,7 @@ const Message: FunctionComponent<MessageProps> = memo(({
 							type="button"
 							className="message-action-btn text-sm"
 							aria-label={`React with ${emoji}`}
-							onClick={() => onToggleReaction(emoji)}
+							onClick={() => _id && onToggleReaction(_id, emoji)}
 						>
 							{emoji}
 						</button>
@@ -344,7 +344,7 @@ const Message: FunctionComponent<MessageProps> = memo(({
 								type="button"
 								className={`message-reaction-chip ${reaction.reactedByMe ? 'message-reaction-chip-active' : ''}`}
 								aria-label={`React with ${reaction.emoji}`}
-								onClick={() => onToggleReaction?.(reaction.emoji)}
+								onClick={() => _id && onToggleReaction?.(_id, reaction.emoji)}
 							>
 								<span className="text-sm">{reaction.emoji}</span>
 								<span className="message-reaction-count">{reaction.count}</span>

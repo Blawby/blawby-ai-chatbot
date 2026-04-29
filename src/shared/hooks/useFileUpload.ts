@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'preact/hooks';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { FileAttachment } from '../../../worker/types';
 import type { UploadingFile } from '@/shared/types/upload';
 
@@ -199,6 +199,14 @@ export const useFileUpload = ({ practiceId, conversationId, enabled }: UseFileUp
     }
     return uploadedAttachments;
   }, [enabled, isReadyToUpload, uploadSingleFile]);
+
+  useEffect(() => {
+    const xhrs = xhrRef.current;
+    return () => {
+      for (const xhr of xhrs.values()) xhr.abort();
+      xhrs.clear();
+    };
+  }, []);
 
   const cancelUpload = useCallback((fileId: string) => {
     if (!enabled) return;

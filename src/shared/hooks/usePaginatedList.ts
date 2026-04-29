@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 
 type PageResult<T> = {
   items: T[];
@@ -16,6 +16,7 @@ export type UsePaginatedListResult<T extends { id: string }> = {
   isLoadingMore: boolean;
   error: string | null;
   hasMore: boolean;
+  loadMore: () => void;
   loadMoreRef: { current: HTMLDivElement | null };
 };
 
@@ -96,12 +97,18 @@ export function usePaginatedList<T extends { id: string }>(
     return () => observer.disconnect();
   }, [canObserve]);
 
+  const loadMore = useCallback(() => {
+    if (!hasMore || isLoading || isLoadingMore) return;
+    setPage((prev) => prev + 1);
+  }, [hasMore, isLoading, isLoadingMore]);
+
   return {
     items,
     isLoading,
     isLoadingMore,
     error,
     hasMore,
-    loadMoreRef
+    loadMore,
+    loadMoreRef,
   };
 }

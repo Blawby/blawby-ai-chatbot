@@ -140,6 +140,26 @@ vi.mock('@/shared/ui/Button', () => ({
   )
 }));
 
+vi.mock('@/shared/ui/input', () => ({
+  Input: ({ id, value, onChange }: { id?: string; value?: string; onChange?: (v: string) => void }) => (
+    <input id={id} value={value ?? ''} onInput={(e) => onChange?.((e.target as HTMLInputElement).value)} />
+  ),
+}));
+
+vi.mock('@/shared/ui/input/Combobox', () => ({
+  Combobox: ({ value, options, onChange }: {
+    value?: string;
+    options?: Array<{ value: string; label: string }>;
+    onChange?: (v: string) => void;
+  }) => (
+    <select value={value} onChange={(e) => onChange?.((e.target as HTMLSelectElement).value)}>
+      {(options ?? []).map((o) => (
+        <option key={o.value} value={o.value}>{o.label}</option>
+      ))}
+    </select>
+  ),
+}));
+
 vi.mock('@/shared/ui/layout', () => ({
   ContentPageLayout: ({
     title,
@@ -155,7 +175,24 @@ vi.mock('@/shared/ui/layout', () => ({
       {headerLeading}
       {children}
     </div>
-  )
+  ),
+  EditorShell: ({
+    title,
+    subtitle,
+    children
+  }: {
+    title: string;
+    subtitle?: string;
+    children?: ComponentChildren;
+    [key: string]: unknown;
+  }) => (
+    <div>
+      <h1>{title}</h1>
+      {subtitle ? <p>{subtitle}</p> : null}
+      {children}
+    </div>
+  ),
+  SectionDivider: ({ children }: { children?: ComponentChildren }) => <hr />,
 }));
 
 vi.mock('@/features/services/components/ServicesEditor', () => ({

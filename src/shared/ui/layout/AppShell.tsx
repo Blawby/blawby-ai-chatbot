@@ -164,7 +164,7 @@ export const AppShell = ({
       {hasSecondarySidebar && (
         <aside
           className={cn(
-            'relative z-10 row-start-2 min-h-0 overflow-y-auto bg-surface-navigation hidden lg:block',
+            'relative z-10 row-start-2 min-h-0 overflow-y-auto bg-surface-nav-secondary hidden lg:block',
             secondarySidebarColStartClass,
             secondarySidebarClassName
           )}
@@ -198,7 +198,7 @@ export const AppShell = ({
       {hasInspector && (
         <aside
           className={cn(
-            'relative z-10 row-start-2 min-h-0 overflow-y-auto bg-surface-utility hidden lg:block',
+            'relative z-10 row-start-2 min-h-0 overflow-y-auto bg-surface-nav-secondary hidden lg:block',
             inspectorColStartClass,
             inspectorClassName
           )}
@@ -225,7 +225,7 @@ export const AppShell = ({
           ) : (
             <div className="absolute inset-0 bg-surface-app-frame/60 dark:bg-surface-overlay/60 backdrop-blur-sm" />
           )}
-          <aside className="absolute left-0 top-0 h-dvh w-full max-w-xs overflow-y-auto bg-surface-navigation">
+          <aside className="absolute left-0 top-0 h-dvh w-full max-w-xs overflow-y-auto bg-surface-nav-secondary">
             {secondarySidebar}
           </aside>
         </div>

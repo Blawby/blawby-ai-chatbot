@@ -27,6 +27,7 @@
  *  pendingClientMessages      – ref for optimistic message tracking
  */
 
+import { unstable_batchedUpdates as batch } from 'preact/compat';
 import { useState, useMemo, useCallback, useRef, useEffect } from 'preact/hooks';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import type { ChatMessageUI, MessageReaction } from '../../../worker/types';
@@ -666,10 +667,10 @@ export const useConversation = ({
     if (!activeConversationId || !activePracticeId) return;
     let nextSeq: number | null = fromSeq;
     let targetLatest = latestSeq;
-    let _attempts = 0;
     let previousSeq: number | null = null;
     const MAX_NO_PROGRESS_ATTEMPTS = 3;
     let noProgressCount = 0;
+    const collected: ConversationMessage[] = [];
 
     while (nextSeq !== null && nextSeq <= targetLatest) {
       if (isDisposedRef.current || conversationIdRef.current !== activeConversationId) return;
@@ -680,28 +681,27 @@ export const useConversation = ({
         const data = await response.json() as { success: boolean; error?: string; data?: { messages: ConversationMessage[]; latest_seq?: number; next_from_seq?: number | null } };
         if (!data.success || !data.data) throw new Error(data.error || 'Failed to fetch message gap');
         if (isDisposedRef.current || conversationIdRef.current !== activeConversationId) return;
-        applyServerMessages(data.data.messages ?? []);
+        collected.push(...(data.data.messages ?? []));
         if (typeof data.data.latest_seq === 'number') targetLatest = data.data.latest_seq;
         previousSeq = nextSeq;
         nextSeq = data.data.next_from_seq ?? null;
-        
-        // Check for no progress (nextSeq not advancing)
+
         if (nextSeq !== null && nextSeq === previousSeq) {
           noProgressCount += 1;
           if (noProgressCount >= MAX_NO_PROGRESS_ATTEMPTS) {
             onError?.('Failed to recover message gap: no progress after multiple attempts');
-            return;
+            break;
           }
         } else {
           noProgressCount = 0;
         }
-        
-        _attempts = 0;
       } catch (error) {
         onError?.(error instanceof Error ? error.message : 'Failed to recover message gap');
         throw error;
       }
     }
+
+    if (collected.length > 0) applyServerMessages(collected);
   }, [applyServerMessages, onError]);
 
   const handleTransportGap = useCallback((fromSeq: number, latestSeq: number) => {
@@ -829,12 +829,15 @@ export const useConversation = ({
       if (!data.success || !data.data) throw new Error(data.error || 'Failed to fetch messages');
       if (!isDisposedRef.current && activeConversationId === conversationIdRef.current) {
         if (isLoadMore) {
-          applyServerMessages(data.data.messages ?? []);
+          batch(() => {
+            applyServerMessages(data.data!.messages ?? []);
+            setHasMoreMessages(Boolean(data.data!.hasMore));
+            setNextCursor(data.data!.cursor ?? null);
+          });
         } else {
           const fetchedMessages = data.data.messages ?? [];
           const fetchedUIMessages = fetchedMessages.map(toUIMessage);
-          
-          // Prepare merged set for sequence calculation outside state setter
+
           const mergedBeforeState = [...fetchedUIMessages, ...messagesRef.current];
           const maxSeq = mergedBeforeState.reduce((max, m) => {
             return typeof m.seq === 'number' ? Math.max(max, m.seq) : max;
@@ -845,28 +848,26 @@ export const useConversation = ({
             sendReadUpdateRef.current(maxSeq);
           }
 
-          // Update the ID set BEFORE state update to keep updater pure
           fetchedUIMessages.forEach(m => messageIdSetRef.current.add(m.id));
-
-          setMessages(prev => {
-            const existingIds = prev.reduce((set, m) => {
-              set.add(m.id);
-              return set;
-            }, new Set<string>());
-
-            const newBatch = fetchedUIMessages.filter(m => !existingIds.has(m.id));
-            const merged = dedupeMessagesById([...newBatch, ...prev].sort((a, b) => a.timestamp - b.timestamp));
-
-            return merged;
-          });
 
           if (typeof performance !== 'undefined') {
             performance.mark('chat:messages-ready');
           }
-          setMessagesReady(true);
+
+          batch(() => {
+            setMessages(prev => {
+              const existingIds = prev.reduce((set, m) => {
+                set.add(m.id);
+                return set;
+              }, new Set<string>());
+              const newBatch = fetchedUIMessages.filter(m => !existingIds.has(m.id));
+              return dedupeMessagesById([...newBatch, ...prev].sort((a, b) => a.timestamp - b.timestamp));
+            });
+            setMessagesReady(true);
+            setHasMoreMessages(Boolean(data.data!.hasMore));
+            setNextCursor(data.data!.cursor ?? null);
+          });
         }
-        setHasMoreMessages(Boolean(data.data.hasMore));
-        setNextCursor(data.data.cursor ?? null);
       }
     } catch (err) {
       if (isDisposedRef.current) return;

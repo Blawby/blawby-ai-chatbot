@@ -120,7 +120,7 @@ export const EngagementsPage: FunctionComponent<EngagementsPageProps> = ({
     isLoadingMore,
     error,
     hasMore,
-    loadMoreRef,
+    loadMore,
   } = usePaginatedList<PaginatedEngagement>({
     fetchPage: async (page, signal) => {
       if (!practiceId) return { items: [], hasMore: false };
@@ -182,7 +182,7 @@ export const EngagementsPage: FunctionComponent<EngagementsPageProps> = ({
           isLoading={isLoading}
           isLoadingMore={isLoadingMore}
           error={error}
-          loadMoreRef={hasMore ? loadMoreRef : undefined}
+          onLoadMore={hasMore ? loadMore : undefined}
           emptyState={
             <WorkspacePlaceholderState
               icon={BriefcaseIcon}

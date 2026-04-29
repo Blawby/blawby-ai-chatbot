@@ -244,7 +244,7 @@ export const IntakesPage: FunctionComponent<IntakesPageProps> = ({
     isLoadingMore,
     error,
     hasMore,
-    loadMoreRef,
+    loadMore,
   } = usePaginatedList<PaginatedIntake>({
     fetchPage: fetchIntakePage,
     deps: [paginationSessionId],
@@ -322,7 +322,7 @@ export const IntakesPage: FunctionComponent<IntakesPageProps> = ({
           isLoading={displayLoading}
           isLoadingMore={isLoadingMore}
           error={displayError}
-          loadMoreRef={hasMore ? loadMoreRef : undefined}
+          onLoadMore={hasMore ? loadMore : undefined}
           emptyState={
             <WorkspacePlaceholderState
               icon={InboxIcon}

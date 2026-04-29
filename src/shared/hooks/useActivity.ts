@@ -62,6 +62,7 @@ export function useActivity(options: UseActivityOptions): UseActivityResult {
   const [lastModified, setLastModified] = useState<string | undefined>();
   
   const nextCursorRef = useRef<string | undefined>();
+  const activeFetchControllerRef = useRef<AbortController | null>(null);
   const enabled = features.enableActivity;
 
   const buildQueryParams = useCallback(() => {
@@ -174,12 +175,18 @@ export function useActivity(options: UseActivityOptions): UseActivityResult {
 
   const refresh = useCallback(async () => {
     nextCursorRef.current = undefined;
-    await fetchActivity(false);
+    activeFetchControllerRef.current?.abort();
+    const controller = new AbortController();
+    activeFetchControllerRef.current = controller;
+    await fetchActivity(false, controller.signal);
   }, [fetchActivity]);
 
   const loadMore = useCallback(async () => {
     if (hasMore && !loading && nextCursorRef.current) {
-      await fetchActivity(true);
+      activeFetchControllerRef.current?.abort();
+      const controller = new AbortController();
+      activeFetchControllerRef.current = controller;
+      await fetchActivity(true, controller.signal);
     }
   }, [hasMore, loading, fetchActivity]);
 
@@ -196,7 +203,9 @@ export function useActivity(options: UseActivityOptions): UseActivityResult {
   // Initial load
   useEffect(() => {
     if (!enabled || !practiceId) return;
+    activeFetchControllerRef.current?.abort();
     const controller = new AbortController();
+    activeFetchControllerRef.current = controller;
     void fetchActivity(false, controller.signal);
     return () => controller.abort();
   }, [enabled, practiceId, fetchActivity]);

@@ -11,7 +11,10 @@ const { mockApiClient } = vi.hoisted(() => ({
 }));
 
 vi.mock('@/shared/lib/apiClient', () => ({
-  apiClient: mockApiClient
+  apiClient: mockApiClient,
+  isAbortError: (e: unknown) => e instanceof Error && e.name === 'AbortError',
+  isHttpError: (e: unknown): e is { response: { data: unknown }; message?: string } =>
+    typeof e === 'object' && e !== null && 'response' in e,
 }));
 
 import {

@@ -863,6 +863,7 @@ export async function updatePractice(
   );
   queryCache.invalidate(`practice:${practiceId}`);
   queryCache.invalidate('practices:list');
+  clearPublicPracticeDetailsCache();
   return unwrapPracticeResponse(response.data);
 }
 
@@ -878,6 +879,7 @@ export async function deletePractice(
   });
   queryCache.invalidate(`practice:${practiceId}`);
   queryCache.invalidate('practices:list');
+  clearPublicPracticeDetailsCache();
 }
 
 export async function setActivePractice(practiceId: string): Promise<void> {
@@ -1450,6 +1452,7 @@ export async function updatePracticeDetails(
     { signal: config?.signal }
   );
   queryCache.invalidate(`practice:details:${practiceId}`);
+  clearPublicPracticeDetailsCache();
   return normalizePracticeDetailsResponse(response.data);
 }
 

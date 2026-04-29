@@ -16,7 +16,10 @@ export async function handleConfig(request: Request, env: Env): Promise<Response
       }
     };
 
-    return createSuccessResponse(config);
+    // Static-ish config — safe to cache briefly in the browser.
+    const response = createSuccessResponse(config);
+    response.headers.set('Cache-Control', 'public, max-age=300');
+    return response;
   } catch (error) {
     console.error('Error getting configuration:', error);
     return new Response('Internal server error', { status: 500 });

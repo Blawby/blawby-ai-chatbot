@@ -1,5 +1,7 @@
 import { createContext, ComponentChildren } from 'preact';
-import { useState, useCallback, useContext, useEffect, useRef } from 'preact/hooks';
+import { useCallback, useContext, useEffect, useMemo, useRef } from 'preact/hooks';
+import { type Signal, type ReadonlySignal, batch } from '@preact/signals';
+import { useSignal, useComputed, useSignalEffect } from '@preact/signals';
 import { cn } from '@/shared/utils/cn';
 import { deepEqual } from '@/shared/utils/deepEqual';
 import { ZodSchema } from 'zod';
@@ -15,11 +17,13 @@ export interface FormError {
 }
 
 export interface FormContextValue<T extends FormData = FormData> {
-  data: T;
-  errors: FormError[];
-  isSubmitting: boolean;
-  isValid: boolean;
-  submissionError: string | null;
+  // Signal-based state — consumers read .value (or via useComputed for per-field isolation).
+  // Form itself never reads these signals during render, so field changes don't re-render Form.
+  dataSignal: Signal<T>;
+  errorsSignal: Signal<FormError[]>;
+  isSubmittingSignal: Signal<boolean>;
+  submissionErrorSignal: Signal<string | null>;
+  isValidComputed: ReadonlySignal<boolean>;
   validateOnChange: boolean;
   validateOnBlur: boolean;
   setFieldValue: (field: string, value: unknown) => void;
@@ -34,8 +38,8 @@ export interface FormContextValue<T extends FormData = FormData> {
 
 const FormContext = createContext<FormContextValue | null>(null);
 
-export const useFormContext = () => {
-  const context = useContext(FormContext);
+export const useFormContext = <T extends FormData = FormData>() => {
+  const context = useContext(FormContext) as FormContextValue<T> | null;
   if (!context) {
     throw new Error('useFormContext must be used within a Form component');
   }
@@ -74,142 +78,134 @@ export function Form<T extends FormData = FormData>({
   validateOnBlur = false,
   requiredFields
 }: FormProps<T>) {
-  const [data, setData] = useState<T>((initialData ?? ({} as T)) as T);
-  const [errors, setErrors] = useState<FormError[]>([]);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submissionError, setSubmissionError] = useState<string | null>(null);
-  
+  const dataSignal = useSignal<T>((initialData ?? ({} as T)) as T);
+  const errorsSignal = useSignal<FormError[]>([]);
+  const isSubmittingSignal = useSignal(false);
+  const submissionErrorSignal = useSignal<string | null>(null);
+  const isValidComputed = useComputed(() => errorsSignal.value.length === 0);
+
+  // Stable refs for use inside callbacks without re-creating closures.
+  const schemaRef = useRef(schema);
+  const requiredFieldsRef = useRef(requiredFields);
+  const onSubmitRef = useRef(onSubmit);
+  const onSubmitErrorRef = useRef(onSubmitError);
+  const disabledRef = useRef(disabled);
+  schemaRef.current = schema;
+  requiredFieldsRef.current = requiredFields;
+  onSubmitRef.current = onSubmit;
+  onSubmitErrorRef.current = onSubmitError;
+  disabledRef.current = disabled;
+
   // Store previous initialData to compare content changes
   const prevInitialDataRef = useRef<T>((initialData ?? ({} as T)) as T);
 
   // Rehydrate form when initialData content actually changes
   useEffect(() => {
-    // Only reset if the content has actually changed (deep equality check)
     if (!deepEqual(prevInitialDataRef.current, (initialData ?? ({} as T)) as T)) {
-      setData((initialData ?? ({} as T)) as T);
-      setErrors([]); // Clear any stale validation errors
-      setSubmissionError(null); // Clear any stale submission errors
+      batch(() => {
+        dataSignal.value = (initialData ?? ({} as T)) as T;
+        errorsSignal.value = [];
+        submissionErrorSignal.value = null;
+      });
       prevInitialDataRef.current = (initialData ?? ({} as T)) as T;
     }
-  }, [initialData]);
+  }, [initialData, dataSignal, errorsSignal, submissionErrorSignal]);
 
   const validate = useCallback(() => {
+    const data = dataSignal.value;
     const newErrors: FormError[] = [];
-    
-    // Use schema validation if provided
-    if (schema) {
-      const result = schema.safeParse(data);
+
+    if (schemaRef.current) {
+      const result = schemaRef.current.safeParse(data);
       if (!result.success) {
         result.error.issues.forEach(issue => {
           const field = issue.path.length ? issue.path.join('.') : 'unknown';
-          newErrors.push({
-            code: 'invalid',
-            field,
-            message: issue.message
-          });
+          newErrors.push({ code: 'invalid', field, message: issue.message });
         });
       }
-      // Note: When a schema is provided, only schema-defined validation rules apply.
-      // The schema should define all required fields and validation constraints.
     } else {
-      // No schema provided, use basic required validation for all fields; NOTE: empty strings are allowed by default — use a schema or requiredFields prop for stricter rules.
-      const fieldsToValidate = requiredFields || Object.keys(data);
+      const fieldsToValidate = requiredFieldsRef.current || Object.keys(data);
       fieldsToValidate.forEach(field => {
         const value = data[field];
         if (value === undefined || value === null) {
-          newErrors.push({
-            code: 'required',
-            field,
-            message: `${field} is required`
-          });
+          newErrors.push({ code: 'required', field, message: `${field} is required` });
         }
       });
     }
 
-    setErrors(newErrors);
+    errorsSignal.value = newErrors;
     return newErrors.length === 0;
-  }, [data, schema, requiredFields]);
+  }, [dataSignal, errorsSignal]);
 
   const validateField = useCallback((field: string) => {
+    const data = dataSignal.value;
     const newErrors: FormError[] = [];
-    
-    // Use schema validation if provided
-    if (schema) {
-      const result = schema.safeParse(data);
+
+    if (schemaRef.current) {
+      const result = schemaRef.current.safeParse(data);
       if (!result.success) {
         result.error.issues.forEach(issue => {
           const issueField = issue.path.length ? issue.path.join('.') : 'unknown';
           if (issueField === field) {
-            newErrors.push({
-              code: 'invalid',
-              field: issueField,
-              message: issue.message
-            });
+            newErrors.push({ code: 'invalid', field: issueField, message: issue.message });
           }
         });
       }
     } else {
-      // No schema provided, use basic required validation for the specific field
-      const fieldsToValidate = requiredFields || Object.keys(data);
+      const fieldsToValidate = requiredFieldsRef.current || Object.keys(data);
       if (fieldsToValidate.includes(field)) {
         const value = data[field];
         if (value === undefined || value === null) {
-          newErrors.push({
-            code: 'required',
-            field,
-            message: `${field} is required`
-          });
+          newErrors.push({ code: 'required', field, message: `${field} is required` });
         }
       }
     }
 
-    // Update errors by removing existing errors for this field and adding new ones
-    setErrors(prev => {
-      const filtered = prev.filter(error => error.field !== field);
-      return [...filtered, ...newErrors];
-    });
-    
+    errorsSignal.value = [
+      ...errorsSignal.value.filter(e => e.field !== field),
+      ...newErrors,
+    ];
     return newErrors.length === 0;
-  }, [data, schema, requiredFields]);
+  }, [dataSignal, errorsSignal]);
 
-  // Handle validation on change
-  useEffect(() => {
-    if (validateOnChange) {
-      validate();
-    }
-  }, [data, validateOnChange, validate]);
+  // Re-validate when data changes if validateOnChange is enabled.
+  useSignalEffect(() => {
+    if (!validateOnChange) return;
+    // Touch dataSignal to subscribe; validate() reads it again.
+    void dataSignal.value;
+    validate();
+  });
 
   const setFieldValue = useCallback((field: string, value: unknown) => {
-    setData(prev => ({ ...prev, [field]: value }));
-    // Only clear field error when validateOnChange is false/undefined
-    // to avoid conflict with automatic validation that would cause flicker
-    if (!validateOnChange) {
-      setErrors(prev => prev.filter(error => error.field !== field));
-    }
-  }, [validateOnChange, setErrors]);
+    batch(() => {
+      dataSignal.value = { ...dataSignal.value, [field]: value };
+      if (!validateOnChange) {
+        errorsSignal.value = errorsSignal.value.filter(error => error.field !== field);
+      }
+    });
+  }, [dataSignal, errorsSignal, validateOnChange]);
 
   const setFieldError = useCallback((field: string, error: FormError) => {
-    setErrors(prev => {
-      const filtered = prev.filter(e => e.field !== field);
-      return [...filtered, error];
-    });
-  }, []);
+    errorsSignal.value = [...errorsSignal.value.filter(e => e.field !== field), error];
+  }, [errorsSignal]);
 
   const clearFieldError = useCallback((field: string) => {
-    setErrors(prev => prev.filter(error => error.field !== field));
-  }, []);
+    errorsSignal.value = errorsSignal.value.filter(error => error.field !== field);
+  }, [errorsSignal]);
 
   const setSubmitting = useCallback((submitting: boolean) => {
-    setIsSubmitting(submitting);
-  }, []);
+    isSubmittingSignal.value = submitting;
+  }, [isSubmittingSignal]);
 
   const reset = useCallback(() => {
-    setData((initialData ?? ({} as T)) as T);
-    setErrors([]);
-    setIsSubmitting(false);
-    setSubmissionError(null);
+    batch(() => {
+      dataSignal.value = (initialData ?? ({} as T)) as T;
+      errorsSignal.value = [];
+      isSubmittingSignal.value = false;
+      submissionErrorSignal.value = null;
+    });
     prevInitialDataRef.current = (initialData ?? ({} as T)) as T;
-  }, [initialData]);
+  }, [initialData, dataSignal, errorsSignal, isSubmittingSignal, submissionErrorSignal]);
 
   const onFieldBlur = useCallback((field: string) => {
     if (validateOnBlur) {
@@ -219,40 +215,36 @@ export function Form<T extends FormData = FormData>({
 
   const handleSubmit = useCallback(async (e: Event) => {
     e.preventDefault();
-    
-    if (disabled || isSubmitting) return;
-    
+
+    if (disabledRef.current || isSubmittingSignal.value) return;
+
     const isValid = validate();
     if (!isValid) return;
-    
-    setIsSubmitting(true);
-    
+
+    isSubmittingSignal.value = true;
+
     try {
-      await onSubmit?.(data);
-      // Clear any previous submission errors on successful submission
-      setSubmissionError(null);
+      await onSubmitRef.current?.(dataSignal.value);
+      submissionErrorSignal.value = null;
     } catch (error) {
-      // Handle form submission error
-      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred during form submission';
-      
-      // Store error in form state for user notification
-      setSubmissionError(errorMessage);
-      
-      // Call custom error handler if provided
-      onSubmitError?.(error);
+      const errorMessage = error instanceof Error
+        ? error.message
+        : 'An unexpected error occurred during form submission';
+      submissionErrorSignal.value = errorMessage;
+      onSubmitErrorRef.current?.(error);
     } finally {
-      setIsSubmitting(false);
+      isSubmittingSignal.value = false;
     }
-  }, [data, disabled, isSubmitting, onSubmit, onSubmitError, validate]);
+  }, [dataSignal, isSubmittingSignal, submissionErrorSignal, validate]);
 
-  const isValid = errors.length === 0;
-
-  const contextValue: FormContextValue<T> = {
-    data,
-    errors,
-    isSubmitting,
-    isValid,
-    submissionError,
+  // Context value is memoized with stable references — Form does not re-render on
+  // signal changes, and consumers see a stable provider value.
+  const contextValue = useMemo<FormContextValue<T>>(() => ({
+    dataSignal,
+    errorsSignal,
+    isSubmittingSignal,
+    submissionErrorSignal,
+    isValidComputed,
     validateOnChange,
     validateOnBlur,
     setFieldValue,
@@ -262,11 +254,27 @@ export function Form<T extends FormData = FormData>({
     validate,
     validateField,
     reset,
-    onFieldBlur
-  };
+    onFieldBlur,
+  }), [
+    dataSignal,
+    errorsSignal,
+    isSubmittingSignal,
+    submissionErrorSignal,
+    isValidComputed,
+    validateOnChange,
+    validateOnBlur,
+    setFieldValue,
+    setFieldError,
+    clearFieldError,
+    setSubmitting,
+    validate,
+    validateField,
+    reset,
+    onFieldBlur,
+  ]);
 
   return (
-    <FormContext.Provider value={contextValue}>
+    <FormContext.Provider value={contextValue as FormContextValue}>
       <form
         id={id}
         onSubmit={handleSubmit}

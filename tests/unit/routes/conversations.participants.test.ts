@@ -117,11 +117,11 @@ describe('handleConversations - participants endpoint', () => {
       success?: boolean;
       data?: {
         participants?: Array<{
-          userId: string;
+          user_id: string;
           role?: string | null;
-          isTeamMember?: boolean;
-          canBeMentionedByTeamMember?: boolean;
-          canBeMentionedByClient?: boolean;
+          is_team_member?: boolean;
+          can_be_mentioned_by_team_member?: boolean;
+          can_be_mentioned_by_client?: boolean;
         }>;
       };
     };
@@ -131,18 +131,18 @@ describe('handleConversations - participants endpoint', () => {
     expect(payload.success).toBe(true);
     expect(payload.data?.participants).toEqual([
       expect.objectContaining({
-        userId: 'client-1',
+        user_id: 'client-1',
         role: null,
-        isTeamMember: false,
-        canBeMentionedByTeamMember: true,
-        canBeMentionedByClient: false,
+        is_team_member: false,
+        can_be_mentioned_by_team_member: true,
+        can_be_mentioned_by_client: false,
       }),
       expect.objectContaining({
-        userId: 'staff-1',
+        user_id: 'staff-1',
         role: 'attorney',
-        isTeamMember: true,
-        canBeMentionedByTeamMember: true,
-        canBeMentionedByClient: true,
+        is_team_member: true,
+        can_be_mentioned_by_team_member: true,
+        can_be_mentioned_by_client: true,
       }),
     ]);
   });

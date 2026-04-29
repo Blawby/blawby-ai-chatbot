@@ -87,7 +87,9 @@ describe('Loading primitives', () => {
     expect(circle.className).toContain('h-6');
     expect(circle.className).toContain('w-6');
     expect(circle.className).toContain('border-2');
-    expect(circle.className).toContain('border-[rgb(var(--accent-foreground))]');
+    // Color is inherited from the wrapper's `text-[rgb(var(--accent-foreground))]` via `border-current`.
+    expect(status.className).toContain('text-[rgb(var(--accent-foreground))]');
+    expect(circle.className).toContain('border-current');
     expect(circle.className).toContain('border-t-transparent');
   });
 

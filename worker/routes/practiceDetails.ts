@@ -31,6 +31,10 @@ export async function handlePracticeDetails(request: Request, env: Env): Promise
   const normalizedHeaders = new Headers(response.headers);
   normalizedHeaders.delete('content-encoding');
   normalizedHeaders.delete('content-length');
+  // Public-by-slug endpoint — safe to cache in the browser briefly.
+  if (response.ok) {
+    normalizedHeaders.set('Cache-Control', 'public, max-age=300');
+  }
 
   let payload: Record<string, unknown> | null = null;
   try {
