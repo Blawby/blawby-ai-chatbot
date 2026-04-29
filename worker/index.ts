@@ -166,7 +166,11 @@ const routes: RouteEntry[] = [
     match: prefix('/api/tools/search'),
     handler: withAuth((req, env) => handleSearch(req, env), { required: false }),
   },
-  { mode: 'owned', match: prefix('/api/ai/chat'), handler: handleAiChat },
+  {
+    mode: 'owned',
+    match: prefix('/api/ai/chat'),
+    handler: withAuth(handleAiChat, { required: true }),
+  },
   {
     mode: 'owned',
     match: exact('/api/metrics/vitals'),
