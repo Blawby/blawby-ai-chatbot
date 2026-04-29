@@ -76,6 +76,7 @@ export default defineConfig({
             'src/__tests__/components/**/*.{test,spec}.{js,ts,jsx,tsx}',
             'src/__tests__/RTLSupport.test.tsx',
             'src/components/settings/**/__tests__/**/*.{test,spec}.{js,ts,jsx,tsx}',
+            'src/shared/ui/**/__tests__/**/*.{test,spec}.{js,ts,jsx,tsx}',
             'tests/component/**/*.{test,spec}.{js,ts,jsx,tsx}',
           ],
           exclude: [
