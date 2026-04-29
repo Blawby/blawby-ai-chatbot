@@ -29,6 +29,7 @@ import type {
 } from '@/shared/types/conversation';
 import { type IntakeFieldsPayload } from '@/shared/types/intake';
 import { STREAMING_BUBBLE_PREFIX } from './useConversation';
+import { apiClient, isHttpError } from '@/shared/lib/apiClient';
 import { withWidgetAuthHeaders } from '@/shared/utils/widgetAuth';
 import { applyConsultationPatchToMetadata, resolveConsultationState } from '@/shared/utils/consultationState';
 import { normalizeChatActions } from '@/shared/utils/chatActions';
@@ -715,15 +716,23 @@ export const useChatComposer = ({
         const intentPracticeId = resolvedPracticeId;
 
         try {
-          const intentResponse = await fetch('/api/ai/intent', {
-            method: 'POST',
-            headers: withWidgetAuthHeaders({ 'Content-Type': 'application/json' }),
-            credentials: 'include',
-            signal: intentController.signal,
-            body: JSON.stringify({ conversationId: resolvedConversationId, practiceId: resolvedPracticeId, message: trimmedMessage }),
-          });
-          if (intentResponse?.ok) {
-            const intentData = await intentResponse.json() as FirstMessageIntent;
+          let intentData: FirstMessageIntent | null = null;
+          try {
+            const result = await apiClient.post<FirstMessageIntent>(
+              '/api/ai/intent',
+              { conversationId: resolvedConversationId, practiceId: resolvedPracticeId, message: trimmedMessage },
+              { signal: intentController.signal },
+            );
+            intentData = result.data;
+          } catch (apiError) {
+            if (isHttpError(apiError)) {
+              // Non-2xx responses are silently ignored — preserves prior `if (intentResponse?.ok)` behavior.
+              intentData = null;
+            } else {
+              throw apiError;
+            }
+          }
+          if (intentData) {
             if (intentController.signal.aborted) return;
             if (conversationIdRef.current !== intentConversationId || practiceIdRef.current !== intentPracticeId) return;
             if (hasLoggedIntentRef.current) return;

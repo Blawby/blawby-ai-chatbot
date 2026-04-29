@@ -11,7 +11,7 @@ import {
   type DerivedIntakeStatus,
   type IntakeFieldChangeOptions,
 } from '@/shared/types/intake';
-import { withWidgetAuthHeaders } from '@/shared/utils/widgetAuth';
+import { apiClient, isHttpError } from '@/shared/lib/apiClient';
 import { postToParentFrame, resolveAllowedParentOrigins } from '@/shared/utils/widgetEvents';
 import {
   applyConsultationPatchToMetadata,
@@ -560,22 +560,20 @@ export function useIntakeFlow({
 
       try {
         if (!templateHasPaymentConfig) {
-          const settingsUrl = getPracticeClientIntakeSettingsEndpoint(effectivePracticeSlug);
-          const settingsRes = await fetch(settingsUrl, {
-            method: 'GET',
-            credentials: 'include',
-          });
-          if (settingsRes.ok) {
-            const settingsPayload = await settingsRes.json() as {
+          try {
+            const { data: settingsPayload } = await apiClient.get<{
               success?: boolean;
               data?: {
                 settings?: { consultationFee?: number; consultation_fee?: number };
               };
-            };
+            }>(getPracticeClientIntakeSettingsEndpoint(effectivePracticeSlug));
             const settings = settingsPayload.data?.settings;
             consultationFee =
               (typeof settings?.consultationFee === 'number' ? settings.consultationFee : 0) ||
               (typeof settings?.consultation_fee === 'number' ? settings.consultation_fee : 0);
+          } catch (apiError) {
+            // Non-2xx silently falls through to the catch below; preserves prior `if (settingsRes.ok)` behavior.
+            if (!isHttpError(apiError)) throw apiError;
           }
         }
       } catch (settingsError) {
@@ -680,22 +678,10 @@ export function useIntakeFlow({
     }
     submitInFlightRef.current = true;
     try {
-      const generatePaymentLinkParam = options?.generatePaymentLinkOnly ? '&generatePaymentLinkOnly=true' : '';
       const latestMergedIntakeState = conversationMetadataRef.current?.mergedIntakeState ?? intakeConversationState;
-      const response = await fetch(
-        `/api/conversations/${encodeURIComponent(conversationId)}/submit-intake?practiceId=${encodeURIComponent(practiceId)}${generatePaymentLinkParam}`,
-        {
-          method: 'POST',
-          headers: withWidgetAuthHeaders({ 'Content-Type': 'application/json' }),
-          credentials: 'include',
-          body: JSON.stringify({ mergedIntakeState: latestMergedIntakeState }),
-        },
-      );
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({})) as { error?: string };
-        throw new Error(errorData.error || `Intake submission failed (HTTP ${response.status})`);
-      }
-      const result = await response.json() as {
+      const submitParams: Record<string, string> = { practiceId };
+      if (options?.generatePaymentLinkOnly) submitParams.generatePaymentLinkOnly = 'true';
+      let result: {
         success: boolean;
         data: {
           intake_uuid: string;
@@ -706,10 +692,34 @@ export function useIntakeFlow({
           } | null;
         };
       };
+      try {
+        const submitResult = await apiClient.post<{
+          success: boolean;
+          data: {
+            intake_uuid: string;
+            status: string;
+            payment_link_url: string | null;
+            organization?: {
+              name?: string | null;
+            } | null;
+          };
+        }>(
+          `/api/conversations/${encodeURIComponent(conversationId)}/submit-intake`,
+          { mergedIntakeState: latestMergedIntakeState },
+          { params: submitParams },
+        );
+        result = submitResult.data;
+      } catch (apiError) {
+        if (isHttpError(apiError)) {
+          const errorData = apiError.response.data as { error?: string } | undefined;
+          throw new Error(errorData?.error || `Intake submission failed (HTTP ${apiError.response.status})`);
+        }
+        throw apiError;
+      }
       quickActionDebugLog('submit-intake response received', {
         conversationId,
         practiceId,
-        httpOk: response.ok,
+        httpOk: true,
         success: result.success,
         intakeUuid: result.data?.intake_uuid ?? null,
         hasPaymentLinkUrl: Boolean(result.data?.payment_link_url),

@@ -43,13 +43,11 @@ import {
   removeMessageReaction,
 } from '@/shared/lib/conversationApi';
 import { applyConsultationPatchToMetadata, hasConsultationSignals, resolveConsultationState } from '@/shared/utils/consultationState';
-import { isHttpError } from '@/shared/lib/apiClient';
-import { linkConversationToUser } from '@/shared/lib/apiClient';
+import { apiClient, isHttpError, linkConversationToUser } from '@/shared/lib/apiClient';
 import {
   rememberConversationAnonymousParticipant,
   clearConversationAnonymousParticipant,
 } from '@/shared/utils/anonymousIdentity';
-import { withWidgetAuthHeaders } from '@/shared/utils/widgetAuth';
 import { quickActionDebugLog, isQuickActionDebugEnabled } from '@/shared/utils/quickActionDebug';
 import { normalizeChatActions } from '@/shared/utils/chatActions';
 import { useConversationTransport } from '@/shared/hooks/useConversationTransport';
@@ -317,15 +315,20 @@ export const useConversation = ({
     const activeConversationId = targetConversationId ?? conversationId;
     const practiceKey = practiceId;
     if (!activeConversationId || !practiceKey) return null;
-    const response = await fetch(
-      `/api/conversations/${encodeURIComponent(activeConversationId)}?practiceId=${encodeURIComponent(practiceKey)}`,
-      { method: 'GET', headers: withWidgetAuthHeaders({ 'Content-Type': 'application/json' }), credentials: 'include', signal }
-    );
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({})) as { error?: string };
-      throw new Error(errorData.error || `HTTP ${response.status}`);
+    let data: { success: boolean; data?: { user_info?: ConversationMetadata | null } };
+    try {
+      const result = await apiClient.get<{ success: boolean; data?: { user_info?: ConversationMetadata | null } }>(
+        `/api/conversations/${encodeURIComponent(activeConversationId)}`,
+        { params: { practiceId: practiceKey }, signal },
+      );
+      data = result.data;
+    } catch (apiError) {
+      if (isHttpError(apiError)) {
+        const errorData = apiError.response.data as { error?: string } | undefined;
+        throw new Error(errorData?.error || `HTTP ${apiError.response.status}`);
+      }
+      throw apiError;
     }
-    const data = await response.json() as { success: boolean; data?: { user_info?: ConversationMetadata | null } };
     const metadata = data.data?.user_info ?? null;
     if (!signal?.aborted && !isDisposedRef.current && activeConversationId === conversationIdRef.current) {
       applyConversationMetadata(metadata);
@@ -675,10 +678,20 @@ export const useConversation = ({
     while (nextSeq !== null && nextSeq <= targetLatest) {
       if (isDisposedRef.current || conversationIdRef.current !== activeConversationId) return;
       try {
-        const params = new URLSearchParams({ practiceId: activePracticeId, from_seq: String(nextSeq), limit: String(GAP_FETCH_LIMIT) });
-        const response = await fetch(`${getConversationMessagesEndpoint(activeConversationId)}?${params}`, { method: 'GET', headers: withWidgetAuthHeaders({ 'Content-Type': 'application/json' }), credentials: 'include' });
-        if (!response.ok) { const e = await response.json().catch(() => ({})) as { error?: string }; throw new Error(e.error || `HTTP ${response.status}`); }
-        const data = await response.json() as { success: boolean; error?: string; data?: { messages: ConversationMessage[]; latest_seq?: number; next_from_seq?: number | null } };
+        let data: { success: boolean; error?: string; data?: { messages: ConversationMessage[]; latest_seq?: number; next_from_seq?: number | null } };
+        try {
+          const result = await apiClient.get<{ success: boolean; error?: string; data?: { messages: ConversationMessage[]; latest_seq?: number; next_from_seq?: number | null } }>(
+            getConversationMessagesEndpoint(activeConversationId),
+            { params: { practiceId: activePracticeId, from_seq: String(nextSeq), limit: String(GAP_FETCH_LIMIT) } },
+          );
+          data = result.data;
+        } catch (apiError) {
+          if (isHttpError(apiError)) {
+            const errorData = apiError.response.data as { error?: string } | undefined;
+            throw new Error(errorData?.error || `HTTP ${apiError.response.status}`);
+          }
+          throw apiError;
+        }
         if (!data.success || !data.data) throw new Error(data.error || 'Failed to fetch message gap');
         if (isDisposedRef.current || conversationIdRef.current !== activeConversationId) return;
         collected.push(...(data.data.messages ?? []));
@@ -819,13 +832,27 @@ export const useConversation = ({
     const activeConversationId = targetConversationId ?? conversationId;
     if (!activeConversationId || !practiceId) return;
     try {
-      const params = new URLSearchParams({ practiceId, limit: '50' });
-      params.set('source', isLoadMore ? 'chat_load_more' : 'chat_initial');
-      if (cursor) params.set('cursor', cursor);
+      const params: Record<string, string> = {
+        practiceId,
+        limit: '50',
+        source: isLoadMore ? 'chat_load_more' : 'chat_initial',
+      };
+      if (cursor) params.cursor = cursor;
       if (isLoadMore) setIsLoadingMoreMessages(true);
-      const response = await fetch(`${getConversationMessagesEndpoint(activeConversationId)}?${params}`, { method: 'GET', headers: withWidgetAuthHeaders({ 'Content-Type': 'application/json' }), credentials: 'include', signal });
-      if (!response.ok) { const e = await response.json().catch(() => ({})) as { error?: string }; throw new Error(e.error || `HTTP ${response.status}`); }
-      const data = await response.json() as { success: boolean; error?: string; data?: { messages: ConversationMessage[]; hasMore?: boolean; cursor?: string | null } };
+      let data: { success: boolean; error?: string; data?: { messages: ConversationMessage[]; hasMore?: boolean; cursor?: string | null } };
+      try {
+        const result = await apiClient.get<{ success: boolean; error?: string; data?: { messages: ConversationMessage[]; hasMore?: boolean; cursor?: string | null } }>(
+          getConversationMessagesEndpoint(activeConversationId),
+          { params, signal },
+        );
+        data = result.data;
+      } catch (apiError) {
+        if (isHttpError(apiError)) {
+          const errorData = apiError.response.data as { error?: string } | undefined;
+          throw new Error(errorData?.error || `HTTP ${apiError.response.status}`);
+        }
+        throw apiError;
+      }
       if (!data.success || !data.data) throw new Error(data.error || 'Failed to fetch messages');
       if (!isDisposedRef.current && activeConversationId === conversationIdRef.current) {
         if (isLoadMore) {
