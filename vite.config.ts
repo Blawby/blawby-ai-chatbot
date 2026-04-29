@@ -7,7 +7,7 @@ import { createHtmlPlugin } from 'vite-plugin-html';
 import compression from 'vite-plugin-compression';
 import { promises as fs } from 'fs';
 import { Plugin } from 'vite';
-import zlib from 'zlib';
+import { bundleBudgetPlugin } from './config/vite/bundleBudget';
 
 // Inline critical CSS into dist/index.html via Beasties.
 //
@@ -44,38 +44,6 @@ const criticalCssPlugin = (): Plugin => ({
 		} catch (e) {
 			console.error('Error processing critical CSS:', e);
 			// Don't fail the build — uninlined CSS still works, just with a render-blocking link.
-		}
-	},
-});
-
-// Chunk size budgets (gzip KB). Violations warn locally, fail in CI.
-const CHUNK_BUDGETS: Record<string, number> = {
-	vendor: 80,
-	i18n: 60,
-	main: 180,
-};
-const bundleBudgetPlugin = (): Plugin => ({
-	name: 'bundle-budget',
-	apply: 'build',
-	generateBundle(_options, bundle) {
-		const violations: string[] = [];
-		for (const [fileName, chunk] of Object.entries(bundle)) {
-			if (chunk.type !== 'chunk') continue;
-			const gzSize = zlib.gzipSync(Buffer.from(chunk.code)).length;
-			const gzKB = Math.round(gzSize / 1024);
-			const label = Object.keys(CHUNK_BUDGETS).find(k => fileName.includes(k));
-			const budget = label ? CHUNK_BUDGETS[label] : CHUNK_BUDGETS.main;
-			if (gzKB > budget) {
-				violations.push(`  ${fileName}: ${gzKB}KB gz (budget: ${budget}KB)`);
-			}
-		}
-		if (violations.length > 0) {
-			const msg = `Bundle budget exceeded:\n${violations.join('\n')}`;
-			if (process.env.CI) {
-				throw new Error(msg);
-			} else {
-				console.warn(`\n⚠️ ${msg}\n`);
-			}
 		}
 	},
 });
