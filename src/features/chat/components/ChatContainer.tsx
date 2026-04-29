@@ -148,7 +148,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   const [replyTarget, setReplyTarget] = useState<ReplyTarget | null>(null);
   const composerDockRef = useRef<HTMLDivElement>(null);
   const [composerInsetPx, setComposerInsetPx] = useState(104);
-  const isChatInputLocked = !isReady || (isPublicWorkspace && intakeContext.intakeStatus?.step === 'contact_form_slim');
+  const isChatInputLocked = (!isReady && !!conversationId) || (isPublicWorkspace && intakeContext.intakeStatus?.step === 'contact_form_slim');
   const hiddenSystemMessageKeys = new Set(['ask_question_help', 'disclaimer_accepted']);
   const baseMessages = isPublicWorkspace
     ? messages.filter((message) => !hiddenSystemMessageKeys.has(String(message.metadata?.systemMessageKey ?? '')))
@@ -498,7 +498,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
                   isSessionReady={isReady || (!conversationId && !!canChat)}
                   isSocketReady={isReady || (!conversationId && !!canChat)}
                   intakeStatus={isPublicWorkspace ? intakeContext.intakeStatus : undefined}
-                  disabled={!isReady || (isPublicWorkspace && intakeContext.intakeStatus?.step === 'contact_form_slim')}
+                  disabled={isChatInputLocked}
                   replyTo={replyTarget}
                   onCancelReply={handleCancelReply}
                   mentionCandidates={mentionCandidates}
