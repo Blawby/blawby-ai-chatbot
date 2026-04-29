@@ -1,0 +1,22 @@
+{
+	"extends": "./tsconfig.base.json",
+	"compilerOptions": {
+		"lib": ["ES2022", "WebWorker"],
+		"types": ["@cloudflare/workers-types"]
+	},
+	"include": [
+		"node_modules/vite/client.d.ts",
+		"worker",
+		"src/vite-env.d.ts",
+		"src/shared",
+		"src/config",
+		"src/types"
+	],
+	"exclude": [
+		"src/**/__tests__/**",
+		"src/**/*.test.ts",
+		"src/**/*.test.tsx",
+		"src/**/*.spec.ts",
+		"src/**/*.spec.tsx"
+	]
+}

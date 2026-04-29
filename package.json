@@ -18,7 +18,7 @@
     "lint:fix": "eslint . --fix",
     "lint:check": "eslint . --max-warnings 0",
     "lint:src": "eslint src/ --ext .ts,.tsx,.js,.jsx --max-warnings 20",
-    "type-check": "tsc --noEmit --skipLibCheck",
+    "type-check": "tsc -p tsconfig.app.json --noEmit --skipLibCheck && tsc -p tsconfig.worker.json --noEmit --skipLibCheck && tsc -p tsconfig.test.json --noEmit --skipLibCheck",
     "lint:i18n": "node ./scripts/check-i18n.mjs",
     "test": "npm run test:unit && npm run test:component",
     "test:unit": "vitest run -c config/vitest/vitest.config.unit.ts",
