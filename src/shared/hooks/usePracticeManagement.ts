@@ -20,7 +20,7 @@ import {
 } from '@/shared/lib/apiClient';
 import { normalizeSubscriptionStatus as normalizePracticeStatus } from '@/shared/utils/subscription';
 import { resetPracticeDetailsStore, setPracticeDetailsEntry } from '@/shared/stores/practiceDetailsStore';
-import { ensurePracticeTeamCacheUserId, invalidatePracticeTeamForPractice, resetPracticeTeamStore as _resetPracticeTeamStore } from '@/shared/stores/practiceTeamStore';
+import { queryCache } from '@/shared/lib/queryCache';
 import { asMajor, type MajorAmount } from '@/shared/utils/money';
 import { type PracticeRole } from '@/shared/utils/practiceRoles';
 
@@ -603,8 +603,11 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
   const sessionRef = useRef(session);
   sessionRef.current = session;
 
+  // The team cache key in queryCache includes userId, so user change is
+  // naturally segregated. We still defensively drop the prefix on user
+  // change to free LRU slots for the new session.
   useEffect(() => {
-    ensurePracticeTeamCacheUserId(resolvedUserId);
+    queryCache.invalidate('practice:team:', /* prefix */ true);
   }, [resolvedUserId]);
 
   // Helper for workspace/local endpoints still served by the Worker
@@ -1184,13 +1187,13 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
   // Update member role
   const updateMemberRole = useCallback(async (practiceId: string, userId: string, role: Role): Promise<void> => {
     await apiUpdatePracticeMemberRole(practiceId, { userId, role });
-    invalidatePracticeTeamForPractice(practiceId);
+    queryCache.invalidate('practice:team:', /* prefix */ true);
   }, []);
 
   // Remove member
   const removeMember = useCallback(async (practiceId: string, userId: string): Promise<void> => {
     await apiDeletePracticeMember(practiceId, userId);
-    invalidatePracticeTeamForPractice(practiceId);
+    queryCache.invalidate('practice:team:', /* prefix */ true);
   }, []);
 
   // Fetch workspace data
