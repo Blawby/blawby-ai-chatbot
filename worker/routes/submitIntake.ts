@@ -66,6 +66,7 @@ type IntakeSettings = NonNullable<Awaited<ReturnType<typeof RemoteApiService.get
 
 import {
   BackendIntakeCreatePayloadSchema,
+  BackendIntakeCreateResponseSchema,
   type BackendIntakeCreatePayload,
   type BackendIntakeCreateResponse,
 } from '../types/wire/intake.js';
@@ -922,7 +923,13 @@ export async function handleSubmitIntake(
     });
     throw error;
   }
-  const backendPayload = await backendResponse.json() as BackendIntakeCreateResponse;
+  const backendJson = await backendResponse.json();
+  const backendPayload = validateWire(
+    BackendIntakeCreateResponseSchema,
+    backendJson,
+    'submitIntake.response',
+    { strict: false },
+  );
 
   if (!backendPayload?.success || !backendPayload.data?.uuid) {
     const errorDetails = backendPayload?.error ?? 'No uuid returned';
