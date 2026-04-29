@@ -137,13 +137,18 @@ const routes: RouteEntry[] = [
   {
     mode: 'owned',
     match: prefix('/api/ai/intent'),
-    // LLM call: rate-limit per client IP so a single abusive client can't
-    // burn through model quota. 30 req / 60s — generous for normal use.
-    handler: withRateLimit((req, env) => handleAiIntent(req, env), {
-      keyFn: (req) => req.headers.get('CF-Connecting-IP'),
-      max: 30,
-      windowMs: 60_000,
-    }),
+    // Stacked middleware (last-applied runs first):
+    //   - withRateLimit: 30 req / 60s per IP guards LLM quota first.
+    //   - withAuth: required — rejects unauthenticated calls before the
+    //     handler runs.
+    handler: withRateLimit(
+      withAuth((req, env) => handleAiIntent(req, env), { required: true }),
+      {
+        keyFn: (req) => req.headers.get('CF-Connecting-IP'),
+        max: 30,
+        windowMs: 60_000,
+      },
+    ),
   },
   {
     mode: 'owned',
