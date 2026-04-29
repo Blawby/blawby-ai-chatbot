@@ -1,4 +1,10 @@
-import { apiClient, isHttpError, isAbortError } from '@/shared/lib/apiClient';
+import {
+  apiClient,
+  isHttpError,
+  isAbortError,
+  pluckCollection,
+  unwrapApiResponse,
+} from '@/shared/lib/apiClient';
 import { urls } from '@/config/urls';
 import {
   assertMajorUnits,
@@ -66,21 +72,16 @@ const isBackendInvoice = (val: unknown): val is BackendInvoice => {
 };
 
 export const extractInvoicesArray = (payload: unknown): BackendInvoice[] => {
-  if (Array.isArray(payload)) {
-    return payload.filter(isBackendInvoice);
+  const unwrapped = unwrapApiResponse<unknown>(payload);
+  const list = pluckCollection<BackendInvoice>(unwrapped, ['invoices']).filter(isBackendInvoice);
+  if (list.length > 0) return list;
+  // Fallbacks: backend occasionally returns a single invoice at top level or
+  // under `invoice`.
+  if (unwrapped && typeof unwrapped === 'object' && !Array.isArray(unwrapped)) {
+    const record = unwrapped as Record<string, unknown>;
+    if (record.invoice && isBackendInvoice(record.invoice)) return [record.invoice as BackendInvoice];
+    if (isBackendInvoice(record)) return [record as BackendInvoice];
   }
-  if (!payload || typeof payload !== 'object') return [];
-  const record = payload as Record<string, unknown>;
-  if (Array.isArray(record.invoices)) {
-    return record.invoices.filter(isBackendInvoice);
-  }
-  if (record.invoice && isBackendInvoice(record.invoice)) {
-    return [record.invoice as BackendInvoice];
-  }
-  if (isBackendInvoice(record)) {
-    return [record as BackendInvoice];
-  }
-  if (record.data) return extractInvoicesArray(record.data);
   return [];
 };
 
