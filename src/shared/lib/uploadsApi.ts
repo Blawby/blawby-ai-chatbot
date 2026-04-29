@@ -40,14 +40,17 @@ interface ConfirmUploadResponse {
   status: 'pending' | 'verified' | 'rejected';
 }
 
-export interface BackendUploadResult {
+// Frontend-only types (camelCase, internal to this client). The wire-shape
+// counterpart is `BackendUploadRecord` below — that one lives in
+// worker/types/wire/upload.ts and is re-exported via @/shared/types/wire.
+export interface UploadResult {
   uploadId: string;
   publicUrl: string | null;
   storageKey: string;
   status: 'pending' | 'verified' | 'rejected';
 }
 
-interface BackendUploadOptions {
+interface UploadOptions {
   file: File;
   uploadContext: UploadContext;
   entityId?: string;
@@ -58,7 +61,7 @@ interface BackendUploadOptions {
   signal?: AbortSignal;
 }
 
-const validateUploadInput = (options: BackendUploadOptions): void => {
+const validateUploadInput = (options: UploadOptions): void => {
   const { file, uploadContext, matterId } = options;
 
   const fileName = typeof file.name === 'string' ? file.name.trim() : '';
@@ -208,21 +211,11 @@ const confirmUpload = async (uploadId: string, signal?: AbortSignal): Promise<Co
   return await response.json() as ConfirmUploadResponse;
 };
 
-export interface BackendUploadRecord {
-  id: string;
-  upload_context: string;
-  sub_context?: string | null;
-  entity_id?: string | null;
-  matter_id?: string | null;
-  file_name: string;
-  mime_type: string;
-  file_size: number;
-  storage_key: string;
-  public_url: string | null;
-  status: 'pending' | 'verified' | 'rejected';
-  created_at: string;
-  updated_at?: string | null;
-}
+// Wire type lives in worker/types/wire/upload.ts (single source of truth).
+// Re-exported here for existing consumers; new code should import from
+// `@/shared/types/wire` directly.
+import type { BackendUploadRecord } from '@/shared/types/wire';
+export type { BackendUploadRecord };
 
 interface ListUploadsParams {
   matterId: string;
@@ -263,7 +256,7 @@ export const uploadFileViaBackend = async ({
   isPrivileged = true,
   onProgress,
   signal,
-}: BackendUploadOptions): Promise<BackendUploadResult> => {
+}: UploadOptions): Promise<UploadResult> => {
   validateUploadInput({
     file,
     uploadContext,

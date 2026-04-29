@@ -3,7 +3,7 @@ import { ComponentChildren } from 'preact';
 import { useSession, authClient } from '@/shared/lib/authClient';
 import { RoutePracticeContext } from '@/shared/contexts/RoutePracticeContext';
 import { rememberAnonymousUserId, rememberAnonymousSessionId } from '@/shared/utils/anonymousIdentity';
-import type { AuthSessionPayload, BackendSession, BackendSessionUser } from '@/shared/types/user';
+import type { AuthSessionPayload, BackendSession, SessionUser } from '@/shared/types/user';
 
 export interface SessionContextValue {
   session: AuthSessionPayload;
@@ -47,7 +47,7 @@ const buildSessionContextValue = ({
   isPending: boolean;
   error: unknown;
 }): SessionContextValue => {
-  const userRecord = sessionData?.user as BackendSessionUser | undefined;
+  const userRecord = sessionData?.user as SessionUser | undefined;
   const isAnonymous = userRecord?.is_anonymous === true;
   const stripeCustomerId = typeof userRecord?.stripe_customer_id === 'string'
     ? userRecord.stripe_customer_id

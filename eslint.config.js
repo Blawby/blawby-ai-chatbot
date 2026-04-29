@@ -190,6 +190,14 @@ export default [
         {
           selector: 'JSXAttribute[name.name="className"] > Literal[value=/animate-spin/]',
           message: 'Use LoadingSpinner component instead of inline animate-spin classes'
+        },
+        {
+          selector: 'TSTypeAliasDeclaration[id.name=/^Backend/]',
+          message: 'Backend wire types live in worker/types/wire/ — import from @/shared/types/wire instead of redeclaring inline.'
+        },
+        {
+          selector: 'TSInterfaceDeclaration[id.name=/^Backend/]',
+          message: 'Backend wire types live in worker/types/wire/ — import from @/shared/types/wire instead of redeclaring inline.'
         }
       ],
     },

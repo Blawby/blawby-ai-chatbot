@@ -31,3 +31,11 @@ export type {
   BackendInvoice,
   BackendInvoiceLineItem,
 } from '../../../worker/types/wire/invoice';
+
+export type {
+  BackendUploadRecord,
+} from '../../../worker/types/wire/upload';
+
+export type {
+  BackendSession,
+} from '../../../worker/types/wire/auth';

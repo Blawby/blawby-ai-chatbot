@@ -154,6 +154,8 @@ export function useWorkspaceAutoNavigation(
     resolvedConversationsLoading,
     filteredConversations,
     handleSelectConversation,
+    hasAutoNavigatedRef,
+    navigationInitiatedRef,
   ]);
 
   // Surface filter/loading state notifications via toast.

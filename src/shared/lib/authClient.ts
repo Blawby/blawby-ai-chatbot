@@ -2,7 +2,7 @@ import { createAuthClient } from 'better-auth/react';
 import { organizationClient } from 'better-auth/client/plugins';
 import { anonymousClient } from 'better-auth/client/plugins';
 import { stripeClient } from '@better-auth/stripe/client';
-import type { BackendSessionUser, AuthSessionPayload } from '@/shared/types/user';
+import type { SessionUser, AuthSessionPayload } from '@/shared/types/user';
 import { safeConvertToDate, validateRequiredFields } from '@/shared/types/user';
 import { getWorkerApiUrl } from '@/config/urls';
 
@@ -232,7 +232,7 @@ function unwrapSessionData(d: unknown): AuthSessionPayload | null {
 
     return {
       session: normalizedSession,
-      user: normalizedUser as unknown as BackendSessionUser,
+      user: normalizedUser as unknown as SessionUser,
     } as AuthSessionPayload;
   };
 
@@ -258,7 +258,7 @@ export const getSession = async (...args: Parameters<AuthClientType['getSession'
   return unwrapSessionData(result);
 };
 type UpdateUserArgs = Parameters<AuthClientType['updateUser']>;
-type UpdateUserInput = Partial<BackendSessionUser> & Record<string, unknown>;
+type UpdateUserInput = Partial<SessionUser> & Record<string, unknown>;
 type UpdateUserFn = (data: UpdateUserInput, options?: UpdateUserArgs[1]) => ReturnType<AuthClientType['updateUser']>;
 
 export const updateUser: UpdateUserFn = (data, options) =>
