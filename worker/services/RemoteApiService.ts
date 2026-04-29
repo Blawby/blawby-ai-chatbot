@@ -8,6 +8,7 @@ import { redactSensitiveFields } from '../utils/redactResponse.js';
 import { policyTtlMs } from '../utils/cachePolicy.js';
 import { validateWire } from '../utils/validateWire.js';
 import { PracticeSchema } from '../types/wire/practice.js';
+import { BackendIntakeConvertResponseSchema } from '../types/wire/intake.js';
 import { canAssignTeamMemberToMatter, isTeamRole, type PracticeTeamResponse } from '../../src/shared/types/team.js';
 
 /**
@@ -858,25 +859,24 @@ export class RemoteApiService {
       }
     );
 
-    const parsed = await response.json().catch(() => null) as {
-      success?: boolean;
-      data?: Record<string, unknown>;
-    } | null;
-
-    if (!parsed || typeof parsed !== 'object' || parsed.success !== true || !parsed.data || typeof parsed.data !== 'object') {
+    const json = await response.json().catch(() => null);
+    if (!json) {
       throw HttpErrors.badGateway('Invalid convert intake response from remote API');
     }
-
-    const matterId = typeof parsed.data.matter_id === 'string' ? parsed.data.matter_id : '';
-    if (!matterId) {
+    const parsed = validateWire(
+      BackendIntakeConvertResponseSchema,
+      json,
+      'convertIntake.response',
+      { strict: false },
+    );
+    if (parsed.success !== true || !parsed.data?.matter_id) {
       throw HttpErrors.badGateway('Remote API convert response missing matter_id');
     }
-
     return {
-      matter_id: matterId,
-      matter_status: typeof parsed.data.matter_status === 'string' ? parsed.data.matter_status : undefined,
-      conversation_id: typeof parsed.data.conversation_id === 'string' ? parsed.data.conversation_id : undefined,
-      invite_sent: typeof parsed.data.invite_sent === 'boolean' ? parsed.data.invite_sent : undefined
+      matter_id: parsed.data.matter_id,
+      matter_status: parsed.data.matter_status,
+      conversation_id: parsed.data.conversation_id,
+      invite_sent: parsed.data.invite_sent,
     };
   }
 

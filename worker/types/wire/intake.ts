@@ -56,3 +56,19 @@ export const BackendIntakeCreateResponseSchema = z.object({
   error: z.string().optional(),
 });
 export type BackendIntakeCreateResponse = z.infer<typeof BackendIntakeCreateResponseSchema>;
+
+/**
+ * Response from POST /api/practice-client-intakes/:uuid/convert.
+ * Backend creates a Matter from a paid intake and returns the IDs.
+ */
+export const BackendIntakeConvertResponseSchema = z.object({
+  success: z.boolean(),
+  data: z.object({
+    matter_id: z.string(),
+    matter_status: z.string().optional(),
+    conversation_id: z.string().optional(),
+    invite_sent: z.boolean().optional(),
+  }).passthrough(),
+  error: z.string().optional(),
+});
+export type BackendIntakeConvertResponse = z.infer<typeof BackendIntakeConvertResponseSchema>;
