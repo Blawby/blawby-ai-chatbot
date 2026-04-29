@@ -47,7 +47,6 @@ const US_STATE_NAME_TO_CODE: Record<string, string> = {
 export function buildSaveCaseDetailsTool(fields: IntakeFieldDefinition[]) {
   const activeFields = fields.length > 0 ? fields : DEFAULT_INTAKE_TEMPLATE.fields;
   const properties: Record<string, object> = {};
-  const required: string[] = [];
 
   for (const field of activeFields) {
     if (field.type === 'select' && Array.isArray(field.options) && field.options.length > 0) {
@@ -78,10 +77,6 @@ export function buildSaveCaseDetailsTool(fields: IntakeFieldDefinition[]) {
         description: field.label,
       };
     }
-
-    if (field.required) {
-      required.push(field.key);
-    }
   }
 
   // Always include practiceServiceUuid even if not in a custom template
@@ -101,7 +96,7 @@ export function buildSaveCaseDetailsTool(fields: IntakeFieldDefinition[]) {
       parameters: {
         type: 'object',
         properties,
-        required: required.length > 0 ? required : ['description', 'city', 'state'],
+        required: [],
       },
     },
   } as const;
@@ -123,12 +118,11 @@ export function buildFieldInstructions(fields: IntakeFieldDefinition[]): string 
       f.type === 'select' && Array.isArray(f.options) && f.options.length > 0
         ? ` Options: ${f.options.join(', ')}.`
         : '';
-    const hint = f.promptHint ? ` Guidance: ${f.promptHint}` : '';
     const validation = f.validationHint ? ` Valid answer: ${f.validationHint}` : '';
     const cond = f.condition
       ? ` Only ask if ${f.condition.dependsOn} is "${f.condition.value}".`
       : '';
-    return `- ${questionText} ${req}${opts}${hint}${validation}${cond}`;
+    return `- ${questionText} ${req}${opts}${validation}${cond}`;
   }).join('\n');
 }
 
@@ -568,10 +562,6 @@ export const buildIntakeSystemPrompt = (
           : activeField.type === 'number'
             ? '\n  Expect a numeric answer.'
             : '';
-    // Use practice-defined hint if provided; fall back to a contextual default
-    // so the AI has direction even when no custom hint is set.
-    const defaultHint = `Ask for the client's ${activeField.label.toLowerCase()} in a warm, natural way. Keep it to one sentence.`;
-    const guidance = `\n  Guidance: ${activeField.promptHint?.trim() || defaultHint}`;
     const validation = activeField.validationHint ? `\n  Valid answer: ${activeField.validationHint}` : '';
     const condNote = activeField.condition
       ? `\n  Context: only relevant when ${activeField.condition.dependsOn} is "${activeField.condition.value}"` 
@@ -579,10 +569,10 @@ export const buildIntakeSystemPrompt = (
     return `Your ONLY job this turn is to ask about ONE field:
   Field: ${activeField.label}
   Key: ${activeField.key}
-  Type: ${activeField.type}${typeHint}${guidance}${validation}${condNote}
+  Type: ${activeField.type}${typeHint}${validation}${condNote}
 
 Ask about this field naturally in one or two sentences.${userNamingInstruction}
-When the user answers, call save_case_details with { ${activeField.key}: <answer> }.
+When the user answers, call save_case_details with the answered field. If the user provides multiple field values in one response (e.g. city and state together), include all of them in the same save_case_details call.
 If the answer is unclear or invalid, ask exactly ONE clarifying follow-up.
 Never ask about any other field this turn.`;
   })() : isEnrichmentMode
@@ -768,13 +758,14 @@ const deriveCaseSavedAcknowledgment = (
 
   const userPart = userName ? `, ${getFirstName(userName)}` : '';
 
-  // Enrichment mode — prompt hint from the field definition beats generic phrasing.
+  // Enrichment mode — use previewQuestion or fallback to generic phrasing.
   // Only used when the turn was tool-only (no model text); usually the AI handles this.
   if (isEnrichmentMode && nextEnrichmentField) {
-    const hint = nextEnrichmentField.promptHint
-      ? nextEnrichmentField.promptHint
+    const questionText = nextEnrichmentField.isStandard ? (nextEnrichmentField.previewQuestion?.trim() || nextEnrichmentField.label) : nextEnrichmentField.label;
+    const finalQuestion = nextEnrichmentField.previewQuestion?.trim() 
+      ? questionText
       : `Can you tell me about ${nextEnrichmentField.label.toLowerCase()}?`;
-    return `Thanks${userPart}. ${hint}`;
+    return `Thanks${userPart}. ${finalQuestion}`;
   }
 
   if (isEnrichmentMode && !nextEnrichmentField && isReady) {
@@ -796,10 +787,11 @@ const deriveCaseSavedAcknowledgment = (
   }
 
   if (nextRequiredField) {
-    const hint = nextRequiredField.promptHint
-      ? nextRequiredField.promptHint
+    const questionText = nextRequiredField.isStandard ? (nextRequiredField.previewQuestion?.trim() || nextRequiredField.label) : nextRequiredField.label;
+    const finalQuestion = nextRequiredField.previewQuestion?.trim() 
+      ? questionText
       : `Can you tell me the ${nextRequiredField.label.toLowerCase()}?`;
-    return `Got it${userPart}. ${hint}`;
+    return `Got it${userPart}. ${finalQuestion}`;
   }
 
   return `Got it${userPart}. Is there anything else you'd like to add?`;

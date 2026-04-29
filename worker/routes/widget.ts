@@ -1,6 +1,7 @@
 import { Env } from '../types.js';
 import { HttpErrors } from '../errorHandler.js';
 import { RemoteApiService } from '../services/RemoteApiService.js';
+import { Logger } from '../utils/logger.js';
 import { ConversationService } from '../services/ConversationService.js';
 import {
   extractWidgetTokenFromRequest,
@@ -79,15 +80,43 @@ export async function handleWidgetBootstrap(request: Request, env: Env): Promise
 
   // 2. Manage Session (Check session, if none, do anon sign-in)
   let responseCookies: string[] = [];
-  let sessionData: unknown = null;
+  let cookieSessionData: { user?: { id?: string; is_anonymous?: boolean }; session?: { id?: string } } | null = null;
+  let tokenSessionData: { user?: { id?: string; is_anonymous?: boolean }; session?: { id?: string } } | null = null;
   const requestedWidgetToken = extractWidgetTokenFromRequest(request);
   let validatedWidgetTokenSource: 'authorization' | 'query' | null = null;
 
+  // First, check for a valid session via cookies
+  try {
+    const sessionController = new AbortController();
+    const sessionTimer = setTimeout(() => sessionController.abort(), 5000);
+
+    try {
+      const sessionRes = await fetch(`${env.BACKEND_API_URL}/api/auth/get-session`, {
+        headers: upstreamHeaders,
+        signal: sessionController.signal
+      });
+      if (sessionRes.ok) {
+        cookieSessionData = await sessionRes.json().catch(() => null);
+      } else if (sessionRes.status !== 401 && sessionRes.status !== 404) {
+        const errorText = await sessionRes.text().catch(() => '');
+        Logger.warn('[Bootstrap] Optional session check failed', { 
+          status: sessionRes.status,
+          error: errorText 
+        });
+      }
+    } finally {
+      clearTimeout(sessionTimer);
+    }
+  } catch (err) {
+    Logger.warn('[Bootstrap] Session check error ignored', { error: err instanceof Error ? err.message : String(err) });
+  }
+
+  // Second, try to validate the widget token if provided
   if (requestedWidgetToken) {
     try {
       const validatedToken = await validateWidgetAuthToken(requestedWidgetToken.token, env);
       validatedWidgetTokenSource = requestedWidgetToken.tokenSource;
-      sessionData = {
+      tokenSessionData = {
         user: {
           id: validatedToken.userId,
           is_anonymous: true,
@@ -96,106 +125,98 @@ export async function handleWidgetBootstrap(request: Request, env: Env): Promise
           id: validatedToken.sessionId,
         },
       };
+
+      // IDENTITY RECONCILIATION:
+      // If we have both, they MUST match. If they don't (e.g. cookie cleared but token remains),
+      // we must trust the cookie/session state (which is the source of truth for the browser's 
+      // current identity) and discard the stale token.
+      if (cookieSessionData?.user?.id && tokenSessionData?.user?.id && cookieSessionData.user.id !== tokenSessionData.user.id) {
+        Logger.info('[Bootstrap] Identity mismatch detected; discarding stale widget token', {
+          cookieUserId: cookieSessionData.user.id,
+          tokenUserId: tokenSessionData.user.id
+        });
+        tokenSessionData = null;
+      }
     } catch {
-      // Invalid/expired widget token should not fail bootstrap; fall back to
-      // cookie/anonymous session bootstrap flow.
+      // Invalid/expired widget token falls through
     }
   }
 
-  if (!sessionData) {
+  // Final session selection: Prefer the recovered token session (if it matched or was standalone),
+  // otherwise use the cookie session.
+  let sessionData = tokenSessionData || cookieSessionData;
+
+  // Typing session data for subsequent logic
+  const typedSessionData = sessionData as { user?: { id?: string; is_anonymous?: boolean } } | null;
+
+
+  if (!typedSessionData?.user) {
     try {
-      const sessionController = new AbortController();
-      const sessionTimer = setTimeout(() => sessionController.abort(), 5000);
+      // Need anonymous signin
+      const anonHeaders = new Headers(upstreamHeaders);
+      if (!anonHeaders.has('Content-Type')) {
+        anonHeaders.set('Content-Type', 'application/json');
+      }
+      
+      const anonController = new AbortController();
+      const anonTimer = setTimeout(() => anonController.abort(), 5000);
 
       try {
-        const sessionRes = await fetch(`${env.BACKEND_API_URL}/api/auth/get-session`, {
-          headers: upstreamHeaders,
-          signal: sessionController.signal
+        const anonRes = await fetch(`${env.BACKEND_API_URL}/api/auth/sign-in/anonymous`, {
+          method: 'POST',
+          headers: anonHeaders,
+          body: '{}',
+          signal: anonController.signal
         });
-        if (sessionRes.ok) {
-          sessionData = await sessionRes.json().catch(() => null);
-        } else if (sessionRes.status === 401 || sessionRes.status === 404) {
-          sessionData = null;
-        } else {
-          const errorText = await sessionRes.text().catch(() => '');
-          throw HttpErrors.badGateway(
-            `[Bootstrap] Session check failed: ${sessionRes.status}${errorText ? ` - ${errorText}` : ''}`
-          );
-        }
-      } finally {
-        clearTimeout(sessionTimer);
-      }
-
-      // Typing session data
-      const typedSessionData = sessionData as { user?: { id?: string; is_anonymous?: boolean } } | null;
-
-      if (!typedSessionData?.user) {
-        // Need anonymous signin
-        const anonHeaders = new Headers(upstreamHeaders);
-        if (!anonHeaders.has('Content-Type')) {
-          anonHeaders.set('Content-Type', 'application/json');
-        }
-        
-        const anonController = new AbortController();
-        const anonTimer = setTimeout(() => anonController.abort(), 5000);
-
-        try {
-          const anonRes = await fetch(`${env.BACKEND_API_URL}/api/auth/sign-in/anonymous`, {
-            method: 'POST',
-            headers: anonHeaders,
-            body: '{}',
-            signal: anonController.signal
-          });
-          if (!anonRes.ok) {
-            const errorText = await anonRes.text().catch(() => '');
-            if (anonRes.status === 429) {
-              throw HttpErrors.tooManyRequests(
-                `[Bootstrap] Anonymous sign-in failed: 429${errorText ? ` - ${errorText}` : ''}`
-              );
-            }
-            throw HttpErrors.badGateway(
-              `[Bootstrap] Anonymous sign-in failed: ${anonRes.status}${errorText ? ` - ${errorText}` : ''}`
+        if (!anonRes.ok) {
+          const errorText = await anonRes.text().catch(() => '');
+          if (anonRes.status === 429) {
+            throw HttpErrors.tooManyRequests(
+              `[Bootstrap] Anonymous sign-in failed: 429${errorText ? ` - ${errorText}` : ''}`
             );
           }
-          
-          const setCookieHeaders = anonRes.headers.getSetCookie 
-            ? anonRes.headers.getSetCookie() 
-            : (anonRes.headers.get('set-cookie') ? [anonRes.headers.get('set-cookie') as string] : []);
-          
-          responseCookies = responseCookies.concat(setCookieHeaders);
-          sessionData = await anonRes.json().catch(() => null);
-
-          // After anonymous sign-in the upstream may return only a `user` object
-          // and set a session cookie. Fetch the session wrapper using that
-          // cookie so `session.id` is available to downstream logic.
-          try {
-            const cookieHeader = setCookieHeaders.map(c => c.split(';')[0]).join('; ');
-            if (cookieHeader) {
-              const followHeaders = Object.assign({}, upstreamHeaders);
-              followHeaders['Cookie'] = cookieHeader;
-              const followController = new AbortController();
-              const followTimer = setTimeout(() => followController.abort(), 5000);
-              try {
-                const followRes = await fetch(`${env.BACKEND_API_URL}/api/auth/get-session`, {
-                  headers: followHeaders,
-                  signal: followController.signal
-                }).catch(() => null);
-                if (followRes && followRes.ok) {
-                  const followed = await followRes.json().catch(() => null);
-                  if (followed) {
-                    sessionData = followed;
-                  }
-                }
-              } finally {
-                clearTimeout(followTimer);
-              }
-            }
-          } catch (_e) {
-            // If we fail to follow-up, keep the original anon payload (user only)
-          }
-        } finally {
-          clearTimeout(anonTimer);
+          throw HttpErrors.badGateway(
+            `[Bootstrap] Anonymous sign-in failed: ${anonRes.status}${errorText ? ` - ${errorText}` : ''}`
+          );
         }
+        
+        const setCookieHeaders = anonRes.headers.getSetCookie 
+          ? anonRes.headers.getSetCookie() 
+          : (anonRes.headers.get('set-cookie') ? [anonRes.headers.get('set-cookie') as string] : []);
+        
+        responseCookies = responseCookies.concat(setCookieHeaders);
+        sessionData = await anonRes.json().catch(() => null);
+
+        // After anonymous sign-in the upstream may return only a `user` object
+        // and set a session cookie. Fetch the session wrapper using that
+        // cookie so `session.id` is available to downstream logic.
+        try {
+          const cookieHeader = setCookieHeaders.map(c => c.split(';')[0]).join('; ');
+          if (cookieHeader) {
+            const followHeaders = Object.assign({}, upstreamHeaders);
+            followHeaders['Cookie'] = cookieHeader;
+            const followController = new AbortController();
+            const followTimer = setTimeout(() => followController.abort(), 5000);
+            try {
+              const followRes = await fetch(`${env.BACKEND_API_URL}/api/auth/get-session`, {
+                headers: followHeaders,
+                signal: followController.signal
+              }).catch(() => null);
+              if (followRes && followRes.ok) {
+                const followed = await followRes.json().catch(() => null);
+                if (followed) {
+                  sessionData = followed;
+                }
+              }
+            } finally {
+              clearTimeout(followTimer);
+            }
+          }
+        } catch (_e) {
+          // If we fail to follow-up, keep the original anon payload (user only)
+        }
+      } finally {
+        clearTimeout(anonTimer);
       }
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') {
@@ -204,6 +225,7 @@ export async function handleWidgetBootstrap(request: Request, env: Env): Promise
       throw err;
     }
   }
+
 
   // 3. Wait for practice details
   const practiceDetails = await getPracticeDetails as Record<string, unknown>;
