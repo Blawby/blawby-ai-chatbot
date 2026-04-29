@@ -87,7 +87,7 @@ import { getPracticeIntake } from '@/features/intake/api/intakesApi';
 import { resolveIntakeTitle } from '@/features/intake/utils/intakeTitle';
 import { getOnboardingStatus, listUserDetails, type UserDetailRecord } from '@/shared/lib/apiClient';
 import { getConversation } from '@/shared/lib/conversationApi';
-import { invalidateMattersForPractice } from '@/shared/stores/mattersStore';
+import { queryCache } from '@/shared/lib/queryCache';
 import { normalizePracticeOnboardingStatus } from '@/features/practice/types/onboarding.types';
 import {
   buildActivityTimelineItem,
@@ -961,7 +961,7 @@ export const PracticeMattersPage = ({
     if (values.practiceAreaId && !isUuid(values.practiceAreaId)) throw new Error(`Invalid practice_service_id UUID: "${values.practiceAreaId}"`);
 
     const created = await createMatter(activePracticeId, prunePayload(buildCreatePayload(values)));
-    invalidateMattersForPractice(activePracticeId);
+    queryCache.invalidate(`matters:${activePracticeId}:`, /* prefix */ true);
     refreshMatters();
     createdMatterIdRef.current = created?.id ?? null;
   }, [activePracticeId, refreshMatters]);
@@ -1010,7 +1010,7 @@ export const PracticeMattersPage = ({
       throw new Error('Intake conversion response did not include a matter ID.');
     }
 
-    invalidateMattersForPractice(activePracticeId);
+    queryCache.invalidate(`matters:${activePracticeId}:`, /* prefix */ true);
     refreshMatters();
     createdMatterIdRef.current = matterId;
   }, [activePracticeId, convertIntakeUuid, refreshMatters]);
@@ -1025,7 +1025,7 @@ export const PracticeMattersPage = ({
       selectedMatterId,
       prunePayload(buildUpdatePayload(values, selectedMatterDetail?.status))
     );
-    invalidateMattersForPractice(activePracticeId);
+    queryCache.invalidate(`matters:${activePracticeId}:`, /* prefix */ true);
     refreshMatters();
     await refreshSelectedMatter();
   }, [activePracticeId, selectedMatterId, selectedMatterDetail?.status, refreshMatters, refreshSelectedMatter]);
@@ -1630,7 +1630,7 @@ export const PracticeMattersPage = ({
       await updateMatter(activePracticeId, selectedMatterId, {
         settlement_amount: settlementDraft
       });
-      invalidateMattersForPractice(activePracticeId);
+      queryCache.invalidate(`matters:${activePracticeId}:`, /* prefix */ true);
       refreshMatters();
       setSelectedMatterDetail((prev) => prev ? { ...prev, settlementAmount: settlementDraft } : prev);
       setIsSettlementModalOpen(false);
@@ -1665,7 +1665,7 @@ export const PracticeMattersPage = ({
       selectedMatterId,
       prunePayload(buildUpdatePayload(merged, selectedMatterDetail.status))
     );
-    invalidateMattersForPractice(activePracticeId);
+    queryCache.invalidate(`matters:${activePracticeId}:`, /* prefix */ true);
     refreshMatters();
     await refreshSelectedMatter();
   }, [activePracticeId, selectedMatterId, selectedMatterDetail, refreshMatters, refreshSelectedMatter]);
