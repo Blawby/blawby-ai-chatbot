@@ -43,6 +43,7 @@ export default defineConfig({
           include: [
             'tests/unit/**/*.test.{ts,tsx,js,jsx}',
             'tests/unit/**/*.spec.{ts,tsx,js,jsx}',
+            'tests/unit/**/*.test-d.ts',
             'src/hooks/__tests__/useMattersSidebar.test.ts',
             'src/hooks/__tests__/useOrganizationManagement.test.ts',
             'src/utils/__tests__/deepEqual.test.ts',
