@@ -64,17 +64,21 @@ export const edgeCache = {
   /**
    * Invalidate one key (exact) or all keys with the given prefix.
    * Bumps the generation for matching keys so any in-flight responses
-   * captured before the call are silently dropped on arrival.
+   * captured before the call are silently dropped on arrival. The bump
+   * covers BOTH cached and currently-in-flight keys, otherwise an
+   * invalidate-during-fetch race would let the resolving fetcher write
+   * a stale value.
    */
   invalidate(key: string, prefix = false): void {
     const match = (k: string) => prefix ? k.startsWith(key) : k === key;
-    for (const k of cache.keys()) {
-      if (match(k)) {
-        generations.set(k, (generations.get(k) ?? globalGeneration) + 1);
-        cache.delete(k);
-      }
+    const matched = new Set<string>();
+    for (const k of cache.keys()) if (match(k)) matched.add(k);
+    for (const k of inflight.keys()) if (match(k)) matched.add(k);
+    for (const k of matched) {
+      generations.set(k, (generations.get(k) ?? globalGeneration) + 1);
+      cache.delete(k);
+      inflight.delete(k);
     }
-    for (const k of inflight.keys()) if (match(k)) inflight.delete(k);
   },
 
   /** Wipe everything — use sparingly. */
