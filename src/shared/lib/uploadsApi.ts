@@ -1,5 +1,5 @@
 import { getWorkerApiUrl } from '@/config/urls';
-import { withWidgetAuthHeaders } from '@/shared/utils/widgetAuth';
+import { apiClient, isHttpError } from '@/shared/lib/apiClient';
 
 export interface UploadProgress {
   loaded: number;
@@ -97,15 +97,13 @@ const buildWorkerUrl = (path: string): string => {
   return new URL(path, baseUrl).toString();
 };
 
-const readErrorMessage = async (response: Response, fallback: string): Promise<string> => {
-  try {
-    const payload = await response.json() as { error?: string; message?: string };
-    if (typeof payload.message === 'string' && payload.message.trim()) return payload.message;
-    if (typeof payload.error === 'string' && payload.error.trim()) return payload.error;
-  } catch {
-    // Ignore parse errors and fall through to the fallback.
+const readApiErrorMessage = (error: unknown, fallback: string): string => {
+  if (isHttpError(error)) {
+    const payload = error.response.data as { error?: string; message?: string } | undefined;
+    if (typeof payload?.message === 'string' && payload.message.trim()) return payload.message;
+    if (typeof payload?.error === 'string' && payload.error.trim()) return payload.error;
   }
-
+  if (error instanceof Error && error.message) return error.message;
   return fallback;
 };
 
@@ -181,34 +179,29 @@ const uploadViaPresignedUrl = async (
 };
 
 const presignUpload = async (request: PresignUploadRequest, signal?: AbortSignal): Promise<PresignUploadResponse> => {
-  const response = await fetch(buildWorkerUrl('/api/uploads/presign'), {
-    method: 'POST',
-    headers: withWidgetAuthHeaders({ 'Content-Type': 'application/json' }),
-    credentials: 'include',
-    body: JSON.stringify(request),
-    signal,
-  });
-
-  if (!response.ok) {
-    throw new Error(await readErrorMessage(response, 'Failed to prepare upload.'));
+  try {
+    const { data } = await apiClient.post<PresignUploadResponse>(
+      buildWorkerUrl('/api/uploads/presign'),
+      request,
+      { signal },
+    );
+    return data;
+  } catch (error) {
+    throw new Error(readApiErrorMessage(error, 'Failed to prepare upload.'));
   }
-
-  return await response.json() as PresignUploadResponse;
 };
 
 const confirmUpload = async (uploadId: string, signal?: AbortSignal): Promise<ConfirmUploadResponse> => {
-  const response = await fetch(buildWorkerUrl(`/api/uploads/${encodeURIComponent(uploadId)}/confirm`), {
-    method: 'POST',
-    headers: withWidgetAuthHeaders(),
-    credentials: 'include',
-    signal,
-  });
-
-  if (!response.ok) {
-    throw new Error(await readErrorMessage(response, 'Failed to confirm upload.'));
+  try {
+    const { data } = await apiClient.post<ConfirmUploadResponse>(
+      buildWorkerUrl(`/api/uploads/${encodeURIComponent(uploadId)}/confirm`),
+      undefined,
+      { signal },
+    );
+    return data;
+  } catch (error) {
+    throw new Error(readApiErrorMessage(error, 'Failed to confirm upload.'));
   }
-
-  return await response.json() as ConfirmUploadResponse;
 };
 
 // Wire type lives in worker/types/wire/upload.ts (single source of truth).
@@ -228,23 +221,18 @@ export const listMatterUploads = async ({
   subContext,
   signal,
 }: ListUploadsParams): Promise<BackendUploadRecord[]> => {
-  const url = new URL(buildWorkerUrl('/api/uploads'));
-  url.searchParams.set('matter_id', matterId);
-  if (subContext) url.searchParams.set('sub_context', subContext);
+  const params: Record<string, string> = { matter_id: matterId };
+  if (subContext) params.sub_context = subContext;
 
-  const response = await fetch(url.toString(), {
-    method: 'GET',
-    headers: withWidgetAuthHeaders(),
-    credentials: 'include',
-    signal,
-  });
-
-  if (!response.ok) {
-    throw new Error(await readErrorMessage(response, 'Failed to list uploads.'));
+  try {
+    const { data } = await apiClient.get<{ data?: BackendUploadRecord[] } | BackendUploadRecord[]>(
+      buildWorkerUrl('/api/uploads'),
+      { params, signal },
+    );
+    return Array.isArray(data) ? data : (data.data ?? []);
+  } catch (error) {
+    throw new Error(readApiErrorMessage(error, 'Failed to list uploads.'));
   }
-
-  const data = await response.json() as { data?: BackendUploadRecord[] } | BackendUploadRecord[];
-  return Array.isArray(data) ? data : (data.data ?? []);
 };
 
 export const uploadFileViaBackend = async ({
