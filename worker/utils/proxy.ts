@@ -1,21 +1,19 @@
 /**
  * Shared proxy infrastructure for the worker's BFF passthrough routes.
  *
- * Both `handleAuthProxy` and `handleBackendProxy` need to:
- *   1. Resolve the original client host so Set-Cookie domains are correct
- *      regardless of where Cloudflare terminated the connection.
- *   2. Rewrite Set-Cookie `domain=` to the request's base domain (or
- *      strip it for `__Host-` prefixed cookies).
- *   3. Optionally add debug-only X-Debug-* headers describing the cookie
- *      shape, gated on env.DEBUG && !production.
+ * `proxy()` is the single entry point — handles BACKEND_API_URL rewrite,
+ * header passthrough, body forwarding, error-response redaction logging,
+ * Set-Cookie domain normalization, and optional debug headers.
  *
- * Centralizing here means there's one implementation to audit. Callers
- * that need the BACKEND_API_URL forwarder still build their own fetch
- * — this module is the cookie/header utilities, not the fetch itself.
+ * Both `handleAuthProxy` and `handleBackendProxy` are thin wrappers
+ * around `proxy()` with their own pre-checks (path match, env config,
+ * optional cache layer) and post-hooks (debug body logging,
+ * cache invalidation).
  */
 
 import { getDomain } from 'tldts';
 import type { Env } from '../types.js';
+import { redactErrorResponseBody } from './redactResponse.js';
 
 const DOMAIN_PATTERN = /;\s*domain=[^;]+/i;
 
@@ -190,3 +188,123 @@ export const appendDebugHeaders = (
     console.warn('[proxy] failed to add debug headers', err);
   }
 };
+
+export interface ProxyOptions {
+  /** Short label for error logs, e.g. 'Auth Proxy', 'Backend Proxy'. */
+  label: string;
+  /**
+   * Optional URL transform (e.g. add a query parameter resolved from auth
+   * context). The default sends path + search untouched to BACKEND_API_URL.
+   * May be async if the transform depends on a remote auth lookup.
+   */
+  transformUrl?: (url: URL) => URL | Promise<URL>;
+  /**
+   * Optional hook called immediately before the upstream fetch, with the
+   * resolved request init. Use for debug-payload logging or last-second
+   * header tweaks. Receives the parsed body when body is JSON.
+   */
+  onBeforeFetch?: (init: RequestInit, url: URL) => void | Promise<void>;
+  /** Skip the X-Debug-* response headers even in dev. Default: false. */
+  skipDebugHeaders?: boolean;
+}
+
+export interface ProxyResult {
+  /** The rewritten Response ready to return to the client. */
+  response: Response;
+  /** Whether the upstream included Set-Cookie. Useful for cache decisions. */
+  hasSetCookie: boolean;
+  /** Upstream response status — convenience accessor. */
+  status: number;
+}
+
+/**
+ * Forward a request to BACKEND_API_URL and rewrite the response for the
+ * client. The single canonical proxy implementation:
+ *
+ *   1. Resolve target = BACKEND_API_URL + path + search (with optional
+ *      `transformUrl` hook).
+ *   2. Forward request headers (Cookie, Authorization, etc.) and body
+ *      (for non-GET/HEAD).
+ *   3. Run the optional `onBeforeFetch` hook.
+ *   4. Fetch upstream.
+ *   5. On non-2xx with JSON content: log a redacted error snippet via
+ *      `redactErrorResponseBody`.
+ *   6. Build response headers via `buildProxyHeaders` (Set-Cookie
+ *      domain normalization).
+ *   7. Append debug X-Debug-* headers in non-prod when env.DEBUG is set.
+ *
+ * Replaces the duplicate request/response handling that lived inline
+ * in handleAuthProxy and handleBackendProxy.
+ */
+export async function proxy(
+  request: Request,
+  env: Env,
+  options: ProxyOptions,
+): Promise<ProxyResult> {
+  if (!env.BACKEND_API_URL) {
+    throw new Error(`${options.label}: BACKEND_API_URL must be configured`);
+  }
+
+  const url = new URL(request.url);
+  const requestHost = resolveRequestHost(request);
+  const targetUrl = options.transformUrl
+    ? await options.transformUrl(new URL(url.toString()))
+    : url;
+  const upstreamUrl = new URL(targetUrl.pathname + targetUrl.search, env.BACKEND_API_URL);
+
+  const method = request.method.toUpperCase();
+  const headers = new Headers(request.headers);
+
+  const init: RequestInit = {
+    method,
+    headers,
+    redirect: 'manual',
+  };
+
+  if (method !== 'GET' && method !== 'HEAD') {
+    init.body = await request.arrayBuffer();
+  }
+
+  if (options.onBeforeFetch) {
+    await options.onBeforeFetch(init, upstreamUrl);
+  }
+
+  const upstream = await fetch(upstreamUrl.toString(), init);
+
+  if (!upstream.ok) {
+    let snippet = 'response body withheld';
+    const contentType = upstream.headers.get('Content-Type') || '';
+    if (contentType.includes('application/json')) {
+      try {
+        const json = await upstream.clone().json() as unknown;
+        snippet = JSON.stringify(redactErrorResponseBody(json));
+      } catch {
+        // Fall through.
+      }
+    }
+    console.error(`[${options.label}] ${method} ${url.pathname}`, {
+      status: upstream.status,
+      statusText: upstream.statusText,
+      hasRequestBody: Boolean(init.body),
+      contentType,
+      hasAuthorization: Boolean(headers.get('Authorization')),
+      responseSnippet: snippet.slice(0, 500),
+    });
+  }
+
+  const { headers: proxyHeaders, hasSetCookie } = buildProxyHeaders(upstream, requestHost);
+  if (!options.skipDebugHeaders) {
+    appendDebugHeaders(proxyHeaders, upstream, request, env);
+  }
+
+  return {
+    response: new Response(upstream.body, {
+      status: upstream.status,
+      statusText: upstream.statusText,
+      headers: proxyHeaders,
+    }),
+    hasSetCookie,
+    status: upstream.status,
+  };
+}
+

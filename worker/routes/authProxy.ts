@@ -4,9 +4,9 @@ import { optionalAuth } from '../middleware/auth.js';
 import { invalidatePracticeDetailsCache } from '../utils/practiceDetailsCache.js';
 import { edgeCache } from '../utils/edgeCache.js';
 import { Logger } from '../utils/logger.js';
-import { redactErrorResponseBody, redactSensitiveFields } from '../utils/redactResponse.js';
+import { redactSensitiveFields } from '../utils/redactResponse.js';
 import { policyTtlMs } from '../utils/cachePolicy.js';
-import { resolveRequestHost, buildProxyHeaders, appendDebugHeaders } from '../utils/proxy.js';
+import { proxy } from '../utils/proxy.js';
 
 const AUTH_PATH_PREFIX = '/api/auth';
 const SUBSCRIPTIONS_CURRENT_PATH = '/api/subscriptions/current';
@@ -38,60 +38,11 @@ export async function handleAuthProxy(request: Request, env: Env): Promise<Respo
   if (!url.pathname.startsWith(AUTH_PATH_PREFIX)) {
     throw HttpErrors.notFound('Auth proxy route not found');
   }
-
   if (!env.BACKEND_API_URL) {
     throw HttpErrors.internalServerError('BACKEND_API_URL must be configured for auth proxy');
   }
-
-  const method = request.method.toUpperCase();
-  const requestHost = resolveRequestHost(request);
-  const targetUrl = new URL(url.pathname + url.search, env.BACKEND_API_URL);
-  const headers = new Headers(request.headers);
-
-  const init: globalThis.RequestInit = {
-    method,
-    headers,
-    redirect: 'manual'
-  };
-
-  if (method !== 'GET' && method !== 'HEAD') {
-    init.body = await request.arrayBuffer();
-  }
-
-  const response = await fetch(targetUrl.toString(), init);
-
-  if (!response.ok) {
-    let responseSnippet = 'response body withheld';
-    const contentType = response.headers.get('Content-Type') || '';
-    
-    if (contentType.includes('application/json')) {
-      try {
-        const json = await response.clone().json() as unknown;
-        responseSnippet = JSON.stringify(redactErrorResponseBody(json));
-      } catch {
-        // Fallback to "withheld" if parsing fails
-      }
-    }
-
-    console.error(`[Auth Proxy Error] ${method} ${url.pathname}`, {
-      status: response.status,
-      statusText: response.statusText,
-      hasRequestBody: Boolean(init.body),
-      contentType,
-      hasAuthorization: Boolean(headers.get('Authorization')),
-      responseSnippet: responseSnippet.slice(0, 500)
-    });
-  }
-
-  const { headers: proxyHeaders } = buildProxyHeaders(response, requestHost);
-
-  appendDebugHeaders(proxyHeaders, response, request, env);
-
-  return new Response(response.body, {
-    status: response.status,
-    statusText: response.statusText,
-    headers: proxyHeaders
-  });
+  const { response } = await proxy(request, env, { label: 'Auth Proxy' });
+  return response;
 }
 
 const isBackendProxyPath = (path: string): boolean =>
@@ -127,141 +78,85 @@ export async function handleBackendProxy(request: Request, env: Env): Promise<Re
   }
 
   const method = request.method.toUpperCase();
-  const requestHost = resolveRequestHost(request);
   const isSubscriptionsPlansRequest = method === 'GET' && url.pathname === SUBSCRIPTIONS_PLANS_PATH;
+
+  // Pre-resolve auth for the subscriptions/plans cache key (anonymous vs. user-scoped).
   let plansAuthContext: Awaited<ReturnType<typeof optionalAuth>> | null = null;
   if (isSubscriptionsPlansRequest) {
     try {
       plansAuthContext = await optionalAuth(request, env);
     } catch (error) {
-      // Log auth errors for subscriptions plans endpoint
-      // Distinguish between transient errors and invalid token errors
+      // Transient or invalid-token failures both fall back to anonymous so we
+      // serve a fresh/cached response rather than 500 the request.
       const errorMessage = error instanceof Error ? error.message : String(error);
-      const isTransientError = 
-        errorMessage.includes('network') || 
-        errorMessage.includes('timeout') || 
-        errorMessage.includes('ECONNREFUSED') ||
-        errorMessage.includes('Connection');
-      
-      if (isTransientError) {
-        console.error(
-          `[authProxy] Transient auth error for ${url.pathname}:`,
-          { message: errorMessage, requestPath: url.pathname }
-        );
-        // For transient errors, treat as unauthenticated to return cached/fresh response
-        plansAuthContext = null;
-      } else {
-        console.error(
-          `[authProxy] Auth validation error for ${url.pathname}:`,
-          { message: errorMessage, requestPath: url.pathname }
-        );
-        // For invalid token errors, also treat as unauthenticated
-        plansAuthContext = null;
-      }
+      console.error(`[authProxy] Auth validation error for ${url.pathname}:`, {
+        message: errorMessage,
+        requestPath: url.pathname,
+      });
+      plansAuthContext = null;
     }
   }
   const plansCacheKey = isSubscriptionsPlansRequest
     ? `subscriptions:plans:${url.pathname}${url.search}:${plansAuthContext?.user?.id ?? 'anonymous'}`
     : null;
 
-  let resolvedReferenceId: string | null = null;
-  if (url.pathname === SUBSCRIPTIONS_CURRENT_PATH) {
-    const hasReferenceId =
-      url.searchParams.has('reference_id') || url.searchParams.has('referenceId');
-    if (!hasReferenceId) {
-      const authContext = await optionalAuth(request, env);
-      resolvedReferenceId = authContext?.activeOrganizationId ?? null;
-      if (resolvedReferenceId) {
-        url.searchParams.set('reference_id', resolvedReferenceId);
-        url.searchParams.set('referenceId', resolvedReferenceId);
+  // /api/subscriptions/current — backend wants reference_id; resolve from session.
+  const transformUrl = url.pathname === SUBSCRIPTIONS_CURRENT_PATH
+    ? async (original: URL): Promise<URL> => {
+        const hasReferenceId =
+          original.searchParams.has('reference_id') || original.searchParams.has('referenceId');
+        if (hasReferenceId) return original;
+        const authContext = await optionalAuth(request, env);
+        const resolvedReferenceId = authContext?.activeOrganizationId ?? null;
+        if (resolvedReferenceId) {
+          original.searchParams.set('reference_id', resolvedReferenceId);
+          original.searchParams.set('referenceId', resolvedReferenceId);
+        }
+        return original;
       }
-    }
-  }
+    : undefined;
 
-  /* 
-   * Validating that the matters endpoint works correctly without the workaround.
-   * If practice_id is needed, it should be handled by the backend routing/validation, 
-   * or client should send it correctly if required (though path param is standard).
-   */
-  const targetUrl = new URL(url.pathname + url.search, env.BACKEND_API_URL);
-  const headers = new Headers(request.headers);
-
-  const init: globalThis.RequestInit = {
-    method,
-    headers,
-    redirect: 'manual'
-  };
-
-  if (method !== 'GET' && method !== 'HEAD') {
-    init.body = await request.arrayBuffer();
-  }
-
-  const fetchBackendResponse = async (): Promise<Response> => {
-    // Debug logging for PUT /matters/ with redaction, gated by DEBUG flag
+  // Debug body logging for PUT /matters/, gated on env.DEBUG.
+  const onBeforeFetch = (init: globalThis.RequestInit) => {
     if (
-      method === 'PUT' &&
-      url.pathname.match(/\/matters\//) &&
-      (env.DEBUG === '1' || env.DEBUG === 'true')
-    ) {
-      try {
-        let bodyObj: unknown = null;
-        if (init.body instanceof ArrayBuffer) {
-          const text = new TextDecoder().decode(init.body);
-          bodyObj = JSON.parse(text);
-        } else if (typeof init.body === 'string') {
-          bodyObj = JSON.parse(init.body);
-        }
-        if (bodyObj && typeof bodyObj === 'object') {
-          Logger.debug('PUT /matters/ payload', redactSensitiveFields(bodyObj));
-        }
-      } catch (e) {
-        Logger.debug('PUT /matters/ payload (unparseable)', { error: String(e) });
+      method !== 'PUT' ||
+      !url.pathname.match(/\/matters\//) ||
+      (env.DEBUG !== '1' && env.DEBUG !== 'true')
+    ) return;
+    try {
+      let bodyObj: unknown = null;
+      if (init.body instanceof ArrayBuffer) {
+        bodyObj = JSON.parse(new TextDecoder().decode(init.body));
+      } else if (typeof init.body === 'string') {
+        bodyObj = JSON.parse(init.body);
       }
-    }
-    const response = await fetch(targetUrl.toString(), init);
-
-    // Log errors for debugging
-    if (!response.ok) {
-      let responseSnippet = 'response body withheld';
-      const contentType = response.headers.get('Content-Type') || '';
-
-      if (contentType.includes('application/json')) {
-        try {
-          const json = await response.clone().json() as unknown;
-          responseSnippet = JSON.stringify(redactErrorResponseBody(json));
-        } catch {
-          // ignore parsing failures
-        }
+      if (bodyObj && typeof bodyObj === 'object') {
+        Logger.debug('PUT /matters/ payload', redactSensitiveFields(bodyObj));
       }
-
-      console.error(`[Backend Proxy Error] ${method} ${url.pathname}`, {
-        status: response.status,
-        statusText: response.statusText,
-        hasRequestBody: Boolean(init.body),
-        contentType,
-        hasAuthorization: Boolean(headers.get('Authorization')),
-        responseSnippet: responseSnippet.slice(0, 500)
-      });
+    } catch (e) {
+      Logger.debug('PUT /matters/ payload (unparseable)', { error: String(e) });
     }
-
-    return response;
   };
 
+  // Subscriptions/plans cached path — wrap proxy() in edgeCache.
   if (isSubscriptionsPlansRequest && plansCacheKey) {
     const cached = await edgeCache.get_or_fetch<CachedProxyResponse>(
       plansCacheKey,
       async () => {
-        const response = await fetchBackendResponse();
-        const { headers: proxyHeaders, hasSetCookie } = buildProxyHeaders(response, requestHost);
-        const body = await response.arrayBuffer();
+        const result = await proxy(request, env, {
+          label: 'Backend Proxy',
+          transformUrl,
+          onBeforeFetch,
+        });
+        const body = await result.response.arrayBuffer();
         const serializedHeaders: Array<[string, string]> = [];
-        proxyHeaders.forEach((value, key) => { serializedHeaders.push([key, value]); });
+        result.response.headers.forEach((value, key) => { serializedHeaders.push([key, value]); });
         return {
-          status: response.status,
-          statusText: response.statusText,
+          status: result.response.status,
+          statusText: result.response.statusText,
           headers: serializedHeaders,
           body,
-          hasSetCookie,
+          hasSetCookie: result.hasSetCookie,
         };
       },
       {
@@ -274,20 +169,19 @@ export async function handleBackendProxy(request: Request, env: Env): Promise<Re
     return responseFromCache(cached);
   }
 
-  const response = await fetchBackendResponse();
-  if (response.ok && method !== 'GET' && method !== 'HEAD') {
+  const result = await proxy(request, env, {
+    label: 'Backend Proxy',
+    transformUrl,
+    onBeforeFetch,
+  });
+
+  // Mutations on practice routes — invalidate the practice-details cache.
+  if (result.status >= 200 && result.status < 300 && method !== 'GET' && method !== 'HEAD') {
     const practiceIdForCache = getPracticeIdForDetailsCacheInvalidation(url.pathname);
     if (practiceIdForCache) {
       await invalidatePracticeDetailsCache(env, practiceIdForCache);
     }
   }
-  const { headers: proxyHeaders } = buildProxyHeaders(response, requestHost);
 
-  appendDebugHeaders(proxyHeaders, response, request, env);
-
-  return new Response(response.body, {
-    status: response.status,
-    statusText: response.statusText,
-    headers: proxyHeaders
-  });
+  return result.response;
 }
