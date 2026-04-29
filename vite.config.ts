@@ -4,65 +4,29 @@ import { resolve } from 'path';
 import { visualizer } from 'rollup-plugin-visualizer';
 import { VitePWA } from 'vite-plugin-pwa';
 import { createHtmlPlugin } from 'vite-plugin-html';
+import compression from 'vite-plugin-compression';
 import { promises as fs } from 'fs';
 import { Plugin } from 'vite';
 import zlib from 'zlib';
 
-// Custom compression plugin to avoid path issues
-interface CompressionOptions {
-	algorithm?: 'gzip' | 'brotli';
-	ext?: string;
-	threshold?: number;
-}
-
-const customCompressionPlugin = (options: CompressionOptions = {}): Plugin => {
-	const {
-		algorithm = 'gzip',
-		ext = algorithm === 'brotli' ? '.br' : '.gz',
-		threshold = 1024, // 1KB
-	} = options;
-
-	return {
-		name: 'custom-compression',
-		apply: 'build',
-		async writeBundle(_: unknown, bundle: Record<string, unknown>) {
-			const compressFunction = algorithm === 'brotli'
-				? zlib.brotliCompressSync
-				: zlib.gzipSync;
-
-			for (const [fileName, file] of Object.entries(bundle)) {
-				const fileInfo = file as { type?: string };
-				if (fileInfo.type === 'chunk' || fileInfo.type === 'asset') {
-					const filePath = resolve('dist', fileName);
-					try {
-						const source = await fs.readFile(filePath);
-						if (source.length > threshold) {
-							// Skip small files
-							const compressed = compressFunction(source);
-							await fs.writeFile(filePath + ext, compressed);
-							console.log(`[custom-compression] Compressed ${fileName}: ${source.length}B → ${compressed.length}B`);
-						}
-					} catch (err) {
-						console.warn(`[custom-compression] Error compressing ${fileName}:`, err);
-					}
-				}
-			}
+// Inline critical CSS into dist/index.html via Beasties.
+//
+// Runs in `closeBundle` with `enforce: 'post'` so it fires after every other
+// plugin's bundle hooks have completed. `closeBundle` is Vite's last build
+// hook — by the time it fires, Rollup has flushed all assets to disk and the
+// PWA / HTML plugins have also written their outputs. No setTimeout needed.
+const criticalCssPlugin = (): Plugin => ({
+	name: 'critical-css-inline',
+	apply: 'build',
+	enforce: 'post',
+	async closeBundle() {
+		try {
+			await fs.access('dist/index.html');
+		} catch {
+			console.warn('⚠️ dist/index.html not found, skipping critical CSS extraction');
+			return;
 		}
-	};
-};
-
-// Create a plugin for critical CSS extraction
-const criticalCssPlugin = (): Plugin => {
-	return {
-		name: 'critical-css-inline',
-		apply: 'build',
-		enforce: 'post', // Ensure this runs after all other plugins
-		async closeBundle() {
-			// Wait a bit to ensure all files are written
-			await new Promise<void>((resolve) => {
-				globalThis.setTimeout(() => resolve(), 100);
-			});
-
+		try {
 			const Beasties = (await import('beasties')).default;
 			const beasties = new Beasties({
 				preload: 'media',
@@ -73,26 +37,16 @@ const criticalCssPlugin = (): Plugin => {
 				minimumExternalSize: 4096,
 				path: resolve(__dirname, 'dist'),
 			});
-
-			try {
-				try {
-					await fs.access('dist/index.html');
-				} catch {
-					console.warn('⚠️ dist/index.html not found, skipping critical CSS extraction');
-					return;
-				}
-
-				const html = await fs.readFile('dist/index.html', 'utf8');
-				const processed = await beasties.process(html);
-				await fs.writeFile('dist/index.html', processed);
-				console.log('✅ Critical CSS inlined successfully');
-			} catch (e) {
-				console.error('Error processing critical CSS:', e);
-				// Don't fail the build if critical CSS extraction fails
-			}
+			const html = await fs.readFile('dist/index.html', 'utf8');
+			const processed = await beasties.process(html);
+			await fs.writeFile('dist/index.html', processed);
+			console.log('✅ Critical CSS inlined successfully');
+		} catch (e) {
+			console.error('Error processing critical CSS:', e);
+			// Don't fail the build — uninlined CSS still works, just with a render-blocking link.
 		}
-	};
-};
+	},
+});
 
 // Chunk size budgets (gzip KB). Violations warn locally, fail in CI.
 const CHUNK_BUDGETS: Record<string, number> = {
@@ -279,9 +233,10 @@ export default defineConfig(({ mode }: ConfigEnv) => {
 					renderTarget: '#app',
 				},
 			}),
-			// Replace with custom compression
-			customCompressionPlugin({ algorithm: 'gzip' }),
-			customCompressionPlugin({ algorithm: 'brotli' }),
+			// gzip + brotli precompression for static assets (Cloudflare Pages serves
+			// the .gz/.br variant when the client supports it).
+			compression({ algorithm: 'gzip', threshold: 1024 }),
+			compression({ algorithm: 'brotliCompress', ext: '.br', threshold: 1024 }),
 			// Bundle visualization for production builds
 			visualizer({
 				gzipSize: true,

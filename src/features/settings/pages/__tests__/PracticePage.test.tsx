@@ -141,16 +141,6 @@ vi.mock('@/shared/contexts/SessionContext', () => ({
   useSessionContext: () => mockSessionContext,
 }));
 
-// Mock framer-motion to avoid React/Preact compatibility issues
-vi.mock('framer-motion', () => ({
-  motion: {
-    div: 'div',
-    button: 'button',
-    span: 'span',
-  },
-  AnimatePresence: ({ children }: { children: React.ReactNode }) => children,
-}));
-
 // Mock heroicons to prevent icon rendering issues
 vi.mock('@heroicons/react/24/outline', () => ({
   BuildingOfficeIcon: () => 'BuildingOfficeIcon',
