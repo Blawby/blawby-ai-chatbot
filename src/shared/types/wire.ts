@@ -39,3 +39,39 @@ export type {
 export type {
   BackendSession,
 } from '../../../worker/types/wire/auth';
+
+export type {
+  BackendIntakeCreatePayload,
+  BackendIntakeCreateResponse,
+} from '../../../worker/types/wire/intake';
+
+export type {
+  Practice,
+  Workspace,
+  PracticeOrWorkspace,
+  ConversationConfig,
+  PracticeConfig,
+  SubscriptionLifecycleStatus,
+} from '../../../worker/types/wire/practice';
+
+export type {
+  ChatMessage,
+  ChatSession,
+  ChatMessageUI,
+  MessageReaction,
+  BackendConversation,
+} from '../../../worker/types/wire/conversation';
+
+export type {
+  BackendUserDetail,
+  BackendUserDetailAddress,
+  BackendUserDetailMemo,
+  UserDetailStatus,
+} from '../../../worker/types/wire/client';
+
+export type {
+  BackendActivityEvent,
+  BackendActivityActorType,
+  BackendActivityEventType,
+  BackendActivityListResponse,
+} from '../../../worker/types/wire/activity';

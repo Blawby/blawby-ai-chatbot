@@ -216,6 +216,7 @@ export default [
   // Worker files (Cloudflare Workers runtime)
   {
     files: ['worker/**/*.{ts,js}'],
+    ignores: ['worker/types/wire/**'],
     languageOptions: {
       parser: typescriptParser,
       parserOptions: { ecmaVersion: 'latest', sourceType: 'module' },
@@ -265,7 +266,18 @@ export default [
       }],
       '@typescript-eslint/no-explicit-any': 'error', // Enforce no explicit any
       'no-console': 'off', // keep console logging for Workers (debugging/forensics)
-      'no-unused-vars': 'off'
+      'no-unused-vars': 'off',
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: 'TSTypeAliasDeclaration[id.name=/^Backend/]',
+          message: 'Backend wire types live in worker/types/wire/ — declare there, not inline.'
+        },
+        {
+          selector: 'TSInterfaceDeclaration[id.name=/^Backend/]',
+          message: 'Backend wire types live in worker/types/wire/ — declare there, not inline.'
+        }
+      ]
     }
   },
 
