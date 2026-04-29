@@ -115,7 +115,11 @@ const routes: RouteEntry[] = [
     handler: (req, env) => handleDebug(req, env),
   },
   { mode: 'owned', match: prefix('/api/status'), handler: (req, env) => handleStatus(req, env) },
-  { mode: 'owned', match: prefix('/api/notifications'), handler: (req, env) => handleNotifications(req, env) },
+  {
+    mode: 'owned',
+    match: prefix('/api/notifications'),
+    handler: withAuth((req, env) => handleNotifications(req, env), { required: true }),
+  },
   { mode: 'owned', match: prefix('/api/widget/practice-details/'), handler: (req, env) => handleWidgetPracticeDetails(req, env) },
   { mode: 'owned', match: prefix('/api/practice/details/'), handler: (req, env) => handlePracticeDetails(req, env) },
   {
