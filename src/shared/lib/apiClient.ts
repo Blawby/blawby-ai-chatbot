@@ -164,6 +164,88 @@ async function apiFetch<T>(
 
 type FetchConfig = { signal?: AbortSignal; params?: Record<string, unknown>; baseURL?: string };
 
+export type UploadProgress = { loaded: number; total: number; percent: number };
+export type UploadConfig = {
+  signal?: AbortSignal;
+  onProgress?: (progress: UploadProgress) => void;
+};
+
+/**
+ * Upload a `FormData` body via XMLHttpRequest so the caller can observe
+ * real upload progress (which `fetch` doesn't expose without
+ * ReadableStream-based upload, which Safari and several other browsers
+ * still don't support reliably).
+ *
+ * Mirrors `apiClient.post` shape — same `{ data, status }` return,
+ * same widget-token handling, same 401 → `auth:unauthorized` event,
+ * same `HttpError` for non-2xx. The `onProgress` callback fires for
+ * each `upload.onprogress` event with `{ loaded, total, percent }`.
+ *
+ * Replaces hand-rolled XHR + `xhrRef` Map patterns scattered across
+ * file-upload hooks.
+ */
+async function apiUpload<T>(
+  url: string,
+  body: FormData,
+  config?: UploadConfig,
+): Promise<{ data: T; status: number }> {
+  const fullUrl = /^https?:\/\//.test(url) ? url : `${ensureApiBaseUrl()}${url}`;
+  const widgetToken = getWidgetAuthToken();
+  const eligibleForWidgetToken = widgetToken && isWidgetTokenEligibleRequestUrl(url);
+
+  return new Promise<{ data: T; status: number }>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', fullUrl, true);
+    xhr.withCredentials = true;
+    if (eligibleForWidgetToken) xhr.setRequestHeader('Authorization', `Bearer ${widgetToken}`);
+    // Don't set Content-Type — the browser injects multipart/form-data with the boundary.
+
+    if (config?.onProgress) {
+      xhr.upload.onprogress = (event) => {
+        if (!event.lengthComputable) return;
+        config.onProgress!({
+          loaded: event.loaded,
+          total: event.total,
+          percent: Math.max(0, Math.min(100, Math.round((event.loaded / event.total) * 100))),
+        });
+      };
+    }
+
+    if (config?.signal) {
+      if (config.signal.aborted) {
+        xhr.abort();
+        const err = new Error('Aborted');
+        err.name = 'AbortError';
+        reject(err);
+        return;
+      }
+      config.signal.addEventListener('abort', () => xhr.abort(), { once: true });
+    }
+
+    xhr.onload = () => {
+      const contentType = xhr.getResponseHeader('Content-Type') ?? '';
+      let parsed: unknown = xhr.responseText;
+      if (contentType.includes('application/json')) {
+        try { parsed = xhr.responseText ? JSON.parse(xhr.responseText) : null; } catch { /* keep text */ }
+      }
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve({ data: parsed as T, status: xhr.status });
+        return;
+      }
+      reject(new HttpError(xhr.status, parsed, extractFetchErrorMessage(parsed, `HTTP ${xhr.status}`)));
+    };
+
+    xhr.onerror = () => reject(new Error('Network error during upload'));
+    xhr.onabort = () => {
+      const err = new Error('Aborted');
+      err.name = 'AbortError';
+      reject(err);
+    };
+
+    xhr.send(body);
+  });
+}
+
 /**
  * Pull `data` out of a backend `ApiResponse<T>` envelope, throwing on the
  * error branch.
@@ -242,6 +324,8 @@ export const apiClient = {
     apiFetch<T>('PATCH', url, body, config?.signal, config?.params),
   delete: <T>(url: string, config?: FetchConfig) =>
     apiFetch<T>('DELETE', url, undefined, config?.signal, config?.params),
+  upload: <T>(url: string, body: FormData, config?: UploadConfig) =>
+    apiUpload<T>(url, body, config),
 };
 
 type PracticeMetadata = Record<string, unknown> | null | undefined;
