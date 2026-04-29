@@ -9,6 +9,7 @@ import { createRequire } from 'module';
 
 const require = createRequire(import.meta.url);
 const loadingConsistency = require('./config/eslint-rules/loading-consistency.cjs');
+const noInlineContextValue = require('./config/eslint-rules/no-inline-context-value.cjs');
 
 export default [
   // Base JavaScript configuration
@@ -84,6 +85,7 @@ export default [
       custom: {
         rules: {
           'loading-consistency': loadingConsistency,
+          'no-inline-context-value': noInlineContextValue,
           'no-hardcoded-colors': {
             create(context) {
               const COLORS_REGEX = /text-white|text-black|bg-white|bg-black|\b(gray|zinc|neutral|stone|blue|indigo|purple|slate)-/;
@@ -151,6 +153,7 @@ export default [
 
       // Custom loading consistency rule
       'custom/loading-consistency': 'error',
+      'custom/no-inline-context-value': 'error',
       'custom/no-hardcoded-colors': 'warn',
 
       // Import guardrails: ban barrel import, namespace imports of icon/motion libs
