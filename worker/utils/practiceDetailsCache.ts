@@ -1,7 +1,13 @@
 import type { Env } from '../types.js';
 import { HttpError } from '../types.js';
 import { RemoteApiService } from '../services/RemoteApiService.js';
+import { edgeCache } from './edgeCache.js';
+
 const CACHE_TTL_SECONDS = 600;
+// In-isolate memoization tier in front of KV. KV stays as the cross-isolate
+// persistent cache (10 min); edgeCache absorbs repeated lookups within one
+// isolate so we don't pay a KV round-trip per request.
+const MEMORY_TTL_MS = 60_000;
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -22,16 +28,24 @@ export const invalidatePracticeDetailsCache = async (
   practiceId: string | null | undefined
 ): Promise<void> => {
   const trimmed = typeof practiceId === 'string' ? practiceId.trim() : '';
-  if (!trimmed || !env.CHAT_SESSIONS) return;
-  
-  // Delete both UUID and slug-based cache entries
+  if (!trimmed) return;
+
+  // Drop the in-isolate memoization for this id (and any slug entries — we
+  // don't track the slug here, so wipe the whole prefix to be safe).
+  edgeCache.invalidate('practice:details:', /* prefix */ true);
+
+  if (!env.CHAT_SESSIONS) return;
   const uuidKey = `practice_details:${trimmed}`;
   const slugKey = `practice_details:slug:${trimmed}`;
-  
   await Promise.all([
     env.CHAT_SESSIONS.delete(uuidKey),
     env.CHAT_SESSIONS.delete(slugKey)
   ]);
+};
+
+type PracticeDetailsResult = {
+  details: Record<string, unknown> | null;
+  isPublic: boolean;
 };
 
 export const fetchPracticeDetailsWithCache = async (
@@ -43,10 +57,7 @@ export const fetchPracticeDetailsWithCache = async (
     bypassCache?: boolean;
     preferPracticeIdLookup?: boolean;
   }
-): Promise<{
-  details: Record<string, unknown> | null;
-  isPublic: boolean;
-}> => {
+): Promise<PracticeDetailsResult> => {
   const trimmedSlug = practiceSlug?.trim() ?? '';
 
   // Require at least one identifier. Empty practiceId is allowed when slug is present
@@ -54,6 +65,32 @@ export const fetchPracticeDetailsWithCache = async (
   if (!practiceId && !trimmedSlug) {
     return { details: null, isPublic: false };
   }
+
+  // Memoize per-isolate. The KV layer below remains the source of truth across
+  // isolates; this just absorbs repeated reads inside one isolate's lifetime.
+  // bypassCache also skips the in-memory tier so callers can force-refresh.
+  const memoKey = `practice:details:${practiceId || `slug:${trimmedSlug}`}`;
+  if (!options?.bypassCache) {
+    const memoized = edgeCache.get<PracticeDetailsResult>(memoKey);
+    if (memoized) return memoized;
+  }
+  const result = await fetchPracticeDetailsUncached(env, request, practiceId, trimmedSlug, options);
+  if (!options?.bypassCache && result.details) {
+    edgeCache.set(memoKey, result, MEMORY_TTL_MS);
+  }
+  return result;
+};
+
+const fetchPracticeDetailsUncached = async (
+  env: Env,
+  request: Request,
+  practiceId: string,
+  trimmedSlug: string,
+  options?: {
+    bypassCache?: boolean;
+    preferPracticeIdLookup?: boolean;
+  }
+): Promise<PracticeDetailsResult> => {
 
   // Two cache namespaces:
   //   UUID key  — used when practiceId is a real UUID (primary, most callers)
