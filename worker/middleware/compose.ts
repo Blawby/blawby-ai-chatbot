@@ -77,6 +77,16 @@ type CachedResponse = {
   body: ArrayBuffer;
 };
 
+const replayCached = (cached: CachedResponse): Response =>
+  new Response(cached.body, { status: cached.status, headers: cached.headers });
+
+const bufferResponse = async (response: Response): Promise<CachedResponse> => {
+  const body = await response.clone().arrayBuffer();
+  const headers: Array<[string, string]> = [];
+  response.headers.forEach((value, key) => headers.push([key, value]));
+  return { status: response.status, headers, body };
+};
+
 export const withCache = (
   handler: RouteHandler,
   opts: {
@@ -93,30 +103,18 @@ export const withCache = (
     const key = opts.keyFn(request, env);
     if (!key) return handler(request, env, ctx);
 
-    const cached = await edgeCache.get_or_fetch<CachedResponse | null>(
-      key,
-      async () => {
-        const response = await handler(request, env, ctx);
-        if (cacheable && !cacheable(response)) return null;
-        // Buffer the body so the cached entry can be replayed without
-        // consuming the original stream.
-        const body = await response.clone().arrayBuffer();
-        const headers: Array<[string, string]> = [];
-        response.headers.forEach((value, key) => headers.push([key, value]));
-        return {
-          status: response.status,
-          headers,
-          body,
-        };
-      },
-      {
-        ttlMs: policyTtlMs(key),
-        cacheable: (entry) => entry !== null,
-      },
-    );
+    // Fast path: cache hit replays the buffered response.
+    const hit = edgeCache.get<CachedResponse>(key);
+    if (hit) return replayCached(hit);
 
-    if (!cached) return handler(request, env, ctx);
-    return new Response(cached.body, { status: cached.status, headers: cached.headers });
+    // Miss: invoke the handler exactly once. If the response is
+    // cacheable, buffer + store it; either way return a fresh Response
+    // built from the buffer so we don't consume the body twice.
+    const response = await handler(request, env, ctx);
+    if (cacheable && !cacheable(response)) return response;
+    const buffered = await bufferResponse(response);
+    edgeCache.set(key, buffered, policyTtlMs(key));
+    return replayCached(buffered);
   };
 };
 
