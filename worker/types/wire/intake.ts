@@ -72,3 +72,36 @@ export const BackendIntakeConvertResponseSchema = z.object({
   error: z.string().optional(),
 });
 export type BackendIntakeConvertResponse = z.infer<typeof BackendIntakeConvertResponseSchema>;
+
+/**
+ * Response from GET /api/practice-client-intakes/:slug/intake.
+ * Backend exposes per-practice intake settings (payment link toggle,
+ * consultation fee, organization branding). Field names appear in
+ * both camelCase and snake_case across backend versions; the schema
+ * accepts both to tolerate version skew.
+ */
+const IntakeSettingsObjectSchema = z.object({
+  paymentLinkEnabled: z.boolean().optional(),
+  payment_link_enabled: z.boolean().optional(),
+  consultationFee: z.number().optional(),
+  consultation_fee: z.number().optional(),
+}).passthrough();
+
+const IntakeOrganizationObjectSchema = z.object({
+  id: z.string().optional(),
+  slug: z.string().optional(),
+  name: z.string().optional(),
+  logo: z.string().optional(),
+}).passthrough();
+
+export const BackendPracticeIntakeSettingsResponseSchema = z.object({
+  success: z.boolean().optional(),
+  data: z.object({
+    settings: IntakeSettingsObjectSchema.optional(),
+    organization: IntakeOrganizationObjectSchema.optional(),
+  }).passthrough().optional(),
+  // Some backend versions place settings/organization at the top level.
+  settings: IntakeSettingsObjectSchema.optional(),
+  organization: IntakeOrganizationObjectSchema.optional(),
+}).passthrough();
+export type BackendPracticeIntakeSettingsResponse = z.infer<typeof BackendPracticeIntakeSettingsResponseSchema>;

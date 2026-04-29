@@ -8,7 +8,10 @@ import { redactSensitiveFields } from '../utils/redactResponse.js';
 import { policyTtlMs } from '../utils/cachePolicy.js';
 import { validateWire } from '../utils/validateWire.js';
 import { PracticeSchema } from '../types/wire/practice.js';
-import { BackendIntakeConvertResponseSchema } from '../types/wire/intake.js';
+import {
+  BackendIntakeConvertResponseSchema,
+  BackendPracticeIntakeSettingsResponseSchema,
+} from '../types/wire/intake.js';
 import { canAssignTeamMemberToMatter, isTeamRole, type PracticeTeamResponse } from '../../src/shared/types/team.js';
 
 /**
@@ -1003,46 +1006,34 @@ export class RemoteApiService {
         `/api/practice-client-intakes/${encodeURIComponent(practiceSlug)}/intake`,
         request
       );
-      const payload = await response.json().catch(() => null) as Record<string, unknown> | null;
-      if (!payload || typeof payload !== 'object') {
-        return null;
-      }
-      if (payload.success === false) {
-        return null;
-      }
+      const json = await response.json().catch(() => null);
+      if (!json) return null;
+      const parsed = validateWire(
+        BackendPracticeIntakeSettingsResponseSchema,
+        json,
+        'getPracticeClientIntakeSettings.response',
+        { strict: false },
+      );
+      if (parsed.success === false) return null;
 
-      const data = (payload.data && typeof payload.data === 'object')
-        ? payload.data as Record<string, unknown>
-        : payload;
-      const settings = data.settings;
-      if (!settings || typeof settings !== 'object') {
-        return null;
-      }
-      const settingsRecord = settings as Record<string, unknown>;
-      const orgRecord = data.organization && typeof data.organization === 'object'
-        ? data.organization as Record<string, unknown>
-        : null;
-      const consultationFee = typeof settingsRecord.consultationFee === 'number'
-        ? settingsRecord.consultationFee as number
-        : typeof settingsRecord.consultation_fee === 'number'
-          ? settingsRecord.consultation_fee as number
-          : undefined;
+      // Tolerate both nested ({data: {settings, organization}}) and flat shapes.
+      const settings = parsed.data?.settings ?? parsed.settings;
+      if (!settings) return null;
+      const orgRecord = parsed.data?.organization ?? parsed.organization;
+
+      const consultationFee = settings.consultationFee ?? settings.consultation_fee;
       warnIfNotMinorUnits(consultationFee, 'remote.intakeSettings.consultationFee');
       return {
-        paymentLinkEnabled: typeof settingsRecord.paymentLinkEnabled === 'boolean'
-          ? settingsRecord.paymentLinkEnabled as boolean
-          : typeof settingsRecord.payment_link_enabled === 'boolean'
-            ? settingsRecord.payment_link_enabled as boolean
-          : undefined,
+        paymentLinkEnabled: settings.paymentLinkEnabled ?? settings.payment_link_enabled,
         consultationFee,
         organization: orgRecord
           ? {
-              id: typeof orgRecord.id === 'string' ? orgRecord.id : undefined,
-              slug: typeof orgRecord.slug === 'string' ? orgRecord.slug : undefined,
-              name: typeof orgRecord.name === 'string' ? orgRecord.name : undefined,
-              logo: typeof orgRecord.logo === 'string' ? orgRecord.logo : undefined
+              id: orgRecord.id,
+              slug: orgRecord.slug,
+              name: orgRecord.name,
+              logo: orgRecord.logo,
             }
-          : undefined
+          : undefined,
       };
     } catch (error) {
       if (error instanceof HttpError && (error.status === 404 || error.status === 401)) {
