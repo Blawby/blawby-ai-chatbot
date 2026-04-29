@@ -52,10 +52,10 @@ function validateRequest(request: Request): boolean {
   return true;
 }
 
-type RouteHandler = (request: Request, env: Env, ctx: ExecutionContext) => Promise<Response>;
-type RouteMatcher = (path: string, env: Env) => boolean;
-type RouteMode = 'proxy' | 'owned';
-type RouteEntry = {
+export type RouteHandler = (request: Request, env: Env, ctx: ExecutionContext) => Promise<Response>;
+export type RouteMatcher = (path: string, env: Env) => boolean;
+export type RouteMode = 'proxy' | 'owned';
+export type RouteEntry = {
   match: RouteMatcher;
   handler: RouteHandler;
   /**
@@ -93,7 +93,7 @@ const matchesBackendProxy: RouteMatcher = (path) =>
 // Order is significant: more specific patterns must come before more general
 // ones (e.g. `/api/widget/practice-details/*` before `/api/widget/bootstrap`,
 // `/api/ai/intent` before `/api/ai/chat`).
-const routes: RouteEntry[] = [
+export const routes: RouteEntry[] = [
   { mode: 'proxy', match: prefix('/api/auth'), handler: (req, env) => handleAuthProxy(req, env) },
   { mode: 'proxy', match: regex(/^\/api\/practice\/[^/]+\/team$/), handler: (req, env) => handlePracticeTeam(req, env) },
   {
@@ -191,6 +191,17 @@ const routes: RouteEntry[] = [
   { mode: 'owned', match: exact('/'), handler: (req, env) => handleRoot(req, env) },
 ];
 
+/**
+ * Look up the route entry that owns a given path, or `null` for unmatched
+ * paths (caller decides whether to 404 or fall through to handleRoot).
+ *
+ * Exported for testability — the route table is the single contract for
+ * which handler runs for which path, and a unit test can lock in the
+ * matchers without booting the runtime.
+ */
+export const findRoute = (path: string, env: Env): RouteEntry | null =>
+  routes.find((r) => r.match(path, env)) ?? null;
+
 const apiNotFoundResponse = () =>
   new Response(JSON.stringify({ error: 'API endpoint not found', errorCode: 'NOT_FOUND' }), {
     status: 404,
@@ -213,7 +224,7 @@ async function handleRequestInternal(request: Request, env: Env, ctx: ExecutionC
   }
 
   try {
-    const route = routes.find((r) => r.match(path, env));
+    const route = findRoute(path, env);
     if (route) return await route.handler(request, env, ctx);
     if (path.startsWith('/api/')) return apiNotFoundResponse();
     return await handleRoot(request, env);
