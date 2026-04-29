@@ -20,6 +20,8 @@
     "lint:src": "eslint src/ --ext .ts,.tsx,.js,.jsx --max-warnings 20",
     "type-check": "tsc -p tsconfig.app.json --noEmit --skipLibCheck && tsc -p tsconfig.worker.json --noEmit --skipLibCheck && tsc -p tsconfig.test.json --noEmit --skipLibCheck",
     "lint:i18n": "node ./scripts/check-i18n.mjs",
+    "lint:state-baseline": "node ./scripts/check-state-baseline.mjs",
+    "lint:bundle-baseline": "node ./scripts/check-bundle-baseline.mjs",
     "test": "vitest run -c config/vitest/vitest.config.ts",
     "test:unit": "vitest run -c config/vitest/vitest.config.ts --project unit",
     "test:worker": "vitest run -c config/vitest/vitest.config.worker.ts",

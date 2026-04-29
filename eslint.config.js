@@ -156,7 +156,8 @@ export default [
       'custom/no-inline-context-value': 'error',
       'custom/no-hardcoded-colors': 'warn',
 
-      // Import guardrails: ban barrel import, namespace imports of icon/motion libs
+      // Import guardrails: ban barrel import, namespace imports of icon/motion libs,
+      // and the deleted/migrated ad-hoc store modules.
       'no-restricted-imports': [
         'error',
         {
@@ -164,6 +165,18 @@ export default [
             {
               name: '@/shared/ui',
               message: 'Import from the specific path (e.g. @/shared/ui/Button) instead of the barrel.'
+            },
+            {
+              name: '@/shared/stores/clientsStore',
+              message: 'Removed in β. Use useQuery / queryCache instead.'
+            },
+            {
+              name: '@/shared/stores/mattersStore',
+              message: 'Removed in β. Use useQuery / queryCache instead.'
+            },
+            {
+              name: '@/shared/stores/practiceTeamStore',
+              message: 'Removed in β. Use usePracticeTeam (which goes through queryCache).'
             }
           ],
           patterns: [
