@@ -12,6 +12,7 @@ import { usePaginatedList } from '@/shared/hooks/usePaginatedList';
 import { listEngagements } from '../api/engagementsApi';
 import type { EngagementListItem } from '../types/engagement';
 import EngagementDetailPage from './EngagementDetailPage';
+import { SELECTED_ACCENT_SURFACE_CLASS } from '@/shared/ui/layout/selectionStyles';
 
 const PAGE_SIZE = 20;
 
@@ -66,7 +67,7 @@ const EngagementListItemRow = ({
   return (
     <div className={cn(
       'w-full px-4 py-3.5 text-left flex items-center gap-3 transition-colors duration-150',
-      isSelected ? 'bg-surface-utility/60' : 'hover:bg-surface-utility/40'
+      isSelected ? SELECTED_ACCENT_SURFACE_CLASS : 'hover:bg-surface-utility/40'
     )}>
       <Avatar
         name={name}

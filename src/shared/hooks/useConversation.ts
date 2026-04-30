@@ -128,6 +128,7 @@ export interface UseConversationOptions {
   practiceId?: string;
   conversationId?: string;
   userId?: string | null;
+  isAnonymous?: boolean;
   linkAnonymousConversationOnLoad?: boolean;
   onConversationMetadataUpdated?: (metadata: ConversationMetadata | null) => void;
   skipInitialFetch?: boolean;
@@ -141,12 +142,14 @@ export const useConversation = ({
   practiceId,
   conversationId,
   userId: externalUserId,
+  isAnonymous: externalIsAnonymous,
   linkAnonymousConversationOnLoad = false,
   onConversationMetadataUpdated,
   skipInitialFetch = false,
   onError,
 }: UseConversationOptions) => {
-  const { session, isPending: sessionIsPending, isAnonymous } = useSessionContext();
+  const { session, isPending: sessionIsPending, isAnonymous: contextIsAnonymous } = useSessionContext();
+  const isAnonymous = externalIsAnonymous ?? contextIsAnonymous;
   const hasAnonymousWidgetContext = Boolean(enabled && linkAnonymousConversationOnLoad && conversationId && practiceId);
   const sessionReady = enabled && !sessionIsPending && (Boolean(session?.user) || Boolean(externalUserId && hasAnonymousWidgetContext));
   const currentUserId = externalUserId ?? session?.user?.id ?? null;

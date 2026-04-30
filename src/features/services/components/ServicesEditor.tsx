@@ -52,19 +52,17 @@ export const ServicesEditor = ({
   }, [catalog, normalizedServices, selectedTitles]);
 
   return (
-    <div className="glass-panel rounded-xl p-4">
-      <Combobox
-        label={t('settings:practice.services')}
-        placeholder={t('common:forms.placeholders.select')}
-        addNewLabel={t('settings:account.links.addButton')}
-        options={options}
-        value={selectedTitles}
-        onChange={(nextTitles) => onChange(
-          mapSelectedServiceTitlesToServices(nextTitles, normalizedServices, catalog)
-        )}
-        multiple
-        allowCustomValues
-      />
-    </div>
+    <Combobox
+      label={t('settings:practice.servicesNavLabel')}
+      placeholder={t('common:forms.placeholders.select')}
+      addNewLabel={t('settings:account.links.addButton')}
+      options={options}
+      value={selectedTitles}
+      onChange={(nextTitles) => onChange(
+        mapSelectedServiceTitlesToServices(nextTitles, normalizedServices, catalog)
+      )}
+      multiple
+      allowCustomValues
+    />
   );
 };

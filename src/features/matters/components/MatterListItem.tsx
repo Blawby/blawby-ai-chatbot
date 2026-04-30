@@ -2,6 +2,7 @@ import type { MatterSummary } from '@/features/matters/data/matterTypes';
 import { cn } from '@/shared/utils/cn';
 import { Avatar } from '@/shared/ui/profile';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
+import { SELECTED_ACCENT_SURFACE_CLASS } from '@/shared/ui/layout/selectionStyles';
 
 interface MatterListItemProps {
   matter: MatterSummary;
@@ -15,7 +16,7 @@ export const MatterListItem = ({ matter, onSelect, isSelected = false }: MatterL
 
   const rowClassName = cn(
     'w-full text-left flex items-center gap-3 px-4 py-3.5 transition-colors duration-150',
-    isSelected ? 'bg-surface-utility/60' : '',
+    isSelected ? SELECTED_ACCENT_SURFACE_CLASS : '',
     isInteractive ? 'hover:bg-surface-utility/40 cursor-pointer' : 'cursor-default'
   );
 

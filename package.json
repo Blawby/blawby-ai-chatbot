@@ -38,8 +38,8 @@
     "test:e2e:api": "./scripts/tests/test-conversation-flow.sh",
     "test:stripe:integration": "./scripts/tests/test-stripe-integration.sh",
     "test:e2e:all": "npm run test:e2e && npm run test:e2e:auth && npm run test:e2e:api",
-    "test:e2e": "playwright test -c playwright.public.config.ts",
-    "test:e2e:widget": "playwright test -c playwright.public.config.ts tests/e2e/widget-intake-flow.spec.ts tests/e2e/widget-auth.spec.ts tests/e2e/widget-performance.spec.ts",
+    "test:e2e": "playwright test -c playwright.public.config.ts --project=chromium",
+    "test:e2e:widget": "playwright test -c playwright.public.config.ts --project=chromium tests/e2e/widget-intake-flow.spec.ts tests/e2e/widget-auth.spec.ts tests/e2e/widget-performance.spec.ts",
     "test:e2e:auth": "playwright test -c playwright.auth.config.ts",
     "test:e2e:ui": "playwright test -c playwright.public.config.ts --ui",
     "smoke:ai-gateway": "tsx scripts/ai-gateway-smoke-test.ts",
@@ -63,6 +63,7 @@
     "fflate": "^0.8.2",
     "i18next": "^23.15.1",
     "i18next-browser-languagedetector": "^7.2.1",
+    "lodash": "4.17.21",
     "nanostores": "^1.0.1",
     "preact": "^10.25.3",
     "preact-iso": "^2.9.1",
@@ -119,6 +120,8 @@
   "overrides": {
     "serialize-javascript": "^7.0.5",
     "undici": "^7.25.0",
-    "minimatch@9.x": { "brace-expansion": "^3.0.2" }
+    "minimatch@9.x": {
+      "brace-expansion": "^3.0.2"
+    }
   }
 }

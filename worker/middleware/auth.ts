@@ -430,6 +430,7 @@ export async function requireAuth(
   const widgetToken = extractedWidgetToken?.token ?? null;
   const widgetTokenSource = extractedWidgetToken?.tokenSource ?? null;
   const requestPath = new URL(request.url).pathname;
+  const isWebSocketPath = /\/ws(?:\/|$)/.test(requestPath);
 
   const cookieHeader = request.headers.get('Cookie');
   const normalizedCookie = cookieHeader?.trim() ?? '';
@@ -448,7 +449,7 @@ export async function requireAuth(
     }
     // Query tokens are only accepted for WS handshakes where custom headers
     // are unavailable in browser WebSocket APIs.
-    if (widgetTokenSource === 'query' && !requestPath.endsWith('/ws')) {
+    if (widgetTokenSource === 'query' && !isWebSocketPath) {
       throw HttpErrors.unauthorized('Widget query token is only allowed for WebSocket authentication');
     }
     const validated = await validateWidgetAuthToken(widgetToken, env);
@@ -480,10 +481,14 @@ export async function requireAuth(
       allowStaleOnTimeout: isHotChatPath(request)
     });
   } catch (error) {
-    // Only fallback to widget token when cookie auth is truly unauthenticated.
-    if (error instanceof HttpError && error.status === 401 && widgetToken) {
+    // If the error is a 401, we fallback to widget token context.
+    // This allows the widget to work even if the browser carries stale or unrelated cookies
+    // (e.g. theme preferences) that aren't session tokens.
+    if (error instanceof HttpError && error.status === 401) {
       return buildWidgetTokenContext();
     }
+    // For other errors (like 504 timeouts), we fail-fast as requested to avoid masking
+    // backend performance issues.
     throw error;
   }
 
@@ -503,7 +508,7 @@ export async function requireAuth(
   let previousAnonUserId = authResult.previousAnonUserId ?? null;
   // If Better Auth session omitted previous_anon_user_id, recover it from a
   // valid widget token that was minted for the same browser session.
-  if (!isAnonymous && !previousAnonUserId && widgetToken && !(widgetTokenSource === 'query' && !requestPath.endsWith('/ws'))) {
+  if (!isAnonymous && !previousAnonUserId && widgetToken && !(widgetTokenSource === 'query' && !isWebSocketPath)) {
     try {
       const widgetAuth = await validateWidgetAuthToken(widgetToken, env);
       if (widgetAuth.userId !== authResult.user.id) {

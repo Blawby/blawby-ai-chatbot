@@ -1,4 +1,4 @@
-import type { Env, Practice, PracticeOrWorkspace, ConversationConfig, SubscriptionLifecycleStatus } from '../types.js';
+import type { Env, PracticeOrWorkspace, ConversationConfig, SubscriptionLifecycleStatus } from '../types.js';
 import { HttpError } from '../types.js';
 import { HttpErrors } from '../errorHandler.js';
 import { Logger } from '../utils/logger.js';

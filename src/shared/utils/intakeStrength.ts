@@ -57,7 +57,7 @@ export const resolveStrengthStyle = (tier: StrengthTier): { percent: number; rin
       return { percent: 100, ringClass: 'text-emerald-400', bgClass: 'bg-emerald-400' };
     case 'none':
     default:
-      return { percent: 0, ringClass: 'text-white/20', bgClass: 'bg-white/20' };
+      return { percent: 0, ringClass: 'text-input-placeholder/20', bgClass: 'bg-input-placeholder/20' };
   }
 };
 

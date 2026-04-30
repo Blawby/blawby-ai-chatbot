@@ -25,7 +25,7 @@ export type IntakeStep =
 export type FieldPhase = 'required' | 'enrichment';
 
 /**
- * Phase 3 — simple dependency expression.
+ * Simple dependency expression.
  * This field is only collected when dependsOn field equals value.
  * Both the AI prompt and the submission gate skip this field when unmet.
  * Example: { dependsOn: 'caseType', value: 'personal_injury' }
@@ -50,21 +50,12 @@ export interface IntakeFieldDefinition {
   description?: string;
   /** Deterministic client-facing question used by previews and template demos. */
   previewQuestion?: string;
-  /**
-   * Phase 2 — optional AI instruction injected into the system prompt for this
-   * specific field. Gives the model richer guidance than the label alone.
-   * Example: "Ask what type of vehicle was involved. Accept make/model/year."
-   */
+  /** Optional AI guidance for collecting this field. */
   promptHint?: string;
-  /**
-   * Phase 3 — what counts as a valid answer for this field.
-   * The AI uses this to know when to accept a response and call save_case_details
-   * versus ask a clarifying follow-up.
-   * Example: "Expect a dollar amount." / "Expect a date in any common format."
-   */
+  /** Describes what counts as a valid answer for this field. */
   validationHint?: string;
   /**
-   * Phase 3 — simple dependency expression.
+   * Simple dependency expression.
    * This field is only collected when the referenced field matches value.
    * Both the AI prompt and the submission gate skip this field when unmet.
    */

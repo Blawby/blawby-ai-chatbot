@@ -261,7 +261,9 @@ export default [
         TextDecoder: 'readonly',
         AbortController: 'readonly',
         AbortSignal: 'readonly',
+        RequestInit: 'readonly',
         Buffer: 'readonly',
+        process: 'readonly',
         ReadableStreamDefaultController: 'readonly',
         ExecutionContext: 'readonly', // TODO: validate Worker typing approach
         MessageBatch: 'readonly',
@@ -291,6 +293,28 @@ export default [
           message: 'Backend wire types live in worker/types/wire/ — declare there, not inline.'
         }
       ]
+    }
+  },
+
+  // Worker wire schema files deliberately declare Backend* wire contracts.
+  {
+    files: ['worker/types/wire/**/*.{ts,js}'],
+    languageOptions: {
+      parser: typescriptParser,
+      parserOptions: { ecmaVersion: 'latest', sourceType: 'module' },
+    },
+    plugins: { '@typescript-eslint': typescript },
+    rules: {
+      ...typescript.configs.recommended.rules,
+      '@typescript-eslint/no-unused-vars': ['warn', {
+        argsIgnorePattern: '^_',
+        varsIgnorePattern: '^_',
+        caughtErrorsIgnorePattern: '^_',
+        ignoreRestSiblings: true
+      }],
+      '@typescript-eslint/no-explicit-any': 'error',
+      'no-unused-vars': 'off',
+      'no-restricted-syntax': 'off',
     }
   },
 

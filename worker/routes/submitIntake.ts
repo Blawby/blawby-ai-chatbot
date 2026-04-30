@@ -69,7 +69,6 @@ import {
   BackendIntakeCreatePayloadSchema,
   BackendIntakeCreateResponseSchema,
   type BackendIntakeCreatePayload,
-  type BackendIntakeCreateResponse,
 } from '../types/wire/intake.js';
 import { validateWire } from '../utils/validateWire.js';
 

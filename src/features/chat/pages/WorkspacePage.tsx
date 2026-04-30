@@ -47,13 +47,12 @@ import { SettingsContent, type SettingsView } from '@/features/settings/pages/Se
 import { mockApps } from '@/features/settings/pages/appsData';
 import type { ChatMessageUI } from '../../../../worker/types';
 import type { Conversation, ConversationMode } from '@/shared/types/conversation';
-import type { LayoutMode } from '@/app/MainApp';
+import type { LayoutMode, WorkspaceView } from '@/app/MainApp';
 import type { UserDetailRecord, UserDetailStatus, PracticeDetails } from '@/shared/lib/apiClient';
 import type { BackendMatter } from '@/features/matters/services/mattersApi';
 import type { IntakeConversationState, DerivedIntakeStatus, IntakeFieldChangeOptions } from '@/shared/types/intake';
 import { features } from '@/config/features';
 
-type WorkspaceView = 'home' | 'setup' | 'list' | 'conversation' | 'intakes' | 'intakeDetail' | 'engagements' | 'matters' | 'contacts' | 'invoices' | 'invoiceCreate' | 'invoiceEdit' | 'invoiceDetail' | 'reports' | 'settings';
 type PreviewTab = 'home' | 'messages' | 'intake';
 type WorkspacePrefetchData = {
   mattersData?: {

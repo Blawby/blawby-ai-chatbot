@@ -1,3 +1,4 @@
+import type { MinorAmount } from '../../../worker/types';
 import type { IntakeTemplate } from './intake';
 
 export type WidgetPreviewScenario =
@@ -17,7 +18,7 @@ export type WidgetPreviewConfig = {
   accentColor?: string;
   introMessage?: string | null;
   legalDisclaimer?: string | null;
-  consultationFee?: number | null;
+  consultationFee?: MinorAmount | null;
   paymentLinkEnabled?: boolean;
   currency?: string | null;
   billingIncrementMinutes?: number | null;
