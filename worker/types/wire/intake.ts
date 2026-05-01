@@ -43,18 +43,31 @@ export const BackendIntakeCreatePayloadSchema = z.object({
 });
 export type BackendIntakeCreatePayload = z.infer<typeof BackendIntakeCreatePayloadSchema>;
 
+const BackendIntakeCreateOrgSchema = z.object({
+  name: z.string().nullable().optional(),
+}).passthrough().nullable().optional();
+
+// Backend has been observed emitting the flat shape directly
+// ({uuid, status, payment_link_url, ...}) on POST .../create — no `success`
+// wrapper. Accept both flat and nested ({success, data: {...}}) forms by
+// listing the intake fields at the top level AND under `data`. Either may
+// be present; the caller normalizes.
 export const BackendIntakeCreateResponseSchema = z.object({
-  success: z.boolean(),
+  success: z.boolean().optional(),
+  // Nested shape
   data: z.object({
     uuid: z.string(),
     status: z.string(),
-    payment_link_url: z.string().nullable(),
-    organization: z.object({
-      name: z.string().nullable().optional(),
-    }).passthrough().nullable().optional(),
+    payment_link_url: z.string().nullable().optional(),
+    organization: BackendIntakeCreateOrgSchema,
   }).passthrough().optional(),
+  // Flat shape — same fields at top level
+  uuid: z.string().optional(),
+  status: z.string().optional(),
+  payment_link_url: z.string().nullable().optional(),
+  organization: BackendIntakeCreateOrgSchema,
   error: z.string().optional(),
-});
+}).passthrough();
 export type BackendIntakeCreateResponse = z.infer<typeof BackendIntakeCreateResponseSchema>;
 
 /**
