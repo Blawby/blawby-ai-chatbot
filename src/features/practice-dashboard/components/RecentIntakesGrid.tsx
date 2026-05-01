@@ -3,6 +3,7 @@ import { Avatar } from '@/shared/ui/profile';
 import { SkeletonLoader } from '@/shared/ui/layout/SkeletonLoader';
 import { Button } from '@/shared/ui/Button';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
+import { fromMinorUnits } from '@/shared/utils/money';
 import { formatDate } from '@/shared/utils/dateTime';
 import type { IntakeListItem } from '@/features/intake/api/intakesApi';
 import { resolveIntakeTitle } from '@/features/intake/utils/intakeTitle';
@@ -117,7 +118,7 @@ export const RecentIntakesGrid = ({
                   <dt className="text-input-placeholder">Amount</dt>
                   <dd className="flex items-start gap-x-2">
                     <div className="font-medium text-input-text">
-                      {formatCurrency(intake.amount, intake.currency)}
+                      {formatCurrency(fromMinorUnits(intake.amount), intake.currency)}
                     </div>
                   </dd>
                 </div>
