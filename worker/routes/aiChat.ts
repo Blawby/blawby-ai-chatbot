@@ -1015,13 +1015,20 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         (shouldRequireDisclaimer(body.messages) || CONSULTATION_CTA_REGEX.test(accumulatedReply));
       const includeActionsInMetadata = Boolean(actions && actions.length > 0);
       
-      // Detect tool-only behavior and normalization
+      // Detect tool-only behavior and normalize successful intake tool turns.
       const wasToolOnly = accumulatedReply.trim().length === 0 && streamResult.toolCalls.length > 0;
+      const shouldUseToolReply = isIntakeMode && finalToolResult?.success === true;
       const normalizationReasons: string[] = [];
       let syntheticReply = '';
 
       if (wasToolOnly) {
         normalizationReasons.push('tool_only_completion');
+      }
+
+      if (shouldUseToolReply) {
+        if (!wasToolOnly && accumulatedReply.trim()) {
+          normalizationReasons.push('tool_completion_replaced_model_text');
+        }
         if (isIntakeMode && lastQuestionResult?.success && typeof lastQuestionResult.message === 'string' && lastQuestionResult.message.trim()) {
           syntheticReply = lastQuestionResult.message.trim();
         } else if (isIntakeMode && finalToolResult?.success && patchToMerge) {
@@ -1041,7 +1048,10 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
             nextRequiredFieldAfterPatch,
             intakeSubmissionGate.nextEnrichmentField ?? null,
           );
-        } else if (isIntakeMode && finalToolResult?.success && typeof finalToolResult.message === 'string' && finalToolResult.message.trim()) {
+          if (!syntheticReply && typeof finalToolResult.message === 'string' && finalToolResult.message.trim()) {
+            syntheticReply = finalToolResult.message.trim();
+          }
+        } else if (typeof finalToolResult.message === 'string' && finalToolResult.message.trim()) {
           syntheticReply = finalToolResult.message.trim();
         }
       }
@@ -1077,7 +1087,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
             ...(shouldPromptConsultation
               ? { modeSelector: { showAskQuestion: false, showRequestConsultation: true, source: 'ai' } }
               : {}),
-            ...(wasToolOnly ? { wasToolOnly, normalizationReasons } : {}),
+            ...(wasToolOnly || normalizationReasons.length > 0 ? { wasToolOnly, normalizationReasons } : {}),
           },
           recipientUserId: authContext.user.id,
           skipPracticeValidation: shouldSkipPracticeValidation,
@@ -1090,7 +1100,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
           conversationId: body.conversationId,
           messageId: storedMessage.id,
           role: 'assistant',
-          kind: wasToolOnly ? 'synthetic' : 'original',
+          kind: syntheticReply ? 'synthetic' : 'original',
           wasToolOnly,
         });
 

@@ -376,6 +376,14 @@ export const useChatComposer = ({
         return;
       }
       if (parsed.done === true) {
+        const finalReply = typeof parsed.reply === 'string' ? parsed.reply : null;
+        if (finalReply !== null) {
+          setMessages(prev => prev.map(msg =>
+            msg.id === bubbleId
+              ? { ...msg, content: finalReply, isLoading: false }
+              : msg
+          ));
+        }
         if (parsed.intakeFields && typeof parsed.intakeFields === 'object') {
           applyIntakeFields(parsed.intakeFields as IntakeFieldsPayload).catch(err => {
             console.warn('[useChatComposer] Failed to apply intake fields from stream', err);

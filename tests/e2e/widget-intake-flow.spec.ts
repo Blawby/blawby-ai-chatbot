@@ -814,7 +814,7 @@ test.describe('Public widget intake flow', () => {
       .not.toBeNull();
 
     const latestSettingsPayload = intakeSettingsPayloads[intakeSettingsPayloads.length - 1] ?? null;
-    const latestSettingsRecord = latestSettingsPayload?.payload?.settings;
+    const latestSettingsRecord = latestSettingsPayload?.payload?.data?.settings;
     const resolvedConsultationFee = typeof latestSettingsRecord?.consultationFee === 'number'
       ? latestSettingsRecord.consultationFee
       : typeof latestSettingsRecord?.consultation_fee === 'number'

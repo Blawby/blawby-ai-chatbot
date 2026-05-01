@@ -560,7 +560,7 @@ export const updatePracticeDetailsStandalone = async (
     if (sharedPracticeSnapshot.currentPractice?.id === id) {
       sharedPracticeIncludesDetails = true;
     }
-    broadcastSnapshot();
+    broadcastSnapshot(sharedPracticeSnapshot, null);
   }
 
   return updatedDetails;
