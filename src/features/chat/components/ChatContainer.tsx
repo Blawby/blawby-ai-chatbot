@@ -150,14 +150,21 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   const [composerInsetPx, setComposerInsetPx] = useState(104);
   const isChatInputLocked = (!isReady && !!conversationId) || (isPublicWorkspace && intakeContext.intakeStatus?.step === 'contact_form_slim');
 
-  // Track whether the chat connection has ever been ready in this session.
-  // If it was, and isReady flips false again, that's a reconnect-in-progress
-  // (vs first-load "still connecting"). Surfacing this in the UI prevents the
-  // user from thinking the chat is broken when the socket transparently
-  // reconnects after a network blip.
+  // Track whether the chat connection has ever been ready *for the current
+  // conversation*. If it was, and isReady flips false again, that's a
+  // reconnect-in-progress (vs first-load "still connecting"). Scoping this
+  // to conversationId prevents the banner from flashing when the user
+  // switches conversations and the new one is still on its first connect.
   const wasEverReadyRef = useRef(false);
+  const lastConversationIdRef = useRef<string | null | undefined>(conversationId);
   const [isReconnecting, setIsReconnecting] = useState(false);
   useEffect(() => {
+    if (lastConversationIdRef.current !== conversationId) {
+      lastConversationIdRef.current = conversationId;
+      wasEverReadyRef.current = false;
+      setIsReconnecting(false);
+      if (!isReady) return;
+    }
     if (isReady) {
       wasEverReadyRef.current = true;
       setIsReconnecting(false);

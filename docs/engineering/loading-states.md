@@ -9,9 +9,9 @@ Canonical patterns for "this UI is waiting for data." See issue #533 for the aud
 {error && !data ? <Err/> : isLoading ? <LoadingBlock/> : data.length === 0 ? <Empty/> : <List/>}
 
 // Detail pages — only show full-page loader when there is no data yet.
-if (loading && !detail) return <LoadingBlock label="..." />;
+if (isLoading && !detail) return <LoadingBlock label="..." />;
 // Inline indicator near the title for background refetches:
-title={(<><Title/>{loading ? <LoadingSpinner size="sm" announce={false}/> : null}</>)}
+title={(<><Title/>{isFetching ? <LoadingSpinner size="sm" announce={false}/> : null}</>)}
 ```
 
 ## Hook contract (`AsyncState<T>`)
@@ -70,10 +70,10 @@ Why each guard:
 Detail pages can early-return on first load only:
 
 ```tsx
-if (loading && !detail) return <LoadingBlock label="Loading invoice..." />;
+if (isLoading && !detail) return <LoadingBlock label="Loading invoice..." />;
 if (error && !detail) return <ErrBox/>;
 // Inline refetch indicator next to the title:
-<EditorShell title={<>{detail.invoiceNumber}{loading ? <LoadingSpinner size="sm" announce={false}/> : null}</>} ... />
+<EditorShell title={<>{detail.invoiceNumber}{isFetching ? <LoadingSpinner size="sm" announce={false}/> : null}</>} ... />
 ```
 
 This keeps the page visible during background refetches triggered by mutations (sync, void, payment).
@@ -146,5 +146,5 @@ For data that should never be served stale (auth, billing display about to be ac
 
 - Hooks renamed `loading` → `isLoading`: `useBillingData`, `useActivity`, `usePracticeManagement`. Update any consumer destructure: `loading: foo` → `isLoading: foo`.
 - `isLoaded` field removed from `useMattersData`, `useClientsData`, `usePracticeTeam`. Replace `.isLoaded` with `!isLoading` (post-Phase-C3 they are equivalent because `isLoading` is permanently false after first load).
-- `useIntakesData` keeps `isLoaded` (hand-rolled state with different semantics) — leave it.
+- `useIntakesData` now delegates to `useQuery` (in-flight coalescing, same as `useIntakeDetail` et al.). It still exposes `isLoaded`, derived as `data !== undefined` — equivalent to `!isLoading` once `isLoading` is permanently false after first load. Prefer `!isLoading` in new code.
 - Page-level fetches are migrating to `useQuery` for in-flight coalescing. New patterns: `useIntakeDetail`, `useEngagementDetail`, `useInvoiceDetail`, `useClientInvoiceDetail`. After mutations, call `setData(updated)` (for instant cache write) or `refetch()` (for server-truth round-trip).
