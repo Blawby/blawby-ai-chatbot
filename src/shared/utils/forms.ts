@@ -90,19 +90,27 @@ export function formatFormData(formData: Record<string, unknown>, practiceSlug: 
   };
 }
 
+type IntakeSettingsRecord = {
+  paymentLinkEnabled?: boolean;
+  payment_link_enabled?: boolean;
+  consultationFee?: number;
+  consultation_fee?: number;
+};
+type IntakeSettingsOrganization = {
+  name?: string;
+  logo?: string;
+};
+// Backend emits the flat shape ({success, settings, organization}); the nested
+// ({data: {settings}}) form was used by an earlier version. The worker-side
+// helper at RemoteApiService.getPracticeClientIntakeSettings already accepts
+// both, and so do we.
 type IntakeSettingsResponse = {
   success?: boolean;
+  organization?: IntakeSettingsOrganization;
+  settings?: IntakeSettingsRecord;
   data?: {
-    organization?: {
-      name?: string;
-      logo?: string;
-    };
-    settings?: {
-      paymentLinkEnabled?: boolean;
-      payment_link_enabled?: boolean;
-      consultationFee?: number;
-      consultation_fee?: number;
-    };
+    organization?: IntakeSettingsOrganization;
+    settings?: IntakeSettingsRecord;
   };
   error?: string;
 };
@@ -305,7 +313,7 @@ export async function submitContactForm(
     
     const formPayload = formatFormData(formData, practiceSlug);
     const settings = await fetchIntakeSettings(practiceSlug);
-    const settingsRecord = settings?.data?.settings;
+    const settingsRecord = settings?.settings ?? settings?.data?.settings;
     const consultationFee = typeof settingsRecord?.consultationFee === 'number'
       ? settingsRecord.consultationFee
       : typeof settingsRecord?.consultation_fee === 'number'

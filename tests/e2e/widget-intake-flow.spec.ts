@@ -814,12 +814,22 @@ test.describe('Public widget intake flow', () => {
       .not.toBeNull();
 
     const latestSettingsPayload = intakeSettingsPayloads[intakeSettingsPayloads.length - 1] ?? null;
-    const latestSettingsRecord = latestSettingsPayload?.payload?.data?.settings;
+    const latestSettingsRecord = latestSettingsPayload?.payload?.settings;
     const resolvedConsultationFee = typeof latestSettingsRecord?.consultationFee === 'number'
       ? latestSettingsRecord.consultationFee
       : typeof latestSettingsRecord?.consultation_fee === 'number'
         ? latestSettingsRecord.consultation_fee
         : null;
+
+    // Log the actual type and value for debugging
+    // eslint-disable-next-line no-console
+    console.log('DEBUG payment_link_enabled:', {
+      camel: latestSettingsRecord?.paymentLinkEnabled,
+      camelType: typeof latestSettingsRecord?.paymentLinkEnabled,
+      snake: latestSettingsRecord?.payment_link_enabled,
+      snakeType: typeof latestSettingsRecord?.payment_link_enabled,
+    });
+
     const resolvedPaymentLinkEnabled = typeof latestSettingsRecord?.paymentLinkEnabled === 'boolean'
       ? latestSettingsRecord.paymentLinkEnabled
       : typeof latestSettingsRecord?.payment_link_enabled === 'boolean'

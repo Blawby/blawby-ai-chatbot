@@ -150,8 +150,29 @@ export function setSettingsReturnPath(path: string): void {
   window.sessionStorage.setItem(SETTINGS_RETURN_KEY, path);
 }
 
-const isRelativeInternalPath = (path: string): boolean =>
-  path.startsWith('/') && !path.startsWith('//');
+const isRelativeInternalPath = (path: string): boolean => {
+  if (typeof path !== 'string') return false;
+  // Reject any paths containing backslashes to avoid confusion with
+  // protocol-like inputs such as "\" or "//\\evil.com". Normalize
+  // backslashes to forward slashes and then validate.
+  if (path.includes('\\')) return false;
+  const normalized = path.replaceAll('\\', '/');
+  return normalized.startsWith('/') && !normalized.startsWith('//');
+};
+
+export function isValidInternalReturnPath(path: string | null | undefined): path is string {
+  return typeof path === 'string' && isRelativeInternalPath(path);
+}
+
+export function getValidatedInternalReturnPath(
+  returnPath: string | null | undefined,
+  fallback: string
+): string {
+  if (isValidInternalReturnPath(returnPath)) {
+    return returnPath;
+  }
+  return fallback;
+}
 
 export function getValidatedSettingsReturnPath(
   returnPath: string | null,

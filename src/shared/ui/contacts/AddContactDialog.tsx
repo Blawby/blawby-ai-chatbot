@@ -1,9 +1,9 @@
 import type { ComponentChildren } from 'preact';
-import { Dialog } from '@/shared/ui/dialog';
-import { Input } from '@/shared/ui/input';
-import { FormActions } from '@/shared/ui/form';
-import { useCreateContact } from '@/shared/hooks/useCreateContact';
-import { useToastContext } from '@/shared/contexts/ToastContext';
+import { Dialog } from '../dialog/Dialog';
+import { FormActions } from '../form/FormActions';
+import { Input } from '../input/Input';
+import { useCreateContact } from '../../hooks/useCreateContact';
+import { useToastContext } from '../../contexts/ToastContext';
 
 type AddContactDialogProps = {
   practiceId: string | null;
@@ -71,7 +71,7 @@ export const AddContactDialog = ({
           label="Contact email"
           type="email"
           value={createContact.form.email}
-          onChange={(value) => createContact.updateField('email', value)}
+          onChange={(value: string) => createContact.updateField('email', value)}
           placeholder="jane@lawfirm.com"
           required
           disabled={createContact.submitting || !practiceId}
@@ -83,7 +83,7 @@ export const AddContactDialog = ({
           onSubmit={handleSubmit}
           submitType="button"
           submitText={submitLabel}
-          disabled={createContact.submitting || !practiceId}
+          submitDisabled={createContact.submitting || !practiceId || !createContact.form.email.trim()}
         />
       </div>
     </Dialog>

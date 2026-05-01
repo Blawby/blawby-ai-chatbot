@@ -4,6 +4,7 @@ import { VList } from 'virtua';
 import { cn } from '@/shared/utils/cn';
 import { ListRowSkeleton } from '@/shared/ui/layout/skeleton-presets/ListRowSkeleton';
 import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
+import { SELECTED_ACCENT_SURFACE_CLASS } from '@/shared/ui/layout/selectionStyles';
 
 type RefObject<T> = { current: T | null };
 
@@ -97,7 +98,7 @@ export function EntityList<T extends { id: string }>({
               type="button"
               className={cn(
                 'w-full text-left transition-colors duration-150 border-b border-line-glass/[0.04]',
-                isSelected ? 'bg-surface-utility/60' : 'hover:bg-surface-utility/40',
+                isSelected ? SELECTED_ACCENT_SURFACE_CLASS : 'hover:bg-surface-utility/40',
                 onSelect && 'cursor-pointer'
               )}
               onClick={onSelect ? () => onSelect(item) : undefined}

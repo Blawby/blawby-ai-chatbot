@@ -22,6 +22,7 @@ export type PracticeProfileInput = {
   isPublic?: boolean;
   services?: Array<Record<string, unknown>> | null;
   serviceStates?: string[] | null;
+  servicesByState?: Record<string, string[]> | null;
   supportedStates?: SupportedStateEntry[] | null;
 };
 
@@ -166,6 +167,10 @@ export const buildPracticeProfilePayloads = (
 
   if (input.supportedStates !== undefined) {
     detailsPayload.supportedStates = input.supportedStates;
+  }
+
+  if (input.servicesByState !== undefined) {
+    detailsPayload.servicesByState = input.servicesByState;
   }
 
   return { practicePayload, detailsPayload };

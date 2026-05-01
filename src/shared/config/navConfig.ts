@@ -384,10 +384,8 @@ const buildSettingsSecondary = (basePath: string, canAccessPractice: boolean): N
     sections.push({
       label: 'Practice',
       items: [
-        { id: 'practice', label: 'Overview', href: `${basePath}/settings/practice` },
-        { id: 'practice-contact', label: 'Contact', href: `${basePath}/settings/practice/contact` },
-        { id: 'practice-coverage', label: 'Services', href: `${basePath}/settings/practice/coverage` },
-        { id: 'practice-payouts', label: 'Payouts', href: `${basePath}/settings/practice/payouts` },
+        { id: 'practice', label: 'Practice', href: `${basePath}/settings/practice` },
+        { id: 'practice-payouts', label: 'Payouts and Billing', href: `${basePath}/settings/practice/payouts` },
         { id: 'practice-team', label: 'Team & Access', href: `${basePath}/settings/practice/team` },
         { id: 'apps', label: 'Apps & Integrations', href: `${basePath}/settings/apps` },
       ],

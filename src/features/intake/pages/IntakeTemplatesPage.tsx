@@ -36,6 +36,7 @@ import { fromMinorUnits, toMinorUnitsValue } from '@/shared/utils/money';
 import { getOnboardingStatusPayload } from '@/shared/lib/apiClient';
 import { STANDARD_FIELD_DEFINITIONS, DEFAULT_INTAKE_TEMPLATE } from '@/shared/constants/intakeTemplates';
 import type { FieldPhase, IntakeFieldDefinition, IntakeTemplate } from '@/shared/types/intake';
+import { EmbedCodeDialog, getPublicFormUrl, copyTextToClipboard } from '@/features/intake/components/EmbedCodeBlock';
 
 type IntakeTemplatesPageProps = {
   onBack?: () => void;
@@ -72,28 +73,10 @@ function slugify(name: string): string {
     .replace(/^-+|-+$/g, '');
 }
 
-function getEmbedSnippet(practiceSlug: string, templateSlug: string): string {
-  return [
-    '<script',
-    `  src="https://app.blawby.com/widget.js?template=${templateSlug}"`,
-    `  data-practice="${practiceSlug}"`,
-    '  async',
-    '></script>',
-  ].join('\n');
-}
-
-function getPublicFormUrl(practiceSlug: string, templateSlug: string): string {
-  const origin = typeof window !== 'undefined' && window.location?.origin
-    ? window.location.origin
-    : 'https://app.blawby.com';
-  const url = new URL(`/public/${encodeURIComponent(practiceSlug)}`, origin);
-  url.searchParams.set('template', templateSlug);
-  return url.toString();
-}
 
 function parseTemplatesFromMetadata(metadata: Record<string, unknown> | null | undefined): IntakeTemplate[] {
   if (!metadata) return [];
-  
+
   const raw = metadata.intakeTemplates;
   if (typeof raw === 'string') {
     try {
@@ -280,48 +263,7 @@ function moveItem<T>(items: T[], fromIndex: number, toIndex: number): T[] {
   return next;
 }
 
-function copyTextToClipboard(
-  text: string,
-  onSuccess: () => void,
-  onError: (message: string) => void,
-) {
-  if (
-    typeof navigator !== 'undefined' &&
-    navigator.clipboard &&
-    typeof navigator.clipboard.writeText === 'function'
-  ) {
-    navigator.clipboard.writeText(text)
-      .then(onSuccess)
-      .catch((error) => {
-        onError(error instanceof Error ? error.message : 'Could not copy to clipboard.');
-      });
-    return;
-  }
 
-  if (typeof document === 'undefined') {
-    onError('Clipboard is not available in this environment.');
-    return;
-  }
-
-  try {
-    const textarea = document.createElement('textarea');
-    textarea.value = text;
-    textarea.setAttribute('readonly', '');
-    textarea.style.position = 'absolute';
-    textarea.style.left = '-9999px';
-    document.body.appendChild(textarea);
-    textarea.select();
-    const copied = document.execCommand('copy');
-    document.body.removeChild(textarea);
-    if (copied) {
-      onSuccess();
-    } else {
-      onError('Clipboard is not available.');
-    }
-  } catch (error) {
-    onError(error instanceof Error ? error.message : 'Clipboard is not available.');
-  }
-}
 
 function useDragReorder<T>(items: T[], onReorder: (next: T[]) => void) {
   const dragIndexRef = useRef<number | null>(null);
@@ -406,90 +348,7 @@ function maskStripeAccountId(value?: string | null) {
   return `${value.slice(0, 8)}...${value.slice(-4)}`;
 }
 
-type EmbedCodeBlockProps = {
-  practiceSlug: string;
-  templateSlug: string;
-};
-
-export function EmbedCodeBlock({ practiceSlug, templateSlug }: EmbedCodeBlockProps) {
-  const { showSuccess, showError } = useToastContext();
-  const [copied, setCopied] = useState(false);
-  const [copiedLink, setCopiedLink] = useState(false);
-  const snippet = getEmbedSnippet(practiceSlug, templateSlug);
-  const publicUrl = getPublicFormUrl(practiceSlug, templateSlug);
-
-  const handleCopy = () => {
-    copyTextToClipboard(
-      snippet,
-      () => {
-        setCopied(true);
-        showSuccess('Embed copied', 'The widget snippet is ready to paste.');
-        setTimeout(() => setCopied(false), 2000);
-      },
-      (message) => showError('Copy failed', message),
-    );
-  };
-
-  const handleCopyLink = () => {
-    copyTextToClipboard(
-      publicUrl,
-      () => {
-        setCopiedLink(true);
-        showSuccess('Link copied', 'The public intake link is ready to share.');
-        setTimeout(() => setCopiedLink(false), 2000);
-      },
-      (message) => showError('Copy failed', message),
-    );
-  };
-
-  return (
-    <div className="space-y-5">
-      <div className="space-y-2">
-        <p className="text-sm text-input-placeholder">
-          Share the direct link or install the widget script on your site.
-        </p>
-        <div className="glass-panel rounded-xl px-4 py-3">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="min-w-0">
-              <p className="text-xs font-medium uppercase tracking-widest text-input-placeholder">Public link</p>
-              <a
-                href={publicUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="mt-1 block truncate text-sm font-medium text-input-text underline decoration-line-glass/50 underline-offset-4 hover:decoration-input-text"
-              >
-                {publicUrl}
-              </a>
-            </div>
-            <Button type="button" variant="secondary" size="sm" onClick={handleCopyLink}>
-              {copiedLink ? 'Copied' : 'Copy link'}
-            </Button>
-          </div>
-        </div>
-      </div>
-
-      <div className="space-y-3">
-        <p className="text-sm text-input-placeholder">
-          Paste this script into your site&apos;s <code>&lt;head&gt;</code> or before <code>&lt;/body&gt;</code> to load this intake flow.
-        </p>
-        <div className="relative group">
-          <pre className="bg-elevation-2 overflow-x-auto rounded-xl border border-line-glass/30 p-4 pr-20 text-sm font-mono text-input-text">
-            {snippet}
-          </pre>
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            onClick={handleCopy}
-            className="absolute right-3 top-3 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100"
-          >
-            {copied ? 'Copied' : 'Copy'}
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
-}
+// Embed UI lives in src/features/intake/components/EmbedCodeBlock.tsx
 
 type StatPillProps = {
   label: string;
@@ -980,7 +839,7 @@ function TemplateCard({
     .filter((question) => question.trim().length > 0)
     .slice(0, 3);
   const remainingQuestions = Math.max(template.fields.length - questionPreview.length, 0);
-  const embedSnippet = getEmbedSnippet(practiceSlug, template.slug);
+  const [openEmbedDialog, setOpenEmbedDialog] = useState(false);
   const publicUrl = getPublicFormUrl(practiceSlug, template.slug);
 
   return (
@@ -1031,11 +890,7 @@ function TemplateCard({
               </DropdownMenuItem>
               <DropdownMenuItem
                 onSelect={() => {
-                  copyTextToClipboard(
-                    embedSnippet,
-                    () => showSuccess('Embed copied', 'The widget snippet is ready to paste.'),
-                    (message) => showError('Copy failed', message),
-                  );
+                  setOpenEmbedDialog(true);
                 }}
               >
                 Copy embed code
@@ -1053,6 +908,12 @@ function TemplateCard({
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
+        <EmbedCodeDialog
+          isOpen={openEmbedDialog}
+          onClose={() => setOpenEmbedDialog(false)}
+          practiceSlug={practiceSlug}
+          templateSlug={template.slug}
+        />
 
         <div className="mt-5 space-y-2">
           {questionPreview.map((question, index) => (
@@ -1133,7 +994,6 @@ function TemplateEditor({
   const initialState = useMemo(() => buildEditorState(initial, editorDefaults), [editorDefaults, initial]);
   const initialSnapshot = useMemo(() => serializeTemplate(editorStateToTemplate(initialState)), [initialState]);
   const [state, setState] = useState<EditorState>(initialState);
-  const stateRef = useRef(initialState);
   const [slugError, setSlugError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [stripeStatus, setStripeStatus] = useState<StripeConnectStatus | null>(null);
@@ -1142,10 +1002,7 @@ function TemplateEditor({
   const [replacementFieldKey, setReplacementFieldKey] = useState('');
 
   const applyEditorState = useCallback((updater: (prev: EditorState) => EditorState) => {
-    const nextState = updater(stateRef.current);
-    stateRef.current = nextState;
-    setState(nextState);
-    return nextState;
+    setState(updater);
   }, []);
 
   const draftTemplate = useMemo(() => editorStateToTemplate(state), [state]);
@@ -1201,9 +1058,7 @@ function TemplateEditor({
     applyEditorState((prev) => ({ ...prev, enrichmentFields: next }));
   });
 
-  useEffect(() => {
-    stateRef.current = state;
-  }, [state]);
+
 
   useEffect(() => {
     const organizationId = practiceOrganizationId?.trim();
@@ -1503,12 +1358,10 @@ function TemplateEditor({
   };
 
   const handleSave = async () => {
-    const currentState = stateRef.current;
-    if (!validatePublish(currentState)) return;
-
+    if (!validatePublish(state)) return;
     setIsSaving(true);
     try {
-      await onSave(editorStateToTemplate(currentState));
+      await onSave(editorStateToTemplate(state));
     } finally {
       setIsSaving(false);
     }
@@ -2188,8 +2041,10 @@ export default function IntakeTemplatesPage({
 
     const nextMetadata = { ...currentMetadata, intakeTemplates: JSON.stringify(nextTemplates) };
 
+    // Snapshot BEFORE optimistic update
+    const snapshot = practiceDetails;
     const optimisticDetails = {
-      ...(practiceDetails ?? {}),
+      ...(snapshot ?? {}),
       metadata: nextMetadata,
     };
 
@@ -2198,7 +2053,7 @@ export default function IntakeTemplatesPage({
     try {
       await updatePractice(currentPractice.id, { metadata: nextMetadata });
     } catch (error) {
-      setDetails(practiceDetails ?? null);
+      setDetails(snapshot ?? null);
       throw error;
     }
   }, [currentPractice, practiceDetails, setDetails, updatePractice]);
@@ -2229,43 +2084,27 @@ export default function IntakeTemplatesPage({
       // Prevent renaming if there are existing intake responses tied to the
       // current edit target's slug, since renaming would orphan those links.
       if (editTarget && template.slug !== editTarget.slug && currentPractice) {
-        // Fetch a bounded set of intakes and check for any that reference the
-        // editTarget.slug. This avoids breaking existing links.
+        // Fetch only the first page of intakes and check for any that reference the editTarget.slug
         try {
-          let hasResponses = false;
-          let page = 1;
-          while (true) {
-            const result = await listIntakes(currentPractice.id, { page, limit: 100 });
-            if (result.intakes.some((i) => getResponseTemplateSlug(i) === editTarget.slug)) {
-              hasResponses = true;
-              break;
-            }
-            if (page >= result.total_pages || result.intakes.length === 0) {
-              break;
-            }
-            page++;
+          const result = await listIntakes(currentPractice.id, { page: 1, limit: 100 });
+          const hasResponses = result.intakes.some((i) => getResponseTemplateSlug(i) === editTarget.slug);
+          if (!hasResponses && result.total > 100) {
+            // Too many to check client-side — block rename conservatively
+            showError('Rename check failed', 'Unable to verify whether this form has existing responses. Rename aborted.');
+            setIsSaving(false);
+            return;
           }
-
           if (hasResponses) {
             showError('Rename not allowed', 'This form has existing responses and cannot be renamed.');
             setIsSaving(false);
             return;
           }
         } catch (_err) {
-          // If the check fails, be conservative and prevent rename to avoid
-          // accidental orphaning.
+          // If the check fails, be conservative and prevent rename to avoid accidental orphaning.
           showError('Rename check failed', 'Unable to verify whether this form has existing responses. Rename aborted.');
           setIsSaving(false);
           return;
         }
-      }
-
-      // Prevent slug collision with another template (except when it's the same
-      // template being edited).
-      if (existingTemplates.some((e) => e.slug === template.slug && e.slug !== (editTarget?.slug ?? ''))) {
-        showError('Slug conflict', 'Another form already uses this slug. Choose a different slug.');
-        setIsSaving(false);
-        return;
       }
 
       // Build the next templates list by removing any existing entries with the

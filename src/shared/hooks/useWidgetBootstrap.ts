@@ -67,6 +67,27 @@ export function useWidgetBootstrap(slug: string, isWidget: boolean) {
           }
           throw fetchError;
         }
+
+        // ── 2. Identity Reconciliation ──────────────────────────────────────
+        // If the backend returns a DIFFERENT user ID than what we have in storage,
+        // it means the session was reset (e.g. cookies cleared). We must wipe
+        // ALL stale state (token, cached conversation IDs, etc.) to prevent
+        // 403 errors and split-identity bugs.
+        const storedUserId = typeof window !== 'undefined' ? sessionStorage.getItem('blawby:lastAnonUserId') : null;
+        const freshUserId = freshData.session?.user?.id ? String(freshData.session.user.id) : null;
+
+        if (storedUserId && freshUserId && storedUserId !== freshUserId) {
+          console.info('[WidgetBootstrap] Identity mismatch; clearing stale session storage.');
+          clearWidgetAuthToken();
+          if (typeof window !== 'undefined') {
+            Object.keys(sessionStorage).forEach(key => {
+              if (key.startsWith('blawby:')) {
+                sessionStorage.removeItem(key);
+              }
+            });
+          }
+        }
+
         if (typeof freshData.widgetAuthToken === 'string' && freshData.widgetAuthToken.trim().length > 0) {
           persistWidgetAuthToken(
             freshData.widgetAuthToken,
@@ -79,6 +100,7 @@ export function useWidgetBootstrap(slug: string, isWidget: boolean) {
         } else {
           clearWidgetAuthToken();
         }
+
 
         // Write to cache for next page load (read back is just for reference, not fast-path).
         try {

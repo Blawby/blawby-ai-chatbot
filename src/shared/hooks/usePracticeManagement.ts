@@ -535,6 +535,37 @@ function _generateIdempotencyKey(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
+export const updatePracticeDetailsStandalone = async (
+  id: string,
+  details: PracticeDetailsUpdate
+): Promise<PracticeDetails | null> => {
+  if (!id) {
+    throw new Error('Practice id is required for details update');
+  }
+
+  const updatedDetails = await apiUpdatePracticeDetails(id, details);
+  setPracticeDetailsEntry(id, updatedDetails);
+
+  if (updatedDetails && sharedPracticeSnapshot) {
+    const nextPractices = sharedPracticeSnapshot.practices.map((practice) =>
+      practice.id === id ? mergePracticeDetails(practice, updatedDetails) : practice
+    );
+    const nextCurrentPractice = sharedPracticeSnapshot.currentPractice?.id === id
+      ? mergePracticeDetails(sharedPracticeSnapshot.currentPractice, updatedDetails)
+      : sharedPracticeSnapshot.currentPractice;
+    sharedPracticeSnapshot = {
+      practices: nextPractices,
+      currentPractice: nextCurrentPractice
+    };
+    if (sharedPracticeSnapshot.currentPractice?.id === id) {
+      sharedPracticeIncludesDetails = true;
+    }
+    broadcastSnapshot();
+  }
+
+  return updatedDetails;
+};
+
 export function usePracticeManagement(options: UsePracticeManagementOptions = {}): UsePracticeManagementReturn {
   const {
     autoFetchPractices = true,

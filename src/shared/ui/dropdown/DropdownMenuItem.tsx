@@ -30,7 +30,7 @@ export const DropdownMenuItem = ({
 
   return (
     <button
-      onClick={handleClick}
+      onClick={(e) => { e.stopPropagation(); handleClick(); }}
       disabled={disabled}
       className={cn(
         'w-full text-left px-2 py-1.5 text-sm text-input-text',

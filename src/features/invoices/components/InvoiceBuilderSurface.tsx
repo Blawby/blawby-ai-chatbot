@@ -220,6 +220,7 @@ export const InvoiceBuilderSurface = forwardRef<InvoiceFormHandle, InvoiceBuilde
   const resolvedPracticeBillingIncrementMinutes = billingIncrementMinutes ?? undefined;
 
   const displayError = loadError ?? clientsData.error;
+  const shouldShowLoading = loading || clientsData.isLoading;
 
   if (!practiceId) {
     return <div className="p-6 text-sm text-red-300">Practice context is missing from this route.</div>;
@@ -236,7 +237,7 @@ export const InvoiceBuilderSurface = forwardRef<InvoiceFormHandle, InvoiceBuilde
           {displayError}
         </div>
       ) : null}
-      {loading || clientsData.isLoading || clientsData.error ? (
+      {shouldShowLoading ? (
         <Panel className="p-6">
           <LoadingBlock />
         </Panel>
@@ -263,7 +264,6 @@ export const InvoiceBuilderSurface = forwardRef<InvoiceFormHandle, InvoiceBuilde
           closeAfterSuccess={false}
           onClose={onClose}
           onSuccess={onSuccess}
-          onContactCreated={() => clientsData.refetch()}
           practiceName={practiceName ?? undefined}
           practiceLogoUrl={resolvedPracticeLogoUrl}
           practiceEmail={resolvedPracticeEmail}

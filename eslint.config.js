@@ -261,7 +261,9 @@ export default [
         TextDecoder: 'readonly',
         AbortController: 'readonly',
         AbortSignal: 'readonly',
+        RequestInit: 'readonly',
         Buffer: 'readonly',
+        process: 'readonly',
         ReadableStreamDefaultController: 'readonly',
         ExecutionContext: 'readonly', // TODO: validate Worker typing approach
         MessageBatch: 'readonly',

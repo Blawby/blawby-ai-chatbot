@@ -1,6 +1,6 @@
 import type { WorkspaceSection } from '@/shared/config/navConfig';
 
-type WorkspaceView =
+export type WorkspaceView =
   | 'home'
   | 'setup'
   | 'list'

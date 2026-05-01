@@ -69,7 +69,6 @@ import {
   BackendIntakeCreatePayloadSchema,
   BackendIntakeCreateResponseSchema,
   type BackendIntakeCreatePayload,
-  type BackendIntakeCreateResponse,
 } from '../types/wire/intake.js';
 import { validateWire } from '../utils/validateWire.js';
 
@@ -937,7 +936,17 @@ export async function handleSubmitIntake(
     { strict: false },
   );
 
-  if (!backendPayload?.success || !backendPayload.data?.uuid) {
+  // Accept both nested ({success, data: {uuid, ...}}) and flat ({uuid, ...})
+  // backend response shapes. The schema lists the intake fields under both;
+  // pick `data` first if present, else fall back to top-level fields.
+  const intakeData = backendPayload?.data?.uuid
+    ? backendPayload.data
+    : (backendPayload?.uuid ? backendPayload : null);
+  const successFlag = typeof backendPayload?.success === 'boolean'
+    ? backendPayload.success
+    : Boolean(intakeData?.uuid);
+
+  if (!successFlag || !intakeData?.uuid) {
     const errorDetails = backendPayload?.error ?? 'No uuid returned';
     Logger.error('[submitIntake] Backend intake create failed', {
       conversationId,
@@ -947,7 +956,7 @@ export async function handleSubmitIntake(
     throw HttpErrors.internalServerError(`Backend intake creation failed: ${errorDetails}`);
   }
 
-  const { uuid: intakeUuid, status, payment_link_url, organization } = backendPayload.data;
+  const { uuid: intakeUuid, status, payment_link_url, organization } = intakeData;
 
   // Persist intake_uuid back into D1 conversation metadata
   try {

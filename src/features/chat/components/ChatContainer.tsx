@@ -148,7 +148,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   const [replyTarget, setReplyTarget] = useState<ReplyTarget | null>(null);
   const composerDockRef = useRef<HTMLDivElement>(null);
   const [composerInsetPx, setComposerInsetPx] = useState(104);
-  const isChatInputLocked = !isReady || (isPublicWorkspace && intakeContext.intakeStatus?.step === 'contact_form_slim');
+  const isChatInputLocked = (!isReady && !!conversationId) || (isPublicWorkspace && intakeContext.intakeStatus?.step === 'contact_form_slim');
 
   // Track whether the chat connection has ever been ready in this session.
   // If it was, and isReady flips false again, that's a reconnect-in-progress
@@ -527,7 +527,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
                   isSessionReady={isReady || (!conversationId && !!canChat)}
                   isSocketReady={isReady || (!conversationId && !!canChat)}
                   intakeStatus={isPublicWorkspace ? intakeContext.intakeStatus : undefined}
-                  disabled={!isReady || (isPublicWorkspace && intakeContext.intakeStatus?.step === 'contact_form_slim')}
+                  disabled={isChatInputLocked}
                   replyTo={replyTarget}
                   onCancelReply={handleCancelReply}
                   mentionCandidates={mentionCandidates}

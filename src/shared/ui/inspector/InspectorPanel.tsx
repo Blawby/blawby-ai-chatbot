@@ -288,16 +288,16 @@ export const InspectorPanel = ({
     <span className="flex items-center gap-1">
       No one —{' '}
       {currentUserId ? (
-        <button 
-          type="button" 
-          className="text-accent-500 transition-colors hover:text-accent-600 hover:underline focus:outline-none"
+        <Button
+          variant="link"
+          size="xs"
           onClick={(e) => {
             e.stopPropagation();
             void handleConversationAssignmentChange(currentUserId);
           }}
         >
           Assign yourself
-        </button>
+        </Button>
       ) : (
         'Assign yourself'
       )}

@@ -11,10 +11,8 @@ import { AccountPage } from './AccountPage';
 import { PayoutsPage } from './PayoutsPage';
 import { SecurityPage } from './SecurityPage';
 import { HelpPage } from './HelpPage';
-import { PracticeOverviewPage } from './PracticePage';
 import { MFAEnrollmentPage } from './MFAEnrollmentPage';
-import { PracticeCoveragePage } from './PracticeCoveragePage';
-import { PracticeContactPage } from './PracticeContactPage';
+import { PracticePage } from './PracticePage';
 import { PracticeTeamPage } from './PracticeTeamPage';
 import { AppsPage } from './AppsPage';
 import { AppDetailPage } from './AppDetailPage';
@@ -28,8 +26,6 @@ export type SettingsView =
   | 'account'
   | 'practice'
   | 'practice-payouts'
-  | 'practice-coverage'
-  | 'practice-contact'
   | 'practice-team'
   | 'apps'
   | 'app-detail'
@@ -75,13 +71,9 @@ const SettingsRouter = ({
       case 'account':
         return <AccountPage />;
       case 'practice':
-        return <PracticeOverviewPage />;
+        return <PracticePage onBack={() => navigate(toSettingsPath('general'))} />;
       case 'practice-payouts':
         return <PayoutsPage onBack={() => navigate(toSettingsPath('practice'))} />;
-      case 'practice-coverage':
-        return <PracticeCoveragePage onBack={() => navigate(toSettingsPath('practice'))} />;
-      case 'practice-contact':
-        return <PracticeContactPage onBack={() => navigate(toSettingsPath('practice'))} />;
       case 'practice-team':
         return <PracticeTeamPage onBack={() => navigate(toSettingsPath('practice'))} />;
       case 'apps':
@@ -127,9 +119,8 @@ const SettingsRouter = ({
   };
 
   const isSelfWrappedView = view === 'app-detail'
+    || view === 'practice'
     || view === 'practice-payouts'
-    || view === 'practice-coverage'
-    || view === 'practice-contact'
     || view === 'practice-team'
     || view === 'mfa-enrollment'
 
@@ -178,11 +169,9 @@ export const SettingsContent = (props: SettingsContentProps) => {
     return `${settingsBasePath}/${subPath.replace(/^\/+/, '')}`;
   };
 
-  const isPracticeScopedView = view === 'practice'
-    || view === 'practice-payouts'
-    || view === 'practice-coverage'
+  const isPracticeScopedView = view === 'practice-payouts'
     || view === 'practice-team'
-    || view === 'practice-contact'
+    || view === 'practice'
     || view === 'apps'
     || view === 'app-detail'
 
@@ -230,8 +219,7 @@ export const SettingsContent = (props: SettingsContentProps) => {
       const item = section.items.find((i) => i.id === view);
       if (item) return item.label;
     }
-    if (view === 'practice-coverage') return 'Coverage';
-    if (view === 'practice-contact') return 'Contact';
+    if (view === 'practice') return t('settings:practice.title');
     if (view === 'mfa-enrollment') return t('settings:mfa.title');
     return t(`settings:${view}.title`);
   }, [currentApp, navConfig.secondary, t, view]);

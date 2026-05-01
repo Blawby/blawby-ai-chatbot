@@ -561,13 +561,16 @@ export function useIntakeFlow({
       try {
         if (!templateHasPaymentConfig) {
           try {
+            type SettingsRecord = { consultationFee?: number; consultation_fee?: number };
             const { data: settingsPayload } = await apiClient.get<{
               success?: boolean;
-              data?: {
-                settings?: { consultationFee?: number; consultation_fee?: number };
-              };
+              settings?: SettingsRecord;
+              data?: { settings?: SettingsRecord };
             }>(getPracticeClientIntakeSettingsEndpoint(effectivePracticeSlug));
-            const settings = settingsPayload.data?.settings;
+            // Backend emits the flat shape ({success, settings, organization}); the
+            // nested ({data: {settings}}) form was used by an earlier version. The
+            // worker-side helper already accepts both, so mirror that here.
+            const settings = settingsPayload.settings ?? settingsPayload.data?.settings;
             consultationFee =
               (typeof settings?.consultationFee === 'number' ? settings.consultationFee : 0) ||
               (typeof settings?.consultation_fee === 'number' ? settings.consultation_fee : 0);
