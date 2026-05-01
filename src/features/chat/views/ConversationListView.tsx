@@ -1,9 +1,14 @@
 import { FunctionComponent, memo } from 'preact/compat';
 import { useTranslation } from 'react-i18next';
-import { PaperAirplaneIcon } from '@heroicons/react/24/outline';
+import {
+  PaperAirplaneIcon,
+  ChatBubbleLeftRightIcon,
+} from '@heroicons/react/24/outline';
 import { VList } from 'virtua';
 import { Avatar } from '@/shared/ui/profile/atoms/Avatar';
 import { Button } from '@/shared/ui/Button';
+import { Icon } from '@/shared/ui/Icon';
+import { SkeletonLoader } from '@/shared/ui/layout';
 import { cn } from '@/shared/utils/cn';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
 import type { Conversation } from '@/shared/types/conversation';
@@ -13,6 +18,60 @@ import {
   resolveConversationContactName,
   resolveConversationDisplayTitle,
 } from '@/shared/utils/conversationDisplay';
+
+/**
+ * Placeholder rows shaped like ConversationItem (avatar + title + time +
+ * preview line). Used during initial load so the sidebar reads as "list
+ * coming" rather than a flat status string.
+ */
+const ConversationListSkeleton = ({ rows = 6 }: { rows?: number }) => (
+  <div className="px-2 py-2">
+    {Array.from({ length: rows }, (_, i) => {
+      const titleW = ['w-32', 'w-40', 'w-28', 'w-36', 'w-44', 'w-32'][i % 6];
+      const previewW = ['w-44', 'w-52', 'w-36', 'w-48', 'w-40', 'w-44'][i % 6];
+      return (
+        <div
+          key={i}
+          className="mb-1 flex w-full items-start gap-3 rounded-xl px-3 py-2.5"
+          aria-hidden="true"
+        >
+          <SkeletonLoader variant="avatar" />
+          <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+            <div className="flex items-center justify-between gap-3">
+              <SkeletonLoader variant="text" height="h-3.5" width={titleW} rounded="rounded-md" />
+              <SkeletonLoader variant="text" height="h-2.5" width="w-10" rounded="rounded" />
+            </div>
+            <SkeletonLoader variant="text" height="h-3" width={previewW} rounded="rounded-md" />
+          </div>
+        </div>
+      );
+    })}
+  </div>
+);
+
+/**
+ * Centered, illustrated empty state for the conversation list. Replaces a
+ * tiny left-aligned line of text with something that fills the panel and
+ * signals "this is where conversations will appear" — softly framed icon,
+ * title, and a one-line hint.
+ */
+const ConversationListEmptyState = ({
+  title,
+  hint,
+}: { title: string; hint: string }) => (
+  <div className="flex h-full flex-1 items-center justify-center px-6 py-10">
+    <div className="flex max-w-xs flex-col items-center gap-3 text-center">
+      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-surface-overlay/60 ring-1 ring-line-glass/20">
+        <Icon
+          icon={ChatBubbleLeftRightIcon}
+          className="h-6 w-6 text-input-placeholder"
+        />
+      </div>
+      <p className="text-sm font-medium text-input-text">{title}</p>
+      <p className="text-xs leading-5 text-input-placeholder">{hint}</p>
+    </div>
+  </div>
+);
 
 interface ConversationPreview {
   content: string;
@@ -135,13 +194,20 @@ const ConversationListView: FunctionComponent<ConversationListViewProps> = ({
   return (
     <div className="flex h-full flex-col bg-transparent">
       {isLoading ? (
-        <div className="flex-1 py-6 text-sm text-input-text/80">{t('workspace.conversationList.loading')}</div>
+        <ConversationListSkeleton />
       ) : errorMessage ? (
-        <div className="flex-1 py-6 text-sm text-red-500 dark:text-red-300">
-          {errorMessage}
+        <div className="flex h-full flex-1 items-center justify-center px-6 py-10">
+          <p className="max-w-xs text-center text-sm text-red-500 dark:text-red-300">
+            {errorMessage}
+          </p>
         </div>
       ) : sorted.length === 0 ? (
-        <div className="flex-1 py-6 text-sm text-input-text/80">{t('workspace.conversationList.empty')}</div>
+        <ConversationListEmptyState
+          title={t('workspace.conversationList.empty', { defaultValue: 'No conversations yet' })}
+          hint={t('workspace.conversationList.emptyHint', {
+            defaultValue: 'New conversations will appear here as they come in.',
+          })}
+        />
       ) : (
         <VList style={{ flex: 1, minHeight: 0 }} className="px-2 py-2">
           {sorted.map((conversation) => (

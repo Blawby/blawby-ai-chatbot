@@ -1695,4 +1695,48 @@
     }
   }
 
+  /* Skeleton placeholder bars.
+   *
+   * Two layers do the work:
+   *   1. A static base color sized to the bar — `--input-placeholder` flips
+   *      correctly between themes (medium gray on light, lighter gray on
+   *      dark) so bars are always visible against the surface, never the
+   *      barely-there ghosting of the prior `--accent-foreground/0.1`.
+   *   2. A diagonal-friendly horizontal highlight band that sweeps across
+   *      the bar via background-position. This is the "premium" shimmer
+   *      pattern (Stripe / LinkedIn) and reads as polish without flash.
+   *
+   * Slow cadence (1.6s) feels confident; faster looks anxious. The peak
+   * opacity (0.32) is high enough to be visible on both themes but stays
+   * shy of a fully solid block. Honors prefers-reduced-motion by dropping
+   * the sweep and showing a slightly more opaque static bar instead.
+   */
+  @keyframes skeleton-shimmer {
+    0%   { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+
+  .skeleton-bar {
+    background-color: rgb(var(--input-placeholder) / 0.18);
+    background-image: linear-gradient(
+      90deg,
+      rgba(0, 0, 0, 0) 0%,
+      rgb(var(--input-placeholder) / 0.32) 50%,
+      rgba(0, 0, 0, 0) 100%
+    );
+    background-repeat: no-repeat;
+    background-size: 50% 100%;
+    background-position: 200% 0;
+    animation: skeleton-shimmer 1.6s ease-in-out infinite;
+    will-change: background-position;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .skeleton-bar {
+      animation: none;
+      background-image: none;
+      background-color: rgb(var(--input-placeholder) / 0.24);
+    }
+  }
+
 }

@@ -229,12 +229,12 @@ export default [
   // Worker files (Cloudflare Workers runtime)
   {
     files: ['worker/**/*.{ts,js}'],
-    ignores: ['worker/types/wire/**'],
     languageOptions: {
       parser: typescriptParser,
       parserOptions: { ecmaVersion: 'latest', sourceType: 'module' },
       globals: {
         Request: 'readonly',
+        RequestInit: 'readonly',
         Response: 'readonly',
         Headers: 'readonly',
         URL: 'readonly',
@@ -267,7 +267,8 @@ export default [
         ReadableStreamDefaultController: 'readonly',
         ExecutionContext: 'readonly', // TODO: validate Worker typing approach
         MessageBatch: 'readonly',
-        BodyInit: 'readonly'
+        BodyInit: 'readonly',
+        process: 'readonly' // guarded by typeof checks; used by validateWire in Node test contexts
       }
     },
     plugins: { '@typescript-eslint': typescript },
@@ -296,25 +297,12 @@ export default [
     }
   },
 
-  // Worker wire schema files deliberately declare Backend* wire contracts.
+  // Worker wire types — canonical home for Backend* declarations.
+  // Inherits the worker block's parser/globals; only override the rule that bans them.
   {
     files: ['worker/types/wire/**/*.{ts,js}'],
-    languageOptions: {
-      parser: typescriptParser,
-      parserOptions: { ecmaVersion: 'latest', sourceType: 'module' },
-    },
-    plugins: { '@typescript-eslint': typescript },
     rules: {
-      ...typescript.configs.recommended.rules,
-      '@typescript-eslint/no-unused-vars': ['warn', {
-        argsIgnorePattern: '^_',
-        varsIgnorePattern: '^_',
-        caughtErrorsIgnorePattern: '^_',
-        ignoreRestSiblings: true
-      }],
-      '@typescript-eslint/no-explicit-any': 'error',
-      'no-unused-vars': 'off',
-      'no-restricted-syntax': 'off',
+      'no-restricted-syntax': 'off'
     }
   },
 

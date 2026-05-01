@@ -19,17 +19,17 @@ import { Button } from '@/shared/ui/Button';
 import { UserCard } from '@/shared/ui/profile';
 import { EditorShell, DetailHeader } from '@/shared/ui/layout';
 import { Page } from '@/shared/ui/layout/Page';
-import { LoadingBlock } from '@/shared/ui/layout/LoadingBlock';
+import { MessageRowSkeleton, SkeletonLoader } from '@/shared/ui/layout';
 import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
 import { Dialog, DialogBody, DialogFooter } from '@/shared/ui/dialog';
 import { Textarea } from '@/shared/ui/input';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import {
-  getPracticeIntake,
   updateIntakeTriageStatus,
   type PracticeIntakeDetail,
 } from '@/features/intake/api/intakesApi';
+import { useIntakeDetail } from '@/features/intake/hooks/useIntakeDetail';
 import {
   fetchConversationMessages,
   postConversationMessage,
@@ -220,9 +220,13 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
   const { showSuccess, showError } = useToastContext();
   const { session } = useSessionContext();
 
-  const [intake, setIntake] = useState<PracticeIntakeDetail | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const {
+    data: intakeData,
+    isLoading,
+    error: loadError,
+    refetch: refetchIntake,
+  } = useIntakeDetail(practiceId, intakeId);
+  const intake: PracticeIntakeDetail | null = intakeData ?? null;
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [localTriageStatus, setLocalTriageStatus] = useState<string | null>(null);
   const [triageDialogAction, setTriageDialogAction] = useState<'accepted' | 'declined' | null>(null);
@@ -298,31 +302,6 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
   } = usePracticeDetails(practiceId, null, false);
 
   const activeTemplate = intake ? resolveActiveTemplate(intake, practiceDetails) : null;
-
-  // Load intake detail
-  useEffect(() => {
-    if (!practiceId || !intakeId) return;
-    const controller = new AbortController();
-    setIsLoading(true);
-    setLoadError(null);
-
-    getPracticeIntake(practiceId, intakeId, { signal: controller.signal })
-      .then((data) => {
-        if (!isMountedRef.current || controller.signal.aborted) return;
-        setIntake(data);
-        setLocalTriageStatus(data.triage_status ?? null);
-      })
-      .catch((err: unknown) => {
-        if (!isMountedRef.current || controller.signal.aborted) return;
-        if (err instanceof Error && err.name === 'AbortError') return;
-        setLoadError(err instanceof Error ? err.message : 'Failed to load intake');
-      })
-      .finally(() => {
-        if (isMountedRef.current && !controller.signal.aborted) setIsLoading(false);
-      });
-
-    return () => controller.abort();
-  }, [practiceId, intakeId]);
 
   useEffect(() => {
     if (!practiceId || hasPracticeDetails) return;
@@ -441,7 +420,9 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
 
       if (isMountedRef.current) {
         setLocalTriageStatus(action);
-        setIntake((prev) => prev ? { ...prev, triage_status: action, conversation_id: responseConversationId ?? prev.conversation_id } : prev);
+        // Refresh from server in the background to pick up server-side state
+        // (conversation_id, etc.) without blocking the UI on the round-trip.
+        void refetchIntake();
         setTriageDialogAction(null);
         setTriageReason('');
         showSuccess(
@@ -463,7 +444,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
     } finally {
       if (isMountedRef.current) setIsSubmitting(false);
     }
-  }, [intake, intakeId, isSubmitting, onTriageComplete, session?.user, showError, showSuccess]);
+  }, [intake, intakeId, isSubmitting, onTriageComplete, session?.user, showError, showSuccess, refetchIntake]);
 
   const submitConversationReply = useCallback(async () => {
     const conversationId = intake?.conversation_id;
@@ -583,8 +564,86 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
     return (
       <div className="flex h-full flex-col min-h-0">
         <DetailHeader title="Consultation Request" showBack onBack={onBack} />
-        <div className="flex-1 min-h-0 p-6">
-          <LoadingBlock className="rounded-2xl h-64" />
+        <div className="flex-1 min-h-0 overflow-y-auto p-6">
+          <div className="mx-auto grid w-full max-w-7xl grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+            {/* Main column */}
+            <div className="min-w-0 space-y-6">
+              {/* Header card: title + posted-date + 9 summary rows */}
+              <section className="glass-card overflow-hidden p-6 sm:p-10">
+                <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_280px]">
+                  <div className="min-w-0 space-y-4">
+                    <SkeletonLoader variant="text" width="w-32" height="h-3" />
+                    <SkeletonLoader variant="title" width="w-3/4" height="h-9" />
+                    <SkeletonLoader variant="text" width="w-56" height="h-3" />
+                    <div className="space-y-2 pt-4">
+                      <SkeletonLoader variant="text" width="w-full" height="h-3" />
+                      <SkeletonLoader variant="text" width="w-11/12" height="h-3" />
+                      <SkeletonLoader variant="text" width="w-5/6" height="h-3" />
+                    </div>
+                  </div>
+                  <aside className="lg:border-l lg:border-line-glass/10 lg:pl-6 space-y-4">
+                    {[0, 1, 2, 3, 4].map((i) => (
+                      <div key={i} className="flex justify-between gap-4">
+                        <SkeletonLoader variant="text" width="w-24" height="h-3" />
+                        <SkeletonLoader variant="text" width="w-20" height="h-4" />
+                      </div>
+                    ))}
+                  </aside>
+                </div>
+              </section>
+
+              {/* Form details grid (3 columns × 2 rows of stat cells) */}
+              <section className="glass-card p-6 sm:p-8 space-y-6">
+                <SkeletonLoader variant="text" width="w-32" height="h-3" />
+                <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
+                  {[0, 1, 2, 3, 4, 5].map((i) => (
+                    <div key={i} className="space-y-1.5">
+                      <SkeletonLoader variant="text" width="w-20" height="h-3" />
+                      <SkeletonLoader variant="text" width={i % 2 === 0 ? 'w-32' : 'w-40'} height="h-3.5" />
+                    </div>
+                  ))}
+                </div>
+              </section>
+
+              {/* Conversation preview */}
+              <section className="glass-card flex min-h-[420px] flex-col overflow-hidden">
+                <header className="shrink-0 border-b border-line-glass/10 p-5 space-y-2">
+                  <SkeletonLoader variant="text" width="w-32" height="h-3" />
+                  <SkeletonLoader variant="text" width="w-64" height="h-3" />
+                </header>
+                <div className="space-y-3 px-4 py-4">
+                  <MessageRowSkeleton lineWidths={['w-40', 'w-56']} />
+                  <MessageRowSkeleton lineWidths={['w-64', 'w-44', 'w-52']} />
+                  <MessageRowSkeleton lineWidths={['w-36', 'w-48']} />
+                </div>
+              </section>
+            </div>
+
+            {/* Sidebar */}
+            <aside className="min-w-0 space-y-6 xl:sticky xl:top-6 xl:self-start">
+              <section className="glass-card p-5 sm:p-6 space-y-3">
+                <SkeletonLoader variant="button" width="w-full" />
+                <SkeletonLoader variant="button" width="w-full" />
+              </section>
+              <section className="glass-card space-y-6 p-5 sm:p-6">
+                <div className="flex items-center gap-3">
+                  <SkeletonLoader variant="avatar" />
+                  <div className="space-y-1.5 min-w-0 flex-1">
+                    <SkeletonLoader variant="text" width="w-32" height="h-3.5" />
+                    <SkeletonLoader variant="text" width="w-24" height="h-3" />
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  {[0, 1, 2].map((i) => (
+                    <div key={i} className="space-y-1.5">
+                      <SkeletonLoader variant="text" width="w-16" height="h-3" />
+                      <SkeletonLoader variant="text" width={['w-40', 'w-32', 'w-44'][i]} height="h-3.5" />
+                    </div>
+                  ))}
+                </div>
+              </section>
+            </aside>
+          </div>
         </div>
       </div>
     );
@@ -688,7 +747,11 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
       <div className="min-h-0 flex-1 overflow-hidden bg-surface-overlay/20 touch-pan-y">
         {previewLoading && previewMessages.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center p-6 text-center">
-            <LoadingBlock label="Loading conversation history..." />
+            <div className="w-full space-y-3 px-4 py-4">
+              <MessageRowSkeleton lineWidths={['w-40', 'w-56']} />
+              <MessageRowSkeleton lineWidths={['w-64', 'w-44', 'w-52']} />
+              <MessageRowSkeleton lineWidths={['w-36', 'w-48']} />
+            </div>
           </div>
         ) : previewMessages.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center p-6 text-center">

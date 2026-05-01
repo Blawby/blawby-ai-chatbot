@@ -12,7 +12,7 @@ import {
   DropdownMenuTrigger
 } from '@/shared/ui/dropdown';
 import { Avatar } from '@/shared/ui/profile';
-import { LoadingBlock, PanelSectionHeader, PanelEmptyState, InteractiveListItem } from '@/shared/ui/layout';
+import { ListRowSkeleton, PanelSectionHeader, PanelEmptyState, InteractiveListItem } from '@/shared/ui/layout';
 import type { MatterDetail, MatterNote } from '@/features/matters/data/matterTypes';
 import { NoteForm, type NoteFormValues } from './NoteForm';
 
@@ -183,7 +183,7 @@ export const MatterNotesPanel = ({
           {error}
         </div>
       ) : loading && sortedNotes.length === 0 ? (
-        <LoadingBlock className="px-6 py-6" label="Loading notes..." />
+        <ListRowSkeleton rows={4} className="divide-y divide-line-default" />
       ) : sortedNotes.length === 0 ? (
         <PanelEmptyState message="No notes yet. Capture internal updates, decisions, or next steps tied to this matter." />
       ) : (

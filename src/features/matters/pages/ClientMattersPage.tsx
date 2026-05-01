@@ -9,6 +9,7 @@ import { MATTER_STATUS_LABELS } from '@/shared/types/matterStatus';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { type MatterDetail, type MatterSummary, type MatterTask } from '@/features/matters/data/matterTypes';
 import { MatterListItem } from '@/features/matters/components/MatterListItem';
+import { MatterDetailSkeleton } from '@/features/matters/components/MatterDetailSkeleton';
 import { MatterSummaryCards } from '@/features/matters/components/MatterSummaryCards';
 import { MatterTasksPanel } from '@/features/matters/components/tasks/MatterTasksPanel';
 import { MatterMessagesPanel } from '@/features/matters/components/messages/MatterMessagesPanel';
@@ -379,8 +380,16 @@ export const ClientMattersPage = ({
   }
 
   if (selectedMatterId) {
-    if (detailLoading && !resolvedMatter) {
-      return <LoadingState message="Loading matter details..." />;
+    // Gate on `!detailReady` (FULL detail for the CURRENT matter), NOT
+    // `!resolvedMatter` — the latter falls back to the summary which is
+    // hydrated synchronously from the cached matters list, bypassing the
+    // gate and rendering with empty/fallback fields until detail arrives.
+    // Identity check (`detail.id === selectedMatterId`) makes switching
+    // between matters route through the skeleton instead of briefly
+    // showing the previous matter's data.
+    const detailReady = Boolean(selectedMatterDetail) && selectedMatterDetail?.id === selectedMatterId;
+    if (detailLoading && !detailReady) {
+      return <MatterDetailSkeleton />;
     }
     if (detailError && !resolvedMatter) {
       return (
@@ -559,6 +568,7 @@ export const ClientMattersPage = ({
           isLoading={mattersLoading}
           isLoadingMore={false}
           error={mattersError}
+          minMountSkeletonMs={250}
           emptyState={<div className="p-4 text-sm text-input-placeholder">No matters found.</div>}
         />
       </Panel>

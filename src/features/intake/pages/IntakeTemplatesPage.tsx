@@ -27,7 +27,7 @@ import { ContactForm } from '@/features/intake/components/ContactForm';
 import { Dialog, DialogBody, DialogFooter } from '@/shared/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/shared/ui/dropdown';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
-import { LoadingBlock } from '@/shared/ui/layout/LoadingBlock';
+import { SkeletonLoader } from '@/shared/ui/layout';
 import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { useNavigation } from '@/shared/utils/navigation';
@@ -1799,6 +1799,34 @@ type TemplateListViewProps = {
   onDelete: (template: IntakeTemplate) => Promise<void>;
 };
 
+/**
+ * Placeholder card matching the eventual TemplateCard layout: title row,
+ * three preview question lines, footer with the response-count link.
+ * Rendered in the same grid as real cards so the swap to data reflows
+ * minimally.
+ */
+function FormCardSkeleton({ titleWidth = 'w-32' }: { titleWidth?: string }) {
+  return (
+    <div
+      className="glass-card flex min-h-[230px] flex-col rounded-2xl p-5"
+      aria-hidden="true"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <SkeletonLoader variant="text" height="h-4" width={titleWidth} rounded="rounded-md" />
+        <SkeletonLoader variant="text" height="h-4" width="w-1" rounded="rounded" />
+      </div>
+      <div className="mt-4 space-y-2.5">
+        <SkeletonLoader variant="text" height="h-3" width="w-full" rounded="rounded-md" />
+        <SkeletonLoader variant="text" height="h-3" width="w-5/6" rounded="rounded-md" />
+        <SkeletonLoader variant="text" height="h-3" width="w-3/4" rounded="rounded-md" />
+      </div>
+      <div className="mt-auto pt-6">
+        <SkeletonLoader variant="text" height="h-3" width="w-24" rounded="rounded-md" />
+      </div>
+    </div>
+  );
+}
+
 function TemplateListView({
   defaultTemplate,
   existingTemplates,
@@ -1813,10 +1841,18 @@ function TemplateListView({
 }: TemplateListViewProps) {
   const [deleteTarget, setDeleteTarget] = useState<IntakeTemplate | null>(null);
   const [responseCounts, setResponseCounts] = useState<Record<string, number>>({});
+  // Gate the cards on counts having loaded (or definitively failed) so the
+  // skeleton is visible during the fetch — including on warm navigation
+  // when the practice/templates are already cached. Without this, the
+  // page renders cards instantly with placeholder "0 responses" labels
+  // that pop to real counts a moment later.
+  const [responseCountsLoaded, setResponseCountsLoaded] = useState(false);
 
   useEffect(() => {
+    setResponseCountsLoaded(false);
     if (!practiceId) {
       setResponseCounts({});
+      setResponseCountsLoaded(true);
       return;
     }
 
@@ -1838,10 +1874,31 @@ function TemplateListView({
         if (controller.signal.aborted) return;
         console.warn('[IntakeTemplatesPage] Failed to load form response counts:', error);
         setResponseCounts({});
+      })
+      .finally(() => {
+        if (controller.signal.aborted) return;
+        setResponseCountsLoaded(true);
       });
 
     return () => controller.abort();
   }, [practiceId]);
+
+  if (!responseCountsLoaded) {
+    return (
+      <div className="max-w-7xl mx-auto px-6 py-6">
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+            <FormCardSkeleton titleWidth="w-24" />
+            <FormCardSkeleton titleWidth="w-36" />
+            <FormCardSkeleton titleWidth="w-28" />
+            <FormCardSkeleton titleWidth="w-32" />
+            <FormCardSkeleton titleWidth="w-40" />
+            <FormCardSkeleton titleWidth="w-24" />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-7xl mx-auto px-6 py-6">
@@ -1938,7 +1995,7 @@ export default function IntakeTemplatesPage({
   routeTemplateSlug = null,
   routeMode = 'list',
 }: IntakeTemplatesPageProps) {
-  const { currentPractice, loading: practiceLoading, updatePractice } = usePracticeManagement({ fetchPracticeDetails: true });
+  const { currentPractice, isLoading: practiceLoading, updatePractice } = usePracticeManagement({ fetchPracticeDetails: true });
   const { details: practiceDetails, setDetails } = usePracticeDetails(
     currentPractice?.id,
     currentPractice?.slug,
@@ -2079,18 +2136,27 @@ export default function IntakeTemplatesPage({
     }
   };
 
-  if (practiceLoading) {
-    return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <LoadingBlock showLabel={false} showSpinner size="lg" />
-      </div>
-    );
-  }
-
-  if (!currentPractice) {
+  // Show the skeleton grid while EITHER the practice is loading OR before
+  // the local hook subscription has populated `currentPractice`. The latter
+  // is critical: when navigating into this page from elsewhere in the app,
+  // queryCache already has the practice → `practiceLoading` flips false on
+  // the first render → BUT the local `currentPractice` state is still null
+  // for one tick until the subscriber broadcast lands. Without this guard,
+  // the page briefly fell through to the "No practice selected" empty
+  // state instead of a skeleton.
+  if (practiceLoading || !currentPractice) {
     return (
       <div className="max-w-7xl mx-auto px-6 py-6">
-        <p className="text-sm text-input-placeholder">No practice selected.</p>
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+            <FormCardSkeleton titleWidth="w-24" />
+            <FormCardSkeleton titleWidth="w-36" />
+            <FormCardSkeleton titleWidth="w-28" />
+            <FormCardSkeleton titleWidth="w-32" />
+            <FormCardSkeleton titleWidth="w-40" />
+            <FormCardSkeleton titleWidth="w-24" />
+          </div>
+        </div>
       </div>
     );
   }

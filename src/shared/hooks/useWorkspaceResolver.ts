@@ -33,7 +33,7 @@ export function useWorkspaceResolver(options: UseWorkspaceResolverOptions = {}):
   const {
     practices,
     currentPractice,
-    loading: practicesLoading
+    isLoading: practicesLoading
   } = usePracticeManagement({ autoFetchPractices, fetchOnboardingStatus, practiceSlug });
 
   const practiceBySlug = useMemo(() => {

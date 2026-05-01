@@ -35,7 +35,6 @@ export const usePracticeTeam = (
   return {
     members: data?.members ?? [],
     summary: data?.summary ?? DEFAULT_SUMMARY,
-    isLoaded: data !== undefined,
     isLoading,
     error,
     refetch,

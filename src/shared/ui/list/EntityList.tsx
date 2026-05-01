@@ -1,7 +1,8 @@
 import type { ComponentChildren } from 'preact';
+import { useEffect, useState } from 'preact/hooks';
 import { VList } from 'virtua';
 import { cn } from '@/shared/utils/cn';
-import { LoadingBlock } from '@/shared/ui/layout/LoadingBlock';
+import { ListRowSkeleton } from '@/shared/ui/layout/skeleton-presets/ListRowSkeleton';
 import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
 import { SELECTED_ACCENT_SURFACE_CLASS } from '@/shared/ui/layout/selectionStyles';
 
@@ -21,6 +22,13 @@ export type EntityListProps<T extends { id: string }> = {
   /** Legacy IntersectionObserver sentinel; pass either this OR `onLoadMore`. */
   loadMoreRef?: RefObject<HTMLDivElement>;
   className?: string;
+  /**
+   * Show the skeleton for at least this many ms after mount even when
+   * `isLoading` is false. Useful for "page transition" UX where the data
+   * is already cached but you still want a brief skeleton flash to confirm
+   * the click registered. Set to `0` or omit to disable. Default 0.
+   */
+  minMountSkeletonMs?: number;
 };
 
 export function EntityList<T extends { id: string }>({
@@ -35,7 +43,18 @@ export function EntityList<T extends { id: string }>({
   onLoadMore,
   loadMoreRef,
   className,
+  minMountSkeletonMs = 0,
 }: EntityListProps<T>) {
+  // When `minMountSkeletonMs` > 0, force the skeleton to render for at
+  // least that many ms after mount. Lets cached navigations still flash
+  // a skeleton so the click feels acknowledged.
+  const [isMountFlash, setIsMountFlash] = useState(minMountSkeletonMs > 0);
+  useEffect(() => {
+    if (minMountSkeletonMs <= 0) return;
+    const id = setTimeout(() => setIsMountFlash(false), minMountSkeletonMs);
+    return () => clearTimeout(id);
+  }, [minMountSkeletonMs]);
+
   const errorMessage = typeof error === 'string'
     ? error
     : error instanceof Error
@@ -44,8 +63,12 @@ export function EntityList<T extends { id: string }>({
         ? 'Failed to load data.'
         : null;
 
-  if (isLoading) {
-    return <LoadingBlock className={cn('p-4 text-sm', className)} />;
+  if (isLoading || isMountFlash) {
+    return (
+      <div className={cn('flex h-full min-h-0 flex-col', className)}>
+        <ListRowSkeleton rows={6} />
+      </div>
+    );
   }
 
   if (errorMessage) {

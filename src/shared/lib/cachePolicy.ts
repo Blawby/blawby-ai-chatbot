@@ -28,6 +28,12 @@ export const CACHE_POLICY = [
   { prefix: 'clients:', ttl: MINUTE },
   { prefix: 'invoices:', ttl: 30 * SECOND },
   { prefix: 'activity:', ttl: 30 * SECOND },
+  { prefix: 'billing:matter:', ttl: 30 * SECOND },
+  { prefix: 'matter:files:', ttl: 30 * SECOND },
+  { prefix: 'engagement:', ttl: 30 * SECOND },
+  { prefix: 'invoice:practice:', ttl: 30 * SECOND },
+  { prefix: 'invoice:client:', ttl: 30 * SECOND },
+  { prefix: 'intake:', ttl: 30 * SECOND },
 
   // Onboarding/setup flows
   { prefix: 'onboarding:', ttl: MINUTE },

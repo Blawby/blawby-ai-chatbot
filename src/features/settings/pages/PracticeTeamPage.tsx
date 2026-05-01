@@ -18,7 +18,7 @@ import { getPracticeRoleLabel, PRACTICE_ROLE_OPTIONS, normalizePracticeRole } fr
 import { FormGrid, SectionDivider } from '@/shared/ui/layout';
 import { FormActions } from '@/shared/ui/form';
 import { EditorShell } from '@/shared/ui/layout';
-import { LoadingBlock } from '@/shared/ui/layout/LoadingBlock';
+import { ListRowSkeleton } from '@/shared/ui/layout';
 import { SettingsNotice } from '@/features/settings/components/SettingsNotice';
 import { SettingsHelperText } from '@/features/settings/components/SettingsHelperText';
 import { buildSettingsPath, resolveSettingsBasePath } from '@/shared/utils/workspace';
@@ -36,7 +36,7 @@ export const PracticeTeamPage = ({ className, onBack }: PracticeTeamPageProps) =
     currentPractice,
     updateMemberRole,
     removeMember,
-    loading
+    isLoading
   } = usePracticeManagement();
   const {
     invitations,
@@ -81,6 +81,9 @@ export const PracticeTeamPage = ({ className, onBack }: PracticeTeamPageProps) =
   const teamRoleOptions = PRACTICE_ROLE_OPTIONS.filter(option => option.value !== 'owner');
 
   const [isInvitingMember, setIsInvitingMember] = useState(false);
+  // Tracks the invitation currently being acted on (accept / decline / cancel).
+  // One flag is sufficient since these actions are mutually exclusive per row.
+  const [pendingInvitationId, setPendingInvitationId] = useState<string | null>(null);
   const [inviteForm, setInviteForm] = useState({
     email: '',
     role: 'admin' as Role
@@ -173,30 +176,42 @@ export const PracticeTeamPage = ({ className, onBack }: PracticeTeamPageProps) =
   };
 
   const handleAcceptInvitation = async (invitationId: string) => {
+    if (pendingInvitationId) return;
+    setPendingInvitationId(invitationId);
     try {
       await acceptInvitation(invitationId);
       showSuccess('Invitation accepted!');
       await refetchTeamAfterAction();
     } catch (err) {
       showError(err instanceof Error ? err.message : 'Failed to accept invitation');
+    } finally {
+      setPendingInvitationId(null);
     }
   };
 
   const handleDeclineInvitation = async (invitationId: string) => {
+    if (pendingInvitationId) return;
+    setPendingInvitationId(invitationId);
     try {
       await declineInvitation(invitationId);
       showSuccess('Invitation declined successfully!');
     } catch (err) {
       showError(err instanceof Error ? err.message : 'Failed to decline invitation');
+    } finally {
+      setPendingInvitationId(null);
     }
   };
 
   const handleCancelInvitation = async (invitationId: string) => {
+    if (pendingInvitationId) return;
+    setPendingInvitationId(invitationId);
     try {
       await cancelInvitation(invitationId);
       showSuccess('Invitation canceled successfully!');
     } catch (err) {
       showError(err instanceof Error ? err.message : 'Failed to cancel invitation');
+    } finally {
+      setPendingInvitationId(null);
     }
   };
 
@@ -278,8 +293,8 @@ export const PracticeTeamPage = ({ className, onBack }: PracticeTeamPageProps) =
           </SettingsNotice>
         )}
 
-      {members.length === 0 && (loading || teamLoading) ? (
-        <LoadingBlock label="Loading members..." />
+      {members.length === 0 && (isLoading || teamLoading) ? (
+        <ListRowSkeleton rows={4} />
       ) : members.length > 0 ? (
         <div className="space-y-3">
           {members.map((member) => (
@@ -422,11 +437,20 @@ export const PracticeTeamPage = ({ className, onBack }: PracticeTeamPageProps) =
                   <div className="flex gap-2">
                     {inv.email.toLowerCase() === currentUserEmail.toLowerCase() ? (
                       <>
-                        <Button size="sm" onClick={() => handleAcceptInvitation(inv.id)}>
-                          Accept
+                        <Button
+                          size="sm"
+                          onClick={() => handleAcceptInvitation(inv.id)}
+                          disabled={pendingInvitationId !== null}
+                        >
+                          {pendingInvitationId === inv.id ? 'Accepting…' : 'Accept'}
                         </Button>
-                        <Button size="sm" variant="secondary" onClick={() => handleDeclineInvitation(inv.id)}>
-                          Decline
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => handleDeclineInvitation(inv.id)}
+                          disabled={pendingInvitationId !== null}
+                        >
+                          {pendingInvitationId === inv.id ? 'Declining…' : 'Decline'}
                         </Button>
                       </>
                     ) : isAdmin ? (
@@ -444,6 +468,7 @@ export const PracticeTeamPage = ({ className, onBack }: PracticeTeamPageProps) =
                           variant="icon"
                           size="icon-sm"
                           onClick={() => handleCancelInvitation(inv.id)}
+                          disabled={pendingInvitationId !== null}
                           aria-label={`Cancel invitation for ${inv.email}`}
                           title="Cancel invitation"
                           icon={XMarkIcon}

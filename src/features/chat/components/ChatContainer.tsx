@@ -149,6 +149,29 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   const composerDockRef = useRef<HTMLDivElement>(null);
   const [composerInsetPx, setComposerInsetPx] = useState(104);
   const isChatInputLocked = (!isReady && !!conversationId) || (isPublicWorkspace && intakeContext.intakeStatus?.step === 'contact_form_slim');
+
+  // Track whether the chat connection has ever been ready *for the current
+  // conversation*. If it was, and isReady flips false again, that's a
+  // reconnect-in-progress (vs first-load "still connecting"). Scoping this
+  // to conversationId prevents the banner from flashing when the user
+  // switches conversations and the new one is still on its first connect.
+  const wasEverReadyRef = useRef(false);
+  const lastConversationIdRef = useRef<string | null | undefined>(conversationId);
+  const [isReconnecting, setIsReconnecting] = useState(false);
+  useEffect(() => {
+    if (lastConversationIdRef.current !== conversationId) {
+      lastConversationIdRef.current = conversationId;
+      wasEverReadyRef.current = false;
+      setIsReconnecting(false);
+      if (!isReady) return;
+    }
+    if (isReady) {
+      wasEverReadyRef.current = true;
+      setIsReconnecting(false);
+    } else if (wasEverReadyRef.current && Boolean(conversationId)) {
+      setIsReconnecting(true);
+    }
+  }, [isReady, conversationId]);
   const hiddenSystemMessageKeys = new Set(['ask_question_help', 'disclaimer_accepted']);
   const baseMessages = isPublicWorkspace
     ? messages.filter((message) => !hiddenSystemMessageKeys.has(String(message.metadata?.systemMessageKey ?? '')))
@@ -456,6 +479,19 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
           </div>
 
           <div ref={composerDockRef} className="sticky bottom-0 z-[1000] w-full">
+            {isReconnecting ? (
+              <div
+                className="mx-auto flex w-full max-w-3xl items-center gap-2 px-4 py-2 text-xs text-input-placeholder"
+                role="status"
+                aria-live="polite"
+              >
+                <span
+                  aria-hidden="true"
+                  className="inline-block h-2 w-2 animate-pulse rounded-full bg-amber-500"
+                />
+                Reconnecting to chat…
+              </div>
+            ) : null}
             <ChatActionCard
               isOpen={showAuthPrompt || shouldShowSlimForm || shouldShowDisclaimer}
               type={showAuthPrompt ? 'auth' : shouldShowSlimForm ? 'slim-form' : shouldShowDisclaimer ? 'disclaimer' : null}

@@ -1,5 +1,5 @@
 import { useCallback } from 'preact/hooks';
-import { InspectorSectionSkeleton } from '@/shared/ui/layout/skeleton-presets/InspectorSectionSkeleton';
+import { InspectorSectionSkeleton } from '@/shared/ui/layout';
 import { UploadSurface, type UploadSurfaceItem } from '@/shared/ui/upload/organisms/UploadSurface';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { useMatterFiles } from '@/features/matters/hooks/useMatterFiles';

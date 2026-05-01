@@ -30,7 +30,7 @@ export interface UseActivityOptions {
 
 export interface UseActivityResult {
   events: ActivityEvent[];
-  loading: boolean;
+  isLoading: boolean;
   error: string | null;
   hasMore: boolean;
   total?: number;
@@ -55,7 +55,7 @@ export function useActivity(options: UseActivityOptions): UseActivityResult {
   } = options;
 
   const [events, setEvents] = useState<ActivityEvent[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(false);
   const [total, setTotal] = useState<number | undefined>();
@@ -92,7 +92,7 @@ export function useActivity(options: UseActivityOptions): UseActivityResult {
       return;
     }
 
-    setLoading(true);
+    setIsLoading(true);
     setError(null);
 
     try {
@@ -144,7 +144,7 @@ export function useActivity(options: UseActivityOptions): UseActivityResult {
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch activity';
       setError(errorMessage);
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   }, [enabled, practiceId, buildQueryParams, etag, lastModified]);
 
@@ -157,13 +157,13 @@ export function useActivity(options: UseActivityOptions): UseActivityResult {
   }, [fetchActivity]);
 
   const loadMore = useCallback(async () => {
-    if (hasMore && !loading && nextCursorRef.current) {
+    if (hasMore && !isLoading && nextCursorRef.current) {
       activeFetchControllerRef.current?.abort();
       const controller = new AbortController();
       activeFetchControllerRef.current = controller;
       await fetchActivity(true, controller.signal);
     }
-  }, [hasMore, loading, fetchActivity]);
+  }, [hasMore, isLoading, fetchActivity]);
 
   const reset = useCallback(() => {
     setEvents([]);
@@ -187,7 +187,7 @@ export function useActivity(options: UseActivityOptions): UseActivityResult {
 
   return {
     events,
-    loading,
+    isLoading,
     error,
     hasMore,
     total,

@@ -167,6 +167,7 @@ export function PracticeInvoicesPage({
           isLoading={isLoading}
           isLoadingMore={isLoadingMore}
           error={error}
+          minMountSkeletonMs={250}
           emptyState={<InvoicesEmptyState hasFilters={hasFilters} onCreateInvoice={onCreateInvoice} />}
           onLoadMore={hasMore ? loadMore : undefined}
           renderItem={(invoice) => (

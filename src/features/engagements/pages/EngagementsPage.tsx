@@ -184,6 +184,7 @@ export const EngagementsPage: FunctionComponent<EngagementsPageProps> = ({
           isLoadingMore={isLoadingMore}
           error={error}
           onLoadMore={hasMore ? loadMore : undefined}
+          minMountSkeletonMs={250}
           emptyState={
             <WorkspacePlaceholderState
               icon={BriefcaseIcon}

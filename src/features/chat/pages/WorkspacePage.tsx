@@ -57,14 +57,12 @@ type PreviewTab = 'home' | 'messages' | 'intake';
 type WorkspacePrefetchData = {
   mattersData?: {
     items: BackendMatter[];
-    isLoaded: boolean;
     isLoading: boolean;
     error: string | null;
     refetch: (signal?: AbortSignal) => Promise<void>;
   };
   contactsData?: {
     items: UserDetailRecord[];
-    isLoaded: boolean;
     isLoading: boolean;
     error: string | null;
     refetch: (signal?: AbortSignal) => Promise<void>;
@@ -680,10 +678,11 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     mattersData: mattersDataForView, // filtered for the list view
     contactsData,
   };
+  // First load done implied by `!isLoading` post-Phase-C3 (isLoading is permanently
+  // false after the first response, so a falsy isLoading equals "have loaded").
   const shouldShowDesktopMattersListPanel = !(
     layoutMode === 'desktop'
     && view === 'matters'
-    && mattersDataForView.isLoaded
     && !mattersDataForView.isLoading
     && !mattersDataForView.error
     && mattersDataForView.items.length === 0
@@ -692,7 +691,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     layoutMode === 'desktop'
     && view === 'contacts'
     && activeSecondaryFilter !== 'contacts-pending'
-    && contactsData.isLoaded
     && !contactsData.isLoading
     && !contactsData.error
     && contactsData.items.length === 0
@@ -700,7 +698,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   const shouldShowDesktopInvoicesListPanel = view === 'invoices' && hasDesktopInvoiceListItems !== false;
   const matterListIsEmpty = layoutMode === 'desktop'
     && view === 'matters'
-    && mattersDataForView.isLoaded
     && !mattersDataForView.isLoading
     && !mattersDataForView.error
     && mattersDataForView.items.length === 0;

@@ -5,9 +5,7 @@ import { useClientsData } from '@/shared/hooks/useClientsData';
 import { listMatters, type BackendMatter } from '@/features/matters/services/mattersApi';
 import { InvoiceForm } from '@/features/invoices/components/InvoiceForm';
 import type { InvoiceFormHandle } from '@/features/invoices/components/InvoiceForm';
-import {
-  getInvoice,
-} from '@/features/invoices/services/invoicesService';
+import { useInvoiceDetail } from '@/features/invoices/hooks/useInvoiceDetail';
 import type { InvoiceDetail } from '@/features/invoices/types';
 import type { PendingInvoiceDraftContext } from '@/features/invoices/utils/invoiceDraftContext';
 import { INVOICE_CREATE_SEND_EVENT } from '@/features/invoices/utils/invoicePageConfig';
@@ -89,11 +87,28 @@ export const InvoiceBuilderSurface = forwardRef<InvoiceFormHandle, InvoiceBuilde
     { enabled: Boolean(practiceId) }
   );
 
+  // Edit-mode invoice fetch: only fires when we don't have initialInvoice. Uses
+  // the shared useInvoiceDetail hook so this fetch coalesces with any other
+  // open detail page for the same invoice (e.g. user navigated from
+  // PracticeInvoiceDetailPage).
+  const shouldFetchInvoice = mode === 'edit' && !initialInvoice && Boolean(existingInvoiceId);
+  const {
+    data: fetchedInvoice,
+    isLoading: invoiceFetchLoading,
+    error: invoiceFetchError,
+  } = useInvoiceDetail(
+    shouldFetchInvoice ? practiceId : null,
+    shouldFetchInvoice ? existingInvoiceId ?? null : null,
+  );
+
   const [matters, setMatters] = useState<BackendMatter[]>([]);
   const [invoiceDetail, setInvoiceDetail] = useState<InvoiceDetail | null>(initialInvoice);
   const [connectedAccountId, setConnectedAccountId] = useState<string | null>(initialInvoice?.sourceInvoice.connected_account_id ?? null);
-  const [loading, setLoading] = useState(true);
+  // Drives the orchestration loader (matters + onboarding). Combined with the
+  // useInvoiceDetail hook's loading state to surface a single loading flag.
+  const [orchestrationLoading, setOrchestrationLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const loading = orchestrationLoading || (shouldFetchInvoice && invoiceFetchLoading);
   const formRef = useRef<InvoiceFormHandle | null>(null);
 
   useImperativeHandle(ref, () => ({
@@ -108,35 +123,42 @@ export const InvoiceBuilderSurface = forwardRef<InvoiceFormHandle, InvoiceBuilde
     return () => window.removeEventListener(INVOICE_CREATE_SEND_EVENT, handleSendRequest);
   }, []);
 
+  // Sync the invoice detail (initialInvoice prop OR useInvoiceDetail-fetched)
+  // into the local invoiceDetail state. Local state (rather than reading the
+  // hook directly) lets the form's edit-then-save flow keep transient changes.
+  useEffect(() => {
+    const resolvedInvoice = initialInvoice ?? fetchedInvoice ?? null;
+    if (shouldFetchInvoice && fetchedInvoice === null && !invoiceFetchLoading) {
+      // Hook returned null definitively (not just still-loading) — treat as 404.
+      setInvoiceDetail(null);
+      setLoadError('Invoice not found.');
+      return;
+    }
+    setInvoiceDetail(resolvedInvoice);
+    setConnectedAccountId(
+      resolvedInvoice?.sourceInvoice.connected_account_id
+        ?? (mode === 'create' ? null : resolvedInvoice?.connectedAccountId ?? null)
+    );
+  }, [fetchedInvoice, initialInvoice, invoiceFetchLoading, mode, shouldFetchInvoice]);
+
+  useEffect(() => {
+    if (invoiceFetchError) {
+      setLoadError(invoiceFetchError);
+    }
+  }, [invoiceFetchError]);
+
+  // Matters + onboarding orchestration. Stays inline (Promise.all coordination
+  // + paginated tail loader). Could be split into two useQuery hooks in a
+  // follow-up if either surface needs cross-component dedup.
   useEffect(() => {
     if (!practiceId) return;
 
     const controller = new AbortController();
-    setLoading(true);
-    setLoadError(null);
+    setOrchestrationLoading(true);
+    setLoadError((current) => current === 'Invoice not found.' ? current : null);
 
     void (async () => {
       try {
-        let resolvedInvoice = initialInvoice;
-
-        if (mode === 'edit' && !resolvedInvoice && existingInvoiceId) {
-          resolvedInvoice = await getInvoice(practiceId, existingInvoiceId, { signal: controller.signal });
-          if (!resolvedInvoice) {
-            if (controller.signal.aborted) return;
-            setInvoiceDetail(null);
-            setLoadError('Invoice not found.');
-            return;
-          }
-        }
-
-        if (controller.signal.aborted) return;
-
-        setInvoiceDetail(resolvedInvoice ?? null);
-        setConnectedAccountId(
-          resolvedInvoice?.sourceInvoice.connected_account_id
-            ?? (mode === 'create' ? null : resolvedInvoice?.connectedAccountId ?? null)
-        );
-
         const [matterPage, onboardingStatus] = await Promise.all([
           loadFirstMatterPage(practiceId, controller.signal),
           mode === 'create'
@@ -164,13 +186,13 @@ export const InvoiceBuilderSurface = forwardRef<InvoiceFormHandle, InvoiceBuilde
         setLoadError(error instanceof Error ? error.message : 'Failed to load invoice builder');
       } finally {
         if (!controller.signal.aborted) {
-          setLoading(false);
+          setOrchestrationLoading(false);
         }
       }
     })();
 
     return () => controller.abort();
-  }, [existingInvoiceId, initialInvoice, mode, practiceId]);
+  }, [mode, practiceId]);
 
   const draftContext = mode === 'create' ? initialDraftContext ?? null : null;
   const clientOptions = useMemo(() => {
@@ -198,7 +220,7 @@ export const InvoiceBuilderSurface = forwardRef<InvoiceFormHandle, InvoiceBuilde
   const resolvedPracticeBillingIncrementMinutes = billingIncrementMinutes ?? undefined;
 
   const displayError = loadError ?? clientsData.error;
-  const shouldShowLoading = loading || (!clientsData.isLoaded && clientsData.isLoading);
+  const shouldShowLoading = loading || clientsData.isLoading;
 
   if (!practiceId) {
     return <div className="p-6 text-sm text-red-300">Practice context is missing from this route.</div>;

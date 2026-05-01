@@ -193,7 +193,7 @@ interface UsePracticeManagementReturn {
   // Practice CRUD
   practices: Practice[];
   currentPractice: Practice | null;
-  loading: boolean;
+  isLoading: boolean;
   error: string | null;
   
   // Practice operations
@@ -583,7 +583,7 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
   // soft navigations (login -> /practice/:slug) where the first fetch effect
   // is delayed and no network request ever starts.
   const sessionUserId = session?.user?.id ?? null;
-  const [loading, setLoading] = useState(() => isGloballyFetching || Boolean(
+  const [isLoading, setIsLoading] = useState(() => isGloballyFetching || Boolean(
     autoFetchPractices && !sessionLoading && sessionUserId && !isAnonymous && !practicesLoaded && !practicesFetchForbidden
   ));
 
@@ -591,7 +591,7 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
   // This ensures all instances (RootRoute, PracticeAppRoute, etc.) update
   // together when any one instance starts or finishes a fetch.
   useEffect(() => {
-    loadingSubscribers.add(setLoading);
+    loadingSubscribers.add(setIsLoading);
     const onSnapshot: SnapshotSubscriber = (snapshot, _callerSlug) => {
       // Re-select currentPractice for this instance's own requested slug.
       const mySlug = requestedPracticeSlugRef.current;
@@ -604,7 +604,7 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
     };
     snapshotSubscribers.add(onSnapshot);
     return () => {
-      loadingSubscribers.delete(setLoading);
+      loadingSubscribers.delete(setIsLoading);
       snapshotSubscribers.delete(onSnapshot);
     };
   }, []);
@@ -1233,7 +1233,7 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
   return {
     practices: practices.length > 0 ? practices : (sharedPracticeSnapshot?.practices ?? []),
     currentPractice: currentPractice || (sharedPracticeSnapshot?.currentPractice ?? null),
-    loading,
+    isLoading,
     error,
     createPractice,
     updatePractice,

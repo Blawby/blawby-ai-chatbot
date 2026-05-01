@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'preact/hooks';
 import { listMatterConversations } from '@/shared/lib/apiClient';
 import { Button } from '@/shared/ui/Button';
 import { useNavigation } from '@/shared/utils/navigation';
-import { LoadingBlock } from '@/shared/ui/layout/LoadingBlock';
+import { ListRowSkeleton } from '@/shared/ui/layout';
 import type { MatterDetail } from '@/features/matters/data/matterTypes';
 import type { Conversation } from '@/shared/types/conversation';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
@@ -83,7 +83,7 @@ export const MatterMessagesPanel = ({ matter, practiceId, conversationBasePath }
       </header>
       <div className="p-6">
         {loading && (
-          <LoadingBlock label="Loading conversations…" />
+          <ListRowSkeleton rows={3} />
         )}
         {!loading && error && (
           <div className="text-sm text-red-600 dark:text-red-400">{error}</div>

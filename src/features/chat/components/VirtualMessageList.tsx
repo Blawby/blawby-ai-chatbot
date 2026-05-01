@@ -15,7 +15,7 @@ import { useIntakeContext } from '@/shared/contexts/IntakeContext';
 import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
 import type { ReplyTarget } from '@/features/chat/types';
 import { isIntakeSubmittable } from '@/shared/utils/consultationState';
-import { MessageRowSkeleton } from '@/shared/ui/layout/skeleton-presets/MessageRowSkeleton';
+import { MessageRowSkeleton } from '@/shared/ui/layout';
 import { quickActionDebugLog, isQuickActionDebugEnabled } from '@/shared/utils/quickActionDebug';
 import { createBuildBriefAction, createSubmitAction, hasTerminalChatAction, hasBuildBriefAction, normalizeChatActions } from '@/shared/utils/chatActions';
 import { STREAMING_BUBBLE_PREFIX } from '@/shared/hooks/useConversation';

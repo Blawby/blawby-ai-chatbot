@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks'
 import { Page } from '@/shared/ui/layout/Page';
 import { SegmentedToggle } from '@/shared/ui/input';
 import { cn } from '@/shared/utils/cn';
-import { CompletionRing } from '@/shared/ui/CompletionRing';
+import { ProgressRing } from '@/shared/ui/ProgressRing';
 import InspectorPanel from '@/shared/ui/inspector/InspectorPanel';
 import { ContactForm } from '@/features/intake/components/ContactForm';
 import ChatContainer from '@/features/chat/components/ChatContainer';
@@ -449,7 +449,11 @@ export const WorkspaceSetupSection: FunctionComponent<WorkspaceSetupSectionProps
             <div className="text-xs font-semibold uppercase tracking-[0.35em] text-input-placeholder">
               {showSidebarPreview ? t('preview.publicPreview', { defaultValue: 'Public preview' }) : t('preview.setupProgress', { defaultValue: 'Setup progress' })}
             </div>
-            {!showSidebarPreview ? <CompletionRing score={completionScore} size={46} strokeWidth={3} /> : null}
+            {!showSidebarPreview ? (
+              <ProgressRing progress={completionScore} useTrafficLights size={46} strokeWidth={3} fontSize="10px">
+                <span className="font-bold">{Math.round(completionScore)}%</span>
+              </ProgressRing>
+            ) : null}
           </div>
           {showSidebarPreview ? (
             <SegmentedToggle<PreviewTab>

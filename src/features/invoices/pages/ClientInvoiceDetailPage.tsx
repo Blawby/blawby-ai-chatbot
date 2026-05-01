@@ -2,16 +2,17 @@ import { useCallback, useEffect, useMemo, useState } from 'preact/hooks';
 import { Button } from '@/shared/ui/Button';
 import { Input, Textarea } from '@/shared/ui/input';
 import { EditorShell } from '@/shared/ui/layout';
-import { LoadingBlock } from '@/shared/ui/layout/LoadingBlock';
+import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
+import { InvoiceDetailSkeleton } from '@/features/invoices/components/InvoiceDetailSkeleton';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import { formatLongDate } from '@/shared/utils/dateFormatter';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { useNavigation } from '@/shared/utils/navigation';
 import { getMajorAmountValue } from '@/shared/utils/money';
 import {
-  getClientInvoice,
   createRefundRequest,
 } from '@/features/invoices/services/invoicesService';
+import { useClientInvoiceDetail } from '@/features/invoices/hooks/useInvoiceDetail';
 import { InvoiceStatusBadge } from '@/features/invoices/components/InvoiceStatusBadge';
 import type { InvoiceDetail } from '@/features/invoices/types';
 
@@ -40,47 +41,25 @@ export function ClientInvoiceDetailPage({
 }) {
   const { navigate } = useNavigation();
   const { showError, showSuccess, showInfo } = useToastContext();
-  const [detail, setDetail] = useState<InvoiceDetail | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const {
+    data: detailData,
+    isLoading: loading,
+    error,
+    refetch: refetchDetail,
+  } = useClientInvoiceDetail(practiceId, invoiceId);
+  const detail: InvoiceDetail | null = detailData ?? null;
   const [requestReason, setRequestReason] = useState('');
   const [requestAmount, setRequestAmount] = useState('');
   const [requesting, setRequesting] = useState(false);
+  // Refund support flags can shift after a 405/501/404 response from a refund
+  // attempt, so they live as local state seeded from detail.
   const [refundRequestSupported, setRefundRequestSupported] = useState(true);
   const [refundRequestError, setRefundRequestError] = useState<string | null>(null);
-
-  const loadDetail = useCallback((signal?: AbortSignal) => {
-    if (!practiceId || !invoiceId) return Promise.resolve();
-    setLoading(true);
-    setError(null);
-
-    return getClientInvoice(practiceId, invoiceId, { signal })
-      .then((result) => {
-        if (!result) {
-          setDetail(null);
-          setError('Invoice not found.');
-          return;
-        }
-        setDetail(result);
-        setRefundRequestSupported(result.refundRequestSupported);
-        setRefundRequestError(result.refundRequestError);
-        if (result.refundRequestError) {
-          showError('Invoices', result.refundRequestError);
-        }
-      })
-      .catch((err) => {
-        if (err.name === 'AbortError') return;
-        const message = err instanceof Error ? err.message : 'Failed to load invoice';
-        setError(message);
-      })
-      .finally(() => setLoading(false));
-  }, [invoiceId, practiceId, showError]);
-
   useEffect(() => {
-    const controller = new AbortController();
-    void loadDetail(controller.signal);
-    return () => controller.abort();
-  }, [loadDetail]);
+    if (!detail) return;
+    setRefundRequestSupported(detail.refundRequestSupported);
+    setRefundRequestError(detail.refundRequestError);
+  }, [detail]);
 
   const status = useMemo(() => (detail?.status ?? '').toLowerCase(), [detail?.status]);
   const canPay = Boolean(detail && isUnpaidStatus(status) && detail.stripeHostedInvoiceUrl);
@@ -122,7 +101,7 @@ export function ClientInvoiceDetailPage({
       showSuccess('Refund requested', 'Your refund request has been submitted.');
       setRequestReason('');
       setRequestAmount('');
-      await loadDetail();
+      await refetchDetail();
     } catch (err) {
       const respStatus = err && typeof err === 'object' ? (err as { status?: number }).status : undefined;
       if (respStatus === 405 || respStatus === 501) {
@@ -140,13 +119,13 @@ export function ClientInvoiceDetailPage({
     } finally {
       setRequesting(false);
     }
-  }, [invoiceId, loadDetail, practiceId, requestAmount, requestReason, showError, showInfo, showSuccess]);
+  }, [invoiceId, refetchDetail, practiceId, requestAmount, requestReason, showError, showInfo, showSuccess]);
 
-  if (loading) {
-    return <LoadingBlock className="flex-1 p-6" label="Loading invoice..." />;
+  if (loading && !detail) {
+    return <InvoiceDetailSkeleton />;
   }
 
-  if (error) {
+  if (error && !detail) {
     return <div className="p-6 text-sm text-accent-error-light">{error}</div>;
   }
 
@@ -156,7 +135,12 @@ export function ClientInvoiceDetailPage({
 
   return (
     <EditorShell
-      title={detail.invoiceNumber}
+      title={(
+        <span className="inline-flex items-center gap-2">
+          {detail.invoiceNumber}
+          {loading ? <LoadingSpinner size="sm" ariaLabel="Refreshing invoice" announce={false} /> : null}
+        </span>
+      )}
       subtitle={`Issued ${renderEventDate(detail.issueDate)} • Due ${renderEventDate(detail.dueDate)}`}
       showBack={effectiveShowBack}
       onBack={handleBackToList}
