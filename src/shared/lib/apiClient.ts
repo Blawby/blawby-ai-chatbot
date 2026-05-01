@@ -2143,13 +2143,13 @@ function normalizePracticeDetailsPayload(payload: PracticeDetailsUpdate): Record
       }
     }
     // Only set normalized.settings here if it hasn't already been set, otherwise merge
-    if (normalized.settings) {
+    if (typeof normalized.settings === 'string') {
       try {
         const current = JSON.parse(normalized.settings);
         if (isRecord(current)) {
           base = { ...current, ...base };
         }
-      } catch (err) {
+      } catch {
         // If normalized.settings is invalid, overwrite with base
       }
     }
