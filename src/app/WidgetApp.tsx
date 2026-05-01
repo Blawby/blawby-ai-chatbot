@@ -123,39 +123,37 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
 
   const createConversationIfNeeded = useCallback(async () => {
     if (effectiveConversationId) return effectiveConversationId;
-    try {
-      // Use ref-based lock to prevent concurrent creation calls during the same tick
-      // or while a fetch is already in flight.
-      if (creatingConversationRef.current) {
-        return creatingConversationRef.current;
-      }
-
-      const createPromise = (async () => {
-        try {
-          const newId = await createConversation(practiceId, {
-            status: 'draft',
-            // Embed the resolved template so the worker can read it back on
-            // every subsequent AI turn without a separate lookup.
-            extraMetadata: { intakeTemplate: activeIntakeTemplate },
-          });
-          locallyCreatedConversationIds.current.add(newId);
-          setBootstrapIgnored(true);
-          setConversationId(newId);
-          return newId;
-        } catch (error) {
-          if (process.env.NODE_ENV !== 'production') {
-            // eslint-disable-next-line no-console
-            console.error('Failed to create deferred conversation', error);
-          }
-          throw error;
-        } finally {
-          creatingConversationRef.current = null;
-        }
-      })();
-
-      creatingConversationRef.current = createPromise;
-      return createPromise;
+    // Use ref-based lock to prevent concurrent creation calls during the same tick
+    // or while a fetch is already in flight.
+    if (creatingConversationRef.current) {
+      return creatingConversationRef.current;
     }
+
+    const createPromise = (async () => {
+      try {
+        const newId = await createConversation(practiceId, {
+          status: 'draft',
+          // Embed the resolved template so the worker can read it back on
+          // every subsequent AI turn without a separate lookup.
+          extraMetadata: { intakeTemplate: activeIntakeTemplate },
+        });
+        locallyCreatedConversationIds.current.add(newId);
+        setBootstrapIgnored(true);
+        setConversationId(newId);
+        return newId;
+      } catch (error) {
+        if (process.env.NODE_ENV !== 'production') {
+          // eslint-disable-next-line no-console
+          console.error('Failed to create deferred conversation', error);
+        }
+        throw error;
+      } finally {
+        creatingConversationRef.current = null;
+      }
+    })();
+
+    creatingConversationRef.current = createPromise;
+    return createPromise;
   }, [effectiveConversationId, practiceId, setConversationId, activeIntakeTemplate]);
 
   const { details: practiceDetails } = usePracticeDetails(practiceId, practiceConfig.slug);
