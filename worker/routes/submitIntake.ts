@@ -13,6 +13,7 @@ import { HttpErrors } from '../errorHandler.js';
 import { ConversationService } from '../services/ConversationService.js';
 import { RemoteApiService } from '../services/RemoteApiService.js';
 import { optionalAuth, checkPracticeMembership } from '../middleware/auth.js';
+import { getAttachedAuthContext } from '../middleware/compose.js';
 import type { AuthContext } from '../middleware/auth.js';
 import { withPracticeContext, getPracticeId } from '../middleware/practiceContext.js';
 import { Logger } from '../utils/logger.js';
@@ -64,48 +65,12 @@ interface ConversationUserInfo {
 
 type IntakeSettings = NonNullable<Awaited<ReturnType<typeof RemoteApiService.getPracticeClientIntakeSettings>>>;
 
-interface BackendIntakeCreatePayload {
-  slug: string;
-  amount: number;
-  name: string;
-  email: string;
-  user_id?: string;
-  phone?: string;
-  conversation_id: string;
-  description?: string;
-  urgency?: string;
-  opposing_party?: string;
-  desired_outcome?: string;
-  court_date?: string;
-  case_strength?: number;
-  has_documents?: boolean;
-  income?: number;
-  household_size?: number;
-  practice_service_uuid?: string;
-  address?: {
-    city?: string;
-    state?: string;
-  };
-  /** Plain-text digest of the intake conversation; max 4000 chars. Used by backend to bootstrap proposal_data. */
-  transcript_summary?: string;
-  /** Template attribution and unmapped custom answers stored in backend intake metadata. */
-  custom_fields?: Record<string, string | number | boolean>;
-}
-
-interface BackendIntakeCreateResponse {
-  success: boolean;
-  data?: {
-    uuid: string;
-    status: string;
-    payment_link_url: string | null;
-    organization?: {
-      name?: string | null;
-      [key: string]: unknown;
-    } | null;
-    [key: string]: unknown;
-  };
-  error?: string;
-}
+import {
+  BackendIntakeCreatePayloadSchema,
+  BackendIntakeCreateResponseSchema,
+  type BackendIntakeCreatePayload,
+} from '../types/wire/intake.js';
+import { validateWire } from '../utils/validateWire.js';
 
 const INTAKE_TITLE_MAX_LENGTH = 80;
 const INTAKE_TITLE_MAX_TOKENS = 24;
@@ -671,8 +636,13 @@ export async function handleSubmitIntake(
   /** Pre-resolved auth context from the outer conversations handler; avoids a redundant remote auth round-trip. */
   callerAuthContext?: AuthContext
 ): Promise<Response> {
-  // Auth — accept a pre-resolved context from the caller, or resolve it now.
-  const authContext = callerAuthContext ?? await optionalAuth(request, env);
+  // Auth — accept a pre-resolved context from the caller; otherwise read
+  // from the route-table withAuth wrapper. Direct unit-test callers fall
+  // back to a fresh optionalAuth so the route can be exercised without
+  // wiring the wrapper.
+  const authContext = callerAuthContext
+    ?? getAttachedAuthContext(request)
+    ?? await optionalAuth(request, env);
   if (!authContext) {
     throw HttpErrors.unauthorized('Authentication required');
   }
@@ -924,12 +894,20 @@ export async function handleSubmitIntake(
   const intakeTitle = await generateIntakeTitle(env, draft, intake, transcriptSummary);
   await persistConversationIntakeTitle(env, conversationId, intakeTitle);
 
+  // Validate the outbound wire shape before sending. In production this
+  // logs schema mismatches; in dev/test it throws so bugs surface early.
+  const validatedPayload = validateWire(
+    BackendIntakeCreatePayloadSchema,
+    intakePayload,
+    'submitIntake.outbound',
+  );
+
   // Call backend API via existing RemoteApiService pattern
   let backendResponse: Response;
   try {
     backendResponse = await RemoteApiService.createIntake(
       env,
-      intakePayload as unknown as Record<string, unknown>,
+      validatedPayload as unknown as Record<string, unknown>,
       request
     );
   } catch (error) {
@@ -950,9 +928,25 @@ export async function handleSubmitIntake(
     });
     throw error;
   }
-  const backendPayload = await backendResponse.json() as BackendIntakeCreateResponse;
+  const backendJson = await backendResponse.json();
+  const backendPayload = validateWire(
+    BackendIntakeCreateResponseSchema,
+    backendJson,
+    'submitIntake.response',
+    { strict: false },
+  );
 
-  if (!backendPayload?.success || !backendPayload.data?.uuid) {
+  // Accept both nested ({success, data: {uuid, ...}}) and flat ({uuid, ...})
+  // backend response shapes. The schema lists the intake fields under both;
+  // pick `data` first if present, else fall back to top-level fields.
+  const intakeData = backendPayload?.data?.uuid
+    ? backendPayload.data
+    : (backendPayload?.uuid ? backendPayload : null);
+  const successFlag = typeof backendPayload?.success === 'boolean'
+    ? backendPayload.success
+    : Boolean(intakeData?.uuid);
+
+  if (!successFlag || !intakeData?.uuid) {
     const errorDetails = backendPayload?.error ?? 'No uuid returned';
     Logger.error('[submitIntake] Backend intake create failed', {
       conversationId,
@@ -962,7 +956,7 @@ export async function handleSubmitIntake(
     throw HttpErrors.internalServerError(`Backend intake creation failed: ${errorDetails}`);
   }
 
-  const { uuid: intakeUuid, status, payment_link_url, organization } = backendPayload.data;
+  const { uuid: intakeUuid, status, payment_link_url, organization } = intakeData;
 
   // Persist intake_uuid back into D1 conversation metadata
   try {

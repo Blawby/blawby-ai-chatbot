@@ -5,6 +5,7 @@ import { HttpError, type Env } from '../types.js';
 import { ConversationService, type ConversationStatus } from '../services/ConversationService.js';
 import { RemoteApiService } from '../services/RemoteApiService.js';
 import { optionalAuth, requirePracticeMember, requirePracticeMemberRole, checkPracticeMembership } from '../middleware/auth.js';
+import { getAttachedAuthContext } from '../middleware/compose.js';
 import type { AuthContext } from '../middleware/auth.js';
 import { withPracticeContext, getPracticeId } from '../middleware/practiceContext.js';
 import { Logger } from '../utils/logger.js';
@@ -130,8 +131,11 @@ export async function handleConversations(request: Request, env: Env): Promise<R
     return handleSubmitIntake(request, env, conversationId);
   }
 
-  // Support optional auth for anonymous users (Better Auth anonymous plugin)
-  const authContext = await optionalAuth(request, env);
+  // Auth attached by route-table withAuth({ required: false }) wrapper —
+  // anonymous users are admitted via Better Auth's anonymous plugin and
+  // present as a regular AuthContext with isAnonymous=true. Tests that
+  // call this handler directly fall back to optionalAuth.
+  const authContext = getAttachedAuthContext(request) ?? await optionalAuth(request, env);
   if (!authContext) {
     throw HttpErrors.unauthorized('Authentication required - anonymous or authenticated session needed');
   }

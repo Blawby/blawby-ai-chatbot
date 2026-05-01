@@ -1,11 +1,17 @@
-import axios from 'axios';
+import {
+  isHttpError,
+  isAbortError,
+  pluckCollection,
+  pluckRecord,
+  unwrapApiResponse,
+  apiClient,
+} from '@/shared/lib/apiClient';
 import {
   matterCollectionPath,
   matterItemPath,
   matterNestedItemPath,
   matterNestedPath
 } from '@/config/urls';
-import { apiClient } from '@/shared/lib/apiClient';
 import {
   toMajorUnits,
   toMinorUnitsValue,
@@ -15,119 +21,32 @@ import {
   type MinorAmount
 } from '@/shared/utils/money';
 
-export type BackendMatter = {
-  id: string;
-  organization_id?: string | null;
-  // Backend contract: single linked client/person reference for the matter.
-  client_id?: string | null;
-  title?: string | null;
-  description?: string | null;
-  billing_type?: 'hourly' | 'fixed' | 'contingency' | 'pro_bono' | string | null;
-  total_fixed_price?: MajorAmount | null;
-  contingency_percentage?: number | null;
-  settlement_amount?: MajorAmount | null;
-  practice_service_id?: string | null;
-  admin_hourly_rate?: MajorAmount | null;
-  attorney_hourly_rate?: MajorAmount | null;
-  payment_frequency?: 'project' | 'milestone' | string | null;
-  case_number?: string | null;
-  matter_type?: string | null;
-  urgency?: 'routine' | 'time_sensitive' | 'emergency' | string | null;
-  responsible_attorney_id?: string | null;
-  originating_attorney_id?: string | null;
-  court?: string | null;
-  judge?: string | null;
-  opposing_party?: string | null;
-  opposing_counsel?: string | null;
-  open_date?: string | null;
-  close_date?: string | null;
-  status?: string | null;
-  deleted_at?: string | null;
-  deleted_by?: string | null;
-  created_at?: string | null;
-  updated_at?: string | null;
-  assignee_ids?: string[] | null;
-  assignees?: Array<Record<string, unknown>> | string[] | null;
-  milestones?: Array<Record<string, unknown>> | null;
-};
-
-export type BackendMatterActivity = {
-  id: string;
-  matter_id: string;
-  user_id?: string | null;
-  action?: string | null;
-  description?: string | null;
-  metadata?: Record<string, unknown> | null;
-  created_at?: string | null;
-};
-
-export type BackendMatterNote = {
-  id: string;
-  matter_id: string;
-  user_id?: string | null;
-  content?: string | null;
-  created_at?: string | null;
-  updated_at?: string | null;
-};
-
-export type BackendMatterTimeEntry = {
-  id: string;
-  matter_id: string;
-  user_id?: string | null;
-  start_time?: string | null;
-  end_time?: string | null;
-  duration?: number | null;
-  description?: string | null;
-  billable?: boolean | null;
-  created_at?: string | null;
-  updated_at?: string | null;
-};
-
-export type BackendMatterTimeStats = {
-  totalBillableSeconds?: number | null;
-  totalSeconds?: number | null;
-  totalBillableHours?: number | null;
-  totalHours?: number | null;
-};
-
-export type BackendMatterExpense = {
-  id: string;
-  matter_id: string;
-  description?: string | null;
-  amount?: MajorAmount | null;
-  date?: string | null;
-  billable?: boolean | null;
-  created_at?: string | null;
-  updated_at?: string | null;
-};
-
-export type BackendMatterMilestone = {
-  id: string;
-  matter_id: string;
-  description?: string | null;
-  amount?: MajorAmount | null;
-  due_date?: string | null;
-  status?: string | null;
-  order?: number | null;
-  created_at?: string | null;
-  updated_at?: string | null;
-};
-
-export type TaskStatus = 'pending' | 'in_progress' | 'completed' | 'blocked';
-export type TaskPriority = 'low' | 'normal' | 'high' | 'urgent';
-
-export type BackendMatterTask = {
-  id: string;
-  matter_id: string;
-  name: string;
-  description?: string | null;
-  assignee_id?: string | null;
-  due_date?: string | null;
-  status: TaskStatus;
-  priority: TaskPriority;
-  stage: string;
-  created_at?: string | null;
-  updated_at?: string | null;
+// Wire types live in worker/types/wire/matter.ts (single source of truth).
+// Re-exported here for existing consumers; new code should import from
+// `@/shared/types/wire` directly.
+import type {
+  BackendMatter,
+  BackendMatterActivity,
+  BackendMatterNote,
+  BackendMatterTimeEntry,
+  BackendMatterTimeStats,
+  BackendMatterExpense,
+  BackendMatterMilestone,
+  BackendMatterTask,
+  TaskStatus,
+  TaskPriority,
+} from '@/shared/types/wire';
+export type {
+  BackendMatter,
+  BackendMatterActivity,
+  BackendMatterNote,
+  BackendMatterTimeEntry,
+  BackendMatterTimeStats,
+  BackendMatterExpense,
+  BackendMatterMilestone,
+  BackendMatterTask,
+  TaskStatus,
+  TaskPriority,
 };
 
 export type ListMatterTaskFilters = {
@@ -274,11 +193,9 @@ const normalizeMilestonePayload = (payload: {
 };
 
 const getErrorMessage = (error: unknown, fallback: string) => {
-  if (axios.isAxiosError(error)) {
-    const data = error.response?.data;
-    if (typeof data === 'string' && data.trim().length > 0) {
-      return data;
-    }
+  if (isHttpError(error)) {
+    const data = error.response.data;
+    if (typeof data === 'string' && data.trim().length > 0) return data;
     if (data && typeof data === 'object') {
       const record = data as Record<string, unknown>;
       const err = typeof record.error === 'string' ? record.error : null;
@@ -287,9 +204,7 @@ const getErrorMessage = (error: unknown, fallback: string) => {
     }
     return error.message || fallback;
   }
-  if (error instanceof Error) {
-    return error.message || fallback;
-  }
+  if (error instanceof Error) return error.message || fallback;
   return fallback;
 };
 
@@ -298,175 +213,54 @@ const requestData = async <T>(promise: Promise<{ data: T }>, fallbackMessage: st
     const response = await promise;
     return response.data;
   } catch (error) {
-    // Preserve abort/cancel errors so callers can treat them as non-fatal
-    // (many hooks abort on cleanup and expect to ignore those errors).
-    if (axios.isCancel(error) || (error instanceof Error && (error.name === 'AbortError' || error.name === 'CanceledError'))) {
-      throw error;
-    }
+    if (isAbortError(error)) throw error;
     throw new Error(getErrorMessage(error, fallbackMessage));
   }
 };
 
+// Extract helpers — all delegate to the shared `pluckCollection` /
+// `pluckRecord` primitives in `apiClient.ts`. Each helper just declares
+// the keys the backend uses for its resource.
 const extractMatterArray = (payload: unknown): BackendMatter[] => {
-  if (Array.isArray(payload)) {
-    return payload.filter((item): item is BackendMatter => !!item && typeof item === 'object');
-  }
-  if (!payload || typeof payload !== 'object') return [];
-
-  const record = payload as Record<string, unknown>;
-  
-  // Try 'matters' key first (standard paginated response)
-  if (Array.isArray(record.matters)) {
-    return record.matters.filter((item): item is BackendMatter => !!item && typeof item === 'object');
-  }
-  
-  // Try 'items' key (alternative paginated response)
-  if (Array.isArray(record.items)) {
-    return record.items.filter((item): item is BackendMatter => !!item && typeof item === 'object');
-  }
-
-  // Handle nested 'data' key (standard worker wrapping)
-  if (record.data) {
-    return extractMatterArray(record.data);
-  }
-
-  // Handle single matter object returned as 'matter'
-  if (record.matter && typeof record.matter === 'object' && !Array.isArray(record.matter)) {
-    return [record.matter as BackendMatter];
-  }
-  
-  // Handle flat objects that have an 'id' - fallback if not in known keys
-  if (record.id && ('title' in record || 'slug' in record || 'organization_id' in record)) {
-    return [record as BackendMatter];
-  }
-
-  console.warn('[mattersApi] extractMatterArray: could not extract array from payload', payload);
-  return [];
-};
-
-const extractMatter = (payload: unknown): BackendMatter | null => {
-  if (!payload || typeof payload !== 'object') return null;
-  if (Array.isArray(payload)) {
-    return (payload.find((item) => item && typeof item === 'object') ?? null) as BackendMatter | null;
-  }
-  const record = payload as Record<string, unknown>;
-  if (record.matter && typeof record.matter === 'object') {
-    return record.matter as BackendMatter;
-  }
-  if (record.data) {
-    return extractMatter(record.data);
-  }
-  return record as BackendMatter;
-};
-
-const extractActivityArray = (payload: unknown): BackendMatterActivity[] => {
-  if (Array.isArray(payload)) {
-    return payload.filter((item): item is BackendMatterActivity => !!item && typeof item === 'object');
-  }
-  if (!payload || typeof payload !== 'object') return [];
-  const record = payload as Record<string, unknown>;
-  // New: backend now wraps activity in 'activities' key
-  if (Array.isArray(record.activities)) {
-    return record.activities.filter((item): item is BackendMatterActivity => !!item && typeof item === 'object');
-  }
-  if (Array.isArray(record.activity)) {
-    return record.activity.filter((item): item is BackendMatterActivity => !!item && typeof item === 'object');
-  }
-  if (record.data) {
-    return extractActivityArray(record.data);
+  const unwrapped = unwrapApiResponse<unknown>(payload, 'Failed to load matters');
+  const list = pluckCollection<BackendMatter>(unwrapped, ['matters', 'items']);
+  if (list.length > 0) return list;
+  // Fallback: backend occasionally returns a single matter at the top level.
+  if (unwrapped && typeof unwrapped === 'object' && !Array.isArray(unwrapped)) {
+    const record = unwrapped as Record<string, unknown>;
+    if (record.matter && typeof record.matter === 'object' && !Array.isArray(record.matter)) {
+      return [record.matter as BackendMatter];
+    }
+    if (record.id && ('title' in record || 'slug' in record || 'organization_id' in record)) {
+      return [record as BackendMatter];
+    }
   }
   return [];
 };
 
-const extractNotesArray = (payload: unknown): BackendMatterNote[] => {
-  if (Array.isArray(payload)) {
-    return payload.filter((item): item is BackendMatterNote => !!item && typeof item === 'object');
-  }
-  if (!payload || typeof payload !== 'object') return [];
-  const record = payload as Record<string, unknown>;
-  if (Array.isArray(record.notes)) {
-    return record.notes.filter((item): item is BackendMatterNote => !!item && typeof item === 'object');
-  }
-  if (record.data) {
-    return extractNotesArray(record.data);
-  }
-  return [];
-};
+const extractMatter = (payload: unknown): BackendMatter | null =>
+  pluckRecord<BackendMatter>(unwrapApiResponse<unknown>(payload), ['matter']);
 
-const extractTimeEntriesArray = (payload: unknown): BackendMatterTimeEntry[] => {
-  if (Array.isArray(payload)) {
-    return payload.filter((item): item is BackendMatterTimeEntry => !!item && typeof item === 'object');
-  }
-  if (!payload || typeof payload !== 'object') return [];
-  const record = payload as Record<string, unknown>;
-  if (Array.isArray(record.timeEntries)) {
-    return record.timeEntries.filter((item): item is BackendMatterTimeEntry => !!item && typeof item === 'object');
-  }
-  if (record.data) {
-    return extractTimeEntriesArray(record.data);
-  }
-  return [];
-};
+const extractActivityArray = (payload: unknown): BackendMatterActivity[] =>
+  pluckCollection<BackendMatterActivity>(unwrapApiResponse<unknown>(payload), ['activities', 'activity']);
 
-const extractExpensesArray = (payload: unknown): BackendMatterExpense[] => {
-  if (Array.isArray(payload)) {
-    return payload.filter((item): item is BackendMatterExpense => !!item && typeof item === 'object');
-  }
-  if (!payload || typeof payload !== 'object') return [];
-  const record = payload as Record<string, unknown>;
-  if (Array.isArray(record.expenses)) {
-    return record.expenses.filter((item): item is BackendMatterExpense => !!item && typeof item === 'object');
-  }
-  if (record.data) {
-    return extractExpensesArray(record.data);
-  }
-  return [];
-};
+const extractNotesArray = (payload: unknown): BackendMatterNote[] =>
+  pluckCollection<BackendMatterNote>(unwrapApiResponse<unknown>(payload), ['notes']);
 
-const extractMilestonesArray = (payload: unknown): BackendMatterMilestone[] => {
-  if (Array.isArray(payload)) {
-    return payload.filter((item): item is BackendMatterMilestone => !!item && typeof item === 'object');
-  }
-  if (!payload || typeof payload !== 'object') return [];
-  const record = payload as Record<string, unknown>;
-  if (Array.isArray(record.milestones)) {
-    return record.milestones.filter((item): item is BackendMatterMilestone => !!item && typeof item === 'object');
-  }
-  if (record.data) {
-    return extractMilestonesArray(record.data);
-  }
-  return [];
-};
+const extractTimeEntriesArray = (payload: unknown): BackendMatterTimeEntry[] =>
+  pluckCollection<BackendMatterTimeEntry>(unwrapApiResponse<unknown>(payload), ['timeEntries']);
 
-const extractTasksArray = (payload: unknown): BackendMatterTask[] => {
-  if (Array.isArray(payload)) {
-    return payload.filter((item): item is BackendMatterTask => !!item && typeof item === 'object');
-  }
-  if (!payload || typeof payload !== 'object') return [];
-  const record = payload as Record<string, unknown>;
-  if (Array.isArray(record.tasks)) {
-    return record.tasks.filter((item): item is BackendMatterTask => !!item && typeof item === 'object');
-  }
-  if (record.data) {
-    return extractTasksArray(record.data);
-  }
-  return [];
-};
+const extractExpensesArray = (payload: unknown): BackendMatterExpense[] =>
+  pluckCollection<BackendMatterExpense>(unwrapApiResponse<unknown>(payload), ['expenses']);
 
-const extractTask = (payload: unknown): BackendMatterTask | null => {
-  if (!payload || typeof payload !== 'object') return null;
-  if (Array.isArray(payload)) {
-    return (payload.find((item) => item && typeof item === 'object') ?? null) as BackendMatterTask | null;
-  }
-  const record = payload as Record<string, unknown>;
-  if (record.task && typeof record.task === 'object') {
-    return record.task as BackendMatterTask;
-  }
-  if (record.data) {
-    return extractTask(record.data);
-  }
-  return record as BackendMatterTask;
-};
+const extractMilestonesArray = (payload: unknown): BackendMatterMilestone[] =>
+  pluckCollection<BackendMatterMilestone>(unwrapApiResponse<unknown>(payload), ['milestones']);
+
+const extractTasksArray = (payload: unknown): BackendMatterTask[] =>
+  pluckCollection<BackendMatterTask>(unwrapApiResponse<unknown>(payload), ['tasks']);
+
+const extractTask = (payload: unknown): BackendMatterTask | null =>
+  pluckRecord<BackendMatterTask>(unwrapApiResponse<unknown>(payload), ['task']);
 
 
 export const listMatters = async (
@@ -528,7 +322,7 @@ export const createMatter = async (
     apiClient.post(
       matterCollectionPath(practiceId),
       normalizeMatterPayload(payload),
-      { signal: options.signal }
+      { signal: options.signal, invalidates: [`matters:${practiceId}:`] }
     ),
     'Failed to create matter'
   );
@@ -551,7 +345,7 @@ export const updateMatter = async (
     apiClient.put(
       matterItemPath(practiceId, matterId),
       normalizedPayload,
-      { signal: options.signal }
+      { signal: options.signal, invalidates: [`matters:${practiceId}:`] }
     ),
     'Failed to update matter'
   );
@@ -569,7 +363,8 @@ export const deleteMatter = async (
   }
   await requestData(
     apiClient.delete(matterItemPath(practiceId, matterId), {
-      signal: options.signal
+      signal: options.signal,
+      invalidates: [`matters:${practiceId}:`],
     }),
     'Failed to delete matter'
   );

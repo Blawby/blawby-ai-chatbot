@@ -1,5 +1,6 @@
 import { FunctionComponent } from 'preact';
 import { memo } from 'preact/compat';
+import { useCallback } from 'preact/hooks';
 import { FileAttachment, MessageReaction } from '../../../../worker/types';
 import type { IntakePaymentRequest } from '@/shared/utils/intakePayments';
 import { AIThinkingIndicator } from './AIThinkingIndicator';
@@ -77,8 +78,8 @@ interface MessageProps {
 	replyPreview?: ReplyTarget;
 	reactions?: MessageReaction[];
 	onReplyPreviewClick?: () => void;
-	onReply?: () => void;
-	onToggleReaction?: (emoji: string) => void;
+	onReply?: (target: ReplyTarget) => void;
+	onToggleReaction?: (messageId: string, emoji: string) => void;
 	practiceConfig?: {
 		name: string;
 		profileImage: string | null;
@@ -155,6 +156,16 @@ const Message: FunctionComponent<MessageProps> = memo(({
 	isSystemEvent = false,
 	hideMessageActions = false,
 }) => {
+	const handleReply = useCallback(() => {
+		if (!onReply) return;
+		onReply({
+			messageId: _id ?? '',
+			authorName: authorName ?? avatar?.name ?? 'Unknown',
+			content,
+			avatar,
+		});
+	}, [onReply, _id, authorName, avatar, content]);
+
 	if (isSystemEvent) {
 		return (
 			<ConversationEventRow
@@ -183,6 +194,7 @@ const Message: FunctionComponent<MessageProps> = memo(({
 	// Avatar size based on message size
 	const avatarSize = size === 'sm' ? 'sm' : 'lg';
 	const quickReactions = ['👍', '👀', '😂', '❤️'];
+
 	const showActions = !hideMessageActions && Boolean(onReply || (onToggleReaction && features.enableMessageReactions));
 	const hasReactions = reactions.length > 0 && features.enableMessageReactions;
 	const hasReplyPreview = Boolean(replyPreview);
@@ -215,7 +227,7 @@ const Message: FunctionComponent<MessageProps> = memo(({
 							type="button"
 							className="message-action-btn text-sm"
 							aria-label={`React with ${emoji}`}
-							onClick={() => onToggleReaction(emoji)}
+							onClick={() => _id && onToggleReaction(_id, emoji)}
 						>
 							{emoji}
 						</button>
@@ -225,7 +237,7 @@ const Message: FunctionComponent<MessageProps> = memo(({
 							type="button"
 							className="message-action-btn"
 							aria-label="Reply to message"
-							onClick={onReply}
+							onClick={handleReply}
 						>
 							<Icon icon={ArrowUturnLeftIcon} className="h-4 w-4"  />
 						</button>
@@ -332,7 +344,7 @@ const Message: FunctionComponent<MessageProps> = memo(({
 								type="button"
 								className={`message-reaction-chip ${reaction.reactedByMe ? 'message-reaction-chip-active' : ''}`}
 								aria-label={`React with ${reaction.emoji}`}
-								onClick={() => onToggleReaction?.(reaction.emoji)}
+								onClick={() => _id && onToggleReaction?.(_id, reaction.emoji)}
 							>
 								<span className="text-sm">{reaction.emoji}</span>
 								<span className="message-reaction-count">{reaction.count}</span>

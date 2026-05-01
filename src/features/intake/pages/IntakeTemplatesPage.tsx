@@ -76,7 +76,7 @@ function slugify(name: string): string {
 
 function parseTemplatesFromMetadata(metadata: Record<string, unknown> | null | undefined): IntakeTemplate[] {
   if (!metadata) return [];
-  
+
   const raw = metadata.intakeTemplates;
   if (typeof raw === 'string') {
     try {
@@ -263,7 +263,7 @@ function moveItem<T>(items: T[], fromIndex: number, toIndex: number): T[] {
   return next;
 }
 
- 
+
 
 function useDragReorder<T>(items: T[], onReorder: (next: T[]) => void) {
   const dragIndexRef = useRef<number | null>(null);

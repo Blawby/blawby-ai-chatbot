@@ -1,4 +1,5 @@
-import axios, { AxiosHeaders, type AxiosRequestConfig } from 'axios';
+import { queryCache } from '@/shared/lib/queryCache';
+import { policyTtl } from '@/shared/lib/cachePolicy';
 import {
   getSubscriptionBillingPortalEndpoint,
   getSubscriptionCancelEndpoint,
@@ -21,14 +22,9 @@ import { getWidgetAuthToken } from '@/shared/utils/widgetAuth';
 
 let cachedBaseUrl: string | null = null;
 let isHandling401: Promise<void> | null = null;
-// In-flight deduplicator: prevents concurrent duplicate requests for the same slug.
-const publicPracticeDetailsInFlight = new Map<string, Promise<PublicPracticeDetails | null>>();
-// Persistent result cache: once a slug resolves, reuse the result for the entire session.
-// This is the primary fix for the "Too Many Requests" issue — previously every caller
-// (usePracticeConfig, usePracticeDetails, forms.ts) would fire
-// independent HTTP requests because the in-flight map was cleared after each request.
-const publicPracticeDetailsCache = new Map<string, PublicPracticeDetails | null>();
 const ABSOLUTE_URL_PATTERN = /^(https?:)?\/\//i;
+
+const publicPracticeDetailsKey = (slug: string) => `practice:public:${slug}`;
 
 /**
  * Clear the public practice details cache for a specific slug (or all slugs).
@@ -36,11 +32,9 @@ const ABSOLUTE_URL_PATTERN = /^(https?:)?\/\//i;
  */
 export const clearPublicPracticeDetailsCache = (slug?: string) => {
   if (slug) {
-    publicPracticeDetailsCache.delete(slug.trim());
-    publicPracticeDetailsInFlight.delete(slug.trim());
+    queryCache.invalidate(publicPracticeDetailsKey(slug.trim()));
   } else {
-    publicPracticeDetailsCache.clear();
-    publicPracticeDetailsInFlight.clear();
+    queryCache.invalidate('practice:public:', true);
   }
 };
 
@@ -80,43 +74,440 @@ function ensureApiBaseUrl(): string {
   return cachedBaseUrl;
 }
 
-// Create axios instance without default baseURL
-// We'll set it dynamically in the interceptor to avoid stale base URLs.
-export const apiClient = axios.create({
-  // Don't set baseURL here - let interceptor handle it dynamically
-});
+export class HttpError extends Error {
+  readonly response: { status: number; data: unknown };
+  constructor(status: number, data: unknown, message: string) {
+    super(message);
+    this.name = 'HttpError';
+    this.response = { status, data };
+  }
+}
 
-apiClient.interceptors.request.use(
-  (config) => {
-    // Always get fresh baseURL in development.
-    // Force override any cached baseURL to avoid stale endpoints.
-    const baseUrl = ensureApiBaseUrl();
-    // Always set baseURL fresh - don't rely on existing value
-    if (config.baseURL !== baseUrl) {
-      config.baseURL = baseUrl;
+export const isHttpError = (error: unknown): error is HttpError => error instanceof HttpError;
+export const isAbortError = (error: unknown): boolean =>
+  error instanceof Error && (error.name === 'AbortError' || error.name === 'CanceledError');
+
+export type ApiRequestConfig = { signal?: AbortSignal };
+
+function extractFetchErrorMessage(data: unknown, fallback: string): string {
+  if (typeof data === 'string' && data.trim()) return data.trim();
+  if (data && typeof data === 'object') {
+    const rec = data as Record<string, unknown>;
+    if (typeof rec.message === 'string' && rec.message) return rec.message;
+    if (typeof rec.error === 'string' && rec.error) return rec.error;
+  }
+  return fallback;
+}
+
+type ApiFetchConfig = {
+  signal?: AbortSignal;
+  params?: Record<string, unknown>;
+  headers?: Record<string, string>;
+  /** Abort the request after `timeout` ms. Composes with `signal` if both set. */
+  timeout?: number;
+  /** Statuses outside 2xx that should resolve (not throw). E.g. [304] for conditional GETs. */
+  acceptStatuses?: number[];
+};
+
+const composeAbortSignals = (signal: AbortSignal | undefined, timeout: number | undefined): { signal: AbortSignal | undefined; cleanup: () => void } => {
+  if (timeout == null) return { signal, cleanup: () => {} };
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(new DOMException('Request timed out', 'TimeoutError')), timeout);
+  let unlink: (() => void) | null = null;
+  if (signal) {
+    if (signal.aborted) {
+      clearTimeout(timer);
+      controller.abort(signal.reason);
+    } else {
+      const onAbort = () => controller.abort(signal.reason);
+      signal.addEventListener('abort', onAbort, { once: true });
+      unlink = () => signal.removeEventListener('abort', onAbort);
+    }
+  }
+  return {
+    signal: controller.signal,
+    cleanup: () => {
+      clearTimeout(timer);
+      if (unlink) unlink();
+    },
+  };
+};
+
+async function apiFetch<T>(
+  method: string,
+  url: string,
+  body?: unknown,
+  config?: ApiFetchConfig,
+): Promise<{ data: T; status: number; headers: Headers }> {
+  const { signal: callerSignal, params, headers: extraHeaders, timeout, acceptStatuses } = config ?? {};
+  let fullUrl = /^https?:\/\//.test(url) ? url : `${ensureApiBaseUrl()}${url}`;
+  if (params && Object.keys(params).length > 0) {
+    const qs = new URLSearchParams(
+      Object.entries(params)
+        .filter(([, v]) => v != null)
+        .map(([k, v]) => [k, String(v)])
+    ).toString();
+    fullUrl = `${fullUrl}${fullUrl.includes('?') ? '&' : '?'}${qs}`;
+  }
+  const headers: Record<string, string> = { ...(extraHeaders ?? {}) };
+  if (body !== undefined && !headers['Content-Type'] && !headers['content-type']) {
+    headers['Content-Type'] = 'application/json';
+  }
+  const widgetToken = getWidgetAuthToken();
+  if (widgetToken && isWidgetTokenEligibleRequestUrl(url) && !headers['Authorization'] && !headers['authorization']) {
+    headers['Authorization'] = `Bearer ${widgetToken}`;
+  }
+
+  const { signal, cleanup } = composeAbortSignals(callerSignal, timeout);
+  let response: Response;
+  try {
+    response = await fetch(fullUrl, {
+      method,
+      credentials: 'include',
+      headers,
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+      signal,
+    });
+  } finally {
+    cleanup();
+  }
+
+  if (response.status === 401) {
+    if (!isHandling401) {
+      const doHandle = async () => {
+        try {
+          if (typeof window !== 'undefined') {
+            try {
+              window.dispatchEvent(new CustomEvent('auth:unauthorized'));
+            } catch (eventErr) {
+              console.error('Error dispatching auth:unauthorized event:', eventErr);
+            }
+          }
+        } finally {
+          isHandling401 = null;
+        }
+      };
+      isHandling401 = doHandle();
+    }
+    await isHandling401;
+  }
+
+  const isAccepted = acceptStatuses?.includes(response.status) ?? false;
+  // `response.headers` may be missing in test stubs that fake just `{ ok, json }`;
+  // prefer Headers when present, fall back to an empty Headers instance.
+  const responseHeaders = response.headers ?? new Headers();
+  if (response.status === 304 || (isAccepted && response.status === 204)) {
+    // 304 Not Modified and 204 No Content carry no body. Don't try to parse.
+    return { data: null as T, status: response.status, headers: responseHeaders };
+  }
+
+  const contentType = responseHeaders.get?.('content-type') ?? '';
+  // Heuristic for environments without a proper Headers instance (some test
+  // mocks): if `json()` is callable, prefer JSON.
+  const preferJson = contentType.includes('application/json') || typeof response.json === 'function';
+  const data: unknown = preferJson
+    ? await response.json() as unknown
+    : await response.text();
+
+  if (!response.ok && !isAccepted) {
+    throw new HttpError(response.status, data, extractFetchErrorMessage(data, `HTTP ${response.status}`));
+  }
+
+  return { data: data as T, status: response.status, headers: responseHeaders };
+}
+
+type FetchConfig = {
+  signal?: AbortSignal;
+  params?: Record<string, unknown>;
+  baseURL?: string;
+  /** Extra request headers (e.g. If-None-Match for conditional GETs). */
+  headers?: Record<string, string>;
+  /** Abort the request after `timeout` ms. Composes with `signal` if both set. */
+  timeout?: number;
+  /** Statuses outside 2xx that should resolve (not throw). E.g. [304] for conditional GETs. */
+  acceptStatuses?: number[];
+  /**
+   * Optional JSON body for DELETE. RFC 7231 allows DELETE-with-body, and the
+   * conversation-tag endpoint relies on it. POST/PUT/PATCH receive their body
+   * via the explicit `body` parameter and ignore this field.
+   */
+  body?: unknown;
+  /**
+   * Cache keys/prefixes to invalidate on a successful (2xx) mutation. Items
+   * are exact keys; items ending in `:` are treated as prefix invalidations.
+   * The wrapper invalidates AFTER the await resolves, so callers don't have
+   * to remember to call `queryCache.invalidate(...)` themselves.
+   */
+  invalidates?: string[];
+};
+
+const applyInvalidations = (invalidates: string[] | undefined): void => {
+  if (!invalidates || invalidates.length === 0) return;
+  for (const key of invalidates) {
+    const isPrefix = key.endsWith(':');
+    queryCache.invalidate(key, isPrefix);
+  }
+};
+
+export type UploadProgress = { loaded: number; total: number; percent: number };
+export type UploadConfig = {
+  signal?: AbortSignal;
+  onProgress?: (progress: UploadProgress) => void;
+};
+
+/**
+ * Upload a `FormData` body via XMLHttpRequest so the caller can observe
+ * real upload progress (which `fetch` doesn't expose without
+ * ReadableStream-based upload, which Safari and several other browsers
+ * still don't support reliably).
+ *
+ * Mirrors `apiClient.post` shape — same `{ data, status }` return,
+ * same widget-token handling, same 401 → `auth:unauthorized` event,
+ * same `HttpError` for non-2xx. The `onProgress` callback fires for
+ * each `upload.onprogress` event with `{ loaded, total, percent }`.
+ *
+ * Replaces hand-rolled XHR + `xhrRef` Map patterns scattered across
+ * file-upload hooks.
+ */
+async function apiUpload<T>(
+  url: string,
+  body: FormData,
+  config?: UploadConfig,
+): Promise<{ data: T; status: number }> {
+  const fullUrl = /^https?:\/\//.test(url) ? url : `${ensureApiBaseUrl()}${url}`;
+  const widgetToken = getWidgetAuthToken();
+  const eligibleForWidgetToken = widgetToken && isWidgetTokenEligibleRequestUrl(url);
+
+  return new Promise<{ data: T; status: number }>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', fullUrl, true);
+    xhr.withCredentials = true;
+    if (eligibleForWidgetToken) xhr.setRequestHeader('Authorization', `Bearer ${widgetToken}`);
+    // Don't set Content-Type — the browser injects multipart/form-data with the boundary.
+
+    if (config?.onProgress) {
+      xhr.upload.onprogress = (event) => {
+        if (!event.lengthComputable) return;
+        config.onProgress!({
+          loaded: event.loaded,
+          total: event.total,
+          percent: Math.max(0, Math.min(100, Math.round((event.loaded / event.total) * 100))),
+        });
+      };
     }
 
-    // Use session cookies for auth; include credentials for cross-origin requests when allowed.
-    config.withCredentials = true;
-    const widgetToken = getWidgetAuthToken();
-    if (widgetToken) {
-      const requestUrl = typeof config.url === 'string' ? config.url : '';
-      if (isWidgetTokenEligibleRequestUrl(requestUrl)) {
-        if (!config.headers) {
-          config.headers = new AxiosHeaders();
-        }
-        if (config.headers instanceof AxiosHeaders) {
-          config.headers.set('Authorization', `Bearer ${widgetToken}`);
-        } else {
-          (config.headers as Record<string, string>).Authorization = `Bearer ${widgetToken}`;
-        }
+    if (config?.signal) {
+      if (config.signal.aborted) {
+        xhr.abort();
+        const err = new Error('Aborted');
+        err.name = 'AbortError';
+        reject(err);
+        return;
       }
+      config.signal.addEventListener('abort', () => xhr.abort(), { once: true });
     }
 
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
+    xhr.onload = () => {
+      const contentType = xhr.getResponseHeader('Content-Type') ?? '';
+      let parsed: unknown = xhr.responseText;
+      if (contentType.includes('application/json')) {
+        try { parsed = xhr.responseText ? JSON.parse(xhr.responseText) : null; } catch { /* keep text */ }
+      }
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve({ data: parsed as T, status: xhr.status });
+        return;
+      }
+      reject(new HttpError(xhr.status, parsed, extractFetchErrorMessage(parsed, `HTTP ${xhr.status}`)));
+    };
+
+    xhr.onerror = () => reject(new Error('Network error during upload'));
+    xhr.onabort = () => {
+      const err = new Error('Aborted');
+      err.name = 'AbortError';
+      reject(err);
+    };
+
+    xhr.send(body);
+  });
+}
+
+/**
+ * Pull `data` out of a backend `ApiResponse<T>` envelope, throwing on the
+ * error branch.
+ *
+ * The backend (and our worker's `createSuccessResponse`) wrap GET responses
+ * in `{ success: true, data: T }`. Some endpoints additionally nest the
+ * payload under `data.matters` / `data.items` / `data.<resource>`. Callers
+ * pass an optional `pluck` to lift the inner array/object after unwrapping
+ * the envelope.
+ *
+ * Replaces the inline `.data ?? .matters ?? .items ?? recurse` patterns
+ * (`extractMatterArray`, `extractNotesArray`, `requestData`, …) that each
+ * service file used to reinvent.
+ */
+export function unwrapApiResponse<T>(payload: unknown, fallbackMessage = 'Request failed'): T {
+  if (payload && typeof payload === 'object' && 'success' in payload) {
+    const env = payload as { success: boolean; data?: unknown; error?: unknown; message?: unknown };
+    if (env.success === false) {
+      const message = typeof env.error === 'string' && env.error
+        ? env.error
+        : typeof env.message === 'string' && env.message
+          ? env.message
+          : fallbackMessage;
+      throw new Error(message);
+    }
+    if ('data' in env) return env.data as T;
+  }
+  return payload as T;
+}
+
+/**
+ * After unwrapping the envelope, lift a nested collection out of the resource
+ * shape (e.g. `{ matters: [...] }` → `[...]`). Looks at `candidates` keys
+ * first, then falls back to one level of `.data` (handles responses that
+ * still nest inside an extra `data` wrapper after the envelope is stripped).
+ * Returns `[]` if no array can be found.
+ */
+export function pluckCollection<T>(unwrapped: unknown, candidates: string[]): T[] {
+  if (Array.isArray(unwrapped)) return unwrapped as T[];
+  if (!unwrapped || typeof unwrapped !== 'object') return [];
+  const record = unwrapped as Record<string, unknown>;
+  for (const key of candidates) {
+    if (Array.isArray(record[key])) return record[key] as T[];
+  }
+  if (record.data) return pluckCollection<T>(record.data, candidates);
+  return [];
+}
+
+/**
+ * Pluck a single resource record. Looks at `candidates` keys for a single
+ * non-array object, then falls back to one level of `.data`, then to the
+ * unwrapped value itself. Returns `null` if none match.
+ */
+export function pluckRecord<T>(unwrapped: unknown, candidates: string[]): T | null {
+  if (!unwrapped || typeof unwrapped !== 'object') return null;
+  if (Array.isArray(unwrapped)) {
+    return (unwrapped.find((item) => item && typeof item === 'object') ?? null) as T | null;
+  }
+  const record = unwrapped as Record<string, unknown>;
+  for (const key of candidates) {
+    const value = record[key];
+    if (value && typeof value === 'object' && !Array.isArray(value)) return value as T;
+  }
+  if (record.data) return pluckRecord<T>(record.data, candidates);
+  return record as T;
+}
+
+const mutate = async <T>(
+  method: 'POST' | 'PUT' | 'PATCH' | 'DELETE',
+  url: string,
+  body: unknown,
+  config?: FetchConfig,
+): Promise<{ data: T; status: number; headers: Headers }> => {
+  const result = await apiFetch<T>(method, url, body, config);
+  // Invalidate on 2xx only — apiFetch throws HttpError otherwise, so reaching
+  // this line means the mutation succeeded.
+  applyInvalidations(config?.invalidates);
+  return result;
+};
+
+type StreamConfig = {
+  signal?: AbortSignal;
+  params?: Record<string, unknown>;
+  headers?: Record<string, string>;
+  body?: unknown;
+};
+
+/**
+ * Issue a request and return the raw `Response` with body intact, so the
+ * caller can branch on `content-type` (JSON short-circuit vs. SSE) and
+ * consume `response.body.getReader()` for streaming.
+ *
+ * Mirrors `apiClient.{get,post}` for header normalization (Content-Type,
+ * widget bearer for allowlisted URLs), URL resolution, and 401 → event
+ * dispatch. Throws `HttpError` on non-2xx so caller's catch sees the same
+ * error contract as the rest of the API surface.
+ */
+async function apiStream(
+  method: 'GET' | 'POST',
+  url: string,
+  config?: StreamConfig,
+): Promise<Response> {
+  const { signal, params, headers: extraHeaders, body } = config ?? {};
+  let fullUrl = /^https?:\/\//.test(url) ? url : `${ensureApiBaseUrl()}${url}`;
+  if (params && Object.keys(params).length > 0) {
+    const qs = new URLSearchParams(
+      Object.entries(params)
+        .filter(([, v]) => v != null)
+        .map(([k, v]) => [k, String(v)])
+    ).toString();
+    fullUrl = `${fullUrl}${fullUrl.includes('?') ? '&' : '?'}${qs}`;
+  }
+  const headers: Record<string, string> = { ...(extraHeaders ?? {}) };
+  if (body !== undefined && !headers['Content-Type'] && !headers['content-type']) {
+    headers['Content-Type'] = 'application/json';
+  }
+  const widgetToken = getWidgetAuthToken();
+  if (widgetToken && isWidgetTokenEligibleRequestUrl(url) && !headers['Authorization'] && !headers['authorization']) {
+    headers['Authorization'] = `Bearer ${widgetToken}`;
+  }
+
+  const response = await fetch(fullUrl, {
+    method,
+    credentials: 'include',
+    headers,
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+    signal,
+  });
+
+  if (response.status === 401) {
+    if (!isHandling401) {
+      const doHandle = async () => {
+        try {
+          if (typeof window !== 'undefined') {
+            try {
+              window.dispatchEvent(new CustomEvent('auth:unauthorized'));
+            } catch (eventErr) {
+              console.error('Error dispatching auth:unauthorized event:', eventErr);
+            }
+          }
+        } finally {
+          isHandling401 = null;
+        }
+      };
+      isHandling401 = doHandle();
+    }
+    await isHandling401;
+  }
+
+  if (!response.ok) {
+    // Drain the body so caller's catch path can read structured error data.
+    const contentType = response.headers.get('content-type') ?? '';
+    const data: unknown = contentType.includes('application/json')
+      ? await response.json().catch(() => null)
+      : await response.text().catch(() => '');
+    throw new HttpError(response.status, data, extractFetchErrorMessage(data, `HTTP ${response.status}`));
+  }
+
+  return response;
+}
+
+export const apiClient = {
+  get: <T>(url: string, config?: FetchConfig) =>
+    apiFetch<T>('GET', url, undefined, config),
+  post: <T>(url: string, body?: unknown, config?: FetchConfig) =>
+    mutate<T>('POST', url, body, config),
+  put: <T>(url: string, body?: unknown, config?: FetchConfig) =>
+    mutate<T>('PUT', url, body, config),
+  patch: <T>(url: string, body?: unknown, config?: FetchConfig) =>
+    mutate<T>('PATCH', url, body, config),
+  delete: <T>(url: string, config?: FetchConfig) =>
+    mutate<T>('DELETE', url, config?.body, config),
+  upload: <T>(url: string, body: FormData, config?: UploadConfig) =>
+    apiUpload<T>(url, body, config),
+  stream: (url: string, config?: StreamConfig & { method?: 'GET' | 'POST' }) =>
+    apiStream(config?.method ?? 'POST', url, config),
+};
 
 type PracticeMetadata = Record<string, unknown> | null | undefined;
 
@@ -385,7 +776,7 @@ export async function linkConversationToUser(
 export async function updateConversationMatter(
   conversationId: string,
   matterId: string | null,
-  config?: Pick<AxiosRequestConfig, 'signal'>
+  config?: ApiRequestConfig
 ): Promise<Conversation> {
   if (!conversationId) {
     throw new Error('conversationId is required to update a conversation matter');
@@ -419,7 +810,7 @@ export type ConversationParticipant = {
 export async function getConversationParticipants(
   conversationId: string,
   practiceId: string,
-  config?: Pick<AxiosRequestConfig, 'signal'>
+  config?: ApiRequestConfig
 ): Promise<ConversationParticipant[]> {
   if (!conversationId) {
     throw new Error('conversationId is required');
@@ -458,7 +849,7 @@ export async function getConversationParticipants(
 export async function listMatterConversations(
   practiceId: string,
   matterId: string,
-  config?: Pick<AxiosRequestConfig, 'signal'>
+  config?: ApiRequestConfig
 ): Promise<Conversation[]> {
   // Legacy/undocumented: this endpoint is not part of the supplied matters contract.
   if (!practiceId) {
@@ -495,11 +886,11 @@ async function postSubscriptionEndpoint(
       data: response.data ?? null
     };
   } catch (error) {
-    if (axios.isAxiosError(error)) {
+    if (isHttpError(error)) {
       return {
         ok: false,
-        status: error.response?.status ?? 0,
-        data: error.response?.data ?? null
+        status: error.response.status,
+        data: error.response.data ?? null
       };
     }
     return {
@@ -735,37 +1126,45 @@ function normalizeOnboardingStatus(payload: unknown): OnboardingStatus {
   };
 }
 
-type ListPracticesOptions = Pick<AxiosRequestConfig, 'signal'> & {
+type ListPracticesOptions = ApiRequestConfig & {
   scope?: 'all' | 'tenant' | 'platform';
 };
 
 export async function listPractices(configOrOptions?: ListPracticesOptions): Promise<Practice[]> {
   const opts = configOrOptions ?? {};
   const scope = opts.scope ?? 'tenant';
-  const response = await apiClient.get('/api/practice/list', {
-    signal: opts.signal
-  });
-  const practices = unwrapPracticeListResponse(response.data);
+  const practices = await queryCache.coalesceGet(
+    'practices:list',
+    async (signal) => {
+      const response = await apiClient.get('/api/practice/list', { signal });
+      return unwrapPracticeListResponse(response.data);
+    },
+    { ttl: 60_000, signal: opts.signal as AbortSignal | undefined }
+  );
   if (scope === 'platform') {
     return [];
   }
   return practices;
 }
 
-export async function getPractice(practiceId: string, config?: Pick<AxiosRequestConfig, 'signal'>): Promise<Practice> {
+export async function getPractice(practiceId: string, config?: ApiRequestConfig): Promise<Practice> {
   if (!practiceId) {
     throw new Error('practiceId is required');
   }
-  const response = await apiClient.get(`/api/practice/${encodeURIComponent(practiceId)}`, {
-    signal: config?.signal
-  });
-  return unwrapPracticeResponse(response.data);
+  return queryCache.coalesceGet(
+    `practice:${practiceId}`,
+    async (signal) => {
+      const response = await apiClient.get(`/api/practice/${encodeURIComponent(practiceId)}`, { signal });
+      return unwrapPracticeResponse(response.data);
+    },
+    { ttl: 60_000, signal: config?.signal as AbortSignal | undefined }
+  );
 }
 
 
 export async function createPractice(
   payload: CreatePracticeRequest,
-  config?: Pick<AxiosRequestConfig, 'signal'>
+  config?: ApiRequestConfig
 ): Promise<Practice> {
   const response = await apiClient.post('/api/practice', payload, {
     signal: config?.signal
@@ -776,7 +1175,7 @@ export async function createPractice(
 export async function updatePractice(
   practiceId: string,
   payload: UpdatePracticeRequest,
-  config?: Pick<AxiosRequestConfig, 'signal'>
+  config?: ApiRequestConfig
 ): Promise<Practice> {
   if (!practiceId) {
     throw new Error('practiceId is required');
@@ -789,22 +1188,27 @@ export async function updatePractice(
     `/api/practice/${encodeURIComponent(practiceId)}`,
     normalized,
     {
-      signal: config?.signal
+      signal: config?.signal,
+      invalidates: [`practice:${practiceId}`, 'practices:list'],
     }
   );
+  // publicPracticeDetailsCache lives under `practice:public:` — also clear.
+  clearPublicPracticeDetailsCache();
   return unwrapPracticeResponse(response.data);
 }
 
 export async function deletePractice(
   practiceId: string,
-  config?: Pick<AxiosRequestConfig, 'signal'>
+  config?: ApiRequestConfig
 ): Promise<void> {
   if (!practiceId) {
     throw new Error('practiceId is required');
   }
   await apiClient.delete(`/api/practice/${encodeURIComponent(practiceId)}`, {
-    signal: config?.signal
+    signal: config?.signal,
+    invalidates: [`practice:${practiceId}`, 'practices:list'],
   });
+  clearPublicPracticeDetailsCache();
 }
 
 export async function setActivePractice(practiceId: string): Promise<void> {
@@ -816,7 +1220,7 @@ export async function setActivePractice(practiceId: string): Promise<void> {
 
 export async function listPracticeInvitations(
   practiceId: string,
-  config?: Pick<AxiosRequestConfig, 'signal'>
+  config?: ApiRequestConfig
 ): Promise<unknown[]> {
   if (!practiceId || practiceId.trim().length === 0) {
     throw new Error('practiceId is required');
@@ -906,7 +1310,7 @@ export async function cancelPracticeInvitation(invitationId: string): Promise<vo
 
 export async function listPracticeTeam(
   practiceId: string,
-  config?: Pick<AxiosRequestConfig, 'signal'>
+  config?: ApiRequestConfig
 ): Promise<PracticeTeamResponse> {
   if (!practiceId) {
     throw new Error('practiceId is required');
@@ -963,7 +1367,11 @@ export async function updatePracticeMemberRole(
   if (!practiceId) {
     throw new Error('practiceId is required');
   }
-  await apiClient.patch(`/api/practice/${encodeURIComponent(practiceId)}/members`, payload);
+  await apiClient.patch(
+    `/api/practice/${encodeURIComponent(practiceId)}/members`,
+    payload,
+    { invalidates: ['practice:team:'] },
+  );
 }
 
 export async function deletePracticeMember(
@@ -974,7 +1382,8 @@ export async function deletePracticeMember(
     throw new Error('practiceId is required');
   }
   await apiClient.delete(
-    `/api/practice/${encodeURIComponent(practiceId)}/members/${encodeURIComponent(userId)}`
+    `/api/practice/${encodeURIComponent(practiceId)}/members/${encodeURIComponent(userId)}`,
+    { invalidates: ['practice:team:'] },
   );
 }
 
@@ -1038,7 +1447,7 @@ export async function listUserDetails(
 export async function getUserDetail(
   practiceId: string,
   userDetailId: string,
-  config?: Pick<AxiosRequestConfig, 'signal'>
+  config?: ApiRequestConfig
 ): Promise<UserDetailRecord | null> {
   if (!practiceId || !userDetailId) {
     throw new Error('practiceId and userDetailId are required');
@@ -1061,7 +1470,7 @@ export async function getUserDetail(
 export async function getUserDetailAddressById(
   practiceId: string,
   addressId: string,
-  config?: Pick<AxiosRequestConfig, 'signal'>
+  config?: ApiRequestConfig
 ): Promise<Record<string, unknown> | null> {
   if (!practiceId || !addressId) {
     throw new Error('practiceId and addressId are required');
@@ -1198,7 +1607,8 @@ export async function updateUserDetail(
   const normalized = normalizeUserDetailPayload({ address, name, email, phone, status, currency, event_name });
   const response = await apiClient.patch(
     `/api/clients/${encodeURIComponent(practiceId)}/${encodeURIComponent(userDetailId)}`,
-    { ...rest, ...normalized }
+    { ...rest, ...normalized },
+    { invalidates: ['clients:'] }
   );
   const data = response.data;
   if (isRecord(data) && isRecord(data.data)) {
@@ -1215,7 +1625,8 @@ export async function deleteUserDetail(
     throw new Error('practiceId and userDetailId are required');
   }
   await apiClient.delete(
-    `/api/clients/${encodeURIComponent(practiceId)}/${encodeURIComponent(userDetailId)}`
+    `/api/clients/${encodeURIComponent(practiceId)}/${encodeURIComponent(userDetailId)}`,
+    { invalidates: ['clients:'] }
   );
 }
 
@@ -1308,7 +1719,7 @@ export async function deleteUserDetailMemo(
 
 export async function getOnboardingStatus(
   organizationId: string,
-  config?: Pick<AxiosRequestConfig, 'signal'>
+  config?: ApiRequestConfig
 ): Promise<OnboardingStatus> {
   if (!organizationId) {
     throw new Error('organizationId is required');
@@ -1322,16 +1733,23 @@ export async function getOnboardingStatus(
 
 export async function getOnboardingStatusPayload(
   organizationId: string,
-  config?: Pick<AxiosRequestConfig, 'signal'>
+  config?: ApiRequestConfig
 ): Promise<unknown> {
   if (!organizationId) {
     throw new Error('organizationId is required');
   }
-  const response = await apiClient.get(
-    `/api/onboarding/organization/${encodeURIComponent(organizationId)}/status`,
-    { signal: config?.signal }
+  const cacheKey = `onboarding:status:${organizationId}`;
+  return queryCache.coalesceGet(
+    cacheKey,
+    async (signal) => {
+      const response = await apiClient.get(
+        `/api/onboarding/organization/${encodeURIComponent(organizationId)}/status`,
+        { signal }
+      );
+      return response.data;
+    },
+    { ttl: 60_000, signal: config?.signal as AbortSignal | undefined }
   );
-  return response.data;
 }
 
 export async function createConnectedAccount(
@@ -1354,140 +1772,47 @@ export async function createConnectedAccount(
 export async function updatePracticeDetails(
   practiceId: string,
   details: PracticeDetailsUpdate,
-  config?: Pick<AxiosRequestConfig, 'signal'>
+  config?: ApiRequestConfig
 ): Promise<PracticeDetails | null> {
   if (!practiceId) {
     throw new Error('practiceId is required');
   }
   const normalized = normalizePracticeDetailsPayload(details);
-  // Debug: only log payload in development. Redact known PII before logging.
-  if (import.meta.env.DEV) {
-    try {
-      const sanitized: Record<string, unknown> = { ...(normalized as Record<string, unknown>) };
-      // Deep-clone the address object so deleting keys doesn't mutate the
-      // original `normalized` object (avoid side-effects).
-      if (sanitized.address && typeof sanitized.address === 'object') {
-        try {
-          // Use structuredClone when available, otherwise fallback to JSON round-trip.
-          const structuredCloneFn = (globalThis as unknown as { structuredClone?: (v: unknown) => unknown }).structuredClone;
-          sanitized.address = typeof structuredCloneFn === 'function'
-            ? structuredCloneFn(sanitized.address)
-            : JSON.parse(JSON.stringify(sanitized.address));
-        } catch {
-          sanitized.address = JSON.parse(JSON.stringify(sanitized.address));
-        }
-      }
-      // Remove or mask sensitive fields from the sanitized copy
-      delete sanitized.business_email;
-      delete sanitized.business_phone;
-      if (sanitized.address && typeof sanitized.address === 'object') {
-        try { delete (sanitized.address as Record<string, unknown>).line1; } catch { void 0; }
-        try { delete (sanitized.address as Record<string, unknown>).line2; } catch { void 0; }
-        try { delete (sanitized.address as Record<string, unknown>).postal_code; } catch { void 0; }
-        try { delete (sanitized.address as Record<string, unknown>).city; } catch { void 0; }
-        try { delete (sanitized.address as Record<string, unknown>).state; } catch { void 0; }
-      }
-      console.info('[apiClient] updatePracticeDetails payload (sanitized)', { practiceId, payload: sanitized });
-    } catch {
-      void 0;
-    }
-  }
   const response = await apiClient.put(
     `/api/practice/${encodeURIComponent(practiceId)}/details`,
     normalized,
-    { signal: config?.signal }
+    {
+      signal: config?.signal,
+      invalidates: [`practice:details:${practiceId}`],
+    }
   );
-  // Inspect raw API payload to see what backend returned for `settings`.
-  if (import.meta.env.DEV) {
-    try {
-      const raw = unwrapApiData(response.data);
-      if (raw && typeof raw === 'object') {
-        const container = raw as Record<string, unknown>;
-        try {
-          console.info('[apiClient] updatePracticeDetails raw container keys', Object.keys(container));
-          if ('settings' in container) {
-            console.info('[apiClient] updatePracticeDetails raw settings (first 200 chars)', String(container.settings).slice(0, 200));
-          }
-        } catch {
-          void 0;
-        }
-      }
-    } catch {
-      void 0;
-    }
-  }
-  if (import.meta.env.DEV) {
-    try {
-      let dataSnippet: string | undefined;
-      try {
-        dataSnippet = JSON.stringify(response.data).slice(0, 1000);
-      } catch {
-        dataSnippet = String(response.data);
-      }
-      console.info('[apiClient] updatePracticeDetails response', { status: response.status, dataSnippet });
-    } catch {
-      void 0;
-    }
-  }
-  const normalizedResult = normalizePracticeDetailsResponse(response.data);
-  if (import.meta.env.DEV) {
-    try {
-      console.info('[apiClient] updatePracticeDetails normalized result', { result: normalizedResult });
-    } catch {
-      void 0;
-    }
-  }
-  // If we sent `settings` but the PUT response did not include `settings`,
-  // re-fetch the details to ensure we surface persisted values (some backend
-  // implementations don't echo settings on update).
-  try {
-    if (normalized.settings !== undefined && (normalizedResult === null || normalizedResult.settings === undefined)) {
-      const refetch = await getPracticeDetails(practiceId);
-      if (refetch !== null) return refetch;
-    }
-  } catch (err) {
-    if (import.meta.env.DEV) console.error('[apiClient] updatePracticeDetails: failed refetching practice details', err);
-    // If we already have a normalized result from the PUT response, prefer
-    // returning that rather than rethrowing — refetch failures should be
-    // best-effort and not surface as hard failures for callers who already
-    // received a successful update payload.
-    if (normalizedResult !== null) return normalizedResult;
-    throw err;
-  }
-
-  return normalizedResult;
+  clearPublicPracticeDetailsCache();
+  return normalizePracticeDetailsResponse(response.data);
 }
 
 export async function getPracticeDetails(
   practiceId: string,
-  config?: Pick<AxiosRequestConfig, 'signal'>
+  config?: ApiRequestConfig
 ): Promise<PracticeDetails | null> {
   if (!practiceId) {
     throw new Error('practiceId is required');
   }
-  const response = await apiClient.get(
-    `/api/practice/${encodeURIComponent(practiceId)}/details`,
-    { signal: config?.signal }
+  return queryCache.coalesceGet(
+    `practice:details:${practiceId}`,
+    async (signal) => {
+      const response = await apiClient.get(
+        `/api/practice/${encodeURIComponent(practiceId)}/details`,
+        { signal }
+      );
+      return normalizePracticeDetailsResponse(response.data);
+    },
+    { ttl: 60_000, signal: config?.signal as AbortSignal | undefined }
   );
-  if (import.meta.env.DEV) {
-    try {
-      let dataSnippet: string | undefined;
-      try { dataSnippet = JSON.stringify(response.data).slice(0, 1000); } catch { dataSnippet = String(response.data); }
-      console.info('[apiClient] getPracticeDetails response', { status: response.status, dataSnippet });
-      const raw = unwrapApiData(response.data);
-      if (raw && typeof raw === 'object') {
-        try { console.info('[apiClient] getPracticeDetails raw container keys', Object.keys(raw)); } catch { void 0; }
-      }
-    } catch {
-      void 0;
-    }
-  }
-  return normalizePracticeDetailsResponse(response.data);
 }
 
 export async function getPracticeDetailsBySlug(
   slug: string,
-  config?: Pick<AxiosRequestConfig, 'signal'>
+  config?: ApiRequestConfig
 ): Promise<PracticeDetails | null> {
   if (!slug) {
     throw new Error('practice slug is required');
@@ -1513,73 +1838,43 @@ export interface PublicPracticeDetails {
 
 export async function getPublicPracticeDetails(
   slug: string,
-  config?: Pick<AxiosRequestConfig, 'signal'>
+  config?: ApiRequestConfig
 ): Promise<PublicPracticeDetails | null> {
   if (!slug) {
     throw new Error('practice slug is required');
   }
   const normalizedSlug = slug.trim();
+  const cacheKey = publicPracticeDetailsKey(normalizedSlug);
 
-  // 1. Return from persistent cache if already resolved (primary dedup across all callers).
-  if (publicPracticeDetailsCache.has(normalizedSlug)) {
-    return publicPracticeDetailsCache.get(normalizedSlug) ?? null;
-  }
-
-  // 2. Return in-flight promise if a request is already underway (concurrent dedup).
-  const existing = publicPracticeDetailsInFlight.get(normalizedSlug);
-  if (existing) {
-    return existing;
-  }
-
-  const requestPromise = (async () => {
-    try {
+  return queryCache.coalesceGet<PublicPracticeDetails | null>(
+    cacheKey,
+    async (signal) => {
       const apiUrl = `${getWorkerApiUrl()}/api/practice/details/${encodeURIComponent(normalizedSlug)}`;
-
-      const response = await axios.get(
-        apiUrl,
-        {
-          signal: config?.signal,
-          withCredentials: true
-        }
-      );
-      const details = normalizePracticeDetailsResponse(response.data);
-      const displayDetails = extractPublicPracticeDisplayDetails(response.data);
-      const practiceId = extractPublicPracticeId(response.data);
-      if (!details) {
-        // Cache null so we don't keep retrying a practice that returned no details.
-        publicPracticeDetailsCache.set(normalizedSlug, null);
-        return null;
-      }
-      const result: PublicPracticeDetails = {
-        practiceId: practiceId ?? undefined,
-        slug: normalizedSlug,
-        details,
-        name: displayDetails.name,
-        logo: displayDetails.logo
-      };
-      publicPracticeDetailsCache.set(normalizedSlug, result);
-      return result;
-    } catch (error) {
-      if (axios.isAxiosError(error)) {
-        if (error.response?.status === 404) {
-          // Cache null for 404 — the practice doesn't exist, no point retrying.
-          publicPracticeDetailsCache.set(normalizedSlug, null);
+      try {
+        const response = await apiFetch<unknown>('GET', apiUrl, undefined, { signal });
+        const details = normalizePracticeDetailsResponse(response.data);
+        if (!details) return null;
+        const displayDetails = extractPublicPracticeDisplayDetails(response.data);
+        const practiceId = extractPublicPracticeId(response.data);
+        return {
+          practiceId: practiceId ?? undefined,
+          slug: normalizedSlug,
+          details,
+          name: displayDetails.name,
+          logo: displayDetails.logo,
+        };
+      } catch (error) {
+        if (isHttpError(error) && error.response.status === 404) {
+          // Cache null on 404 so we don't keep retrying for a missing practice.
           return null;
         }
+        // Re-throw transient errors (rate limit, network) — coalesceGet
+        // doesn't cache thrown values, so callers can retry.
+        throw error;
       }
-      // Do NOT cache transient errors (rate limit, network failure) so callers can retry.
-      throw error;
-    }
-  })();
-
-  publicPracticeDetailsInFlight.set(normalizedSlug, requestPromise);
-  try {
-    return await requestPromise;
-  } finally {
-    if (publicPracticeDetailsInFlight.get(normalizedSlug) === requestPromise) {
-      publicPracticeDetailsInFlight.delete(normalizedSlug);
-    }
-  }
+    },
+    { ttl: policyTtl(cacheKey), signal: config?.signal }
+  );
 }
 
 function normalizePracticeUpdatePayload(payload: UpdatePracticeRequest): Record<string, unknown> {
@@ -1834,31 +2129,32 @@ function normalizePracticeDetailsPayload(payload: PracticeDetailsUpdate): Record
   // `services_by_state` key. This preserves the write-time type while
   // ensuring the data is sent inside `settings` as expected by the API.
   if ('servicesByState' in payload && payload.servicesByState !== undefined) {
-    try {
-      const existingSettingsRaw = (payload as Record<string, unknown>).settings;
-      let base: Record<string, unknown> = {};
-      if (typeof existingSettingsRaw === 'string' && existingSettingsRaw.trim().length > 0) {
-        try {
-          const parsed = JSON.parse(existingSettingsRaw);
-          if (typeof parsed === 'object' && parsed !== null) base = parsed as Record<string, unknown>;
-        } catch {
-          base = {};
-        }
-      }
-      base.services_by_state = payload.servicesByState;
-      normalized.settings = JSON.stringify(base);
-    } catch (err) {
-      // If merging the provided settings failed, surface the error in DEV
-      // and ensure we still send the services_by_state payload so callers
-      // don't lose this write. Preserve the expected shape inside `settings`.
-      if (import.meta.env.DEV) console.error('[apiClient] Failed to merge servicesByState into settings', err);
+    const existingSettingsRaw = (payload as Record<string, unknown>).settings;
+    let base: Record<string, unknown> = {};
+    if (typeof existingSettingsRaw === 'string' && existingSettingsRaw.trim().length > 0) {
       try {
-        normalized.settings = JSON.stringify({ services_by_state: payload.servicesByState });
-      } catch {
-        // Last-resort: stringify a minimal fallback representation.
-        normalized.settings = `{"services_by_state":${JSON.stringify(payload.servicesByState)}}`;
+        const parsed = JSON.parse(existingSettingsRaw);
+        if (!isRecord(parsed)) {
+          throw new Error('Practice settings must be a JSON object when servicesByState is provided.');
+        }
+        base = parsed;
+      } catch (err) {
+        throw new Error(`Invalid JSON in payload.settings: ${err instanceof Error ? err.message : String(err)}`);
       }
     }
+    // Only set normalized.settings here if it hasn't already been set, otherwise merge
+    if (normalized.settings) {
+      try {
+        const current = JSON.parse(normalized.settings);
+        if (isRecord(current)) {
+          base = { ...current, ...base };
+        }
+      } catch (err) {
+        // If normalized.settings is invalid, overwrite with base
+      }
+    }
+    base.services_by_state = payload.servicesByState;
+    normalized.settings = JSON.stringify(base);
   }
 
   if ('supportedStates' in payload && payload.supportedStates !== undefined) {
@@ -2128,7 +2424,7 @@ export async function requestBillingPortalSession(
 }
 
 export async function getCurrentSubscription(
-  config?: Pick<AxiosRequestConfig, 'signal'>
+  config?: ApiRequestConfig
 ): Promise<CurrentSubscription | null> {
   const response = await apiClient.get('/api/subscriptions/current', {
     signal: config?.signal
@@ -2241,7 +2537,7 @@ function normalizeSubscriptionListResponse(payload: unknown): Record<string, unk
 
 export async function listAuthSubscriptions(
   referenceId: string,
-  config?: Pick<AxiosRequestConfig, 'signal'>
+  config?: ApiRequestConfig
 ): Promise<AuthSubscriptionListItem[]> {
   if (!referenceId) {
     throw new Error('referenceId is required');
@@ -2261,7 +2557,7 @@ export async function listAuthSubscriptions(
 
 export async function listSubscriptions(
   referenceId: string,
-  config?: Pick<AxiosRequestConfig, 'signal'>
+  config?: ApiRequestConfig
 ): Promise<SubscriptionListItem[]> {
   if (!referenceId) {
     throw new Error('referenceId is required');
@@ -2281,36 +2577,3 @@ export async function listSubscriptions(
   const data = response.data as SubscriptionListResponse;
   return normalizeSubscriptionListResponse(data) as SubscriptionListItem[];
 }
-
-apiClient.interceptors.response.use(
-  (response) => response,
-  async (error) => {
-    if (error.response?.status === 401) {
-      // Guard against concurrent 401s - only handle once
-      if (!isHandling401) {
-        // Create the handler promise immediately and assign it
-        const handle401 = async () => {
-          try {
-            if (typeof window !== 'undefined') {
-              try {
-                window.dispatchEvent(new CustomEvent('auth:unauthorized'));
-              } catch (eventErr) {
-                console.error('Error dispatching auth:unauthorized event:', eventErr);
-                // Don't rethrow - let the original 401 error be the main error
-              }
-            }
-          } finally {
-            // Reset guard after handling completes, regardless of errors
-            isHandling401 = null;
-          }
-        };
-
-        // Assign the promise immediately before any async work
-        isHandling401 = handle401();
-      }
-      // Wait for the handling to complete (or already in progress)
-      await isHandling401;
-    }
-    return Promise.reject(error);
-  }
-);

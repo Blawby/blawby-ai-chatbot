@@ -108,6 +108,7 @@ export function PracticeContactEditorPage({
   }, [location.query?.backTo, location.query?.returnTo, practiceSlug]);
 
   useEffect(() => {
+    let cancelled = false;
     if (!practiceId || !contactId) {
       setDraft(EMPTY_DRAFT);
       setLoading(false);
@@ -121,7 +122,7 @@ export function PracticeContactEditorPage({
 
     getUserDetail(practiceId, contactId, { signal: controller.signal })
       .then((detail) => {
-        if (controller.signal.aborted) return;
+        if (controller.signal.aborted || cancelled) return;
         if (!detail) {
           setError('Contact not found.');
           setDraft(EMPTY_DRAFT);
@@ -131,16 +132,19 @@ export function PracticeContactEditorPage({
         setResolvedContactId(detail.id);
       })
       .catch((nextError: unknown) => {
-        if ((nextError as DOMException).name === 'AbortError') return;
+        if ((nextError as DOMException).name === 'AbortError' || cancelled) return;
         setError(nextError instanceof Error ? nextError.message : 'Failed to load contact.');
       })
       .finally(() => {
-        if (!controller.signal.aborted) {
+        if (!controller.signal.aborted && !cancelled) {
           setLoading(false);
         }
       });
 
-    return () => controller.abort();
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
   }, [contactId, practiceId]);
 
   const handleFormValuesChange = useCallback((values: Partial<AddressExperienceData>) => {
@@ -193,24 +197,44 @@ export function PracticeContactEditorPage({
     // single immediate query. Use exponential backoff with a few attempts.
     const attempts = 5;
     let resolved: UserDetailRecord | undefined;
-    for (let i = 0; i < attempts; i++) {
-      const maybeCreated = await listUserDetails(practiceId, {
-        search: email,
-        limit: 100,
-      });
-      resolved = maybeCreated.data.find((item) => item.user?.email?.trim().toLowerCase() === email.toLowerCase());
-      if (resolved) break;
-      // backoff: 300ms, 600ms, 1200ms, ...
-      const delay = 300 * Math.pow(2, i);
-      // don't block the event loop excessively
-      await new Promise((res) => setTimeout(res, delay));
-    }
+    try {
+      for (let i = 0; i < attempts; i++) {
+        const maybeCreated = await listUserDetails(practiceId, {
+          search: email,
+          limit: 100,
+        });
+        resolved = maybeCreated.data.find((item) => item.user?.email?.trim().toLowerCase() === email.toLowerCase());
+        if (resolved) break;
+        // backoff: 300ms, 600ms, 1200ms, ...
+        const delay = 300 * Math.pow(2, i);
+        // don't block the event loop excessively
+        await new Promise((res) => setTimeout(res, delay));
+      }
 
-    if (resolved) {
-      const updated = await updateUserDetail(practiceId, resolved.id, payload);
-      setResolvedContactId(updated?.id ?? resolved.id);
-      showSuccess('Contact created', 'The contact was saved successfully.');
-      navigate(returnTo);
+      if (resolved) {
+        try {
+          const updated = await updateUserDetail(practiceId, resolved.id, payload);
+          setResolvedContactId(updated?.id ?? resolved.id);
+          showSuccess('Contact created', 'The contact was saved successfully.');
+          navigate(returnTo);
+          return;
+        } catch (updateErr) {
+          setResolvedContactId(resolved.id);
+          setError('Invite sent but subsequent update failed.');
+          if (process.env.NODE_ENV !== 'production') {
+            // eslint-disable-next-line no-console
+            console.error('Invite sent but updateUserDetail failed', updateErr);
+          }
+          return;
+        }
+      }
+    } catch (listOrUpdateErr) {
+      setError('Invite sent but subsequent update failed.');
+      if (resolved?.id) setResolvedContactId(resolved.id);
+      if (process.env.NODE_ENV !== 'production') {
+        // eslint-disable-next-line no-console
+        console.error('Invite sent but listUserDetails or updateUserDetail failed', listOrUpdateErr);
+      }
       return;
     }
 
@@ -253,7 +277,10 @@ export function PracticeContactEditorPage({
     } catch (nextError) {
       const message = nextError instanceof Error ? nextError.message : 'Failed to save contact.';
       setError(message);
-      throw nextError;
+      if (process.env.NODE_ENV !== 'production') {
+        // eslint-disable-next-line no-console
+        console.error('Failed to save contact', nextError);
+      }
     } finally {
       setSaving(false);
     }

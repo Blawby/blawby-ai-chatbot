@@ -46,8 +46,8 @@ describe('handlePracticeTeam', () => {
     const payload = await response.json() as {
       success: boolean;
       data: {
-        members: Array<{ role: string; canMentionInternally: boolean }>;
-        summary: { seatsIncluded: number; seatsUsed: number };
+        members: Array<{ role: string; can_mention_internally: boolean }>;
+        summary: { seats_included: number; seats_used: number };
       };
     };
 
@@ -55,13 +55,13 @@ describe('handlePracticeTeam', () => {
     expect(mocks.getPracticeTeamMock).toHaveBeenCalledWith(env, 'practice-1', request);
     expect(payload.success).toBe(true);
     expect(payload.data.summary).toEqual({
-      seatsIncluded: 3,
-      seatsUsed: 1,
+      seats_included: 3,
+      seats_used: 1,
     });
     expect(payload.data.members).toEqual([
       expect.objectContaining({
         role: 'member',
-        canMentionInternally: true,
+        can_mention_internally: true,
       }),
     ]);
   });

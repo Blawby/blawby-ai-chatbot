@@ -4,7 +4,7 @@ import { useLocation } from 'preact-iso';
 import ChatContainer from '@/features/chat/components/ChatContainer';
 import DragDropOverlay from '@/shared/ui/DragDropOverlay';
 import WorkspacePage from '@/features/chat/pages/WorkspacePage';
-import { useSessionContext } from '@/shared/contexts/SessionContext';
+import { useSessionContext, useMemberRoleContext } from '@/shared/contexts/SessionContext';
 import { RoutePracticeProvider } from '@/shared/contexts/RoutePracticeContext';
 import { IntakeProvider } from '@/shared/contexts/IntakeContext';
 import type { UIPracticeConfig } from '@/shared/hooks/usePracticeConfig';
@@ -58,7 +58,7 @@ import { features } from '@/config/features';
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
-export type WorkspaceView = 'home' | 'setup' | 'list' | 'conversation' | 'intakes' | 'intakeDetail' | 'engagements' | 'matters' | 'contacts' | 'invoices' | 'invoiceDetail' | 'reports' | 'settings';
+export type WorkspaceView = 'home' | 'setup' | 'list' | 'conversation' | 'intakes' | 'intakeDetail' | 'engagements' | 'matters' | 'contacts' | 'invoices' | 'invoiceCreate' | 'invoiceEdit' | 'invoiceDetail' | 'reports' | 'settings';
 
 /**
  * LayoutMode controls how ChatContainer renders its shell.
@@ -125,7 +125,8 @@ export function MainApp({
   });
 
   // ── workspace routing — single source of truth ────────────────────────────
-  const { session, isPending: sessionIsPending, isAnonymous, activeMemberRole } = useSessionContext();
+  const { session, isPending: sessionIsPending, isAnonymous } = useSessionContext();
+  const { activeMemberRole } = useMemberRoleContext();
 
   // ── practice details (accent color) ───────────────────────────────────────
   // For the public workspace, prefer practiceConfig.id (UUID) as the store key.
@@ -808,7 +809,7 @@ export function MainApp({
               prefetchedLoading={prefetchData?.contactsData?.isLoading}
               prefetchedError={prefetchData?.contactsData?.error}
               onRefetchList={prefetchData?.contactsData?.refetch}
-              
+
               detailHeaderLeadingAction={detailHeaderLeadingAction}
               showDetailBackButton={showWorkspaceDetailBack}
             />

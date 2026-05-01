@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'preact/hooks';
+import { apiClient, isHttpError } from '@/shared/lib/apiClient';
 import { getSession } from '@/shared/lib/authClient';
 import { rememberAnonymousUserId, rememberAnonymousSessionId } from '@/shared/utils/anonymousIdentity';
-import { clearWidgetAuthToken, persistWidgetAuthToken, withWidgetAuthHeaders } from '@/shared/utils/widgetAuth';
+import { clearWidgetAuthToken, persistWidgetAuthToken } from '@/shared/utils/widgetAuth';
 import type { IntakeTemplate } from '@/shared/types/intake';
 import type { AuthSessionPayload } from '@/shared/types/user';
 
@@ -54,18 +55,19 @@ export function useWidgetBootstrap(slug: string, isWidget: boolean) {
         // Forward ?template= param if present
         const urlParams = new URLSearchParams(window.location.search);
         const template = urlParams.get('template');
-        const query = [`slug=${encodeURIComponent(slug)}`];
-        if (template) query.push(`template=${encodeURIComponent(template)}`);
-        const res = await fetch(`/api/widget/bootstrap?${query.join('&')}`, {
-          headers: withWidgetAuthHeaders(),
-          credentials: 'include',
-        });
-        if (!res.ok) {
-          throw new Error(`Failed to bootstrap widget (HTTP ${res.status})`);
+        const params: Record<string, string> = { slug };
+        if (template) params.template = template;
+        let freshData: WidgetBootstrapData;
+        try {
+          const { data } = await apiClient.get<WidgetBootstrapData>('/api/widget/bootstrap', { params });
+          freshData = data;
+        } catch (fetchError) {
+          if (isHttpError(fetchError)) {
+            throw new Error(`Failed to bootstrap widget (HTTP ${fetchError.response.status})`);
+          }
+          throw fetchError;
         }
 
-        const freshData = (await res.json()) as WidgetBootstrapData;
-        
         // ── 2. Identity Reconciliation ──────────────────────────────────────
         // If the backend returns a DIFFERENT user ID than what we have in storage,
         // it means the session was reset (e.g. cookies cleared). We must wipe
@@ -153,14 +155,6 @@ export function useWidgetBootstrap(slug: string, isWidget: boolean) {
         }
 
         if (mounted) {
-          try {
-            // Log session shape to help diagnose bootstrap shape mismatches
-            // that can cause `currentUserId` to be null in WidgetApp.
-            // Keep this at debug level so it's easy to remove if noisy.
-            console.debug('[useWidgetBootstrap] bootstrap session', freshData.session);
-          } catch {
-            // ignore logging errors
-          }
           setData(freshData);
           setIsLoading(false);
         }

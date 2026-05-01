@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'preact/hooks';
+import { useSignal } from '@preact/signals';
 import { Button } from '@/shared/ui/Button';
 import { DatePicker } from '@/shared/ui/input/DatePicker';
 import { Combobox } from '@/shared/ui/input/Combobox';
@@ -78,36 +79,42 @@ interface TimeEntryFormProps {
 }
 
 export const TimeEntryForm = ({ initialEntry, initialDate, lockDate = false, onSubmit, onCancel, onDelete }: TimeEntryFormProps) => {
-  const [formState, setFormState] = useState(() => buildInitialFormState(initialEntry, initialDate));
-  const [errors, setErrors] = useState<{ endTime?: string }>({});
+  const initial = useMemo(() => buildInitialFormState(initialEntry, initialDate), [initialEntry, initialDate]);
+
+  const date = useSignal(initial.date);
+  const startTime = useSignal(initial.startTime);
+  const endTime = useSignal(initial.endTime);
+  const description = useSignal(initial.description);
+  const billable = useSignal(initial.billable);
+  const [endTimeError, setEndTimeError] = useState<string | undefined>();
 
   const dateOptions = useMemo(() => buildDateOptions(), []);
 
   const handleSubmit = (event: Event) => {
     event.preventDefault();
 
-    const [startHours, startMinutes] = formState.startTime.split(':').map(Number);
-    const [endHours, endMinutes] = formState.endTime.split(':').map(Number);
-    const [year, month, day] = formState.date.split('-').map(Number);
+    const [startHours, startMinutes] = startTime.value.split(':').map(Number);
+    const [endHours, endMinutes] = endTime.value.split(':').map(Number);
+    const [year, month, day] = date.value.split('-').map(Number);
     const startDateTime = new Date(Date.UTC(year, month - 1, day, startHours, startMinutes));
     const endDateTime = new Date(Date.UTC(year, month - 1, day, endHours, endMinutes));
 
     if (Number.isNaN(startDateTime.getTime()) || Number.isNaN(endDateTime.getTime())) {
-      setErrors({ endTime: 'Start and end times must be valid.' });
+      setEndTimeError('Start and end times must be valid.');
       return;
     }
 
     if (endDateTime <= startDateTime) {
-      setErrors({ endTime: 'End time must be after start time.' });
+      setEndTimeError('End time must be after start time.');
       return;
     }
 
-    setErrors({});
+    setEndTimeError(undefined);
     onSubmit({
       startTime: startDateTime.toISOString(),
       endTime: endDateTime.toISOString(),
-      description: formState.description.trim(),
-      billable: formState.billable
+      description: description.value.trim(),
+      billable: billable.value,
     });
   };
 
@@ -117,9 +124,9 @@ export const TimeEntryForm = ({ initialEntry, initialDate, lockDate = false, onS
         <div className="w-full">
           <span className="block text-sm font-medium text-input-text mb-1">Date</span>
           <Combobox
-            value={formState.date}
+            value={date.value}
             options={dateOptions}
-            onChange={(value) => setFormState((prev) => ({ ...prev, date: value }))}
+            onChange={(value) => { date.value = value; }}
             disabled={lockDate}
             className="w-full justify-between px-3 py-2 text-sm rounded-xl border border-input-border bg-input-bg focus:ring-2 focus:ring-accent-500 focus:border-accent-500"
           />
@@ -135,29 +142,29 @@ export const TimeEntryForm = ({ initialEntry, initialDate, lockDate = false, onS
       <div className="grid gap-4 sm:grid-cols-2">
         <DatePicker
           label="Start Time"
-          value={formState.startTime}
-          onChange={(value) => setFormState((prev) => ({ ...prev, startTime: value }))}
+          value={startTime.value}
+          onChange={(value) => { startTime.value = value; }}
           format="time"
         />
         <DatePicker
           label="End Time"
-          value={formState.endTime}
-          onChange={(value) => setFormState((prev) => ({ ...prev, endTime: value }))}
+          value={endTime.value}
+          onChange={(value) => { endTime.value = value; }}
           format="time"
-          error={errors.endTime}
+          error={endTimeError}
         />
       </div>
 
       <Textarea
         label="Description"
-        value={formState.description}
-        onChange={(value) => setFormState((prev) => ({ ...prev, description: value }))}
+        value={description.value}
+        onChange={(value) => { description.value = value; }}
         rows={3}
       />
 
       <Checkbox
-        checked={formState.billable}
-        onChange={(checked) => setFormState((prev) => ({ ...prev, billable: checked }))}
+        checked={billable.value}
+        onChange={(checked) => { billable.value = checked; }}
         label="Billable"
       />
 

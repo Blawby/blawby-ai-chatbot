@@ -53,6 +53,7 @@ interface MessageComposerProps {
 const MIN_TEXTAREA_HEIGHT = 32;
 const MAX_TEXTAREA_HEIGHT = 144;
 const MOBILE_MAX_TEXTAREA_HEIGHT = 112;
+const getMentionLabel = (candidate: { name: string }) => candidate.name.trim();
 
 const MessageComposer = ({
   inputValue,
@@ -92,8 +93,6 @@ const MessageComposer = ({
   const [mentionFocusIndex, setMentionFocusIndex] = useState(0);
   const [selectedMentionUserIds, setSelectedMentionUserIds] = useState<string[]>([]);
   const highlighterRef = useRef<HTMLDivElement>(null);
-  const getMentionLabel = useCallback((candidate: { name: string }) => candidate.name.trim(), []);
-
   const getSanitizedMentionIds = useCallback(() =>
     selectedMentionUserIds.filter(id => {
       const candidate = mentionCandidates.find(c => c.userId === id);
@@ -104,7 +103,7 @@ const MessageComposer = ({
       const regex = new RegExp(`(^|\\s)@${escapedLabel}(?:\\s|$)`);
       return regex.test(inputValue);
     }),
-  [getMentionLabel, inputValue, mentionCandidates, selectedMentionUserIds]);
+  [inputValue, mentionCandidates, selectedMentionUserIds]);
 
   const intakeStep = intakeStatus?.step;
   const isIntakeLocked = isPublicWorkspace && (
@@ -260,7 +259,7 @@ const MessageComposer = ({
       textarea.setSelectionRange(nextCaret, nextCaret);
       resizeTextarea(textarea);
     });
-  }, [closeMentionMenu, filteredMentionCandidates, getMentionLabel, inputValue, mentionStartIndex, resizeTextarea, setInputValue, textareaRef]);
+  }, [closeMentionMenu, filteredMentionCandidates, inputValue, mentionStartIndex, resizeTextarea, setInputValue, textareaRef]);
 
   const highlightedContent = useMemo(() => {
     if (!inputValue) return null;
@@ -293,7 +292,7 @@ const MessageComposer = ({
     parts.push(<span key={`final-${lastIndex}`} className="text-transparent">{inputValue.slice(lastIndex)}</span>);
     
     return parts;
-  }, [getMentionLabel, inputValue, mentionCandidates]);
+  }, [inputValue, mentionCandidates]);
 
   useLayoutEffect(() => {
     const el = textareaRef.current;

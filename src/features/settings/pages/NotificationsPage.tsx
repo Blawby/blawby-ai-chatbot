@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'preact/hooks';
-import { SectionDivider } from '@/shared/ui';
+import { SectionDivider } from '@/shared/ui/layout/SectionDivider';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { useTranslation } from '@/shared/i18n/hooks';
 import { getNotificationDisplayText } from '@/shared/ui/validation/defaultValues';

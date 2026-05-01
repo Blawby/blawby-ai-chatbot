@@ -1,51 +1,9 @@
 {
-	"compilerOptions": {
-		"target": "ES2020",
-		"lib": [
-			"ES2020",
-			"DOM"
-		],
-		"module": "ESNext",
-		"moduleResolution": "bundler",
-		"noEmit": true,
-		"allowJs": true,
-		"checkJs": true,
-		"ignoreDeprecations": "5.0",
-		"resolveJsonModule": true,
-		/* Preact Config */
-		"jsx": "react-jsx",
-		"jsxImportSource": "preact",
-		"skipLibCheck": true,
-		"paths": {
-			"@/*": [
-				"./src/*"
-			],
-			"react": [
-				"./node_modules/preact/compat/"
-			],
-			"react-dom": [
-				"./node_modules/preact/compat/"
-			],
-			"react/jsx-runtime": [
-				"./node_modules/preact/jsx-runtime/"
-			],
-			"@i18n": [
-				"./src/shared/i18n/index.ts"
-			],
-			"@locales/*": [
-				"./src/locales/*"
-			],
-			"worker_threads": [
-				"./tests/stubs/worker_threads.ts"
-			],
-			"node:worker_threads": [
-				"./tests/stubs/worker_threads.ts"
-			]
-		}
-	},
-	"include": [
-		"node_modules/vite/client.d.ts",
-		"**/*"
+	"files": [],
+	"references": [
+		{ "path": "./tsconfig.app.json" },
+		{ "path": "./tsconfig.worker.json" },
+		{ "path": "./tsconfig.test.json" }
 	],
 	"exclude": [
 		"node_modules",
@@ -54,8 +12,6 @@
 		"public/mockServiceWorker.js",
 		"public/sw.js",
 		"public/widget-loader.js",
-		"public/widget-test.html",
-		"**/*.stories.tsx",
-		"**/*.stories.ts"
+		"public/widget-test.html"
 	]
 }

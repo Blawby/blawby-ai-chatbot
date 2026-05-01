@@ -14,7 +14,7 @@ import {
   type BackendMatter,
 } from '@/features/matters/services/mattersApi';
 import { urls } from '@/config/urls';
-import { invalidateMattersForPractice } from '@/shared/stores/mattersStore';
+import { queryCache } from '@/shared/lib/queryCache';
 import {
   buildCreatePayload,
   isUuid,
@@ -31,6 +31,10 @@ type PracticeMatterCreatePageProps = {
 const resolveQueryValue = (value?: string | string[] | null) => {
   if (!value) return null;
   return Array.isArray(value) ? value[0] ?? null : value;
+};
+
+const invalidateMattersForPractice = (practiceId: string) => {
+  queryCache.invalidate(`matters:${practiceId}:`, true);
 };
 
 export function PracticeMatterCreatePage({

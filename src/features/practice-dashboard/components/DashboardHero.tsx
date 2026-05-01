@@ -28,15 +28,14 @@ export const DashboardHero = ({
   <section className="border-b border-line-glass/30 lg:border-t lg:border-t-line-glass/20">
     <div className="mx-auto flex max-w-7xl items-center gap-6 px-4 py-5 sm:px-6 lg:px-8">
       <h1 className="shrink-0 text-base font-semibold text-input-text">Cashflow</h1>
-      <div role="tablist" aria-label="Time window" className="flex shrink-0 gap-x-8 border-l border-line-glass/30 pl-6 text-sm font-semibold">
+      <div role="group" aria-label="Time window" className="flex shrink-0 gap-x-8 border-l border-line-glass/30 pl-6 text-sm font-semibold">
         {(Object.keys(WINDOW_LABELS) as BillingWindow[]).map((window) => (
           <Button
             key={window}
-            role="tab"
             variant="tab"
             size="sm"
             onClick={() => onWindowChange(window)}
-            aria-selected={window === windowSize}
+            aria-pressed={window === windowSize}
           >
             {WINDOW_LABELS[window]}
           </Button>

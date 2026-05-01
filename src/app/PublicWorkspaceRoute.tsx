@@ -30,7 +30,7 @@ export const PublicWorkspaceRoute: FunctionComponent<PublicWorkspaceRouteProps> 
 }) => {
   const location = useLocation();
   const slug = (practiceSlug ?? '').trim();
-  
+
   // variant="preview" implies we are in widget mode.
   // Otherwise, check if we should be in widget mode based on the URL.
   const isWidget = variant === 'preview' || variant === 'card' || (() => {
@@ -53,7 +53,8 @@ export const PublicWorkspaceRoute: FunctionComponent<PublicWorkspaceRouteProps> 
     const raw = typeof location.query?.scenario === 'string'
       ? location.query.scenario
       : new URLSearchParams((location.url ?? '').split('?')[1] ?? '').get('scenario');
-    return raw === 'consultation-payment' || raw === 'service-routing' || raw === 'messenger-start'
+    // Accept only allowed scenarios, fallback to 'messenger-start'
+    return raw === 'consultation-payment' || raw === 'service-routing' || raw === 'messenger-start' || raw === 'intake-template'
       ? raw
       : 'messenger-start';
   }, [location.query?.scenario, location.url]);
@@ -74,7 +75,7 @@ export const PublicWorkspaceRoute: FunctionComponent<PublicWorkspaceRouteProps> 
     const handleMessage = (event: MessageEvent<WidgetPreviewMessage>) => {
       if (event.origin !== window.location.origin) return;
       if (!event.data || event.data.type !== 'blawby:widget-preview-config') return;
-      
+
       const scenario = event.data.scenario;
       if (scenario !== 'messenger-start' && scenario !== 'consultation-payment' && scenario !== 'service-routing' && scenario !== 'intake-template') {
         return;
@@ -119,11 +120,11 @@ export const PublicWorkspaceRoute: FunctionComponent<PublicWorkspaceRouteProps> 
     }
   }, [data, resolvedPracticeId]);
 
-  if (isLoading || !data) {
+  if (isLoading) {
     return <LoadingScreen />;
   }
 
-  if (error || !practiceConfig || !resolvedPracticeId) {
+  if (!data || error || !practiceConfig || !resolvedPracticeId) {
     return <App404 />;
   }
 

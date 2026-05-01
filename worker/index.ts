@@ -16,10 +16,13 @@ import {
   handleBackendProxy,
   handleParalegal,
   handleWidgetBootstrap,
+  handleBillingSummary,
+  handleMetricsVitals,
 } from './routes';
 import { handleConversations } from './routes/conversations.js';
 import { handleAiChat } from './routes/aiChat.js';
 import { handleAiIntent } from './routes/aiIntent.js';
+import { withAuth, withCache, withRateLimit } from './middleware/compose.js';
 import { handleWebsiteExtract } from './routes/handleWebsiteExtract.js';
 import { handleSearch } from './routes/handleSearch.js';
 import { handleStatus } from './routes/status.js';
@@ -49,7 +52,163 @@ function validateRequest(request: Request): boolean {
   return true;
 }
 
-async function handleRequestInternal(request: Request, env: Env, _ctx: ExecutionContext): Promise<Response> {
+export type RouteHandler = (request: Request, env: Env, ctx: ExecutionContext) => Promise<Response>;
+export type RouteMatcher = (path: string, env: Env) => boolean;
+export type RouteMode = 'proxy' | 'owned';
+export type RouteEntry = {
+  match: RouteMatcher;
+  handler: RouteHandler;
+  /**
+   * `'proxy'` — forwards to BACKEND_API_URL (cookies/headers normalized
+   *             via worker/utils/proxy.ts; not the worker's data).
+   * `'owned'` — worker-owned logic (chat, file storage, intake DB
+   *             writes, edge-cached aggregations). Annotation only at
+   *             the moment; future middleware (rate-limiting, audit)
+   *             can branch on this.
+   */
+  mode: RouteMode;
+};
+
+const exact = (target: string): RouteMatcher => (path) => path === target;
+const prefix = (target: string): RouteMatcher => (path) => path.startsWith(target);
+const regex = (re: RegExp): RouteMatcher => (path) => re.test(path);
+
+// Backend proxy paths — these all forward to BACKEND_API_URL via handleBackendProxy.
+// The (!practice/details, !practices) carve-out preserves the original if/else
+// precedence: those paths have dedicated handlers further down.
+const matchesBackendProxy: RouteMatcher = (path) =>
+  path.startsWith('/api/onboarding') ||
+  path.startsWith('/api/matters') ||
+  path.startsWith('/api/invoices') ||
+  path.startsWith('/api/practice-client-intakes') ||
+  path.startsWith('/api/clients') ||
+  ((path === '/api/practice' || path.startsWith('/api/practice/')) &&
+    !path.startsWith('/api/practice/details/') &&
+    !path.startsWith('/api/practices')) ||
+  path.startsWith('/api/preferences') ||
+  path.startsWith('/api/subscriptions') ||
+  path.startsWith('/api/subscription') ||
+  path.startsWith('/api/uploads');
+
+// Order is significant: more specific patterns must come before more general
+// ones (e.g. `/api/widget/practice-details/*` before `/api/widget/bootstrap`,
+// `/api/ai/intent` before `/api/ai/chat`).
+export const routes: RouteEntry[] = [
+  { mode: 'proxy', match: prefix('/api/auth'), handler: (req, env) => handleAuthProxy(req, env) },
+  { mode: 'proxy', match: regex(/^\/api\/practice\/[^/]+\/team$/), handler: (req, env) => handlePracticeTeam(req, env) },
+  {
+    mode: 'owned',
+    match: regex(/^\/api\/practice\/[^/]+\/billing\/summary$/),
+    // Auth declared at the route table — handler reads via getAttachedAuthContext.
+    handler: withAuth((req, env) => handleBillingSummary(req, env), { required: true }),
+  },
+  { mode: 'proxy', match: matchesBackendProxy, handler: (req, env) => handleBackendProxy(req, env) },
+  { mode: 'proxy', match: prefix('/api/practices'), handler: (req, env) => handlePractices(req, env) },
+  { mode: 'owned', match: prefix('/api/paralegal'), handler: (req, env) => handleParalegal(req, env) },
+  { mode: 'owned', match: prefix('/api/activity'), handler: (req, env) => handleActivity(req, env) },
+  { mode: 'owned', match: prefix('/api/files'), handler: (req, env) => handleFiles(req, env) },
+  { mode: 'owned', match: exact('/api/analyze'), handler: (req, env) => handleAnalyze(req, env) },
+  { mode: 'owned', match: prefix('/api/pdf'), handler: (req, env) => handlePDF(req, env) },
+  {
+    mode: 'owned',
+    match: (path, env) => (path.startsWith('/api/debug') || path.startsWith('/api/test')) && env.ALLOW_DEBUG === 'true',
+    handler: (req, env) => handleDebug(req, env),
+  },
+  { mode: 'owned', match: prefix('/api/status'), handler: (req, env) => handleStatus(req, env) },
+  {
+    mode: 'owned',
+    match: prefix('/api/notifications'),
+    handler: withAuth((req, env) => handleNotifications(req, env), { required: true }),
+  },
+  { mode: 'owned', match: prefix('/api/widget/practice-details/'), handler: (req, env) => handleWidgetPracticeDetails(req, env) },
+  { mode: 'owned', match: prefix('/api/practice/details/'), handler: (req, env) => handlePracticeDetails(req, env) },
+  {
+    mode: 'owned',
+    match: prefix('/api/config'),
+    // Static-ish public config — edge-cache so cold requests don't hit
+    // the handler. Browser cache via Cache-Control still applies.
+    handler: withCache((req, env) => handleConfig(req, env), {
+      keyFn: () => 'practice:config:static',
+    }),
+  },
+  { mode: 'owned', match: prefix('/api/widget/bootstrap'), handler: (req, env) => handleWidgetBootstrap(req, env) },
+  { mode: 'owned', match: prefix('/api/geo/autocomplete'), handler: handleAutocompleteWithCORS },
+  {
+    mode: 'owned',
+    match: prefix('/api/conversations'),
+    // Anonymous and authenticated users are both admitted; downstream
+    // operations gate via requirePracticeMember per-branch where needed.
+    handler: withAuth((req, env) => handleConversations(req, env), { required: false }),
+  },
+  {
+    mode: 'owned',
+    match: prefix('/api/ai/intent'),
+    // Stacked middleware (last-applied runs first):
+    //   - withRateLimit: 30 req / 60s per IP guards LLM quota first.
+    //   - withAuth: required — rejects unauthenticated calls before the
+    //     handler runs.
+    handler: withRateLimit(
+      withAuth((req, env) => handleAiIntent(req, env), { required: true }),
+      {
+        keyFn: (req) => req.headers.get('CF-Connecting-IP'),
+        max: 30,
+        windowMs: 60_000,
+      },
+    ),
+  },
+  {
+    mode: 'owned',
+    match: prefix('/api/ai/extract-website'),
+    // External fetch + LLM analysis — rate-limit per IP to prevent
+    // scraping abuse from a single client. 10 req / 60s.
+    handler: withRateLimit((req, env) => handleWebsiteExtract(req, env), {
+      keyFn: (req) => req.headers.get('CF-Connecting-IP'),
+      max: 10,
+      windowMs: 60_000,
+    }),
+  },
+  {
+    mode: 'owned',
+    match: prefix('/api/tools/search'),
+    handler: withAuth((req, env) => handleSearch(req, env), { required: false }),
+  },
+  {
+    mode: 'owned',
+    match: prefix('/api/ai/chat'),
+    handler: withAuth(handleAiChat, { required: true }),
+  },
+  {
+    mode: 'owned',
+    match: exact('/api/metrics/vitals'),
+    // Anonymous beacon endpoint — rate-limit per IP to discourage spam.
+    handler: withRateLimit((req, env) => handleMetricsVitals(req, env), {
+      keyFn: (req) => req.headers.get('CF-Connecting-IP'),
+      max: 60,
+      windowMs: 60_000,
+    }),
+  },
+  { mode: 'owned', match: exact('/api/health'), handler: (req, env) => handleHealth(req, env) },
+  { mode: 'owned', match: exact('/'), handler: (req, env) => handleRoot(req, env) },
+];
+
+/**
+ * Look up the route entry that owns a given path, or `null` for unmatched
+ * paths (caller decides whether to 404 or fall through to handleRoot).
+ *
+ * Exported for testability — the route table is the single contract for
+ * which handler runs for which path, and a unit test can lock in the
+ * matchers without booting the runtime.
+ */
+export const findRoute = (path: string, env: Env): RouteEntry | null =>
+  routes.find((r) => r.match(path, env)) ?? null;
+
+const apiNotFoundResponse = () =>
+  new Response(JSON.stringify({ error: 'API endpoint not found', errorCode: 'NOT_FOUND' }), {
+    status: 404,
+    headers: { 'Content-Type': 'application/json' },
+  });
+
+async function handleRequestInternal(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
   const url = new URL(request.url);
   const path = url.pathname;
 
@@ -65,83 +224,10 @@ async function handleRequestInternal(request: Request, env: Env, _ctx: Execution
   }
 
   try {
-    let response: Response;
-
-    if (path.startsWith('/api/auth')) {
-      response = await handleAuthProxy(request, env);
-    } else if (/^\/api\/practice\/[^/]+\/team$/.test(path)) {
-      response = await handlePracticeTeam(request, env);
-    } else if (
-      path.startsWith('/api/onboarding') ||
-      path.startsWith('/api/matters') ||
-      path.startsWith('/api/invoices') ||
-      path.startsWith('/api/practice-client-intakes') ||
-      path.startsWith('/api/clients') ||
-      ((path === '/api/practice' || path.startsWith('/api/practice/')) &&
-        !path.startsWith('/api/practice/details/') &&
-        !path.startsWith('/api/practices')) ||
-      path.startsWith('/api/preferences') ||
-      path.startsWith('/api/subscriptions') ||
-      path.startsWith('/api/subscription') ||
-      path.startsWith('/api/uploads')
-    ) {
-      response = await handleBackendProxy(request, env);
-    } else if (path.startsWith('/api/practices')) {
-      response = await handlePractices(request, env);
-    } else if (path.startsWith('/api/paralegal')) {
-      response = await handleParalegal(request, env);
-    } else if (path.startsWith('/api/activity')) {
-      response = await handleActivity(request, env);
-    } else if (path.startsWith('/api/files')) {
-      response = await handleFiles(request, env);
-    } else if (path === '/api/analyze') {
-      response = await handleAnalyze(request, env);
-    } else if (path.startsWith('/api/pdf')) {
-      response = await handlePDF(request, env);
-    } else if ((path.startsWith('/api/debug') || path.startsWith('/api/test')) && env.ALLOW_DEBUG === 'true') {
-      response = await handleDebug(request, env);
-    } else if (path.startsWith('/api/status')) {
-      response = await handleStatus(request, env);
-    } else if (path.startsWith('/api/notifications')) {
-      response = await handleNotifications(request, env);
-    } else if (path.startsWith('/api/widget/practice-details/')) {
-      response = await handleWidgetPracticeDetails(request, env);
-    } else if (path.startsWith('/api/practice/details/')) {
-      response = await handlePracticeDetails(request, env);
-    } else if (path.startsWith('/api/config')) {
-      response = await handleConfig(request, env);
-    } else if (path.startsWith('/api/widget/bootstrap')) {
-      response = await handleWidgetBootstrap(request, env);
-    } else if (path.startsWith('/api/geo/autocomplete')) {
-      response = await handleAutocompleteWithCORS(request, env, _ctx);
-    } else if (path.startsWith('/api/conversations')) {
-      response = await handleConversations(request, env);
-    } else if (path.startsWith('/api/ai/intent')) {
-      response = await handleAiIntent(request, env);
-    } else if (path.startsWith('/api/ai/extract-website')) {
-      response = await handleWebsiteExtract(request, env);
-    } else if (path.startsWith('/api/tools/search')) {
-      response = await handleSearch(request, env);
-    } else if (path.startsWith('/api/ai/chat')) {
-      response = await handleAiChat(request, env, _ctx);
-    } else if (path === '/api/health') {
-      response = await handleHealth(request, env);
-    } else if (path === '/') {
-      response = await handleRoot(request, env);
-    } else if (path.startsWith('/api/')) {
-      response = new Response(JSON.stringify({
-        error: 'API endpoint not found',
-        errorCode: 'NOT_FOUND'
-      }), {
-        status: 404,
-        headers: { 'Content-Type': 'application/json' }
-      });
-    } else {
-      response = await handleRoot(request, env);
-    }
-
-    return response;
-
+    const route = findRoute(path, env);
+    if (route) return await route.handler(request, env, ctx);
+    if (path.startsWith('/api/')) return apiNotFoundResponse();
+    return await handleRoot(request, env);
   } catch (error) {
     return handleError(error);
   }

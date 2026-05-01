@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'preact/hooks';
-import axios from 'axios';
+import { isHttpError, isAbortError } from '@/shared/lib/apiClient';
 import { z } from 'zod';
 import type { PracticeConfig, MinorAmount } from '../../../worker/types';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
@@ -116,7 +116,7 @@ export const resolvePracticeConfigFromBootstrap = (
     id: practiceId ?? '',
     slug: resolveString(pd.slug) ?? fallbackSlug ?? '',
     name: resolveString(pd.name) ?? '',
-    profileImage: resolveString(pd.logo) ?? undefined,
+    profileImage: resolveString(pd.logo) ?? null,
     description: description ?? '',
     availableServices: [],
     serviceQuestions: {},
@@ -294,7 +294,7 @@ export const usePracticeConfig = ({
         }
       } catch (e) {
         // Only treat 404 as "not found". Re-throw all other errors.
-        if (axios.isAxiosError(e) && e.response?.status === 404) {
+        if (isHttpError(e) && e.response.status === 404) {
           practice = undefined;
         } else {
           throw e;
@@ -344,10 +344,7 @@ export const usePracticeConfig = ({
         setLoadError(null);
       }
     } catch (error) {
-      if (
-        (error instanceof Error && error.name === 'AbortError') ||
-        (axios.isAxiosError(error) && error.code === 'ERR_CANCELED')
-      ) {
+      if (isAbortError(error)) {
         // Request was aborted; allow a new attempt to proceed
         fetchedPracticeIds.current.delete(cacheKey);
         return;

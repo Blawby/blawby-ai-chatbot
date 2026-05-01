@@ -2,9 +2,8 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'preact/hooks'
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { getConversationsEndpoint, getConversationParticipantsEndpoint, getPracticeConversationsEndpoint } from '@/config/api';
 import type { Conversation, ConversationStatus } from '@/shared/types/conversation';
-import { linkConversationToUser as apiLinkConversationToUser } from '@/shared/lib/apiClient';
+import { apiClient, isHttpError, linkConversationToUser as apiLinkConversationToUser } from '@/shared/lib/apiClient';
 import { clearConversationAnonymousParticipant } from '@/shared/utils/anonymousIdentity';
-import { withWidgetAuthHeaders } from '@/shared/utils/widgetAuth';
 
 interface UseConversationsOptions {
   practiceId?: string;
@@ -120,70 +119,33 @@ export function useConversations({
     setError(null);
 
     try {
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json'
-      };
-
-      const params = new URLSearchParams();
+      const params: Record<string, string> = {};
 
       if (scope === 'all') {
-        params.set('scope', 'all');
+        params.scope = 'all';
       } else if (effectivePracticeId) {
-        if (preferOrgScopedPracticeList) {
-          params.set('practice_id', effectivePracticeId);
-        } else {
-          params.set('practiceId', effectivePracticeId);
-        }
+        if (preferOrgScopedPracticeList) params.practice_id = effectivePracticeId;
+        else params.practiceId = effectivePracticeId;
       }
 
-      if (matterId && scope !== 'all') {
-        params.set('matterId', matterId);
-      }
-      if (status) {
-        params.set('status', status);
-      }
-      if (assignedTo != null) {
-        params.set('assignedTo', String(assignedTo));
-      }
-      if (limit) {
-        params.set('limit', limit.toString());
-      }
-      if (offset !== undefined && offset !== null) {
-        params.set('offset', offset.toString());
-      }
-      if (list) {
-        params.set('list', 'true');
-      }
+      if (matterId && scope !== 'all') params.matterId = matterId;
+      if (status) params.status = status;
+      if (assignedTo != null) params.assignedTo = String(assignedTo);
+      if (limit) params.limit = limit.toString();
+      if (offset !== undefined && offset !== null) params.offset = offset.toString();
+      if (list) params.list = 'true';
 
-      const queryString = params.toString();
       const endpoint = scope === 'practice' && preferOrgScopedPracticeList
         ? getPracticeConversationsEndpoint()
         : getConversationsEndpoint();
-      const response = await fetch(`${endpoint}${queryString ? `?${queryString}` : ''}`, {
-        method: 'GET',
-        headers: withWidgetAuthHeaders(headers),
-        credentials: 'include',
-        signal,
-      });
 
-      if (!response.ok) {
-        // Worker returns error responses in format: { success: false, error: string, errorCode: string }
-        const errorData = await response.json().catch(() => ({
-          success: false,
-          error: `HTTP ${response.status}: ${response.statusText}`
-        })) as { success?: boolean; error?: string; errorCode?: string };
-
-        // Use error message from response, or fallback to status text
-        const errorMessage = errorData.error || `HTTP ${response.status}: ${response.statusText}`;
-        throw new Error(errorMessage);
-      }
-
-      const data = await response.json() as {
+      const { data: envelope } = await apiClient.get<{
         success: boolean;
         error?: string;
         errorCode?: string;
         data?: Conversation[] | { conversation: Conversation } | { conversations: Conversation[] };
-      };
+      }>(endpoint, { params, signal });
+      const data = envelope;
 
       // Check for error response format (worker returns { success: false, error: "..." })
       if (!data.success) {
@@ -258,21 +220,22 @@ export function useConversations({
     }
 
     try {
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-
-      const response = await fetch(getConversationParticipantsEndpoint(conversationId), {
-        method: 'POST',
-        headers: withWidgetAuthHeaders(headers),
-        credentials: 'include',
-        body: JSON.stringify({ participantUserIds }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({})) as { error?: string };
-        throw new Error(errorData.error || `HTTP ${response.status}`);
+      let envelope: { success: boolean; error?: string; data?: Conversation };
+      try {
+        const result = await apiClient.post<{ success: boolean; error?: string; data?: Conversation }>(
+          getConversationParticipantsEndpoint(conversationId),
+          { participantUserIds },
+        );
+        envelope = result.data;
+      } catch (apiError) {
+        if (isHttpError(apiError)) {
+          const data = apiError.response.data as { error?: string } | undefined;
+          throw new Error(data?.error || `HTTP ${apiError.response.status}`);
+        }
+        throw apiError;
       }
 
-      const data = await response.json() as { success: boolean; error?: string; data?: Conversation };
+      const data = envelope;
       if (!data.success || !data.data) {
         throw new Error(data.error || 'Failed to add participants');
       }

@@ -1,9 +1,9 @@
 import { useState, useCallback, useRef, useEffect } from 'preact/hooks';
 import { getConversationEndpoint, getConversationsEndpoint } from '@/config/api';
 import type { ConversationMode } from '@/shared/types/conversation';
+import { apiClient, isHttpError } from '@/shared/lib/apiClient';
 import { logConversationEvent, updateConversationMetadata } from '@/shared/lib/conversationApi';
 import type { SessionContextValue } from '@/shared/contexts/SessionContext';
-import { withWidgetAuthHeaders } from '@/shared/utils/widgetAuth';
 import { clearConsultationMetadata } from '@/shared/utils/consultationState';
 
 const SESSION_READY_TIMEOUT_MS = 8_000;
@@ -135,33 +135,38 @@ export function useConversationSetup({
       
       // Create and track the creation promise
       const creationPromise = (async () => {
-        const params = new URLSearchParams({ practiceId });
+        const params: Record<string, string> = { practiceId };
         if (currentUserId) {
-          params.set('participantUserIds', JSON.stringify([currentUserId]));
+          params.participantUserIds = JSON.stringify([currentUserId]);
         }
-        params.set('metadata', JSON.stringify({ source: 'chat' }));
+        params.metadata = JSON.stringify({ source: 'chat' });
 
-        const response = await fetch(`${getConversationsEndpoint()}?${params}`, {
-          method: 'POST',
-          headers: withWidgetAuthHeaders({ 'Content-Type': 'application/json' }),
-          credentials: 'include',
-          body: JSON.stringify({
-            participantUserIds: currentUserId ? [currentUserId] : [],
-            metadata: { source: 'chat' },
-            practiceId,
-          }),
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({})) as { error?: string };
-          throw new Error(errorData.error || `HTTP ${response.status}`);
+        let envelope: { success: boolean; error?: string; data?: { id: string } };
+        try {
+          const result = await apiClient.post<{ success: boolean; error?: string; data?: { id: string } }>(
+            getConversationsEndpoint(),
+            {
+              participantUserIds: currentUserId ? [currentUserId] : [],
+              metadata: { source: 'chat' },
+              practiceId,
+            },
+            { params },
+          );
+          envelope = result.data;
+        } catch (apiError) {
+          if (isHttpError(apiError)) {
+            const errorData = apiError.response.data as { error?: string } | undefined;
+            throw new Error(errorData?.error || `HTTP ${apiError.response.status}`);
+          }
+          throw apiError;
         }
 
-        const data = await response.json() as { success: boolean; error?: string; data?: { id: string } };
-        if (!data.success || !data.data?.id) throw new Error(data.error || 'Failed to start conversation');
+        if (!envelope.success || !envelope.data?.id) {
+          throw new Error(envelope.error || 'Failed to start conversation');
+        }
 
-        setConversationIdWithRef(data.data.id);
-        return data.data.id;
+        setConversationIdWithRef(envelope.data.id);
+        return envelope.data.id;
       })();
       
       creationPromiseRef.current = creationPromise;
@@ -195,14 +200,9 @@ export function useConversationSetup({
     if (!cached) return null;
     if (activeConversationIdRef.current === cached) return cached;
 
-    const params = new URLSearchParams({ practiceId });
-    const response = await fetch(`${getConversationEndpoint(cached)}?${params}`, {
-      method: 'GET',
-      headers: withWidgetAuthHeaders(),
-      credentials: 'include',
-    });
-
-    if (!response.ok) {
+    try {
+      await apiClient.get(getConversationEndpoint(cached), { params: { practiceId } });
+    } catch {
       throw new Error('Cached conversation not found');
     }
     setConversationIdWithRef(cached);

@@ -14,6 +14,7 @@ import type {
   EngagementStatus,
 } from '../types/engagement';
 import { matterItemPath, encodeSegment } from '@/config/urls';
+import { apiClient, isHttpError } from '@/shared/lib/apiClient';
 
 // ── Engagement statuses that belong in the engagement feature ──────────────────
 export const ENGAGEMENT_STATUSES: EngagementStatus[] = [
@@ -24,6 +25,26 @@ export const ENGAGEMENT_STATUSES: EngagementStatus[] = [
   'engagement_pending',
   'active',
 ];
+
+// Unwrap a `{ success, data }` envelope to the inner payload, or pass through
+// the raw object when the endpoint replies with an unwrapped response.
+const unwrapEnvelope = (raw: unknown): Record<string, unknown> => {
+  if (!raw || typeof raw !== 'object') return {};
+  const record = raw as Record<string, unknown>;
+  if (record.success !== undefined && record.data && typeof record.data === 'object') {
+    return record.data as Record<string, unknown>;
+  }
+  return record;
+};
+
+const mutationError = (error: unknown, fallback: string): Error => {
+  if (isHttpError(error)) {
+    const data = error.response.data as { message?: string; error?: string } | undefined;
+    const message = data?.message ?? data?.error;
+    return new Error(message ? String(message) : `${fallback} (HTTP ${error.response.status})`);
+  }
+  return error instanceof Error ? error : new Error(fallback);
+};
 
 // ── List engagements for a practice ──────────────────────────────────────────
 
@@ -68,12 +89,18 @@ export async function listEngagements(
     const pageQuery = new URLSearchParams(baseQuery);
     pageQuery.set('page', String(backendPage));
 
-    const url = `/api/matters/${encodeSegment(practiceId)}?${pageQuery.toString()}`;
-    const res = await fetch(url, { credentials: 'include', signal: options.signal });
-    if (!res.ok) throw new Error(`Failed to fetch engagements (HTTP ${res.status})`);
+    let raw: unknown;
+    try {
+      const result = await apiClient.get<unknown>(
+        `/api/matters/${encodeSegment(practiceId)}?${pageQuery.toString()}`,
+        { signal: options.signal },
+      );
+      raw = result.data;
+    } catch (error) {
+      throw mutationError(error, 'Failed to fetch engagements');
+    }
 
-    const raw = await res.json() as Record<string, unknown>;
-    const data = (raw.success !== undefined && raw.data) ? raw.data as Record<string, unknown> : raw;
+    const data = unwrapEnvelope(raw);
     const allItems = (Array.isArray(data.items) ? data.items : []) as EngagementListItem[];
 
     filteredItems.push(
@@ -116,16 +143,17 @@ export async function getEngagement(
   if (!practiceId) throw new Error('practiceId is required');
   if (!matterId) throw new Error('matterId is required');
 
-  const url = matterItemPath(practiceId, matterId);
-  const res = await fetch(url, { credentials: 'include', signal: options.signal });
-
-  if (!res.ok) {
-    throw new Error(`Failed to fetch engagement (HTTP ${res.status})`);
+  let raw: unknown;
+  try {
+    const result = await apiClient.get<unknown>(matterItemPath(practiceId, matterId), {
+      signal: options.signal,
+    });
+    raw = result.data;
+  } catch (error) {
+    throw mutationError(error, 'Failed to fetch engagement');
   }
 
-  const raw = await res.json() as Record<string, unknown>;
-  const data = (raw.success !== undefined && raw.data) ? raw.data as Record<string, unknown> : raw;
-
+  const data = unwrapEnvelope(raw);
   if (!data || typeof data !== 'object' || !data.id) {
     throw new Error('Engagement not found');
   }
@@ -143,18 +171,19 @@ export async function patchEngagementProposal(
 ): Promise<EngagementDetail> {
   if (!matterId) throw new Error('matterId is required');
 
-  const res = await fetch(`/api/matters/${encodeSegment(matterId)}/engagement`, {
-    method: 'PATCH',
-    credentials: 'include',
-    signal: options.signal,
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ proposal_data: proposalData }),
-  });
+  let raw: unknown;
+  try {
+    const result = await apiClient.patch<unknown>(
+      `/api/matters/${encodeSegment(matterId)}/engagement`,
+      { proposal_data: proposalData },
+      { signal: options.signal },
+    );
+    raw = result.data;
+  } catch (error) {
+    throw mutationError(error, 'Failed to update proposal');
+  }
 
-  if (!res.ok) await handleResponseError(res, 'Failed to update proposal');
-
-  const raw = await res.json() as Record<string, unknown>;
-  const data = (raw.success !== undefined && raw.data) ? raw.data as Record<string, unknown> : raw;
+  const data = unwrapEnvelope(raw);
   return data as unknown as EngagementDetail;
 }
 
@@ -167,18 +196,19 @@ export async function sendEngagementToClient(
 ): Promise<EngagementDetail> {
   if (!matterId) throw new Error('matterId is required');
 
-  const res = await fetch(`/api/matters/${encodeSegment(matterId)}/engagement/send`, {
-    method: 'POST',
-    credentials: 'include',
-    signal: options.signal,
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ note }),
-  });
+  let raw: unknown;
+  try {
+    const result = await apiClient.post<unknown>(
+      `/api/matters/${encodeSegment(matterId)}/engagement/send`,
+      { note },
+      { signal: options.signal },
+    );
+    raw = result.data;
+  } catch (error) {
+    throw mutationError(error, 'Failed to send engagement');
+  }
 
-  if (!res.ok) await handleResponseError(res, 'Failed to send engagement');
-
-  const raw = await res.json() as Record<string, unknown>;
-  const data = (raw.success !== undefined && raw.data) ? raw.data as Record<string, unknown> : raw;
+  const data = unwrapEnvelope(raw);
   return data as unknown as EngagementDetail;
 }
 
@@ -190,18 +220,19 @@ export async function withdrawEngagement(
 ): Promise<EngagementDetail> {
   if (!matterId) throw new Error('matterId is required');
 
-  const res = await fetch(`/api/matters/${encodeSegment(matterId)}/engagement/withdraw`, {
-    method: 'POST',
-    credentials: 'include',
-    signal: options.signal,
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({}),
-  });
+  let raw: unknown;
+  try {
+    const result = await apiClient.post<unknown>(
+      `/api/matters/${encodeSegment(matterId)}/engagement/withdraw`,
+      {},
+      { signal: options.signal },
+    );
+    raw = result.data;
+  } catch (error) {
+    throw mutationError(error, 'Failed to withdraw engagement');
+  }
 
-  if (!res.ok) await handleResponseError(res, 'Failed to withdraw engagement');
-
-  const raw = await res.json() as Record<string, unknown>;
-  const data = (raw.success !== undefined && raw.data) ? raw.data as Record<string, unknown> : raw;
+  const data = unwrapEnvelope(raw);
   return data as unknown as EngagementDetail;
 }
 
@@ -213,18 +244,19 @@ export async function acceptEngagement(
 ): Promise<EngagementDetail> {
   if (!matterId) throw new Error('matterId is required');
 
-  const res = await fetch(`/api/matters/${encodeSegment(matterId)}/engagement/accept`, {
-    method: 'POST',
-    credentials: 'include',
-    signal: options.signal,
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({}),
-  });
+  let raw: unknown;
+  try {
+    const result = await apiClient.post<unknown>(
+      `/api/matters/${encodeSegment(matterId)}/engagement/accept`,
+      {},
+      { signal: options.signal },
+    );
+    raw = result.data;
+  } catch (error) {
+    throw mutationError(error, 'Failed to accept engagement');
+  }
 
-  if (!res.ok) await handleResponseError(res, 'Failed to accept engagement');
-
-  const raw = await res.json() as Record<string, unknown>;
-  const data = (raw.success !== undefined && raw.data) ? raw.data as Record<string, unknown> : raw;
+  const data = unwrapEnvelope(raw);
   return data as unknown as EngagementDetail;
 }
 
@@ -238,27 +270,13 @@ export async function overrideConflictCheck(
   if (!matterId) throw new Error('matterId is required');
   if (!payload.override_reason?.trim()) throw new Error('override_reason is required');
 
-  const res = await fetch(`/api/matters/${encodeSegment(matterId)}/conflict-override`, {
-    method: 'POST',
-    credentials: 'include',
-    signal: options.signal,
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  });
-
-  if (!res.ok) await handleResponseError(res, 'Failed to override conflict check');
-}
-
-// ── Helpers ────────────────────────────────────────────────────────────────────
-
-async function handleResponseError(res: Response, defaultMessage: string): Promise<never> {
-  let message = `${defaultMessage} (HTTP ${res.status})`;
   try {
-    const json = await res.json() as Record<string, unknown>;
-    message = String(json?.message ?? json?.error ?? message);
-  } catch {
-    const text = await res.text().catch(() => '');
-    if (text) message = text;
+    await apiClient.post<unknown>(
+      `/api/matters/${encodeSegment(matterId)}/conflict-override`,
+      payload,
+      { signal: options.signal },
+    );
+  } catch (error) {
+    throw mutationError(error, 'Failed to override conflict check');
   }
-  throw new Error(message);
 }

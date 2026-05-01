@@ -1,6 +1,5 @@
-import { FunctionComponent } from 'preact';
+import { FunctionComponent, memo } from 'preact/compat';
 import { useEffect, useRef, useCallback } from 'preact/hooks';
-import { motion } from 'framer-motion';
 import { CheckCircleIcon, ExclamationTriangleIcon, InformationCircleIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import { Icon } from '@/shared/ui/Icon';
 
@@ -65,13 +64,7 @@ const ToastComponent: FunctionComponent<ToastProps> = ({ toast, onRemove }) => {
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: -50, scale: 0.95 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, y: -50, scale: 0.95 }}
-      transition={{ duration: 0.3, ease: 'easeOut' }}
-      className={`max-w-sm w-full ${getStatusClass()} rounded-xl p-4 relative`}
-    >
+    <div className={`max-w-sm w-full ${getStatusClass()} rounded-xl p-4 relative animate-toast-in`}>
       <div className="flex items-start">
         <div className="flex-shrink-0">
           {getIcon()}
@@ -95,8 +88,8 @@ const ToastComponent: FunctionComponent<ToastProps> = ({ toast, onRemove }) => {
           </button>
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 };
 
-export default ToastComponent;
+export default memo(ToastComponent);

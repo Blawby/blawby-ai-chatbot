@@ -1,7 +1,0 @@
-
-> type-check
-> tsc --noEmit --skipLibCheck
-
-src/shared/hooks/usePracticeManagement.ts(8,3): error TS2724: '"@/shared/stores/practiceListStore"' has no exported member named 'setCurrentPracticeStore'. Did you mean 'setCurrentPractice'?
-worker/services/ConversationService.ts(1841,15): error TS2339: Property 'reactions' does not exist on type '{ id: string; conversation_id: string; practice_id: string; user_id: string; role: "system" | "user" | "assistant"; content: string; reply_to_message_id: string; metadata: any; client_id: string; seq: number; server_ts: string; token_count: number; created_at: string; }'.
-worker/services/ConversationService.ts(1932,13): error TS2339: Property 'reactions' does not exist on type '{ id: string; conversation_id: string; practice_id: string; user_id: string; role: "system" | "user" | "assistant"; content: string; reply_to_message_id: string; metadata: any; client_id: string; seq: number; server_ts: string; token_count: number; created_at: string; }'.

@@ -13,7 +13,7 @@ describe('submitContactForm', () => {
   beforeEach(() => {
     vi.stubGlobal('crypto', {
       randomUUID: () => 'loading-id'
-    } as Crypto);
+    } as unknown as Crypto);
   });
 
   afterEach(() => {

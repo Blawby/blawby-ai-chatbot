@@ -1,5 +1,5 @@
 import { FunctionComponent, ComponentChildren, createContext } from "preact"
-import { useState, useContext } from "preact/hooks"
+import { useState, useContext, useMemo } from "preact/hooks"
 import { ChevronDownIcon } from "@heroicons/react/24/outline"
 import { Icon } from '@/shared/ui/Icon'
 
@@ -125,9 +125,10 @@ const AccordionItem: FunctionComponent<AccordionItemProps> = ({
   }
 
   const isOpen = context.isItemOpen(value)
+  const itemContextValue = useMemo(() => ({ value }), [value])
 
   return (
-    <AccordionItemContext.Provider value={{ value }}>
+    <AccordionItemContext.Provider value={itemContextValue}>
       <div
         data-slot="accordion-item"
         data-value={value}

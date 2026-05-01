@@ -359,9 +359,16 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
         startIndex
     ]);
 
-    const debouncedHandleScroll = useMemo(() => {
-        return debounce(handleScrollLoadMore, DEBOUNCE_DELAY);
-    }, [handleScrollLoadMore]);
+    // Keep a stable ref to the latest handleScrollLoadMore so the debounce instance
+    // doesn't need to be recreated each time handleScrollLoadMore changes deps.
+    const handleScrollLoadMoreRef = useRef(handleScrollLoadMore);
+    handleScrollLoadMoreRef.current = handleScrollLoadMore;
+
+    // Single debounce instance for the component lifetime — prevents orphaned calls
+    // when deps of handleScrollLoadMore change mid-scroll.
+    const debouncedHandleScrollRef = useRef(
+        debounce(() => { handleScrollLoadMoreRef.current(); }, DEBOUNCE_DELAY)
+    );
 
     const handleScrollImmediate = useCallback(() => {
         if (!listRef.current) return;
@@ -382,20 +389,21 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
 
         // Dispatch scroll event for navbar visibility
         const scrollDelta = Math.abs(currentScrollTop - previousScrollTop);
-        
+
         if (scrollDelta > 0) {
             window.dispatchEvent(new CustomEvent('chat-scroll', {
                 detail: { scrollTop: currentScrollTop, scrollDelta }
             }));
         }
-        
+
         (element as HTMLElement & { lastScrollTop?: number }).lastScrollTop = currentScrollTop;
 
-        debouncedHandleScroll();
-    }, [checkIfScrolledToBottom, debouncedHandleScroll]);
+        debouncedHandleScrollRef.current();
+    }, [checkIfScrolledToBottom]);
 
     useEffect(() => {
         const list = listRef.current;
+        const debouncedScroll = debouncedHandleScrollRef.current;
         if (list) {
             list.addEventListener('scroll', handleScrollImmediate, { passive: true });
         }
@@ -404,9 +412,9 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                 list.removeEventListener('scroll', handleScrollImmediate);
             }
             // Cancel any pending debounced calls to prevent delayed state updates after unmount
-            debouncedHandleScroll.cancel();
+            debouncedScroll.cancel();
         };
-    }, [debouncedHandleScroll, handleScrollImmediate]);
+    }, [handleScrollImmediate]);
 
 
 
@@ -755,19 +763,8 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                             replyPreview={replyPreview ?? undefined}
                             onReplyPreviewClick={replyPreview ? () => scrollToMessage(replyPreview.messageId) : undefined}
                             reactions={message.reactions}
-                            onReply={canReply ? () => {
-                                if (!onReply) return;
-                                onReply({
-                                    messageId: message.id,
-                                    authorName: avatar?.name || 'Unknown',
-                                    content: message.content,
-                                    avatar
-                                });
-                            } : undefined}
-                            onToggleReaction={onToggleReaction && features.enableMessageReactions ? (emoji: string) => {
-                                if (!message.id) return;
-                                onToggleReaction(message.id, emoji);
-                            } : undefined}
+                            onReply={canReply ? onReply : undefined}
+                            onToggleReaction={onToggleReaction}
                             matterCanvas={message.matterCanvas}
                             generatedPDF={message.generatedPDF}
                             paymentRequest={message.paymentRequest}

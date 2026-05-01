@@ -1,4 +1,6 @@
-import { apiClient } from '@/shared/lib/apiClient';
+import { apiClient, unwrapApiResponse } from '@/shared/lib/apiClient';
+import { queryCache } from '@/shared/lib/queryCache';
+import { policyTtl } from '@/shared/lib/cachePolicy';
 import type {
   PreferenceCategory,
   PreferencesResponse,
@@ -9,44 +11,34 @@ import type {
   OnboardingPreferences
 } from '@/shared/types/preferences';
 
-const preferencesCache = new Map<PreferenceCategory, unknown | null>();
-const preferencesInFlight = new Map<PreferenceCategory, Promise<unknown | null>>();
-let preferencesCacheInitialized = false;
+const preferenceKey = (category: PreferenceCategory) => `preferences:${category}`;
 
-const resetPreferencesCache = () => {
-  preferencesCache.clear();
-  preferencesInFlight.clear();
-};
-
-const ensurePreferencesCacheListeners = () => {
-  if (preferencesCacheInitialized) return;
-  preferencesCacheInitialized = true;
-  if (typeof window === 'undefined') return;
-  const handler = () => resetPreferencesCache();
-  window.addEventListener('auth:session-updated', handler);
-  window.addEventListener('auth:session-cleared', handler);
+// `auth:session-cleared` is handled by queryCache itself (clears everything).
+// `auth:session-updated` means the user/session changed — preferences belong
+// to the previous user, so we drop just that prefix.
+let sessionUpdatedListenerRegistered = false;
+const ensureSessionUpdatedListener = () => {
+  if (sessionUpdatedListenerRegistered || typeof window === 'undefined') return;
+  window.addEventListener('auth:session-updated', () => {
+    queryCache.invalidate('preferences:', /* prefix */ true);
+  });
+  sessionUpdatedListenerRegistered = true;
 };
 
 const primePreferencesCache = (payload: PreferencesResponse['data'] | null | undefined) => {
   if (!payload) return;
-  preferencesCache.set('general', payload.general ?? null);
-  preferencesCache.set('notifications', payload.notifications ?? null);
-  preferencesCache.set('security', payload.security ?? null);
-  preferencesCache.set('account', payload.account ?? null);
-  preferencesCache.set('onboarding', payload.onboarding ?? null);
-};
-
-const unwrapData = <T>(payload: unknown): T => {
-  if (payload && typeof payload === 'object' && 'data' in payload) {
-    return (payload as { data: T }).data;
-  }
-  return payload as T;
+  const ttl = policyTtl('preferences:');
+  queryCache.set(preferenceKey('general'), payload.general ?? null, ttl);
+  queryCache.set(preferenceKey('notifications'), payload.notifications ?? null, ttl);
+  queryCache.set(preferenceKey('security'), payload.security ?? null, ttl);
+  queryCache.set(preferenceKey('account'), payload.account ?? null, ttl);
+  queryCache.set(preferenceKey('onboarding'), payload.onboarding ?? null, ttl);
 };
 
 export async function getAllPreferences(): Promise<PreferencesResponse['data']> {
-  ensurePreferencesCacheListeners();
+  ensureSessionUpdatedListener();
   const response = await apiClient.get('/api/preferences');
-  const data = unwrapData<PreferencesResponse['data']>(response.data);
+  const data = unwrapApiResponse<PreferencesResponse['data']>(response.data);
   primePreferencesCache(data);
   return data;
 }
@@ -55,44 +47,30 @@ export async function getPreferencesCategory<T>(
   category: PreferenceCategory,
   options: { force?: boolean } = {}
 ): Promise<T | null> {
-  ensurePreferencesCacheListeners();
-  const force = options.force ?? false;
-
-  if (!force && preferencesCache.has(category)) {
-    return preferencesCache.get(category) as T | null;
-  }
-
-  const inFlight = preferencesInFlight.get(category);
-  if (!force && inFlight) {
-    return (await inFlight) as T | null;
-  }
-
-  const promise = (async () => {
-    const response = await apiClient.get(`/api/preferences/${category}`);
-    const result = unwrapData<T | null>(response.data);
-    preferencesCache.set(category, result ?? null);
-    return result;
-  })();
-
-  preferencesInFlight.set(category, promise as Promise<unknown | null>);
-  try {
-    return await promise;
-  } finally {
-    preferencesInFlight.delete(category);
-  }
+  ensureSessionUpdatedListener();
+  const key = preferenceKey(category);
+  if (options.force) queryCache.invalidate(key);
+  return queryCache.coalesceGet<T | null>(
+    key,
+    async () => {
+      const response = await apiClient.get(`/api/preferences/${category}`);
+      return unwrapApiResponse<T | null>(response.data) ?? null;
+    },
+    { ttl: policyTtl(key) }
+  );
 }
 
 export async function updatePreferencesCategory<T extends object>(
   category: PreferenceCategory,
   data: T
 ): Promise<T> {
-  ensurePreferencesCacheListeners();
+  ensureSessionUpdatedListener();
   const response = await apiClient.put(`/api/preferences/${category}`, data);
-  const result = unwrapData<T | null | undefined>(response.data);
+  const result = unwrapApiResponse<T | null | undefined>(response.data);
   if (result === null || result === undefined) {
     throw new Error(`Preferences update for '${category}' returned no data`);
   }
-  preferencesCache.set(category, result);
+  queryCache.set(preferenceKey(category), result, policyTtl(preferenceKey(category)));
   return result;
 }
 

@@ -27,6 +27,7 @@
  *  pendingClientMessages      – ref for optimistic message tracking
  */
 
+import { unstable_batchedUpdates as batch } from 'preact/compat';
 import { useState, useMemo, useCallback, useRef, useEffect } from 'preact/hooks';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import type { ChatMessageUI, MessageReaction } from '../../../worker/types';
@@ -42,13 +43,11 @@ import {
   removeMessageReaction,
 } from '@/shared/lib/conversationApi';
 import { applyConsultationPatchToMetadata, hasConsultationSignals, resolveConsultationState } from '@/shared/utils/consultationState';
-import axios from 'axios';
-import { linkConversationToUser } from '@/shared/lib/apiClient';
+import { apiClient, isHttpError, linkConversationToUser } from '@/shared/lib/apiClient';
 import {
   rememberConversationAnonymousParticipant,
   clearConversationAnonymousParticipant,
 } from '@/shared/utils/anonymousIdentity';
-import { withWidgetAuthHeaders } from '@/shared/utils/widgetAuth';
 import { quickActionDebugLog, isQuickActionDebugEnabled } from '@/shared/utils/quickActionDebug';
 import { normalizeChatActions } from '@/shared/utils/chatActions';
 import { useConversationTransport } from '@/shared/hooks/useConversationTransport';
@@ -241,7 +240,7 @@ export const useConversation = ({
         clearConversationAnonymousParticipant(conversationId);
       } catch (error) {
         console.warn('[useConversation] Conversation relink failed', { conversationId, practiceId, error });
-        const is409 = axios.isAxiosError(error) && error.response?.status === 409;
+        const is409 = isHttpError(error) && error.response.status === 409;
         if (is409) { if (!cancelled) setIsConversationLinkReady(true); return; }
         onError?.(error instanceof Error ? error.message : 'Failed to link conversation');
       } finally {
@@ -319,15 +318,20 @@ export const useConversation = ({
     const activeConversationId = targetConversationId ?? conversationId;
     const practiceKey = practiceId;
     if (!activeConversationId || !practiceKey) return null;
-    const response = await fetch(
-      `/api/conversations/${encodeURIComponent(activeConversationId)}?practiceId=${encodeURIComponent(practiceKey)}`,
-      { method: 'GET', headers: withWidgetAuthHeaders({ 'Content-Type': 'application/json' }), credentials: 'include', signal }
-    );
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({})) as { error?: string };
-      throw new Error(errorData.error || `HTTP ${response.status}`);
+    let data: { success: boolean; data?: { user_info?: ConversationMetadata | null } };
+    try {
+      const result = await apiClient.get<{ success: boolean; data?: { user_info?: ConversationMetadata | null } }>(
+        `/api/conversations/${encodeURIComponent(activeConversationId)}`,
+        { params: { practiceId: practiceKey }, signal },
+      );
+      data = result.data;
+    } catch (apiError) {
+      if (isHttpError(apiError)) {
+        const errorData = apiError.response.data as { error?: string } | undefined;
+        throw new Error(errorData?.error || `HTTP ${apiError.response.status}`);
+      }
+      throw apiError;
     }
-    const data = await response.json() as { success: boolean; data?: { user_info?: ConversationMetadata | null } };
     const metadata = data.data?.user_info ?? null;
     if (!signal?.aborted && !isDisposedRef.current && activeConversationId === conversationIdRef.current) {
       applyConversationMetadata(metadata);
@@ -602,6 +606,9 @@ export const useConversation = ({
   }, []);
 
   const handleMessageNew = useCallback((data: Record<string, unknown>) => {
+    if (typeof performance !== 'undefined') {
+      performance.mark('chat:message-ingest');
+    }
     const conversationIdValue = typeof data.conversation_id === 'string' ? data.conversation_id : null;
     if (!conversationIdValue || conversationIdValue !== conversationIdRef.current) return;
     const messageId = typeof data.message_id === 'string' ? data.message_id : null;
@@ -666,42 +673,51 @@ export const useConversation = ({
     if (!activeConversationId || !activePracticeId) return;
     let nextSeq: number | null = fromSeq;
     let targetLatest = latestSeq;
-    let _attempts = 0;
     let previousSeq: number | null = null;
     const MAX_NO_PROGRESS_ATTEMPTS = 3;
     let noProgressCount = 0;
+    const collected: ConversationMessage[] = [];
 
     while (nextSeq !== null && nextSeq <= targetLatest) {
       if (isDisposedRef.current || conversationIdRef.current !== activeConversationId) return;
       try {
-        const params = new URLSearchParams({ practiceId: activePracticeId, from_seq: String(nextSeq), limit: String(GAP_FETCH_LIMIT) });
-        const response = await fetch(`${getConversationMessagesEndpoint(activeConversationId)}?${params}`, { method: 'GET', headers: withWidgetAuthHeaders({ 'Content-Type': 'application/json' }), credentials: 'include' });
-        if (!response.ok) { const e = await response.json().catch(() => ({})) as { error?: string }; throw new Error(e.error || `HTTP ${response.status}`); }
-        const data = await response.json() as { success: boolean; error?: string; data?: { messages: ConversationMessage[]; latest_seq?: number; next_from_seq?: number | null } };
+        let data: { success: boolean; error?: string; data?: { messages: ConversationMessage[]; latest_seq?: number; next_from_seq?: number | null } };
+        try {
+          const result = await apiClient.get<{ success: boolean; error?: string; data?: { messages: ConversationMessage[]; latest_seq?: number; next_from_seq?: number | null } }>(
+            getConversationMessagesEndpoint(activeConversationId),
+            { params: { practiceId: activePracticeId, from_seq: String(nextSeq), limit: String(GAP_FETCH_LIMIT) } },
+          );
+          data = result.data;
+        } catch (apiError) {
+          if (isHttpError(apiError)) {
+            const errorData = apiError.response.data as { error?: string } | undefined;
+            throw new Error(errorData?.error || `HTTP ${apiError.response.status}`);
+          }
+          throw apiError;
+        }
         if (!data.success || !data.data) throw new Error(data.error || 'Failed to fetch message gap');
         if (isDisposedRef.current || conversationIdRef.current !== activeConversationId) return;
-        applyServerMessages(data.data.messages ?? []);
+        collected.push(...(data.data.messages ?? []));
         if (typeof data.data.latest_seq === 'number') targetLatest = data.data.latest_seq;
         previousSeq = nextSeq;
         nextSeq = data.data.next_from_seq ?? null;
-        
-        // Check for no progress (nextSeq not advancing)
+
         if (nextSeq !== null && nextSeq === previousSeq) {
           noProgressCount += 1;
           if (noProgressCount >= MAX_NO_PROGRESS_ATTEMPTS) {
             onError?.('Failed to recover message gap: no progress after multiple attempts');
-            return;
+            break;
           }
         } else {
           noProgressCount = 0;
         }
-        
-        _attempts = 0;
       } catch (error) {
         onError?.(error instanceof Error ? error.message : 'Failed to recover message gap');
         throw error;
       }
     }
+
+    if (collected.length > 0) applyServerMessages(collected);
   }, [applyServerMessages, onError]);
 
   const handleTransportGap = useCallback((fromSeq: number, latestSeq: number) => {
@@ -819,22 +835,39 @@ export const useConversation = ({
     const activeConversationId = targetConversationId ?? conversationId;
     if (!activeConversationId || !practiceId) return;
     try {
-      const params = new URLSearchParams({ practiceId, limit: '50' });
-      params.set('source', isLoadMore ? 'chat_load_more' : 'chat_initial');
-      if (cursor) params.set('cursor', cursor);
+      const params: Record<string, string> = {
+        practiceId,
+        limit: '50',
+        source: isLoadMore ? 'chat_load_more' : 'chat_initial',
+      };
+      if (cursor) params.cursor = cursor;
       if (isLoadMore) setIsLoadingMoreMessages(true);
-      const response = await fetch(`${getConversationMessagesEndpoint(activeConversationId)}?${params}`, { method: 'GET', headers: withWidgetAuthHeaders({ 'Content-Type': 'application/json' }), credentials: 'include', signal });
-      if (!response.ok) { const e = await response.json().catch(() => ({})) as { error?: string }; throw new Error(e.error || `HTTP ${response.status}`); }
-      const data = await response.json() as { success: boolean; error?: string; data?: { messages: ConversationMessage[]; hasMore?: boolean; cursor?: string | null } };
+      let data: { success: boolean; error?: string; data?: { messages: ConversationMessage[]; hasMore?: boolean; cursor?: string | null } };
+      try {
+        const result = await apiClient.get<{ success: boolean; error?: string; data?: { messages: ConversationMessage[]; hasMore?: boolean; cursor?: string | null } }>(
+          getConversationMessagesEndpoint(activeConversationId),
+          { params, signal },
+        );
+        data = result.data;
+      } catch (apiError) {
+        if (isHttpError(apiError)) {
+          const errorData = apiError.response.data as { error?: string } | undefined;
+          throw new Error(errorData?.error || `HTTP ${apiError.response.status}`);
+        }
+        throw apiError;
+      }
       if (!data.success || !data.data) throw new Error(data.error || 'Failed to fetch messages');
       if (!isDisposedRef.current && activeConversationId === conversationIdRef.current) {
         if (isLoadMore) {
-          applyServerMessages(data.data.messages ?? []);
+          batch(() => {
+            applyServerMessages(data.data!.messages ?? []);
+            setHasMoreMessages(Boolean(data.data!.hasMore));
+            setNextCursor(data.data!.cursor ?? null);
+          });
         } else {
           const fetchedMessages = data.data.messages ?? [];
           const fetchedUIMessages = fetchedMessages.map(toUIMessage);
-          
-          // Prepare merged set for sequence calculation outside state setter
+
           const mergedBeforeState = [...fetchedUIMessages, ...messagesRef.current];
           const maxSeq = mergedBeforeState.reduce((max, m) => {
             return typeof m.seq === 'number' ? Math.max(max, m.seq) : max;
@@ -845,25 +878,26 @@ export const useConversation = ({
             sendReadUpdateRef.current(maxSeq);
           }
 
-          // Update the ID set BEFORE state update to keep updater pure
           fetchedUIMessages.forEach(m => messageIdSetRef.current.add(m.id));
 
-          setMessages(prev => {
-            const existingIds = prev.reduce((set, m) => {
-              set.add(m.id);
-              return set;
-            }, new Set<string>());
-            
-            const newBatch = fetchedUIMessages.filter(m => !existingIds.has(m.id));
-            const merged = dedupeMessagesById([...newBatch, ...prev].sort((a, b) => a.timestamp - b.timestamp));
-            
-            return merged;
+          if (typeof performance !== 'undefined') {
+            performance.mark('chat:messages-ready');
+          }
+
+          batch(() => {
+            setMessages(prev => {
+              const existingIds = prev.reduce((set, m) => {
+                set.add(m.id);
+                return set;
+              }, new Set<string>());
+              const newBatch = fetchedUIMessages.filter(m => !existingIds.has(m.id));
+              return dedupeMessagesById([...newBatch, ...prev].sort((a, b) => a.timestamp - b.timestamp));
+            });
+            setMessagesReady(true);
+            setHasMoreMessages(Boolean(data.data!.hasMore));
+            setNextCursor(data.data!.cursor ?? null);
           });
-          
-          setMessagesReady(true);
         }
-        setHasMoreMessages(Boolean(data.data.hasMore));
-        setNextCursor(data.data.cursor ?? null);
       }
     } catch (err) {
       if (isDisposedRef.current) return;

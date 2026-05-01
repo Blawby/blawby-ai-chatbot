@@ -17,9 +17,10 @@ describe('dateTime', () => {
     });
 
     it('should handle different dates', () => {
+      // Construct dates in local time so the test is timezone-independent.
       const dates = [
-        new Date('2024-01-01'),
-        new Date('2024-12-31'),
+        new Date(2024, 0, 1),
+        new Date(2024, 11, 31),
       ];
 
       const expected = [

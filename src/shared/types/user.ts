@@ -113,20 +113,18 @@ export interface UserProfile {
   updatedAt: Date | null;
 }
 
-// Alias for clarity: backend-shaped session user
-export type BackendSessionUser = BetterAuthSessionUser;
+// Alias for the better-auth library's session user shape used throughout
+// the app. The `Backend` prefix was a misnomer — this is the auth client's
+// own type, not a `worker/types/wire/` HTTP wire shape — so the canonical
+// name drops it. The legacy alias is re-exported below for back-compat.
+export type SessionUser = BetterAuthSessionUser;
 
-// Minimal backend session record shape (extendable by backend)
-export interface BackendSession {
-  id?: string | null;
-  created_at?: string | null;
-  expires_at?: string | null;
-  // allow additional backend-provided fields
-  [key: string]: unknown;
-}
+// Wire-shaped backend session record (lives in worker/types/wire/auth.ts).
+import type { BackendSession } from '@/shared/types/wire';
+export type { BackendSession };
 
 // Canonical auth session payload returned by `getSession()` and `useSession()`
-export type AuthSessionPayload = { session: BackendSession; user: BackendSessionUser } | null;
+export type AuthSessionPayload = { session: BackendSession; user: SessionUser } | null;
 
 // NotificationSettings mirrors the notifications preferences category shape.
 export interface NotificationSettings {

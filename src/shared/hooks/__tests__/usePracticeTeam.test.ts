@@ -3,7 +3,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/preact';
 import { usePracticeTeam } from '../usePracticeTeam';
-import { resetPracticeTeamStore } from '@/shared/stores/practiceTeamStore';
+import { queryCache } from '@/shared/lib/queryCache';
 
 if (typeof globalThis.requestAnimationFrame !== 'function') {
   globalThis.requestAnimationFrame = ((callback: FrameRequestCallback) => (
@@ -28,7 +28,7 @@ vi.mock('@/shared/lib/apiClient', () => ({
 describe('usePracticeTeam', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    resetPracticeTeamStore();
+    queryCache.clear();
     mocks.listPracticeTeamMock.mockResolvedValue({
       members: [
         {

@@ -51,6 +51,7 @@ export function ClientInvoicesPage({
     isLoadingMore,
     error,
     hasMore,
+    loadMore,
     loadMoreRef,
   } = usePaginatedList<InvoiceSummary>({
     fetchPage: async (page, signal) => {
@@ -141,7 +142,7 @@ export function ClientInvoicesPage({
           isLoadingMore={isLoadingMore}
           error={error}
           emptyState={<InvoicesEmptyState hasFilters={hasFilters} />}
-          loadMoreRef={hasMore ? loadMoreRef : undefined}
+          onLoadMore={hasMore ? loadMore : undefined}
           renderItem={(invoice) => (
             <div
               className={cn('w-full px-4 py-3 text-left hover:bg-surface-utility/10')}

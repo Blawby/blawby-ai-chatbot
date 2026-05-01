@@ -5,7 +5,7 @@ import { Icon } from '@/shared/ui/Icon';
 import { usePracticeManagement, type Role } from '@/shared/hooks/usePracticeManagement';
 import { usePracticeTeam } from '@/shared/hooks/usePracticeTeam';
 import { usePracticeInvitations } from '@/shared/hooks/usePracticeInvitations';
-import { useSessionContext } from '@/shared/contexts/SessionContext';
+import { useSessionContext, useMemberRoleContext } from '@/shared/contexts/SessionContext';
 import { usePaymentUpgrade } from '@/shared/hooks/usePaymentUpgrade';
 import { Button } from '@/shared/ui/Button';
 import { EmailInput } from '@/shared/ui/input';
@@ -30,7 +30,8 @@ interface PracticeTeamPageProps {
 }
 
 export const PracticeTeamPage = ({ className, onBack }: PracticeTeamPageProps) => {
-  const { session, activeMemberRole, activeMemberRoleLoading } = useSessionContext();
+  const { session } = useSessionContext();
+  const { activeMemberRole, activeMemberRoleLoading } = useMemberRoleContext();
   const {
     currentPractice,
     updateMemberRole,

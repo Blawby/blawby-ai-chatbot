@@ -564,7 +564,7 @@ export const buildIntakeSystemPrompt = (
             : '';
     const validation = activeField.validationHint ? `\n  Valid answer: ${activeField.validationHint}` : '';
     const condNote = activeField.condition
-      ? `\n  Context: only relevant when ${activeField.condition.dependsOn} is "${activeField.condition.value}"` 
+      ? `\n  Context: only relevant when ${activeField.condition.dependsOn} is "${activeField.condition.value}"`
       : '';
     return `Your ONLY job this turn is to ask about ONE field:
   Field: ${activeField.label}
@@ -762,7 +762,7 @@ const deriveCaseSavedAcknowledgment = (
   // Only used when the turn was tool-only (no model text); usually the AI handles this.
   if (isEnrichmentMode && nextEnrichmentField) {
     const questionText = nextEnrichmentField.isStandard ? (nextEnrichmentField.previewQuestion?.trim() || nextEnrichmentField.label) : nextEnrichmentField.label;
-    const finalQuestion = nextEnrichmentField.previewQuestion?.trim() 
+    const finalQuestion = nextEnrichmentField.previewQuestion?.trim()
       ? questionText
       : `Can you tell me about ${nextEnrichmentField.label.toLowerCase()}?`;
     return `Thanks${userPart}. ${finalQuestion}`;
@@ -788,7 +788,7 @@ const deriveCaseSavedAcknowledgment = (
 
   if (nextRequiredField) {
     const questionText = nextRequiredField.isStandard ? (nextRequiredField.previewQuestion?.trim() || nextRequiredField.label) : nextRequiredField.label;
-    const finalQuestion = nextRequiredField.previewQuestion?.trim() 
+    const finalQuestion = nextRequiredField.previewQuestion?.trim()
       ? questionText
       : `Can you tell me the ${nextRequiredField.label.toLowerCase()}?`;
     return `Got it${userPart}. ${finalQuestion}`;

@@ -8,7 +8,6 @@ import type { InvoiceStatus } from '@/features/invoices/types';
 import { Button } from '@/shared/ui/Button';
 import { Combobox, type ComboboxOption, Input, Textarea } from '@/shared/ui/input';
 import { StackedAvatars, UserCard } from '@/shared/ui/profile';
-import { invalidateClientsForPractice } from '@/shared/stores/clientsStore';
 import { AddressExperienceForm } from '@/shared/ui/address/AddressExperienceForm';
 import { STATE_OPTIONS } from '@/shared/ui/address/AddressFields';
 import { Dialog } from '@/shared/ui/dialog';
@@ -898,7 +897,6 @@ export const InspectorPanel = ({
       }
       setActivePersonEditor(null);
       setIsArchiveConfirmOpen(false);
-      invalidateClientsForPractice(practiceId);
     } catch (nextError: unknown) {
       setError(nextError instanceof Error ? nextError.message : 'Failed to update contact status');
     } finally {

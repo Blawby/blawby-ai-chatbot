@@ -1,4 +1,5 @@
-import { useCallback, useMemo, useRef, useState } from 'preact/hooks';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
+import { apiClient, isAbortError } from '@/shared/lib/apiClient';
 import type { FileAttachment } from '../../../worker/types';
 import type { UploadingFile } from '@/shared/types/upload';
 
@@ -71,7 +72,9 @@ export const useFileUpload = ({ practiceId, conversationId, enabled }: UseFileUp
   const [previewFiles, setPreviewFiles] = useState<FileAttachment[]>([]);
   const [uploadingFiles, setUploadingFiles] = useState<UploadingFile[]>([]);
   const [isRecording, setIsRecording] = useState(false);
-  const xhrRef = useRef<Map<string, XMLHttpRequest>>(new Map());
+  // Per-upload AbortControllers — keyed by uploadId so cancelUpload() aborts
+  // the matching in-flight request (apiClient.upload wires the signal into XHR).
+  const controllersRef = useRef<Map<string, AbortController>>(new Map());
 
   const isReadyToUpload = enabled && Boolean(practiceId);
 
@@ -89,100 +92,56 @@ export const useFileUpload = ({ practiceId, conversationId, enabled }: UseFileUp
     console.warn('[useFileUpload] Upload failed', error);
   }, [removeUploadingFile]);
 
-  const uploadSingleFile = useCallback((file: File): Promise<FileAttachment | null> => {
-    if (!isReadyToUpload || !practiceId) return Promise.resolve(null);
+  const uploadSingleFile = useCallback(async (file: File): Promise<FileAttachment | null> => {
+    if (!isReadyToUpload || !practiceId) return null;
 
     const fileName = typeof file.name === 'string' ? file.name.trim() : '';
-    if (!fileName) return Promise.resolve(null);
-    if (file.size > MAX_FILE_SIZE_BYTES) return Promise.resolve(null);
-    if (BLOCKED_EXTENSIONS.has(getFileExtension(fileName))) return Promise.resolve(null);
+    if (!fileName) return null;
+    if (file.size > MAX_FILE_SIZE_BYTES) return null;
+    if (BLOCKED_EXTENSIONS.has(getFileExtension(fileName))) return null;
 
     const uploadId = createRandomId();
-    const uploadingEntry: UploadingFile = {
-      id: uploadId,
-      file,
-      status: 'uploading',
-      progress: 0,
-    };
+    setUploadingFiles((current) => [...current, { id: uploadId, file, status: 'uploading', progress: 0 }]);
 
-    setUploadingFiles((current) => [...current, uploadingEntry]);
+    const controller = new AbortController();
+    controllersRef.current.set(uploadId, controller);
 
-    return new Promise<FileAttachment | null>((resolve) => {
-      const xhr = new XMLHttpRequest();
-      xhrRef.current.set(uploadId, xhr);
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('practiceId', practiceId);
+    if (conversationId) formData.append('conversationId', conversationId);
 
-      const cleanup = () => {
-        xhrRef.current.delete(uploadId);
+    try {
+      const { data } = await apiClient.upload<unknown>('/api/files/upload', formData, {
+        signal: controller.signal,
+        onProgress: ({ percent }) => {
+          setUploadingFiles((current) => current.map((entry) => (
+            entry.id === uploadId ? { ...entry, progress: percent } : entry
+          )));
+        },
+      });
+      const responseData = extractUploadData(data);
+      if (!responseData?.fileId) throw new Error('Missing fileId in upload response');
+      const attachment: FileAttachment = {
+        id: responseData.fileId,
+        name: responseData.fileName ?? file.name,
+        size: responseData.fileSize ?? file.size,
+        type: responseData.fileType ?? file.type,
+        url: responseData.url ?? '',
+        storageKey: responseData.storageKey,
       };
-
-      xhr.upload.onprogress = (event) => {
-        if (!event.lengthComputable) return;
-        const progress = Math.max(0, Math.min(100, Math.round((event.loaded / event.total) * 100)));
-        setUploadingFiles((current) => current.map((entry) => (
-          entry.id === uploadId ? { ...entry, progress } : entry
-        )));
-      };
-
-      xhr.onload = () => {
-        cleanup();
-        try {
-          if (xhr.status !== 200) {
-            throw new Error(`HTTP ${xhr.status}`);
-          }
-          const parsed = JSON.parse(xhr.responseText) as unknown;
-          const responseData = extractUploadData(parsed);
-          if (!responseData?.fileId) {
-            throw new Error('Missing fileId in upload response');
-          }
-
-          const attachment: FileAttachment = {
-            id: responseData.fileId,
-            name: responseData.fileName ?? file.name,
-            size: responseData.fileSize ?? file.size,
-            type: responseData.fileType ?? file.type,
-            url: responseData.url ?? '',
-            storageKey: responseData.storageKey,
-          };
-          finalizeUpload(uploadId, attachment);
-          resolve(attachment);
-        } catch (error) {
-          handleUploadFailure(uploadId, error);
-          resolve(null);
-        }
-      };
-
-      xhr.onerror = () => {
-        cleanup();
-        handleUploadFailure(uploadId, new Error('Network error'));
-        resolve(null);
-      };
-
-      xhr.onabort = () => {
-        cleanup();
+      finalizeUpload(uploadId, attachment);
+      return attachment;
+    } catch (error) {
+      if (isAbortError(error)) {
         removeUploadingFile(uploadId);
-        resolve(null);
-      };
-
-      xhr.open('POST', '/api/files/upload', true);
-      xhr.withCredentials = true;
-
-      const formData = new FormData();
-      formData.append('file', file);
-      if (practiceId) {
-        formData.append('practiceId', practiceId);
+        return null;
       }
-      if (conversationId) {
-        formData.append('conversationId', conversationId);
-      }
-
-      try {
-        xhr.send(formData);
-      } catch (error) {
-        cleanup();
-        handleUploadFailure(uploadId, error);
-        resolve(null);
-      }
-    });
+      handleUploadFailure(uploadId, error);
+      return null;
+    } finally {
+      controllersRef.current.delete(uploadId);
+    }
   }, [conversationId, finalizeUpload, handleUploadFailure, isReadyToUpload, practiceId, removeUploadingFile]);
 
   const handleFileSelect = useCallback(async (files: File[]): Promise<FileAttachment[]> => {
@@ -200,13 +159,19 @@ export const useFileUpload = ({ practiceId, conversationId, enabled }: UseFileUp
     return uploadedAttachments;
   }, [enabled, isReadyToUpload, uploadSingleFile]);
 
+  // Abort all in-flight uploads on unmount.
+  useEffect(() => {
+    const controllers = controllersRef.current;
+    return () => {
+      for (const c of controllers.values()) c.abort();
+      controllers.clear();
+    };
+  }, []);
+
   const cancelUpload = useCallback((fileId: string) => {
     if (!enabled) return;
-    const xhr = xhrRef.current.get(fileId);
-    if (xhr) {
-      xhr.abort();
-    }
-    xhrRef.current.delete(fileId);
+    controllersRef.current.get(fileId)?.abort();
+    controllersRef.current.delete(fileId);
     removeUploadingFile(fileId);
   }, [enabled, removeUploadingFile]);
 

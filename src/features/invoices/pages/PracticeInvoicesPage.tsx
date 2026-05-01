@@ -62,6 +62,7 @@ export function PracticeInvoicesPage({
     isLoadingMore,
     error,
     hasMore,
+    loadMore,
     loadMoreRef,
   } = usePaginatedList<InvoiceSummary>({
     fetchPage: async (page, signal) => {
@@ -167,7 +168,7 @@ export function PracticeInvoicesPage({
           isLoadingMore={isLoadingMore}
           error={error}
           emptyState={<InvoicesEmptyState hasFilters={hasFilters} onCreateInvoice={onCreateInvoice} />}
-          loadMoreRef={hasMore ? loadMoreRef : undefined}
+          onLoadMore={hasMore ? loadMore : undefined}
           renderItem={(invoice) => (
             <div className={cn('w-full px-4 py-3 text-left hover:bg-surface-utility/10')}>
               <div className="flex items-start justify-between gap-3">

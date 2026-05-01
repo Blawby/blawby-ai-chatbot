@@ -1490,14 +1490,16 @@ export class ChatRoom {
       if (hideReplies === null) {
         try {
           const row = await this.env.DB.prepare(`SELECT user_info FROM conversations WHERE id = ?`).bind(convId).first<Record<string, unknown> | null>();
-          const parsed = this.parseUserInfo(row?.user_info);
-          hideReplies = Boolean(parsed && (parsed.hideReplies ?? parsed.hide_replies));
-          this.hideRepliesCache = hideReplies;
+          if (!row) {
+            console.warn('[ChatRoom] No conversation found for hideReplies; treating as hide (fail-closed) but not caching');
+            hideReplies = true;
+          } else {
+            const parsed = this.parseUserInfo(row.user_info);
+            hideReplies = Boolean(parsed && (parsed.hideReplies ?? parsed.hide_replies));
+            this.hideRepliesCache = hideReplies;
+          }
         } catch (err) {
           console.warn('[ChatRoom] Failed to read conversation.user_info for hideReplies, treating this broadcast as hide (fail-closed) but not caching', err);
-          // Fail-closed for this attempt only: set local flag so this broadcast masks replies,
-          // but do NOT persist into `this.hideRepliesCache` so transient DB errors don't
-          // cause prolonged incorrect masking; leave cache population to successful reads.
           hideReplies = true;
         }
       }
@@ -1510,7 +1512,8 @@ export class ChatRoom {
           const role = typeof data.role === 'string' ? data.role : null;
           const metadata = (data.metadata && typeof data.metadata === 'object') ? data.metadata as Record<string, unknown> : null;
           const source = metadata && metadata.source ? String(metadata.source).toLowerCase() : '';
-          const isAi = role === 'assistant' || source.startsWith('ai');
+          // MessageBroadcast only allows 'user' | 'system', so treat 'system' as AI or use source
+          const isAi = role === 'system' || source.startsWith('ai');
           if (isAi) {
             const masked: Record<string, unknown> = {
               ...data,

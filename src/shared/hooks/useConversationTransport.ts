@@ -349,6 +349,12 @@ export const useConversationTransport = ({
 
   connectChatRoomRef.current = connectChatRoom;
 
+  // Return a stable wrapper so callers don't need connectChatRoom in effect deps.
+  // The ref always points to the latest version of connectChatRoom.
+  const stableConnectChatRoom = useCallback((id: string) => {
+    connectChatRoomRef.current(id);
+  }, []);
+
   const closeChatSocket = useCallback(() => {
     isClosingSocketRef.current = true;
     isSocketReadyRef.current = false;
@@ -374,7 +380,7 @@ export const useConversationTransport = ({
     isSocketReady,
     sendFrame,
     waitForSocketReady,
-    connectChatRoom,
+    connectChatRoom: stableConnectChatRoom,
     closeChatSocket,
     isSocketReadyRef,
     socketConversationIdRef,

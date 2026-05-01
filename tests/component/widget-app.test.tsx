@@ -104,7 +104,9 @@ vi.mock('@/shared/hooks/useMessageHandling', () => ({
 }));
 
 vi.mock('@/shared/hooks/useConversationSystemMessages', () => ({
-  useConversationSystemMessages: vi.fn(),
+  useConversationSystemMessages: vi.fn(() => ({
+    persistSystemMessage: vi.fn(),
+  })),
 }));
 
 vi.mock('@/shared/lib/conversationApi', () => ({

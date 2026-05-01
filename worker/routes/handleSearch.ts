@@ -1,10 +1,9 @@
 import { HttpErrors } from '../errorHandler.js';
 import type { Env } from '../types.js';
-import { optionalAuth } from '../middleware/auth.js';
 import { callGeoapifyAutocomplete } from '../lib/geoapify.js';
 
 export async function handleSearch(request: Request, env: Env): Promise<Response> {
-  await optionalAuth(request, env);
+  // Auth is attached by the route table's withAuth({ required: false }) wrapper.
 
   const url = new URL(request.url);
   const query = url.searchParams.get('q')?.trim();

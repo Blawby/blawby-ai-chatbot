@@ -29,7 +29,7 @@ import type {
 } from '@/shared/types/conversation';
 import { type IntakeFieldsPayload } from '@/shared/types/intake';
 import { STREAMING_BUBBLE_PREFIX } from './useConversation';
-import { withWidgetAuthHeaders } from '@/shared/utils/widgetAuth';
+import { apiClient, isHttpError } from '@/shared/lib/apiClient';
 import { applyConsultationPatchToMetadata, resolveConsultationState } from '@/shared/utils/consultationState';
 import { normalizeChatActions } from '@/shared/utils/chatActions';
 import { normalizeSetupFieldsPayload } from '@/shared/utils/setupState';
@@ -715,15 +715,23 @@ export const useChatComposer = ({
         const intentPracticeId = resolvedPracticeId;
 
         try {
-          const intentResponse = await fetch('/api/ai/intent', {
-            method: 'POST',
-            headers: withWidgetAuthHeaders({ 'Content-Type': 'application/json' }),
-            credentials: 'include',
-            signal: intentController.signal,
-            body: JSON.stringify({ conversationId: resolvedConversationId, practiceId: resolvedPracticeId, message: trimmedMessage }),
-          });
-          if (intentResponse?.ok) {
-            const intentData = await intentResponse.json() as FirstMessageIntent;
+          let intentData: FirstMessageIntent | null = null;
+          try {
+            const result = await apiClient.post<FirstMessageIntent>(
+              '/api/ai/intent',
+              { conversationId: resolvedConversationId, practiceId: resolvedPracticeId, message: trimmedMessage },
+              { signal: intentController.signal },
+            );
+            intentData = result.data;
+          } catch (apiError) {
+            if (isHttpError(apiError)) {
+              // Non-2xx responses are silently ignored — preserves prior `if (intentResponse?.ok)` behavior.
+              intentData = null;
+            } else {
+              throw apiError;
+            }
+          }
+          if (intentData) {
             if (intentController.signal.aborted) return;
             if (conversationIdRef.current !== intentConversationId || practiceIdRef.current !== intentPracticeId) return;
             if (hasLoggedIntentRef.current) return;
@@ -765,63 +773,65 @@ export const useChatComposer = ({
       abortControllerRef.current = abortController;
 
       try {
-        const aiResponse = await fetch('/api/ai/chat', {
-          method: 'POST',
-          headers: withWidgetAuthHeaders({ 'Content-Type': 'application/json', 'Accept': 'text/event-stream' }),
-          credentials: 'include',
-          signal: abortController.signal,
-          body: JSON.stringify({
-            conversationId: resolvedConversationId, practiceId: resolvedPracticeId,
-            ...(resolvedPracticeSlug ? { practiceSlug: resolvedPracticeSlug } : {}),
-            mode: effectiveMode, intakeSubmitted, messages: aiMessages,
-            additionalContext: options?.additionalContext,
-            sourceBubbleId: bubbleId,
-          }),
-        });
-
-        if (!aiResponse.ok) {
-          cleanupStreamingState(bubbleId);
-          const errorData = await aiResponse.json().catch(() => ({})) as {
-            error?: string;
-            errorCode?: string;
-            details?: {
-              userMessage?: string;
-              [key: string]: unknown;
-            } | unknown;
-          };
-          const recoveryMessage =
-            errorData.details && typeof errorData.details === 'object' && !Array.isArray(errorData.details)
-              ? (typeof (errorData.details as { userMessage?: unknown }).userMessage === 'string'
-                  ? (errorData.details as { userMessage: string }).userMessage
-                  : null)
-              : null;
-          console.error('[useChatComposer] /api/ai/chat failed', {
-            status: aiResponse.status,
-            statusText: aiResponse.statusText,
-            payload: errorData,
-            request: {
-              conversationId,
-              resolvedConversationId,
-              practiceId: resolvedPracticeId,
-              practiceSlug: resolvedPracticeSlug || null,
-              mode: effectiveMode,
-              intakeSubmitted,
+        let aiResponse: Response;
+        try {
+          aiResponse = await apiClient.stream('/api/ai/chat', {
+            method: 'POST',
+            headers: { 'Accept': 'text/event-stream' },
+            signal: abortController.signal,
+            body: {
+              conversationId: resolvedConversationId, practiceId: resolvedPracticeId,
+              ...(resolvedPracticeSlug ? { practiceSlug: resolvedPracticeSlug } : {}),
+              mode: effectiveMode, intakeSubmitted, messages: aiMessages,
+              additionalContext: options?.additionalContext,
+              sourceBubbleId: bubbleId,
             },
           });
-          if (recoveryMessage) {
-            setMessages(prev => [...prev, {
-              id: createClientId('system-error'),
-              role: 'system',
-              content: recoveryMessage,
-              isUser: false,
-              timestamp: Date.now(),
-              userId: null,
-              reply_to_message_id: null,
-              metadata: { source: 'system', error: true, errorCode: errorData.errorCode ?? null },
-            }]);
-            return;
+        } catch (apiError) {
+          cleanupStreamingState(bubbleId);
+          if (isHttpError(apiError)) {
+            const errorData = (apiError.response.data ?? {}) as {
+              error?: string;
+              errorCode?: string;
+              details?: {
+                userMessage?: string;
+                [key: string]: unknown;
+              } | unknown;
+            };
+            const recoveryMessage =
+              errorData.details && typeof errorData.details === 'object' && !Array.isArray(errorData.details)
+                ? (typeof (errorData.details as { userMessage?: unknown }).userMessage === 'string'
+                    ? (errorData.details as { userMessage: string }).userMessage
+                    : null)
+                : null;
+            console.error('[useChatComposer] /api/ai/chat failed', {
+              status: apiError.response.status,
+              payload: errorData,
+              request: {
+                conversationId,
+                resolvedConversationId,
+                practiceId: resolvedPracticeId,
+                practiceSlug: resolvedPracticeSlug || null,
+                mode: effectiveMode,
+                intakeSubmitted,
+              },
+            });
+            if (recoveryMessage) {
+              setMessages(prev => [...prev, {
+                id: createClientId('system-error'),
+                role: 'system',
+                content: recoveryMessage,
+                isUser: false,
+                timestamp: Date.now(),
+                userId: null,
+                reply_to_message_id: null,
+                metadata: { source: 'system', error: true, errorCode: errorData.errorCode ?? null },
+              }]);
+              return;
+            }
+            throw new Error(errorData.error || `HTTP ${apiError.response.status}`);
           }
-          throw new Error(errorData.error || `HTTP ${aiResponse.status}`);
+          throw apiError;
         }
 
         const contentType = aiResponse.headers.get('content-type') ?? '';

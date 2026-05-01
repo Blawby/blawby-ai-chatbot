@@ -1,6 +1,6 @@
 import { apiClient } from '@/shared/lib/apiClient';
 import { toMajorUnits } from '@/shared/utils/money';
-import type { AxiosRequestConfig } from 'axios';
+import type { ApiRequestConfig } from '@/shared/lib/apiClient';
 
 export interface SubscriptionPlan {
   id: string;
@@ -199,7 +199,7 @@ function normalizePlans(plans: unknown[]): SubscriptionPlan[] {
 }
 
 export const fetchPlans = async (
-  config?: Pick<AxiosRequestConfig, 'signal'>
+  config?: ApiRequestConfig
 ): Promise<SubscriptionPlan[]> => {
   const response = await apiClient.get('/api/subscriptions/plans', {
     signal: config?.signal

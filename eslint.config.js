@@ -9,6 +9,7 @@ import { createRequire } from 'module';
 
 const require = createRequire(import.meta.url);
 const loadingConsistency = require('./config/eslint-rules/loading-consistency.cjs');
+const noInlineContextValue = require('./config/eslint-rules/no-inline-context-value.cjs');
 
 export default [
   // Base JavaScript configuration
@@ -84,6 +85,7 @@ export default [
       custom: {
         rules: {
           'loading-consistency': loadingConsistency,
+          'no-inline-context-value': noInlineContextValue,
           'no-hardcoded-colors': {
             create(context) {
               const COLORS_REGEX = /text-white|text-black|bg-white|bg-black|\b(gray|zinc|neutral|stone|blue|indigo|purple|slate)-/;
@@ -138,7 +140,7 @@ export default [
       'react/no-unknown-property': 'warn', // Allow class instead of className in some cases
       'react/self-closing-comp': 'warn',
       'react-hooks/rules-of-hooks': 'error', // Keep this as error for safety
-      'react-hooks/exhaustive-deps': 'warn', // TODO: consider error once deps are stabilized
+      'react-hooks/exhaustive-deps': 'error',
 
       // General best practices
       'no-console': 'off', // Allow console in development
@@ -151,7 +153,40 @@ export default [
 
       // Custom loading consistency rule
       'custom/loading-consistency': 'error',
+      'custom/no-inline-context-value': 'error',
       'custom/no-hardcoded-colors': 'warn',
+
+      // Import guardrails: ban barrel import, namespace imports of icon/motion libs,
+      // and the deleted/migrated ad-hoc store modules.
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: '@/shared/ui',
+              message: 'Import from the specific path (e.g. @/shared/ui/Button) instead of the barrel.'
+            },
+            {
+              name: '@/shared/stores/clientsStore',
+              message: 'Removed in β. Use useQuery / queryCache instead.'
+            },
+            {
+              name: '@/shared/stores/mattersStore',
+              message: 'Removed in β. Use useQuery / queryCache instead.'
+            },
+            {
+              name: '@/shared/stores/practiceTeamStore',
+              message: 'Removed in β. Use usePracticeTeam (which goes through queryCache).'
+            }
+          ],
+          patterns: [
+            {
+              group: ['@heroicons/react/*/index', '@heroicons/react/index'],
+              message: 'Import individual icons by path (e.g. @heroicons/react/24/outline/CheckIcon).'
+            }
+          ]
+        }
+      ],
 
       // Project guardrails
       'no-restricted-syntax': [
@@ -171,6 +206,14 @@ export default [
         {
           selector: 'JSXAttribute[name.name="className"] > Literal[value=/animate-spin/]',
           message: 'Use LoadingSpinner component instead of inline animate-spin classes'
+        },
+        {
+          selector: 'TSTypeAliasDeclaration[id.name=/^Backend/]',
+          message: 'Backend wire types live in worker/types/wire/ — import from @/shared/types/wire instead of redeclaring inline.'
+        },
+        {
+          selector: 'TSInterfaceDeclaration[id.name=/^Backend/]',
+          message: 'Backend wire types live in worker/types/wire/ — import from @/shared/types/wire instead of redeclaring inline.'
         }
       ],
     },
@@ -186,6 +229,7 @@ export default [
   // Worker files (Cloudflare Workers runtime)
   {
     files: ['worker/**/*.{ts,js}'],
+    ignores: ['worker/types/wire/**'],
     languageOptions: {
       parser: typescriptParser,
       parserOptions: { ecmaVersion: 'latest', sourceType: 'module' },
@@ -217,7 +261,9 @@ export default [
         TextDecoder: 'readonly',
         AbortController: 'readonly',
         AbortSignal: 'readonly',
+        RequestInit: 'readonly',
         Buffer: 'readonly',
+        process: 'readonly',
         ReadableStreamDefaultController: 'readonly',
         ExecutionContext: 'readonly', // TODO: validate Worker typing approach
         MessageBatch: 'readonly',
@@ -235,7 +281,40 @@ export default [
       }],
       '@typescript-eslint/no-explicit-any': 'error', // Enforce no explicit any
       'no-console': 'off', // keep console logging for Workers (debugging/forensics)
-      'no-unused-vars': 'off'
+      'no-unused-vars': 'off',
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: 'TSTypeAliasDeclaration[id.name=/^Backend/]',
+          message: 'Backend wire types live in worker/types/wire/ — declare there, not inline.'
+        },
+        {
+          selector: 'TSInterfaceDeclaration[id.name=/^Backend/]',
+          message: 'Backend wire types live in worker/types/wire/ — declare there, not inline.'
+        }
+      ]
+    }
+  },
+
+  // Worker wire schema files deliberately declare Backend* wire contracts.
+  {
+    files: ['worker/types/wire/**/*.{ts,js}'],
+    languageOptions: {
+      parser: typescriptParser,
+      parserOptions: { ecmaVersion: 'latest', sourceType: 'module' },
+    },
+    plugins: { '@typescript-eslint': typescript },
+    rules: {
+      ...typescript.configs.recommended.rules,
+      '@typescript-eslint/no-unused-vars': ['warn', {
+        argsIgnorePattern: '^_',
+        varsIgnorePattern: '^_',
+        caughtErrorsIgnorePattern: '^_',
+        ignoreRestSiblings: true
+      }],
+      '@typescript-eslint/no-explicit-any': 'error',
+      'no-unused-vars': 'off',
+      'no-restricted-syntax': 'off',
     }
   },
 

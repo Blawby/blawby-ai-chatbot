@@ -1,11 +1,7 @@
 import type { Conversation, ConversationMessage, ConversationMetadata, MessageReactionSummary } from '@/shared/types/conversation';
 import type { MessageReaction } from '../../../worker/types';
 import { getConversationMessageReactionsEndpoint, getConversationsEndpoint } from '@/config/api';
-import { withWidgetAuthHeaders } from '@/shared/utils/widgetAuth';
-
-const buildPracticeParams = (practiceId: string) => {
-  return new URLSearchParams({ practiceId });
-};
+import { apiClient, isHttpError } from '@/shared/lib/apiClient';
 
 const toMessageReaction = (reaction: MessageReactionSummary): MessageReaction => ({
   emoji: reaction.emoji,
@@ -13,33 +9,57 @@ const toMessageReaction = (reaction: MessageReactionSummary): MessageReaction =>
   reactedByMe: reaction.reacted_by_me
 });
 
+// Unwrap apiClient errors into the legacy `Error(message)` contract so callers
+// (which all check `instanceof Error` + `.message`) keep working unchanged.
+const toErrorMessage = (error: unknown, fallback: string): Error => {
+  if (isHttpError(error)) {
+    const data = error.response.data as { error?: string } | undefined;
+    return new Error(data?.error || `HTTP ${error.response.status}`);
+  }
+  if (error instanceof Error) return error;
+  return new Error(fallback);
+};
+
+interface ConversationEnvelope {
+  success: boolean;
+  data?: Conversation;
+}
+
+interface MessageEnvelope {
+  success: boolean;
+  data?: { message?: ConversationMessage };
+}
+
+interface ReactionsEnvelope {
+  success: boolean;
+  data?: {
+    messageId?: string;
+    reactions?: MessageReactionSummary[];
+  };
+}
+
 export const createConversation = async (
   practiceId: string,
   options?: { userId?: string; forceNew?: boolean; status?: string; extraMetadata?: Record<string, unknown> }
 ): Promise<string> => {
-  const params = buildPracticeParams(practiceId);
-  const response = await fetch(`${getConversationsEndpoint()}?${params.toString()}`, {
-    method: 'POST',
-    headers: withWidgetAuthHeaders({ 'Content-Type': 'application/json' }),
-    credentials: 'include',
-    body: JSON.stringify({
-      participantUserIds: options?.userId ? [options.userId] : [],
-      metadata: { ...(options?.extraMetadata ?? {}), source: 'widget' },
-      practiceId,
-      forceNew: options?.forceNew,
-      status: options?.status
-    })
-  });
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({})) as { error?: string };
-    throw new Error(errorData.error || `HTTP ${response.status}`);
+  try {
+    const { data } = await apiClient.post<{ success: boolean; data?: { id: string }; conversation?: { id: string } }>(
+      getConversationsEndpoint(),
+      {
+        participantUserIds: options?.userId ? [options.userId] : [],
+        metadata: { ...(options?.extraMetadata ?? {}), source: 'widget' },
+        practiceId,
+        forceNew: options?.forceNew,
+        status: options?.status,
+      },
+      { params: { practiceId } },
+    );
+    const id = data.data?.id ?? data.conversation?.id;
+    if (!id) throw new Error('Failed to create conversation');
+    return id;
+  } catch (error) {
+    throw toErrorMessage(error, 'Failed to create conversation');
   }
-
-  const data = await response.json() as { success: boolean; data?: { id: string }; conversation?: { id: string } };
-  const id = data.data?.id ?? data.conversation?.id;
-  if (!id) throw new Error('Failed to create conversation');
-  return id;
 };
 
 export const updateConversationMetadata = async (
@@ -55,23 +75,16 @@ export const updateConversationMetadata = async (
     payload.status = status;
   }
 
-  const response = await fetch(
-    `/api/conversations/${encodeURIComponent(conversationId)}?practiceId=${encodeURIComponent(practiceId)}`,
-    {
-      method: 'PATCH',
-      headers: withWidgetAuthHeaders({ 'Content-Type': 'application/json' }),
-      credentials: 'include',
-      body: JSON.stringify(payload)
-    }
-  );
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({})) as { error?: string };
-    throw new Error(errorData.error || `HTTP ${response.status}`);
+  try {
+    const { data } = await apiClient.patch<ConversationEnvelope>(
+      `/api/conversations/${encodeURIComponent(conversationId)}`,
+      payload,
+      { params: { practiceId } },
+    );
+    return data.data ?? null;
+  } catch (error) {
+    throw toErrorMessage(error, 'Failed to update conversation metadata');
   }
-
-  const data = await response.json() as { success: boolean; data?: Conversation };
-  return data.data ?? null;
 };
 
 export const getConversation = async (
@@ -79,22 +92,15 @@ export const getConversation = async (
   practiceId: string,
   options: { signal?: AbortSignal } = {}
 ): Promise<Conversation | null> => {
-  const response = await fetch(
-    `/api/conversations/${encodeURIComponent(conversationId)}?practiceId=${encodeURIComponent(practiceId)}`,
-    {
-      headers: withWidgetAuthHeaders(),
-      credentials: 'include',
-      signal: options.signal
-    }
-  );
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({})) as { error?: string };
-    throw new Error(errorData.error || `HTTP ${response.status}`);
+  try {
+    const { data } = await apiClient.get<ConversationEnvelope>(
+      `/api/conversations/${encodeURIComponent(conversationId)}`,
+      { params: { practiceId }, signal: options.signal },
+    );
+    return data.data ?? null;
+  } catch (error) {
+    throw toErrorMessage(error, 'Failed to fetch conversation');
   }
-
-  const data = await response.json() as { success: boolean; data?: Conversation };
-  return data.data ?? null;
 };
 
 export const updateConversationTriage = async (
@@ -105,23 +111,16 @@ export const updateConversationTriage = async (
     priority?: 'low' | 'normal' | 'high' | 'urgent';
   }
 ): Promise<Conversation | null> => {
-  const response = await fetch(
-    `/api/conversations/${encodeURIComponent(conversationId)}?practiceId=${encodeURIComponent(practiceId)}`,
-    {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify(updates)
-    }
-  );
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({})) as { error?: string };
-    throw new Error(errorData.error || `HTTP ${response.status}`);
+  try {
+    const { data } = await apiClient.patch<ConversationEnvelope>(
+      `/api/conversations/${encodeURIComponent(conversationId)}`,
+      updates,
+      { params: { practiceId } },
+    );
+    return data.data ?? null;
+  } catch (error) {
+    throw toErrorMessage(error, 'Failed to update conversation triage');
   }
-
-  const data = await response.json() as { success: boolean; data?: Conversation };
-  return data.data ?? null;
 };
 
 export const addConversationTag = async (
@@ -129,21 +128,16 @@ export const addConversationTag = async (
   practiceId: string,
   tag: string
 ): Promise<Conversation | null> => {
-  const response = await fetch(
-    `/api/conversations/${encodeURIComponent(conversationId)}/tags?practiceId=${encodeURIComponent(practiceId)}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({ tag })
-    }
-  );
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({})) as { error?: string };
-    throw new Error(errorData.error || `HTTP ${response.status}`);
+  try {
+    const { data } = await apiClient.post<ConversationEnvelope>(
+      `/api/conversations/${encodeURIComponent(conversationId)}/tags`,
+      { tag },
+      { params: { practiceId } },
+    );
+    return data.data ?? null;
+  } catch (error) {
+    throw toErrorMessage(error, 'Failed to add conversation tag');
   }
-  const data = await response.json() as { success: boolean; data?: Conversation };
-  return data.data ?? null;
 };
 
 export const removeConversationTag = async (
@@ -151,21 +145,15 @@ export const removeConversationTag = async (
   practiceId: string,
   tag: string
 ): Promise<Conversation | null> => {
-  const response = await fetch(
-    `/api/conversations/${encodeURIComponent(conversationId)}/tags?practiceId=${encodeURIComponent(practiceId)}`,
-    {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({ tag })
-    }
-  );
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({})) as { error?: string };
-    throw new Error(errorData.error || `HTTP ${response.status}`);
+  try {
+    const { data } = await apiClient.delete<ConversationEnvelope>(
+      `/api/conversations/${encodeURIComponent(conversationId)}/tags`,
+      { params: { practiceId }, body: { tag } },
+    );
+    return data.data ?? null;
+  } catch (error) {
+    throw toErrorMessage(error, 'Failed to remove conversation tag');
   }
-  const data = await response.json() as { success: boolean; data?: Conversation };
-  return data.data ?? null;
 };
 
 export const updateConversationMentions = async (
@@ -173,21 +161,16 @@ export const updateConversationMentions = async (
   practiceId: string,
   mentionedUserIds: string[]
 ): Promise<Conversation | null> => {
-  const response = await fetch(
-    `/api/conversations/${encodeURIComponent(conversationId)}/mentions?practiceId=${encodeURIComponent(practiceId)}`,
-    {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({ mentionedUserIds })
-    }
-  );
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({})) as { error?: string };
-    throw new Error(errorData.error || `HTTP ${response.status}`);
+  try {
+    const { data } = await apiClient.patch<ConversationEnvelope>(
+      `/api/conversations/${encodeURIComponent(conversationId)}/mentions`,
+      { mentionedUserIds },
+      { params: { practiceId } },
+    );
+    return data.data ?? null;
+  } catch (error) {
+    throw toErrorMessage(error, 'Failed to update conversation mentions');
   }
-  const data = await response.json() as { success: boolean; data?: Conversation };
-  return data.data ?? null;
 };
 
 export const logConversationEvent = async (
@@ -196,19 +179,14 @@ export const logConversationEvent = async (
   eventType: string,
   payload?: Record<string, unknown>
 ): Promise<void> => {
-  const response = await fetch(
-    `/api/conversations/${encodeURIComponent(conversationId)}/audit?practiceId=${encodeURIComponent(practiceId)}`,
-    {
-      method: 'POST',
-      headers: withWidgetAuthHeaders({ 'Content-Type': 'application/json' }),
-      credentials: 'include',
-      body: JSON.stringify({ eventType, payload })
-    }
-  );
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({})) as { error?: string };
-    throw new Error(errorData.error || `HTTP ${response.status}`);
+  try {
+    await apiClient.post(
+      `/api/conversations/${encodeURIComponent(conversationId)}/audit`,
+      { eventType, payload },
+      { params: { practiceId } },
+    );
+  } catch (error) {
+    throw toErrorMessage(error, 'Failed to log conversation event');
   }
 };
 
@@ -221,60 +199,34 @@ export const postSystemMessage = async (
     metadata?: Record<string, unknown>;
   }
 ): Promise<ConversationMessage | null> => {
-  const params = buildPracticeParams(practiceId);
-  const response = await fetch(
-    `/api/conversations/${encodeURIComponent(conversationId)}/system-messages?${params.toString()}`,
-    {
-      method: 'POST',
-      headers: withWidgetAuthHeaders({ 'Content-Type': 'application/json' }),
-      credentials: 'include',
-      body: JSON.stringify(payload)
-    }
-  );
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({})) as { error?: string };
-    throw new Error(errorData.error || `HTTP ${response.status}`);
+  try {
+    const { data } = await apiClient.post<MessageEnvelope>(
+      `/api/conversations/${encodeURIComponent(conversationId)}/system-messages`,
+      payload,
+      { params: { practiceId } },
+    );
+    return data.data?.message ?? null;
+  } catch (error) {
+    throw toErrorMessage(error, 'Failed to post system message');
   }
-
-  const data = await response.json() as { success: boolean; data?: { message?: ConversationMessage } };
-  return data.data?.message ?? null;
 };
 
 export const fetchLatestConversationMessage = async (
   conversationId: string,
   practiceId: string
 ): Promise<ConversationMessage | null> => {
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json'
-  };
-  const params = buildPracticeParams(practiceId);
-  params.set('limit', '5');
-  params.set('source', 'preview');
-  const response = await fetch(
-    `/api/conversations/${encodeURIComponent(conversationId)}/messages?${params.toString()}`,
-    {
-      method: 'GET',
-      headers: withWidgetAuthHeaders(headers),
-      credentials: 'include'
-    }
-  );
-
-  if (!response.ok) {
+  try {
+    const { data } = await apiClient.get<{ success?: boolean; data?: { messages?: ConversationMessage[] } }>(
+      `/api/conversations/${encodeURIComponent(conversationId)}/messages`,
+      { params: { practiceId, limit: '5', source: 'preview' } },
+    );
+    if (!data?.success) return null;
+    const messages = data.data?.messages ?? [];
+    return messages.find((message) => message.role !== 'system') ?? messages[0] ?? null;
+  } catch {
+    // Preview fetch is best-effort: any HTTP/network error → treat as no preview available.
     return null;
   }
-
-  const data = await response.json().catch(() => null) as {
-    success?: boolean;
-    data?: { messages?: ConversationMessage[] };
-  } | null;
-
-  if (!data?.success) {
-    return null;
-  }
-
-  const messages = data.data?.messages ?? [];
-  return messages.find((message) => message.role !== 'system') ?? messages[0] ?? null;
 };
 
 export const postConversationMessage = async (
@@ -286,24 +238,16 @@ export const postConversationMessage = async (
     replyToMessageId?: string | null;
   }
 ): Promise<ConversationMessage | null> => {
-  const params = buildPracticeParams(practiceId);
-  const response = await fetch(
-    `/api/conversations/${encodeURIComponent(conversationId)}/messages?${params.toString()}`,
-    {
-      method: 'POST',
-      headers: withWidgetAuthHeaders({ 'Content-Type': 'application/json' }),
-      credentials: 'include',
-      body: JSON.stringify(payload)
-    }
-  );
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({})) as { error?: string };
-    throw new Error(errorData.error || `HTTP ${response.status}`);
+  try {
+    const { data } = await apiClient.post<MessageEnvelope>(
+      `/api/conversations/${encodeURIComponent(conversationId)}/messages`,
+      payload,
+      { params: { practiceId } },
+    );
+    return data.data?.message ?? null;
+  } catch (error) {
+    throw toErrorMessage(error, 'Failed to post conversation message');
   }
-
-  const data = await response.json() as { success: boolean; data?: { message?: ConversationMessage } };
-  return data.data?.message ?? null;
 };
 
 export const fetchConversationMessages = async (
@@ -311,42 +255,20 @@ export const fetchConversationMessages = async (
   practiceId: string,
   options: { limit?: number; cursor?: string; signal?: AbortSignal } = {}
 ): Promise<ConversationMessage[]> => {
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json'
-  };
-  const params = buildPracticeParams(practiceId);
-  if (options.limit != null) {
-    params.set('limit', String(options.limit));
+  const params: Record<string, string> = { practiceId };
+  if (options.limit != null) params.limit = String(options.limit);
+  if (options.cursor) params.cursor = options.cursor;
+
+  try {
+    const { data } = await apiClient.get<{ success?: boolean; data?: { messages?: ConversationMessage[] } }>(
+      `/api/conversations/${encodeURIComponent(conversationId)}/messages`,
+      { params, signal: options.signal },
+    );
+    if (!data?.success) throw new Error('Failed to fetch messages');
+    return data.data?.messages ?? [];
+  } catch (error) {
+    throw toErrorMessage(error, 'Failed to fetch messages');
   }
-  if (options.cursor) {
-    params.set('cursor', options.cursor);
-  }
-
-  const response = await fetch(
-    `/api/conversations/${encodeURIComponent(conversationId)}/messages?${params.toString()}`,
-    {
-      method: 'GET',
-      headers: withWidgetAuthHeaders(headers),
-      credentials: 'include',
-      signal: options.signal
-    }
-  );
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({})) as { error?: string };
-    throw new Error(errorData.error || `HTTP ${response.status}`);
-  }
-
-  const data = await response.json().catch(() => null) as {
-    success?: boolean;
-    data?: { messages?: ConversationMessage[] };
-  } | null;
-
-  if (!data?.success) {
-    throw new Error('Failed to fetch messages');
-  }
-
-  return data.data?.messages ?? [];
 };
 
 export const fetchMessageReactions = async (
@@ -354,38 +276,16 @@ export const fetchMessageReactions = async (
   messageId: string,
   practiceId: string
 ): Promise<MessageReaction[]> => {
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json'
-  };
-
-  const params = buildPracticeParams(practiceId);
-  const response = await fetch(
-    `${getConversationMessageReactionsEndpoint(conversationId, messageId)}?${params.toString()}`,
-    {
-      method: 'GET',
-      headers,
-      credentials: 'include'
-    }
-  );
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({})) as { error?: string };
-    throw new Error(errorData.error || `HTTP ${response.status}`);
+  try {
+    const { data } = await apiClient.get<ReactionsEnvelope>(
+      getConversationMessageReactionsEndpoint(conversationId, messageId),
+      { params: { practiceId } },
+    );
+    if (!data.success) throw new Error('Failed to fetch reactions');
+    return (data.data?.reactions ?? []).map(toMessageReaction);
+  } catch (error) {
+    throw toErrorMessage(error, 'Failed to fetch reactions');
   }
-
-  const data = await response.json() as {
-    success: boolean;
-    data?: {
-      messageId?: string;
-      reactions?: MessageReactionSummary[];
-    };
-  };
-
-  if (!data.success) {
-    throw new Error('Failed to fetch reactions');
-  }
-
-  return (data.data?.reactions ?? []).map(toMessageReaction);
 };
 
 export const addMessageReaction = async (
@@ -394,37 +294,17 @@ export const addMessageReaction = async (
   practiceId: string,
   emoji: string
 ): Promise<MessageReaction[]> => {
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json'
-  };
-  const params = buildPracticeParams(practiceId);
-  const response = await fetch(
-    `${getConversationMessageReactionsEndpoint(conversationId, messageId)}?${params.toString()}`,
-    {
-      method: 'POST',
-      headers,
-      credentials: 'include',
-      body: JSON.stringify({ emoji })
-    }
-  );
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({})) as { error?: string };
-    throw new Error(errorData.error || `HTTP ${response.status}`);
+  try {
+    const { data } = await apiClient.post<ReactionsEnvelope>(
+      getConversationMessageReactionsEndpoint(conversationId, messageId),
+      { emoji },
+      { params: { practiceId } },
+    );
+    if (!data.success) throw new Error('Failed to add reaction');
+    return (data.data?.reactions ?? []).map(toMessageReaction);
+  } catch (error) {
+    throw toErrorMessage(error, 'Failed to add reaction');
   }
-
-  const data = await response.json() as {
-    success: boolean;
-    data?: {
-      reactions?: MessageReactionSummary[];
-    };
-  };
-
-  if (!data.success) {
-    throw new Error('Failed to add reaction');
-  }
-
-  return (data.data?.reactions ?? []).map(toMessageReaction);
 };
 
 export const removeMessageReaction = async (
@@ -433,35 +313,14 @@ export const removeMessageReaction = async (
   practiceId: string,
   emoji: string
 ): Promise<MessageReaction[]> => {
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json'
-  };
-  const params = buildPracticeParams(practiceId);
-  params.set('emoji', emoji);
-  const response = await fetch(
-    `${getConversationMessageReactionsEndpoint(conversationId, messageId)}?${params.toString()}`,
-    {
-      method: 'DELETE',
-      headers,
-      credentials: 'include'
-    }
-  );
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({})) as { error?: string };
-    throw new Error(errorData.error || `HTTP ${response.status}`);
+  try {
+    const { data } = await apiClient.delete<ReactionsEnvelope>(
+      getConversationMessageReactionsEndpoint(conversationId, messageId),
+      { params: { practiceId, emoji } },
+    );
+    if (!data.success) throw new Error('Failed to remove reaction');
+    return (data.data?.reactions ?? []).map(toMessageReaction);
+  } catch (error) {
+    throw toErrorMessage(error, 'Failed to remove reaction');
   }
-
-  const data = await response.json() as {
-    success: boolean;
-    data?: {
-      reactions?: MessageReactionSummary[];
-    };
-  };
-
-  if (!data.success) {
-    throw new Error('Failed to remove reaction');
-  }
-
-  return (data.data?.reactions ?? []).map(toMessageReaction);
 };

@@ -2,7 +2,7 @@ import { useMemo, useState, useEffect } from 'preact/hooks';
 import { useNavigation } from '@/shared/utils/navigation';
 import { cn } from '@/shared/utils/cn';
 import { type App, mockApps } from './appsData';
-import { useSessionContext } from '@/shared/contexts/SessionContext';
+import { useSessionContext, useMemberRoleContext } from '@/shared/contexts/SessionContext';
 import { useWorkspace } from '@/shared/hooks/useWorkspace';
 import { normalizePracticeRole } from '@/shared/utils/practiceRoles';
 import { GeneralPage } from './GeneralPage';
@@ -159,7 +159,8 @@ export const SettingsContent = (props: SettingsContentProps) => {
   const { t } = useTranslation(['settings']);
   const [appUpdates, setAppUpdates] = useState<Record<string, Partial<App>>>({});
 
-  const { isPending: sessionPending, activeMemberRole } = useSessionContext();
+  const { isPending: sessionPending } = useSessionContext();
+  const { activeMemberRole } = useMemberRoleContext();
   const { canAccessPractice } = useWorkspace();
 
   const settingsBasePath = `/${workspace}/${encodeURIComponent(practiceSlug)}/settings`;

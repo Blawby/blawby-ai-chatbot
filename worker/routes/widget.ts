@@ -99,9 +99,9 @@ export async function handleWidgetBootstrap(request: Request, env: Env): Promise
         cookieSessionData = await sessionRes.json().catch(() => null);
       } else if (sessionRes.status !== 401 && sessionRes.status !== 404) {
         const errorText = await sessionRes.text().catch(() => '');
-        Logger.warn('[Bootstrap] Optional session check failed', { 
+        Logger.warn('[Bootstrap] Optional session check failed', {
           status: sessionRes.status,
-          error: errorText 
+          error: errorText
         });
       }
     } finally {
@@ -128,7 +128,7 @@ export async function handleWidgetBootstrap(request: Request, env: Env): Promise
 
       // IDENTITY RECONCILIATION:
       // If we have both, they MUST match. If they don't (e.g. cookie cleared but token remains),
-      // we must trust the cookie/session state (which is the source of truth for the browser's 
+      // we must trust the cookie/session state (which is the source of truth for the browser's
       // current identity) and discard the stale token.
       if (cookieSessionData?.user?.id && tokenSessionData?.user?.id && cookieSessionData.user.id !== tokenSessionData.user.id) {
         Logger.info('[Bootstrap] Identity mismatch detected; discarding stale widget token', {
@@ -157,7 +157,7 @@ export async function handleWidgetBootstrap(request: Request, env: Env): Promise
       if (!anonHeaders.has('Content-Type')) {
         anonHeaders.set('Content-Type', 'application/json');
       }
-      
+
       const anonController = new AbortController();
       const anonTimer = setTimeout(() => anonController.abort(), 5000);
 
@@ -179,11 +179,12 @@ export async function handleWidgetBootstrap(request: Request, env: Env): Promise
             `[Bootstrap] Anonymous sign-in failed: ${anonRes.status}${errorText ? ` - ${errorText}` : ''}`
           );
         }
-        
-        const setCookieHeaders = anonRes.headers.getSetCookie 
-          ? anonRes.headers.getSetCookie() 
-          : (anonRes.headers.get('set-cookie') ? [anonRes.headers.get('set-cookie') as string] : []);
-        
+
+        if (!anonRes.headers.getSetCookie) {
+          throw new Error('[Bootstrap] Environment does not support getSetCookie(); cannot reliably extract Set-Cookie headers.');
+        }
+        const setCookieHeaders = anonRes.headers.getSetCookie();
+
         responseCookies = responseCookies.concat(setCookieHeaders);
         sessionData = await anonRes.json().catch(() => null);
 
@@ -272,7 +273,7 @@ export async function handleWidgetBootstrap(request: Request, env: Env): Promise
   if (practiceId && sessionUserId) {
     try {
       const conversationService = new ConversationService(env);
-      
+
       // Only fetch existing recent conversations; no more creation in bootstrap.
       // Filter for ('active', 'submitted') to avoid showing archived conversations in the widget.
       const userConversations = await conversationService.getConversations({
@@ -281,10 +282,10 @@ export async function handleWidgetBootstrap(request: Request, env: Env): Promise
         status: 'active',
         limit: 5
       });
-      
+
       const mostRecent = userConversations[0] || null;
       conversationId = mostRecent?.id ?? null;
-      
+
       recentConversations = userConversations.map(c => ({
         id: c.id,
         created_at: c.created_at,
@@ -306,7 +307,7 @@ export async function handleWidgetBootstrap(request: Request, env: Env): Promise
   try {
     const dataSource = pd.metadata ?? pd.settings ?? pd.practice_settings;
     let templates: unknown[] = [];
-    
+
     if (typeof dataSource === 'string') {
       const parsed = JSON.parse(dataSource) as unknown;
       if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {

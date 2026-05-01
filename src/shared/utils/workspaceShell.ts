@@ -1,6 +1,6 @@
 import type { WorkspaceSection } from '@/shared/config/navConfig';
 
-type WorkspaceView =
+export type WorkspaceView =
   | 'home'
   | 'setup'
   | 'list'
@@ -11,6 +11,8 @@ type WorkspaceView =
   | 'matters'
   | 'contacts'
   | 'invoices'
+  | 'invoiceCreate'
+  | 'invoiceEdit'
   | 'invoiceDetail'
   | 'reports'
   | 'settings';
@@ -45,7 +47,7 @@ const normalizeDecodedSegment = (value: string) => {
 
 export const getWorkspaceSection = (view: WorkspaceView): WorkspaceSection => {
   if (view === 'list' || view === 'conversation') return 'conversations';
-  if (view === 'invoiceDetail') return 'invoices';
+  if (view === 'invoiceCreate' || view === 'invoiceEdit' || view === 'invoiceDetail') return 'invoices';
   if (view === 'setup' || view === 'contacts') return 'home';
   if (view === 'intakeDetail') return 'intakes';
   return view as WorkspaceSection;

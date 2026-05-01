@@ -1,5 +1,5 @@
 import { useMemo, useCallback } from 'preact/hooks';
-import { useSessionContext } from '@/shared/contexts/SessionContext';
+import { useSessionContext, useMemberRoleContext } from '@/shared/contexts/SessionContext';
 import { usePracticeManagement, type Practice } from '@/shared/hooks/usePracticeManagement';
 import type { WorkspacePreference } from '@/shared/types/workspace';
 import { normalizePracticeRole, type PracticeRole } from '@/shared/utils/practiceRoles';
@@ -28,7 +28,8 @@ interface UseWorkspaceResolverOptions {
 
 export function useWorkspaceResolver(options: UseWorkspaceResolverOptions = {}): UseWorkspaceResolverResult {
   const { autoFetchPractices = true, fetchOnboardingStatus = false, practiceSlug = null } = options;
-  const { isPending, session, activeMemberRole, activeMemberRoleLoading } = useSessionContext();
+  const { isPending, session } = useSessionContext();
+  const { activeMemberRole, activeMemberRoleLoading } = useMemberRoleContext();
   const {
     practices,
     currentPractice,

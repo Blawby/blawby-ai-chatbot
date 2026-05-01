@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { getParticipants, invalidateParticipants, type ParticipantRecord } from '@/shared/lib/conversationRepository';
-import { useSessionContext } from '@/shared/contexts/SessionContext';
+import { useSessionContext, useMemberRoleContext } from '@/shared/contexts/SessionContext';
 import { isTeamRole } from '@/shared/types/team';
 
 export type MentionCandidate = {
@@ -39,7 +39,8 @@ const toMentionCandidates = (
 };
 
 export function useMentionCandidates(practiceId: string | null, conversationId: string | null) {
-  const { isAnonymous, activeMemberRole } = useSessionContext();
+  const { isAnonymous } = useSessionContext();
+  const { activeMemberRole } = useMemberRoleContext();
   const [mentionCandidates, setMentionCandidates] = useState<MentionCandidate[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

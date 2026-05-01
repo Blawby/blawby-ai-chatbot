@@ -19,10 +19,12 @@ import { splitName } from '@/shared/utils/name';
 import { usePracticeManagement, type Invitation } from '@/shared/hooks/usePracticeManagement';
 import { usePracticeInvitations } from '@/shared/hooks/usePracticeInvitations';
 import { useToastContext } from '@/shared/contexts/ToastContext';
-import { useSessionContext } from '@/shared/contexts/SessionContext';
+import { useSessionContext, useMemberRoleContext } from '@/shared/contexts/SessionContext';
 import { usePracticeTeam } from '@/shared/hooks/usePracticeTeam';
 import { SettingsHelperText } from '@/features/settings/components/SettingsHelperText';
 import {
+  apiClient,
+  isHttpError,
   listUserDetailMemos,
   createUserDetailMemo,
   updateUserDetailMemo,
@@ -47,7 +49,6 @@ import {
   PlusIcon,
   UserIcon,
 } from '@heroicons/react/24/outline';
-import { getWorkerApiUrl } from '@/config/urls';
 
 const STATUS_LABELS = CONTACT_RELATIONSHIP_STATUS_LABELS;
 
@@ -320,7 +321,8 @@ export const PracticeContactsPage = ({
   const { t } = useTranslation();
   const location = useLocation();
   const { currentPractice } = usePracticeManagement();
-  const { session, activeMemberRole } = useSessionContext();
+  const { session } = useSessionContext();
+  const { activeMemberRole } = useMemberRoleContext();
   const { showError, showSuccess } = useToastContext();
   const normalizedActiveRole = normalizePracticeRole(activeMemberRole);
   const isAdmin = normalizedActiveRole === 'owner' || normalizedActiveRole === 'admin';
@@ -752,32 +754,34 @@ export const PracticeContactsPage = ({
     if (sendMessagePending) return;
     setSendMessagePending(true);
     try {
-      const endpoint = new URL('/api/conversations', getWorkerApiUrl());
-      endpoint.searchParams.set('practiceId', activePracticeId);
-      const response = await fetch(endpoint.toString(), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          participantUserIds: [client.userId],
-          metadata: {
-            source: 'contact_detail',
-            personId: client.id,
-            directMessage: true,
-            threadMode: 'new'
+      let payload: { success?: boolean; data?: { id?: string }; error?: string };
+      try {
+        const result = await apiClient.post<{
+          success?: boolean;
+          data?: { id?: string };
+          error?: string;
+        }>(
+          '/api/conversations',
+          {
+            participantUserIds: [client.userId],
+            metadata: {
+              source: 'contact_detail',
+              personId: client.id,
+              directMessage: true,
+              threadMode: 'new',
+            },
+            practiceId: activePracticeId,
           },
-          practiceId: activePracticeId,
-        }),
-      });
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({})) as { error?: string };
-        throw new Error(errorData.error || `HTTP ${response.status}`);
+          { params: { practiceId: activePracticeId } },
+        );
+        payload = result.data;
+      } catch (apiError) {
+        if (isHttpError(apiError)) {
+          const errorData = apiError.response.data as { error?: string } | undefined;
+          throw new Error(errorData?.error || `HTTP ${apiError.response.status}`);
+        }
+        throw apiError;
       }
-      const payload = await response.json() as {
-        success?: boolean;
-        data?: { id?: string };
-        error?: string;
-      };
       const conversationId = payload.data?.id;
       if (!payload.success || !conversationId) {
         throw new Error(payload.error || 'Failed to create conversation');

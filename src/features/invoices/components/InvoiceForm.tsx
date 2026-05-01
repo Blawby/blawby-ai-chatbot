@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'preact/hooks';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { forwardRef, useImperativeHandle } from 'preact/compat';
 import { Button } from '@/shared/ui/Button';
 import { Combobox, Input, Textarea } from '@/shared/ui/input';
@@ -226,7 +226,8 @@ export const InvoiceForm = forwardRef<InvoiceFormHandle, InvoiceFormProps>(({
   }, [dueDateMode, markDirty]);
 
   const total = useMemo(() => lineItems.reduce((acc, item) => safeAdd(acc, item.line_total), asMajor(0)), [lineItems]);
-  const previewIssueDate = useMemo(() => new Date(), []);
+  const previewIssueDateRef = useRef(new Date());
+  const previewIssueDate = previewIssueDateRef.current;
 
   // Preview toggle and last-saved timestamp
   const [showPreview, setShowPreview] = useState(true);
@@ -460,7 +461,7 @@ export const InvoiceForm = forwardRef<InvoiceFormHandle, InvoiceFormProps>(({
                               returnLabel: 'Back to invoice',
                             });
                             const baseMatch = (location.url || '').match(/^\/practice\/[^/]+/);
-                            const contactsBase = baseMatch ? `${baseMatch[0]}/contacts` : '/practice/contacts';
+                            const contactsBase = baseMatch ? `${baseMatch[0]}/contacts` : `/practice/${practiceId}/contacts`;
                             navigate(`${contactsBase}/new?draft=${encodeURIComponent(draftId)}`);
                           } catch (err) {
                             showError('Could not create draft', err instanceof Error ? err.message : 'Failed to prepare draft');

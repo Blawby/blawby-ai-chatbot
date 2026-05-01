@@ -120,7 +120,7 @@ const DevDebugMatterRoute = () => {
 
 
 // PWA Cache Trap Breaker (Development Only)
-// Since we disabled the PWA in dev, old workers from previous sessions aggressively intercept 
+// Since we disabled the PWA in dev, old workers from previous sessions aggressively intercept
 // navigation requests (like /widget-test.html) and serve the SPA shell, trapping the user.
 if (import.meta.env.DEV && typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
   navigator.serviceWorker.getRegistrations().then((registrations) => {
@@ -149,7 +149,7 @@ function PayRedirect() {
     if (!returnTo.startsWith('/') || returnTo.startsWith('//') || returnTo.includes(':')) {
       returnTo = '/';
     }
-    
+
     const params = new URLSearchParams(window.location.search);
     params.delete('return_to');
     const search = params.toString();
@@ -190,7 +190,7 @@ function AppShell() {
   const { defaultWorkspace, currentPractice, practices } = useWorkspaceResolver({
     autoFetchPractices: shouldFetchWorkspacePractices
   });
-  
+
   const authenticatedHomePath = useMemo(() => {
     const fallbackSlug = currentPractice?.slug ?? practices[0]?.slug ?? null;
     return resolveAuthenticatedHomePath({
@@ -563,12 +563,12 @@ function PracticeAppRoute({
   conversationId?: string;
   invoiceId?: string;
   appId?: string;
-  workspaceView?: 'home' | 'setup' | 'list' | 'conversation' | 'intakes' | 'intakeDetail' | 'engagements' | 'matters' | 'contacts' | 'invoices' | 'invoiceDetail' | 'reports' | 'settings';
+  workspaceView?: 'home' | 'setup' | 'list' | 'conversation' | 'intakes' | 'intakeDetail' | 'engagements' | 'matters' | 'contacts' | 'invoices' | 'invoiceCreate' | 'invoiceEdit' | 'invoiceDetail' | 'reports' | 'settings';
   settingsView?: 'general' | 'notifications' | 'account' | 'practice' | 'practice-payouts' | 'practice-team' | 'apps' | 'app-detail' | 'security' | 'help';
   practiceSlug?: string;
 }) {
   const location = useLocation();
-  const { session, isPending, activeMemberRole: _activeMemberRole } = useSessionContext();
+  const { session, isPending } = useSessionContext();
   const normalizedPracticeSlug = (practiceSlug ?? '').trim();
   const hasPracticeSlug = normalizedPracticeSlug.length > 0;
   const {
@@ -640,7 +640,7 @@ function PracticeAppRoute({
   // don't hang on stale loading flags from other hook instances.
   // Note: We MUST wait for rolePending, otherwise canAccessPractice will be false!
   const stillLoading = isPending || (practicesLoading && !currentPractice) || rolePending;
-  
+
   if (stillLoading) {
     return <LoadingScreen />;
   }

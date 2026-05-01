@@ -491,19 +491,22 @@ const MatterFormInner = ({
                         type="button"
                         className="text-sm text-accent-foreground underline"
                         onClick={() => {
-                          try {
-                            if (typeof window !== 'undefined') {
-                              const draftId = crypto.randomUUID();
-                              const key = `matterDraft:${draftId}`;
-                              const payload = { formState, returnPath: location.url };
-                              window.sessionStorage.setItem(key, JSON.stringify(payload));
-                              const baseMatch = (location.url || '').match(/^\/practice\/[^/]+/);
-                              const contactsBase = baseMatch ? `${baseMatch[0]}/contacts` : '/practice/contacts';
-                              navigate(`${contactsBase}/new?draft=${encodeURIComponent(draftId)}&returnTo=${encodeURIComponent(location.url)}`);
-                            }
-                          } catch (_err) {
-                            // ignore storage/navigation errors
-                          }
+                              try {
+                                if (typeof window !== 'undefined') {
+                                  const draftId = crypto.randomUUID();
+                                  const key = `matterDraft:${draftId}`;
+                                  // Reconstruct current URL from path and query
+                                  const currentUrl = location.query && Object.keys(location.query).length > 0
+                                    ? `${location.path}?${new URLSearchParams(location.query as Record<string, string>).toString()}`
+                                    : location.path;
+                                  const payload = { formState, returnPath: currentUrl };
+                                  window.sessionStorage.setItem(key, JSON.stringify(payload));
+                                  const contactsBase = `/practice/${practiceId}/contacts`;
+                                  navigate(`${contactsBase}/new?draft=${encodeURIComponent(draftId)}&returnTo=${encodeURIComponent(currentUrl)}`);
+                                }
+                              } catch (_err) {
+                                // ignore storage/navigation errors
+                              }
                         }}
                       >
                         Create a contact

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'preact/hooks';
 import { asMajor, getMajorAmountValue, safeAdd, type MajorAmount } from '@/shared/utils/money';
 import { listMatters, type BackendMatter } from '@/features/matters/services/mattersApi';
-import { getUnbilledSummary, listInvoices } from '@/features/matters/services/invoicesApi';
+import { getPracticeBillingSummary, listInvoices } from '@/features/matters/services/invoicesApi';
 import type { Invoice } from '@/features/matters/types/billing.types';
 
 export type BillingActionReason = 'unbilled' | 'overdue' | 'retainer';
@@ -291,42 +291,19 @@ export const usePracticeBillingData = ({
         return map;
       }, new Map());
 
-      // Run unbilled summary requests in small batches to avoid large
-      // concurrent request bursts which increase the chance of AbortErrors
-      // when parent effects clean up. This reduces network churn and
-      // improves stability on slow/latency-sensitive networks.
-      const batchSize = 4;
-      const unbilledSnapshots: PromiseSettledResult<MajorAmount | null>[] = [];
-      for (let i = 0; i < matterSubset.length; i += batchSize) {
-        const batch = matterSubset.slice(i, i + batchSize);
-        const batchPromises = batch.map(async (matter) => {
-          try {
-            const summary = await getUnbilledSummary(practiceId, matter.id, { signal });
-            return summary.totalUnbilled ?? null;
-          } catch (err) {
-            if ((err as DOMException)?.name === 'AbortError' || (err as { name?: string })?.name === 'CanceledError') {
-              return null;
-            }
-            console.warn('[usePracticeBillingData] Failed to load unbilled summary', err);
-            return null;
-          }
-        });
-
-        // Wait for this batch to settle before launching the next batch.
-        // If the parent signal has been aborted, stop processing further.
-        // This keeps ordering consistent with matterSubset indices.
-        const settled = await Promise.allSettled(batchPromises);
-        unbilledSnapshots.push(...settled);
-        if (signal?.aborted) break;
-      }
+      const unbilledResults = await getPracticeBillingSummary(
+        practiceId,
+        matterSubset.map((m) => m.id),
+        { signal }
+      );
       if (signal?.aborted) return;
 
-      const snapshots: MatterBillingSnapshot[] = matterSubset.map((matter, index) => {
+      const unbilledMap = new Map(unbilledResults.map((r) => [r.matterId, r.totalUnbilled]));
+
+      const snapshots: MatterBillingSnapshot[] = matterSubset.map((matter) => {
         const invoicesForMatter = invoiceMap.get(matter.id) ?? [];
         const overdueInvoices = invoicesForMatter.filter((invoice) => invoice.status === 'overdue');
-        const unbilledTotal = unbilledSnapshots[index].status === 'fulfilled'
-          ? unbilledSnapshots[index].value
-          : null;
+        const unbilledTotal = unbilledMap.get(matter.id) ?? null;
         return {
           matter,
           unbilledTotal,
@@ -489,6 +466,9 @@ export const usePracticeBillingData = ({
       setRecentClients([]);
     } finally {
       if (!signal?.aborted) {
+        if (typeof performance !== 'undefined') {
+          performance.mark('app:dashboard-ready');
+        }
         setLoading(false);
       }
     }
