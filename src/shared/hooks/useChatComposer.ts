@@ -366,6 +366,7 @@ export const useChatComposer = ({
     const reader = aiResponse.body.getReader();
     const decoder = new TextDecoder();
     let sseBuffer = '';
+    let finalDoneReply: string | null = null;
 
     const processEvent = async (eventData: string) => {
       let parsed: Record<string, unknown>;
@@ -376,11 +377,12 @@ export const useChatComposer = ({
         return;
       }
       if (parsed.done === true) {
-        const finalReply = typeof parsed.reply === 'string' ? parsed.reply : null;
-        if (finalReply !== null) {
+        const doneReply = typeof parsed.reply === 'string' ? parsed.reply : null;
+        finalDoneReply = doneReply;
+        if (doneReply !== null) {
           setMessages(prev => prev.map(msg =>
             msg.id === bubbleId
-              ? { ...msg, content: finalReply, isLoading: false }
+              ? { ...msg, content: doneReply, isLoading: false }
               : msg
           ));
         }
@@ -414,10 +416,12 @@ export const useChatComposer = ({
           let wasEmpty = false;
           setMessages(prev => {
             const currentBubble = prev.find((message) => message.id === bubbleId);
-            if (currentBubble?.content?.trim()) {
+            const bubbleContent = finalDoneReply ?? currentBubble?.content ?? '';
+            if (bubbleContent.trim()) {
               return prev.map(msg =>
                 msg.id === bubbleId ? {
                   ...msg,
+                  content: finalDoneReply ?? msg.content,
                   isLoading: false,
                   metadata: { ...(msg.metadata ?? {}), actions: doneActions }
                 } : msg
@@ -452,8 +456,9 @@ export const useChatComposer = ({
         let removedEmptyBubble = false;
         setMessages(prev => {
           const currentBubble = prev.find((message) => message.id === bubbleId);
+          const bubbleContent = finalDoneReply ?? currentBubble?.content ?? '';
 
-          if (currentBubble?.content?.trim()) {
+          if (bubbleContent.trim()) {
             return prev;
           }
           removedEmptyBubble = prev.some((message) => message.id === bubbleId);
@@ -545,8 +550,9 @@ export const useChatComposer = ({
     
     const currentMessages = messagesRef.current;
     const currentBubble = currentMessages.find(m => m.id === bubbleIdToHandle);
-    const normalizedBubble = typeof currentBubble?.content === 'string' && currentBubble.content.trim().length > 0
-      ? normalizeMessage(currentBubble.content)
+    const bubbleContentForReconciliation = finalDoneReply ?? currentBubble?.content ?? null;
+    const normalizedBubble = typeof bubbleContentForReconciliation === 'string' && bubbleContentForReconciliation.trim().length > 0
+      ? normalizeMessage(bubbleContentForReconciliation)
       : null;
     const hasMatchingPersistedAssistant = currentMessages.some(message => {
         if (message.id === bubbleIdToHandle) return false;
@@ -587,10 +593,12 @@ export const useChatComposer = ({
 
       setMessages(prev => {
         const bubble = prev.find(m => m.id === bubbleIdToHandle);
-        if (!bubble || !bubble.content.trim()) return prev;
+        const bubbleContent = finalDoneReply ?? bubble?.content ?? '';
+        if (!bubble || !bubbleContent.trim()) return prev;
         
         orphanedBubble = {
           ...bubble,
+          content: bubbleContent,
           metadata: { ...bubble.metadata, isOrphan: true, orphanExpiryTime: Date.now() + orphanExpiryMs },
         };
         return prev.map(m => m.id === bubbleIdToHandle ? orphanedBubble : m);
