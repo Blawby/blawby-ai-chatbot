@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'preact/hooks';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/shared/utils/cn';
 import { LoadingSpinner } from './LoadingSpinner';
@@ -8,6 +9,14 @@ export interface LoadingBlockProps {
   showSpinner?: boolean;
   size?: 'sm' | 'md' | 'lg';
   className?: string;
+  /**
+   * Minimum delay in ms before rendering the spinner. Renders nothing
+   * until that many ms have passed since mount, so loads that finish
+   * inside the window never flash a spinner. Default 0 (render immediately
+   * — opt in per call site for fast-network polish). Recommend 200 for
+   * route subviews and ~150 for inline panels.
+   */
+  minDurationMs?: number;
 }
 
 export const LoadingBlock = ({
@@ -15,10 +24,20 @@ export const LoadingBlock = ({
   showLabel = false,
   showSpinner = true,
   size = 'md',
-  className
+  className,
+  minDurationMs = 0,
 }: LoadingBlockProps) => {
   const { t } = useTranslation('common');
   const resolvedLabel = label ?? t('app.loading');
+  const [visible, setVisible] = useState(minDurationMs <= 0);
+
+  useEffect(() => {
+    if (minDurationMs <= 0) return;
+    const id = setTimeout(() => setVisible(true), minDurationMs);
+    return () => clearTimeout(id);
+  }, [minDurationMs]);
+
+  if (!visible) return null;
 
   return (
     <div

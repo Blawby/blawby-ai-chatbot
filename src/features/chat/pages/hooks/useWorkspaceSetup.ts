@@ -39,7 +39,7 @@ type UseWorkspaceSetupInput = {
   refreshConversations: () => void;
   workspaceSection: string;
   session: { user?: { id?: string; email?: string } | null } | null;
-  mattersData: { isLoaded: boolean; items: unknown[] };
+  mattersData: { isLoading: boolean; items: unknown[] };
   showError: (title: string, message?: string) => void;
   showSuccess: (title: string, message?: string) => void;
 };
@@ -196,7 +196,7 @@ export const useWorkspaceSetup = ({
     enabled: isPracticeWorkspace && view === 'home',
     matterLimit: 25,
     windowSize: dashboardWindow,
-    matters: mattersData.isLoaded ? (mattersData.items as Parameters<typeof usePracticeBillingData>[0]['matters']) : undefined,
+    matters: !mattersData.isLoading ? (mattersData.items as Parameters<typeof usePracticeBillingData>[0]['matters']) : undefined,
   });
 
   useEffect(() => {

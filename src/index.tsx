@@ -32,6 +32,7 @@ import {
   getWorkspaceHomePath,
 } from '@/shared/utils/workspace';
 import { AppGuard } from '@/app/AppGuard';
+import { AuthBootGate } from '@/app/AuthBootGate';
 import { App404 } from '@/features/practice/components/404';
 // `normalizePracticeRole` is not needed in this module; remove import.
 import { LoadingScreen } from '@/shared/ui/layout/LoadingScreen';
@@ -168,9 +169,11 @@ export function App() {
   return (
     <LocationProvider>
       <SessionProvider>
-        <AppGuard>
-          <AppShell />
-        </AppGuard>
+        <AuthBootGate>
+          <AppGuard>
+            <AppShell />
+          </AppGuard>
+        </AuthBootGate>
       </SessionProvider>
     </LocationProvider>
   );

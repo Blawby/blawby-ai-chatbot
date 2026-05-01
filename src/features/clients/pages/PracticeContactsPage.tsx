@@ -388,10 +388,12 @@ export const PracticeContactsPage = ({
   } = usePracticeInvitations(activePracticeId);
   const {
     members: teamMembersData,
-    isLoaded: teamMembersLoaded,
     isLoading: isFetchingMembers,
     error: teamMembersError,
   } = usePracticeTeam(activePracticeId, session?.user?.id ?? null, { enabled: Boolean(activePracticeId) });
+  // First load done implied by `!isFetchingMembers` (isLoading is permanently
+  // false after the first response).
+  const teamMembersLoaded = !isFetchingMembers;
 
   const memoTimeline = useMemo(
     () => (activePracticeId ? (memoTimelineByPractice[activePracticeId] ?? {}) : {}),

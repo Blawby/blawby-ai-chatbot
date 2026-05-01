@@ -1,5 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
+import { useCallback, useState } from 'preact/hooks';
 import { uploadFileViaBackend } from '@/shared/lib/uploadsApi';
+import { useQuery } from '@/shared/hooks/useQuery';
+import { queryCache } from '@/shared/lib/queryCache';
+import { policyTtl } from '@/shared/lib/cachePolicy';
 import {
   listMatterFiles,
   linkUploadToMatter,
@@ -19,38 +22,22 @@ const makeUploadId = (): string => (
 );
 
 export const useMatterFiles = (practiceId: string | null, matterId: string | null) => {
-  const [files, setFiles] = useState<MatterFile[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const cacheKey = `matter:files:${practiceId ?? ''}:${matterId ?? ''}`;
+  const {
+    data,
+    isLoading,
+    error,
+    refetch,
+  } = useQuery<MatterFile[]>({
+    key: cacheKey,
+    fetcher: (signal) => listMatterFiles(practiceId!, matterId!, { signal }),
+    ttl: policyTtl(cacheKey),
+    enabled: Boolean(practiceId && matterId),
+  });
+  const files = data ?? [];
+
   const [uploadingFiles, setUploadingFiles] = useState<UploadingMatterFile[]>([]);
-  const abortRef = useRef<AbortController | null>(null);
-
-  const refetch = useCallback(async () => {
-    abortRef.current?.abort();
-    if (!practiceId || !matterId) {
-      setFiles([]);
-      setError(null);
-      setIsLoading(false);
-      return;
-    }
-
-    const controller = new AbortController();
-    abortRef.current = controller;
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const result = await listMatterFiles(practiceId, matterId, { signal: controller.signal });
-      setFiles(result);
-    } catch (err) {
-      if (controller.signal.aborted) return;
-      setError(err instanceof Error ? err.message : 'Failed to load files.');
-    } finally {
-      if (!controller.signal.aborted) {
-        setIsLoading(false);
-      }
-    }
-  }, [matterId, practiceId]);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   const uploadMatterFile = useCallback(async (file: File): Promise<MatterFile> => {
     if (!practiceId || !matterId) {
@@ -58,7 +45,7 @@ export const useMatterFiles = (practiceId: string | null, matterId: string | nul
     }
 
     const uploadStateId = makeUploadId();
-    setError(null);
+    setUploadError(null);
     setUploadingFiles((prev) => [...prev, { id: uploadStateId, file, progress: 0 }]);
 
     try {
@@ -76,28 +63,27 @@ export const useMatterFiles = (practiceId: string | null, matterId: string | nul
       });
 
       const linked = await linkUploadToMatter(practiceId, matterId, uploaded.uploadId);
-      setFiles((prev) => [linked, ...prev.filter((item) => item.id !== linked.id)]);
+      // Optimistic update of the cached list — prepend the new file so the UI
+      // reflects the upload without waiting for a refetch round-trip. Read
+      // the current cache directly (rather than the captured `files`) so this
+      // callback isn't invalidated on every list update.
+      const current = queryCache.get<MatterFile[]>(cacheKey) ?? [];
+      const next = [linked, ...current.filter((item) => item.id !== linked.id)];
+      queryCache.set(cacheKey, next, policyTtl(cacheKey));
       return linked;
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to upload file.';
-      setError(message);
+      setUploadError(message);
       throw err;
     } finally {
       setUploadingFiles((prev) => prev.filter((entry) => entry.id !== uploadStateId));
     }
-  }, [matterId, practiceId]);
-
-  useEffect(() => {
-    void refetch();
-    return () => {
-      abortRef.current?.abort();
-    };
-  }, [refetch]);
+  }, [cacheKey, matterId, practiceId]);
 
   return {
     files,
     isLoading,
-    error,
+    error: error ?? uploadError,
     uploadingFiles,
     isUploading: uploadingFiles.length > 0,
     uploadMatterFile,

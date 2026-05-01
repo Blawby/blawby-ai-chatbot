@@ -183,7 +183,14 @@ export const usePracticeBillingData = ({
   const [summaryStats, setSummaryStats] = useState<DashboardStat[]>([]);
   const [recentActivity, setRecentActivity] = useState<ActivityDay[]>([]);
   const [recentClients, setRecentClients] = useState<RecentClient[]>([]);
-  const [loading, setLoading] = useState(false);
+  // Start loading=true whenever this hook is enabled — first render must
+  // show skeletons, not the empty state. Note: gating only on `enabled`
+  // (not also `practiceId`) is intentional. `practiceId` arrives async via
+  // usePracticeManagement, so checking it here would briefly show empty
+  // state before practiceId resolves. We stay loading until either the
+  // fetch completes (setLoading(false) in finally) or the hook is
+  // explicitly disabled.
+  const [loading, setLoading] = useState(Boolean(enabled));
   const [error, setError] = useState<string | null>(null);
 
   const buildActions = useCallback((snapshots: MatterBillingSnapshot[]): BillingAction[] => {
@@ -246,13 +253,19 @@ export const usePracticeBillingData = ({
   }, []);
 
   const fetchData = useCallback(async (signal?: AbortSignal) => {
-    if (!practiceId || !enabled) {
+    if (!enabled) {
       setBillingActions([]);
       setOutstandingSummary(null);
       setSummaryStats([]);
       setRecentActivity([]);
       setRecentClients([]);
       setLoading(false);
+      return;
+    }
+    if (!practiceId) {
+      // Enabled but waiting on practiceId — keep loading=true so the
+      // skeleton continues to render. This effect will re-run via the
+      // useEffect dependency when practiceId arrives.
       return;
     }
     setLoading(true);

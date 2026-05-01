@@ -17,7 +17,8 @@ import { Icon } from '@/shared/ui/Icon';
 import { Button } from '@/shared/ui/Button';
 import { UserCard } from '@/shared/ui/profile';
 import { EditorShell, DetailHeader } from '@/shared/ui/layout';
-import { LoadingBlock } from '@/shared/ui/layout/LoadingBlock';
+import { MessageRowSkeleton } from '@/shared/ui/layout';
+import { EngagementDetailSkeleton } from '@/features/engagements/components/EngagementDetailSkeleton';
 import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
 import { Dialog, DialogBody, DialogFooter } from '@/shared/ui/dialog';
 import { Textarea } from '@/shared/ui/input';
@@ -29,11 +30,11 @@ import { formatLongDate } from '@/shared/utils/dateFormatter';
 import VirtualMessageList from '@/features/chat/components/VirtualMessageList';
 import type { ChatMessageUI } from '../../../../worker/types';
 import {
-  getEngagement,
   sendEngagementToClient,
   withdrawEngagement,
 } from '../api/engagementsApi';
 import type { EngagementDetail, ProposalData, ConflictStatus } from '../types/engagement';
+import { useEngagementDetail } from '../hooks/useEngagementDetail';
 
 // ── Status display utilities ──────────────────────────────────────────────────
 
@@ -307,9 +308,13 @@ export const EngagementDetailPage: FunctionComponent<EngagementDetailPageProps> 
   const { showSuccess, showError } = useToastContext();
   const { session } = useSessionContext();
 
-  const [engagement, setEngagement] = useState<EngagementDetail | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const {
+    data: engagementData,
+    isLoading,
+    error: loadError,
+    setData: setEngagementCache,
+  } = useEngagementDetail(practiceId, engagementId);
+  const engagement: EngagementDetail | null = engagementData ?? null;
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [dialogAction, setDialogAction] = useState<DialogAction>(null);
   const [dialogNote, setDialogNote] = useState('');
@@ -323,31 +328,6 @@ export const EngagementDetailPage: FunctionComponent<EngagementDetailPageProps> 
     isMountedRef.current = true;
     return () => { isMountedRef.current = false; };
   }, []);
-
-  // Load engagement detail
-  useEffect(() => {
-    if (!practiceId || !engagementId) return;
-    const controller = new AbortController();
-    setIsLoading(true);
-    setLoadError(null);
-
-    getEngagement(practiceId, engagementId, { signal: controller.signal })
-      .then((data) => {
-        if (!isMountedRef.current || controller.signal.aborted) return;
-        setEngagement(data);
-        setLocalStatus(data.status ?? null);
-      })
-      .catch((err: unknown) => {
-        if (!isMountedRef.current || controller.signal.aborted) return;
-        if (err instanceof Error && err.name === 'AbortError') return;
-        setLoadError(err instanceof Error ? err.message : 'Failed to load engagement');
-      })
-      .finally(() => {
-        if (isMountedRef.current && !controller.signal.aborted) setIsLoading(false);
-      });
-
-    return () => controller.abort();
-  }, [practiceId, engagementId]);
 
   // Load conversation preview
   useEffect(() => {
@@ -407,7 +387,7 @@ export const EngagementDetailPage: FunctionComponent<EngagementDetailPageProps> 
     try {
       const updated = await sendEngagementToClient(engagement.id, dialogNote);
       if (isMountedRef.current) {
-        setEngagement(updated);
+        setEngagementCache(updated);
         setLocalStatus(updated.status);
         setDialogAction(null);
         setDialogNote('');
@@ -421,7 +401,7 @@ export const EngagementDetailPage: FunctionComponent<EngagementDetailPageProps> 
     } finally {
       if (isMountedRef.current) setIsSubmitting(false);
     }
-  }, [engagement, isSubmitting, onActionComplete, showError, showSuccess, dialogNote]);
+  }, [engagement, isSubmitting, onActionComplete, showError, showSuccess, dialogNote, setEngagementCache]);
 
   const runWithdraw = useCallback(async () => {
     if (isSubmitting || !engagement) return;
@@ -429,7 +409,7 @@ export const EngagementDetailPage: FunctionComponent<EngagementDetailPageProps> 
     try {
       const updated = await withdrawEngagement(engagement.id);
       if (isMountedRef.current) {
-        setEngagement(updated);
+        setEngagementCache(updated);
         setLocalStatus(updated.status);
         setDialogAction(null);
         setDialogNote('');
@@ -443,7 +423,7 @@ export const EngagementDetailPage: FunctionComponent<EngagementDetailPageProps> 
     } finally {
       if (isMountedRef.current) setIsSubmitting(false);
     }
-  }, [engagement, isSubmitting, onActionComplete, showError, showSuccess]);
+  }, [engagement, isSubmitting, onActionComplete, showError, showSuccess, setEngagementCache]);
 
   const handleDialogConfirm = useCallback(async () => {
     if (dialogAction === 'send') await runSendToClient();
@@ -454,9 +434,7 @@ export const EngagementDetailPage: FunctionComponent<EngagementDetailPageProps> 
     return (
       <div className="flex h-full flex-col min-h-0">
         <DetailHeader title="Engagement" showBack onBack={onBack} />
-        <div className="flex-1 min-h-0 p-6">
-          <LoadingBlock className="rounded-2xl h-64" />
-        </div>
+        <EngagementDetailSkeleton />
       </div>
     );
   }
@@ -592,7 +570,11 @@ export const EngagementDetailPage: FunctionComponent<EngagementDetailPageProps> 
               <div className="flex-1 min-h-0 overflow-hidden bg-surface-overlay/20 touch-pan-y">
                 {previewLoading && previewMessages.length === 0 ? (
                   <div className="h-full flex items-center justify-center p-6">
-                    <LoadingBlock label="Loading conversation..." />
+                    <div className="w-full space-y-3 px-4 py-4">
+                      <MessageRowSkeleton lineWidths={['w-40', 'w-56']} />
+                      <MessageRowSkeleton lineWidths={['w-64', 'w-44', 'w-52']} />
+                      <MessageRowSkeleton lineWidths={['w-36', 'w-48']} />
+                    </div>
                   </div>
                 ) : previewError ? (
                   <div className="h-full flex items-center justify-center p-6 text-center">

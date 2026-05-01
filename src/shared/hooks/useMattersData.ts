@@ -44,7 +44,6 @@ export const useMattersData = (
   return useMemo(
     () => ({
       items: data ?? [],
-      isLoaded: data !== undefined,
       isLoading,
       error,
       refetch,

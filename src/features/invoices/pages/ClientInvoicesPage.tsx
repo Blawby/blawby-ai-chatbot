@@ -141,6 +141,7 @@ export function ClientInvoicesPage({
           isLoading={isLoading}
           isLoadingMore={isLoadingMore}
           error={error}
+          minMountSkeletonMs={250}
           emptyState={<InvoicesEmptyState hasFilters={hasFilters} />}
           onLoadMore={hasMore ? loadMore : undefined}
           renderItem={(invoice) => (

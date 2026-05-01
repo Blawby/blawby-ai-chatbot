@@ -11,6 +11,49 @@ import {
 import { SettingsNavIcon } from '@/shared/ui/nav/SettingsNavIcon';
 import { CONTACTS_DIRECTORY_LABEL } from '@/shared/domain/contacts';
 import type { PracticeRole } from '@/shared/utils/practiceRoles';
+import { getPreferencesCategory } from '@/shared/lib/preferencesApi';
+
+/**
+ * Prefetch helpers for nav items. Fired on hover/focus so the route's code
+ * chunk and seed data are already in cache by the time the user clicks.
+ * Both `import()` and `queryCache.coalesceGet` (used by the preferences API)
+ * are idempotent — calling these repeatedly is safe.
+ */
+const prefetchLazyChunk = (loader: () => Promise<unknown>) => () => {
+  // Swallow errors silently — a failed prefetch doesn't break the click.
+  // The lazy boundary will retry on actual navigation and surface the
+  // error there.
+  loader().catch(() => { /* ignore */ });
+};
+
+const prefetchSettingsLanding = () => {
+  void getPreferencesCategory('general');
+};
+
+const prefetchMattersChunk = prefetchLazyChunk(
+  () => import('@/features/matters/pages/PracticeMattersPage')
+);
+const prefetchClientMattersChunk = prefetchLazyChunk(
+  () => import('@/features/matters/pages/ClientMattersPage')
+);
+const prefetchIntakesChunk = prefetchLazyChunk(
+  () => import('@/features/intake/pages/IntakesPage')
+);
+const prefetchEngagementsChunk = prefetchLazyChunk(
+  () => import('@/features/engagements/pages/EngagementsPage')
+);
+const prefetchPracticeInvoicesChunk = prefetchLazyChunk(
+  () => import('@/features/invoices/pages/PracticeInvoicesPage')
+);
+const prefetchClientInvoicesChunk = prefetchLazyChunk(
+  () => import('@/features/invoices/pages/ClientInvoicesPage')
+);
+const prefetchReportsChunk = prefetchLazyChunk(
+  () => import('@/features/reports/pages/PracticeReportsPage')
+);
+const prefetchPracticeContactsChunk = prefetchLazyChunk(
+  () => import('@/features/clients/pages/PracticeContactsPage')
+);
 
 export type NavCtx = {
   practiceSlug: string;
@@ -32,6 +75,9 @@ export type NavRailItem = {
   variant?: 'default' | 'danger';
   isAction?: boolean;
   onClick?: () => void;
+  /** Fired on hover/focus — preload code chunk + seed data so the click
+   *  feels instant. Idempotent. */
+  prefetch?: () => void;
 };
 
 export type SecondaryNavItem = {
@@ -42,6 +88,8 @@ export type SecondaryNavItem = {
   children?: SecondaryNavItem[];
   variant?: 'default' | 'danger';
   isAction?: boolean;
+  /** Fired on hover/focus — preload data for this sub-page. Idempotent. */
+  prefetch?: () => void;
 };
 
 export type NavSection = {
@@ -110,6 +158,7 @@ const buildPracticeRail = (basePath: string): NavRailItem[] => [
     icon: HomeIcon,
     href: basePath,
     matchHrefs: [basePath, `${basePath}/setup`, `${basePath}/contacts`, `${basePath}/contacts/pending`, `${basePath}/contacts/clients`, `${basePath}/contacts/team`, `${basePath}/contacts/archived`],
+    prefetch: prefetchPracticeContactsChunk,
   },
   {
     id: 'conversations',
@@ -124,6 +173,7 @@ const buildPracticeRail = (basePath: string): NavRailItem[] => [
     icon: InboxStackIcon,
     href: `${basePath}/intakes`,
     matchHrefs: [`${basePath}/intakes`],
+    prefetch: prefetchIntakesChunk,
   },
   {
     id: 'engagements',
@@ -131,6 +181,7 @@ const buildPracticeRail = (basePath: string): NavRailItem[] => [
     icon: BriefcaseIcon,
     href: `${basePath}/engagements`,
     matchHrefs: [`${basePath}/engagements`],
+    prefetch: prefetchEngagementsChunk,
   },
   {
     id: 'matters',
@@ -138,6 +189,7 @@ const buildPracticeRail = (basePath: string): NavRailItem[] => [
     icon: ClipboardDocumentListIcon,
     href: `${basePath}/matters`,
     matchHrefs: [`${basePath}/matters`],
+    prefetch: prefetchMattersChunk,
   },
   {
     id: 'invoices',
@@ -145,6 +197,7 @@ const buildPracticeRail = (basePath: string): NavRailItem[] => [
     icon: DocumentTextIcon,
     href: `${basePath}/invoices`,
     matchHrefs: [`${basePath}/invoices`],
+    prefetch: prefetchPracticeInvoicesChunk,
   },
   {
     id: 'reports',
@@ -152,6 +205,7 @@ const buildPracticeRail = (basePath: string): NavRailItem[] => [
     icon: ChartBarIcon,
     href: `${basePath}/reports`,
     matchHrefs: [`${basePath}/reports`],
+    prefetch: prefetchReportsChunk,
   },
   {
     id: 'settings',
@@ -159,6 +213,7 @@ const buildPracticeRail = (basePath: string): NavRailItem[] => [
     icon: SettingsNavIcon,
     href: `${basePath}/settings/general`,
     matchHrefs: [`${basePath}/settings`],
+    prefetch: prefetchSettingsLanding,
   },
 ];
 
@@ -177,6 +232,7 @@ const buildClientRail = (basePath: string): NavRailItem[] => [
     icon: ClipboardDocumentListIcon,
     href: `${basePath}/matters`,
     matchHrefs: [`${basePath}/matters`],
+    prefetch: prefetchClientMattersChunk,
   },
   {
     id: 'invoices',
@@ -184,6 +240,7 @@ const buildClientRail = (basePath: string): NavRailItem[] => [
     icon: DocumentTextIcon,
     href: `${basePath}/invoices`,
     matchHrefs: [`${basePath}/invoices`],
+    prefetch: prefetchClientInvoicesChunk,
   },
   {
     id: 'settings',
@@ -191,6 +248,7 @@ const buildClientRail = (basePath: string): NavRailItem[] => [
     icon: SettingsNavIcon,
     href: `${basePath}/settings/general`,
     matchHrefs: [`${basePath}/settings`],
+    prefetch: prefetchSettingsLanding,
   },
 ];
 
@@ -304,8 +362,18 @@ const buildSettingsSecondary = (basePath: string, canAccessPractice: boolean): N
     {
       label: 'Account',
       items: [
-        { id: 'general', label: 'General', href: `${basePath}/settings/general` },
-        { id: 'notifications', label: 'Notifications', href: `${basePath}/settings/notifications` },
+        {
+          id: 'general',
+          label: 'General',
+          href: `${basePath}/settings/general`,
+          prefetch: () => { void getPreferencesCategory('general'); },
+        },
+        {
+          id: 'notifications',
+          label: 'Notifications',
+          href: `${basePath}/settings/notifications`,
+          prefetch: () => { void getPreferencesCategory('notifications'); },
+        },
         { id: 'account', label: 'Account', href: `${basePath}/settings/account` },
         { id: 'security', label: 'Security', href: `${basePath}/settings/security` },
       ],

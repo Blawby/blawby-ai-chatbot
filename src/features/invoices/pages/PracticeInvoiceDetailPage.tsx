@@ -4,19 +4,20 @@ import { Dialog } from '@/shared/ui/dialog';
 import { Button } from '@/shared/ui/Button';
 import { Input, Textarea } from '@/shared/ui/input';
 import { EditorShell } from '@/shared/ui/layout';
-import { LoadingBlock } from '@/shared/ui/layout/LoadingBlock';
+import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
+import { InvoiceDetailSkeleton } from '@/features/invoices/components/InvoiceDetailSkeleton';
 import { formatLongDate } from '@/shared/utils/dateFormatter';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { useNavigation } from '@/shared/utils/navigation';
 import { InvoiceForm } from '@/features/invoices/components/InvoiceForm';
 import {
-  getInvoice,
   syncInvoice,
   voidInvoice,
 } from '@/features/invoices/services/invoicesService';
 import type { InvoiceDetail } from '@/features/invoices/types';
 import { resolveInvoicePageMode } from '@/features/invoices/utils/invoicePageConfig';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
+import { useInvoiceDetail } from '@/features/invoices/hooks/useInvoiceDetail';
 
 const isActionableOpenStatus = (status: string): boolean => {
   return ['sent', 'pending', 'open', 'overdue'].includes(status);
@@ -53,42 +54,22 @@ export function PracticeInvoiceDetailPage({
     practiceSlug: practiceSlug ?? undefined,
     fetchPracticeDetails: true,
   });
-  const [detail, setDetail] = useState<InvoiceDetail | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const {
+    data: detailData,
+    isLoading: loading,
+    error,
+    refetch: refetchDetail,
+  } = useInvoiceDetail(practiceId, invoiceId);
+  const detail: InvoiceDetail | null = detailData ?? null;
+  // In-flight indicator for the Sync/Void action buttons. Either action is
+  // exclusive of the other and both are rare, so a single flag is enough.
+  const [isMutating, setIsMutating] = useState(false);
 
   const [refundModalOpen, setRefundModalOpen] = useState(false);
   const [refundReason, setRefundReason] = useState('');
   const [refundAmount, setRefundAmount] = useState('');
   const [submittingMockRefund, setSubmittingMockRefund] = useState(false);
 
-  const loadDetail = useCallback((signal?: AbortSignal) => {
-    if (!practiceId || !invoiceId) return Promise.resolve();
-    setLoading(true);
-    setError(null);
-
-    return getInvoice(practiceId, invoiceId, { signal })
-      .then((result) => {
-        if (!result) {
-          setDetail(null);
-          setError('Invoice not found.');
-          return;
-        }
-        setDetail(result);
-      })
-      .catch((err) => {
-        if (err.name === 'AbortError') return;
-        const message = err instanceof Error ? err.message : 'Failed to load invoice';
-        setError(message);
-      })
-      .finally(() => setLoading(false));
-  }, [invoiceId, practiceId]);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    void loadDetail(controller.signal);
-    return () => controller.abort();
-  }, [loadDetail]);
 
   const status = useMemo(() => (detail?.status ?? 'draft').toLowerCase(), [detail?.status]);
   const mode = useMemo(() => resolveInvoicePageMode(status), [status]);
@@ -114,29 +95,35 @@ export function PracticeInvoiceDetailPage({
   }, [invoiceId, navigate, practiceSlug]);
 
   const handleSync = useCallback(async () => {
-    if (!practiceId || !invoiceId) return;
+    if (!practiceId || !invoiceId || isMutating) return;
+    setIsMutating(true);
     try {
       await syncInvoice(practiceId, invoiceId);
       showSuccess('Invoice synced', 'Invoice status was refreshed from Stripe.');
-      await loadDetail();
+      await refetchDetail();
     } catch (err) {
       showError('Invoice sync failed', err instanceof Error ? err.message : 'Failed to sync invoice');
+    } finally {
+      setIsMutating(false);
     }
-  }, [invoiceId, loadDetail, practiceId, showError, showSuccess]);
+  }, [invoiceId, isMutating, refetchDetail, practiceId, showError, showSuccess]);
 
   const handleVoid = useCallback(async () => {
-    if (!practiceId || !invoiceId) return;
+    if (!practiceId || !invoiceId || isMutating) return;
     const confirmed = window.confirm('Void this invoice? This cannot be undone.');
     if (!confirmed) return;
 
+    setIsMutating(true);
     try {
       await voidInvoice(practiceId, invoiceId);
       showSuccess('Invoice voided', 'The invoice has been voided.');
-      await loadDetail();
+      await refetchDetail();
     } catch (err) {
       showError('Invoice void failed', err instanceof Error ? err.message : 'Failed to void invoice');
+    } finally {
+      setIsMutating(false);
     }
-  }, [invoiceId, loadDetail, practiceId, showError, showSuccess]);
+  }, [invoiceId, isMutating, refetchDetail, practiceId, showError, showSuccess]);
 
   const handleSubmitMockRefund = useCallback(async () => {
     if (!detail) return;
@@ -168,11 +155,11 @@ export function PracticeInvoiceDetailPage({
     }
   }, [detail, refundAmount, refundReason, showError, showSuccess]);
 
-  if (loading) {
-    return <LoadingBlock className="flex-1 p-6" label="Loading invoice..." />;
+  if (loading && !detail) {
+    return <InvoiceDetailSkeleton />;
   }
 
-  if (error) {
+  if (error && !detail) {
     return <div className="p-6 text-sm text-accent-error-light">{error}</div>;
   }
 
@@ -186,7 +173,12 @@ export function PracticeInvoiceDetailPage({
 
   return (
     <EditorShell
-      title={detail.invoiceNumber}
+      title={(
+        <span className="inline-flex items-center gap-2">
+          {detail.invoiceNumber}
+          {loading ? <LoadingSpinner size="sm" ariaLabel="Refreshing invoice" announce={false} /> : null}
+        </span>
+      )}
       subtitle={`Issued ${renderEventDate(detail.issueDate)} • Due ${renderEventDate(detail.dueDate)}`}
       showBack={showBack}
       onBack={handleBackToList}
@@ -201,8 +193,12 @@ export function PracticeInvoiceDetailPage({
           {isActionableOpenStatus(status) ? (
             <>
               <Button variant="secondary" onClick={handleOpenHostedInvoice} disabled={!hasHostedUrl}>Open Stripe hosted invoice</Button>
-              <Button variant="secondary" onClick={() => void handleSync()}>Sync</Button>
-              <Button variant="danger-ghost" onClick={() => void handleVoid()}>Void</Button>
+              <Button variant="secondary" onClick={() => void handleSync()} disabled={isMutating}>
+                {isMutating ? 'Syncing…' : 'Sync'}
+              </Button>
+              <Button variant="danger-ghost" onClick={() => void handleVoid()} disabled={isMutating}>
+                {isMutating ? 'Voiding…' : 'Void'}
+              </Button>
             </>
           ) : null}
           {status === 'paid' ? (

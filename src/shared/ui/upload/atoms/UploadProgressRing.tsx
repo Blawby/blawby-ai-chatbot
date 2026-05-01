@@ -1,31 +1,32 @@
 /**
- * ProgressRing - Atom Component
- * 
- * Pure circular progress indicator. No file-specific logic.
- * Just renders a progress ring with given percentage.
+ * UploadProgressRing - Atom Component
+ *
+ * Pure circular progress indicator for in-flight file uploads. Distinct
+ * from the general-purpose ProgressRing in shared/ui because it uses
+ * upload-specific theme tokens (--*-file-progress-*) and a sm/md/lg size
+ * enum tuned for icon overlays.
  */
 
 import { cn } from '@/shared/utils/cn';
 
-interface ProgressRingProps {
+interface UploadProgressRingProps {
   progress: number; // 0-100
   size?: 'sm' | 'md' | 'lg';
   className?: string;
   'aria-label'?: string;
 }
 
-export const ProgressRing = ({ 
-  progress, 
+export const UploadProgressRing = ({
+  progress,
   size = 'md',
   className,
   'aria-label': ariaLabel
-}: ProgressRingProps) => {
+}: UploadProgressRingProps) => {
   // Clamp progress to 0-100 range
   const clampedProgress = Math.min(100, Math.max(0, progress));
-  
-  // Development warning for out-of-range values
+
   if (process.env.NODE_ENV === 'development' && (progress < 0 || progress > 100)) {
-    console.warn(`ProgressRing: progress value ${progress} is out of range (0-100). Clamped to ${clampedProgress}.`);
+    console.warn(`UploadProgressRing: progress value ${progress} is out of range (0-100). Clamped to ${clampedProgress}.`);
   }
   
   const sizeClasses = {

@@ -29,8 +29,9 @@ import { cn } from '@/shared/utils/cn';
 import { useNavigation } from '@/shared/utils/navigation';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { formatLongDate } from '@/shared/utils/dateFormatter';
-import { getEngagement, acceptEngagement } from '../api/engagementsApi';
+import { acceptEngagement } from '../api/engagementsApi';
 import type { EngagementDetail, ProposalData } from '../types/engagement';
+import { useEngagementDetail } from '../hooks/useEngagementDetail';
 
 // ── Fee helpers ────────────────────────────────────────────────────────────────
 
@@ -219,11 +220,18 @@ export const ClientEngagementReviewPage: FunctionComponent<ClientEngagementRevie
   const { navigate } = useNavigation();
   const { showSuccess, showError } = useToastContext();
 
-  const [engagement, setEngagement] = useState<EngagementDetail | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const {
+    data: engagementData,
+    isLoading,
+    error: loadError,
+  } = useEngagementDetail(practiceId, engagementId);
+  const engagement: EngagementDetail | null = engagementData ?? null;
   const [isAccepting, setIsAccepting] = useState(false);
-  const [accepted, setAccepted] = useState(false);
+  // Server-side accepted statuses also count as "accepted" in the UI without a click.
+  const [acceptedClick, setAcceptedClick] = useState(false);
+  const accepted = acceptedClick
+    || engagement?.status === 'engagement_accepted'
+    || engagement?.status === 'active';
   const isMountedRef = useRef(true);
   const navigationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -235,39 +243,13 @@ export const ClientEngagementReviewPage: FunctionComponent<ClientEngagementRevie
     };
   }, []);
 
-  useEffect(() => {
-    if (!practiceId || !engagementId) return;
-    const controller = new AbortController();
-    setIsLoading(true);
-    setLoadError(null);
-
-    getEngagement(practiceId, engagementId, { signal: controller.signal })
-      .then((data) => {
-        if (!isMountedRef.current || controller.signal.aborted) return;
-        setEngagement(data);
-        if (data.status === 'engagement_accepted' || data.status === 'active') {
-          setAccepted(true);
-        }
-      })
-      .catch((err: unknown) => {
-        if (!isMountedRef.current || controller.signal.aborted) return;
-        if (err instanceof Error && err.name === 'AbortError') return;
-        setLoadError(err instanceof Error ? err.message : 'Failed to load engagement');
-      })
-      .finally(() => {
-        if (isMountedRef.current && !controller.signal.aborted) setIsLoading(false);
-      });
-
-    return () => controller.abort();
-  }, [practiceId, engagementId]);
-
   const handleAccept = async () => {
     if (isAccepting || !engagement) return;
     setIsAccepting(true);
     try {
       await acceptEngagement(engagement.id);
       if (isMountedRef.current) {
-        setAccepted(true);
+        setAcceptedClick(true);
         showSuccess('Accepted!', 'Your engagement has been confirmed. Opening your conversation…');
         if (engagement.conversation_id && conversationsBasePath) {
           navigationTimeoutRef.current = setTimeout(() => {

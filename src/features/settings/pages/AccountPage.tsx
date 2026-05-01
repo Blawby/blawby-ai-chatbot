@@ -29,7 +29,7 @@ import { SettingRow } from '@/features/settings/components/SettingRow';
 import { SettingSection } from '@/features/settings/components/SettingSection';
 import { PlanFeaturesList, type PlanFeature } from '@/features/settings/components/PlanFeaturesList';
 import { EmailSettingsSection } from '@/features/settings/components/EmailSettingsSection';
-import { LoadingBlock } from '@/shared/ui/layout/LoadingBlock';
+import { AccountPageSkeleton } from '@/features/settings/components/AccountPageSkeleton';
 import { SettingsDangerButton } from '@/features/settings/components/SettingsDangerButton';
 import { SettingsHelperText } from '@/features/settings/components/SettingsHelperText';
 import { getPreferencesCategory, updatePreferencesCategory } from '@/shared/lib/preferencesApi';
@@ -87,7 +87,7 @@ export const AccountPage = ({
   const { navigate, navigateToPricing } = useNavigation();
   const { t } = useTranslation(['settings', 'common', 'pricing']);
   const { openBillingPortal, submitting } = usePaymentUpgrade();
-  const { currentPractice, loading: practiceLoading, refetch } = usePracticeManagement();
+  const { currentPractice, isLoading: practiceLoading, refetch } = usePracticeManagement();
   const { session, isPending } = useSessionContext();
   const { activeMemberRole } = useMemberRoleContext();
   const { canAccessPractice: _canAccessPractice, workspaceFromPath } = useWorkspace();
@@ -797,7 +797,7 @@ export const AccountPage = ({
   }, [isPending, practiceLoading, subscriptionLoading, authAccountsLoading]);
 
   if ((isPending || practiceLoading || subscriptionLoading || authAccountsLoading) && !loadingTimeout) {
-    return <LoadingBlock className={className} />;
+    return <AccountPageSkeleton className={className} />;
   }
 
   if (loadingTimeout || error) {

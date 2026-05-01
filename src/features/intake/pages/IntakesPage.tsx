@@ -323,6 +323,7 @@ export const IntakesPage: FunctionComponent<IntakesPageProps> = ({
           isLoadingMore={isLoadingMore}
           error={displayError}
           onLoadMore={hasMore ? loadMore : undefined}
+          minMountSkeletonMs={250}
           emptyState={
             <WorkspacePlaceholderState
               icon={InboxIcon}

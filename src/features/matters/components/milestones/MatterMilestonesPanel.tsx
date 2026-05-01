@@ -9,7 +9,7 @@ import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { formatDateOnlyUtc } from '@/shared/utils/dateOnly';
 import { asMajor, type MajorAmount } from '@/shared/utils/money';
-import { LoadingBlock } from '@/shared/ui/layout/LoadingBlock';
+import { ListRowSkeleton } from '@/shared/ui/layout';
 import type { MatterDetail, MatterMilestone } from '@/features/matters/data/matterTypes';
 
 type MilestoneStatus = 'pending' | 'in_progress' | 'completed' | 'overdue';
@@ -197,7 +197,7 @@ export const MatterMilestonesPanel = ({
           {error}
         </div>
       ) : loading && resolvedMilestones.length === 0 ? (
-        <LoadingBlock className="px-6 py-6" label="Loading milestones..." />
+        <ListRowSkeleton rows={3} avatar={false} className="divide-y divide-line-default" />
       ) : resolvedMilestones.length === 0 ? (
         <div className="px-6 py-6 text-sm text-input-placeholder">
           No milestones yet. Add milestones to track key deliverables for this matter.

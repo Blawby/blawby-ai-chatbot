@@ -95,6 +95,8 @@ export const SecondaryPanel: FunctionComponent<SecondaryPanelProps> = ({
             )}
             aria-current={isActive && !item.isAction ? 'page' : undefined}
             aria-expanded={hasChildren ? isExpanded : undefined}
+            onMouseEnter={item.prefetch}
+            onFocus={item.prefetch}
             onClick={() => {
               if (item.isAction) {
                 if (onActionItemClick) {

@@ -23,7 +23,7 @@ import { clearPendingPracticeInviteLink, readPendingPracticeInviteLink } from '@
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
 import type { ConversationMode } from '@/shared/types/conversation';
-import { lazy, Suspense } from 'preact/compat';
+import { lazy } from 'preact/compat';
 const PracticeMattersPage = lazy(() => import('@/features/matters/pages/PracticeMattersPage').then(m => ({ default: m.PracticeMattersPage })));
 const PracticeContactsPage = lazy(() => import('@/features/clients/pages/PracticeContactsPage').then(m => ({ default: m.PracticeContactsPage })));
 const ClientMattersPage = lazy(() => import('@/features/matters/pages/ClientMattersPage').then(m => ({ default: m.ClientMattersPage })));
@@ -52,7 +52,7 @@ import {
   resolveConversationDisplayTitle,
 } from '@/shared/utils/conversationDisplay';
 import { DetailHeader } from '@/shared/ui/layout/DetailHeader';
-import { LoadingBlock } from '@/shared/ui/layout/LoadingBlock';
+import { LazyRouteBoundary } from '@/shared/ui/layout/LazyRouteBoundary';
 import { resolveStrengthStyle, resolveStrengthTier } from '@/shared/utils/intakeStrength';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
 import { INVOICE_CREATE_SEND_EVENT } from '@/features/invoices/utils/invoicePageConfig';
@@ -70,7 +70,6 @@ export type WorkspaceView = 'home' | 'setup' | 'list' | 'conversation' | 'intake
  */
 export type LayoutMode = 'widget' | 'mobile' | 'desktop';
 
-const WorkspaceSubviewFallback = () => <LoadingBlock className="p-6" />;
 // ─── component ────────────────────────────────────────────────────────────────
 
 export function MainApp({
@@ -709,7 +708,7 @@ export function MainApp({
         isPracticeWorkspace
           ? (practiceMattersPath
             ? (statusFilter, prefetchData, onDetailInspector, detailInspectorOpen, detailHeaderLeadingAction) => (
-              <Suspense fallback={<WorkspaceSubviewFallback />}>
+              <LazyRouteBoundary>
                 <PracticeMattersPage
                   basePath={practiceMattersPath}
                   practiceId={effectivePracticeId ?? practiceId}
@@ -724,13 +723,13 @@ export function MainApp({
                   detailHeaderLeadingAction={detailHeaderLeadingAction}
                   showDetailBackButton={showWorkspaceDetailBack}
                 />
-              </Suspense>
+              </LazyRouteBoundary>
             )
             : null)
           : isClientWorkspace
             ? (clientMattersPath
               ? (statusFilter, prefetchData, onDetailInspector, detailInspectorOpen) => (
-                <Suspense fallback={<WorkspaceSubviewFallback />}>
+                <LazyRouteBoundary>
                   <ClientMattersPage
                     basePath={clientMattersPath}
                     practiceId={effectivePracticeId ?? practiceId}
@@ -744,7 +743,7 @@ export function MainApp({
                     detailInspectorOpen={detailInspectorOpen}
                     showDetailBackButton={showWorkspaceDetailBack}
                   />
-                </Suspense>
+                </LazyRouteBoundary>
               )
               : null)
             : undefined
@@ -752,7 +751,7 @@ export function MainApp({
       mattersListContent={
         isPracticeWorkspace && layoutMode === 'desktop' && practiceMattersPath
           ? (statusFilter, prefetchData) => (
-            <Suspense fallback={<WorkspaceSubviewFallback />}>
+            <LazyRouteBoundary>
               <PracticeMattersPage
                 basePath={practiceMattersPath}
                 practiceId={effectivePracticeId ?? practiceId}
@@ -764,11 +763,11 @@ export function MainApp({
                 onRefetchList={prefetchData?.mattersData?.refetch}
                 showDetailBackButton={showWorkspaceDetailBack}
               />
-            </Suspense>
+            </LazyRouteBoundary>
           )
           : isClientWorkspace && layoutMode === 'desktop' && clientMattersPath
             ? (statusFilter, prefetchData) => (
-              <Suspense fallback={<WorkspaceSubviewFallback />}>
+              <LazyRouteBoundary>
                 <ClientMattersPage
                   basePath={clientMattersPath}
                   practiceId={effectivePracticeId ?? practiceId}
@@ -780,13 +779,13 @@ export function MainApp({
                   onRefetchList={prefetchData?.mattersData?.refetch}
                   showDetailBackButton={showWorkspaceDetailBack}
                 />
-              </Suspense>
+              </LazyRouteBoundary>
             )
           : undefined
       }
       contactsView={isPracticeWorkspace && practiceContactsPath != null
         ? (statusFilter, prefetchData, onDetailInspector, detailInspectorOpen, detailHeaderLeadingAction) => (
-          <Suspense fallback={<WorkspaceSubviewFallback />}>
+          <LazyRouteBoundary>
             <PracticeContactsPage
               practiceId={effectivePracticeId ?? practiceId}
               basePath={practiceContactsPath}
@@ -801,12 +800,12 @@ export function MainApp({
               detailHeaderLeadingAction={detailHeaderLeadingAction}
               showDetailBackButton={showWorkspaceDetailBack}
             />
-          </Suspense>
+          </LazyRouteBoundary>
         )
         : undefined}
       contactsListContent={isPracticeWorkspace && layoutMode === 'desktop' && practiceContactsPath != null
         ? (statusFilter, prefetchData) => (
-          <Suspense fallback={<WorkspaceSubviewFallback />}>
+          <LazyRouteBoundary>
             <PracticeContactsPage
               practiceId={effectivePracticeId ?? practiceId}
               basePath={practiceContactsPath}
@@ -818,13 +817,13 @@ export function MainApp({
               onRefetchList={prefetchData?.contactsData?.refetch}
               showDetailBackButton={showWorkspaceDetailBack}
             />
-          </Suspense>
+          </LazyRouteBoundary>
         )
         : undefined}
       invoicesView={
         isPracticeWorkspace
           ? (statusFilter, onDetailInspector, detailInspectorOpen, detailHeaderLeadingAction) => (
-            <Suspense fallback={<WorkspaceSubviewFallback />}>
+            <LazyRouteBoundary>
               {resolvedWorkspaceView === 'invoiceDetail' ? (
                 <PracticeInvoiceDetailPage
                   practiceId={effectivePracticeId ?? practiceId}
@@ -855,11 +854,11 @@ export function MainApp({
                   onCreateInvoice={practiceInvoicesPath ? () => navigate(`${practiceInvoicesPath}/new`) : undefined}
                 />
               )}
-            </Suspense>
+            </LazyRouteBoundary>
           )
           : isClientWorkspace
             ? (statusFilter, onDetailInspector, detailInspectorOpen) => (
-              <Suspense fallback={<WorkspaceSubviewFallback />}>
+              <LazyRouteBoundary>
                 {resolvedWorkspaceView === 'invoiceDetail' ? (
                 <ClientInvoiceDetailPage
                     practiceId={effectivePracticeId ?? practiceId}
@@ -878,14 +877,14 @@ export function MainApp({
                     renderMode="full"
                   />
                 )}
-              </Suspense>
+              </LazyRouteBoundary>
             )
             : undefined
       }
       invoicesListContent={
         (isPracticeWorkspace || isClientWorkspace) && layoutMode === 'desktop' && resolvedWorkspaceView === 'invoiceDetail'
           ? (statusFilter) => (
-            <Suspense fallback={<WorkspaceSubviewFallback />}>
+            <LazyRouteBoundary>
               {isPracticeWorkspace ? (
                 <PracticeInvoicesPage
                   practiceId={effectivePracticeId ?? practiceId}
@@ -903,23 +902,23 @@ export function MainApp({
                   renderMode="listOnly"
                 />
               )}
-            </Suspense>
+            </LazyRouteBoundary>
           )
           : undefined
       }
       reportsView={
         isPracticeWorkspace
           ? (reportTitle) => (
-            <Suspense fallback={<WorkspaceSubviewFallback />}>
+            <LazyRouteBoundary>
               <PracticeReportsPage title={reportTitle} />
-            </Suspense>
+            </LazyRouteBoundary>
           )
           : undefined
       }
       intakesView={
         isPracticeWorkspace
           ? (activeFilter) => (
-            <Suspense fallback={<WorkspaceSubviewFallback />}>
+            <LazyRouteBoundary>
               <IntakesPage
                 practiceId={effectivePracticeId ?? practiceId}
                 activeTriageFilter={activeFilter}
@@ -928,14 +927,14 @@ export function MainApp({
                 practiceName={resolvedPracticeName}
                 practiceLogo={resolvedPracticeLogo}
               />
-            </Suspense>
+            </LazyRouteBoundary>
           )
           : undefined
       }
       engagementsView={
         isPracticeWorkspace
           ? () => (
-            <Suspense fallback={<WorkspaceSubviewFallback />}>
+            <LazyRouteBoundary>
               <EngagementsPage
                 practiceId={effectivePracticeId ?? practiceId}
                 basePath={practiceEngagementsPath ?? '/practice/engagements'}
@@ -943,7 +942,7 @@ export function MainApp({
                 practiceName={resolvedPracticeName}
                 practiceLogo={resolvedPracticeLogo}
               />
-            </Suspense>
+            </LazyRouteBoundary>
           )
           : undefined
       }

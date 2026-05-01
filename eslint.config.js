@@ -229,12 +229,12 @@ export default [
   // Worker files (Cloudflare Workers runtime)
   {
     files: ['worker/**/*.{ts,js}'],
-    ignores: ['worker/types/wire/**'],
     languageOptions: {
       parser: typescriptParser,
       parserOptions: { ecmaVersion: 'latest', sourceType: 'module' },
       globals: {
         Request: 'readonly',
+        RequestInit: 'readonly',
         Response: 'readonly',
         Headers: 'readonly',
         URL: 'readonly',
@@ -265,7 +265,8 @@ export default [
         ReadableStreamDefaultController: 'readonly',
         ExecutionContext: 'readonly', // TODO: validate Worker typing approach
         MessageBatch: 'readonly',
-        BodyInit: 'readonly'
+        BodyInit: 'readonly',
+        process: 'readonly' // guarded by typeof checks; used by validateWire in Node test contexts
       }
     },
     plugins: { '@typescript-eslint': typescript },
@@ -291,6 +292,15 @@ export default [
           message: 'Backend wire types live in worker/types/wire/ — declare there, not inline.'
         }
       ]
+    }
+  },
+
+  // Worker wire types — canonical home for Backend* declarations.
+  // Inherits the worker block's parser/globals; only override the rule that bans them.
+  {
+    files: ['worker/types/wire/**/*.{ts,js}'],
+    rules: {
+      'no-restricted-syntax': 'off'
     }
   },
 

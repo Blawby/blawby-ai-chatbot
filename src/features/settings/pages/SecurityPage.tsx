@@ -113,6 +113,7 @@ export const SecurityPage = ({
   const [isLoading, setIsLoading] = useState(true);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [passwordSubmitting, setPasswordSubmitting] = useState(false);
+  const [isResettingPassword, setIsResettingPassword] = useState(false);
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [showDisableMFAConfirm, setShowDisableMFAConfirm] = useState(false);
   const showMfa = features.enableMfa;
@@ -362,6 +363,7 @@ export const SecurityPage = ({
   };
 
   const handleResetPassword = async () => {
+    if (isResettingPassword) return;
     if (!session?.user?.email) {
       showError(
         t('settings:security.password.errors.failed.title'),
@@ -370,6 +372,7 @@ export const SecurityPage = ({
       return;
     }
 
+    setIsResettingPassword(true);
     try {
       const { data: _data, error } = await authClient.requestPasswordReset({
         email: session.user.email
@@ -394,6 +397,8 @@ export const SecurityPage = ({
         t('settings:security.password.errors.failed.title'),
         error instanceof Error ? error.message : t('settings:security.password.errors.failed.body')
       );
+    } finally {
+      setIsResettingPassword(false);
     }
   };
 
@@ -452,9 +457,10 @@ export const SecurityPage = ({
               variant="ghost"
               size="sm"
               onClick={() => void handleResetPassword()}
+              disabled={isResettingPassword}
               className="text-accent-600 dark:text-accent-400 hover:text-accent-700 dark:hover:text-accent-300"
             >
-              {t('settings:security.password.resetButton')}
+              {isResettingPassword ? t('common:status.sending', { defaultValue: 'Sending…' }) : t('settings:security.password.resetButton')}
             </Button>
           )}
         </div>

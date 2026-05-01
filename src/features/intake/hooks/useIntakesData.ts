@@ -1,11 +1,14 @@
-import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
+import { useCallback, useEffect, useState } from 'preact/hooks';
 import { listIntakes, type IntakeListItem, type IntakeListParams } from '@/features/intake/api/intakesApi';
+import { useQuery } from '@/shared/hooks/useQuery';
+import { policyTtl } from '@/shared/lib/cachePolicy';
 
 export type IntakesFilter = 'all' | 'pending' | 'accepted' | 'declined';
 
 export interface UseIntakesDataResult {
   items: IntakeListItem[];
   isLoading: boolean;
+  /** True once the first successful fetch for the current key has completed. */
   isLoaded: boolean;
   error: string | null;
   page: number;
@@ -17,7 +20,6 @@ export interface UseIntakesDataResult {
   refetch: () => void;
 }
 
-// Maps secondary nav filter IDs to API-compatible triage_status values
 const FILTER_STATUS_MAP: Record<IntakesFilter, IntakeListParams['triage_status']> = {
   all: undefined,
   pending: 'pending_review',
@@ -37,6 +39,12 @@ export function intakesFilterToApiStatus(filter: IntakesFilter): IntakeListParam
   return FILTER_STATUS_MAP[filter];
 }
 
+type IntakesPayload = {
+  intakes: IntakeListItem[];
+  total: number;
+  total_pages: number;
+};
+
 export function useIntakesData(
   practiceId: string | null,
   options: {
@@ -47,68 +55,23 @@ export function useIntakesData(
   } = {}
 ): UseIntakesDataResult {
   const { enabled = true, limit } = options;
-  const [filter, setFilterState] = useState<IntakesFilter>(options.filter ?? 'all');
-  const [page, setPageState] = useState(options.page ?? 1);
-  const effectivePage = options.page ?? page;
-  const effectiveFilter = options.filter ?? filter;
-  const [items, setItems] = useState<IntakeListItem[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isLoaded, setIsLoaded] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [total, setTotal] = useState(0);
-  const [totalPages, setTotalPages] = useState(0);
-  const [retryTick, setRetryTick] = useState(0);
-  const isMountedRef = useRef(true);
+  const [filterLocal, setFilterState] = useState<IntakesFilter>(options.filter ?? 'all');
+  const [pageLocal, setPageState] = useState(options.page ?? 1);
+  const effectivePage = options.page ?? pageLocal;
+  const effectiveFilter = options.filter ?? filterLocal;
 
-  useEffect(() => {
-    isMountedRef.current = true;
-    return () => { isMountedRef.current = false; };
-  }, []);
+  const cacheKey = `intake:list:${practiceId ?? ''}:${effectiveFilter}:${effectivePage}:${limit ?? 'default'}`;
 
-  useEffect(() => {
-    if (!enabled || !practiceId) {
-      setItems([]);
-      setIsLoaded(false);
-      setIsLoading(false);
-      setTotal(0);
-      setTotalPages(0);
-      setError(null);
-      return;
-    }
-
-    const controller = new AbortController();
-    setIsLoading(true);
-    setError(null);
-
-    // Map "queue" filter names to the API-level triage_status params
-    const triageStatus: IntakeListParams['triage_status'] = (() => {
-      if (effectiveFilter === 'pending') return 'pending_review';
-      if (effectiveFilter === 'accepted') return 'accepted';
-      if (effectiveFilter === 'declined') return 'declined';
-      return undefined;
-    })();
-
-    listIntakes(practiceId, { page: effectivePage, limit, triage_status: triageStatus }, { signal: controller.signal })
-      .then((result) => {
-        if (!isMountedRef.current || controller.signal.aborted) return;
-        setItems(result.intakes);
-        setTotal(result.total);
-        setTotalPages(result.total_pages);
-        setIsLoaded(true);
-      })
-      .catch((err: unknown) => {
-        if (!isMountedRef.current || controller.signal.aborted) return;
-        if (err instanceof Error && err.name === 'AbortError') return;
-        setError(err instanceof Error ? err.message : 'Failed to load intakes');
-      })
-      .finally(() => {
-        if (isMountedRef.current && !controller.signal.aborted) {
-          setIsLoading(false);
-        }
-      });
-
-    return () => controller.abort();
-  }, [practiceId, effectiveFilter, effectivePage, limit, enabled, retryTick]);
+  const { data, isLoading, error, refetch } = useQuery<IntakesPayload>({
+    key: cacheKey,
+    enabled: enabled && Boolean(practiceId),
+    ttl: policyTtl(cacheKey),
+    fetcher: (signal) => listIntakes(
+      practiceId!,
+      { page: effectivePage, limit, triage_status: FILTER_STATUS_MAP[effectiveFilter] },
+      { signal },
+    ),
+  });
 
   // If the caller controls the filter (options.filter provided) but does not
   // control the page (options.page undefined), reset the internal page state
@@ -131,21 +94,20 @@ export function useIntakesData(
     setPageState(p);
   }, [options.page]);
 
-  const refetch = useCallback(() => {
-    setRetryTick((t) => t + 1);
-  }, []);
-
   return {
-    items,
+    items: data?.intakes ?? [],
     isLoading,
-    isLoaded,
+    // post-Phase-C3 contract: isLoading is permanently false after first
+    // successful fetch, so `!isLoading && data !== undefined` is the
+    // equivalent of the prior hand-rolled `isLoaded` flag.
+    isLoaded: data !== undefined,
     error,
     page: effectivePage,
-    totalPages,
-    total,
+    totalPages: data?.total_pages ?? 0,
+    total: data?.total ?? 0,
     filter: effectiveFilter,
     setFilter,
     setPage,
-    refetch,
+    refetch: () => { void refetch(); },
   };
 }

@@ -73,7 +73,7 @@ const mockFetchInvitations = vi.fn();
 const usePracticeMgmtMock = {
   practices: [],
   invitations: [],
-  loading: false,
+  isLoading: false,
   error: null,
   currentPractice: null,
   fetchPractices: mockFetchPractices,
@@ -187,7 +187,7 @@ describe('SettingsContent Integration Tests', () => {
     // Reset the mutable mock object to default values
     usePracticeMgmtMock.practices = [];
     usePracticeMgmtMock.invitations = [];
-    usePracticeMgmtMock.loading = false;
+    usePracticeMgmtMock.isLoading = false;
     usePracticeMgmtMock.error = null;
     usePracticeMgmtMock.currentPractice = null;
     usePracticeMgmtMock.fetchPractices = mockFetchPractices;

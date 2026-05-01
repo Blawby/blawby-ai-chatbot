@@ -69,7 +69,6 @@ const mockUseClientsData = vi.fn(() => ({
       },
     },
   ],
-  isLoaded: true,
   isLoading: false,
   error: null,
   refetch: vi.fn(),

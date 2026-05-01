@@ -108,6 +108,7 @@ import {
   toMilestone,
   toTimeEntry
 } from '@/features/matters/utils/matterUtils';
+import { MatterDetailSkeleton } from '@/features/matters/components/MatterDetailSkeleton';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -363,6 +364,20 @@ export const PracticeMattersPage = ({
   const [clientOptions, setClientOptions] = useState<MatterOption[]>([]);
   const [isClientListTruncated, setIsClientListTruncated] = useState(false);
   const [servicesLoading, setServicesLoading] = useState(false);
+  // Tracks whether the clients fetch (used to resolve `client_id` → display
+  // name in the matters list) is still in flight. Without this, the matters
+  // API returns first and rows render with `Person 5da12e3f` placeholder
+  // labels — then the second wave (clients) lands and labels swap to real
+  // names. Combined with `mattersLoading` to keep the skeleton visible
+  // until BOTH waves are ready.
+  //
+  // Initialize to `true` unconditionally (NOT gated on activePracticeId).
+  // On hard refresh, activePracticeId resolves async — gating the initial
+  // value on it would leave a one-render gap where loading=false and matters
+  // could render with placeholder names before refreshClientOptions fires.
+  // The early-return in refreshClientOptions sets it false when there's
+  // genuinely no practice, so this pessimistic default is safe.
+  const [clientsLoading, setClientsLoading] = useState(true);
 
   // ── UI state ──────────────────────────────────────────────────────────────
   const [isQuickTimeEntryOpen, setIsQuickTimeEntryOpen] = useState(false);
@@ -391,7 +406,7 @@ export const PracticeMattersPage = ({
     unbilledTimeEntries,
     unbilledExpenses,
     unbilledSummary,
-    loading: invoicesLoading,
+    isLoading: invoicesLoading,
     error: invoicesError,
     refetchAll: refetchBilling
   } = useBillingData({
@@ -562,10 +577,12 @@ export const PracticeMattersPage = ({
     if (!activePracticeId) {
       setClientOptions([]);
       setIsClientListTruncated(false);
+      setClientsLoading(false);
       return;
     }
 
     setIsClientListTruncated(false);
+    setClientsLoading(true);
     let offset = 0;
     const limit = 100;
     const allClients: MatterOption[] = [];
@@ -596,6 +613,8 @@ export const PracticeMattersPage = ({
       setClientOptions(allClients);
       setIsClientListTruncated(true);
       showError('Failed to load full contacts list', 'Some contacts may be missing.');
+    } finally {
+      if (!signal?.aborted) setClientsLoading(false);
     }
   }, [activePracticeId, buildClientOption, showError]);
 
@@ -1762,10 +1781,25 @@ export const PracticeMattersPage = ({
   // Render — detail route
   // =========================================================================
   if (selectedMatterId) {
-    if (detailLoading && !resolvedSelectedMatter) {
-      return <Page className="h-full"><LoadingState message="Loading matter details..." /></Page>;
+    // Treat the cached detail as "missing" when it belongs to a different
+    // matter than the one currently selected — that means the user just
+    // switched matters and the new fetch is in flight. Showing the
+    // previous matter's data briefly before B loads would be confusing,
+    // so we route through the skeleton path.
+    const detailMatchesSelection = selectedMatterDetail?.id === selectedMatterId;
+    const detailReady = Boolean(selectedMatterDetail) && detailMatchesSelection;
+
+    // Gate on `!detailReady` (FULL detail for the CURRENT matter), NOT
+    // `!resolvedSelectedMatter`. The latter falls back to
+    // `selectedMatterSummary` which is hydrated synchronously from the
+    // cached matters list, bypassing the gate and letting the page render
+    // with partial data (using `fallbackMatterDetailForReadViews` which
+    // has empty billing / court / activity fields). Wait for the real
+    // detail to land before painting.
+    if (detailLoading && !detailReady) {
+      return <Page className="h-full"><MatterDetailSkeleton /></Page>;
     }
-    if (detailError && !resolvedSelectedMatter) {
+    if (detailError && !detailReady) {
       return <MatterLoadError message={detailError} onBack={goToList} />;
     }
     if (!resolvedSelectedMatter) {
@@ -2315,9 +2349,10 @@ export const PracticeMattersPage = ({
             )}
             onSelect={(matter) => goToDetail(matter.id)}
             selectedId={selectedMatterId ?? undefined}
-            isLoading={mattersLoading}
+            isLoading={mattersLoading || clientsLoading}
             isLoadingMore={mattersLoadingMore}
             error={mattersError}
+            minMountSkeletonMs={250}
             emptyState={<EmptyState onCreate={() => navigate(`${basePath}/new`)} disableCreate={!activePracticeId} />}
           />
         </Panel>
@@ -2347,9 +2382,10 @@ export const PracticeMattersPage = ({
           )}
           onSelect={(matter) => goToDetail(matter.id)}
           selectedId={selectedMatterId ?? undefined}
-          isLoading={mattersLoading}
+          isLoading={mattersLoading || clientsLoading}
           isLoadingMore={mattersLoadingMore}
           error={mattersError}
+          minMountSkeletonMs={250}
           emptyState={<EmptyState onCreate={() => navigate(`${basePath}/new`)} disableCreate={!activePracticeId} />}
         />
       </Panel>

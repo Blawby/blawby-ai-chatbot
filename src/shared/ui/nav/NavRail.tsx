@@ -14,6 +14,9 @@ export interface NavRailItem {
   variant?: 'default' | 'danger';
   isAction?: boolean;
   onClick?: () => void;
+  /** Fired on hover/focus — preload code chunk + seed data so the click
+   *  feels instant. Safe to call repeatedly (idempotent). */
+  prefetch?: () => void;
 }
 
 export interface NavRailProps {
@@ -103,6 +106,8 @@ export const NavRail: FunctionComponent<NavRailProps> = ({
                   ? 'nav-item-active'
                   : 'nav-item-inactive',
             )}
+            onMouseEnter={item.prefetch}
+            onFocus={item.prefetch}
             onClick={() => {
               if (item.isAction) {
                 if (!item.onClick) {

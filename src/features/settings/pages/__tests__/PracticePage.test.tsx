@@ -73,7 +73,7 @@ const usePracticeMgmtMock = {
   },
   getMembers: mockGetMembers,
   invitations: [],
-  loading: false,
+  isLoading: false,
   error: null,
   acceptMatter: vi.fn(),
   rejectMatter: vi.fn(),
@@ -196,7 +196,7 @@ describe('PracticePage', () => {
     };
     usePracticeMgmtMock.getMembers = mockGetMembers;
     usePracticeMgmtMock.invitations = [];
-    usePracticeMgmtMock.loading = false;
+    usePracticeMgmtMock.isLoading = false;
     usePracticeMgmtMock.error = null;
     usePracticeMgmtMock.acceptMatter = vi.fn();
     usePracticeMgmtMock.rejectMatter = vi.fn();
@@ -270,7 +270,7 @@ describe('PracticePage', () => {
     usePracticeMgmtMock.currentPractice = null;
     usePracticeMgmtMock.getMembers = mockGetMembers;
     usePracticeMgmtMock.invitations = [];
-    usePracticeMgmtMock.loading = true;
+    usePracticeMgmtMock.isLoading = true;
     usePracticeMgmtMock.error = null;
     
     // Sync SessionContext with null currentPractice
@@ -290,7 +290,7 @@ describe('PracticePage', () => {
     usePracticeMgmtMock.currentPractice = null;
     usePracticeMgmtMock.getMembers = mockGetMembers;
     usePracticeMgmtMock.invitations = [];
-    usePracticeMgmtMock.loading = false;
+    usePracticeMgmtMock.isLoading = false;
     usePracticeMgmtMock.error = 'Failed to load practices';
     
     // Sync SessionContext with null currentPractice
@@ -323,7 +323,7 @@ describe('PracticePage', () => {
     usePracticeMgmtMock.currentPractice = null;
     usePracticeMgmtMock.getMembers = mockGetMembers;
     usePracticeMgmtMock.invitations = [];
-    usePracticeMgmtMock.loading = false;
+    usePracticeMgmtMock.isLoading = false;
     usePracticeMgmtMock.error = null;
 
     render(<PracticePage />);
@@ -359,7 +359,7 @@ describe('PracticePage', () => {
     usePracticeMgmtMock.currentPractice = null;
     usePracticeMgmtMock.getMembers = mockGetMembers;
     usePracticeMgmtMock.invitations = mockInvitations;
-    usePracticeMgmtMock.loading = false;
+    usePracticeMgmtMock.isLoading = false;
     usePracticeMgmtMock.error = null;
 
     render(<PracticePage />);
@@ -400,7 +400,7 @@ describe('PracticePage', () => {
     usePracticeMgmtMock.currentPractice = null;
     usePracticeMgmtMock.getMembers = mockGetMembers;
     usePracticeMgmtMock.invitations = [];
-    usePracticeMgmtMock.loading = false;
+    usePracticeMgmtMock.isLoading = false;
     usePracticeMgmtMock.error = null;
 
     render(<PracticePage />);
@@ -467,7 +467,7 @@ describe('PracticePage', () => {
     usePracticeMgmtMock.currentPractice = null;
     usePracticeMgmtMock.getMembers = mockGetMembers;
     usePracticeMgmtMock.invitations = [];
-    usePracticeMgmtMock.loading = false;
+    usePracticeMgmtMock.isLoading = false;
     usePracticeMgmtMock.error = null;
 
     render(<PracticePage />);
@@ -519,7 +519,7 @@ describe('PracticePage', () => {
     usePracticeMgmtMock.currentPractice = null;
     usePracticeMgmtMock.getMembers = mockGetMembers;
     usePracticeMgmtMock.invitations = mockInvitations;
-    usePracticeMgmtMock.loading = false;
+    usePracticeMgmtMock.isLoading = false;
     usePracticeMgmtMock.error = null;
 
     render(<PracticePage />);
@@ -555,7 +555,7 @@ describe('PracticePage', () => {
     usePracticeMgmtMock.currentPractice = null;
     usePracticeMgmtMock.getMembers = mockGetMembers;
     usePracticeMgmtMock.invitations = mockInvitations;
-    usePracticeMgmtMock.loading = false;
+    usePracticeMgmtMock.isLoading = false;
     usePracticeMgmtMock.error = null;
 
     render(<PracticePage />);
@@ -585,7 +585,7 @@ describe('PracticePage', () => {
     };
     usePracticeMgmtMock.getMembers = mockGetMembers;
     usePracticeMgmtMock.invitations = [];
-    usePracticeMgmtMock.loading = false;
+    usePracticeMgmtMock.isLoading = false;
     usePracticeMgmtMock.error = null;
 
     render(<PracticePage />);
@@ -617,7 +617,7 @@ describe('PracticePage', () => {
     };
     usePracticeMgmtMock.getMembers = mockGetMembers;
     usePracticeMgmtMock.invitations = [];
-    usePracticeMgmtMock.loading = false;
+    usePracticeMgmtMock.isLoading = false;
     usePracticeMgmtMock.error = null;
 
     render(<PracticePage />);
