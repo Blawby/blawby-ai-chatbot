@@ -1,5 +1,5 @@
 import type { ComponentChildren } from 'preact';
-import { useCallback, useEffect, useMemo, useState } from 'preact/hooks';
+import { useCallback, useMemo, useState } from 'preact/hooks';
 import { Dialog } from '@/shared/ui/dialog';
 import { Button } from '@/shared/ui/Button';
 import { Input, Textarea } from '@/shared/ui/input';

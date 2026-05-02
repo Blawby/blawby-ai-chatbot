@@ -67,6 +67,7 @@ export function useIntakesData(
     enabled: enabled && Boolean(practiceId),
     ttl: policyTtl(cacheKey),
     fetcher: (signal) => listIntakes(
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       practiceId!,
       { page: effectivePage, limit, triage_status: FILTER_STATUS_MAP[effectiveFilter] },
       { signal },

@@ -253,7 +253,9 @@ export function Combobox({
     if (autoFocus && !disabled) {
       open();
     }
-  }, [autoFocus, disabled]); // eslint-disable-line react-hooks/exhaustive-deps
+    // effect intentionally only runs on autoFocus, disabled
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoFocus, disabled]);
 
   // ------------------------------------------------------------------
   // Derived state

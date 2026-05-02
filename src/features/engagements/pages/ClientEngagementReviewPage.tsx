@@ -3,7 +3,7 @@
  *
  * Route: /client/:practiceSlug/engagements/:engagementId/review
  *
- * Authenticated (no magic link). By engagement_sent, the client is already
+ * Authenticated (no magic link). Once sent, the client is already
  * authenticated through the intake invite flow. Normal auth redirects apply.
  *
  * Actions:
@@ -96,20 +96,20 @@ const ScopeSection: FunctionComponent<{ proposal: ProposalData }> = ({ proposal 
 
 // ── Fees section ──────────────────────────────────────────────────────────────
 
-const FeesSection: FunctionComponent<{ proposal: ProposalData; engagement: EngagementDetail }> = ({
+const FeesSection: FunctionComponent<{ proposal: ProposalData }> = ({
   proposal,
-  engagement,
 }) => {
   const fees = proposal.fees;
-  const currency = fees?.currency ?? engagement.currency ?? 'USD';
 
   const rows: Array<{ label: string; value: string | null }> = [
     { label: 'Billing type', value: fees?.billing_type?.replace(/_/g, ' ') ?? null },
-    { label: 'Rate', value: fees?.rate != null ? formatMoney(fees.rate, currency) : null },
-    { label: 'Retainer', value: fees?.retainer != null ? formatMoney(fees.retainer, currency) : null },
-    { label: 'Flat fee', value: fees?.flat_fee != null ? formatMoney(fees.flat_fee, currency) : null },
-    { label: 'Contingency', value: fees?.contingency_pct != null ? `${fees.contingency_pct}%` : null },
-    { label: 'Payment terms', value: fees?.payment_terms ?? null },
+    { label: 'Attorney rate', value: fees?.hourly_rate_attorney != null ? formatMoney(fees.hourly_rate_attorney) : null },
+    { label: 'Admin rate', value: fees?.hourly_rate_admin != null ? formatMoney(fees.hourly_rate_admin) : null },
+    { label: 'Retainer', value: fees?.retainer_amount != null ? formatMoney(fees.retainer_amount) : null },
+    { label: 'Fixed fee', value: fees?.fixed_fee_amount != null ? formatMoney(fees.fixed_fee_amount) : null },
+    { label: 'Contingency', value: fees?.contingency_percentage != null ? `${fees.contingency_percentage}%` : null },
+    { label: 'Payment frequency', value: fees?.payment_frequency ?? null },
+    { label: 'Fee notes', value: fees?.fee_notes ?? null },
   ].filter((row) => row.value !== null);
 
   if (rows.length === 0) return null;
@@ -230,8 +230,7 @@ export const ClientEngagementReviewPage: FunctionComponent<ClientEngagementRevie
   // Server-side accepted statuses also count as "accepted" in the UI without a click.
   const [acceptedClick, setAcceptedClick] = useState(false);
   const accepted = acceptedClick
-    || engagement?.status === 'engagement_accepted'
-    || engagement?.status === 'active';
+    || engagement?.status === 'accepted';
   const isMountedRef = useRef(true);
   const navigationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -247,7 +246,7 @@ export const ClientEngagementReviewPage: FunctionComponent<ClientEngagementRevie
     if (isAccepting || !engagement) return;
     setIsAccepting(true);
     try {
-      await acceptEngagement(engagement.id);
+      await acceptEngagement(practiceId, engagement.id);
       if (isMountedRef.current) {
         setAcceptedClick(true);
         showSuccess('Accepted!', 'Your engagement has been confirmed. Opening your conversation…');
@@ -338,7 +337,7 @@ export const ClientEngagementReviewPage: FunctionComponent<ClientEngagementRevie
           <>
             <PartiesSection proposal={proposal} practiceName={practiceName} />
             <ScopeSection proposal={proposal} />
-            <FeesSection proposal={proposal} engagement={engagement} />
+            <FeesSection proposal={proposal} />
             <GoalsSection proposal={proposal} />
             <AcknowledgmentsSection proposal={proposal} />
           </>

@@ -5,7 +5,7 @@ import { InboxStackIcon } from '@heroicons/react/24/outline';
 import type { IconComponent } from '@/shared/ui/Icon';
 
 const InboxIcon: IconComponent = (props) => (
-  // Heroicons types are incompatible with our IconComponent; adapt here
+  // Heroicons types are incompatible with our IconComponent; forced cast is required
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   <InboxStackIcon {...(props as any)} />
 );

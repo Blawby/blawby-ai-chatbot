@@ -38,6 +38,7 @@ import type { IconComponent } from '@/shared/ui/Icon';
 
 const ExclamationIcon: IconComponent = (props) => (
   // Adapt heroicon to IconComponent signature
+  // Heroicons types are incompatible with our IconComponent; forced cast is required
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   <ExclamationTriangleIcon {...(props as any)} />
 );

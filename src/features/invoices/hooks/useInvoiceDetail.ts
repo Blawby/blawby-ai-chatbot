@@ -12,6 +12,7 @@ export function useInvoiceDetail(practiceId: string | null, invoiceId: string | 
   const cacheKey = `invoice:practice:${practiceId ?? ''}:${invoiceId ?? ''}`;
   return useQuery<InvoiceDetail | null>({
     key: cacheKey,
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     fetcher: (signal) => getInvoice(practiceId!, invoiceId!, { signal }),
     ttl: policyTtl(cacheKey),
     enabled: Boolean(practiceId && invoiceId),
@@ -27,6 +28,7 @@ export function useClientInvoiceDetail(practiceId: string | null, invoiceId: str
   const cacheKey = `invoice:client:${practiceId ?? ''}:${invoiceId ?? ''}`;
   return useQuery<InvoiceDetail | null>({
     key: cacheKey,
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     fetcher: (signal) => getClientInvoice(practiceId!, invoiceId!, { signal }),
     ttl: policyTtl(cacheKey),
     enabled: Boolean(practiceId && invoiceId),

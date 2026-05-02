@@ -33,7 +33,7 @@ export interface ChatContainerProps {
     message: string,
     attachments: FileAttachment[],
     replyToMessageId?: string | null,
-    options?: { mentionedUserIds?: string[] }
+    options?: { additionalContext?: string; mentionedUserIds?: string[]; suppressAi?: boolean }
   ) => void;
   isReady: boolean;
   conversationMode?: ConversationMode | null;
@@ -177,6 +177,14 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     ? messages.filter((message) => !hiddenSystemMessageKeys.has(String(message.metadata?.systemMessageKey ?? '')))
     : messages;
   const filteredMessages = baseMessages;
+  const hasAcceptedIntakeJoinMessage = isPublicWorkspace && messages.some((message) =>
+    message.metadata?.systemMessageKey === 'lead_accepted' ||
+    message.metadata?.triageStatus === 'accepted' ||
+    message.metadata?.triage_status === 'accepted'
+  );
+  const composerIntakeStatus = hasAcceptedIntakeJoinMessage && intakeContext.intakeStatus?.step === 'pending_review'
+    ? { ...intakeContext.intakeStatus, step: 'accepted' as const }
+    : intakeContext.intakeStatus;
   
   const shouldShowSlimForm = isPublicWorkspace &&
     (intakeContext.intakeStatus?.step === 'contact_form_slim' || (!conversationId && conversationMode === 'REQUEST_CONSULTATION')) &&
@@ -279,7 +287,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     if (canHandleCta && intakeContext.onIntakeCtaResponse && isPatternAffirmative) {
       (async () => {
         try {
-          await handleSubmitNowAction();
+          await handleConfirmSubmitAction();
           setInputValue('');
           setReplyTarget(null);
         } catch (error) {
@@ -321,7 +329,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     onAuthPromptRequest?.();
   }, [onAuthPromptRequest]);
 
-  const handleSubmitNowAction = async () => {
+  const handleConfirmSubmitAction = async () => {
     if (submitActionInFlightRef.current) {
       return;
     }
@@ -533,7 +541,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
                   isReadyToUpload={isReadyToUpload}
                   isSessionReady={isReady || (!conversationId && !!canChat)}
                   isSocketReady={isReady || (!conversationId && !!canChat)}
-                  intakeStatus={isPublicWorkspace ? intakeContext.intakeStatus : undefined}
+                  intakeStatus={isPublicWorkspace ? composerIntakeStatus : undefined}
                   disabled={isChatInputLocked}
                   replyTo={replyTarget}
                   onCancelReply={handleCancelReply}

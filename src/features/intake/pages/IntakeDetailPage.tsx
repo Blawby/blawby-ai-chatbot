@@ -241,7 +241,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
     intakeConversationState,
   } = useMessageHandling({
     practiceId: practiceId ?? undefined,
-    conversationId: intake?.conversation_id,
+    conversationId: intake?.conversation_id == null ? undefined : intake.conversation_id,
   });
 
   const isMountedRef = useRef(true);
@@ -348,6 +348,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
             triageStatus: 'accepted',
             triage_status: 'accepted',
             intakeTriageStatus: 'accepted',
+            mode: 'CONVERSATION',
           });
         } catch (conversationErr) {
           console.warn('[IntakeDetailPage] Failed to mark conversation active', conversationErr);
@@ -415,6 +416,23 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
           });
         } catch (msgErr) {
           console.warn('[IntakeDetailPage] Failed to post decline message', msgErr);
+        }
+        if (trimmedReason) {
+          try {
+            await postConversationMessage(responseConversationId, targetPracticeId, {
+              content: trimmedReason,
+              metadata: {
+                intakeUuid: intakeId,
+                triageStatus: action,
+                triage_status: action,
+                triageReason: trimmedReason,
+                triage_reason: trimmedReason,
+                source: 'intake-triage',
+              },
+            });
+          } catch (msgErr) {
+            console.warn('[IntakeDetailPage] Failed to post intake triage note (decline)', msgErr);
+          }
         }
       }
 
@@ -851,7 +869,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
               </div>
             )}
             <UserCard
-              name={name}
+              name={name == null ? '' : name}
               secondary={null}
               className="px-0 py-0"
               size="md"
@@ -974,7 +992,12 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
                 type="button"
                 variant="link"
                 size="sm"
-                onClick={() => route(`/practice/${encodeURIComponent((practiceDetails as { slug?: string }).slug)}/intakes/${encodeURIComponent(activeTemplate.slug)}/edit`)}
+                onClick={() => {
+                  const slug = (practiceDetails as { slug?: string }).slug;
+                  if (typeof slug === 'string' && slug && activeTemplate?.slug) {
+                    route(`/practice/${encodeURIComponent(slug)}/intakes/${encodeURIComponent(activeTemplate.slug)}/edit`);
+                  }
+                }}
                 className="h-auto p-0 text-xs text-accent hover:text-accent-hover"
               >
                 View form setup
@@ -984,7 +1007,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
           {activeTemplate && (practiceDetails as { slug?: string })?.slug && (
             <div className="mt-4">
               <EmbedCodeBlock
-                practiceSlug={(practiceDetails as { slug?: string }).slug}
+                practiceSlug={((practiceDetails as { slug?: string }).slug || '') as string}
                 templateSlug={activeTemplate.slug}
               />
             </div>
@@ -1045,11 +1068,11 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
       >
         <DialogBody className="space-y-4">
           <Textarea
-            label="Internal note (optional)"
+            label="Message to client (optional)"
             value={triageReason}
             onChange={setTriageReason}
             rows={3}
-            placeholder="Add reasoning for this triage decision…"
+            placeholder="Add a message for the client about this decision (they will see this)"
           />
         </DialogBody>
         <DialogFooter>

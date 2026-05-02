@@ -73,6 +73,7 @@ export function useWorkspaceAutoNavigation(
   useEffect(() => {
     navigationInitiatedRef.current = false;
     hasAutoNavigatedRef.current = false;
+  // effect intentionally only runs on practiceId — other deps intentionally omitted
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [practiceId]);
 

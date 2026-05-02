@@ -17,7 +17,7 @@ import { createConversation, fetchLatestConversationMessage } from '@/shared/lib
 import { postToParentFrame, resolveAllowedParentOrigins } from '@/shared/utils/widgetEvents';
 import { setupGlobalKeyboardListeners } from '@/shared/utils/keyboard';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
-import { resolveConversationDisplayTitle } from '@/shared/utils/conversationDisplay';
+import { resolveConversationContactName, resolveConversationDisplayTitle } from '@/shared/utils/conversationDisplay';
 import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
 import { practiceDetailsStore } from '@/shared/stores/practiceDetailsStore';
 import { useStore } from '@nanostores/preact';
@@ -143,7 +143,6 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
         return newId;
       } catch (error) {
         if (process.env.NODE_ENV !== 'production') {
-          // eslint-disable-next-line no-console
           console.error('Failed to create deferred conversation', error);
         }
         throw error;
@@ -299,7 +298,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
     messages, conversationMetadata, sendMessage, addMessage: _addMessage, clearMessages,
     requestMessageReactions, toggleMessageReaction,
     intakeStatus, intakeConversationState, handleIntakeCtaResponse: _handleIntakeCtaResponse,
-    slimContactDraft, handleSlimFormContinue: _handleSlimFormContinue, handleBuildBrief: _handleBuildBrief, handleSubmitNow: _handleSubmitNow, handleFinalizeSubmit: _handleFinalizeSubmit,
+    slimContactDraft, handleSlimFormContinue: _handleSlimFormContinue, handleBuildBrief: _handleBuildBrief, handleConfirmSubmit: _handleConfirmSubmit, handleFinalizeSubmit: _handleFinalizeSubmit,
     startConsultFlow: _startConsultFlow, updateConversationMetadata: _updateConversationMetadata, isConsultFlowActive: _isConsultFlowActive,
     ingestServerMessages, messagesReady, hasMoreMessages, isLoadingMoreMessages,
     loadMoreMessages, isSocketReady, applyIntakeFields,
@@ -612,7 +611,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
     intakeStatus,
     intakeConversationState,
     onIntakeCtaResponse: _handleIntakeCtaResponse,
-    onSubmitNow: _handleSubmitNow,
+    onSubmitNow: _handleConfirmSubmit,
     onBuildBrief: _handleBuildBrief,
     onStrengthenCase: _handleStrengthenCase,
     slimContactDraft,
@@ -623,7 +622,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
     intakeStatus,
     intakeConversationState,
     _handleIntakeCtaResponse,
-    _handleSubmitNow,
+    _handleConfirmSubmit,
     _handleBuildBrief,
     _handleStrengthenCase,
     slimContactDraft,
@@ -709,6 +708,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
                   conversationMetadata ?? null,
                   conversationMetadata?.title ?? ''
                 )}
+                conversationContactName={resolveConversationContactName(conversationMetadata ?? null)}
                 conversationId={activeConversationId}
                 onSendMessage={sendMessage}
                 isReady={isReady}

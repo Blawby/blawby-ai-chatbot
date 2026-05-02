@@ -89,8 +89,10 @@ interface ConversationItemProps {
 
 const ConversationItem = memo(({ conversation, preview, fallbackName, isActive, onSelect }: ConversationItemProps) => {
   const { t } = useTranslation();
+  const contactName = resolveConversationContactName(conversation);
   const fallbackTitle = resolveConversationDisplayTitle(conversation, fallbackName);
-  const title = resolveConversationContactName(conversation) || fallbackTitle;
+  const title = contactName || fallbackTitle;
+  const avatarName = contactName || fallbackName || t('workspace.conversationList.avatarFallback', { defaultValue: 'Contact' });
   const timeLabel = formatRelativeTime(conversation.updated_at);
   const previewText = (preview?.content ?? conversation.last_message_content ?? '').trim();
   const isUnread = Number(conversation.unread_count ?? 0) > 0;
@@ -107,7 +109,7 @@ const ConversationItem = memo(({ conversation, preview, fallbackName, isActive, 
     >
       <Avatar
         src={null}
-        name={title}
+        name={avatarName}
         size="md"
         className="ring-1 ring-line-glass/10"
       />
