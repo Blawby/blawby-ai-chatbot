@@ -559,13 +559,22 @@ export const useChatComposer = ({
           ? { ...message, content: bubbleContentForHandoff, isLoading: false }
           : message
       )));
+      // Clean up streaming refs just like the persisted branch
+      if (activeStreamingBubbleIdRef.current === bubbleId) {
+        activeStreamingBubbleIdRef.current = null;
+      }
+      if (orphanTimerRef.current) {
+        clearTimeout(orphanTimerRef.current);
+        orphanTimerRef.current = null;
+      }
+      pendingStreamMessageIdRef.current = null;
     } else {
       setMessages(prev => prev.filter(message => message.id !== bubbleId));
       if (activeStreamingBubbleIdRef.current === bubbleId) {
         activeStreamingBubbleIdRef.current = null;
       }
+      pendingStreamMessageIdRef.current = null;
     }
-    pendingStreamMessageIdRef.current = null;
   }, [appendStreamingToken, applyIntakeFields, applySetupFields, messageIdSetRef, messagesRef, mode, onError, orphanTimerRef, pendingStreamMessageIdRef, removeStreamingBubble, setMessages]);
 
   // ── main send ─────────────────────────────────────────────────────────────

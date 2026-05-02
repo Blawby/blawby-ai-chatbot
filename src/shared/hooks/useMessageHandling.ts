@@ -243,20 +243,25 @@ export const useMessageHandling = (options: UseMessageHandlingOptions) => {
         { submission: { paymentReceived: true } },
         { mirrorLegacyFields: true }
       );
+      // Unmount-safe async update
+      let isMounted = true;
       (async () => {
         try {
           await conversation.updateConversationMetadata(nextMetadata);
         } catch (error) {
-          setVerifiedPaidIntakeUuids(prev => {
-            const next = new Set(prev);
-            next.delete(uuid);
-            return next;
-          });
-          if (typeof onError === 'function') {
-            onError(error, { context: 'updateConversationMetadata', conversationId: (conversation as { id?: string })?.id });
+          if (isMounted) {
+            setVerifiedPaidIntakeUuids(prev => {
+              const next = new Set(prev);
+              next.delete(uuid);
+              return next;
+            });
+            if (typeof onError === 'function') {
+              onError(error, { context: 'updateConversationMetadata', conversationId });
+            }
           }
         }
       })();
+      return () => { isMounted = false; };
     },
     applyServerMessages: conversation.applyServerMessages,
     onError,
@@ -297,8 +302,10 @@ export const useMessageHandling = (options: UseMessageHandlingOptions) => {
       sendMessage: async (...args: Parameters<typeof composer.sendMessage>) => {
         // Ensure we have a conversation record and its ID before proceeding
         if (typeof onEnsureConversation === 'function') {
-          await onEnsureConversation();
-          // Record ID is ensured; continue to activation check
+          const ensuredId = await onEnsureConversation();
+          if (ensuredId == null) {
+            throw new Error('Failed to ensure conversation before sending message.');
+          }
         }
 
         const isDraft = conversation.conversationMetadataRef.current?.status === 'draft' ||

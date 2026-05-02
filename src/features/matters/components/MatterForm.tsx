@@ -727,11 +727,13 @@ const MatterFormInner = ({
                 label="Contingency percentage"
                 value={formState.contingencyPercent !== undefined ? String(formState.contingencyPercent) : ''}
                 onChange={(value) => {
-                  const parsed = value.trim() === '' ? undefined : Number(value);
-                  if (Number.isFinite(parsed)) {
+                  if (value.trim() === '') {
+                    updateForm('contingencyPercent', undefined);
+                  } else {
+                    const parsed = Number(value);
                     updateForm(
                       'contingencyPercent',
-                      Math.max(0, Math.min(100, Number(parsed)))
+                      Math.max(0, Math.min(100, parsed))
                     );
                   }
                 }}
