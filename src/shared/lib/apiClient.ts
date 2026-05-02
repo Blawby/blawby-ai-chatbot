@@ -292,6 +292,7 @@ async function apiUpload<T>(
     if (config?.onProgress) {
       xhr.upload.onprogress = (event) => {
         if (!event.lengthComputable) return;
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
         config.onProgress!({
           loaded: event.loaded,
           total: event.total,

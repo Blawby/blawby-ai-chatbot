@@ -33,7 +33,7 @@ export interface ChatContainerProps {
     message: string,
     attachments: FileAttachment[],
     replyToMessageId?: string | null,
-    options?: { mentionedUserIds?: string[] }
+    options?: { additionalContext?: string; mentionedUserIds?: string[]; suppressAi?: boolean }
   ) => void;
   isReady: boolean;
   conversationMode?: ConversationMode | null;

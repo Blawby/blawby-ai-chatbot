@@ -21,6 +21,7 @@ import { uploadFileViaBackend } from '@/shared/lib/uploadsApi';
 // Custom hook to dynamically import react-markdown on client
 function useReactMarkdown() {
   // dynamic import: type is unknown until loaded, must use any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [ReactMarkdown, setReactMarkdown] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);

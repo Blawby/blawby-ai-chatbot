@@ -53,7 +53,9 @@ export const useBillingData = ({
     ttl: policyTtl(cacheKey),
     fetcher: async (signal) => {
       const [invoicesResult, unbilledResult] = await Promise.allSettled([
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
         listInvoices(practiceId!, matterId!, { signal }),
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
         getMatterUnbilledData(practiceId!, matterId!, {
           signal,
           summaryDefaults: {

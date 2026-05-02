@@ -27,6 +27,7 @@ export const usePracticeTeam = (
 
   const { data, error, isLoading, refetch } = useQuery({
     key: cacheKey,
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     fetcher: (signal) => listPracticeTeam(practiceId!, { signal }),
     ttl: policyTtl(cacheKey),
     enabled: enabled && Boolean(practiceId),

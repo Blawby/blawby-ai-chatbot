@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from 'preact/hooks';
+import { useState, useMemo, useRef, useEffect } from 'preact/hooks';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import type { ConversationMetadata, ConversationMode, SetupFieldsPayload } from '@/shared/types/conversation';
 import { useIntakeFlow } from '@/shared/hooks/useIntakeFlow';

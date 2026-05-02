@@ -2,7 +2,7 @@ import { FunctionComponent } from 'preact';
 import type { ComponentChildren } from 'preact';
 import { useMemo, useRef, useState, useEffect, useCallback } from 'preact/hooks';
 import { useLocation } from 'preact-iso';
-import { Bars3Icon, XMarkIcon } from '@heroicons/react/24/outline';
+import { Bars3Icon } from '@heroicons/react/24/outline';
 import { PlusIcon } from '@heroicons/react/24/solid';
 import { useNavigation } from '@/shared/utils/navigation';
 import { signOut } from '@/shared/utils/auth';
@@ -327,8 +327,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
 
   useEffect(() => {
     setup.resetForPracticeId();
-  // effect intentionally only runs on practiceId (react-hooks/exhaustive-deps disabled)
-  }, [practiceId]);
+  }, [practiceId, setup]);
 
   const { conversationPreviews } = useConversationPreviews({
     practiceId,

@@ -30,6 +30,7 @@ export const useMatterFiles = (practiceId: string | null, matterId: string | nul
     refetch,
   } = useQuery<MatterFile[]>({
     key: cacheKey,
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     fetcher: (signal) => listMatterFiles(practiceId!, matterId!, { signal }),
     ttl: policyTtl(cacheKey),
     enabled: Boolean(practiceId && matterId),

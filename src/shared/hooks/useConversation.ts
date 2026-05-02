@@ -860,8 +860,11 @@ export const useConversation = ({
       if (!isDisposedRef.current && activeConversationId === conversationIdRef.current) {
         if (isLoadMore) {
           batch(() => {
+            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
             applyServerMessages(data.data!.messages ?? []);
+            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
             setHasMoreMessages(Boolean(data.data!.hasMore));
+            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
             setNextCursor(data.data!.cursor ?? null);
           });
         } else {
@@ -894,7 +897,9 @@ export const useConversation = ({
               return dedupeMessagesById([...newBatch, ...prev].sort((a, b) => a.timestamp - b.timestamp));
             });
             setMessagesReady(true);
+            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
             setHasMoreMessages(Boolean(data.data!.hasMore));
+            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
             setNextCursor(data.data!.cursor ?? null);
           });
         }
