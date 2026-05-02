@@ -97,3 +97,6 @@ trace.zip
 
 # Billing plan (sensitive financial/pricing information)
 BILLING_PLAN.md
+
+# Pencil design files (local working files)
+blawby ui.pen
