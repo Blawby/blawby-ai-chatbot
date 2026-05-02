@@ -82,6 +82,8 @@ const readFiniteNumberField = (record: Record<string, unknown> | null, keys: str
   return null;
 };
 
+
+
 const resolvePracticeRequiresPaymentBeforeSubmission = (details: Record<string, unknown> | null): boolean => {
   if (!details) return false;
   const consultationFee = readFiniteNumberField(details, [
@@ -354,17 +356,38 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
 
   const auditService = new SessionAuditService(env);
 
+  const canonicalPracticeDetailsOptions = {
+    bypassCache: effectiveMode === 'PRACTICE_ONBOARDING',
+    preferPracticeIdLookup: true,
+  };
+
   // Load practice details - audit write is best-effort and should not crash the flow.
-  const practiceDetailsPromise = anonymousPracticeDetailsPromise ?? fetchPracticeDetailsWithCache(
-    env,
-    request,
-    practiceId,
-    practiceSlug || undefined,
-    {
-      bypassCache: effectiveMode === 'PRACTICE_ONBOARDING',
-      preferPracticeIdLookup: true,
-    }
-  );
+  const practiceDetailsPromise = anonymousPracticeDetailsPromise
+    ? anonymousPracticeDetailsPromise.then(async (prefetchedResult) => {
+        const prefetchedPracticeId = prefetchedResult.details?.id;
+        if (prefetchedPracticeId === practiceId) {
+          return prefetchedResult;
+        }
+        Logger.warn('Anonymous practice details slug result did not match conversation practice; refetching by practiceId', {
+          conversationId: body.conversationId,
+          practiceId,
+          prefetchedPracticeId,
+        });
+        return fetchPracticeDetailsWithCache(
+          env,
+          request,
+          practiceId,
+          null,
+          canonicalPracticeDetailsOptions,
+        );
+      })
+    : fetchPracticeDetailsWithCache(
+        env,
+        request,
+        practiceId,
+        practiceSlug || undefined,
+        canonicalPracticeDetailsOptions
+      );
 
   // Best-effort audit write - errors are caught and logged
   auditService.createEvent({

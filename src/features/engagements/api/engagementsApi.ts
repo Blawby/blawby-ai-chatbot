@@ -132,16 +132,21 @@ export async function listEngagements(
   const requestedLimit = Math.max(1, params.limit ?? 20);
 
   const engagementStatuses = new Set<string>(ENGAGEMENT_STATUSES);
-  const requestedStatuses = params.status && params.status.length > 0
-    ? params.status.filter((s): s is EngagementStatus => engagementStatuses.has(s))
+  const rawStatuses = params.status ?? [];
+  const hasStatusFilter = rawStatuses.length > 0;
+  const requestedStatuses = hasStatusFilter
+    ? rawStatuses.filter((s): s is EngagementStatus => engagementStatuses.has(s))
     : ENGAGEMENT_STATUSES;
 
-  const invalidStatuses = params.status && params.status.length > 0
-    ? params.status.filter((s) => !engagementStatuses.has(s))
+  const invalidStatuses = hasStatusFilter
+    ? rawStatuses.filter((s) => !engagementStatuses.has(s))
     : [];
 
   if (invalidStatuses.length > 0) {
     throw new Error(`Invalid engagement status filter: ${invalidStatuses.join(', ')}`);
+  }
+  if (hasStatusFilter && requestedStatuses.length !== 1) {
+    throw new Error('Engagement list supports exactly one status filter');
   }
 
   const allowedStatuses = new Set<string>(requestedStatuses);
@@ -167,7 +172,7 @@ export async function listEngagements(
   const data = parseContractListPayload(raw);
   const allItems = data.data.map(normalizeEngagementContract);
   const items = allItems.filter((item) => allowedStatuses.has(item.status));
-  const total = requestedStatuses.length === 1 ? data.pagination.total : items.length;
+  const total = data.pagination.total;
   const total_pages = Math.max(1, Math.ceil(total / requestedLimit));
 
   return {

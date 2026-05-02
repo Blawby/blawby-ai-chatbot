@@ -417,6 +417,23 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
         } catch (msgErr) {
           console.warn('[IntakeDetailPage] Failed to post decline message', msgErr);
         }
+        if (trimmedReason) {
+          try {
+            await postConversationMessage(responseConversationId, targetPracticeId, {
+              content: trimmedReason,
+              metadata: {
+                intakeUuid: intakeId,
+                triageStatus: action,
+                triage_status: action,
+                triageReason: trimmedReason,
+                triage_reason: trimmedReason,
+                source: 'intake-triage',
+              },
+            });
+          } catch (msgErr) {
+            console.warn('[IntakeDetailPage] Failed to post intake triage note (decline)', msgErr);
+          }
+        }
       }
 
       if (isMountedRef.current) {
