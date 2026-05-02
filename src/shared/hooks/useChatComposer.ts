@@ -113,7 +113,7 @@ export const useChatComposer = ({
   waitForSocketReady,
   isSocketReadyRef,
   socketConversationIdRef,
-  messageIdSetRef: _messageIdSetRef,
+  messageIdSetRef,
   pendingClientMessageRef,
   pendingAckRef,
   pendingStreamMessageIdRef,
@@ -367,6 +367,7 @@ export const useChatComposer = ({
     const decoder = new TextDecoder();
     let sseBuffer = '';
     let finalDoneReply: string | null = null;
+    let persistedMessageId: string | null = null;
 
     const processEvent = async (eventData: string) => {
       let parsed: Record<string, unknown>;
@@ -379,6 +380,9 @@ export const useChatComposer = ({
       if (parsed.done === true) {
         const doneReply = typeof parsed.reply === 'string' ? parsed.reply : null;
         finalDoneReply = doneReply;
+        persistedMessageId = typeof parsed.persistedMessageId === 'string'
+          ? parsed.persistedMessageId
+          : null;
         if (doneReply !== null) {
           setMessages(prev => prev.map(msg =>
             msg.id === bubbleId
@@ -513,72 +517,35 @@ export const useChatComposer = ({
       if (dataLine) await processEvent(dataLine.slice(6));
     }
 
-    // Final reconciliation pass: if the persisted assistant message is already present,
-    // collapse the temporary stream bubble immediately (no orphan timer).
-    const bubbleIdToHandle = bubbleId;
-    const normalizeMessage = (value: string): string => value.trim().replace(/\s+/g, ' ').toLowerCase();
-    
-    // Helper for stricter similarity test
-    const computeOverlapRatio = (str1: string, str2: string): number => {
-      const tokens1 = new Set(str1.split(' ').filter(token => token.length > 2)); // ignore very short tokens
-      const tokens2 = new Set(str2.split(' ').filter(token => token.length > 2));
-      
-      if (tokens1.size === 0 || tokens2.size === 0) return 0;
-      
-      let shared = 0;
-      for (const token of tokens1) {
-        if (tokens2.has(token)) shared++;
-      }
-      
-      return shared / Math.min(tokens1.size, tokens2.size);
-    };
-    
-    const isSufficientlySimilar = (str1: string, str2: string): boolean => {
-      if (str1 === str2) return true;
-      
-      // Normalized fallback for short, identical responses like "Hello." vs "hello"
-      const norm1 = str1.trim().toLowerCase().replace(/[.,!?;:]+$/, '');
-      const norm2 = str2.trim().toLowerCase().replace(/[.,!?;:]+$/, '');
-      if (norm1 === norm2) return true;
-      
-      const minLength = 20; // minimum length for similarity check
-      if (str1.length < minLength || str2.length < minLength) return false;
-      
-      const overlapRatio = computeOverlapRatio(str1, str2);
-      return overlapRatio >= 0.6; // threshold for sufficient similarity
-    };
-    
-    const currentMessages = messagesRef.current;
-    const currentBubble = currentMessages.find(m => m.id === bubbleIdToHandle);
-    const bubbleContentForReconciliation = finalDoneReply ?? currentBubble?.content ?? null;
-    const normalizedBubble = typeof bubbleContentForReconciliation === 'string' && bubbleContentForReconciliation.trim().length > 0
-      ? normalizeMessage(bubbleContentForReconciliation)
-      : null;
-    const hasMatchingPersistedAssistant = currentMessages.some(message => {
-        if (message.id === bubbleIdToHandle) return false;
-        if (typeof message.id === 'string' && message.id.startsWith(STREAMING_BUBBLE_PREFIX)) return false;
-        const isAiMessage = message.role === 'assistant' || (message.role === 'system' && message.metadata?.source === 'ai');
-        if (!isAiMessage) return false;
-        // Prefer explicit linkage when present, but allow strong text similarity
-        // as fallback to avoid temporary duplicate bubbles in delayed SSE handoffs.
-        const isLinked =
-          message.reply_to_message_id === bubbleIdToHandle ||
-          (message.metadata && message.metadata.sourceBubbleId === bubbleIdToHandle);
-
-        if (isLinked) return true;
-        if (!normalizedBubble) return false;
-        if (typeof message.content !== 'string' || message.content.trim().length === 0) return false;
-        const normalizedAssistant = normalizeMessage(message.content);
-
-        const messageAgeMs = Math.abs(Date.now() - message.timestamp);
-        const RECENT_PERSISTED_ASSISTANT_WINDOW_MS = 15_000;
-        if (messageAgeMs > RECENT_PERSISTED_ASSISTANT_WINDOW_MS) return false;
-        return isSufficientlySimilar(normalizedAssistant, normalizedBubble);
+    const bubbleContentForHandoff = finalDoneReply ?? messagesRef.current.find(m => m.id === bubbleId)?.content ?? '';
+    if (persistedMessageId && bubbleContentForHandoff.trim()) {
+      messageIdSetRef.current.add(persistedMessageId);
+      setMessages(prev => {
+        const persistedAlreadyPresent = prev.some(message => message.id === persistedMessageId);
+        if (persistedAlreadyPresent) {
+          return prev.filter(message => message.id !== bubbleId);
+        }
+        return prev.map(message => (
+          message.id === bubbleId
+            ? {
+                ...message,
+                id: persistedMessageId,
+                content: bubbleContentForHandoff,
+                isLoading: false,
+                metadata: {
+                  ...(message.metadata ?? {}),
+                  source: 'ai',
+                  sourceBubbleId: bubbleId,
+                  __client_id: bubbleId,
+                },
+              }
+            : message
+        ));
       });
-
-    if (hasMatchingPersistedAssistant) {
-      setMessages(prev => prev.filter(message => message.id !== bubbleIdToHandle));
       pendingStreamMessageIdRef.current = null;
+      if (activeStreamingBubbleIdRef.current === bubbleId) {
+        activeStreamingBubbleIdRef.current = null;
+      }
       if (orphanTimerRef.current !== null) {
         clearTimeout(orphanTimerRef.current);
         orphanTimerRef.current = null;
@@ -586,33 +553,20 @@ export const useChatComposer = ({
       return;
     }
 
-    // Handle orphan bubble (no realtime reconciliation arrived)
-    if (pendingStreamMessageIdRef.current === null) {
-      let orphanedBubble: ChatMessageUI | null = null;
-      const orphanExpiryMs = 30_000;
-
-      setMessages(prev => {
-        const bubble = prev.find(m => m.id === bubbleIdToHandle);
-        const bubbleContent = finalDoneReply ?? bubble?.content ?? '';
-        if (!bubble || !bubbleContent.trim()) return prev;
-        
-        orphanedBubble = {
-          ...bubble,
-          content: bubbleContent,
-          metadata: { ...bubble.metadata, isOrphan: true, orphanExpiryTime: Date.now() + orphanExpiryMs },
-        };
-        return prev.map(m => m.id === bubbleIdToHandle ? orphanedBubble : m);
-      });
-
-      if (orphanedBubble) {
-        if (orphanTimerRef.current) clearTimeout(orphanTimerRef.current);
-        orphanTimerRef.current = setTimeout(() => {
-          setMessages(current => current.filter(m => m.id !== bubbleIdToHandle));
-          orphanTimerRef.current = null;
-        }, orphanExpiryMs);
+    if (bubbleContentForHandoff.trim()) {
+      setMessages(prev => prev.map(message => (
+        message.id === bubbleId
+          ? { ...message, content: bubbleContentForHandoff, isLoading: false }
+          : message
+      )));
+    } else {
+      setMessages(prev => prev.filter(message => message.id !== bubbleId));
+      if (activeStreamingBubbleIdRef.current === bubbleId) {
+        activeStreamingBubbleIdRef.current = null;
       }
     }
-  }, [appendStreamingToken, applyIntakeFields, applySetupFields, messagesRef, mode, onError, orphanTimerRef, pendingStreamMessageIdRef, removeStreamingBubble, setMessages]);
+    pendingStreamMessageIdRef.current = null;
+  }, [appendStreamingToken, applyIntakeFields, applySetupFields, messageIdSetRef, messagesRef, mode, onError, orphanTimerRef, pendingStreamMessageIdRef, removeStreamingBubble, setMessages]);
 
   // ── main send ─────────────────────────────────────────────────────────────
 

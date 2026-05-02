@@ -287,7 +287,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     if (canHandleCta && intakeContext.onIntakeCtaResponse && isPatternAffirmative) {
       (async () => {
         try {
-          await handleSubmitNowAction();
+          await handleConfirmSubmitAction();
           setInputValue('');
           setReplyTarget(null);
         } catch (error) {
@@ -329,7 +329,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     onAuthPromptRequest?.();
   }, [onAuthPromptRequest]);
 
-  const handleSubmitNowAction = async () => {
+  const handleConfirmSubmitAction = async () => {
     if (submitActionInFlightRef.current) {
       return;
     }

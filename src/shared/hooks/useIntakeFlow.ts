@@ -181,8 +181,6 @@ export interface UseIntakeFlowResult {
    * Called by the parent after payment is confirmed, or immediately if no payment needed.
    */
   handleFinalizeSubmit: (options?: { generatePaymentLinkOnly?: boolean }) => Promise<{ paymentLinkUrl: string | null; intakeUuid: string | null }>;
-  /** Backward-compat alias: runs the full confirm+finalize flow (used where no payment UI is wired) */
-  handleSubmitNow: () => Promise<void>;
   /** Apply fields extracted by AI or manual edits */
   applyIntakeFields: (payload: IntakeFieldsPayload, options?: IntakeFieldChangeOptions) => Promise<void>;
   /** Legacy alias or specialized form submit if needed */
@@ -806,11 +804,6 @@ export function useIntakeFlow({
    
   }, [handlePaymentHandoff]);
 
-  /** Backward-compat alias for callers that don't have a payment UI wired */
-  const handleSubmitNow = useCallback(async () => {
-    await handleConfirmSubmit();
-  }, [handleConfirmSubmit]);
-
   const handleContactFormSubmit = useCallback(async (draft: ContactData) => {
     if (!enabled) return;
     try {
@@ -841,7 +834,6 @@ export function useIntakeFlow({
     resetIntakeCta,
     handleConfirmSubmit,
     handleFinalizeSubmit,
-    handleSubmitNow,
     applyIntakeFields,
     handleContactFormSubmit,
   };

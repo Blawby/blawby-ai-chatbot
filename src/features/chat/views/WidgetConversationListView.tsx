@@ -136,7 +136,7 @@ const WidgetConversationListView: FunctionComponent<WidgetConversationListViewPr
               const preview = previews[conversation.id];
               const contactName = resolveConversationContactName(conversation);
               const title = resolveConversationDisplayTitle(conversation, fallbackName);
-              const avatarName = contactName || fallbackName || 'Contact';
+              const avatarName = contactName || fallbackName || t('workspace.conversationList.avatarFallback', { defaultValue: 'Contact' });
               const timeLabel = formatRelativeTime(conversation.updated_at);
               const previewText = preview?.content
                 ? preview.content

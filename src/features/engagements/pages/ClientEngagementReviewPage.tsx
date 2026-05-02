@@ -3,7 +3,7 @@
  *
  * Route: /client/:practiceSlug/engagements/:engagementId/review
  *
- * Authenticated (no magic link). By sent, the client is already
+ * Authenticated (no magic link). Once sent, the client is already
  * authenticated through the intake invite flow. Normal auth redirects apply.
  *
  * Actions:

@@ -265,16 +265,11 @@ export async function sendEngagementToClient(
 
   let raw: unknown;
   try {
-    if (note?.trim()) {
-      await apiClient.patch<unknown>(
-        `/api/engagement-contracts/${encodeSegment(practiceId)}/${encodeSegment(contractId)}`,
-        { engagement_notes: note.trim() },
-        { signal: options.signal },
-      );
-    }
+    const patchPayload: Record<string, any> = { status: 'sent' };
+    if (note?.trim()) patchPayload.engagement_notes = note.trim();
     const result = await apiClient.patch<unknown>(
-      `/api/engagement-contracts/${encodeSegment(practiceId)}/${encodeSegment(contractId)}/status`,
-      { status: 'sent' },
+      `/api/engagement-contracts/${encodeSegment(practiceId)}/${encodeSegment(contractId)}`,
+      patchPayload,
       { signal: options.signal },
     );
     raw = result.data;

@@ -88,7 +88,7 @@ vi.mock('@/shared/hooks/useMessageHandling', () => ({
     slimContactDraft: null,
     handleSlimFormContinue: vi.fn(),
     handleBuildBrief: vi.fn(),
-    handleSubmitNow: vi.fn(),
+    handleConfirmSubmit: vi.fn(),
     handleFinalizeSubmit: vi.fn(),
     startConsultFlow: vi.fn(),
     updateConversationMetadata: vi.fn(),
