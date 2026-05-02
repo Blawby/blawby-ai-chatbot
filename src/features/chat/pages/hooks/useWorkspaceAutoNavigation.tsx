@@ -73,7 +73,7 @@ export function useWorkspaceAutoNavigation(
   useEffect(() => {
     navigationInitiatedRef.current = false;
     hasAutoNavigatedRef.current = false;
-  // effect intentionally only runs on practiceId (react-hooks/exhaustive-deps disabled)
+  // effect intentionally only runs on practiceId — other deps intentionally omitted
   }, [practiceId]);
 
   // Reset the initial-check ref on view entry / id change so the auto-nav

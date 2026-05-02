@@ -573,6 +573,10 @@ export const useChatComposer = ({
       if (activeStreamingBubbleIdRef.current === bubbleId) {
         activeStreamingBubbleIdRef.current = null;
       }
+      if (orphanTimerRef.current !== null) {
+        clearTimeout(orphanTimerRef.current);
+        orphanTimerRef.current = null;
+      }
       pendingStreamMessageIdRef.current = null;
     }
   }, [appendStreamingToken, applyIntakeFields, applySetupFields, messageIdSetRef, messagesRef, mode, onError, orphanTimerRef, pendingStreamMessageIdRef, removeStreamingBubble, setMessages]);

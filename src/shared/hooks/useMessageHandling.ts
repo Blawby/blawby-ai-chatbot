@@ -126,7 +126,14 @@ export const useMessageHandling = (options: UseMessageHandlingOptions) => {
 
   const composerRef = useRef<ReturnType<typeof useChatComposer> | null>(null);
 
-  // 3. Core Transport & State
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  // 1. Conversations & Sync
   const conversation = useConversation({
     enabled,
     practiceId,
@@ -237,19 +244,21 @@ export const useMessageHandling = (options: UseMessageHandlingOptions) => {
         next.add(uuid);
         return next;
       });
-      // Patch conversation metadata to mark payment as received
-      const nextMetadata = applyConsultationPatchToMetadata(
-        conversation.conversationMetadataRef.current,
-        { submission: { paymentReceived: true } },
-        { mirrorLegacyFields: true }
-      );
-      // Unmount-safe async update
-      let isMounted = true;
+
       (async () => {
         try {
-          await conversation.updateConversationMetadata(nextMetadata);
+          // Patch conversation metadata to mark payment as received.
+          // Compute this inside the async block using the freshest ref to avoid race conditions.
+          const nextMetadata = applyConsultationPatchToMetadata(
+            conversation.conversationMetadataRef.current,
+            { submission: { paymentReceived: true } },
+            { mirrorLegacyFields: true }
+          );
+          if (mountedRef.current) {
+            await conversation.updateConversationMetadata(nextMetadata);
+          }
         } catch (error) {
-          if (isMounted) {
+          if (mountedRef.current) {
             setVerifiedPaidIntakeUuids(prev => {
               const next = new Set(prev);
               next.delete(uuid);
@@ -261,7 +270,6 @@ export const useMessageHandling = (options: UseMessageHandlingOptions) => {
           }
         }
       })();
-      return () => { isMounted = false; };
     },
     applyServerMessages: conversation.applyServerMessages,
     onError,

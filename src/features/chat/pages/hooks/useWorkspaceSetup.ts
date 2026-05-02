@@ -412,8 +412,7 @@ export const useWorkspaceSetup = ({
     const controller = new AbortController();
     void refreshStripeStatus({ signal: controller.signal });
     return () => controller.abort();
-  // effect intentionally only runs on workspacePracticeId, shouldFetchStripeStatus (react-hooks/exhaustive-deps disabled)
-  }, [workspacePracticeId, shouldFetchStripeStatus]);
+  }, [workspacePracticeId, shouldFetchStripeStatus, refreshStripeStatus]);
 
   const handleStartStripeOnboarding = useCallback(async () => {
     if (!workspacePracticeId) {

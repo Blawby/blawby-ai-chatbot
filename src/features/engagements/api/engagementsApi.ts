@@ -145,17 +145,15 @@ export async function listEngagements(
   if (invalidStatuses.length > 0) {
     throw new Error(`Invalid engagement status filter: ${invalidStatuses.join(', ')}`);
   }
-  if (hasStatusFilter && requestedStatuses.length !== 1) {
-    throw new Error('Engagement list supports exactly one status filter');
-  }
+
 
   const allowedStatuses = new Set<string>(requestedStatuses);
 
   const query = new URLSearchParams();
   query.set('page', String(requestedPage));
   query.set('limit', String(requestedLimit));
-  if (requestedStatuses.length === 1) {
-    query.set('status', requestedStatuses[0]);
+  if (requestedStatuses.length > 0) {
+    requestedStatuses.forEach(s => query.append('status', s));
   }
 
   let raw: unknown;
@@ -183,7 +181,7 @@ export async function listEngagements(
   };
 }
 
-// ── Get engagement detail ─────────────────────────────────────────────────────
+// ── Create engagement contract ─────────────────────────────────────────────────────
 
 export async function createEngagementContract(
   practiceId: string,

@@ -48,7 +48,8 @@ export function usePaginatedList<T extends { id: string }>(
     setError(null);
     setIsLoading(true);
     setIsLoadingMore(false);
-    // reset dependencies are intentionally supplied by the caller (react-hooks/exhaustive-deps disabled)
+    // reset dependencies are intentionally supplied by the caller
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps);
 
   useEffect(() => {
