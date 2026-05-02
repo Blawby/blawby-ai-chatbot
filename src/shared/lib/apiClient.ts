@@ -19,6 +19,10 @@ import {
 } from '@/shared/utils/money';
 import { isTeamRole } from '@/shared/types/team';
 import { getWidgetAuthToken } from '@/shared/utils/widgetAuth';
+// authClient is already statically bundled via 13+ direct imports across the app.
+// Keeping this as a static import avoids a Vite warning about dynamic imports
+// being collapsed into the main chunk when a static import already exists.
+import { getClient as getAuthClient } from '@/shared/lib/authClient';
 
 let cachedBaseUrl: string | null = null;
 let isHandling401: Promise<void> | null = null;
@@ -1567,9 +1571,9 @@ export async function createUserDetail(
     throw new Error('Email is required');
   }
 
-  // Use Better Auth organization invitation instead of direct user-details creation.
-  const { getClient } = await import('@/shared/lib/authClient');
-  const authClient = getClient();
+  // authClient is statically imported at the top of this file; no dynamic
+  // import needed (doing so would produce a Vite warning and no chunk split).
+  const authClient = getAuthClient();
 
   try {
     if (import.meta.env.DEV) {
