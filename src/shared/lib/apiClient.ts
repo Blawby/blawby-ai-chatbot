@@ -1573,9 +1573,9 @@ export async function createUserDetail(
 
   // authClient is statically imported at the top of this file; no dynamic
   // import needed (doing so would produce a Vite warning and no chunk split).
-  const authClient = getAuthClient();
-
+  let authClient;
   try {
+    authClient = getAuthClient();
     if (import.meta.env.DEV) {
       console.info('[apiClient] inviteMember', {
         organizationId: practiceId,

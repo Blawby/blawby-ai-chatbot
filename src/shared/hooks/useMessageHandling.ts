@@ -239,7 +239,7 @@ export const useMessageHandling = (options: UseMessageHandlingOptions) => {
       });
       // Patch conversation metadata to mark payment as received
       const nextMetadata = applyConsultationPatchToMetadata(
-        conversation.conversationMetadata,
+        conversation.conversationMetadataRef.current,
         { submission: { paymentReceived: true } },
         { mirrorLegacyFields: true }
       );

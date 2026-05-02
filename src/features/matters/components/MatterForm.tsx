@@ -731,10 +731,14 @@ const MatterFormInner = ({
                     updateForm('contingencyPercent', undefined);
                   } else {
                     const parsed = Number(value);
-                    updateForm(
-                      'contingencyPercent',
-                      Math.max(0, Math.min(100, parsed))
-                    );
+                    if (Number.isNaN(parsed)) {
+                      updateForm('contingencyPercent', undefined);
+                    } else {
+                      updateForm(
+                        'contingencyPercent',
+                        Math.max(0, Math.min(100, parsed))
+                      );
+                    }
                   }
                 }}
                 placeholder="20"
