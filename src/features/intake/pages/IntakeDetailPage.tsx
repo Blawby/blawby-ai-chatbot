@@ -348,6 +348,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
             triageStatus: 'accepted',
             triage_status: 'accepted',
             intakeTriageStatus: 'accepted',
+            mode: 'CONVERSATION',
           });
         } catch (conversationErr) {
           console.warn('[IntakeDetailPage] Failed to mark conversation active', conversationErr);
@@ -1045,11 +1046,11 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
       >
         <DialogBody className="space-y-4">
           <Textarea
-            label="Internal note (optional)"
+            label="Message to client (optional)"
             value={triageReason}
             onChange={setTriageReason}
             rows={3}
-            placeholder="Add reasoning for this triage decision…"
+            placeholder="Add a message for the client about this decision (they will see this)"
           />
         </DialogBody>
         <DialogFooter>

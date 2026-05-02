@@ -13,7 +13,10 @@ import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime'
 import type { Conversation } from '@/shared/types/conversation';
 import { chatTypography } from '@/features/chat/styles/chatTypography';
 import { ChatText } from '@/features/chat/components/ChatText';
-import { resolveConversationDisplayTitle } from '@/shared/utils/conversationDisplay';
+import {
+  resolveConversationContactName,
+  resolveConversationDisplayTitle,
+} from '@/shared/utils/conversationDisplay';
 
 const WidgetConversationListSkeleton = ({ rows = 6 }: { rows?: number }) => (
   <div className="divide-y divide-line-glass/[0.04] pt-1">
@@ -131,7 +134,9 @@ const WidgetConversationListView: FunctionComponent<WidgetConversationListViewPr
           <div className="pt-1 divide-y divide-line-glass/[0.04]">
             {sorted.map((conversation) => {
               const preview = previews[conversation.id];
+              const contactName = resolveConversationContactName(conversation);
               const title = resolveConversationDisplayTitle(conversation, fallbackName);
+              const avatarName = contactName || fallbackName || 'Contact';
               const timeLabel = formatRelativeTime(conversation.updated_at);
               const previewText = preview?.content
                 ? preview.content
@@ -152,7 +157,7 @@ const WidgetConversationListView: FunctionComponent<WidgetConversationListViewPr
                 >
                   <Avatar
                     src={null}
-                    name={title}
+                    name={avatarName}
                     size="md"
                     className="ring-2 ring-line-glass/10"
                   />

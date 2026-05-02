@@ -6,7 +6,7 @@ import { useSetupFlow, type UseSetupFlowResult } from '@/shared/hooks/useSetupFl
 import { useConversation } from '@/shared/hooks/useConversation';
 import { useChatComposer } from '@/shared/hooks/useChatComposer';
 import { usePaymentStatus } from '@/shared/hooks/usePaymentStatus';
-import { resolveConsultationState } from '@/shared/utils/consultationState';
+import { resolveConsultationState, applyConsultationPatchToMetadata } from '@/shared/utils/consultationState';
 import type { 
   IntakeConversationState, 
   SlimContactDraft, 
@@ -202,6 +202,13 @@ export const useMessageHandling = (options: UseMessageHandlingOptions) => {
         next.add(uuid);
         return next;
       });
+      // Patch conversation metadata to mark payment as received
+      const nextMetadata = applyConsultationPatchToMetadata(
+        conversation.conversationMetadata,
+        { submission: { paymentReceived: true } },
+        { mirrorLegacyFields: true }
+      );
+      conversation.updateConversationMetadata(nextMetadata);
     },
     applyServerMessages: conversation.applyServerMessages,
     onError,

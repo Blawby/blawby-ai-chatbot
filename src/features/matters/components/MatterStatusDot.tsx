@@ -10,7 +10,6 @@ const STATUS_DOT_STYLES: Record<MatterStatus, string> = {
   referred: 'text-slate-600 dark:text-slate-400',
   consultation_scheduled: 'text-amber-600 dark:text-amber-400',
   declined: 'text-rose-600 dark:text-rose-400',
-  intake_accepted: 'text-blue-600 dark:text-blue-400',
   engagement_draft: 'text-amber-600 dark:text-amber-400',
   engagement_sent: 'text-violet-600 dark:text-violet-400',
   engagement_accepted: 'text-emerald-600 dark:text-emerald-400',

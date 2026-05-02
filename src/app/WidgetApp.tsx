@@ -17,7 +17,7 @@ import { createConversation, fetchLatestConversationMessage } from '@/shared/lib
 import { postToParentFrame, resolveAllowedParentOrigins } from '@/shared/utils/widgetEvents';
 import { setupGlobalKeyboardListeners } from '@/shared/utils/keyboard';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
-import { resolveConversationDisplayTitle } from '@/shared/utils/conversationDisplay';
+import { resolveConversationContactName, resolveConversationDisplayTitle } from '@/shared/utils/conversationDisplay';
 import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
 import { practiceDetailsStore } from '@/shared/stores/practiceDetailsStore';
 import { useStore } from '@nanostores/preact';
@@ -143,7 +143,6 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
         return newId;
       } catch (error) {
         if (process.env.NODE_ENV !== 'production') {
-          // eslint-disable-next-line no-console
           console.error('Failed to create deferred conversation', error);
         }
         throw error;
@@ -709,6 +708,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
                   conversationMetadata ?? null,
                   conversationMetadata?.title ?? ''
                 )}
+                conversationContactName={resolveConversationContactName(conversationMetadata ?? null)}
                 conversationId={activeConversationId}
                 onSendMessage={sendMessage}
                 isReady={isReady}

@@ -79,6 +79,7 @@ const regex = (re: RegExp): RouteMatcher => (path) => re.test(path);
 const matchesBackendProxy: RouteMatcher = (path) =>
   path.startsWith('/api/onboarding') ||
   path.startsWith('/api/matters') ||
+  path.startsWith('/api/engagement-contracts') ||
   path.startsWith('/api/invoices') ||
   path.startsWith('/api/practice-client-intakes') ||
   path.startsWith('/api/clients') ||

@@ -23,6 +23,7 @@ type CachedProxyResponse = {
 const BACKEND_PATH_PREFIXES = [
   '/api/onboarding',
   '/api/matters',
+  '/api/engagement-contracts',
   '/api/invoices',
   '/api/conversations',
   '/api/practice-client-intakes',

@@ -7,8 +7,7 @@ export const MATTER_WORKFLOW_STATUSES = [
   'referred',
   'consultation_scheduled',
   'declined',
-  // Engagement lifecycle (intake_accepted → engagement_draft → engagement_sent → engagement_accepted → engagement_pending → active)
-  'intake_accepted',
+  // Engagement lifecycle (engagement_draft → engagement_sent → engagement_accepted → engagement_pending → active)
   'engagement_draft',
   'engagement_sent',
   'engagement_accepted',
@@ -35,7 +34,6 @@ export const MATTER_STATUS_LABELS: Record<MatterStatus, string> = {
   referred: 'Referred',
   consultation_scheduled: 'Consultation scheduled',
   declined: 'Declined',
-  intake_accepted: 'Intake accepted',
   engagement_draft: 'Engagement draft',
   engagement_sent: 'Engagement sent',
   engagement_accepted: 'Engagement accepted',

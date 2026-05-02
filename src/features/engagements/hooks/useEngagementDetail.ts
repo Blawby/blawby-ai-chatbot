@@ -8,7 +8,7 @@ import type { EngagementDetail } from '../types/engagement';
 /**
  * Fetch a single engagement detail keyed by (practiceId, engagementId).
  * Backed by useQuery for in-flight coalescing and the canonical async-state
- * contract. Mutations (send to client, withdraw, etc.) can call `setData`
+ * contract. Mutations (send to client, decline, etc.) can call `setData`
  * to write the server's response into the cache directly — no extra
  * roundtrip and the UI updates synchronously.
  */
@@ -16,10 +16,13 @@ export function useEngagementDetail(practiceId: string | null, engagementId: str
   const cacheKey = `engagement:${practiceId ?? ''}:${engagementId}`;
   const query = useQuery<EngagementDetail>({
     key: cacheKey,
-    fetcher: (signal) => getEngagement(practiceId!, engagementId, { signal }),
+    fetcher: (signal) => {
+      if (!practiceId) throw new Error('practiceId is required');
+      return getEngagement(practiceId, engagementId, { signal });
+    },
     ttl: policyTtl(cacheKey),
     enabled: Boolean(practiceId && engagementId),
-    // Engagement status (sent/accepted/withdrawn) drives action buttons —
+    // Engagement status (sent/accepted/declined) drives action buttons —
     // serving stale could let a user re-trigger a completed action.
     swr: false,
   });

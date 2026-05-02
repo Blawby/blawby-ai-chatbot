@@ -130,7 +130,6 @@ const STATUS_ICON: Record<MatterStatus, preact.ComponentType<preact.JSX.SVGAttri
   referred: ArrowUturnRightIcon,
   consultation_scheduled: DocumentCheckIcon,
   declined: XCircleIcon,
-  intake_accepted: CheckCircleIcon,
   engagement_draft: BriefcaseIcon,
   engagement_sent: BriefcaseIcon,
   engagement_accepted: CheckCircleIcon,
