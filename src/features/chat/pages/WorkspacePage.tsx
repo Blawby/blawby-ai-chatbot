@@ -327,7 +327,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
 
   useEffect(() => {
     setup.resetForPracticeId();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // effect intentionally only runs on practiceId (react-hooks/exhaustive-deps disabled)
   }, [practiceId]);
 
   const { conversationPreviews } = useConversationPreviews({

@@ -121,28 +121,31 @@ const STATUS_OPTIONS: Array<{ value: MatterStatus; label: string }> = MATTER_WOR
   })
 );
 
-const STATUS_ICON: Record<MatterStatus, preact.ComponentType<preact.JSX.SVGAttributes<SVGSVGElement>>> = {
-  first_contact: ChatBubbleLeftRightIcon,
-  intake_pending: MagnifyingGlassIcon,
-  conflict_check: ShieldExclamationIcon,
-  conflicted: ExclamationTriangleIcon,
-  eligibility: ScaleIcon,
-  referred: ArrowUturnRightIcon,
-  consultation_scheduled: DocumentCheckIcon,
-  declined: XCircleIcon,
-  engagement_draft: BriefcaseIcon,
-  engagement_sent: BriefcaseIcon,
-  engagement_accepted: CheckCircleIcon,
-  engagement_pending: PauseCircleIcon,
-  active: BriefcaseIcon,
-  pleadings_filed: DocumentCheckIcon,
-  discovery: MagnifyingGlassIcon,
-  mediation: ScaleIcon,
-  pre_trial: ShieldExclamationIcon,
-  trial: ExclamationTriangleIcon,
-  order_entered: CheckCircleIcon,
-  appeal_pending: ArrowUturnRightIcon,
-  closed: CheckCircleIcon
+// Adapter for Heroicons/React SVG to Preact SVG type
+// Type escape: Heroicons/React SVG types are not compatible with Preact SVG types.
+// This cast is safe for usage as icon components in this context.
+const STATUS_ICON: Record<MatterStatus, preact.FunctionComponent<preact.JSX.SVGAttributes<SVGSVGElement>>> = {
+  first_contact: ChatBubbleLeftRightIcon as unknown as preact.FunctionComponent<preact.JSX.SVGAttributes<SVGSVGElement>>,
+  intake_pending: MagnifyingGlassIcon as unknown as preact.FunctionComponent<preact.JSX.SVGAttributes<SVGSVGElement>>,
+  conflict_check: ShieldExclamationIcon as unknown as preact.FunctionComponent<preact.JSX.SVGAttributes<SVGSVGElement>>,
+  conflicted: ExclamationTriangleIcon as unknown as preact.FunctionComponent<preact.JSX.SVGAttributes<SVGSVGElement>>,
+  eligibility: ScaleIcon as unknown as preact.FunctionComponent<preact.JSX.SVGAttributes<SVGSVGElement>>,
+  referred: ArrowUturnRightIcon as unknown as preact.FunctionComponent<preact.JSX.SVGAttributes<SVGSVGElement>>,
+  consultation_scheduled: DocumentCheckIcon as unknown as preact.FunctionComponent<preact.JSX.SVGAttributes<SVGSVGElement>>,
+  declined: XCircleIcon as unknown as preact.FunctionComponent<preact.JSX.SVGAttributes<SVGSVGElement>>,
+  engagement_draft: BriefcaseIcon as unknown as preact.FunctionComponent<preact.JSX.SVGAttributes<SVGSVGElement>>,
+  engagement_sent: BriefcaseIcon as unknown as preact.FunctionComponent<preact.JSX.SVGAttributes<SVGSVGElement>>,
+  engagement_accepted: CheckCircleIcon as unknown as preact.FunctionComponent<preact.JSX.SVGAttributes<SVGSVGElement>>,
+  engagement_pending: PauseCircleIcon as unknown as preact.FunctionComponent<preact.JSX.SVGAttributes<SVGSVGElement>>,
+  active: BriefcaseIcon as unknown as preact.FunctionComponent<preact.JSX.SVGAttributes<SVGSVGElement>>,
+  pleadings_filed: DocumentCheckIcon as unknown as preact.FunctionComponent<preact.JSX.SVGAttributes<SVGSVGElement>>,
+  discovery: MagnifyingGlassIcon as unknown as preact.FunctionComponent<preact.JSX.SVGAttributes<SVGSVGElement>>,
+  mediation: ScaleIcon as unknown as preact.FunctionComponent<preact.JSX.SVGAttributes<SVGSVGElement>>,
+  pre_trial: ShieldExclamationIcon as unknown as preact.FunctionComponent<preact.JSX.SVGAttributes<SVGSVGElement>>,
+  trial: ExclamationTriangleIcon as unknown as preact.FunctionComponent<preact.JSX.SVGAttributes<SVGSVGElement>>,
+  order_entered: CheckCircleIcon as unknown as preact.FunctionComponent<preact.JSX.SVGAttributes<SVGSVGElement>>,
+  appeal_pending: ArrowUturnRightIcon as unknown as preact.FunctionComponent<preact.JSX.SVGAttributes<SVGSVGElement>>,
+  closed: CheckCircleIcon as unknown as preact.FunctionComponent<preact.JSX.SVGAttributes<SVGSVGElement>>,
 };
 
 const PAYMENT_FREQUENCY_OPTIONS: DescribedRadioOption[] = [
@@ -725,10 +728,12 @@ const MatterFormInner = ({
                 value={formState.contingencyPercent !== undefined ? String(formState.contingencyPercent) : ''}
                 onChange={(value) => {
                   const parsed = value.trim() === '' ? undefined : Number(value);
-                  updateForm(
-                    'contingencyPercent',
-                    Number.isFinite(parsed) ? Math.max(0, Math.min(100, parsed)) : undefined
-                  );
+                  if (Number.isFinite(parsed)) {
+                    updateForm(
+                      'contingencyPercent',
+                      Math.max(0, Math.min(100, Number(parsed)))
+                    );
+                  }
                 }}
                 placeholder="20"
                 type="number"

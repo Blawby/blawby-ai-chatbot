@@ -412,7 +412,7 @@ export const useWorkspaceSetup = ({
     const controller = new AbortController();
     void refreshStripeStatus({ signal: controller.signal });
     return () => controller.abort();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // effect intentionally only runs on workspacePracticeId, shouldFetchStripeStatus (react-hooks/exhaustive-deps disabled)
   }, [workspacePracticeId, shouldFetchStripeStatus]);
 
   const handleStartStripeOnboarding = useCallback(async () => {

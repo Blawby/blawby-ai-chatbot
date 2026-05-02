@@ -529,7 +529,7 @@ export const useChatComposer = ({
           message.id === bubbleId
             ? {
                 ...message,
-                id: persistedMessageId,
+                id: String(persistedMessageId), // ensure string
                 content: bubbleContentForHandoff,
                 isLoading: false,
                 metadata: {

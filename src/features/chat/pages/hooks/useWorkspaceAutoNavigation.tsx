@@ -73,7 +73,7 @@ export function useWorkspaceAutoNavigation(
   useEffect(() => {
     navigationInitiatedRef.current = false;
     hasAutoNavigatedRef.current = false;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // effect intentionally only runs on practiceId (react-hooks/exhaustive-deps disabled)
   }, [practiceId]);
 
   // Reset the initial-check ref on view entry / id change so the auto-nav

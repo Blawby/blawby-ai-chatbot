@@ -158,8 +158,14 @@ export const useMessageHandling = (options: UseMessageHandlingOptions) => {
     conversationMetadataRef: conversation.conversationMetadataRef,
     updateConversationMetadata: conversation.updateConversationMetadata,
     applyServerMessages: conversation.applyServerMessages,
-    sendMessage: (content, att, reply, opts) => composerRef.current?.sendMessage(content, att, reply, opts),
-    sendMessageOverWs: (content, att, meta, reply, convId) => composerRef.current?.sendMessageOverWs(content, att, meta, reply, convId),
+    sendMessage: (content, att, reply, opts) => {
+      const fn = composerRef.current?.sendMessage;
+      return fn ? fn(content, att, reply, opts) : Promise.resolve();
+    },
+    sendMessageOverWs: (content, att, meta, reply, convId) => {
+      const fn = composerRef.current?.sendMessageOverWs;
+      return fn ? fn(content, att, meta, reply, convId) : Promise.resolve({ messageId: '', seq: 0, serverTs: '', clientId: '' });
+    },
     onError,
   });
 
@@ -247,7 +253,7 @@ export const useMessageHandling = (options: UseMessageHandlingOptions) => {
             return next;
           });
           if (typeof onError === 'function') {
-            onError(error, { context: 'updateConversationMetadata', conversationId: conversation.id });
+            onError(error, { context: 'updateConversationMetadata', conversationId: (conversation as { id?: string })?.id });
           }
         }
       })();

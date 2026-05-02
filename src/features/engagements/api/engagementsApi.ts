@@ -270,7 +270,7 @@ export async function sendEngagementToClient(
 
   let raw: unknown;
   try {
-    const patchPayload: Record<string, any> = { status: 'sent' };
+    const patchPayload: Record<string, unknown> = { status: 'sent' };
     if (note?.trim()) patchPayload.engagement_notes = note.trim();
     const result = await apiClient.patch<unknown>(
       `/api/engagement-contracts/${encodeSegment(practiceId)}/${encodeSegment(contractId)}`,

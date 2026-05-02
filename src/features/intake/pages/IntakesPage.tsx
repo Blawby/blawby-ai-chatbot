@@ -6,7 +6,7 @@ import type { IconComponent } from '@/shared/ui/Icon';
 
 const InboxIcon: IconComponent = (props) => (
   // Heroicons types are incompatible with our IconComponent; adapt here
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // Heroicons types are incompatible with our IconComponent; forced cast is required
   <InboxStackIcon {...(props as any)} />
 );
 import { Panel } from '@/shared/ui/layout/Panel';

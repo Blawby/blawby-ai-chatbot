@@ -1,14 +1,14 @@
 import type { ComponentType } from 'preact';
 
 // Use a permissive component type to allow third-party icon components
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+// IconComponent must be permissive to support third-party icon libraries (any)
 export type IconComponent = ComponentType<any>;
 
 interface IconProps {
   icon: IconComponent;
   decorative?: boolean;
   className?: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // Icon props must allow arbitrary keys for third-party icon compatibility (any)
   [key: string]: any;
 }
 

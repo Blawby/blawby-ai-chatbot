@@ -222,7 +222,6 @@ export function PracticeContactEditorPage({
           setResolvedContactId(resolved.id);
           setError('Invite sent but subsequent update failed.');
           if (process.env.NODE_ENV !== 'production') {
-            // eslint-disable-next-line no-console
             console.error('Invite sent but updateUserDetail failed', updateErr);
           }
           return;
@@ -232,7 +231,6 @@ export function PracticeContactEditorPage({
       setError('Invite sent but subsequent update failed.');
       if (resolved?.id) setResolvedContactId(resolved.id);
       if (process.env.NODE_ENV !== 'production') {
-        // eslint-disable-next-line no-console
         console.error('Invite sent but listUserDetails or updateUserDetail failed', listOrUpdateErr);
       }
       return;
@@ -278,7 +276,6 @@ export function PracticeContactEditorPage({
       const message = nextError instanceof Error ? nextError.message : 'Failed to save contact.';
       setError(message);
       if (process.env.NODE_ENV !== 'production') {
-        // eslint-disable-next-line no-console
         console.error('Failed to save contact', nextError);
       }
     } finally {
