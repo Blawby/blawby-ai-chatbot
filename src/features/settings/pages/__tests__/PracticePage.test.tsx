@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { Building2 } from 'lucide-preact';
 
 // Mock authClient BEFORE importing anything that uses it
 const mockUseSession = vi.fn(() => ({
@@ -141,12 +142,7 @@ vi.mock('@/shared/contexts/SessionContext', () => ({
   useSessionContext: () => mockSessionContext,
 }));
 
-// Mock heroicons to prevent icon rendering issues
-vi.mock('@heroicons/react/24/outline', () => ({
-  BuildingOfficeIcon: () => 'BuildingOfficeIcon',
-  PlusIcon: () => 'PlusIcon',
-  XMarkIcon: () => 'XMarkIcon',
-}));
+// Heroicons mocks removed; icons migrated to lucide-react.
 
 // Mock the navigation hook
 const mockNavigate = vi.fn();

@@ -5,7 +5,8 @@ import FileMenu from '@/features/media/components/FileMenu';
 import MediaControls from '@/features/media/components/MediaControls';
 import { FileDisplay } from '@/shared/ui/upload/organisms/FileDisplay';
 import { FileUploadStatus } from '@/shared/ui/upload/molecules/FileUploadStatus';
-import { ArrowUpIcon, XMarkIcon } from "@heroicons/react/24/outline";
+import { ArrowUp, X } from 'lucide-preact';
+
 import { features } from '@/config/features';
 import { FileAttachment } from '../../../../worker/types';
 import type { UploadingFile } from '@/shared/types/upload';
@@ -340,7 +341,7 @@ const MessageComposer = ({
                 className="h-6 w-6 rounded-full"
                 aria-label="Cancel reply"
                 onClick={() => onCancelReply?.()}
-                icon={XMarkIcon} iconClassName="h-4 w-4"
+                icon={X} iconClassName="h-4 w-4"
               />
             </div>
           )}
@@ -489,7 +490,7 @@ const MessageComposer = ({
                         ? 'Send message (disabled)'
                         : 'Send message')}
                 className={`w-8 h-8 p-0 rounded-full shrink-0 ${isInputExpanded ? 'self-end' : 'self-center'} transition ${isInputFocused && !sendDisabled ? 'ring-2 ring-accent-500/50 shadow-[0_0_0_2px_rgba(255,196,0,0.15)]' : ''}`}
-                icon={ArrowUpIcon} iconClassName="w-3.5 h-3.5"
+                icon={ArrowUp} iconClassName="w-3.5 h-3.5"
                 data-testid="message-send-button"
               />
             </div>

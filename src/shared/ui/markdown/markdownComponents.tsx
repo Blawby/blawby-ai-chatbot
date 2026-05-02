@@ -2,7 +2,8 @@ import type { Components } from 'react-markdown';
 import { useState, useRef, useEffect } from 'preact/hooks';
 import type { ComponentChildren, VNode, JSX } from 'preact';
 import { useLocation } from 'preact-iso';
-import { ClipboardDocumentCheckIcon, ClipboardDocumentIcon } from '@heroicons/react/24/outline';
+import { ClipboardCheck, Clipboard } from 'lucide-preact';
+
 import { Icon } from '@/shared/ui/Icon';
 
 /**
@@ -63,12 +64,12 @@ const CopyButton = ({ text }: { text: string }) => {
     >
       {copied ? (
         <>
-          <Icon icon={ClipboardDocumentCheckIcon} className="h-4 w-4" aria-hidden="true"  />
+          <Icon icon={ClipboardCheck} className="h-4 w-4" aria-hidden="true"  />
           Copied
         </>
       ) : (
         <>
-          <Icon icon={ClipboardDocumentIcon} className="h-4 w-4" aria-hidden="true"  />
+          <Icon icon={Clipboard} className="h-4 w-4" aria-hidden="true"  />
           Copy
         </>
       )}

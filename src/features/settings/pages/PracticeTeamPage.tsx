@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'preact/hooks';
 import { useLocation } from 'preact-iso';
-import { UserPlusIcon, DocumentDuplicateIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { UserPlus, Copy, X } from 'lucide-preact';
+
 import { Icon } from '@/shared/ui/Icon';
 import { usePracticeManagement, type Role } from '@/shared/hooks/usePracticeManagement';
 import { usePracticeTeam } from '@/shared/hooks/usePracticeTeam';
@@ -247,7 +248,7 @@ export const PracticeTeamPage = ({ className, onBack }: PracticeTeamPageProps) =
                 size="sm"
                 onClick={() => setIsInvitingMember(!isInvitingMember)}
               >
-                <Icon icon={UserPlusIcon} className="w-4 h-4 mr-2"  />
+                <Icon icon={UserPlus} className="w-4 h-4 mr-2"  />
                 {isInvitingMember ? 'Cancel' : 'Invite'}
               </Button>
             )}
@@ -437,7 +438,7 @@ export const PracticeTeamPage = ({ className, onBack }: PracticeTeamPageProps) =
                           onClick={() => void copyInvitationLink(inv.id)}
                           aria-label={`Copy invite link for ${inv.email}`}
                           title="Copy invite link"
-                          icon={DocumentDuplicateIcon}
+                          icon={Copy}
                           iconClassName="h-4 w-4"
                         />
                         <Button
@@ -446,7 +447,7 @@ export const PracticeTeamPage = ({ className, onBack }: PracticeTeamPageProps) =
                           onClick={() => handleCancelInvitation(inv.id)}
                           aria-label={`Cancel invitation for ${inv.email}`}
                           title="Cancel invitation"
-                          icon={XMarkIcon}
+                          icon={X}
                           iconClassName="h-4 w-4"
                         />
                       </>

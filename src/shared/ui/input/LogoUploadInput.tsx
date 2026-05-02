@@ -1,6 +1,7 @@
 import { forwardRef } from 'preact/compat';
 import { useRef } from 'preact/hooks';
-import { UserIcon } from '@heroicons/react/24/outline';
+import { User } from 'lucide-preact';
+
 import { useUniqueId } from '@/shared/hooks/useUniqueId';
 import { cn } from '@/shared/utils/cn';
 import { Button } from '@/shared/ui/Button';
@@ -137,7 +138,7 @@ export const LogoUploadInput = forwardRef<HTMLInputElement, LogoUploadInputProps
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center bg-surface-utility/10">
-            <Icon icon={UserIcon} className="h-1/2 w-1/2 text-input-placeholder"  />
+            <Icon icon={User} className="h-1/2 w-1/2 text-input-placeholder"  />
           </div>
         )}
         </div>

@@ -1,84 +1,71 @@
-import {
-  AcademicCapIcon,
-  BriefcaseIcon,
-  BuildingOfficeIcon,
-  BuildingStorefrontIcon,
-  ChatBubbleLeftRightIcon,
-  ClipboardDocumentIcon,
-  DocumentTextIcon,
-  ExclamationTriangleIcon,
-  HomeIcon,
-  ScaleIcon,
-  ShieldCheckIcon,
-  SparklesIcon,
-  UserGroupIcon
-} from '@heroicons/react/24/outline';
+import { Briefcase, MessagesSquare, Clipboard, FileText, AlertTriangle, Home, Scale, ShieldCheck, Sparkles, Users, GraduationCap, Building2, Store } from 'lucide-preact';
+
 import type { ServiceTemplate } from '../types';
 
 export const SERVICE_CATALOG: ServiceTemplate[] = [
   {
     id: 'family-law',
     title: 'Family Law',
-    icon: UserGroupIcon
+    icon: Users
   },
   {
     id: 'business-law',
     title: 'Business Law',
-    icon: BriefcaseIcon
+    icon: Briefcase
   },
   {
     id: 'contract-review',
     title: 'Contract Review',
-    icon: DocumentTextIcon
+    icon: FileText
   },
   {
     id: 'intellectual-property',
     title: 'Intellectual Property',
-    icon: SparklesIcon
+    icon: Sparkles
   },
   {
     id: 'employment-law',
     title: 'Employment Law',
-    icon: ShieldCheckIcon
+    icon: ShieldCheck
   },
   {
     id: 'personal-injury',
     title: 'Personal Injury',
-    icon: ExclamationTriangleIcon
+    icon: AlertTriangle
   },
   {
     id: 'criminal-law',
     title: 'Criminal Law',
-    icon: ScaleIcon
+    icon: Scale
   },
   {
     id: 'civil-law',
     title: 'Civil Law',
-    icon: BuildingOfficeIcon
+    icon: Building2
   },
   {
     id: 'general-consultation',
     title: 'General Consultation',
-    icon: ChatBubbleLeftRightIcon
+    icon: MessagesSquare
   },
   {
     id: 'small-business-nonprofits',
     title: 'Small Business and Nonprofits',
-    icon: BuildingStorefrontIcon
+    icon: Store
   },
   {
     id: 'tenant-rights',
     title: 'Tenant Rights',
-    icon: HomeIcon
+    icon: Home
   },
   {
     id: 'probate-estate-planning',
     title: 'Probate and Estate Planning',
-    icon: ClipboardDocumentIcon
+    icon: Clipboard
   },
   {
     id: 'special-education-iep-advocacy',
     title: 'Special Education and IEP Advocacy',
-    icon: AcademicCapIcon
+    icon: GraduationCap
   }
 ];

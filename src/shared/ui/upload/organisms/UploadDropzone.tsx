@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from 'preact/hooks';
-import { ArrowUpTrayIcon } from '@heroicons/react/24/outline';
+import { Upload } from 'lucide-preact';
+
 import { Icon } from '@/shared/ui/Icon';
 import { cn } from '@/shared/utils/cn';
 
@@ -98,7 +99,7 @@ export const UploadDropzone = ({
         }}
       />
       <div className="flex w-full max-w-[520px] flex-col items-center justify-center text-center">
-        <Icon icon={ArrowUpTrayIcon} className="mb-3 h-6 w-6 text-input-placeholder" />
+        <Icon icon={Upload} className="mb-3 h-6 w-6 text-input-placeholder" />
         <p className="text-sm font-medium text-input-text">{instructionText}</p>
         <p className="mt-1 text-xs text-input-placeholder">{validationText}</p>
       </div>

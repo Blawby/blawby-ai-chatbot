@@ -14,7 +14,8 @@ import { asMajor } from '@/shared/utils/money';
 import type { MatterDetail, MatterOption, MatterSummary, TimeEntry } from '@/features/matters/data/matterTypes';
 import { MATTER_STATUS_LABELS, type MatterStatus } from '@/shared/types/matterStatus';
 import type { TimeEntryFormValues } from '@/features/matters/components/time-entries/TimeEntryForm';
-import { PencilIcon } from '@heroicons/react/24/outline';
+import { Pencil } from 'lucide-preact';
+
 
 type DebugTab = 'overview' | 'time' | 'messages' | 'activity';
 type EditorState = 'none' | 'create';
@@ -426,7 +427,7 @@ export default function DebugMatterPage() {
                           size="icon-sm"
                           variant="icon"
                           onClick={startDescriptionEdit}
-                          icon={PencilIcon} iconClassName="h-4 w-4"
+                          icon={Pencil} iconClassName="h-4 w-4"
                           aria-label="Edit description"
                           className="shrink-0"
                         />

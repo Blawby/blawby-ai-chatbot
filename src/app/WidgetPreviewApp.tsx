@@ -1,6 +1,7 @@
 import { FunctionComponent, type ComponentChildren } from 'preact';
 import { useMemo, useState } from 'preact/hooks';
-import { XMarkIcon } from '@heroicons/react/24/outline';
+import { X } from 'lucide-preact';
+
 import { ChatActionCard } from '@/features/chat/components/ChatActionCard';
 import ChatContainer from '@/features/chat/components/ChatContainer';
 import WorkspaceHomeView from '@/features/chat/views/WorkspaceHomeView';
@@ -105,7 +106,7 @@ export const WidgetPreviewApp: FunctionComponent<WidgetPreviewAppProps> = ({
           variant="icon"
           size="icon-sm"
           aria-label="Close preview"
-          icon={XMarkIcon}
+          icon={X}
           iconClassName="h-5 w-5"
           onClick={noop}
         />

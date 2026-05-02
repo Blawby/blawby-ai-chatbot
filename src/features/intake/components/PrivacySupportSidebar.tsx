@@ -1,8 +1,5 @@
-import {
-  ShieldCheckIcon,
-  QuestionMarkCircleIcon,
-  ArrowTopRightOnSquareIcon
-} from "@heroicons/react/24/outline";
+import { ShieldCheck, HelpCircle, ExternalLink } from 'lucide-preact';
+
 import { Icon } from '@/shared/ui/Icon';
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/shared/ui/Accordion';
 
@@ -24,9 +21,9 @@ const PrivacySupportSidebar = ({ className }: PrivacySupportSidebarProps) => {
               rel="noopener noreferrer"
               className="flex items-center gap-2 text-xs sm:text-sm text-input-placeholder hover:text-accent dark:hover:text-accent transition-colors duration-200"
             >
-              <Icon icon={ShieldCheckIcon} className="w-4 h-4"  />
+              <Icon icon={ShieldCheck} className="w-4 h-4"  />
               Privacy Policy
-              <Icon icon={ArrowTopRightOnSquareIcon} className="w-3 h-3"  />
+              <Icon icon={ExternalLink} className="w-3 h-3"  />
             </a>
             <a
               href="https://blawby.com/help"
@@ -34,9 +31,9 @@ const PrivacySupportSidebar = ({ className }: PrivacySupportSidebarProps) => {
               rel="noopener noreferrer"
               className="flex items-center gap-2 text-xs sm:text-sm text-input-placeholder hover:text-accent dark:hover:text-accent transition-colors duration-200"
             >
-              <Icon icon={QuestionMarkCircleIcon} className="w-4 h-4"  />
+              <Icon icon={HelpCircle} className="w-4 h-4"  />
               Help & Support
-              <Icon icon={ArrowTopRightOnSquareIcon} className="w-3 h-3"  />
+              <Icon icon={ExternalLink} className="w-3 h-3"  />
             </a>
           </div>
         </AccordionContent>

@@ -6,7 +6,8 @@ import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { SetupShell } from '@/shared/ui/layout/SetupShell';
 import { LoadingScreen } from '@/shared/ui/layout/LoadingScreen';
 import { Button } from '@/shared/ui/Button';
-import { ArrowLeftIcon } from '@heroicons/react/24/outline';
+import { ArrowLeft } from 'lucide-preact';
+
 
 const PricingPage = () => {
   const { navigate } = useNavigation();
@@ -64,7 +65,7 @@ const PricingPage = () => {
               size="sm"
               onClick={handleClose}
               className="text-sm text-input-placeholder hover:text-input-text"
-              icon={ArrowLeftIcon}
+              icon={ArrowLeft}
               iconClassName="h-4 w-4"
               iconPosition="left"
             >

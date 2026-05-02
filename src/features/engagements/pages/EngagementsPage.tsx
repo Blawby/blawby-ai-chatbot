@@ -1,7 +1,8 @@
 import { FunctionComponent } from 'preact';
 import { useCallback, useState } from 'preact/hooks';
 import { useLocation } from 'preact-iso';
-import { BriefcaseIcon } from '@heroicons/react/24/outline';
+import { Briefcase } from 'lucide-preact';
+
 import { Panel } from '@/shared/ui/layout/Panel';
 import { WorkspacePlaceholderState } from '@/shared/ui/layout/WorkspacePlaceholderState';
 import { Avatar } from '@/shared/ui/profile';
@@ -185,7 +186,7 @@ export const EngagementsPage: FunctionComponent<EngagementsPageProps> = ({
           onLoadMore={hasMore ? loadMore : undefined}
           emptyState={
             <WorkspacePlaceholderState
-              icon={BriefcaseIcon}
+              icon={Briefcase}
               title="No engagements yet"
               description="When you accept an intake and begin drafting an engagement letter, it will appear here."
               className="p-8"

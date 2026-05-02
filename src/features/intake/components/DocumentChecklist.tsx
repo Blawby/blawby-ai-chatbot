@@ -1,13 +1,8 @@
 import { FunctionComponent } from 'preact';
 import { useState } from 'preact/hooks';
 import { Button } from '@/shared/ui/Button';
-import {
-  DocumentIcon,
-  CheckCircleIcon,
-  ExclamationTriangleIcon,
-  CloudArrowUpIcon,
-  XMarkIcon
-} from "@heroicons/react/24/outline";
+import { File, CheckCircle2, AlertTriangle, X, CloudUpload } from 'lucide-preact';
+
 import { Icon } from '@/shared/ui/Icon';
 import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
 
@@ -69,13 +64,13 @@ const DocumentChecklist: FunctionComponent<DocumentChecklistProps> = ({
   const getStatusIcon = (status: DocumentItem['status'], required: boolean) => {
     switch (status) {
       case 'uploaded':
-        return <Icon icon={CheckCircleIcon} className="w-5 h-5 text-accent-success"  />;
+        return <Icon icon={CheckCircle2} className="w-5 h-5 text-accent-success"  />;
       case 'pending':
-        return <Icon icon={ExclamationTriangleIcon} className="w-5 h-5 text-yellow-500"  />;
+        return <Icon icon={AlertTriangle} className="w-5 h-5 text-yellow-500"  />;
       case 'missing':
         return required ?
-          <Icon icon={ExclamationTriangleIcon} className="w-5 h-5 text-accent-error"  /> :
-          <Icon icon={DocumentIcon} className="w-5 h-5 text-input-placeholder"  />;
+          <Icon icon={AlertTriangle} className="w-5 h-5 text-accent-error"  /> :
+          <Icon icon={File} className="w-5 h-5 text-input-placeholder"  />;
     }
   };
 
@@ -160,7 +155,7 @@ const DocumentChecklist: FunctionComponent<DocumentChecklistProps> = ({
                   </p>
                 )}
                 
-                {/* DocumentIcon Upload Area */}
+                {/* File Upload Area */}
                 {doc.status === 'missing' && (
                   <div className="flex items-center gap-3">
                     <label className="cursor-pointer">
@@ -173,7 +168,7 @@ const DocumentChecklist: FunctionComponent<DocumentChecklistProps> = ({
                       <Button
                         variant="secondary"
                         size="sm"
-                        icon={CloudArrowUpIcon} iconClassName="w-4 h-4"
+                        icon={CloudUpload} iconClassName="w-4 h-4"
                       >
                         Choose Document
                       </Button>
@@ -184,17 +179,17 @@ const DocumentChecklist: FunctionComponent<DocumentChecklistProps> = ({
                   </div>
                 )}
 
-                {/* Uploaded DocumentIcon Display */}
+                {/* Uploaded File Display */}
                 {doc.status === 'uploaded' && doc.file && (
                   <div className="flex items-center gap-2 mt-2">
-                    <Icon icon={DocumentIcon} className="w-4 h-4 text-emerald-400"  />
+                    <Icon icon={File} className="w-4 h-4 text-emerald-400"  />
                     <span className="text-sm text-input-text">
                       {doc.file.name}
                     </span>
                     <Button
                       variant="danger-ghost"
                       size="sm"
-                      icon={XMarkIcon} iconClassName="w-4 h-4"
+                      icon={X} iconClassName="w-4 h-4"
                       aria-label={`Remove ${doc.name ?? 'document'}`}
                       onClick={() => onDocumentRemove(doc.id)}
                     />

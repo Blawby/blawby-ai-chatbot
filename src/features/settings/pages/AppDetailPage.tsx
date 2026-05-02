@@ -8,7 +8,8 @@ import { SettingRow } from '@/features/settings/components/SettingRow';
 import { SettingSection } from '@/features/settings/components/SettingSection';
 import { SettingsBadge } from '@/features/settings/components/SettingsBadge';
 import { Input } from '@/shared/ui/input';
-import { EllipsisVerticalIcon, GlobeAltIcon, PuzzlePieceIcon, Cog6ToothIcon } from '@heroicons/react/24/outline';
+import { MoreVertical, Globe, Puzzle, Settings } from 'lucide-preact';
+
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { useTranslation } from '@/shared/i18n/hooks';
 import { formatDate } from '@/shared/utils/dateTime';
@@ -105,7 +106,7 @@ export const AppDetailPage = ({ app, onBack, onUpdate }: AppDetailPageProps) => 
                     loading="lazy"
                   />
                 ) : (
-                  <Icon icon={PuzzlePieceIcon} className="w-8 h-8 text-input-text/80" aria-hidden="true"  />
+                  <Icon icon={Puzzle} className="w-8 h-8 text-input-text/80" aria-hidden="true"  />
                 )}
               </div>
               <div className="flex items-center gap-2">
@@ -142,13 +143,13 @@ export const AppDetailPage = ({ app, onBack, onUpdate }: AppDetailPageProps) => 
                   variant="ghost"
                   size="sm"
                   aria-label="More options"
-                  icon={EllipsisVerticalIcon} iconClassName="w-5 h-5"
+                  icon={MoreVertical} iconClassName="w-5 h-5"
                 />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuItem onSelect={handleOpenSettings} disabled={!app.website}>
                   <div className="flex items-center gap-2">
-                    <Icon icon={Cog6ToothIcon} className="w-4 h-4" aria-hidden="true"  />
+                    <Icon icon={Settings} className="w-4 h-4" aria-hidden="true"  />
                     <span>{t('settings:apps.clio.settings')}</span>
                   </div>
                 </DropdownMenuItem>
@@ -179,7 +180,7 @@ export const AppDetailPage = ({ app, onBack, onUpdate }: AppDetailPageProps) => 
                 className="inline-flex items-center gap-1 text-accent-600 dark:text-accent-400"
               >
                 {app.website}
-                <Icon icon={GlobeAltIcon} className="w-4 h-4" aria-hidden="true"  />
+                <Icon icon={Globe} className="w-4 h-4" aria-hidden="true"  />
               </a>
             }
           />
@@ -193,7 +194,7 @@ export const AppDetailPage = ({ app, onBack, onUpdate }: AppDetailPageProps) => 
                 className="inline-flex items-center gap-1 text-accent-600 dark:text-accent-400"
               >
                 {app.privacyPolicy}
-                <Icon icon={GlobeAltIcon} className="w-4 h-4" aria-hidden="true"  />
+                <Icon icon={Globe} className="w-4 h-4" aria-hidden="true"  />
               </a>
             }
           />

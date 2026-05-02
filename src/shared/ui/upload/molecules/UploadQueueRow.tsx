@@ -1,4 +1,5 @@
-import { ArrowDownTrayIcon, ArrowTopRightOnSquareIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { Download, ExternalLink, X } from 'lucide-preact';
+
 import { Button } from '@/shared/ui/Button';
 import { FileIcon } from '@/shared/ui/upload/atoms/FileIcon';
 import { formatFileSize } from '@/shared/utils/mediaAggregation';
@@ -53,7 +54,7 @@ export const UploadQueueRow = ({
               size="icon-xs"
               onClick={onOpen}
               aria-label={`Open ${fileName}`}
-              icon={ArrowTopRightOnSquareIcon}
+              icon={ExternalLink}
               iconClassName="h-3.5 w-3.5"
             />
           ) : null}
@@ -63,7 +64,7 @@ export const UploadQueueRow = ({
               size="icon-xs"
               onClick={onDownload}
               aria-label={`Download ${fileName}`}
-              icon={ArrowDownTrayIcon}
+              icon={Download}
               iconClassName="h-3.5 w-3.5"
             />
           ) : null}
@@ -73,7 +74,7 @@ export const UploadQueueRow = ({
               size="icon-xs"
               onClick={onRemove}
               aria-label={`Remove ${fileName}`}
-              icon={XMarkIcon}
+              icon={X}
               iconClassName="h-3.5 w-3.5"
             />
           ) : null}

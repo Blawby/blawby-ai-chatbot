@@ -1,6 +1,7 @@
 import { FunctionComponent, memo } from 'preact/compat';
 import { useTranslation } from 'react-i18next';
-import { PaperAirplaneIcon } from '@heroicons/react/24/outline';
+import { Send } from 'lucide-preact';
+
 import { VList } from 'virtua';
 import { Avatar } from '@/shared/ui/profile/atoms/Avatar';
 import { Button } from '@/shared/ui/Button';
@@ -164,7 +165,7 @@ const ConversationListView: FunctionComponent<ConversationListViewProps> = ({
             variant="primary"
             size="lg"
             className="w-full"
-            icon={PaperAirplaneIcon} iconClassName="h-4 w-4"
+            icon={Send} iconClassName="h-4 w-4"
             iconPosition="right"
             onClick={onSendMessage}
           >

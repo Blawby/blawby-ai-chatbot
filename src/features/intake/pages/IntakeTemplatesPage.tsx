@@ -1,14 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { JSX } from 'preact';
-import {
-  ArrowsUpDownIcon,
-  EllipsisVerticalIcon,
-  InformationCircleIcon,
-  LockClosedIcon,
-  PencilSquareIcon,
-  PlusIcon,
-  UserGroupIcon,
-} from '@heroicons/react/24/outline';
+import { MoreVertical, Info, Lock, SquarePen, Plus, Users, ArrowUpDown } from 'lucide-preact';
+
 import { Checkbox, Combobox, CurrencyInput, Input, Textarea } from '@/shared/ui/input';
 import type { ComboboxOption } from '@/shared/ui/input';
 import { Button } from '@/shared/ui/Button';
@@ -523,7 +516,7 @@ function QuestionDivider() {
           aria-expanded={showInfo}
           aria-label="Explain AI-assisted follow-up"
         >
-          <InformationCircleIcon className="h-4 w-4" aria-hidden="true" />
+          <Info className="h-4 w-4" aria-hidden="true" />
           AI-assisted follow-up
         </button>
         {showInfo ? (
@@ -551,7 +544,7 @@ function AddQuestionButton({ children, disabled = false, onClick }: AddQuestionB
       disabled={disabled}
       className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-dashed border-line-utility/70 bg-transparent px-4 py-3 text-sm font-semibold text-input-placeholder transition-colors hover:border-line-utility hover:bg-surface-utility/50 hover:text-input-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/45 disabled:cursor-not-allowed disabled:opacity-50 dark:border-line-glass/35 dark:hover:border-line-glass/60 dark:hover:bg-surface-utility/40"
     >
-      <PlusIcon className="h-4 w-4" aria-hidden="true" />
+      <Plus className="h-4 w-4" aria-hidden="true" />
       {children}
     </button>
   );
@@ -632,11 +625,11 @@ function BuilderNavRow({
             aria-hidden="true"
           >
             {icon ? icon : locked ? (
-              <LockClosedIcon className={`h-3.5 w-3.5 ${iconClassName}`} />
+              <Lock className={`h-3.5 w-3.5 ${iconClassName}`} />
             ) : canDrag ? (
-              <ArrowsUpDownIcon className={`h-3.5 w-3.5 ${iconClassName}`} />
+              <ArrowUpDown className={`h-3.5 w-3.5 ${iconClassName}`} />
             ) : (
-              <PencilSquareIcon className={`h-3.5 w-3.5 ${iconClassName}`} />
+              <SquarePen className={`h-3.5 w-3.5 ${iconClassName}`} />
             )}
           </span>
           <span className="min-w-0 flex-1 pr-0.5">
@@ -657,7 +650,7 @@ function BuilderNavRow({
                       : 'bg-surface-utility/14 text-input-text/80 hover:bg-surface-utility/22 hover:text-input-text'
                   }`}
                 >
-                  <EllipsisVerticalIcon className="h-4 w-4" />
+                  <MoreVertical className="h-4 w-4" />
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="min-w-[140px]">
@@ -1014,7 +1007,7 @@ function TemplateCard({
                 aria-label={`Actions for ${template.name}`}
                 className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-input-placeholder transition-colors hover:bg-surface-utility/10 hover:text-input-text disabled:opacity-60"
               >
-                <EllipsisVerticalIcon className="h-4 w-4" />
+                <MoreVertical className="h-4 w-4" />
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="min-w-[180px]">
@@ -1606,7 +1599,7 @@ function TemplateEditor({
           index={1}
           label="Contact"
           locked
-          icon={<UserGroupIcon className="h-4 w-4" />}
+          icon={<Users className="h-4 w-4" />}
           selected={effectiveSelectedItemId === 'contact'}
           onSelect={() => selectBuilderItem('contact')}
         />
@@ -2026,7 +2019,7 @@ function TemplateListView({
             className="glass-card flex min-h-[230px] flex-col items-center justify-center rounded-2xl border border-dashed border-line-glass/50 p-5 text-center transition-colors hover:border-line-glass/80 disabled:cursor-not-allowed disabled:opacity-60"
           >
             <span className="rounded-2xl border border-line-glass/30 bg-surface-card p-3 text-input-text">
-              <PlusIcon className="h-6 w-6" />
+              <Plus className="h-6 w-6" />
             </span>
             <span className="mt-4 text-sm font-semibold text-input-text">
               New form

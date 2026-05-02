@@ -40,14 +40,7 @@ const {
   }
 }));
 
-vi.mock('@heroicons/react/24/outline', async () => {
-  const actual = await vi.importActual<typeof import('@heroicons/react/24/outline')>('@heroicons/react/24/outline');
-
-  return {
-    ...actual,
-    ArrowLeftIcon: () => <svg data-testid="arrow-left-icon" />
-  };
-});
+// Heroicons mock removed; icons migrated to lucide-react.
 
 vi.mock('preact-iso', () => ({
   useLocation: () => ({ path: '/practice/test/settings/practice/coverage' })

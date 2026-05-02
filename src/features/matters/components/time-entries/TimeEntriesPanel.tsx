@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'preact/hooks';
-import { ChevronLeftIcon, ChevronRightIcon, PlusIcon } from '@heroicons/react/24/outline';
+import { ChevronLeft, ChevronRight, Plus } from 'lucide-preact';
+
 import { Dialog, DialogBody, DialogFooter } from '@/shared/ui/dialog';
 import { Button } from '@/shared/ui/Button';
 import { LoadingBlock } from '@/shared/ui/layout/LoadingBlock';
@@ -159,7 +160,7 @@ export const TimeEntriesPanel = ({
                 variant="ghost"
                 size="sm"
                 aria-label="Previous week"
-                icon={ChevronLeftIcon}
+                icon={ChevronLeft}
                 iconClassName="h-4 w-4"
                 onClick={handlePreviousWeek}
               />
@@ -170,12 +171,12 @@ export const TimeEntriesPanel = ({
                 variant="ghost"
                 size="sm"
                 aria-label="Next week"
-                icon={ChevronRightIcon}
+                icon={ChevronRight}
                 iconClassName="h-4 w-4"
                 onClick={handleNextWeek}
               />
             </div>
-            <Button size="sm" icon={PlusIcon} iconClassName="h-4 w-4" onClick={() => openNewEntry()}>
+            <Button size="sm" icon={Plus} iconClassName="h-4 w-4" onClick={() => openNewEntry()}>
               Add time entry
             </Button>
           </header>

@@ -11,22 +11,9 @@ import { type MatterOption, type MatterMilestoneFormInput } from '@/features/mat
 import { MATTER_STATUS_LABELS, MATTER_WORKFLOW_STATUSES, type MatterStatus } from '@/shared/types/matterStatus';
 import type { ComponentChildren } from 'preact';
 import type { DescribedRadioOption } from '@/shared/ui/input/RadioGroupWithDescriptions';
-import {
-  ScaleIcon,
-  ShieldCheckIcon,
-  UserIcon,
-  ChatBubbleLeftRightIcon,
-  MagnifyingGlassIcon,
-  ShieldExclamationIcon,
-  DocumentCheckIcon,
-  BriefcaseIcon,
-  PauseCircleIcon,
-  CheckCircleIcon,
-  XCircleIcon,
-  ExclamationTriangleIcon,
-  ArrowUturnRightIcon
-} from '@heroicons/react/24/outline';
-import { PlusIcon } from '@heroicons/react/24/solid';
+import { Scale, ShieldCheck, User, MessagesSquare, Search, Briefcase, CheckCircle2, XCircle, AlertTriangle, Plus, Redo2, FileCheck2, CirclePause, ShieldAlert } from 'lucide-preact';
+
+
 import { Icon } from '@/shared/ui/Icon';
 import { formatDateOnlyUtc } from '@/shared/utils/dateOnly';
 import { asMajor, isFiniteNumber as isMajorAmount, type MajorAmount } from '@/shared/utils/money';
@@ -122,28 +109,28 @@ const STATUS_OPTIONS: Array<{ value: MatterStatus; label: string }> = MATTER_WOR
 );
 
 const STATUS_ICON: Record<MatterStatus, preact.ComponentType<preact.JSX.SVGAttributes<SVGSVGElement>>> = {
-  first_contact: ChatBubbleLeftRightIcon,
-  intake_pending: MagnifyingGlassIcon,
-  conflict_check: ShieldExclamationIcon,
-  conflicted: ExclamationTriangleIcon,
-  eligibility: ScaleIcon,
-  referred: ArrowUturnRightIcon,
-  consultation_scheduled: DocumentCheckIcon,
-  declined: XCircleIcon,
-  intake_accepted: CheckCircleIcon,
-  engagement_draft: BriefcaseIcon,
-  engagement_sent: BriefcaseIcon,
-  engagement_accepted: CheckCircleIcon,
-  engagement_pending: PauseCircleIcon,
-  active: BriefcaseIcon,
-  pleadings_filed: DocumentCheckIcon,
-  discovery: MagnifyingGlassIcon,
-  mediation: ScaleIcon,
-  pre_trial: ShieldExclamationIcon,
-  trial: ExclamationTriangleIcon,
-  order_entered: CheckCircleIcon,
-  appeal_pending: ArrowUturnRightIcon,
-  closed: CheckCircleIcon
+  first_contact: MessagesSquare,
+  intake_pending: Search,
+  conflict_check: ShieldAlert,
+  conflicted: AlertTriangle,
+  eligibility: Scale,
+  referred: Redo2,
+  consultation_scheduled: FileCheck2,
+  declined: XCircle,
+  intake_accepted: CheckCircle2,
+  engagement_draft: Briefcase,
+  engagement_sent: Briefcase,
+  engagement_accepted: CheckCircle2,
+  engagement_pending: CirclePause,
+  active: Briefcase,
+  pleadings_filed: FileCheck2,
+  discovery: Search,
+  mediation: Scale,
+  pre_trial: ShieldAlert,
+  trial: AlertTriangle,
+  order_entered: CheckCircle2,
+  appeal_pending: Redo2,
+  closed: CheckCircle2
 };
 
 const PAYMENT_FREQUENCY_OPTIONS: DescribedRadioOption[] = [
@@ -299,7 +286,7 @@ const MatterMilestoneForm = ({
           size="sm"
           type="button"
           onClick={onShowForm}
-          icon={PlusIcon}
+          icon={Plus}
           iconClassName="h-4 w-4"
         >
           Add Milestone
@@ -448,13 +435,13 @@ const MatterFormInner = ({
             }))}
             leading={(selectedOption) => {
               const selectedStatus = (selectedOption?.value ?? formState.status) as MatterStatus;
-              const StatusIcon = STATUS_ICON[selectedStatus] ?? ScaleIcon;
+              const StatusIcon = STATUS_ICON[selectedStatus] ?? Scale;
               return (
                 <Icon icon={StatusIcon} className="h-4 w-4 text-input-placeholder" />
               );
             }}
             optionLeading={(option) => {
-              const StatusIcon = STATUS_ICON[option.value as MatterStatus] ?? ScaleIcon;
+              const StatusIcon = STATUS_ICON[option.value as MatterStatus] ?? Scale;
               return <Icon icon={StatusIcon} className="h-4 w-4 text-input-placeholder" />;
             }}
             onChange={(value) => updateForm('status', value as MatterStatus)}
@@ -472,7 +459,7 @@ const MatterFormInner = ({
                   return renderUserAvatar({ name: client.name, image: client.image }, 'sm');
                 }
               }
-              return buildLeadingIcon(<Icon icon={UserIcon} className="h-4 w-4"  />);
+              return buildLeadingIcon(<Icon icon={User} className="h-4 w-4"  />);
             }}
             optionLeading={(option) => {
               const client = clientById.get(option.value);
@@ -495,7 +482,7 @@ const MatterFormInner = ({
                     setAddPersonOpen(true);
                   }}
                 >
-                  <PlusIcon className="h-4 w-4" />
+                  <Plus className="h-4 w-4" />
                   Invite contact
                 </button>
               )
@@ -507,7 +494,7 @@ const MatterFormInner = ({
             placeholder={practiceAreasLoading ? 'Loading services...' : 'Select practice area'}
             value={formState.practiceAreaId}
             options={practiceAreaOptions}
-            leading={buildLeadingIcon(<Icon icon={ScaleIcon} className="h-4 w-4"  />)}
+            leading={buildLeadingIcon(<Icon icon={Scale} className="h-4 w-4"  />)}
             onChange={(value) => updateForm('practiceAreaId', value)}
             disabled={practiceAreasLoading}
           />
@@ -528,7 +515,7 @@ const MatterFormInner = ({
               onChange={(value) => updateForm('matterType', value)}
               placeholder="e.g. Contract dispute"
               options={[]}
-              leading={buildLeadingIcon(<Icon icon={BriefcaseIcon} className="h-4 w-4"  />)}
+              leading={buildLeadingIcon(<Icon icon={Briefcase} className="h-4 w-4"  />)}
               allowCustomValues
               addNewLabel="Add matter type"
             />
@@ -555,7 +542,7 @@ const MatterFormInner = ({
               onChange={(value) => updateForm('court', value)}
               placeholder="e.g. Superior Court of CA"
               options={[]}
-              leading={buildLeadingIcon(<Icon icon={ScaleIcon} className="h-4 w-4"  />)}
+              leading={buildLeadingIcon(<Icon icon={Scale} className="h-4 w-4"  />)}
               allowCustomValues
               addNewLabel="Add court"
             />
@@ -567,7 +554,7 @@ const MatterFormInner = ({
               onChange={(values) => updateForm('judge', serializeMultiValueText(values))}
               placeholder="e.g. Hon. A. Smith"
               options={[]}
-              leading={buildLeadingIcon(<Icon icon={UserIcon} className="h-4 w-4"  />)}
+              leading={buildLeadingIcon(<Icon icon={User} className="h-4 w-4"  />)}
               multiple
               allowCustomValues
               addNewLabel="Add judge"
@@ -578,7 +565,7 @@ const MatterFormInner = ({
               onChange={(values) => updateForm('opposingParty', serializeMultiValueText(values))}
               placeholder="Enter opposing party"
               options={[]}
-              leading={buildLeadingIcon(<Icon icon={UserIcon} className="h-4 w-4"  />)}
+              leading={buildLeadingIcon(<Icon icon={User} className="h-4 w-4"  />)}
               multiple
               allowCustomValues
               addNewLabel="Add opposing party"
@@ -591,7 +578,7 @@ const MatterFormInner = ({
               onChange={(values) => updateForm('opposingCounsel', serializeMultiValueText(values))}
               placeholder="Enter opposing counsel"
               options={[]}
-              leading={buildLeadingIcon(<Icon icon={UserIcon} className="h-4 w-4"  />)}
+              leading={buildLeadingIcon(<Icon icon={User} className="h-4 w-4"  />)}
               multiple
               allowCustomValues
               addNewLabel="Add opposing counsel"
@@ -615,7 +602,7 @@ const MatterFormInner = ({
               placeholder="Select attorney"
               value={formState.responsibleAttorneyId}
               options={assigneeOptions}
-              leading={buildLeadingIcon(<Icon icon={UserIcon} className="h-4 w-4"  />)}
+              leading={buildLeadingIcon(<Icon icon={User} className="h-4 w-4"  />)}
               optionLeading={(option) => {
                 const assignee = assigneeById.get(option.value);
                 if (!assignee) return null;
@@ -629,7 +616,7 @@ const MatterFormInner = ({
               placeholder="Select attorney"
               value={formState.originatingAttorneyId}
               options={assigneeOptions}
-              leading={buildLeadingIcon(<Icon icon={UserIcon} className="h-4 w-4"  />)}
+              leading={buildLeadingIcon(<Icon icon={User} className="h-4 w-4"  />)}
               optionLeading={(option) => {
                 const assignee = assigneeById.get(option.value);
                 if (!assignee) return null;
@@ -735,7 +722,7 @@ const MatterFormInner = ({
         ) : null}
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="flex items-center gap-2 text-xs text-input-placeholder">
-            <Icon icon={ShieldCheckIcon} className="h-4 w-4 text-input-placeholder"  />
+            <Icon icon={ShieldCheck} className="h-4 w-4 text-input-placeholder"  />
             <span>
               Payments are built for securing IOLTA compliance.{' '}
               <a

@@ -1,5 +1,6 @@
 import type { ComponentChildren } from 'preact';
-import { MagnifyingGlassIcon } from '@heroicons/react/24/outline';
+import { Search } from 'lucide-preact';
+
 import { Input } from '@/shared/ui/input';
 import { cn } from '@/shared/utils/cn';
 
@@ -63,7 +64,7 @@ export const CollectionToolbar = ({
                   value={searchValue}
                   onChange={onSearchChange}
                   placeholder={searchPlaceholder}
-                  icon={MagnifyingGlassIcon}
+                  icon={Search}
                 />
               ) : null}
               {filters ? (

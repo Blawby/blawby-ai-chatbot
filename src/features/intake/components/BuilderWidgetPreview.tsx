@@ -1,6 +1,7 @@
 import type { JSX } from 'preact';
 import { useCallback, useEffect, useRef } from 'preact/hooks';
-import { PaperAirplaneIcon } from '@heroicons/react/24/outline';
+import { Send } from 'lucide-preact';
+
 import { DetailHeader } from '@/shared/ui/layout/DetailHeader';
 import { Avatar } from '@/shared/ui/profile';
 import { cn } from '@/shared/utils/cn';
@@ -60,7 +61,7 @@ export function BuilderWidgetComposerShell() {
               aria-label="Send"
               className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface-utility/70 text-input-placeholder"
             >
-              <PaperAirplaneIcon className="h-5 w-5" />
+              <Send className="h-5 w-5" />
             </button>
           </div>
         </div>

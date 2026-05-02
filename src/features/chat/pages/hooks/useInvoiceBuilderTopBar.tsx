@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'preact/hooks';
-import { XMarkIcon } from '@heroicons/react/24/outline';
+import { X } from 'lucide-preact';
+
 import { Button } from '@/shared/ui/Button';
 import { WorkspaceListHeader } from '@/shared/ui/layout/WorkspaceListHeader';
 import type { ComponentChildren } from 'preact';
@@ -63,7 +64,7 @@ export function useInvoiceBuilderTopBar({
             size="icon-sm"
             aria-label={isEdit ? 'Close invoice editor' : 'Close invoice composer'}
             onClick={handleClose}
-            icon={XMarkIcon}
+            icon={X}
             iconClassName="h-5 w-5"
           />
           <div className="h-5 w-px bg-line-glass/30" aria-hidden="true" />

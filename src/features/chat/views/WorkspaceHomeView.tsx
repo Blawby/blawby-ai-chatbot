@@ -1,6 +1,7 @@
 import { FunctionComponent } from 'preact';
 import { useTranslation } from '@/shared/i18n/hooks';
-import { PaperAirplaneIcon } from '@heroicons/react/24/outline';
+import { Send } from 'lucide-preact';
+
 import { Icon } from '@/shared/ui/Icon';
 import { Avatar } from '@/shared/ui/profile/atoms/Avatar';
 import { Button } from '@/shared/ui/Button';
@@ -124,7 +125,7 @@ const WorkspaceHomeView: FunctionComponent<WorkspaceHomeViewProps> = ({
             className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-accent-500 text-[rgb(var(--accent-foreground))] pointer-events-none transition-all duration-300"
             aria-hidden="true"
           >
-            <Icon icon={PaperAirplaneIcon} className="h-5 w-5" aria-hidden="true"  />
+            <Icon icon={Send} className="h-5 w-5" aria-hidden="true"  />
           </span>
         </button>
 

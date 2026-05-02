@@ -31,17 +31,18 @@ import { useWorkspaceResolver } from '@/shared/hooks/useWorkspaceResolver';
 import {
   getWorkspaceHomePath,
 } from '@/shared/utils/workspace';
+import { AlertTriangle } from 'lucide-preact';
 import { AppGuard } from '@/app/AppGuard';
 import { App404 } from '@/features/practice/components/404';
 // `normalizePracticeRole` is not needed in this module; remove import.
 import { LoadingScreen } from '@/shared/ui/layout/LoadingScreen';
-import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
+
 import type { IconComponent } from '@/shared/ui/Icon';
 
 const ExclamationIcon: IconComponent = (props) => (
   // Adapt heroicon to IconComponent signature
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  <ExclamationTriangleIcon {...(props as any)} />
+  <AlertTriangle {...(props as any)} />
 );
 import { WorkspacePlaceholderState } from '@/shared/ui/layout/WorkspacePlaceholderState';
 import './index.css';
@@ -429,7 +430,7 @@ function ClientEngagementReviewRoute({
   if (loadError) {
     return (
       <WorkspacePlaceholderState
-        icon={ExclamationTriangleIcon}
+        icon={AlertTriangle}
         title="Failed to load practice"
         description={loadError}
         primaryAction={{

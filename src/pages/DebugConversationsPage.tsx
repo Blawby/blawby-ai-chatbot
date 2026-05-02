@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'preact/hooks';
-import { ChatBubbleLeftRightIcon, InformationCircleIcon } from '@heroicons/react/24/outline';
+import { MessagesSquare, Info } from 'lucide-preact';
+
 import { Icon } from '@/shared/ui/Icon';
 import { Button } from '@/shared/ui/Button';
 import WorkspacePage from '@/features/chat/pages/WorkspacePage';
@@ -370,7 +371,7 @@ export default function DebugConversationsPage() {
                 aria-label="Open conversation details"
                 onClick={() => setIsConversationDetailsOpen(true)}
               >
-                <Icon icon={InformationCircleIcon} className="h-4 w-4" aria-hidden="true"  />
+                <Icon icon={Info} className="h-4 w-4" aria-hidden="true"  />
               </Button>
             )
             : (
@@ -382,7 +383,7 @@ export default function DebugConversationsPage() {
                 aria-label="Open conversation details"
                 onClick={() => setIsConversationDetailsOpen(true)}
               >
-                <Icon icon={InformationCircleIcon} className="h-4 w-4" aria-hidden="true"  />
+                <Icon icon={Info} className="h-4 w-4" aria-hidden="true"  />
               </Button>
             )}
         />
@@ -408,7 +409,7 @@ export default function DebugConversationsPage() {
     <main className="mx-auto max-w-[1480px] space-y-4 p-4 md:p-6">
       <header className="space-y-2">
         <div className="flex flex-wrap items-center gap-2">
-          <Icon icon={ChatBubbleLeftRightIcon} className="h-6 w-6 text-accent-500" aria-hidden="true"  />
+          <Icon icon={MessagesSquare} className="h-6 w-6 text-accent-500" aria-hidden="true"  />
           <h1 className="text-2xl font-semibold text-input-text">Debug Conversations</h1>
           <span className="rounded-full border border-line-glass/30 bg-surface-panel/60 px-2.5 py-1 text-xs font-medium text-input-placeholder">
             No API

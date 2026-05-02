@@ -1,5 +1,6 @@
 import { useState } from 'preact/hooks';
-import { TrashIcon, PencilSquareIcon, PlusIcon } from '@heroicons/react/24/outline';
+import { Trash2, SquarePen, Plus } from 'lucide-preact';
+
 import { Button } from '@/shared/ui/Button';
 import { CurrencyInput, Input } from '@/shared/ui/input';
 import { Dialog, DialogBody, DialogFooter } from '@/shared/ui/dialog';
@@ -139,7 +140,7 @@ export const InvoiceLineItemsForm = ({ lineItems, onChange, billingIncrementMinu
             size="xs" 
             variant="secondary" 
             onClick={() => setIsAddMode(true)}
-            icon={PlusIcon}
+            icon={Plus}
             iconClassName="h-3.5 w-3.5 mr-1"
           >
             Add line item
@@ -207,7 +208,7 @@ export const InvoiceLineItemsForm = ({ lineItems, onChange, billingIncrementMinu
                             size="icon-xs"
                             variant="ghost"
                             onClick={() => setEditingItem({ item, index })}
-                            icon={PencilSquareIcon} 
+                            icon={SquarePen} 
                             iconClassName="h-4 w-4 text-input-placeholder hover:text-accent-400"
                             title="Edit item"
                           />
@@ -215,7 +216,7 @@ export const InvoiceLineItemsForm = ({ lineItems, onChange, billingIncrementMinu
                             size="icon-xs"
                             variant="ghost"
                             onClick={() => removeItem(index)}
-                            icon={TrashIcon} 
+                            icon={Trash2} 
                             iconClassName="h-4 w-4 text-input-placeholder hover:text-accent-error-light"
                             title="Delete item"
                           />

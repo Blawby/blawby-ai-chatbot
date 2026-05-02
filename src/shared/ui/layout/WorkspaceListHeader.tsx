@@ -1,5 +1,6 @@
 import type { ComponentChildren } from 'preact';
-import { ChevronLeftIcon } from '@heroicons/react/24/outline';
+import { ChevronLeft } from 'lucide-preact';
+
 import { Button } from '@/shared/ui/Button';
 import { Icon } from '@/shared/ui/Icon';
 import { cn } from '@/shared/utils/cn';
@@ -48,7 +49,7 @@ export const WorkspaceListHeader = ({
         className="workspace-header__icon"
         aria-label={backAriaLabel}
       >
-        <Icon icon={ChevronLeftIcon} className="h-5 w-5" aria-hidden="true" />
+        <Icon icon={ChevronLeft} className="h-5 w-5" aria-hidden="true" />
       </Button>
       ) : null}
       {title ? (

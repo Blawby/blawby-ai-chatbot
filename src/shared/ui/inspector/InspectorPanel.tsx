@@ -20,7 +20,8 @@ import {
   InspectorHeaderPerson,
   InspectorHeaderHero,
 } from './InspectorPrimitives';
-import { XMarkIcon } from '@heroicons/react/24/outline';
+import { X } from 'lucide-preact';
+
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { CONTACT_RELATIONSHIP_STATUS_LABELS } from '@/shared/domain/contacts';
 import type { Address } from '@/shared/types/address';
@@ -922,7 +923,7 @@ export const InspectorPanel = ({
             size="icon-sm"
             onClick={onClose}
             aria-label="Close inspector"
-            icon={XMarkIcon} iconClassName="h-4 w-4"
+            icon={X} iconClassName="h-4 w-4"
           />
         ) : null}
       </div>

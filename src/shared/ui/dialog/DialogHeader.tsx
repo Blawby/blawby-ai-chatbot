@@ -1,6 +1,7 @@
 import type { ComponentChildren, FunctionComponent } from 'preact';
 import { useId } from 'preact/hooks';
-import { XMarkIcon } from '@heroicons/react/24/outline';
+import { X } from 'lucide-preact';
+
 import { Button } from '@/shared/ui/Button';
 import { Icon } from '@/shared/ui/Icon';
 import { cn } from '@/shared/utils/cn';
@@ -56,7 +57,7 @@ export const DialogHeader: FunctionComponent<DialogHeaderProps> = ({
           onClick={onClose}
           aria-label="Close"
           className="mt-0.5 shrink-0 rounded-full text-input-placeholder hover:bg-surface-hover hover:text-input-text"
-          icon={<Icon icon={XMarkIcon} className="h-4 w-4" />}
+          icon={<Icon icon={X} className="h-4 w-4" />}
         />
       )}
       </div>

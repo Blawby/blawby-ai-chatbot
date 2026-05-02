@@ -1,6 +1,7 @@
 import { FunctionComponent } from 'preact';
 import { useTranslation } from '@/shared/i18n/hooks';
-import { PaperAirplaneIcon } from '@heroicons/react/24/outline';
+import { Send } from 'lucide-preact';
+
 import { Avatar } from '@/shared/ui/profile/atoms/Avatar';
 import { Button } from '@/shared/ui/Button';
 import { WorkspaceListHeader } from '@/shared/ui/layout';
@@ -151,7 +152,7 @@ const WidgetConversationListView: FunctionComponent<WidgetConversationListViewPr
             variant="primary"
             size="lg"
             className="w-full"
-            icon={PaperAirplaneIcon} iconClassName="h-4 w-4"
+            icon={Send} iconClassName="h-4 w-4"
             iconPosition="right"
             onClick={onSendMessage}
           >

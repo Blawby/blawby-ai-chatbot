@@ -1,3 +1,4 @@
+import { Settings, HelpCircle, LogOut } from 'lucide-preact';
 /**
  * ProfileDropdown - Molecule Component
  * 
@@ -6,11 +7,7 @@
  */
 
 import { ProfileMenuItem } from './ProfileMenuItem';
-import {
-  Cog6ToothIcon,
-  QuestionMarkCircleIcon,
-  ArrowRightOnRectangleIcon
-} from '@heroicons/react/24/outline';
+
 import { useTranslation } from '@/shared/i18n/hooks';
 
 interface ProfileDropdownProps {
@@ -39,7 +36,7 @@ export const ProfileDropdown = ({
     >
       {/* Settings */}
       <ProfileMenuItem
-        icon={Cog6ToothIcon}
+        icon={Settings}
         label={t('profile:menu.settings')}
         onClick={onSettings}
       />
@@ -49,14 +46,14 @@ export const ProfileDropdown = ({
       
       {/* Help */}
       <ProfileMenuItem
-        icon={QuestionMarkCircleIcon}
+        icon={HelpCircle}
         label={t('profile:menu.help')}
         onClick={onHelp}
       />
       
       {/* Log out */}
       <ProfileMenuItem
-        icon={ArrowRightOnRectangleIcon}
+        icon={LogOut}
         label={t('profile:menu.signOut')}
         onClick={onLogout}
       />

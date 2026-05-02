@@ -1,5 +1,6 @@
 import { render, RenderOptions } from '@testing-library/preact';
 import { ComponentChildren } from 'preact';
+import { Building2 } from 'lucide-preact';
 // import { ToastProvider } from '@/shared/contexts/ToastContext';
 // import { PracticeProvider } from '@/shared/contexts/PracticeContext';
 import { vi } from 'vitest';
@@ -84,45 +85,7 @@ vi.mock('@/shared/lib/authClient', () => {
   };
 });
 
-// Mock Heroicons
-vi.mock('@heroicons/react/24/outline', () => ({
-  HomeIcon: ({ className }: { className?: string }) =>
-    <svg className={className} data-testid="home-icon" />,
-  ChatBubbleOvalLeftEllipsisIcon: ({ className }: { className?: string }) =>
-    <svg className={className} data-testid="chat-bubble-icon" />,
-  ClipboardDocumentListIcon: ({ className }: { className?: string }) =>
-    <svg className={className} data-testid="clipboard-document-list-icon" />,
-  DocumentTextIcon: ({ className }: { className?: string }) =>
-    <svg className={className} data-testid="document-text-icon" />,
-  UsersIcon: ({ className }: { className?: string }) =>
-    <svg className={className} data-testid="users-icon" />,
-  UserCircleIcon: ({ className }: { className?: string }) =>
-    <svg className={className} data-testid="user-circle-icon" />,
-  ChevronRightIcon: ({ className }: { className?: string }) => 
-    <svg className={className} data-testid="chevron-right-icon" />,
-  Cog6ToothIcon: ({ className }: { className?: string }) => 
-    <svg className={className} data-testid="cog-icon" />,
-  BellIcon: ({ className }: { className?: string }) => 
-    <svg className={className} data-testid="bell-icon" />,
-  UserIcon: ({ className }: { className?: string }) => 
-    <svg className={className} data-testid="user-icon" />,
-  ShieldCheckIcon: ({ className }: { className?: string }) => 
-    <svg className={className} data-testid="shield-check-icon" />,
-  QuestionMarkCircleIcon: ({ className }: { className?: string }) => 
-    <svg className={className} data-testid="question-mark-icon" />,
-  ClipboardIcon: ({ className }: { className?: string }) => 
-    <svg className={className} data-testid="clipboard-icon" />,
-  BuildingOfficeIcon: ({ className }: { className?: string }) => 
-    <svg className={className} data-testid="building-office-icon" />,
-  XMarkIcon: ({ className }: { className?: string }) => 
-    <svg className={className} data-testid="x-mark-icon" />,
-  ArrowRightOnRectangleIcon: ({ className }: { className?: string }) => 
-    <svg className={className} data-testid="arrow-right-on-rectangle-icon" />,
-  ArrowLeftIcon: ({ className }: { className?: string }) => 
-    <svg className={className} data-testid="arrow-left-icon" />,
-  PlusIcon: ({ className }: { className?: string }) => 
-    <svg className={className} data-testid="plus-icon" />,
-}));
+// Heroicons mocks were removed when icons migrated to lucide-react.
 
 // Mock ToastContext
 vi.mock('@/shared/contexts/ToastContext', () => ({
@@ -151,7 +114,6 @@ vi.mock('@/config/features', () => ({
     enableAudioRecording: false,
     enableVideoRecording: false,
     enableFileAttachments: true,
-    enableLeftSidebar: true,
     enableMessageFeedback: false,
     enableDisclaimerText: false,
     enableLearnServicesButton: false,

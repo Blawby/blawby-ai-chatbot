@@ -1,5 +1,6 @@
 import type { FunctionComponent } from 'preact';
-import { AdjustmentsHorizontalIcon } from '@heroicons/react/24/outline';
+import { SlidersHorizontal } from 'lucide-preact';
+
 import { Button } from '@/shared/ui/Button';
 import {
   DropdownMenu,
@@ -26,7 +27,7 @@ export const InvoiceColumnsMenu: FunctionComponent<InvoiceColumnsMenuProps> = ({
   <DropdownMenu>
     <DropdownMenuTrigger asChild>
       <Button variant="ghost" size="sm">
-        <AdjustmentsHorizontalIcon className="h-4 w-4" />
+        <SlidersHorizontal className="h-4 w-4" />
         Edit columns
       </Button>
     </DropdownMenuTrigger>

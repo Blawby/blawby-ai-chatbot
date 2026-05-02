@@ -14,16 +14,8 @@ import { CurrencyInput } from '@/shared/ui/input';
 import { ActivityTimeline, type TimelineItem, type TimelinePerson } from '@/shared/ui/activity/ActivityTimeline';
 import { Avatar, UserCard } from '@/shared/ui/profile';
 import { Dialog } from '@/shared/ui/dialog';
-import {
-  ChatBubbleLeftRightIcon,
-  CheckCircleIcon,
-  CurrencyDollarIcon,
-  FolderIcon,
-  HomeIcon,
-  PaperClipIcon,
-  PencilSquareIcon,
-  PlusIcon
-} from '@heroicons/react/24/outline';
+import { MessagesSquare, CheckCircle2, DollarSign, Folder, Home, Paperclip, SquarePen, Plus } from 'lucide-preact';
+
 import { MATTER_STATUS_LABELS, type MatterStatus } from '@/shared/types/matterStatus';
 import {
   type MatterDetail,
@@ -114,12 +106,12 @@ import {
 // ---------------------------------------------------------------------------
 
 type DetailSectionId = 'overview' | 'tasks' | 'billing' | 'messages' | 'files';
-const DETAIL_TABS: Array<{ id: DetailSectionId; label: string; icon: typeof CheckCircleIcon }> = [
-  { id: 'overview', label: 'Overview', icon: HomeIcon },
-  { id: 'tasks', label: 'Tasks', icon: CheckCircleIcon },
-  { id: 'billing', label: 'Billing', icon: CurrencyDollarIcon },
-  { id: 'messages', label: 'Messages', icon: ChatBubbleLeftRightIcon },
-  { id: 'files', label: 'Files', icon: PaperClipIcon }
+const DETAIL_TABS: Array<{ id: DetailSectionId; label: string; icon: typeof CheckCircle2 }> = [
+  { id: 'overview', label: 'Overview', icon: Home },
+  { id: 'tasks', label: 'Tasks', icon: CheckCircle2 },
+  { id: 'billing', label: 'Billing', icon: DollarSign },
+  { id: 'messages', label: 'Messages', icon: MessagesSquare },
+  { id: 'files', label: 'Files', icon: Paperclip }
 ];
 
 const resolveQueryValue = (value?: string | string[] | null) => {
@@ -133,14 +125,14 @@ const resolveQueryValue = (value?: string | string[] | null) => {
 
 const EmptyState = ({ onCreate, disableCreate }: { onCreate?: () => void; disableCreate?: boolean }) => (
   <WorkspacePlaceholderState
-    icon={FolderIcon}
+    icon={Folder}
     title="No matters yet"
     description="Create your first matter to start tracking progress and milestones."
     primaryAction={{
       label: 'New Matter',
       onClick: onCreate,
       disabled: disableCreate,
-      icon: PlusIcon,
+      icon: Plus,
     }}
     className="p-8"
   />
@@ -1779,7 +1771,7 @@ export const PracticeMattersPage = ({
           variant={isDescriptionEditing ? 'secondary' : 'icon'}
           size="icon-sm"
           onClick={isDescriptionEditing ? cancelDescriptionEdit : startDescriptionEdit}
-          icon={PencilSquareIcon}
+          icon={SquarePen}
           iconClassName="h-4 w-4"
           aria-label={isDescriptionEditing ? 'Close matter editor' : 'Edit matter title and description'}
         />

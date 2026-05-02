@@ -1,5 +1,6 @@
 import { Fragment } from 'preact';
-import { ArrowDownCircleIcon, ArrowPathIcon, ArrowUpCircleIcon } from '@heroicons/react/20/solid';
+import { ArrowDownCircle, RefreshCw, ArrowUpCircle } from 'lucide-preact';
+
 import { Icon } from '@/shared/ui/Icon';
 import { cn } from '@/shared/utils/cn';
 import { SkeletonLoader } from '@/shared/ui/layout/SkeletonLoader';
@@ -25,9 +26,9 @@ const formatAmountLabel = (amount: number) => {
 
 const statusIcon = (status: ActivityEntry['status']) => {
   const normalized = status.toLowerCase();
-  if (normalized === 'paid') return ArrowUpCircleIcon;
-  if (normalized === 'overdue') return ArrowPathIcon;
-  return ArrowDownCircleIcon;
+  if (normalized === 'paid') return ArrowUpCircle;
+  if (normalized === 'overdue') return RefreshCw;
+  return ArrowDownCircle;
 };
 
 const statusClass = (status: ActivityEntry['status']) => {

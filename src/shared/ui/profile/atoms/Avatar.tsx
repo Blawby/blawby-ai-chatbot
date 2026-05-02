@@ -1,10 +1,11 @@
+import { User } from 'lucide-preact';
 /**
  * Avatar - Atom Component
  * Pure user avatar display with image/initials fallback.
  */
 
 import { useState, useEffect } from 'preact/hooks';
-import { UserIcon } from '@heroicons/react/24/outline';
+
 import { Icon } from '@/shared/ui/Icon';
 import { sanitizeUserImageUrl } from '@/shared/utils/urlValidation';
 
@@ -97,7 +98,7 @@ export const Avatar = ({ src, name, size = 'md', className = '', bgClassName, st
           initials ? (
             <span className={`font-medium text-input-text ${textSizeClasses[size]}`}>{initials}</span>
           ) : (
-            <Icon icon={UserIcon} className="h-1/2 w-1/2 text-input-placeholder" />
+            <Icon icon={User} className="h-1/2 w-1/2 text-input-placeholder" />
           )
         )}
       </div>

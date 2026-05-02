@@ -1,6 +1,7 @@
 import { FunctionComponent } from 'preact';
 import { useEffect } from 'preact/hooks';
-import { CheckCircleIcon, ClockIcon, XCircleIcon } from '@heroicons/react/24/outline';
+import { CheckCircle2, Clock, XCircle } from 'lucide-preact';
+
 import { PAYMENT_CONFIRMED_STORAGE_KEY } from '@/shared/utils/intakePayments';
 import { Button } from '@/shared/ui/Button';
 import { Logo } from '@/shared/ui/Logo';
@@ -12,7 +13,7 @@ const SESSION_ID_PATTERN = /^cs_(test|live)_[A-Za-z0-9]+$/;
 type PaymentOutcome = 'success' | 'pending' | 'cancelled' | 'unknown';
 
 interface OutcomeConfig {
-  Icon: typeof CheckCircleIcon;
+  Icon: typeof CheckCircle2;
   iconColor: string;
   headline: string;
   body: string;
@@ -22,7 +23,7 @@ interface OutcomeConfig {
 
 const OUTCOMES: Record<PaymentOutcome, OutcomeConfig> = {
   success: {
-    Icon: CheckCircleIcon,
+    Icon: CheckCircle2,
     iconColor: 'text-emerald-400',
     headline: "You're all set — payment received.",
     body: "Your case details are being reviewed. A member of our team will be in touch at the contact information you provided. You can safely close this tab.",
@@ -30,7 +31,7 @@ const OUTCOMES: Record<PaymentOutcome, OutcomeConfig> = {
     badgeClass: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/25',
   },
   pending: {
-    Icon: ClockIcon,
+    Icon: Clock,
     iconColor: 'text-amber-400',
     headline: 'Processing your payment…',
     body: 'This usually takes just a moment. Please keep this tab open. If you have any questions, reach out to your legal team directly.',
@@ -38,7 +39,7 @@ const OUTCOMES: Record<PaymentOutcome, OutcomeConfig> = {
     badgeClass: 'bg-amber-500/15 text-amber-300 border-amber-500/25',
   },
   cancelled: {
-    Icon: XCircleIcon,
+    Icon: XCircle,
     iconColor: 'text-red-400',
     headline: 'Payment was not completed.',
     body: 'No charge was made. You can close this tab and try again from your conversation at any time.',
@@ -46,7 +47,7 @@ const OUTCOMES: Record<PaymentOutcome, OutcomeConfig> = {
     badgeClass: 'bg-red-500/15 text-red-300 border-red-500/25',
   },
   unknown: {
-    Icon: ClockIcon,
+    Icon: Clock,
     iconColor: 'text-slate-400',
     headline: 'Verifying your payment…',
     body: 'Please wait a moment while we confirm your payment status.',

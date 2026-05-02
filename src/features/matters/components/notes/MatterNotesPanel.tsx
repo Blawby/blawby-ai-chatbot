@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'preact/hooks';
-import { EllipsisVerticalIcon, PencilIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { MoreVertical, Pencil, Plus, Trash2 } from 'lucide-preact';
+
 import { Icon } from '@/shared/ui/Icon';
 import { format, parseISO } from 'date-fns';
 import { ulid } from 'ulid';
@@ -172,7 +173,7 @@ export const MatterNotesPanel = ({
         subtitle={sortedNotes.length}
         subtitleSuffix="notes recorded"
         actions={(
-          <Button size="sm" icon={PlusIcon} iconClassName="h-4 w-4" onClick={openNewNote} disabled={!canCreate}>
+          <Button size="sm" icon={Plus} iconClassName="h-4 w-4" onClick={openNewNote} disabled={!canCreate}>
             Add note
           </Button>
         )}
@@ -227,7 +228,7 @@ export const MatterNotesPanel = ({
                       variant="ghost"
                       size="sm"
                       aria-label="Open note actions"
-                      icon={EllipsisVerticalIcon} iconClassName="h-4 w-4"
+                      icon={MoreVertical} iconClassName="h-4 w-4"
                     />
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-32">
@@ -235,7 +236,7 @@ export const MatterNotesPanel = ({
                       {canEdit ? (
                         <DropdownMenuItem onSelect={() => openEditNote(note)}>
                           <span className="flex items-center gap-2">
-                            <Icon icon={PencilIcon} className="h-4 w-4"  />
+                            <Icon icon={Pencil} className="h-4 w-4"  />
                             Edit
                           </span>
                         </DropdownMenuItem>
@@ -243,7 +244,7 @@ export const MatterNotesPanel = ({
                       {canDelete ? (
                         <DropdownMenuItem onSelect={() => confirmDelete(note)}>
                           <span className="flex items-center gap-2 text-red-600 dark:text-red-400">
-                            <Icon icon={TrashIcon} className="h-4 w-4"  />
+                            <Icon icon={Trash2} className="h-4 w-4"  />
                             Delete
                           </span>
                         </DropdownMenuItem>

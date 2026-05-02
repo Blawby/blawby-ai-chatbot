@@ -1,18 +1,7 @@
 import { FunctionComponent, type ComponentChildren } from 'preact';
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
-import {
-  BriefcaseIcon,
-  CheckCircleIcon,
-  ChatBubbleLeftRightIcon,
-  ExclamationTriangleIcon,
-  ScaleIcon,
-  UserIcon,
-  CurrencyDollarIcon,
-  ShieldExclamationIcon,
-  PaperAirplaneIcon,
-  ClockIcon,
-  XCircleIcon,
-} from '@heroicons/react/24/outline';
+import { Briefcase, CheckCircle2, MessagesSquare, AlertTriangle, Scale, User, DollarSign, Send, Clock, XCircle, ShieldAlert } from 'lucide-preact';
+
 import { Icon } from '@/shared/ui/Icon';
 import { Button } from '@/shared/ui/Button';
 import { UserCard } from '@/shared/ui/profile';
@@ -97,7 +86,7 @@ function formatMoney(amount?: number | null, currency = 'USD') {
 
 // ── Stat cell (used inside CSS grids) ─────────────────────────────────────────
 
-type StatCellProps = { label: string; value?: string | null; icon?: typeof UserIcon };
+type StatCellProps = { label: string; value?: string | null; icon?: typeof User };
 const StatCell: FunctionComponent<StatCellProps> = ({ label, value, icon: IconComp }) => {
   if (!value) return null;
   return (
@@ -117,7 +106,7 @@ const StatCell: FunctionComponent<StatCellProps> = ({ label, value, icon: IconCo
 
 // ── Section card ───────────────────────────────────────────────────────────────
 
-const SectionCard: FunctionComponent<{ title: string; icon?: typeof UserIcon; children: ComponentChildren }> = ({
+const SectionCard: FunctionComponent<{ title: string; icon?: typeof User; children: ComponentChildren }> = ({
   title,
   icon: IconComp,
   children,
@@ -145,7 +134,7 @@ const ConflictPanel: FunctionComponent<{ proposal: ProposalData | null | undefin
         : 'bg-surface-overlay/60 text-input-placeholder ring-line-glass/30';
 
   return (
-    <SectionCard title="Conflict & Jurisdiction" icon={ShieldExclamationIcon}>
+    <SectionCard title="Conflict & Jurisdiction" icon={ShieldAlert}>
       <div className="flex flex-wrap gap-3">
         <div>
           <p className="text-xs text-input-placeholder mb-1">Conflict check</p>
@@ -169,7 +158,7 @@ const ConflictPanel: FunctionComponent<{ proposal: ProposalData | null | undefin
           <ul className="space-y-1.5">
             {open_questions.map((q, i) => (
               <li key={i} className="flex items-start gap-2 text-sm text-input-text">
-                <ExclamationTriangleIcon className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
+                <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
                 {q}
               </li>
             ))}
@@ -187,7 +176,7 @@ const ScopeCard: FunctionComponent<{ proposal: ProposalData | null | undefined }
   const { scope_summary, included_services, excluded_services } = proposal.representation;
 
   return (
-    <SectionCard title="Scope of Representation" icon={BriefcaseIcon}>
+    <SectionCard title="Scope of Representation" icon={Briefcase}>
       <p className="text-sm text-input-text leading-relaxed">{scope_summary}</p>
       {included_services && included_services.length > 0 && (
         <div>
@@ -195,7 +184,7 @@ const ScopeCard: FunctionComponent<{ proposal: ProposalData | null | undefined }
           <ul className="space-y-1">
             {included_services.map((s, i) => (
               <li key={i} className="flex items-center gap-2 text-sm text-input-text">
-                <CheckCircleIcon className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" />
                 {s}
               </li>
             ))}
@@ -208,7 +197,7 @@ const ScopeCard: FunctionComponent<{ proposal: ProposalData | null | undefined }
           <ul className="space-y-1">
             {excluded_services.map((s, i) => (
               <li key={i} className="flex items-center gap-2 text-sm text-input-text">
-                <XCircleIcon className="w-4 h-4 text-rose-500/70 flex-shrink-0" />
+                <XCircle className="w-4 h-4 text-rose-500/70 flex-shrink-0" />
                 {s}
               </li>
             ))}
@@ -240,7 +229,7 @@ const FeesCard: FunctionComponent<{ proposal: ProposalData | null | undefined; e
   if (rows.length === 0) return null;
 
   return (
-    <SectionCard title="Fee Terms" icon={CurrencyDollarIcon}>
+    <SectionCard title="Fee Terms" icon={DollarSign}>
       <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4">
         {rows.map(({ label, value }) => (
           <div key={label} className="flex flex-col">
@@ -260,7 +249,7 @@ const DraftMetaBadge: FunctionComponent<{ proposal: ProposalData | null | undefi
   const { version, generated_at } = proposal.draft_meta;
   return (
     <div className="flex items-center gap-2 text-xs text-input-placeholder">
-      <ClockIcon className="w-3.5 h-3.5" />
+      <Clock className="w-3.5 h-3.5" />
       <span>Draft v{version} · Generated {formatLongDate(generated_at) ?? generated_at}</span>
     </div>
   );
@@ -272,7 +261,7 @@ const GoalsSection: FunctionComponent<{ proposal: ProposalData | null | undefine
   const goals = proposal?.client_summary?.goals_summary;
   if (!goals) return null;
   return (
-    <SectionCard title="Client Goals" icon={ScaleIcon}>
+    <SectionCard title="Client Goals" icon={Scale}>
       <p className="text-sm text-input-text leading-relaxed">{goals}</p>
     </SectionCard>
   );
@@ -509,7 +498,7 @@ export const EngagementDetailPage: FunctionComponent<EngagementDetailPageProps> 
                     <LoadingSpinner size="sm" ariaLabel="Sending" />
                   ) : (
                     <span className="inline-flex items-center gap-2">
-                      <PaperAirplaneIcon className="w-4 h-4" />
+                      <Send className="w-4 h-4" />
                       Send to Client
                     </span>
                   )}
@@ -584,7 +573,7 @@ export const EngagementDetailPage: FunctionComponent<EngagementDetailPageProps> 
           {engagement.conversation_id && engagement.organization_id && (
             <section className="glass-card flex flex-col h-[600px] overflow-hidden mx-1">
               <header className="p-4 border-b border-line-glass/10 flex items-center gap-3">
-                <Icon icon={ChatBubbleLeftRightIcon} className="w-5 h-5 text-input-placeholder" />
+                <Icon icon={MessagesSquare} className="w-5 h-5 text-input-placeholder" />
                 <h3 className="text-sm font-semibold text-input-text uppercase tracking-widest">
                   Intake Conversation
                 </h3>
@@ -597,7 +586,7 @@ export const EngagementDetailPage: FunctionComponent<EngagementDetailPageProps> 
                 ) : previewError ? (
                   <div className="h-full flex items-center justify-center p-6 text-center">
                     <div className="space-y-4">
-                      <Icon icon={ExclamationTriangleIcon} className="w-8 h-8 text-rose-400 mx-auto" />
+                      <Icon icon={AlertTriangle} className="w-8 h-8 text-rose-400 mx-auto" />
                       <p className="text-sm text-input-placeholder">{previewError}</p>
                     </div>
                   </div>
@@ -665,16 +654,16 @@ export const EngagementDetailPage: FunctionComponent<EngagementDetailPageProps> 
 
           <div className="pt-6 border-t border-line-glass/10 grid grid-cols-1 md:grid-cols-2 gap-6">
             {engagement.urgency && (
-              <StatCell label="Urgency" value={engagement.urgency} icon={ExclamationTriangleIcon} />
+              <StatCell label="Urgency" value={engagement.urgency} icon={AlertTriangle} />
             )}
             {engagement.opposing_party && (
-              <StatCell label="Opposing party" value={engagement.opposing_party} icon={ScaleIcon} />
+              <StatCell label="Opposing party" value={engagement.opposing_party} icon={Scale} />
             )}
             {engagement.desired_outcome && (
-              <StatCell label="Desired outcome" value={engagement.desired_outcome} icon={CheckCircleIcon} />
+              <StatCell label="Desired outcome" value={engagement.desired_outcome} icon={CheckCircle2} />
             )}
             {engagement.case_strength != null && (
-              <StatCell label="AI case strength" value={`${engagement.case_strength}%`} icon={ScaleIcon} />
+              <StatCell label="AI case strength" value={`${engagement.case_strength}%`} icon={Scale} />
             )}
           </div>
         </section>

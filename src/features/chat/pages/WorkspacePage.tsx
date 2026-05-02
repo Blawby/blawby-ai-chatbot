@@ -2,8 +2,9 @@ import { FunctionComponent } from 'preact';
 import type { ComponentChildren } from 'preact';
 import { useMemo, useRef, useState, useEffect, useCallback } from 'preact/hooks';
 import { useLocation } from 'preact-iso';
-import { Bars3Icon, XMarkIcon } from '@heroicons/react/24/outline';
-import { PlusIcon } from '@heroicons/react/24/solid';
+import { Plus } from 'lucide-preact';
+
+
 import { useNavigation } from '@/shared/utils/navigation';
 import { signOut } from '@/shared/utils/auth';
 import { SessionNotReadyError } from '@/shared/types/errors';
@@ -12,6 +13,7 @@ import { WorkspaceHomeSection } from '@/features/chat/components/WorkspaceHomeSe
 import { WorkspaceSetupSection } from '@/features/chat/components/WorkspaceSetupSection';
 import ConversationListView from '@/features/chat/views/ConversationListView';
 import { AppShell } from '@/shared/ui/layout/AppShell';
+import { WorkspaceShellHeader } from '@/shared/ui/layout/WorkspaceShellHeader';
 import { WorkspaceMainPane } from '@/shared/ui/layout/WorkspaceMainPane';
 import type { WorkspaceMainPaneLayout } from '@/shared/ui/layout/WorkspaceMainPane';
 import { Panel } from '@/shared/ui/layout/Panel';
@@ -39,9 +41,12 @@ import {
 } from '@/shared/utils/workspaceShell';
 import {
   type SecondaryNavItem,
+  type WorkspaceSection,
+  buildSidebarConfig,
 } from '@/shared/config/navConfig';
 import NavRail from '@/shared/ui/nav/NavRail';
-import SecondaryPanel from '@/shared/ui/nav/SecondaryPanel';
+import { Sidebar } from '@/shared/ui/nav/Sidebar';
+import { SidebarProfileMenu } from '@/shared/ui/nav/SidebarProfileMenu';
 import InspectorPanel from '@/shared/ui/inspector/InspectorPanel';
 import { SettingsContent, type SettingsView } from '@/features/settings/pages/SettingsContent';
 import { mockApps } from '@/features/settings/pages/appsData';
@@ -187,6 +192,23 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   const [previewTab, setPreviewTab] = useState<PreviewTab>('home');
   const [setupSidebarView, setSetupSidebarView] = useState<'info' | 'preview'>('info');
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
+  // Persist desktop sidebar collapsed state across reloads/visits.
+  const [isDesktopSidebarCollapsed, setIsDesktopSidebarCollapsed] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    try {
+      return window.localStorage.getItem('blawby:sidebar:collapsed') === '1';
+    } catch {
+      return false;
+    }
+  });
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      window.localStorage.setItem('blawby:sidebar:collapsed', isDesktopSidebarCollapsed ? '1' : '0');
+    } catch {
+      // localStorage may be disabled (private mode, quota); persistence is best-effort.
+    }
+  }, [isDesktopSidebarCollapsed]);
   const [isInspectorOpen, setIsInspectorOpen] = useState(false);
   const handleSettingsActionItemClick = useCallback((item: SecondaryNavItem) => {
     if (item.id === 'sign-out') {
@@ -606,33 +628,280 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     />
   ) : undefined;
 
-  const sidebarNav = layoutMode === 'desktop' && navConfig.rail.length > 0 && !isIntakeTemplateEditorRoute ? (
-    <NavRail
-      variant="rail"
-      items={navConfig.rail}
-      activeHref={activeHref}
-      onItemActivate={handleNavActivate}
-    />
-  ) : undefined;
-  const secondaryPanel = navConfig.secondary && navConfig.secondary.length > 0 && !isIntakeTemplateEditorRoute ? (
-    <SecondaryPanel
-      sections={navConfig.secondary}
-      activeHref={activeHref}
-      activeItemId={workspaceSection === 'settings' ? undefined : activeSecondaryFilter}
-      onActionItemClick={workspaceSection === 'settings' ? handleSettingsActionItemClick : undefined}
-      onSelect={workspaceSection === 'settings'
-        ? undefined
-        : (id) => {
-            handleSecondaryFilterSelect(id);
-            setIsMobileNavOpen(false);
-            setIsInspectorOpen(false);
-          }}
-      onItemActivate={() => {
-        setIsMobileNavOpen(false);
-        setIsInspectorOpen(false);
+  const sidebarConfig = navConfig.rail.length > 0 && !isIntakeTemplateEditorRoute
+    ? buildSidebarConfig(navConfig, workspaceSection)
+    : null;
+
+  // Active item resolution for the unified Sidebar:
+  // 1. Settings: match path against secondary items by href.
+  // 2. If the rail item matching the current path has expandable children, use the
+  //    active sub-filter.
+  // 3. Else, use the best-matching rail item id (longest matching prefix, so
+  //    /matters wins over Home's basePath even though both technically match).
+  const sidebarActiveItemId = (() => {
+    let bestRailId: string | null = null;
+    let bestRailScore = -1;
+    for (const item of navConfig.rail) {
+      const targets = item.matchHrefs ?? [item.href];
+      for (const target of targets) {
+        const matches = activeHref === target || activeHref.startsWith(`${target}/`);
+        if (!matches) continue;
+        if (target.length > bestRailScore) {
+          bestRailScore = target.length;
+          bestRailId = item.id;
+        }
+      }
+    }
+
+    if (workspaceSection === 'settings' && navConfig.secondary) {
+      for (const section of navConfig.secondary) {
+        for (const item of section.items) {
+          if (item.href && activeHref.startsWith(item.href)) return item.id;
+        }
+      }
+    }
+
+    const matchedSidebarItem = sidebarConfig?.sections
+      .flatMap((s) => s.items)
+      .find((i) => i.id === bestRailId);
+    if (matchedSidebarItem?.children?.length && activeSecondaryFilter) {
+      return activeSecondaryFilter;
+    }
+
+    return bestRailId ?? workspaceSection;
+  })();
+
+  const handleSidebarSubItemSelect = (id: string, item: SecondaryNavItem) => {
+    if (workspaceSection === 'settings') {
+      if (item.isAction) {
+        handleSettingsActionItemClick(item);
+        return;
+      }
+      if (item.href) navigate(item.href);
+      handleNavActivate();
+      return;
+    }
+    // Matters > Engagements is a peer route, not a filter; navigate explicitly.
+    if (workspaceSection === 'matters' && id === 'engagements' && item.href) {
+      navigate(item.href);
+      handleNavActivate();
+      return;
+    }
+    handleSecondaryFilterSelect(id);
+    handleNavActivate();
+  };
+
+  const sidebarUser = session?.user
+    ? {
+        name: session.user.name || session.user.email || 'User',
+        email: session.user.email ?? null,
+        image: session.user.image ?? null,
+      }
+    : null;
+
+  // Org row data; falls back to the practice slug while the practice record loads
+  // so the sidebar always renders an org header on practice/client workspaces.
+  const orgDisplayName = currentPractice?.name?.trim() || practiceSlug || null;
+  const sidebarOrg = orgDisplayName
+    ? {
+        name: orgDisplayName,
+        plan: 'Practice',
+        initial: orgDisplayName.charAt(0).toUpperCase() || 'W',
+      }
+    : null;
+
+  // Workspace shell header (Pencil rt13A / RuuTq).
+  const SECTION_TITLES: Record<WorkspaceSection, string> = {
+    home: 'Home',
+    conversations: 'Inbox',
+    intakes: 'Intakes',
+    engagements: 'Engagements',
+    matters: 'Matters',
+    invoices: 'Payments',
+    reports: 'Reports',
+    settings: 'Settings',
+  };
+  const headerTitle = SECTION_TITLES[workspaceSection] ?? 'Home';
+  const headerBreadcrumb = orgDisplayName ? [orgDisplayName, headerTitle] : undefined;
+  const shellHeader = sidebarOrg ? (
+    <WorkspaceShellHeader
+      orgInitial={sidebarOrg.initial}
+      title={headerTitle}
+      breadcrumb={headerBreadcrumb}
+      onMenuClick={() => setIsMobileNavOpen(true)}
+      onSearchClick={() => {
+        // TODO: open global search modal; mobile icon-button placeholder.
+      }}
+      onSearchChange={() => {
+        // TODO: wire to global search; desktop input is a placeholder for now.
       }}
     />
   ) : undefined;
+
+  // Practice areas (Pencil paWrap): first three services + a "More" button.
+  // Color cycle from Pencil mockup ($accent-emerald, $accent-cyan, amber).
+  const PRACTICE_AREA_COLORS = ['#10B981', '#06B6D4', '#F59E0B', '#A855F7', '#EF4444'];
+  const allPracticeAreaNames = (() => {
+    const source = practiceDetails?.services ?? currentPractice?.services ?? [];
+    if (!Array.isArray(source)) return [] as string[];
+    const names = source
+      .map((entry: unknown) => {
+        if (typeof entry === 'string') return entry;
+        if (entry && typeof entry === 'object') {
+          const r = entry as Record<string, unknown>;
+          if (typeof r.name === 'string') return r.name;
+          if (typeof r.title === 'string') return r.title;
+        }
+        return '';
+      })
+      .filter((s): s is string => Boolean(s));
+    return Array.from(new Set(names));
+  })();
+  const practiceAreas = allPracticeAreaNames.slice(0, 3).map((name, i) => ({
+    name,
+    color: PRACTICE_AREA_COLORS[i % PRACTICE_AREA_COLORS.length],
+  }));
+  const hasMorePracticeAreas = allPracticeAreaNames.length > practiceAreas.length;
+
+  // Build the Sidebar tree as a function so we can render it twice — once for the
+  // desktop column (respects collapsed state) and once for the mobile drawer (always
+  // expanded so the rail-style icons don't show in the drawer overlay).
+  const renderSidebarTree = (forceExpanded: boolean) => sidebarConfig ? (
+    <Sidebar
+      activeItemId={sidebarActiveItemId}
+      onItemActivate={handleNavActivate}
+      collapsed={forceExpanded ? false : isDesktopSidebarCollapsed}
+      onToggleCollapsed={forceExpanded ? undefined : () => setIsDesktopSidebarCollapsed((v) => !v)}
+    >
+      {sidebarOrg ? (
+        <Sidebar.Org
+          name={sidebarOrg.name}
+          subtitle={sidebarOrg.plan}
+          logo={
+            <span
+              aria-hidden="true"
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-[rgb(var(--accent-500))] text-sm font-bold text-[rgb(var(--accent-foreground))]"
+            >
+              {sidebarOrg.initial}
+            </span>
+          }
+          onCollapseClick={forceExpanded ? undefined : () => setIsDesktopSidebarCollapsed((v) => !v)}
+        />
+      ) : null}
+      {sidebarConfig.sections.map((section, idx) => (
+        <Sidebar.Section key={section.label ?? `section-${idx}`} label={section.label} first={idx === 0}>
+          {section.items.map((item) => {
+            const children = item.children ?? [];
+            const railSecondary = navConfig.secondary ?? [];
+            const findSecondaryItem = (id: string): SecondaryNavItem | undefined => {
+              for (const s of railSecondary) {
+                for (const i of s.items) {
+                  if (i.id === id) return i;
+                  const child = i.children?.find((c) => c.id === id);
+                  if (child) return child;
+                }
+              }
+              return undefined;
+            };
+            return (
+              <Sidebar.Item
+                key={item.id}
+                id={item.id}
+                label={item.label}
+                icon={item.icon}
+                href={item.href}
+                badge={item.badge ?? null}
+                variant={item.variant}
+                isAction={item.isAction}
+                onClick={item.onClick}
+                expandable={item.expandable || children.length > 0}
+              >
+                {(() => {
+                  let groupIndex = -1;
+                  return children.map((child) => {
+                    if (child.isGroupLabel) {
+                      groupIndex += 1;
+                      return (
+                        <Sidebar.SubGroupLabel
+                          key={child.id}
+                          label={child.label}
+                          first={groupIndex === 0}
+                        />
+                      );
+                    }
+                    return (
+                      <Sidebar.SubItem
+                        key={child.id}
+                        id={child.id}
+                        label={child.label}
+                        href={child.href}
+                        count={child.count ?? null}
+                        variant={child.variant}
+                        isAction={child.isAction}
+                        icon={child.icon}
+                        onClick={() => {
+                          const matched = findSecondaryItem(child.id);
+                          if (matched) handleSidebarSubItemSelect(child.id, matched);
+                        }}
+                      />
+                    );
+                  });
+                })()}
+              </Sidebar.Item>
+            );
+          })}
+        </Sidebar.Section>
+      ))}
+      {practiceAreas.length > 0 ? (
+        <Sidebar.Section label="Practice Areas">
+          {practiceAreas.map((pa) => (
+            <Sidebar.PracticeAreaItem
+              key={pa.name}
+              label={pa.name}
+              color={pa.color}
+              onClick={() => navigate(`${normalizedBase}/settings/practice/coverage`)}
+            />
+          ))}
+          {hasMorePracticeAreas ? (() => {
+            const moreCollapsed = forceExpanded ? false : isDesktopSidebarCollapsed;
+            return (
+              <button
+                type="button"
+                onClick={() => navigate(`${normalizedBase}/settings/practice/coverage`)}
+                title="More"
+                aria-label="More practice areas"
+                className={
+                  moreCollapsed
+                    ? 'flex h-9 w-full items-center justify-center rounded-lg text-[rgb(var(--sidebar-text-secondary))] transition-colors hover:bg-[rgb(var(--sidebar-hover-bg))] hover:text-[rgb(var(--sidebar-text))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50'
+                    : 'flex items-center gap-2.5 rounded-lg px-2.5 py-[9px] text-left text-xs text-[rgb(var(--sidebar-text-secondary))] transition-colors hover:text-[rgb(var(--sidebar-text))] hover:bg-[rgb(var(--sidebar-hover-bg))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50'
+                }
+              >
+                <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+                  <circle cx="5" cy="12" r="1" />
+                  <circle cx="12" cy="12" r="1" />
+                  <circle cx="19" cy="12" r="1" />
+                </svg>
+                {moreCollapsed ? null : <span>More</span>}
+              </button>
+            );
+          })() : null}
+        </Sidebar.Section>
+      ) : null}
+      {sidebarUser ? (
+        <Sidebar.Footer>
+          <SidebarProfileMenu
+            user={sidebarUser}
+            collapsed={forceExpanded ? false : isDesktopSidebarCollapsed}
+            onAccount={() => navigate(`${normalizedBase}/settings/account`)}
+            onPayments={() => navigate(`${normalizedBase}/invoices`)}
+            onSignOut={() => void signOut({ navigate })}
+          />
+        </Sidebar.Footer>
+      ) : null}
+    </Sidebar>
+  ) : undefined;
+  const sidebarNav = renderSidebarTree(false);
+  const mobileSidebarNav = renderSidebarTree(true);
   const showMobileMenuButton = shouldShowWorkspaceMobileMenuButton({
     isMobileLayout,
     hasSecondaryNav: Boolean(navConfig.secondary?.length),
@@ -643,16 +912,9 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     isMatterNonListRoute,
     selectedContactIdFromPath,
   });
-  const mobileMenuButton = showMobileMenuButton ? (
-    <Button
-      type="button"
-      variant="icon"
-      size="icon-sm"
-      onClick={() => setIsMobileNavOpen(true)}
-      aria-label="Open navigation menu"
-      icon={Bars3Icon} iconClassName="h-5 w-5"
-    />
-  ) : null;
+  // The global WorkspaceShellHeader provides the mobile menu button now, so the
+  // per-section mobile top bar no longer needs its own hamburger.
+  void showMobileMenuButton;
   const mobileCreateButton = primaryCreateAction && showMobileMenuButton ? (
     <Button
       type="button"
@@ -660,7 +922,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       size="icon-sm"
       onClick={primaryCreateAction.onClick}
       aria-label={primaryCreateAction.label}
-      icon={primaryCreateAction.icon ?? PlusIcon}
+      icon={primaryCreateAction.icon ?? Plus}
       iconClassName="h-5 w-5"
     />
   ) : null;
@@ -671,7 +933,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       size="icon-sm"
       onClick={primaryCreateAction.onClick}
       aria-label={primaryCreateAction.label}
-      icon={primaryCreateAction.icon ?? PlusIcon}
+      icon={primaryCreateAction.icon ?? Plus}
       iconClassName="h-5 w-5"
     />
   ) : null;
@@ -840,10 +1102,9 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
         return null;
     }
   })();
-  const mobileSectionTopBar = layoutMode !== 'desktop' && view !== 'conversation' && !isIntakeTemplateEditorRoute && (mobileMenuButton || mobileCreateButton || mobileSectionTitle)
+  const mobileSectionTopBar = layoutMode !== 'desktop' && view !== 'conversation' && !isIntakeTemplateEditorRoute && (mobileCreateButton || mobileSectionTitle)
     ? (
       <WorkspaceListHeader
-        leftControls={mobileMenuButton ?? undefined}
         title={mobileSectionTitle ? <h1 className="workspace-header__title">{mobileSectionTitle}</h1> : undefined}
         centerTitle={Boolean(mobileSectionTitle)}
         controls={mobileCreateButton ?? undefined}
@@ -979,14 +1240,16 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     <AppShell
       className="bg-transparent h-dvh"
       accentBackdropVariant="none"
+      header={shellHeader}
       sidebar={sidebarNav}
-      secondarySidebar={secondaryPanel}
+      desktopSidebarCollapsed={isDesktopSidebarCollapsed}
+      mobileSidebar={mobileSidebarNav}
       listPanel={conversationListPanel ?? matterListPanel ?? contactsListPanel ?? invoicesListPanel}
       inspector={activeInspector ?? undefined}
       inspectorMobileOpen={detailInspectorOpen && isMobileLayout}
       onInspectorMobileClose={() => setIsInspectorOpen(false)}
-      mobileSecondaryNavOpen={isMobileNavOpen}
-      onMobileSecondaryNavClose={() => setIsMobileNavOpen(false)}
+      mobileSidebarOpen={isMobileNavOpen}
+      onMobileSidebarClose={() => setIsMobileNavOpen(false)}
       main={unifiedMainShell}
       mainClassName="min-h-0 h-full overflow-hidden"
       bottomBar={layoutMode === 'desktop' ? bottomNav : undefined}

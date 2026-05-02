@@ -1,8 +1,6 @@
 import { useState } from 'preact/hooks';
-import {
-  PhotoIcon,
-  ArrowDownTrayIcon
-} from "@heroicons/react/24/outline";
+import { Image, Download } from 'lucide-preact';
+
 import { Icon } from '@/shared/ui/Icon';
 import { 
   aggregateMediaFromMessages, 
@@ -65,7 +63,7 @@ export default function MediaSidebar({ messages }: MediaSidebarProps) {
           <AccordionTrigger>Media, DocumentIcons, and Links</AccordionTrigger>
           <AccordionContent>
             <div className="flex flex-col items-center justify-center text-center py-6">
-              <Icon icon={PhotoIcon} className="w-6 h-6 sm:w-8 sm:h-8 text-input-placeholder/50 mb-2"  />
+              <Icon icon={Image} className="w-6 h-6 sm:w-8 sm:h-8 text-input-placeholder/50 mb-2"  />
               <p className="text-sm font-medium mb-1 text-input-text">No files shared yet</p>
               <p className="text-xs text-input-placeholder">Files you share in the conversation will appear here</p>
             </div>
@@ -142,7 +140,7 @@ export default function MediaSidebar({ messages }: MediaSidebarProps) {
                                     title="Download file"
                                     className="p-1.5 surface-hover rounded-xl text-input-placeholder hover:text-input-text"
                                   >
-                                    <Icon icon={ArrowDownTrayIcon} className="w-3.5 h-3.5"  />
+                                    <Icon icon={Download} className="w-3.5 h-3.5"  />
                                   </Button>
                                 </div>
                               </div>

@@ -1,14 +1,6 @@
 import { useMemo, useRef, useState, useEffect } from 'preact/hooks';
-import {
-  Bars3BottomLeftIcon,
-  CloudArrowUpIcon,
-  CodeBracketIcon,
-  EllipsisVerticalIcon,
-  DocumentTextIcon,
-  LinkIcon,
-  ListBulletIcon,
-  NumberedListIcon
-} from '@heroicons/react/24/outline';
+import { PanelLeft, MoreVertical, FileText, Link, List, CloudUpload, Code, ListOrdered } from 'lucide-preact';
+
 import { Icon } from '@/shared/ui/Icon';
 import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
 import { cn } from '@/shared/utils/cn';
@@ -302,7 +294,7 @@ export const MarkdownUploadTextarea = ({
                     className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-line-glass/25 bg-surface-overlay/40 text-input-placeholder transition-colors hover:text-input-text"
                     aria-label="Formatting options"
                   >
-                    <Icon icon={EllipsisVerticalIcon} className="h-4 w-4" aria-hidden="true" />
+                    <Icon icon={MoreVertical} className="h-4 w-4" aria-hidden="true" />
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-64 p-1.5">
@@ -331,42 +323,42 @@ export const MarkdownUploadTextarea = ({
                     onSelect={() => prependToLine('> ', 'Quoted text')}
                     className="flex items-center gap-2 rounded-xl px-3 py-2"
                   >
-                    <Icon icon={Bars3BottomLeftIcon} className="h-4 w-4" aria-hidden="true" />
+                    <Icon icon={PanelLeft} className="h-4 w-4" aria-hidden="true" />
                     <span>Quote</span>
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onSelect={() => replaceSelection('```\n', '\n```', 'code')}
                     className="flex items-center gap-2 rounded-xl px-3 py-2"
                   >
-                    <Icon icon={CodeBracketIcon} className="h-4 w-4" aria-hidden="true" />
+                    <Icon icon={Code} className="h-4 w-4" aria-hidden="true" />
                     <span>Code</span>
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onSelect={() => replaceSelection('[', '](https://)', 'link text')}
                     className="flex items-center gap-2 rounded-xl px-3 py-2"
                   >
-                    <Icon icon={LinkIcon} className="h-4 w-4" aria-hidden="true" />
+                    <Icon icon={Link} className="h-4 w-4" aria-hidden="true" />
                     <span>Link</span>
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onSelect={() => prependToLine('- ', 'List item')}
                     className="flex items-center gap-2 rounded-xl px-3 py-2"
                   >
-                    <Icon icon={ListBulletIcon} className="h-4 w-4" aria-hidden="true" />
+                    <Icon icon={List} className="h-4 w-4" aria-hidden="true" />
                     <span>Bulleted list</span>
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onSelect={() => prependToLine('1. ', 'List item')}
                     className="flex items-center gap-2 rounded-xl px-3 py-2"
                   >
-                    <Icon icon={NumberedListIcon} className="h-4 w-4" aria-hidden="true" />
+                    <Icon icon={ListOrdered} className="h-4 w-4" aria-hidden="true" />
                     <span>Numbered list</span>
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onSelect={() => prependToLine('- [ ] ', 'Task')}
                     className="flex items-center gap-2 rounded-xl px-3 py-2"
                   >
-                    <Icon icon={DocumentTextIcon} className="h-4 w-4" aria-hidden="true" />
+                    <Icon icon={FileText} className="h-4 w-4" aria-hidden="true" />
                     <span>Task list</span>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
@@ -384,28 +376,28 @@ export const MarkdownUploadTextarea = ({
                   <span className="text-xs italic leading-none">I</span>
                 </button>
                 <button type="button" className="rounded p-1 hover:text-input-text" aria-label="Quote" onClick={() => prependToLine('> ', 'Quoted text')}>
-                  <Icon icon={Bars3BottomLeftIcon} className="h-4 w-4" aria-hidden="true" />
+                  <Icon icon={PanelLeft} className="h-4 w-4" aria-hidden="true" />
                 </button>
               </div>
               <div className="h-4 w-px bg-line-glass/50" />
               <div className="flex items-center gap-1">
                 <button type="button" className="rounded p-1 hover:text-input-text" aria-label="Code block" onClick={() => replaceSelection('```\n', '\n```', 'code')}>
-                  <Icon icon={CodeBracketIcon} className="h-4 w-4" aria-hidden="true" />
+                  <Icon icon={Code} className="h-4 w-4" aria-hidden="true" />
                 </button>
                 <button type="button" className="rounded p-1 hover:text-input-text" aria-label="Insert link" onClick={() => replaceSelection('[', '](https://)', 'link text')}>
-                  <Icon icon={LinkIcon} className="h-4 w-4" aria-hidden="true" />
+                  <Icon icon={Link} className="h-4 w-4" aria-hidden="true" />
                 </button>
               </div>
               <div className="h-4 w-px bg-line-glass/50" />
               <div className="flex items-center gap-1">
                 <button type="button" className="rounded p-1 hover:text-input-text" aria-label="Bulleted list" onClick={() => prependToLine('- ', 'List item')}>
-                  <Icon icon={ListBulletIcon} className="h-4 w-4" aria-hidden="true" />
+                  <Icon icon={List} className="h-4 w-4" aria-hidden="true" />
                 </button>
                 <button type="button" className="rounded p-1 hover:text-input-text" aria-label="Numbered list" onClick={() => prependToLine('1. ', 'List item')}>
-                  <Icon icon={NumberedListIcon} className="h-4 w-4" aria-hidden="true" />
+                  <Icon icon={ListOrdered} className="h-4 w-4" aria-hidden="true" />
                 </button>
                 <button type="button" className="rounded p-1 hover:text-input-text" aria-label="Task list" onClick={() => prependToLine('- [ ] ', 'Task')}>
-                  <Icon icon={DocumentTextIcon} className="h-4 w-4" aria-hidden="true" />
+                  <Icon icon={FileText} className="h-4 w-4" aria-hidden="true" />
                 </button>
               </div>
             </div>
@@ -500,7 +492,7 @@ export const MarkdownUploadTextarea = ({
             <div className="flex items-center gap-2 text-input-placeholder">
               {uploadsEnabled ? (
                 <>
-                  <Icon icon={CloudArrowUpIcon} className="h-4 w-4" aria-hidden="true"  />
+                  <Icon icon={CloudUpload} className="h-4 w-4" aria-hidden="true"  />
                   <button
                     type="button"
                     className="hover:text-input-text"
@@ -539,7 +531,7 @@ export const MarkdownUploadTextarea = ({
         <div className="space-y-1 rounded-xl border border-line-glass/30 bg-surface-overlay/50 px-3 py-2">
           {uploadItems.map((item) => (
             <div key={item.id} className="flex items-center gap-2 text-xs text-input-placeholder">
-              <Icon icon={DocumentTextIcon} className="h-4 w-4" aria-hidden="true"  />
+              <Icon icon={FileText} className="h-4 w-4" aria-hidden="true"  />
               <span className="truncate">{item.name}</span>
               {item.status === 'uploading' && <span>{item.progress}%</span>}
               {item.status === 'uploaded' && <span className="text-emerald-300">uploaded</span>}

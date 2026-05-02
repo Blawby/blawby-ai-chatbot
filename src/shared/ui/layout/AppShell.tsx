@@ -1,4 +1,4 @@
-import type { ComponentChildren } from 'preact';
+import type { ComponentChildren, JSX } from 'preact';
 import { cn } from '@/shared/utils/cn';
 import { getAccentBackdropDefaults, type AccentBackdropVariant } from './accentBackdrop';
 import { MobileInspectorOverlay } from '@/shared/ui/inspector/MobileInspectorOverlay';
@@ -11,14 +11,24 @@ type AccentBackdropOverrides = {
 
 export interface AppShellProps {
   header?: ComponentChildren;
+  /**
+   * Unified sidebar (Pencil GtRGH). Renders as a 260px column on desktop and as a
+   * full-height drawer on mobile when {@link mobileSidebarOpen} is true.
+   */
   sidebar?: ComponentChildren;
-  secondarySidebar?: ComponentChildren;
+  /** When true, the desktop sidebar column shrinks to a 64px icon rail. The Sidebar
+   *  component itself adapts its content based on its own `collapsed` prop. */
+  desktopSidebarCollapsed?: boolean;
+  /** Optional override rendered in the mobile drawer instead of `sidebar`.
+   *  Useful when the desktop sidebar is collapsed but the mobile drawer should
+   *  still render the full expanded layout. */
+  mobileSidebar?: ComponentChildren;
   listPanel?: ComponentChildren;
   inspector?: ComponentChildren;
   inspectorMobileOpen?: boolean;
   onInspectorMobileClose?: () => void;
-  mobileSecondaryNavOpen?: boolean;
-  onMobileSecondaryNavClose?: () => void;
+  mobileSidebarOpen?: boolean;
+  onMobileSidebarClose?: () => void;
   main: ComponentChildren;
   bottomBar?: ComponentChildren;
   backgroundDecor?: ComponentChildren;
@@ -27,7 +37,6 @@ export interface AppShellProps {
   className?: string;
   headerClassName?: string;
   sidebarClassName?: string;
-  secondarySidebarClassName?: string;
   listPanelClassName?: string;
   inspectorClassName?: string;
   mainClassName?: string;
@@ -37,13 +46,14 @@ export interface AppShellProps {
 export const AppShell = ({
   header,
   sidebar,
-  secondarySidebar,
+  desktopSidebarCollapsed = false,
+  mobileSidebar,
   listPanel,
   inspector,
   inspectorMobileOpen = false,
   onInspectorMobileClose,
-  mobileSecondaryNavOpen = false,
-  onMobileSecondaryNavClose,
+  mobileSidebarOpen = false,
+  onMobileSidebarClose,
   main,
   bottomBar,
   backgroundDecor,
@@ -52,73 +62,47 @@ export const AppShell = ({
   className,
   headerClassName,
   sidebarClassName,
-  secondarySidebarClassName,
   listPanelClassName,
   inspectorClassName,
   mainClassName,
   bottomBarClassName
 }: AppShellProps) => {
   const hasSidebar = Boolean(sidebar);
-  const hasSecondarySidebar = Boolean(secondarySidebar);
   const hasListPanel = Boolean(listPanel);
   const hasInspector = Boolean(inspector);
   const hasHeader = Boolean(header);
   const hasBottomBar = Boolean(bottomBar);
   const showMobileInspector = hasInspector && inspectorMobileOpen;
-  const showMobileSecondaryNav = hasSecondarySidebar && mobileSecondaryNavOpen;
+  const showMobileSidebar = hasSidebar && mobileSidebarOpen;
 
-  const leftPanelCount = (hasSidebar ? 1 : 0) + (hasSecondarySidebar ? 1 : 0) + (hasListPanel ? 1 : 0);
+  // Sidebar column width: full 260px when expanded, 64px icon-rail when collapsed.
+  // The Sidebar component itself adapts its content based on the same flag.
+  const sidebarColWidth = desktopSidebarCollapsed ? '64px' : '260px';
+
+  const leftPanelCount = (hasSidebar ? 1 : 0) + (hasListPanel ? 1 : 0);
   const mainColStartClass = leftPanelCount === 0
     ? 'col-start-1 lg:col-start-1'
     : leftPanelCount === 1
       ? 'col-start-1 lg:col-start-2'
-      : leftPanelCount === 2
-        ? 'col-start-1 lg:col-start-3'
-        : 'col-start-1 lg:col-start-4';
-  const secondarySidebarColStartClass = hasSidebar ? 'lg:col-start-2' : 'lg:col-start-1';
-  const listPanelColStartClass = hasSidebar && hasSecondarySidebar
-    ? 'lg:col-start-3'
-    : hasSidebar || hasSecondarySidebar
-      ? 'lg:col-start-2'
-      : 'lg:col-start-1';
+      : 'col-start-1 lg:col-start-3';
+  const listPanelColStartClass = hasSidebar ? 'lg:col-start-2' : 'lg:col-start-1';
   const inspectorColStartClass = leftPanelCount === 0
     ? 'lg:col-start-2'
     : leftPanelCount === 1
       ? 'lg:col-start-3'
-      : leftPanelCount === 2
-        ? 'lg:col-start-4'
-        : 'lg:col-start-5';
-  const gridClassName = hasInspector
-    ? hasSidebar && hasSecondarySidebar && hasListPanel
-      ? 'grid-rows-[auto,1fr,auto] lg:grid-cols-[64px,240px,280px,1fr,336px] lg:grid-rows-[auto,1fr,auto]'
-      : hasSidebar && hasSecondarySidebar
-        ? 'grid-rows-[auto,1fr,auto] lg:grid-cols-[64px,240px,1fr,336px] lg:grid-rows-[auto,1fr,auto]'
-        : hasSidebar && hasListPanel
-          ? 'grid-rows-[auto,1fr,auto] lg:grid-cols-[64px,280px,1fr,336px] lg:grid-rows-[auto,1fr,auto]'
-          : hasSecondarySidebar && hasListPanel
-            ? 'grid-rows-[auto,1fr,auto] lg:grid-cols-[240px,280px,1fr,336px] lg:grid-rows-[auto,1fr,auto]'
-            : hasSidebar
-              ? 'grid-rows-[auto,1fr,auto] lg:grid-cols-[64px,1fr,336px] lg:grid-rows-[auto,1fr,auto]'
-              : hasSecondarySidebar
-                ? 'grid-rows-[auto,1fr,auto] lg:grid-cols-[240px,1fr,336px] lg:grid-rows-[auto,1fr,auto]'
-                : hasListPanel
-                  ? 'grid-rows-[auto,1fr,auto] lg:grid-cols-[280px,1fr,336px] lg:grid-rows-[auto,1fr,auto]'
-                  : 'grid-rows-[auto,1fr,auto] lg:grid-cols-[1fr,336px] lg:grid-rows-[auto,1fr,auto]'
-    : hasSidebar && hasSecondarySidebar && hasListPanel
-      ? 'grid-rows-[auto,1fr,auto] lg:grid-cols-[64px,240px,280px,1fr] lg:grid-rows-[auto,1fr,auto]'
-      : hasSidebar && hasSecondarySidebar
-        ? 'grid-rows-[auto,1fr,auto] lg:grid-cols-[64px,240px,1fr] lg:grid-rows-[auto,1fr,auto]'
-        : hasSidebar && hasListPanel
-          ? 'grid-rows-[auto,1fr,auto] lg:grid-cols-[64px,280px,1fr] lg:grid-rows-[auto,1fr,auto]'
-          : hasSecondarySidebar && hasListPanel
-            ? 'grid-rows-[auto,1fr,auto] lg:grid-cols-[240px,280px,1fr] lg:grid-rows-[auto,1fr,auto]'
-            : hasSidebar
-              ? 'grid-rows-[auto,1fr,auto] lg:grid-cols-[64px,1fr] lg:grid-rows-[auto,1fr,auto]'
-              : hasSecondarySidebar
-                ? 'grid-rows-[auto,1fr,auto] lg:grid-cols-[240px,1fr] lg:grid-rows-[auto,1fr,auto]'
-                : hasListPanel
-                  ? 'grid-rows-[auto,1fr,auto] lg:grid-cols-[280px,1fr] lg:grid-rows-[auto,1fr,auto]'
-                  : 'grid-rows-[auto,1fr,auto] lg:grid-cols-1 lg:grid-rows-[auto,1fr,auto]';
+      : 'lg:col-start-4';
+
+  // Build the grid columns dynamically; expose via CSS var so Tailwind's arbitrary-value
+  // class can pick it up at the lg breakpoint without a permutation explosion.
+  const lgGridCols = ((): string => {
+    const cols: string[] = [];
+    if (hasSidebar) cols.push(sidebarColWidth);
+    if (hasListPanel) cols.push('280px');
+    cols.push('1fr');
+    if (hasInspector) cols.push('336px');
+    return cols.join(' ');
+  })();
+  const gridClassName = 'grid-rows-[auto,1fr,auto] lg:grid-cols-[var(--app-grid-cols)] lg:grid-rows-[auto,1fr,auto]';
   const accentDefaults = getAccentBackdropDefaults(accentBackdropVariant);
   const showAccentBackdrop = Boolean(accentDefaults);
   const resolvedAccentClasses = accentDefaults
@@ -130,7 +114,10 @@ export const AppShell = ({
     : null;
 
   return (
-    <div className={cn('relative grid h-full min-h-full w-full bg-surface-app-frame', gridClassName, className)}>
+    <div
+      className={cn('relative grid h-full min-h-full w-full bg-surface-app-frame', gridClassName, className)}
+      style={{ '--app-grid-cols': lgGridCols } as JSX.CSSProperties}
+    >
       {backgroundDecor && (
         <div className="pointer-events-none absolute inset-0 overflow-hidden">
           {backgroundDecor}
@@ -153,7 +140,10 @@ export const AppShell = ({
       {hasSidebar && (
         <aside
           className={cn(
-            'relative z-10 row-start-2 min-h-0 overflow-y-auto bg-surface-navigation hidden lg:block',
+            // overflow-visible so the Sidebar's collapsed-state toggle button can stick
+            // off the right edge. z-20 (vs z-10 on Main/List/Inspector) keeps the
+            // overflow painted above neighboring grid items.
+            'relative z-20 row-start-2 min-h-0 overflow-visible hidden lg:block',
             sidebarClassName
           )}
         >
@@ -161,17 +151,6 @@ export const AppShell = ({
         </aside>
       )}
 
-      {hasSecondarySidebar && (
-        <aside
-          className={cn(
-            'relative z-10 row-start-2 min-h-0 overflow-y-auto bg-surface-nav-secondary hidden lg:block',
-            secondarySidebarColStartClass,
-            secondarySidebarClassName
-          )}
-        >
-          {secondarySidebar}
-        </aside>
-      )}
 
       {hasListPanel && (
         <aside
@@ -213,20 +192,20 @@ export const AppShell = ({
         </MobileInspectorOverlay>
       )}
 
-      {showMobileSecondaryNav && (
+      {showMobileSidebar && (
         <div className="fixed inset-0 z-[70] lg:hidden">
-          {onMobileSecondaryNavClose ? (
+          {onMobileSidebarClose ? (
             <button
               type="button"
               className="absolute inset-0 bg-[rgb(var(--surface-app-frame))]/60 backdrop-blur-sm"
-              onClick={() => onMobileSecondaryNavClose()}
+              onClick={() => onMobileSidebarClose()}
               aria-label="Close navigation"
             />
           ) : (
             <div className="absolute inset-0 bg-surface-app-frame/60 dark:bg-surface-overlay/60 backdrop-blur-sm" />
           )}
-          <aside className="absolute left-0 top-0 h-dvh w-full max-w-xs overflow-y-auto bg-surface-nav-secondary">
-            {secondarySidebar}
+          <aside className="absolute left-0 top-0 h-dvh w-[280px] max-w-full overflow-y-auto">
+            {mobileSidebar ?? sidebar}
           </aside>
         </div>
       )}

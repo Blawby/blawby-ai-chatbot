@@ -1,5 +1,6 @@
 import type { ComponentChildren } from 'preact';
-import { ChevronLeftIcon, EllipsisVerticalIcon } from '@heroicons/react/24/outline';
+import { ChevronLeft, MoreVertical } from 'lucide-preact';
+
 import { Button } from '@/shared/ui/Button';
 import { cn } from '@/shared/utils/cn';
 
@@ -41,7 +42,7 @@ export const DetailHeader = ({
               size="icon-sm"
               onClick={onBack}
               aria-label="Back"
-              icon={ChevronLeftIcon} iconClassName="h-5 w-5"
+              icon={ChevronLeft} iconClassName="h-5 w-5"
             />
           ) : null}
         </div>
@@ -60,7 +61,7 @@ export const DetailHeader = ({
               size="icon-sm"
               onClick={onInspector}
               aria-label={inspectorOpen ? 'Close inspector' : 'Open inspector'}
-              icon={EllipsisVerticalIcon} iconClassName="h-5 w-5"
+              icon={MoreVertical} iconClassName="h-5 w-5"
             />
           ) : null}
         </div>

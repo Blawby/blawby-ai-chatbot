@@ -1,6 +1,7 @@
 import { FunctionComponent } from 'preact';
 import { useState, useRef, useEffect, useCallback } from 'preact/hooks';
-import { PlusIcon, PhotoIcon, CameraIcon, XMarkIcon } from "@heroicons/react/24/outline";
+import { Plus, Image, Camera, X } from 'lucide-preact';
+
 import { Icon } from '@/shared/ui/Icon';
 import { Button } from '@/shared/ui/Button';
 import CameraDialog from '@/features/modals/components/CameraDialog';
@@ -147,7 +148,7 @@ const FileMenu: FunctionComponent<FileMenuProps> = ({
             ? 'bg-surface-utility/20 border-line-glass/35'
             : 'bg-surface-utility/10 border-line-glass/20 hover:bg-surface-utility/20 hover:border-line-glass/30 hover:scale-105'
         }`}
-        icon={PlusIcon} iconClassName="w-5 h-5"
+        icon={Plus} iconClassName="w-5 h-5"
       />
 
       {(isOpen || isClosing) && (
@@ -171,7 +172,7 @@ const FileMenu: FunctionComponent<FileMenuProps> = ({
             className="file-menu-item py-3 text-xs sm:text-sm"
           >
             <span>Add photos &amp; files</span>
-            <Icon icon={PhotoIcon} className="w-5 h-5" aria-hidden="true"  />
+            <Icon icon={Image} className="w-5 h-5" aria-hidden="true"  />
           </Button>
 
           <Button
@@ -183,7 +184,7 @@ const FileMenu: FunctionComponent<FileMenuProps> = ({
             className="file-menu-item py-3 border-t border-line-glass/10 text-xs sm:text-sm"
           >
             <span>Take Photo</span>
-            <Icon icon={CameraIcon} className="w-5 h-5" aria-hidden="true"  />
+            <Icon icon={Camera} className="w-5 h-5" aria-hidden="true"  />
           </Button>
         </div>
       )}
@@ -202,7 +203,7 @@ const FileMenu: FunctionComponent<FileMenuProps> = ({
               className="p-1 text-accent-error hover:text-accent-error-dark dark:text-accent-error-light dark:hover:text-accent-error-foreground transition-colors"
               aria-label="Dismiss error message"
             >
-              <Icon icon={XMarkIcon} className="w-4 h-4"  />
+              <Icon icon={X} className="w-4 h-4"  />
             </button>
           </div>
         </div>

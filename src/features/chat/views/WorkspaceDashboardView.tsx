@@ -1,15 +1,10 @@
 import { FunctionComponent } from 'preact';
-import { 
-  ChatBubbleLeftRightIcon, 
-  UsersIcon, 
-  BriefcaseIcon,
-  CheckCircleIcon,
-  ChartBarIcon
-} from '@heroicons/react/24/outline';
+import { MessagesSquare, Users, Briefcase, CheckCircle2, BarChart3 } from 'lucide-preact';
+
 import { Icon } from '@/shared/ui/Icon';
 import { Button } from '@/shared/ui/Button';
 
-type IconComponent = typeof ChatBubbleLeftRightIcon;
+type IconComponent = typeof MessagesSquare;
 
 interface DashboardCardProps {
   title: string;
@@ -68,28 +63,28 @@ export const WorkspaceDashboardView: FunctionComponent<{
           title="Recent Conversations" 
           value="0" 
           label="last 24h" 
-          icon={ChatBubbleLeftRightIcon}
+          icon={MessagesSquare}
           onClick={onNavigateToConversations}
         />
         <DashboardCard 
           title="Active Matters" 
           value="0" 
           label="total" 
-          icon={BriefcaseIcon}
+          icon={Briefcase}
           onClick={onNavigateToMatters}
         />
         <DashboardCard 
           title="Potential Contacts" 
           value="0" 
           label="new leads" 
-          icon={UsersIcon}
+          icon={Users}
           onClick={onNavigateToClients}
         />
         <DashboardCard 
           title="Success Rate" 
           value="--" 
           label="conversion" 
-          icon={ChartBarIcon}
+          icon={BarChart3}
         />
       </div>
 
@@ -111,7 +106,7 @@ export const WorkspaceDashboardView: FunctionComponent<{
             </div>
             <div className="p-12 text-center">
               <div className="w-16 h-16 bg-surface-panel/40 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Icon icon={CheckCircleIcon} className="w-8 h-8 text-input-placeholder"  />
+                <Icon icon={CheckCircle2} className="w-8 h-8 text-input-placeholder"  />
               </div>
               <p className="text-input-placeholder text-sm">No recent activity found. Once you share your intake link, you&apos;ll see updates here.</p>
             </div>

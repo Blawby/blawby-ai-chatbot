@@ -1,7 +1,8 @@
 import type { ComponentChildren, FunctionComponent } from 'preact';
 import { createPortal } from 'preact/compat';
 import { useEffect, useId, useRef, useState } from 'preact/hooks';
-import { XMarkIcon } from '@heroicons/react/24/outline';
+import { X } from 'lucide-preact';
+
 import { Button } from '@/shared/ui/Button';
 import { Icon } from '@/shared/ui/Icon';
 import { THEME } from '@/shared/utils/constants';
@@ -116,7 +117,7 @@ export const Fullscreen: FunctionComponent<FullscreenProps> = ({
             onClick={onClose}
             aria-label="Close"
             className="absolute right-4 top-4 z-10 rounded-full text-input-placeholder hover:bg-surface-hover hover:text-input-text"
-            icon={<Icon icon={XMarkIcon} className="h-4 w-4" />}
+            icon={<Icon icon={X} className="h-4 w-4" />}
           />
         )}
         {children}

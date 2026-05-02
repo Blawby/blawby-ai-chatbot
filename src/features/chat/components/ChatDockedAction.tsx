@@ -1,5 +1,6 @@
 import { FunctionComponent, ComponentChildren } from 'preact';
-import { XMarkIcon } from '@heroicons/react/24/outline';
+import { X } from 'lucide-preact';
+
 import { Button } from '@/shared/ui/Button';
 import { Icon } from '@/shared/ui/Icon';
 import { cn } from '@/shared/utils/cn';
@@ -56,7 +57,7 @@ export const ChatDockedAction: FunctionComponent<ChatDockedActionProps> = ({
               aria-label="Dismiss"
               className="shrink-0 text-input-placeholder hover:bg-surface-hover hover:text-input-text"
             >
-              <Icon icon={XMarkIcon} className="h-5 w-5" />
+              <Icon icon={X} className="h-5 w-5" />
             </Button>
           )}
         </div>

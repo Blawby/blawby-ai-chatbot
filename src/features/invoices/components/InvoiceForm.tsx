@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { forwardRef, useImperativeHandle } from 'preact/compat';
-import { PlusIcon } from '@heroicons/react/24/outline';
+import { Plus } from 'lucide-preact';
+
 import { Button } from '@/shared/ui/Button';
 import { Combobox, Input, Textarea } from '@/shared/ui/input';
 import { asMajor, safeAdd } from '@/shared/utils/money';
@@ -447,7 +448,7 @@ export const InvoiceForm = forwardRef<InvoiceFormHandle, InvoiceFormProps>(({
                           setAddPersonOpen(true);
                         }}
                       >
-                        <PlusIcon className="h-4 w-4" />
+                        <Plus className="h-4 w-4" />
                         Invite contact
                       </button>
                     )
