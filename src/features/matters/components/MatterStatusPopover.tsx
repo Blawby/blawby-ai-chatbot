@@ -1,19 +1,7 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
-import {
-  ScaleIcon,
-  ChatBubbleLeftRightIcon,
-  MagnifyingGlassIcon,
-  ShieldExclamationIcon,
-  ExclamationTriangleIcon,
-  DocumentCheckIcon,
-  BriefcaseIcon,
-  PauseCircleIcon,
-  CheckCircleIcon,
-  XCircleIcon,
-  ArrowUturnRightIcon,
-  ChevronDownIcon
-} from '@heroicons/react/24/outline';
-import { CheckIcon } from '@heroicons/react/24/solid';
+import { Scale, MessagesSquare, Search, AlertTriangle, Briefcase, CheckCircle2, XCircle, ChevronDown, Check, Redo2, FileCheck2, CirclePause, ShieldAlert } from 'lucide-preact';
+
+
 import { Icon } from '@/shared/ui/Icon';
 import {
   MATTER_STATUS_LABELS,
@@ -23,27 +11,27 @@ import {
 import { cn } from '@/shared/utils/cn';
 
 const STATUS_ICON: Record<MatterStatus, unknown> = {
-  first_contact: ChatBubbleLeftRightIcon,
-  intake_pending: MagnifyingGlassIcon,
-  conflict_check: ShieldExclamationIcon,
-  conflicted: ExclamationTriangleIcon,
-  eligibility: ScaleIcon,
-  referred: ArrowUturnRightIcon,
-  consultation_scheduled: DocumentCheckIcon,
-  declined: XCircleIcon,
-  engagement_draft: BriefcaseIcon,
-  engagement_sent: BriefcaseIcon,
-  engagement_accepted: CheckCircleIcon,
-  engagement_pending: PauseCircleIcon,
-  active: BriefcaseIcon,
-  pleadings_filed: DocumentCheckIcon,
-  discovery: MagnifyingGlassIcon,
-  mediation: ScaleIcon,
-  pre_trial: ShieldExclamationIcon,
-  trial: ExclamationTriangleIcon,
-  order_entered: CheckCircleIcon,
-  appeal_pending: ArrowUturnRightIcon,
-  closed: CheckCircleIcon
+  first_contact: MessagesSquare,
+  intake_pending: Search,
+  conflict_check: ShieldAlert,
+  conflicted: AlertTriangle,
+  eligibility: Scale,
+  referred: Redo2,
+  consultation_scheduled: FileCheck2,
+  declined: XCircle,
+  engagement_draft: Briefcase,
+  engagement_sent: Briefcase,
+  engagement_accepted: CheckCircle2,
+  engagement_pending: CirclePause,
+  active: Briefcase,
+  pleadings_filed: FileCheck2,
+  discovery: Search,
+  mediation: Scale,
+  pre_trial: ShieldAlert,
+  trial: AlertTriangle,
+  order_entered: CheckCircle2,
+  appeal_pending: Redo2,
+  closed: CheckCircle2
 };
 
 const STATUS_COLOR: Record<MatterStatus, string> = {
@@ -136,7 +124,7 @@ export const MatterStatusPopover = ({ currentStatus, onSelect, disabled }: Matte
     }
   };
 
-  const StatusIcon = (STATUS_ICON[currentStatus] as preact.ComponentType<{ className?: string; 'aria-hidden'?: boolean }>) ?? ScaleIcon;
+  const StatusIcon = (STATUS_ICON[currentStatus] as preact.ComponentType<{ className?: string; 'aria-hidden'?: boolean }>) ?? Scale;
   const colorClasses = STATUS_COLOR[currentStatus];
 
   return (
@@ -166,7 +154,7 @@ export const MatterStatusPopover = ({ currentStatus, onSelect, disabled }: Matte
       >
         <Icon icon={StatusIcon} className="h-4 w-4 shrink-0" />
         {MATTER_STATUS_LABELS[currentStatus]}
-        <Icon icon={ChevronDownIcon}
+        <Icon icon={ChevronDown}
           className={cn('h-3.5 w-3.5 shrink-0 transition-transform duration-150', open && 'rotate-180')}
           aria-hidden
          />
@@ -186,7 +174,7 @@ export const MatterStatusPopover = ({ currentStatus, onSelect, disabled }: Matte
           )}
         >
           {MATTER_WORKFLOW_STATUSES.map((status, index) => {
-            const statusIcon = (STATUS_ICON[status] as preact.ComponentType<{ className?: string; 'aria-hidden'?: boolean }>) ?? ScaleIcon;
+            const statusIcon = (STATUS_ICON[status] as preact.ComponentType<{ className?: string; 'aria-hidden'?: boolean }>) ?? Scale;
             const isSelected = status === currentStatus;
             const isFocused = index === focusedIndex;
             return (
@@ -217,7 +205,7 @@ export const MatterStatusPopover = ({ currentStatus, onSelect, disabled }: Matte
                   )}
                 />
                 <span className="flex-1">{MATTER_STATUS_LABELS[status]}</span>
-                {isSelected && <Icon icon={CheckIcon} className="h-3.5 w-3.5 shrink-0 text-[rgb(var(--accent-foreground))]" aria-hidden  />}
+                {isSelected && <Icon icon={Check} className="h-3.5 w-3.5 shrink-0 text-[rgb(var(--accent-foreground))]" aria-hidden  />}
               </button>
             );
           })}

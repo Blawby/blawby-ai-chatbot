@@ -8,7 +8,8 @@ import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { authClient } from '@/shared/lib/authClient';
 import { useAuthAccounts } from '@/shared/hooks/useAuthAccounts';
 import { Dialog, DialogBody, DialogFooter } from '@/shared/ui/dialog';
-import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
+import { AlertTriangle } from 'lucide-preact';
+
 import { Icon } from '@/shared/ui/Icon';
 import { useTranslation } from '@/shared/i18n/hooks';
 import type { SecuritySettings } from '@/shared/types/user';
@@ -557,7 +558,7 @@ export const SecurityPage = ({
             <DialogBody className="space-y-4">
               <div className="flex items-start gap-3">
                 <div className="flex-shrink-0">
-                  <Icon icon={ExclamationTriangleIcon} className="w-6 h-6 text-orange-500"  />
+                  <Icon icon={AlertTriangle} className="w-6 h-6 text-orange-500"  />
                 </div>
                 <div className="flex-1">
                   <h3 className="text-lg font-semibold text-input-text mb-2">

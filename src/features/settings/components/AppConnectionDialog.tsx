@@ -1,6 +1,7 @@
 import { FunctionComponent } from 'preact';
 import { InfoListDialog, type InfoListDialogItem } from '@/shared/ui/dialog';
-import { ShieldCheckIcon, LockClosedIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
+import { ShieldCheck, Lock, AlertTriangle } from 'lucide-preact';
+
 import { useTranslation } from '@/shared/i18n/hooks';
 import type { App } from '../pages/appsData';
 
@@ -23,13 +24,13 @@ export const AppConnectionDialog: FunctionComponent<AppConnectionDialogProps> = 
   const items: InfoListDialogItem[] = [
     {
       id: 'permissions',
-      icon: ShieldCheckIcon,
+      icon: ShieldCheck,
       title: t(`${connectModalKey}.permissions.title`),
       description: t(`${connectModalKey}.permissions.description`, { app: app.name }),
     },
     {
       id: 'control',
-      icon: LockClosedIcon,
+      icon: Lock,
       title: t(`${connectModalKey}.control.title`),
       description: (
         <>
@@ -47,7 +48,7 @@ export const AppConnectionDialog: FunctionComponent<AppConnectionDialogProps> = 
     },
     {
       id: 'risk',
-      icon: ExclamationTriangleIcon,
+      icon: AlertTriangle,
       iconClassName: 'h-5 w-5 text-amber-600 dark:text-amber-400',
       title: t(`${connectModalKey}.risk.title`),
       description: (

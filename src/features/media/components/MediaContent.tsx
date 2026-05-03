@@ -1,6 +1,7 @@
 import { FunctionComponent } from 'preact';
 import { useState } from 'preact/hooks';
-import { PlayIcon } from "@heroicons/react/24/outline";
+import { Play } from 'lucide-preact';
+
 import { Icon } from '@/shared/ui/Icon';
 import { type AggregatedMedia } from '@/shared/utils/mediaAggregation';
 
@@ -41,7 +42,7 @@ const MediaContent: FunctionComponent<MediaContentProps> = ({ media }) => {
                                 playsInline
                             />
                             <div className="absolute inset-0 bg-surface-app-frame/80 flex flex-col items-center justify-center gap-2">
-                                <Icon icon={PlayIcon} className="text-[rgb(var(--accent-foreground))] w-12 h-12"  />
+                                <Icon icon={Play} className="text-[rgb(var(--accent-foreground))] w-12 h-12"  />
                                 <p className="text-[rgb(var(--accent-foreground))] text-sm font-medium">Click to play</p>
                             </div>
                         </div>

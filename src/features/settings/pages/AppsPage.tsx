@@ -2,7 +2,8 @@ import { App } from './appsData';
 import { SettingRow } from '@/features/settings/components/SettingRow';
 import { SettingsBadge } from '@/features/settings/components/SettingsBadge';
 import { SectionDivider } from '@/shared/ui/layout';
-import { ChevronRightIcon, PuzzlePieceIcon, CheckBadgeIcon } from '@heroicons/react/24/outline';
+import { ChevronRight, Puzzle, BadgeCheck } from 'lucide-preact';
+
 import { useTranslation } from '@/shared/i18n/hooks';
 import { Icon } from '@/shared/ui/Icon';
 
@@ -40,7 +41,7 @@ export const AppsPage = ({ apps, onSelect, className = '' }: AppsPageProps) => {
                         loading="lazy"
                       />
                     ) : (
-                      <Icon icon={PuzzlePieceIcon} className="w-6 h-6 text-input-text/70" aria-hidden="true" />
+                      <Icon icon={Puzzle} className="w-6 h-6 text-input-text/70" aria-hidden="true" />
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
@@ -48,7 +49,7 @@ export const AppsPage = ({ apps, onSelect, className = '' }: AppsPageProps) => {
                       <p className="text-base font-medium text-input-text truncate">{app.name}</p>
                       {app.connected && (
                         <SettingsBadge variant="success">
-                          <Icon icon={CheckBadgeIcon} className="w-4 h-4" aria-hidden="true" />
+                          <Icon icon={BadgeCheck} className="w-4 h-4" aria-hidden="true" />
                           {t('settings:apps.clio.connected')}
                         </SettingsBadge>
                       )}
@@ -62,7 +63,7 @@ export const AppsPage = ({ apps, onSelect, className = '' }: AppsPageProps) => {
                 </div>
               )}
             >
-              <Icon icon={ChevronRightIcon} className="w-5 h-5 text-input-placeholder" aria-hidden="true" />
+              <Icon icon={ChevronRight} className="w-5 h-5 text-input-placeholder" aria-hidden="true" />
             </SettingRow>
           </button>
           {index < apps.length - 1 && <SectionDivider />}

@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'preact/hooks';
-import { ArrowDownIcon, ArrowUpIcon, PencilIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { ArrowDown, ArrowUp, Pencil, Plus, Trash2 } from 'lucide-preact';
+
 import { Dialog, DialogBody, DialogFooter } from '@/shared/ui/dialog';
 import { Button } from '@/shared/ui/Button';
 import { Combobox } from '@/shared/ui/input/Combobox';
@@ -187,7 +188,7 @@ export const MatterMilestonesPanel = ({
             {resolvedMilestones.length} milestones tracked
           </p>
         </div>
-        <Button size="sm" icon={PlusIcon} iconClassName="h-4 w-4" onClick={openForm} disabled={!canCreate}>
+        <Button size="sm" icon={Plus} iconClassName="h-4 w-4" onClick={openForm} disabled={!canCreate}>
           Add milestone
         </Button>
       </header>
@@ -230,7 +231,7 @@ export const MatterMilestonesPanel = ({
                       <Button
                         variant="ghost"
                         size="sm"
-                        icon={PencilIcon} iconClassName="h-4 w-4"
+                        icon={Pencil} iconClassName="h-4 w-4"
                         onClick={() => openEditForm(milestone)}
                         aria-label="Edit milestone"
                       />
@@ -239,7 +240,7 @@ export const MatterMilestonesPanel = ({
                       <Button
                         variant="ghost"
                         size="sm"
-                        icon={TrashIcon} iconClassName="h-4 w-4"
+                        icon={Trash2} iconClassName="h-4 w-4"
                         onClick={() => confirmDelete(milestone)}
                         aria-label="Delete milestone"
                       />
@@ -250,14 +251,14 @@ export const MatterMilestonesPanel = ({
                       <Button
                         variant="ghost"
                         size="sm"
-                        icon={ArrowUpIcon} iconClassName="h-4 w-4"
+                        icon={ArrowUp} iconClassName="h-4 w-4"
                         onClick={() => moveMilestone(index, -1)}
                         aria-label="Move milestone up"
                       />
                       <Button
                         variant="ghost"
                         size="sm"
-                        icon={ArrowDownIcon} iconClassName="h-4 w-4"
+                        icon={ArrowDown} iconClassName="h-4 w-4"
                         onClick={() => moveMilestone(index, 1)}
                         aria-label="Move milestone down"
                       />

@@ -1,4 +1,5 @@
-import { EllipsisHorizontalIcon } from '@heroicons/react/24/outline';
+import { MoreHorizontal } from 'lucide-preact';
+
 import type { ComponentChildren } from 'preact';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/shared/ui/dropdown';
 import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
@@ -70,7 +71,7 @@ export const InvoiceStatusActions = ({
           disabled={hasPendingAction}
           onClick={(event) => event.stopPropagation()}
         >
-          <EllipsisHorizontalIcon className="h-4 w-4" />
+          <MoreHorizontal className="h-4 w-4" />
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-[200px]">

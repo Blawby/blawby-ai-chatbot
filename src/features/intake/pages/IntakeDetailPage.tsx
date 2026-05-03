@@ -3,17 +3,9 @@ import { useLocation } from 'preact-iso';
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 import { useMessageHandling } from '@/shared/hooks/useMessageHandling';
 import { apiClient, isHttpError } from '@/shared/lib/apiClient';
-import {
-  CheckCircleIcon,
-  UserIcon,
-  ScaleIcon,
-  ClockIcon,
-  ExclamationTriangleIcon,
-  CreditCardIcon,
-  MapPinIcon,
-  ClipboardDocumentCheckIcon,
-} from '@heroicons/react/24/outline';
-import { CheckCircleIcon as CheckCircleIconSolid } from '@heroicons/react/24/solid';
+import { CheckCircle2, CheckCircle2 as CheckCircleIconSolid, User, Scale, Clock, AlertTriangle, CreditCard, MapPin, ClipboardCheck } from 'lucide-preact';
+
+
 import { Icon } from '@/shared/ui/Icon';
 import { Button } from '@/shared/ui/Button';
 import { UserCard } from '@/shared/ui/profile';
@@ -132,7 +124,7 @@ function resolveFieldValue(
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 // Stat cell for use inside CSS grids — no border treatment
-type StatCellProps = { label: string; value?: string | null; icon?: typeof UserIcon };
+type StatCellProps = { label: string; value?: string | null; icon?: typeof User };
 const StatCell: FunctionComponent<StatCellProps> = ({ label, value, icon: IconComp }) => {
   const resolvedValue = value && value.trim().length > 0 ? value : null;
   return (
@@ -152,7 +144,7 @@ const StatCell: FunctionComponent<StatCellProps> = ({ label, value, icon: IconCo
   );
 };
 
-type SummaryRowProps = { label: string; value?: string | number | null; icon: typeof UserIcon };
+type SummaryRowProps = { label: string; value?: string | number | null; icon: typeof User };
 const SummaryRow: FunctionComponent<SummaryRowProps> = ({ label, value, icon: IconComp }) => {
   if (value === null || value === undefined || value === '') return null;
   return (
@@ -864,7 +856,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
           <div className="space-y-4">
             {intake.payment_verified && (
               <div className="flex items-center gap-2 text-xs font-bold text-emerald-600 dark:text-emerald-400">
-                <Icon icon={CheckCircleIconSolid} className="h-4 w-4" />
+                <Icon icon={CheckCircle2} className="h-4 w-4" />
                 Payment method verified
               </div>
             )}
@@ -960,15 +952,15 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
 
             <aside className="lg:border-l lg:border-line-glass/10 lg:pl-6">
               <dl className="divide-y divide-line-glass/10 text-sm">
-                <SummaryRow label="Status" value={triageLabel(effectiveTriageStatus)} icon={CheckCircleIcon} />
-                <SummaryRow label="Consultation" value={paymentLabel} icon={CreditCardIcon} />
-                <SummaryRow label="Location" value={locationLabel} icon={MapPinIcon} />
-                <SummaryRow label="Urgency" value={intake.urgency ? urgencyLabel(intake.urgency) : null} icon={ExclamationTriangleIcon} />
-                <SummaryRow label="Court date" value={intake.court_date ? (formatLongDate(intake.court_date) ?? intake.court_date) : null} icon={ClockIcon} />
-                <SummaryRow label="Documents" value={hasDocs} icon={ClipboardDocumentCheckIcon} />
-                <SummaryRow label="AI case strength" value={caseStrength} icon={ScaleIcon} />
-                <SummaryRow label="Household income" value={income} icon={CreditCardIcon} />
-                <SummaryRow label="Household size" value={householdSize} icon={UserIcon} />
+                <SummaryRow label="Status" value={triageLabel(effectiveTriageStatus)} icon={CheckCircle2} />
+                <SummaryRow label="Consultation" value={paymentLabel} icon={CreditCard} />
+                <SummaryRow label="Location" value={locationLabel} icon={MapPin} />
+                <SummaryRow label="Urgency" value={intake.urgency ? urgencyLabel(intake.urgency) : null} icon={AlertTriangle} />
+                <SummaryRow label="Court date" value={intake.court_date ? (formatLongDate(intake.court_date) ?? intake.court_date) : null} icon={Clock} />
+                <SummaryRow label="Documents" value={hasDocs} icon={ClipboardCheck} />
+                <SummaryRow label="AI case strength" value={caseStrength} icon={Scale} />
+                <SummaryRow label="Household income" value={income} icon={CreditCard} />
+                <SummaryRow label="Household size" value={householdSize} icon={User} />
               </dl>
             </aside>
           </div>
@@ -1019,15 +1011,15 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
                   key={field.key}
                   label={field.label}
                   value={resolveFieldValue(field, intakeStateRecord, intake)}
-                  icon={ClipboardDocumentCheckIcon}
+                  icon={ClipboardCheck}
                 />
               ))}
             </dl>
           ) : (
             <dl className="grid grid-cols-1 gap-5 md:grid-cols-3">
-              <StatCell label="On behalf of" value={onBehalfOf} icon={UserIcon} />
-              <StatCell label="Opposing party" value={opposingParty} icon={ScaleIcon} />
-              <StatCell label="Desired outcome" value={intake.desired_outcome} icon={CheckCircleIcon} />
+              <StatCell label="On behalf of" value={onBehalfOf} icon={User} />
+              <StatCell label="Opposing party" value={opposingParty} icon={Scale} />
+              <StatCell label="Desired outcome" value={intake.desired_outcome} icon={CheckCircle2} />
             </dl>
           )}
           {hasMissingLegalDetails ? (

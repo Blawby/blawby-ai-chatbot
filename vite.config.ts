@@ -267,36 +267,12 @@ export default defineConfig(({ mode }: ConfigEnv) => {
 						}
 						return 'assets/[name]-[hash][extname]';
 					},
-					// manualChunks: split well-known large deps into their own browser chunks.
-					// Function form required so we can match heroicons deep subpath imports
-					// (@heroicons/react/24/outline, /24/solid, /20/solid, /16/solid).
-					manualChunks(id) {
-						if (
-							id.includes('/node_modules/preact') ||
-							id.includes('/node_modules/nanostores') ||
-							id.includes('/node_modules/@nanostores')
-						) return 'vendor';
-						if (
-							id.includes('/node_modules/i18next') ||
-							id.includes('/node_modules/react-i18next') ||
-							id.includes('/node_modules/i18next-browser-languagedetector')
-						) return 'i18n';
-						// heroicons ships 1000+ SVG components via deep subpaths.
-						// Isolating it prevents icon imports from inflating the main chunk.
-						if (id.includes('/node_modules/@heroicons/react')) return 'icons';
-						if (
-							id.includes('/node_modules/@stripe') ||
-							id.includes('/node_modules/stripe')
-						) return 'stripe';
-						if (
-							id.includes('/node_modules/react-markdown') ||
-							id.includes('/node_modules/remark') ||
-							id.includes('/node_modules/micromark') ||
-							id.includes('/node_modules/mdast') ||
-							id.includes('/node_modules/unist') ||
-							id.includes('/node_modules/vfile') ||
-							id.includes('/node_modules/unified')
-						) return 'markdown';
+					manualChunks: {
+						vendor: ['preact', 'preact/hooks', 'preact/jsx-runtime', 'preact/compat', 'nanostores', '@nanostores/preact'],
+						i18n: ['i18next', 'react-i18next', 'i18next-browser-languagedetector'],
+						stripe: ['@stripe/stripe-js', '@stripe/react-stripe-js'],
+						markdown: ['react-markdown', 'remark-gfm'],
+						icons: ['lucide-preact'],
 					},
 				},
 			},
@@ -308,7 +284,7 @@ export default defineConfig(({ mode }: ConfigEnv) => {
 			assetsInlineLimit: 4096, // 4kb - small assets will be inlined
 		},
 		optimizeDeps: {
-			include: ['preact', 'preact/hooks', 'preact/compat', 'preact/jsx-runtime', 'i18next', 'react-i18next', 'i18next-browser-languagedetector'],
+			include: ['preact', 'preact/hooks', 'preact/compat', 'preact/jsx-runtime', 'i18next', 'react-i18next', 'i18next-browser-languagedetector', 'lucide-preact'],
 		},
 		resolve: {
 			dedupe: ['preact', 'preact/compat', 'react', 'react-dom'],

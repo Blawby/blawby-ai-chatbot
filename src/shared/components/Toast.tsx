@@ -1,6 +1,7 @@
 import { FunctionComponent, memo } from 'preact/compat';
 import { useEffect, useRef, useCallback } from 'preact/hooks';
-import { CheckCircleIcon, ExclamationTriangleIcon, InformationCircleIcon, XMarkIcon } from "@heroicons/react/24/outline";
+import { CheckCircle2, AlertTriangle, Info, X } from 'lucide-preact';
+
 import { Icon } from '@/shared/ui/Icon';
 
 export interface Toast {
@@ -38,14 +39,14 @@ const ToastComponent: FunctionComponent<ToastProps> = ({ toast, onRemove }) => {
   const getIcon = () => {
     switch (toast.type) {
       case 'success':
-        return <Icon icon={CheckCircleIcon} className="h-5 w-5 text-accent-success"  />;
+        return <Icon icon={CheckCircle2} className="h-5 w-5 text-accent-success"  />;
       case 'error':
-        return <Icon icon={ExclamationTriangleIcon} className="h-5 w-5 text-accent-error"  />;
+        return <Icon icon={AlertTriangle} className="h-5 w-5 text-accent-error"  />;
       case 'warning':
-        return <Icon icon={ExclamationTriangleIcon} className="h-5 w-5 text-accent-warning"  />;
+        return <Icon icon={AlertTriangle} className="h-5 w-5 text-accent-warning"  />;
       case 'info':
       default:
-        return <Icon icon={InformationCircleIcon} className="h-5 w-5 text-accent-400"  />;
+        return <Icon icon={Info} className="h-5 w-5 text-accent-400"  />;
     }
   };
 
@@ -84,7 +85,7 @@ const ToastComponent: FunctionComponent<ToastProps> = ({ toast, onRemove }) => {
             onClick={handleRemove}
             className="inline-flex text-input-placeholder hover:text-input-text transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-accent-500 rounded-sm focus:outline-none"
           >
-            <Icon icon={XMarkIcon} className="h-4 w-4"  />
+            <Icon icon={X} className="h-4 w-4"  />
           </button>
         </div>
       </div>

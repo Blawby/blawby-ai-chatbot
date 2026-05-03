@@ -25,6 +25,8 @@ import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
 import type { ConversationMode } from '@/shared/types/conversation';
 import { lazy } from 'preact/compat';
+import { Info, Send, Plus } from 'lucide-preact';
+import { INVOICE_CREATE_SEND_EVENT } from '@/features/invoices/utils/invoicePageConfig';
 const PracticeMattersPage = lazy(() => import('@/features/matters/pages/PracticeMattersPage').then(m => ({ default: m.PracticeMattersPage })));
 const PracticeContactsPage = lazy(() => import('@/features/clients/pages/PracticeContactsPage').then(m => ({ default: m.PracticeContactsPage })));
 const ClientMattersPage = lazy(() => import('@/features/matters/pages/ClientMattersPage').then(m => ({ default: m.ClientMattersPage })));
@@ -40,8 +42,6 @@ import { initializeAccentColor } from '@/shared/utils/accentColors';
 import { useMentionCandidates } from '@/shared/hooks/useMentionCandidates';
 import { isIntakeReadyForSubmission, resolveConsultationState } from '@/shared/utils/consultationState';
 import type { SettingsView } from '@/features/settings/pages/SettingsContent';
-import { InformationCircleIcon } from '@heroicons/react/24/outline';
-import { PlusIcon } from '@heroicons/react/24/solid';
 import { Button } from '@/shared/ui/Button';
 import { Icon } from '@/shared/ui/Icon';
 import { shouldShowWorkspaceDetailBack } from '@/shared/utils/workspaceDetailNavigation';
@@ -542,7 +542,7 @@ export function MainApp({
               strokeDasharray={circumference} strokeDashoffset={dashOffset}
             />
           </svg>
-          <Icon icon={InformationCircleIcon} className="relative z-10 h-3.5 w-3.5" aria-hidden="true" />
+          <Icon icon={Info} className="relative z-10 h-3.5 w-3.5" aria-hidden="true" />
         </span>
       </Button>
     );
@@ -952,19 +952,25 @@ export function MainApp({
           ? {
               label: 'New Matter',
               onClick: () => navigate(`${practiceMattersPath}/new?returnTo=${encodeURIComponent(returnToPath)}`),
-              icon: PlusIcon,
+              icon: Plus,
             }
+          : (resolvedWorkspaceView === 'invoiceCreate' || resolvedWorkspaceView === 'invoiceEdit') && isPracticeWorkspace
+            ? {
+                label: 'Review Invoice',
+                onClick: () => window.dispatchEvent(new CustomEvent(INVOICE_CREATE_SEND_EVENT)),
+                icon: Send,
+              }
           : resolvedWorkspaceView === 'invoices' && isPracticeWorkspace && practiceInvoicesPath
             ? {
-              label: 'New Invoice',
-              onClick: () => navigate(`${practiceInvoicesPath}/new?returnTo=${encodeURIComponent(returnToPath)}`),
-              icon: PlusIcon,
-            }
+                label: 'New Invoice',
+                onClick: () => navigate(`${practiceInvoicesPath}/new?returnTo=${encodeURIComponent(returnToPath)}`),
+                icon: Plus,
+              }
           : resolvedWorkspaceView === 'contacts' && isPracticeWorkspace && practiceContactsPath
             ? {
-                label: 'New Contact',
-                onClick: () => navigate(`${practiceContactsPath}/new?returnTo=${encodeURIComponent(returnToPath)}`),
-                icon: PlusIcon,
+                label: 'Invite Contact',
+                onClick: () => navigate(`${practiceContactsPath}?create=1`),
+                icon: Plus,
               }
             : null
       }

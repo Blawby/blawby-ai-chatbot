@@ -132,7 +132,7 @@ export function getFileIconName(category: AggregatedMedia['category'], filename:
     case 'video':
       return 'VideoCameraIcon';
     case 'audio':
-      return 'MusicalNoteIcon';
+      return 'Music';
     case 'document':
       if (extension === 'pdf') return 'DocumentTextIcon';
       if (['doc', 'docx'].includes(extension)) return 'DocumentIcon';

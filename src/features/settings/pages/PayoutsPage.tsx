@@ -15,17 +15,13 @@ import {
   createConnectedAccount,
   getOnboardingStatusPayload
 } from '@/shared/lib/apiClient';
+import { CheckCircle2, AlertTriangle, Lock, ShieldCheck, User } from 'lucide-preact';
 import { extractStripeStatusFromPayload } from '@/features/onboarding/utils';
 import type { StripeConnectStatus } from '@/features/onboarding/types';
 import { getValidatedStripeOnboardingUrl } from '@/shared/utils/stripeOnboarding';
-import {
-  CheckCircleIcon,
-  ExclamationTriangleIcon,
-  LockClosedIcon,
-  ShieldCheckIcon
-} from '@heroicons/react/24/outline';
+
 import { Icon } from '@/shared/ui/Icon';
-import { UserIcon } from '@heroicons/react/24/outline';
+
 
 const maskStripeAccountId = (value?: string | null) => {
   if (!value) return 'Not created';
@@ -185,21 +181,21 @@ export const PayoutsPage = ({
     ? {
         title: 'Stripe connected and ready',
         description: 'Your practice can receive payments and payouts through Stripe.',
-        icon: CheckCircleIcon,
+        icon: CheckCircle2,
         iconClassName: 'text-emerald-600 dark:text-emerald-400'
       }
     : needsAction
     ? {
         title: 'Stripe setup needs your attention',
         description: 'Finish submitting your business and representative details to enable payouts.',
-        icon: ExclamationTriangleIcon,
+        icon: AlertTriangle,
         iconClassName: 'text-amber-600 dark:text-amber-400'
       }
     : isPendingVerification
     ? {
         title: 'Verification in progress',
         description: 'Stripe has your details. Payouts will unlock after verification is complete.',
-        icon: ShieldCheckIcon,
+        icon: ShieldCheck,
         iconClassName: 'text-sky-600 dark:text-sky-400'
       }
     : null;
@@ -306,7 +302,7 @@ export const PayoutsPage = ({
             <div className="flex items-start gap-3">
               <span className="mt-0.5 flex h-5 w-5 items-center justify-center">
                 <Icon
-                  icon={missingBusinessEmail ? ExclamationTriangleIcon : (hasStripeAccount && statusSummary ? statusSummary.icon : ShieldCheckIcon)}
+                  icon={missingBusinessEmail ? AlertTriangle : (hasStripeAccount && statusSummary ? statusSummary.icon : ShieldCheck)}
                   className={missingBusinessEmail
                     ? 'h-5 w-5 text-amber-600 dark:text-amber-400'
                     : hasStripeAccount && statusSummary
@@ -360,7 +356,7 @@ export const PayoutsPage = ({
           label="Business email"
           labelNode={(
             <div className="flex items-center gap-3">
-              <Icon icon={UserIcon} className="h-5 w-5 text-input-placeholder" />
+              <Icon icon={User} className="h-5 w-5 text-input-placeholder" />
               <span className="text-sm font-medium text-input-text">Business email</span>
             </div>
           )}
@@ -388,7 +384,7 @@ export const PayoutsPage = ({
           label="Payouts"
           labelNode={(
             <div className="flex items-center gap-3">
-              <Icon icon={LockClosedIcon} className="h-5 w-5 text-input-placeholder" />
+              <Icon icon={Lock} className="h-5 w-5 text-input-placeholder" />
               <span className="text-sm font-medium text-input-text">Payouts</span>
             </div>
           )}
@@ -405,7 +401,7 @@ export const PayoutsPage = ({
           label="Status"
           labelNode={(
             <div className="flex items-center gap-3">
-              <Icon icon={ShieldCheckIcon} className="h-5 w-5 text-input-placeholder" />
+              <Icon icon={ShieldCheck} className="h-5 w-5 text-input-placeholder" />
               <span className="text-sm font-medium text-input-text">Status</span>
             </div>
           )}

@@ -1,7 +1,8 @@
 import { FunctionComponent } from 'preact';
 import { useCallback, useEffect, useMemo, useState } from 'preact/hooks';
 import { useLocation } from 'preact-iso';
-import { BriefcaseIcon, PlusIcon } from '@heroicons/react/24/outline';
+import { Briefcase, Plus } from 'lucide-preact';
+
 import { Panel } from '@/shared/ui/layout/Panel';
 import { WorkspacePlaceholderState } from '@/shared/ui/layout/WorkspacePlaceholderState';
 import { Avatar } from '@/shared/ui/profile';
@@ -261,14 +262,14 @@ export const EngagementsPage: FunctionComponent<EngagementsPageProps> = ({
           minMountSkeletonMs={250}
           emptyState={
             <WorkspacePlaceholderState
-              icon={BriefcaseIcon}
+              icon={Briefcase}
               title="No engagements yet"
               description="When you accept an intake and begin drafting an engagement letter, it will appear here."
               primaryAction={{
                 label: 'New Engagement',
                 onClick: handleCreateEngagement,
                 disabled: !practiceId,
-                icon: PlusIcon,
+                icon: Plus,
               }}
               className="p-8"
             />

@@ -1,11 +1,7 @@
 import type { JSX } from 'preact';
-import { CheckCircleIcon, ChatBubbleLeftRightIcon } from '@heroicons/react/24/solid';
-import {
-  EyeIcon,
-  PencilSquareIcon,
-  PlusCircleIcon,
-  PaperAirplaneIcon
-} from '@heroicons/react/24/outline';
+import { CheckCircle2, MessagesSquare, Eye, SquarePen, PlusCircle, Send } from 'lucide-preact';
+
+
 import { Icon } from '@/shared/ui/Icon';
 import { Avatar } from '@/shared/ui/profile';
 import { Button } from '@/shared/ui/Button';
@@ -66,10 +62,10 @@ const DEFAULT_ACTIONS: Record<TimelineItem['type'], string> = {
 };
 
 const TYPE_ICONS: Partial<Record<TimelineItem['type'], (props: { className?: string }) => JSX.Element>> = {
-  created: (props) => <Icon icon={PlusCircleIcon} {...props}  />,
-  edited: (props) => <Icon icon={PencilSquareIcon} {...props}  />,
-  sent: (props) => <Icon icon={PaperAirplaneIcon} {...props}  />,
-  viewed: (props) => <Icon icon={EyeIcon} {...props}  />
+  created: (props) => <Icon icon={PlusCircle} {...props}  />,
+  edited: (props) => <Icon icon={SquarePen} {...props}  />,
+  sent: (props) => <Icon icon={Send} {...props}  />,
+  viewed: (props) => <Icon icon={Eye} {...props}  />
 };
 
 export const ActivityTimeline = ({
@@ -177,13 +173,13 @@ export const ActivityTimeline = ({
                     className="ring-1 ring-line-utility/30 bg-surface-utility/10 text-input-text"
                   />
                   <span className="absolute -right-1 -bottom-1 flex h-4 w-4 items-center justify-center rounded-full bg-surface-overlay text-input-text ring-1 ring-line-utility/30 shadow-sm sm:h-5 sm:w-5">
-                    <Icon icon={ChatBubbleLeftRightIcon} className="h-2.5 w-2.5 sm:h-3 sm:w-3" aria-hidden="true"  />
+                    <Icon icon={MessagesSquare} className="h-2.5 w-2.5 sm:h-3 sm:w-3" aria-hidden="true"  />
                   </span>
                 </div>
               ) : (
                 <div className="relative z-10 flex h-8 w-8 items-center justify-center rounded-full bg-surface-overlay text-input-text ring-1 ring-line-glass/30 shadow-sm">
                   {item.type === 'paid' ? (
-                    <Icon icon={CheckCircleIcon} aria-hidden="true" className="h-5 w-5 text-accent-success"  />
+                    <Icon icon={CheckCircle2} aria-hidden="true" className="h-5 w-5 text-accent-success"  />
                   ) : TYPE_ICONS[item.type] ? (
                     (() => {
                       const Icon = TYPE_ICONS[item.type];

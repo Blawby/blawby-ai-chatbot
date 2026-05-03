@@ -50,6 +50,9 @@ export const getWorkspaceSection = (view: WorkspaceView): WorkspaceSection => {
   if (view === 'invoiceCreate' || view === 'invoiceEdit' || view === 'invoiceDetail') return 'invoices';
   if (view === 'setup' || view === 'contacts') return 'home';
   if (view === 'intakeDetail') return 'intakes';
+  // /engagements lives under Matters in the unified sidebar; route + breadcrumb still drive
+  // the engagements view, but the rail/active state belongs to Matters.
+  if (view === 'engagements') return 'matters';
   return view as WorkspaceSection;
 };
 
@@ -202,6 +205,11 @@ export const getWorkspaceDefaultSecondaryFilter = ({
   if (workspaceSection === 'intakes' && isPracticeWorkspace && isIntakeResponsesRoute) {
     return 'all';
   }
+  // Matters > Engagements is a peer route rendered as the first sub-item; the default
+  // filter for /matters is the 'all' stage filter, not 'engagements'.
+  if (workspaceSection === 'matters' && isPracticeWorkspace) {
+    return view === 'engagements' ? 'engagements' : 'all';
+  }
   return navSecondary?.[0]?.items[0]?.id ?? null;
 };
 
@@ -299,15 +307,16 @@ export const shouldShowWorkspaceBottomNav = ({
 };
 
 export const getWorkspaceActiveHref = ({
-  view,
-  normalizedBase,
   path,
 }: {
   view: WorkspaceView;
   normalizedBase: string;
   path: string;
 }) => {
-  return view === 'contacts' ? (normalizedBase || '/') : path;
+  // Previously rewrote /contacts to basePath so the Home rail item highlighted.
+  // With Contacts promoted to a top-level rail item (Pencil GtRGH), we want the
+  // real path so the unified Sidebar's longest-prefix match picks Contacts.
+  return path;
 };
 
 export const WORKSPACE_REPORT_SECTION_TITLES = REPORT_SECTION_TITLES;

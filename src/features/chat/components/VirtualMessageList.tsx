@@ -2,7 +2,8 @@ import { FunctionComponent } from 'preact';
 import { useRef, useEffect, useState, useCallback, useLayoutEffect, useMemo } from 'preact/hooks';
 import Message from './Message';
 import { memo } from 'preact/compat';
-import { ChevronDownIcon } from '@heroicons/react/24/outline';
+import { ChevronDown } from 'lucide-preact';
+
 import { Icon } from '@/shared/ui/Icon';
 import { debounce } from '@/shared/utils/debounce';
 import { ErrorBoundary } from '@/app/ErrorBoundary';
@@ -798,7 +799,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                 onClick={scrollToBottom}
                 aria-label="Scroll to latest message"
             >
-                <Icon icon={ChevronDownIcon} className="h-5 w-5"  />
+                <Icon icon={ChevronDown} className="h-5 w-5"  />
             </button>
         )}
         </div>

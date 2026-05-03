@@ -1,3 +1,4 @@
+import { Pencil, Check, X, Plus } from 'lucide-preact';
 /**
  * MatterDetailsPanel
  *
@@ -17,7 +18,7 @@ import { useState } from 'preact/hooks';
 import { Button } from '@/shared/ui/Button';
 import { Combobox } from '@/shared/ui/input/Combobox';
 import { Input } from '@/shared/ui/input/Input';
-import { PencilIcon, CheckIcon, XMarkIcon, PlusIcon } from '@heroicons/react/24/outline';
+
 import { type MatterDetail, type MatterOption } from '@/features/matters/data/matterTypes';
 import { type MatterFormState } from '@/features/matters/components/MatterForm';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
@@ -170,14 +171,14 @@ const SectionHeader = ({
           variant="ghost"
           onClick={onCancel}
           disabled={isSaving}
-          icon={XMarkIcon} iconClassName="h-3.5 w-3.5"
+          icon={X} iconClassName="h-3.5 w-3.5"
           aria-label="Cancel editing"
         />
         <Button
           size="xs"
           onClick={onSave}
           disabled={isSaving}
-          icon={CheckIcon} iconClassName="h-3.5 w-3.5"
+          icon={Check} iconClassName="h-3.5 w-3.5"
           aria-label="Save changes"
         >
           {isSaving ? 'Saving…' : 'Save'}
@@ -189,7 +190,7 @@ const SectionHeader = ({
         variant="icon"
         size="icon-sm"
         onClick={onEdit}
-        icon={PencilIcon} iconClassName="h-4 w-4"
+        icon={Pencil} iconClassName="h-4 w-4"
         className={cn(
           'text-input-placeholder/80 transition-colors',
           'hover:text-input-text focus-visible:text-input-text'
@@ -605,7 +606,7 @@ export const MatterDetailsPanel = ({
                 size="sm"
                 variant="outline"
                 onClick={() => startEdit(group.key)}
-                icon={PlusIcon} iconClassName="h-3.5 w-3.5"
+                icon={Plus} iconClassName="h-3.5 w-3.5"
                 className="rounded-full"
               >
                 {group.label}

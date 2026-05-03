@@ -73,6 +73,29 @@
     --nav-active-text: var(--input-text);
     --nav-active-bg: var(--accent-500) / 0.16;
 
+    /* Sidebar (Pencil GtRGH) — unified sidebar primitive
+       Active states use the brand --accent-* tokens so theme + brand stay in sync. */
+    --sidebar-bg: 248 250 252;
+    --sidebar-border: 226 232 240;
+    --sidebar-divider: 226 232 240;
+    --sidebar-text: 15 23 42;
+    --sidebar-text-secondary: 100 116 139;
+    --sidebar-section-label: 100 116 139;
+    --sidebar-active-bg: var(--accent-500);
+    --sidebar-active-text: var(--accent-foreground);
+    --sidebar-badge-bg: var(--accent-500);
+    --sidebar-badge-text: var(--accent-foreground);
+    --sidebar-warning-badge-bg: 245 158 11;
+    --sidebar-hover-bg: 226 232 240;
+    --sidebar-menu-bg: 255 255 255;
+    --sidebar-menu-border: 226 232 240;
+
+    /* Workspace shell header (Pencil rt13A / RuuTq) */
+    --header-bg: 248 250 252;
+    --header-border: 226 232 240;
+    --header-search-bg: 241 245 249;
+    --header-shortcut-bg: 226 232 240;
+
     /* Glass rim lighting tokens — tune these to adjust the glass edge feel globally */
     --glass-rim-strong: inset 2px 2px 0px -2px rgba(255, 255, 255, 0.70),
       inset 0 0 3px 1px rgba(255, 255, 255, 0.25);
@@ -129,6 +152,30 @@
     --nav-surface: var(--surface-nav-rail);
     --nav-active-text: var(--input-text);
     --nav-active-bg: var(--accent-500) / 0.22;
+
+    /* Sidebar (Pencil GtRGH) — Dark Mode, surfaces sourced from design;
+       active state uses brand --accent-* tokens (NOT the indigo from the Pencil mockup,
+       which is a placeholder accent). */
+    --sidebar-bg: 22 27 38;            /* #161B26 (Pencil $bg-sidebar) */
+    --sidebar-border: 30 41 59;        /* #1E293B (Pencil $border) */
+    --sidebar-divider: 30 41 59;       /* #1E293B */
+    --sidebar-text: 241 245 249;       /* #F1F5F9 (Pencil $text-primary) */
+    --sidebar-text-secondary: 148 163 184; /* #94A3B8 (Pencil $text-secondary) */
+    --sidebar-section-label: 100 116 139;  /* #64748B (Pencil $text-muted) */
+    --sidebar-active-bg: var(--accent-500);
+    --sidebar-active-text: var(--accent-foreground);
+    --sidebar-badge-bg: var(--accent-500);
+    --sidebar-badge-text: var(--accent-foreground);
+    --sidebar-warning-badge-bg: 245 158 11; /* #F59E0B */
+    --sidebar-hover-bg: 30 41 59;
+    --sidebar-menu-bg: 21 28 44;       /* #151C2C (Pencil $bg-card) */
+    --sidebar-menu-border: 37 50 71;   /* #253247 (Pencil $bg-card-border) */
+
+    /* Workspace shell header — Dark (Pencil rt13A / RuuTq) */
+    --header-bg: 26 32 48;             /* #1A2030 (Pencil $bg-panel) */
+    --header-border: 30 41 59;         /* #1E293B */
+    --header-search-bg: 30 41 59;      /* #1E293B (Pencil $bg-surface) */
+    --header-shortcut-bg: 37 50 71;    /* #253247 (Pencil $bg-card-border) */
     --shadow-glass: 0 20px 44px rgb(0 0 0 / 40%), 0 0 1px rgb(255 255 255 / 10%);
 
     /* Slightly brighter rims in dark mode — more contrast against dark bg */
@@ -1693,6 +1740,19 @@
     to {
       transform: translateX(100%);
     }
+  }
+
+  @keyframes progress-indeterminate {
+    0% {
+      transform: translateX(-100%);
+    }
+    100% {
+      transform: translateX(400%);
+    }
+  }
+
+  .animate-progress-indeterminate {
+    animation: progress-indeterminate 1.5s ease-in-out infinite;
   }
 
   /* Skeleton placeholder bars.

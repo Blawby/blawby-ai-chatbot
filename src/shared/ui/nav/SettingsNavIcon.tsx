@@ -1,10 +1,10 @@
 import type { ComponentProps, FunctionComponent, JSX } from 'preact';
-import { Cog6ToothIcon } from '@heroicons/react/24/solid';
+import { Settings as SettingsIcon } from 'lucide-preact';
 import { cn } from '@/shared/utils/cn';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { Avatar } from '@/shared/ui/profile';
 
-export type SettingsNavIconProps = ComponentProps<typeof Cog6ToothIcon>;
+export type SettingsNavIconProps = ComponentProps<typeof SettingsIcon>;
 
 export const SettingsNavIcon: FunctionComponent<SettingsNavIconProps> = ({ className = '', ...props }) => {
   const { session } = useSessionContext();
@@ -13,13 +13,12 @@ export const SettingsNavIcon: FunctionComponent<SettingsNavIconProps> = ({ class
   const wrapperProps = props as unknown as JSX.HTMLAttributes<HTMLSpanElement>;
   const resolvedClassName = typeof className === 'string' ? className : '';
 
-  // If user has avatar image, show it; otherwise fallback to cog icon
   if (userImage) {
     return (
       <span {...wrapperProps} className={cn('inline-flex items-center justify-center', resolvedClassName)}>
-        <Avatar 
-          src={userImage} 
-          name={userName} 
+        <Avatar
+          src={userImage}
+          name={userName}
           size="sm"
           className="h-5 w-5 flex-shrink-0"
         />
@@ -27,6 +26,5 @@ export const SettingsNavIcon: FunctionComponent<SettingsNavIconProps> = ({ class
     );
   }
 
-  // Fallback to cog icon when no user image
-  return <Cog6ToothIcon {...props} className={resolvedClassName} />;
+  return <SettingsIcon {...props} className={resolvedClassName} />;
 };

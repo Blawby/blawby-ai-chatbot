@@ -1,3 +1,4 @@
+import { CheckCircle2, MessagesSquare, Scale, DollarSign, Briefcase, AlertTriangle, XCircle } from 'lucide-preact';
 /**
  * ClientEngagementReviewPage
  *
@@ -12,15 +13,7 @@
  */
 import { FunctionComponent } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
-import {
-  CheckCircleIcon,
-  ChatBubbleLeftRightIcon,
-  ScaleIcon,
-  CurrencyDollarIcon,
-  BriefcaseIcon,
-  ExclamationTriangleIcon,
-  XCircleIcon,
-} from '@heroicons/react/24/outline';
+
 import { Icon } from '@/shared/ui/Icon';
 import { Button } from '@/shared/ui/Button';
 import { LoadingBlock } from '@/shared/ui/layout/LoadingBlock';
@@ -48,7 +41,7 @@ function formatMoney(amount?: number | null, currency = 'USD') {
 
 const ReviewCard: FunctionComponent<{
   title: string;
-  icon?: typeof BriefcaseIcon;
+  icon?: typeof Briefcase;
   children: preact.ComponentChildren;
 }> = ({ title, icon: IconComp, children }) => (
   <section className="glass-card p-6 space-y-4">
@@ -65,13 +58,13 @@ const ReviewCard: FunctionComponent<{
 const ScopeSection: FunctionComponent<{ proposal: ProposalData }> = ({ proposal }) => {
   const { scope_summary, included_services, excluded_services } = proposal.representation ?? {};
   return (
-    <ReviewCard title="What We Will Handle" icon={BriefcaseIcon}>
+    <ReviewCard title="What We Will Handle" icon={Briefcase}>
       <p className="text-base text-input-text leading-relaxed">{scope_summary}</p>
       {included_services && included_services.length > 0 && (
         <ul className="space-y-2 mt-2">
           {included_services.map((s, i) => (
             <li key={i} className="flex items-center gap-2.5 text-sm text-input-text">
-              <CheckCircleIcon className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+              <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" />
               {s}
             </li>
           ))}
@@ -83,7 +76,7 @@ const ScopeSection: FunctionComponent<{ proposal: ProposalData }> = ({ proposal 
           <ul className="space-y-2">
             {excluded_services.map((s, i) => (
               <li key={i} className="flex items-center gap-2.5 text-sm text-input-placeholder">
-                <XCircleIcon className="w-4 h-4 text-rose-500/70 flex-shrink-0" />
+                <XCircle className="w-4 h-4 text-rose-500/70 flex-shrink-0" />
                 {s}
               </li>
             ))}
@@ -114,7 +107,7 @@ const FeesSection: FunctionComponent<{ proposal: ProposalData }> = ({
 
   if (rows.length === 0) return null;
   return (
-    <ReviewCard title="Fees & Billing" icon={CurrencyDollarIcon}>
+    <ReviewCard title="Fees & Billing" icon={DollarSign}>
       <dl className="grid grid-cols-2 gap-x-6 gap-y-4">
         {rows.map(({ label, value }) => (
           <div key={label} className="flex flex-col">
@@ -133,7 +126,7 @@ const GoalsSection: FunctionComponent<{ proposal: ProposalData }> = ({ proposal 
   const goals = proposal.client_summary?.goals_summary;
   if (!goals) return null;
   return (
-    <ReviewCard title="Your Goals" icon={ScaleIcon}>
+    <ReviewCard title="Your Goals" icon={Scale}>
       <p className="text-sm text-input-text leading-relaxed">{goals}</p>
     </ReviewCard>
   );
@@ -150,7 +143,7 @@ const PartiesSection: FunctionComponent<{ proposal: ProposalData; practiceName: 
   if (!hasParties) return null;
 
   return (
-    <ReviewCard title="Representation" icon={CheckCircleIcon}>
+    <ReviewCard title="Representation" icon={CheckCircle2}>
       <p className="text-sm text-input-placeholder">
         <span className="font-medium text-input-text">{practiceName}</span> represents:
       </p>
@@ -168,7 +161,7 @@ const PartiesSection: FunctionComponent<{ proposal: ProposalData; practiceName: 
       {non_clients && non_clients.length > 0 && (
         <div className="mt-2 p-3 rounded-xl bg-rose-500/5 border border-rose-500/15">
           <div className="flex items-start gap-2">
-            <ExclamationTriangleIcon className="w-4 h-4 text-rose-500 flex-shrink-0 mt-0.5" />
+            <AlertTriangle className="w-4 h-4 text-rose-500 flex-shrink-0 mt-0.5" />
             <div className="text-xs text-rose-400 space-y-0.5">
               <p className="font-medium">NOT represented in this matter:</p>
               {non_clients.map((c, i) => <p key={i}>{c}</p>)}
@@ -288,7 +281,7 @@ export const ClientEngagementReviewPage: FunctionComponent<ClientEngagementRevie
     return (
       <div className="min-h-dvh flex flex-col items-center justify-center p-6">
         <div className="glass-card max-w-md w-full p-8 text-center space-y-4">
-          <ExclamationTriangleIcon className="w-10 h-10 text-rose-400 mx-auto" />
+          <AlertTriangle className="w-10 h-10 text-rose-400 mx-auto" />
           <h1 className="text-lg font-bold text-input-text">Unable to load engagement</h1>
           <p className="text-sm text-input-placeholder">{loadError ?? 'This engagement could not be found.'}</p>
         </div>
@@ -351,7 +344,7 @@ export const ClientEngagementReviewPage: FunctionComponent<ClientEngagementRevie
         <div className="pt-4 space-y-3">
           {accepted ? (
             <div className="glass-card p-6 text-center space-y-3">
-              <CheckCircleIcon className="w-10 h-10 text-emerald-400 mx-auto" />
+              <CheckCircle2 className="w-10 h-10 text-emerald-400 mx-auto" />
               <p className="text-base font-bold text-emerald-600 dark:text-emerald-300">Engagement Accepted</p>
               <p className="text-sm text-input-placeholder">
                 Thank you! Your attorney will be in touch shortly.
@@ -359,7 +352,7 @@ export const ClientEngagementReviewPage: FunctionComponent<ClientEngagementRevie
               {engagement.conversation_id && conversationsBasePath && (
                 <Button variant="primary" className="w-full mt-2" onClick={handleAskQuestion}>
                   <span className="inline-flex items-center gap-2">
-                    <ChatBubbleLeftRightIcon className="w-4 h-4" />
+                    <MessagesSquare className="w-4 h-4" />
                     Open Conversation
                   </span>
                 </Button>
@@ -381,7 +374,7 @@ export const ClientEngagementReviewPage: FunctionComponent<ClientEngagementRevie
                   </span>
                 ) : (
                   <span className="inline-flex items-center gap-2">
-                    <CheckCircleIcon className="w-4 h-4" />
+                    <CheckCircle2 className="w-4 h-4" />
                     Accept Engagement
                   </span>
                 )}
@@ -395,7 +388,7 @@ export const ClientEngagementReviewPage: FunctionComponent<ClientEngagementRevie
                   onClick={handleAskQuestion}
                 >
                   <span className="inline-flex items-center gap-2">
-                    <ChatBubbleLeftRightIcon className="w-4 h-4" />
+                    <MessagesSquare className="w-4 h-4" />
                     Ask a Question
                   </span>
                 </Button>

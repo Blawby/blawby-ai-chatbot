@@ -25,12 +25,6 @@ interface FeatureFlags {
     enableFileAttachments: boolean;
 
     /**
-     * Enable left sidebar
-     * When false, the left column will be hidden and the layout will be 2-column
-     */
-    enableLeftSidebar: boolean;
-
-    /**
      * Enable AI feedback and copy buttons on messages
      * When false, feedback UI and copy functionality will be hidden from messages
      */
@@ -121,7 +115,6 @@ const baseFeatureConfig: FeatureFlags = {
     enableAudioRecording: false, // Set to false to hide voice recording
     enableVideoRecording: false, // Not implemented yet
     enableFileAttachments: true, // Enabled for authenticated (client/practice) workspaces only
-    enableLeftSidebar: true, // Enable left sidebar
     enableMessageFeedback: false, // Disable feedback and copy buttons on messages
     enableDisclaimerText: false, // Disable disclaimer text below input
     enableLearnServicesButton: false, // Hide learn services button

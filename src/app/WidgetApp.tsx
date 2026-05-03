@@ -3,7 +3,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks'
 import { useTranslation } from '@/shared/i18n/hooks';
 import { Button } from '@/shared/ui/Button';
 import { Icon } from '@/shared/ui/Icon';
-import { XMarkIcon, HomeIcon, ChatBubbleLeftRightIcon, InformationCircleIcon } from '@heroicons/react/24/outline';
+import { X, Home, MessagesSquare, Info } from 'lucide-preact';
+
 import ChatContainer from '@/features/chat/components/ChatContainer';
 import InspectorPanel from '@/shared/ui/inspector/InspectorPanel';
 import WorkspaceHomeView from '@/features/chat/views/WorkspaceHomeView';
@@ -528,7 +529,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
       aria-label="Close widget"
       className="text-input-text/60 hover:text-input-text glass-card backdrop-blur-md border border-line-glass/20 shadow-lg"
     >
-      <Icon icon={XMarkIcon} className="h-5 w-5" />
+      <Icon icon={X} className="h-5 w-5" />
     </Button>
   ), [requestWidgetClose]);
 
@@ -582,7 +583,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
               strokeDasharray={circumference} strokeDashoffset={dashOffset}
             />
           </svg>
-          <Icon icon={InformationCircleIcon} className="relative z-10 h-3.5 w-3.5" aria-hidden="true" />
+          <Icon icon={Info} className="relative z-10 h-3.5 w-3.5" aria-hidden="true" />
         </span>
       </Button>
     );
@@ -829,7 +830,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
             {
               id: 'home',
               label: t('nav.home'),
-              icon: HomeIcon,
+              icon: Home,
               href: '#home',
               isAction: true,
               isActive: view === 'home',
@@ -841,7 +842,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
             {
               id: 'list',
               label: t('nav.messages'),
-              icon: ChatBubbleLeftRightIcon,
+              icon: MessagesSquare,
               href: '#list',
               isAction: true,
               isActive: view === 'list',

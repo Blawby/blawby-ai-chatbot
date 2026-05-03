@@ -1,5 +1,6 @@
 import { forwardRef, useState } from 'preact/compat';
-import { EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline';
+import { Eye, EyeOff } from 'lucide-preact';
+
 import { Icon } from '@/shared/ui/Icon';
 import { cn } from '@/shared/utils/cn';
 import { useUniqueId } from '@/shared/hooks/useUniqueId';
@@ -182,9 +183,9 @@ export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(({
           className="absolute inset-y-0 right-0 flex items-center pr-3 text-input-placeholder hover:text-[rgb(var(--accent-foreground))] focus:ring-2 ring-inset focus:ring-accent-500 focus:ring-offset-1 focus-visible:ring-2 ring-inset focus-visible:ring-accent-500 focus-visible:ring-offset-1"
         >
           {showPassword ? (
-            <Icon icon={EyeSlashIcon} className="w-4 h-4"  />
+            <Icon icon={EyeOff} className="w-4 h-4"  />
           ) : (
-            <Icon icon={EyeIcon} className="w-4 h-4"  />
+            <Icon icon={Eye} className="w-4 h-4"  />
           )}
         </button>
       </div>

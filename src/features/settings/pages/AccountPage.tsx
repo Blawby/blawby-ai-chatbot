@@ -21,8 +21,9 @@ import { formatDate } from '@/shared/utils/dateTime';
 import { authClient, deleteUser, getSession, updateUser } from '@/shared/lib/authClient';
 import { getCurrentSubscription, type CurrentSubscription } from '@/shared/lib/apiClient';
 import { uploadFileViaBackend } from '@/shared/lib/uploadsApi';
-import { ChevronDownIcon, ChevronRightIcon, XMarkIcon, GlobeAltIcon, PlusIcon } from '@heroicons/react/24/outline';
-import { CheckIcon } from '@heroicons/react/20/solid';
+import { ChevronDown, ChevronRight, X, Globe, Plus, Check } from 'lucide-preact';
+
+
 import { Icon } from '@/shared/ui/Icon';
 import type { UserLinks, EmailSettings } from '@/shared/types/user';
 import { SettingRow } from '@/features/settings/components/SettingRow';
@@ -316,7 +317,7 @@ export const AccountPage = ({
         t('pricing:plans.free.features.responseTime.text')
       ];
       return freeFeatures.map((feature): PlanFeature => ({
-        icon: CheckIcon,
+        icon: Check,
         text: feature
       }));
     }
@@ -339,7 +340,7 @@ export const AccountPage = ({
     ].filter((value): value is string => Boolean(value));
 
     return [...backendFeatures, ...limitFeatures].map((feature): PlanFeature => ({
-      icon: CheckIcon,
+      icon: Check,
       text: feature
     }));
   })();
@@ -857,7 +858,7 @@ export const AccountPage = ({
             <span className="text-sm text-input-text">
               {emailAddress}
             </span>
-            <Icon icon={ChevronRightIcon} className="w-5 h-5 text-input-placeholder" aria-hidden="true"  />
+            <Icon icon={ChevronRight} className="w-5 h-5 text-input-placeholder" aria-hidden="true"  />
           </div>
         </SettingRow>
       </button>
@@ -879,7 +880,7 @@ export const AccountPage = ({
                         variant="secondary"
                         size="sm"
                         disabled={submitting}
-                        icon={ChevronDownIcon} iconClassName="w-4 h-4"
+                        icon={ChevronDown} iconClassName="w-4 h-4"
                         iconPosition="right"
                       >
                         {t('settings:account.plan.manage')}
@@ -910,7 +911,7 @@ export const AccountPage = ({
                         }}
                       >
                         <span className="flex items-center gap-2 whitespace-nowrap text-accent-error dark:text-accent-error-light">
-                          <Icon icon={XMarkIcon} className="h-4 w-4"  />
+                          <Icon icon={X} className="h-4 w-4"  />
                           {t('settings:account.plan.cancelSubscription')}
                         </span>
                       </DropdownMenuItem>
@@ -1004,7 +1005,7 @@ export const AccountPage = ({
               label={t('settings:account.links.domainLabel')}
               labelNode={
                 <div className="flex items-center gap-3">
-                  <Icon icon={GlobeAltIcon} className="w-5 h-5 text-input-placeholder"  />
+                  <Icon icon={Globe} className="w-5 h-5 text-input-placeholder"  />
                   <FormLabel>{t('settings:account.links.domainLabel')}</FormLabel>
                 </div>
               }
@@ -1039,7 +1040,7 @@ export const AccountPage = ({
                 variant="secondary"
                 size="sm"
                 onClick={handleAddLinkedIn}
-                icon={PlusIcon} iconClassName="w-4 h-4"
+                icon={Plus} iconClassName="w-4 h-4"
                 iconPosition="right"
               >
                 {t('settings:account.links.addButton')}
@@ -1064,7 +1065,7 @@ export const AccountPage = ({
                 variant="secondary"
                 size="sm"
                 onClick={handleAddGitHub}
-                icon={PlusIcon} iconClassName="w-4 h-4"
+                icon={Plus} iconClassName="w-4 h-4"
                 iconPosition="right"
               >
                 {t('settings:account.links.addButton')}

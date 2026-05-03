@@ -2,14 +2,8 @@ import { useState } from 'preact/hooks';
 import { useTranslation } from '@/shared/i18n/hooks';
 import { Button } from '@/shared/ui/Button';
 import { Logo } from '@/shared/ui/Logo';
-import {
-  ChatBubbleLeftRightIcon,
-  BanknotesIcon,
-  ClipboardDocumentListIcon,
-  ClipboardDocumentCheckIcon,
-  EllipsisHorizontalIcon,
-  CheckIcon
-} from '@heroicons/react/24/outline';
+import { MessagesSquare, ClipboardList, ClipboardCheck, MoreHorizontal, Check, Banknote } from 'lucide-preact';
+
 import { Icon } from '@/shared/ui/Icon';
 import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from '@/shared/ui/form';
 import { Textarea } from '@/shared/ui/input';
@@ -30,27 +24,27 @@ interface UseCaseStepProps {
 const useCaseOptions = [
   {
     id: 'messaging' as const,
-    icon: ChatBubbleLeftRightIcon,
+    icon: MessagesSquare,
     labelKey: 'onboarding.step2.options.messaging'
   },
   {
     id: 'legal_payments' as const,
-    icon: BanknotesIcon,
+    icon: Banknote,
     labelKey: 'onboarding.step2.options.legal_payments'
   },
   {
     id: 'matter_management' as const,
-    icon: ClipboardDocumentListIcon,
+    icon: ClipboardList,
     labelKey: 'onboarding.step2.options.matter_management'
   },
   {
     id: 'intake_forms' as const,
-    icon: ClipboardDocumentCheckIcon,
+    icon: ClipboardCheck,
     labelKey: 'onboarding.step2.options.intake_forms'
   },
   {
     id: 'other' as const,
-    icon: EllipsisHorizontalIcon,
+    icon: MoreHorizontal,
     labelKey: 'onboarding.step2.options.other'
   }
 ];
@@ -163,7 +157,7 @@ const UseCaseStep = ({ data, onComplete, isSubmitting: parentSubmitting = false 
                         </span>
                       </div>
                       {isSelected && (
-                        <Icon icon={CheckIcon} className="h-5 w-5 text-[rgb(var(--accent-foreground))]"  />
+                        <Icon icon={Check} className="h-5 w-5 text-[rgb(var(--accent-foreground))]"  />
                       )}
                     </div>
                   </button>

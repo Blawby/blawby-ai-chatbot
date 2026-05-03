@@ -1,13 +1,22 @@
 import type { ComponentType } from 'preact';
 import {
-  BriefcaseIcon,
-  ChartBarIcon,
-  ChatBubbleOvalLeftEllipsisIcon,
-  ClipboardDocumentListIcon,
-  DocumentTextIcon,
-  HomeIcon,
-  InboxStackIcon,
-} from '@heroicons/react/24/solid';
+  Bell,
+  Briefcase,
+  Building2,
+  ClipboardList,
+  Contact,
+  CreditCard,
+  Folder,
+  Home,
+  LifeBuoy,
+  MessageSquare,
+  Palette,
+  Puzzle,
+  Shield,
+  TrendingUp,
+  User,
+  Users,
+} from 'lucide-preact';
 import { SettingsNavIcon } from '@/shared/ui/nav/SettingsNavIcon';
 import { CONTACTS_DIRECTORY_LABEL } from '@/shared/domain/contacts';
 import type { PracticeRole } from '@/shared/utils/practiceRoles';
@@ -38,9 +47,6 @@ const prefetchClientMattersChunk = prefetchLazyChunk(
 );
 const prefetchIntakesChunk = prefetchLazyChunk(
   () => import('@/features/intake/pages/IntakesPage')
-);
-const prefetchEngagementsChunk = prefetchLazyChunk(
-  () => import('@/features/engagements/pages/EngagementsPage')
 );
 const prefetchPracticeInvoicesChunk = prefetchLazyChunk(
   () => import('@/features/invoices/pages/PracticeInvoicesPage')
@@ -75,6 +81,9 @@ export type NavRailItem = {
   variant?: 'default' | 'danger';
   isAction?: boolean;
   onClick?: () => void;
+  /** If true, the unified Sidebar renders an expand chevron even when the item
+   *  currently has no children attached (e.g. another section is active). */
+  expandable?: boolean;
   /** Fired on hover/focus — preload code chunk + seed data so the click
    *  feels instant. Idempotent. */
   prefetch?: () => void;
@@ -88,6 +97,7 @@ export type SecondaryNavItem = {
   children?: SecondaryNavItem[];
   variant?: 'default' | 'danger';
   isAction?: boolean;
+  icon?: ComponentType<unknown>;
   /** Fired on hover/focus — preload data for this sub-page. Idempotent. */
   prefetch?: () => void;
 };
@@ -155,56 +165,68 @@ const buildPracticeRail = (basePath: string): NavRailItem[] => [
   {
     id: 'home',
     label: 'Home',
-    icon: HomeIcon,
+    icon: Home,
     href: basePath,
-    matchHrefs: [basePath, `${basePath}/setup`, `${basePath}/contacts`, `${basePath}/contacts/pending`, `${basePath}/contacts/clients`, `${basePath}/contacts/team`, `${basePath}/contacts/archived`],
-    prefetch: prefetchPracticeContactsChunk,
-  },
-  {
-    id: 'conversations',
-    label: 'Conversations',
-    icon: ChatBubbleOvalLeftEllipsisIcon,
-    href: `${basePath}/conversations`,
-    matchHrefs: [`${basePath}/conversations`],
-  },
-  {
-    id: 'intakes',
-    label: 'Intakes',
-    icon: InboxStackIcon,
-    href: `${basePath}/intakes`,
-    matchHrefs: [`${basePath}/intakes`],
-    prefetch: prefetchIntakesChunk,
-  },
-  {
-    id: 'engagements',
-    label: 'Engagements',
-    icon: BriefcaseIcon,
-    href: `${basePath}/engagements`,
-    matchHrefs: [`${basePath}/engagements`],
-    prefetch: prefetchEngagementsChunk,
+    matchHrefs: [basePath, `${basePath}/setup`],
   },
   {
     id: 'matters',
     label: 'Matters',
-    icon: ClipboardDocumentListIcon,
+    icon: Briefcase,
     href: `${basePath}/matters`,
-    matchHrefs: [`${basePath}/matters`],
+    // /engagements lives under Matters in the unified sidebar (per Pencil GtRGH).
+    matchHrefs: [`${basePath}/matters`, `${basePath}/engagements`],
+    expandable: true,
     prefetch: prefetchMattersChunk,
   },
   {
+    id: 'conversations',
+    label: 'Inbox',
+    icon: MessageSquare,
+    href: `${basePath}/conversations`,
+    matchHrefs: [`${basePath}/conversations`],
+  },
+  {
+    id: 'contacts',
+    label: 'Contacts',
+    icon: Users,
+    href: `${basePath}/contacts`,
+    matchHrefs: [`${basePath}/contacts`],
+    prefetch: prefetchPracticeContactsChunk,
+  },
+  {
+    id: 'intakes',
+    label: 'Intakes',
+    icon: Contact,
+    href: `${basePath}/intakes`,
+    matchHrefs: [`${basePath}/intakes`],
+    expandable: true,
+    prefetch: prefetchIntakesChunk,
+  },
+  {
+    id: 'files',
+    label: 'Files',
+    icon: Folder,
+    href: `${basePath}/files`,
+    matchHrefs: [`${basePath}/files`],
+    expandable: true,
+  },
+  {
     id: 'invoices',
-    label: 'Invoices',
-    icon: DocumentTextIcon,
+    label: 'Payments',
+    icon: CreditCard,
     href: `${basePath}/invoices`,
     matchHrefs: [`${basePath}/invoices`],
+    expandable: true,
     prefetch: prefetchPracticeInvoicesChunk,
   },
   {
     id: 'reports',
     label: 'Reports',
-    icon: ChartBarIcon,
+    icon: TrendingUp,
     href: `${basePath}/reports`,
     matchHrefs: [`${basePath}/reports`],
+    expandable: true,
     prefetch: prefetchReportsChunk,
   },
   {
@@ -213,33 +235,36 @@ const buildPracticeRail = (basePath: string): NavRailItem[] => [
     icon: SettingsNavIcon,
     href: `${basePath}/settings/general`,
     matchHrefs: [`${basePath}/settings`],
+    expandable: true,
     prefetch: prefetchSettingsLanding,
   },
 ];
 
 const buildClientRail = (basePath: string): NavRailItem[] => [
-  { id: 'home', label: 'Home', icon: HomeIcon, href: basePath, matchHrefs: [basePath] },
+  { id: 'home', label: 'Home', icon: Home, href: basePath, matchHrefs: [basePath] },
+  {
+    id: 'matters',
+    label: 'Matters',
+    icon: Briefcase,
+    href: `${basePath}/matters`,
+    matchHrefs: [`${basePath}/matters`],
+    expandable: true,
+    prefetch: prefetchClientMattersChunk,
+  },
   {
     id: 'conversations',
-    label: 'Conversations',
-    icon: ChatBubbleOvalLeftEllipsisIcon,
+    label: 'Inbox',
+    icon: MessageSquare,
     href: `${basePath}/conversations`,
     matchHrefs: [`${basePath}/conversations`],
   },
   {
-    id: 'matters',
-    label: 'Matters',
-    icon: ClipboardDocumentListIcon,
-    href: `${basePath}/matters`,
-    matchHrefs: [`${basePath}/matters`],
-    prefetch: prefetchClientMattersChunk,
-  },
-  {
     id: 'invoices',
-    label: 'Invoices',
-    icon: DocumentTextIcon,
+    label: 'Payments',
+    icon: CreditCard,
     href: `${basePath}/invoices`,
     matchHrefs: [`${basePath}/invoices`],
+    expandable: true,
     prefetch: prefetchClientInvoicesChunk,
   },
   {
@@ -248,6 +273,7 @@ const buildClientRail = (basePath: string): NavRailItem[] => [
     icon: SettingsNavIcon,
     href: `${basePath}/settings/general`,
     matchHrefs: [`${basePath}/settings`],
+    expandable: true,
     prefetch: prefetchSettingsLanding,
   },
 ];
@@ -279,6 +305,8 @@ const buildMattersSecondary = (basePath: string, workspace: 'practice' | 'client
     return [{
       label: 'Stage',
       items: [
+        // Engagements is a peer route but lives under Matters in the unified sidebar (Pencil GtRGH).
+        { id: 'engagements', label: 'Engagements', href: `${basePath}/engagements` },
         { id: 'all', label: 'All', href: `${basePath}/matters` },
         { id: 'new', label: 'New', href: `${basePath}/matters` },
         { id: 'active', label: 'Active', href: `${basePath}/matters` },
@@ -358,24 +386,20 @@ const buildInvoicesSecondary = (basePath: string, workspace: 'practice' | 'clien
 };
 
 const buildSettingsSecondary = (basePath: string, canAccessPractice: boolean): NavSection[] => {
+  // Pencil GtRGH > settingsSubItems: PERSONAL / ACCOUNT / PRACTICE / SUPPORT
   const sections: NavSection[] = [
+    {
+      label: 'Personal',
+      items: [
+        { id: 'general', label: 'Appearance', href: `${basePath}/settings/general`, icon: Palette },
+        { id: 'notifications', label: 'Notifications', href: `${basePath}/settings/notifications`, icon: Bell },
+      ],
+    },
     {
       label: 'Account',
       items: [
-        {
-          id: 'general',
-          label: 'General',
-          href: `${basePath}/settings/general`,
-          prefetch: () => { void getPreferencesCategory('general'); },
-        },
-        {
-          id: 'notifications',
-          label: 'Notifications',
-          href: `${basePath}/settings/notifications`,
-          prefetch: () => { void getPreferencesCategory('notifications'); },
-        },
-        { id: 'account', label: 'Account', href: `${basePath}/settings/account` },
-        { id: 'security', label: 'Security', href: `${basePath}/settings/security` },
+        { id: 'security', label: 'Security', href: `${basePath}/settings/security`, icon: Shield },
+        { id: 'account', label: 'Profile', href: `${basePath}/settings/account`, icon: User },
       ],
     },
   ];
@@ -384,17 +408,18 @@ const buildSettingsSecondary = (basePath: string, canAccessPractice: boolean): N
     sections.push({
       label: 'Practice',
       items: [
-        { id: 'practice', label: 'Practice', href: `${basePath}/settings/practice` },
-        { id: 'practice-payouts', label: 'Payouts and Billing', href: `${basePath}/settings/practice/payouts` },
-        { id: 'practice-team', label: 'Team & Access', href: `${basePath}/settings/practice/team` },
-        { id: 'apps', label: 'Apps & Integrations', href: `${basePath}/settings/apps` },
+        { id: 'practice', label: 'Practice', href: `${basePath}/settings/practice`, icon: Building2 },
+        { id: 'practice-coverage', label: 'Intake Forms', href: `${basePath}/settings/practice/coverage`, icon: ClipboardList },
+        { id: 'practice-payouts', label: 'Payouts', href: `${basePath}/settings/practice/payouts`, icon: CreditCard },
+        { id: 'practice-team', label: 'Team', href: `${basePath}/settings/practice/team`, icon: Users },
+        { id: 'apps', label: 'Apps', href: `${basePath}/settings/apps`, icon: Puzzle },
       ],
     });
   }
 
   sections.push({
     label: 'Support',
-    items: [{ id: 'help', label: 'Help', href: `${basePath}/settings/help` }],
+    items: [{ id: 'help', label: 'Help', href: `${basePath}/settings/help`, icon: LifeBuoy }],
   });
 
   sections.push({
@@ -471,4 +496,107 @@ export function getSettingsNavConfig(ctx: NavCtx): NavConfig {
     rail: usePracticeBase ? buildPracticeRail(basePath) : buildClientRail(basePath),
     secondary: buildSettingsSecondary(basePath, usePracticeBase),
   };
+}
+
+// ---------------------------------------------------------------------------
+// Sidebar (unified) — derived from rail + secondary for the new Sidebar primitive.
+// Pencil GtRGH semantics: every rail item renders as a top-level Sidebar.Item; the
+// rail item matching the current section gets `secondary` items as expandable children.
+// ---------------------------------------------------------------------------
+
+export type SidebarChild = {
+  id: string;
+  label: string;
+  href?: string;
+  badge?: number | null;
+  count?: number | null;
+  variant?: 'default' | 'danger';
+  isAction?: boolean;
+  icon?: ComponentType<unknown>;
+  /** Renders this child as a group heading + separator instead of a button. */
+  isGroupLabel?: boolean;
+};
+
+export type SidebarItem = NavRailItem & {
+  children?: SidebarChild[];
+};
+
+export type SidebarSection = { label?: string; items: SidebarItem[] };
+
+export type SidebarConfig = {
+  sections: SidebarSection[];
+};
+
+/**
+ * Map a rail item id to the WorkspaceSection it represents.
+ * Used to attach secondary items as children of the matching rail item.
+ *
+ * Note: 'home' is intentionally excluded — Home is a single, non-expandable button
+ * (per Pencil GtRGH); contacts/overview filters render in the page body, not the sidebar.
+ */
+const RAIL_ID_TO_SECTION: Record<string, WorkspaceSection> = {
+  conversations: 'conversations',
+  intakes: 'intakes',
+  engagements: 'engagements',
+  matters: 'matters',
+  invoices: 'invoices',
+  reports: 'reports',
+  settings: 'settings',
+};
+
+/**
+ * Flatten a NavSection[] tree into a single list of sub-items for the Sidebar.
+ * Section labels become group-label entries (rendered as headings in the Sidebar).
+ * Nested children (e.g. contacts > all) are flattened with their parent.
+ */
+function flattenSecondary(sections: NavSection[]): SidebarChild[] {
+  const out: SidebarChild[] = [];
+  const visit = (items: SecondaryNavItem[]) => {
+    for (const item of items) {
+      out.push({
+        id: item.id,
+        label: item.label,
+        href: item.href,
+        badge: item.badge,
+        variant: item.variant,
+        isAction: item.isAction,
+        icon: item.icon,
+      });
+      if (item.children?.length) visit(item.children);
+    }
+  };
+  // Only render group headings when the secondary actually has multiple groups
+  // (e.g. Settings: Personal/Account/Practice/Support). For single-group dropdowns
+  // the parent rail item already names them — duplicating "Inbox", "Stage", etc.
+  // above the items adds noise.
+  const labeledSectionCount = sections.filter((s) => s.label).length;
+  const showGroupLabels = labeledSectionCount > 1;
+  sections.forEach((section, index) => {
+    if (section.label && showGroupLabels) {
+      out.push({
+        id: `__group__${section.label}__${index}`,
+        label: section.label,
+        isGroupLabel: true,
+      });
+    }
+    visit(section.items);
+  });
+  return out;
+}
+
+/**
+ * Build the unified SidebarConfig from rail + section-scoped secondary.
+ * Returns a single "Platform" section (no label by default) — additional sections
+ * (e.g. "Practice Areas") can be appended by the caller.
+ */
+export function buildSidebarConfig(navConfig: NavConfig, currentSection: WorkspaceSection): SidebarConfig {
+  const secondaryChildren = navConfig.secondary?.length ? flattenSecondary(navConfig.secondary) : [];
+  const items: SidebarItem[] = navConfig.rail.map((railItem) => {
+    const railSection = RAIL_ID_TO_SECTION[railItem.id];
+    const isCurrent = railSection === currentSection;
+    return isCurrent && secondaryChildren.length
+      ? { ...railItem, children: secondaryChildren }
+      : railItem;
+  });
+  return { sections: [{ label: 'Platform', items }] };
 }

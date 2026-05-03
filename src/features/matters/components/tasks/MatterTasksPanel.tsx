@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'preact/hooks';
-import { EllipsisVerticalIcon, PencilIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { MoreVertical, Pencil, Plus, Trash2 } from 'lucide-preact';
+
 import { Icon } from '@/shared/ui/Icon';
 import { Dialog, DialogBody, DialogFooter } from '@/shared/ui/dialog';
 import { Button } from '@/shared/ui/Button';
@@ -171,7 +172,7 @@ export const MatterTasksPanel = ({
         title="Tasks"
         subtitle={readOnly ? 'Review matter work items.' : 'Plan and track matter work items.'}
         actions={canCreateTask ? (
-          <Button size="sm" icon={PlusIcon} iconClassName="h-4 w-4" onClick={openCreate}>
+          <Button size="sm" icon={Plus} iconClassName="h-4 w-4" onClick={openCreate}>
             Add task
           </Button>
         ) : null}
@@ -277,7 +278,7 @@ export const MatterTasksPanel = ({
                             variant="ghost"
                             size="sm"
                             aria-label="Open task actions"
-                            icon={EllipsisVerticalIcon} iconClassName="h-4 w-4"
+                            icon={MoreVertical} iconClassName="h-4 w-4"
                           />
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-32">
@@ -285,7 +286,7 @@ export const MatterTasksPanel = ({
                             {canUpdateTask ? (
                               <DropdownMenuItem onSelect={() => openEdit(task)}>
                                 <span className="flex items-center gap-2">
-                                  <Icon icon={PencilIcon} className="h-4 w-4"  />
+                                  <Icon icon={Pencil} className="h-4 w-4"  />
                                   Edit
                                 </span>
                               </DropdownMenuItem>
@@ -293,7 +294,7 @@ export const MatterTasksPanel = ({
                             {canDeleteTask ? (
                               <DropdownMenuItem onSelect={() => setDeleteTarget(task)}>
                                 <span className="flex items-center gap-2 text-red-600 dark:text-red-400">
-                                  <Icon icon={TrashIcon} className="h-4 w-4"  />
+                                  <Icon icon={Trash2} className="h-4 w-4"  />
                                   Delete
                                 </span>
                               </DropdownMenuItem>

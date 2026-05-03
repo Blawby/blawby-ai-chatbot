@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { forwardRef, useImperativeHandle } from 'preact/compat';
+import { Plus } from 'lucide-preact';
 import { Button } from '@/shared/ui/Button';
 import { Combobox, Input, Textarea } from '@/shared/ui/input';
 import { useLocation } from 'preact-iso';
@@ -445,7 +446,7 @@ export const InvoiceForm = forwardRef<InvoiceFormHandle, InvoiceFormProps>(({
                     <div className="px-3 py-2 text-sm text-input-placeholder">
                       <button
                         type="button"
-                        className="text-sm text-accent-foreground underline"
+                        className="inline-flex items-center gap-2 text-sm text-accent-foreground underline"
                         onClick={() => {
                           try {
                             const draftId = createPendingInvoiceDraftContext({
@@ -468,7 +469,8 @@ export const InvoiceForm = forwardRef<InvoiceFormHandle, InvoiceFormProps>(({
                           }
                         }}
                       >
-                        Create a contact
+                        <Plus className="h-4 w-4" />
+                        Invite contact
                       </button>
                     </div>
                   ) : undefined}

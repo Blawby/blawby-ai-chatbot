@@ -1,5 +1,6 @@
 import type { ComponentChildren, ComponentChild, ComponentType } from 'preact';
-import { Cog6ToothIcon } from '@heroicons/react/24/outline';
+import { Settings } from 'lucide-preact';
+
 import { Avatar } from '../profile/atoms/Avatar';
 
 type InfoRowProps = {
@@ -69,7 +70,7 @@ export const InspectorGroup = ({
               aria-label="Toggle group options"
               className={`flex h-7 w-7 items-center justify-center rounded-md text-input-placeholder transition hover:bg-surface-app-frame/60 dark:hover:bg-surface-panel/40 hover:text-input-text disabled:cursor-not-allowed disabled:opacity-50 ${isOpen ? 'bg-surface-app-frame/60 dark:bg-surface-panel/40 text-input-text' : ''}`}
             >
-              <Cog6ToothIcon className="h-4 w-4" />
+              <Settings className="h-4 w-4" />
             </button>
           ) : null}
         </div>
@@ -133,7 +134,7 @@ export const InspectorEditableRow = ({
             className={`flex-shrink-0 ${label ? '-mt-1' : 'mt-0.5'} inline-flex h-7 w-7 items-center justify-center rounded-md text-input-placeholder transition hover:bg-surface-app-frame/60 dark:hover:bg-surface-panel/40 hover:text-input-text disabled:cursor-not-allowed disabled:opacity-50 ${isOpen ? 'bg-surface-app-frame/60 dark:bg-surface-panel/40 text-input-text' : ''}`}
             aria-label={`${isOpen ? 'Close' : 'Open'} ${label} controls`}
           >
-            <Cog6ToothIcon className="h-4 w-4" />
+            <Settings className="h-4 w-4" />
           </button>
         ) : null}
       </div>

@@ -2,7 +2,8 @@ import { useState, useRef, useEffect } from 'preact/hooks';
 import { useTranslation, Trans } from '@/shared/i18n/hooks';
 import { Button } from '@/shared/ui/Button';
 import { Logo } from '@/shared/ui/Logo';
-import { UserIcon } from '@heroicons/react/24/outline';
+import { User } from 'lucide-preact';
+
 import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage, type FormData } from '@/shared/ui/form';
 import { DatePicker, Checkbox, Input } from '@/shared/ui/input';
 import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
@@ -95,7 +96,7 @@ const PersonalInfoStep = ({
                           value={(value as string) || ''}
                           onChange={(value) => onChange(value)}
                           placeholder={t('onboarding.step1.fullNamePlaceholder')}
-                          icon={UserIcon}
+                          icon={User}
                           iconClassName="h-5 w-5 text-input-placeholder"
                           error={error?.message}
                         />

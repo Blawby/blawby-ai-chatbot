@@ -4,6 +4,7 @@ import { Suspense } from 'preact/compat';
 import { I18nextProvider } from 'react-i18next';
 import AuthPage from '@/pages/AuthPage';
 import AcceptInvitationPage from '@/pages/AcceptInvitationPage';
+import ClientHomePage from '@/pages/ClientHomePage';
 import OnboardingPage from '@/pages/OnboardingPage';
 import PricingPage from '@/pages/PricingPage';
 import PaymentResultPage from '@/pages/PaymentResultPage';
@@ -28,19 +29,20 @@ import { useWorkspaceResolver } from '@/shared/hooks/useWorkspaceResolver';
 import {
   getWorkspaceHomePath,
 } from '@/shared/utils/workspace';
+import { AlertTriangle } from 'lucide-preact';
 import { AppGuard } from '@/app/AppGuard';
 import { AuthBootGate } from '@/app/AuthBootGate';
 import { App404 } from '@/features/practice/components/404';
 // `normalizePracticeRole` is not needed in this module; remove import.
 import { LoadingScreen } from '@/shared/ui/layout/LoadingScreen';
-import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
+
 import type { IconComponent } from '@/shared/ui/Icon';
 
 const ExclamationIcon: IconComponent = (props) => (
   // Adapt heroicon to IconComponent signature
   // Heroicons types are incompatible with our IconComponent; forced cast is required
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  <ExclamationTriangleIcon {...(props as any)} />
+  <AlertTriangle {...(props as any)} />
 );
 import { WorkspacePlaceholderState } from '@/shared/ui/layout/WorkspacePlaceholderState';
 import './index.css';
@@ -79,10 +81,16 @@ const renderWorkspaceFailureState = (title: string, description: string) => (
 const resolveAuthenticatedHomePath = ({
   defaultWorkspace,
   fallbackSlug,
+  hasPracticeMembership,
 }: {
   defaultWorkspace: 'practice' | 'client' | 'public';
   fallbackSlug: string | null;
+  hasPracticeMembership: boolean;
 }): string | null => {
+  if (!hasPracticeMembership) {
+    return '/client/dashboard';
+  }
+
   if (!fallbackSlug) {
     return null;
   }
@@ -191,7 +199,7 @@ function AppShell() {
     // practices would produce a guaranteed 403. AppShell redirects back here
     // until `onboarding_complete` is true, so this guard is safe.
     !(location.path.startsWith('/onboarding') && onboardingIncomplete);
-  const { defaultWorkspace, currentPractice, practices } = useWorkspaceResolver({
+  const { defaultWorkspace, currentPractice, practices, hasPracticeMembership } = useWorkspaceResolver({
     autoFetchPractices: shouldFetchWorkspacePractices
   });
 
@@ -200,8 +208,9 @@ function AppShell() {
     return resolveAuthenticatedHomePath({
       defaultWorkspace,
       fallbackSlug,
+      hasPracticeMembership,
     });
-  }, [currentPractice?.slug, defaultWorkspace, practices]);
+  }, [currentPractice?.slug, defaultWorkspace, hasPracticeMembership, practices]);
 
   useEffect(() => {
     if (sessionPending) return;
@@ -321,6 +330,7 @@ function AppShell() {
           <Route path="/public/:practiceSlug/conversations/:conversationId" component={(props) => <PublicWorkspaceRoute {...props} variant="widget" />} />
           <Route path="/public/:practiceSlug/matters" component={(props) => <PublicWorkspaceRoute {...props} variant="widget" />} />
           <Route path="/client" component={App404} />
+          <Route path="/client/dashboard" component={ClientDashboardRoute} />
           <Route path="/client/:practiceSlug" component={ClientPracticeRoute} workspaceView="home" />
           <Route path="/client/:practiceSlug/conversations" component={ClientPracticeRoute} workspaceView="list" />
           <Route path="/client/:practiceSlug/conversations/:conversationId" component={ClientPracticeRoute} workspaceView="conversation" />
@@ -423,7 +433,7 @@ function ClientEngagementReviewRoute({
   if (loadError) {
     return (
       <WorkspacePlaceholderState
-        icon={ExclamationTriangleIcon}
+        icon={AlertTriangle}
         title="Failed to load practice"
         description={loadError}
         primaryAction={{
@@ -455,6 +465,7 @@ function RootRoute() {
     practicesLoading,
     currentPractice,
     practices,
+    hasPracticeMembership,
   } = useWorkspaceResolver();
   const { navigate } = useNavigation();
   const isMountedRef = useRef(true);
@@ -466,8 +477,9 @@ function RootRoute() {
     return resolveAuthenticatedHomePath({
       defaultWorkspace,
       fallbackSlug,
+      hasPracticeMembership,
     });
-  }, [currentPractice?.slug, defaultWorkspace, practices]);
+  }, [currentPractice?.slug, defaultWorkspace, hasPracticeMembership, practices]);
 
   useEffect(() => {
     return () => {
@@ -740,6 +752,14 @@ function PracticeAppRoute({
         practiceSlug={normalizedPracticeSlug || undefined}
       />
   );
+}
+
+function ClientDashboardRoute() {
+  const { session, isPending: sessionIsPending } = useSessionContext();
+
+  if (sessionIsPending) return <LoadingScreen />;
+  if (!session?.user) return <AuthPage />;
+  return <ClientHomePage />;
 }
 
 function ClientPracticeRoute({

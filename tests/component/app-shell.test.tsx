@@ -41,54 +41,39 @@ const railItems: NavRailItem[] = [
 ];
 
 describe('AppShell surfaces', () => {
-  it('removes desktop divider borders and uses the shared secondary surface for the inspector', () => {
+  it('removes desktop divider borders on the sidebar and inspector', () => {
     render(
       <AppShell
         sidebar={<div data-testid="sidebar-content">Sidebar</div>}
-        secondarySidebar={<div data-testid="secondary-content">Secondary</div>}
         inspector={<div data-testid="inspector-content">Inspector</div>}
         main={<div>Main</div>}
       />
     );
 
     const sidebarWrapper = screen.getByTestId('sidebar-content').parentElement;
-    const secondaryWrapper = screen.getByTestId('secondary-content').parentElement;
     const inspectorWrapper = screen.getByTestId('inspector-content').parentElement;
 
     expect(sidebarWrapper).not.toHaveClass('border-r');
-    expect(secondaryWrapper).not.toHaveClass('border-r');
-    expect(secondaryWrapper).toHaveClass('bg-surface-nav-secondary');
     expect(inspectorWrapper).not.toHaveClass('border-l');
     expect(inspectorWrapper).toHaveClass('bg-surface-nav-secondary');
   });
 
-  it('uses the shared secondary surface for the mobile sheets without divider borders', () => {
+  it('renders the sidebar in a mobile drawer when mobileSidebarOpen is true', () => {
     render(
       <AppShell
-        secondarySidebar={<div data-testid="mobile-secondary-content">Secondary</div>}
-        inspector={<div data-testid="mobile-inspector-content">Inspector</div>}
-        mobileSecondaryNavOpen
-        inspectorMobileOpen
+        sidebar={<div data-testid="mobile-sidebar-content">Sidebar</div>}
+        mobileSidebarOpen
         main={<div>Main</div>}
       />
     );
 
-    const mobileSecondaryWrapper = screen
-      .getAllByTestId('mobile-secondary-content')
+    const drawer = screen
+      .getAllByTestId('mobile-sidebar-content')
       .map((node) => node.parentElement)
-      .find((node) => node?.className.includes('max-w-xs'));
-    const mobileInspectorWrapper = screen
-      .getAllByTestId('mobile-inspector-content')
-      .map((node) => node.parentElement)
-      .find((node) => node?.className.includes('max-w-2xl'));
+      .find((node) => node?.className.includes('w-[280px]'));
 
-    expect(mobileSecondaryWrapper).toBeDefined();
-    expect(mobileSecondaryWrapper).toHaveClass('bg-surface-nav-secondary');
-    expect(mobileSecondaryWrapper).not.toHaveClass('border-r');
-
-    expect(mobileInspectorWrapper).toBeDefined();
-    expect(mobileInspectorWrapper).toHaveClass('bg-surface-nav-secondary');
-    expect(mobileInspectorWrapper).not.toHaveClass('border-l');
+    expect(drawer).toBeDefined();
+    expect(drawer).not.toHaveClass('border-r');
   });
 
   it('keeps the desktop rail surface without a built-in divider border', () => {

@@ -1,4 +1,5 @@
-import { Bars3Icon, SparklesIcon } from "@heroicons/react/24/outline";
+import { Menu, Sparkles } from 'lucide-preact';
+
 import { Button } from '@/shared/ui/Button';
 
 interface MobileTopNavProps {
@@ -27,7 +28,7 @@ const MobileTopNav = ({
             variant="ghost"
             size="md"
             onClick={onOpenSidebar}
-            icon={Bars3Icon}
+            icon={Menu}
             iconClassName="w-5 h-5"
             aria-label="Open menu"
           />
@@ -36,7 +37,7 @@ const MobileTopNav = ({
               variant="primary"
               size="md"
               onClick={onPlusClick}
-              icon={SparklesIcon}
+              icon={Sparkles}
               iconClassName="w-4 h-4"
               aria-label="Get Plus"
             >

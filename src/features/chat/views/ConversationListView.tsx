@@ -1,9 +1,6 @@
 import { FunctionComponent, memo } from 'preact/compat';
 import { useTranslation } from 'react-i18next';
-import {
-  PaperAirplaneIcon,
-  ChatBubbleLeftRightIcon,
-} from '@heroicons/react/24/outline';
+import { MessageSquare, Send } from 'lucide-preact';
 import { VList } from 'virtua';
 import { Avatar } from '@/shared/ui/profile/atoms/Avatar';
 import { Button } from '@/shared/ui/Button';
@@ -63,7 +60,7 @@ const ConversationListEmptyState = ({
     <div className="flex max-w-xs flex-col items-center gap-3 text-center">
       <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-surface-overlay/60 ring-1 ring-line-glass/20">
         <Icon
-          icon={ChatBubbleLeftRightIcon}
+          icon={MessageSquare}
           className="h-6 w-6 text-input-placeholder"
         />
       </div>
@@ -232,7 +229,7 @@ const ConversationListView: FunctionComponent<ConversationListViewProps> = ({
             variant="primary"
             size="lg"
             className="w-full"
-            icon={PaperAirplaneIcon} iconClassName="h-4 w-4"
+            icon={Send} iconClassName="h-4 w-4"
             iconPosition="right"
             onClick={onSendMessage}
           >

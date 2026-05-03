@@ -25,23 +25,7 @@ vi.mock('react-i18next', () => ({
   I18nextProvider: ({ children }: { children: React.ReactNode }) => children,
 }));
 
-// Mock heroicons to prevent icon rendering issues
-vi.mock('@heroicons/react/24/outline', () => ({
-  UserIcon: () => 'UserIcon',
-  ShieldCheckIcon: () => 'ShieldCheckIcon',
-  Cog6ToothIcon: () => 'Cog6ToothIcon',
-  XMarkIcon: () => 'XMarkIcon',
-  BellIcon: () => 'BellIcon',
-  SparklesIcon: () => 'SparklesIcon',
-  ArrowRightOnRectangleIcon: () => 'ArrowRightOnRectangleIcon',
-  QuestionMarkCircleIcon: () => 'QuestionMarkCircleIcon',
-  ArrowLeftIcon: () => 'ArrowLeftIcon',
-  PuzzlePieceIcon: () => 'PuzzlePieceIcon',
-  EllipsisVerticalIcon: () => 'EllipsisVerticalIcon',
-  GlobeAltIcon: () => 'GlobeAltIcon',
-  LockClosedIcon: () => 'LockClosedIcon',
-  CheckBadgeIcon: () => 'CheckBadgeIcon',
-}));
+// Heroicons mocks removed; icons migrated to lucide-react.
 
 // Mock the page components to avoid complex dependencies
 vi.mock('../pages/GeneralPage', () => ({

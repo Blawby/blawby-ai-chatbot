@@ -2,7 +2,8 @@ import { useTranslation } from 'react-i18next';
 import type { ComponentChildren } from 'preact';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { useLocation } from 'preact-iso';
-import { DocumentDuplicateIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { Copy, X, MessagesSquare, Plus, User } from 'lucide-preact';
+
 import { DetailHeader } from '@/shared/ui/layout/DetailHeader';
 import { AccentHeroSurface } from '@/shared/ui/layout/AccentHeroSurface';
 import { ResponsiveDefinitionGrid } from '@/shared/ui/layout/ResponsiveDefinitionGrid';
@@ -44,11 +45,7 @@ import {
   type ContactRelationshipStatus,
 } from '@/shared/domain/contacts';
 import { getPracticeRoleLabel, normalizePracticeRole } from '@/shared/utils/practiceRoles';
-import {
-  ChatBubbleLeftRightIcon,
-  PlusIcon,
-  UserIcon,
-} from '@heroicons/react/24/outline';
+import { AddContactDialog } from '@/shared/ui/contacts/AddContactDialog';
 
 const STATUS_LABELS = CONTACT_RELATIONSHIP_STATUS_LABELS;
 
@@ -78,13 +75,13 @@ const formatPhoneNumber = (phone?: string | null) => {
 
 const PendingEmptyState = ({ onInviteClient }: { onInviteClient: () => void }) => (
   <WorkspacePlaceholderState
-    icon={UserIcon}
+    icon={User}
     title="No pending invites"
     description="Contact invites you send will appear here until they are accepted."
     primaryAction={{
       label: 'New Contact',
       onClick: onInviteClient,
-      icon: PlusIcon,
+      icon: Plus,
     }}
   />
 );
@@ -154,7 +151,7 @@ const PendingInvitationDetailPanel = ({
                 variant="secondary"
                 size="sm"
                 onClick={() => { void onCopyLink(invitation.id); }}
-                icon={DocumentDuplicateIcon}
+                icon={Copy}
                 iconClassName="h-4 w-4"
               >
                 Copy invite link
@@ -163,7 +160,7 @@ const PendingInvitationDetailPanel = ({
                 variant="danger"
                 size="sm"
                 onClick={() => { void onCancelInvitation(invitation.id); }}
-                icon={XMarkIcon}
+                icon={X}
                 iconClassName="h-4 w-4"
               >
                 Cancel invitation
@@ -1025,9 +1022,9 @@ export const PracticeContactsPage = ({
     />
   ) : (
     <WorkspacePlaceholderState
-      icon={UserIcon}
-      title="Create a contact to get started"
-      description="Create client or team records, then select them from the list to view details."
+      icon={User}
+      title="Invite a contact to get started"
+      description="Invite clients or team members, then select them from the list to view details."
       primaryAction={{
         label: 'New Contact',
         onClick: handleOpenAddClient,
@@ -1048,7 +1045,7 @@ export const PracticeContactsPage = ({
     />
   ) : (
     <WorkspacePlaceholderState
-      icon={UserIcon}
+      icon={User}
       title="Pending invitations"
       description="Select an invitation to review details and manage the invite."
     />
@@ -1080,7 +1077,7 @@ export const PracticeContactsPage = ({
           disabled={!selectedClient.userId || sendMessagePending}
           title={!selectedClient.userId ? 'Messaging requires a linked portal account.' : 'Send message'}
           aria-label="Send message"
-          icon={ChatBubbleLeftRightIcon} iconClassName="h-5 w-5"
+          icon={MessagesSquare} iconClassName="h-5 w-5"
         />
       ) : null}
     </div>

@@ -1,5 +1,6 @@
 import type { ComponentChildren } from 'preact';
-import { ChevronLeftIcon, XMarkIcon, EllipsisVerticalIcon } from '@heroicons/react/24/outline';
+import { ChevronLeft, X, MoreVertical } from 'lucide-preact';
+
 import { Button } from '@/shared/ui/Button';
 import { cn } from '@/shared/utils/cn';
 import { ContentWithBuilder } from './ContentWithBuilder';
@@ -90,7 +91,7 @@ export function EditorShell({
   onInspector,
   inspectorOpen = false,
 }: EditorShellProps) {
-  const BackIcon = backVariant === 'close' ? XMarkIcon : ChevronLeftIcon;
+  const BackIcon = backVariant === 'close' ? X : ChevronLeft;
   const backLabel = backVariant === 'close' ? 'Close' : 'Back';
 
   return (
@@ -129,7 +130,7 @@ export function EditorShell({
                 size="icon-sm"
                 onClick={onInspector}
                 aria-label={inspectorOpen ? 'Close inspector' : 'Open inspector'}
-                icon={EllipsisVerticalIcon}
+                icon={MoreVertical}
                 iconClassName="h-5 w-5"
               />
             ) : null}

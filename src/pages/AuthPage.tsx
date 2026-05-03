@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'preact/hooks';
-import { ArrowLeftIcon } from '@heroicons/react/24/outline';
+import { ArrowLeft } from 'lucide-preact';
+
 import { Logo } from '@/shared/ui/Logo';
 import { Button } from '@/shared/ui/Button';
 import { handleError } from '@/shared/utils/errorHandler';
@@ -161,7 +162,7 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
               size="sm"
               onClick={handleBackToHome}
               className="text-sm text-input-placeholder hover:text-input-text"
-              icon={ArrowLeftIcon} iconClassName="h-4 w-4"
+              icon={ArrowLeft} iconClassName="h-4 w-4"
               iconPosition="left"
             >
               {t('navigation.backToHome')}

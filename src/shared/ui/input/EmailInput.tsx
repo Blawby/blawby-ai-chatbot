@@ -1,5 +1,6 @@
 import { forwardRef } from 'preact/compat';
-import { EnvelopeIcon, CheckIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { Mail, Check, X } from 'lucide-preact';
+
 import { Icon } from '@/shared/ui/Icon';
 import { cn } from '@/shared/utils/cn';
 import { useUniqueId } from '@/shared/hooks/useUniqueId';
@@ -129,7 +130,7 @@ export const EmailInput = forwardRef<HTMLInputElement, EmailInputProps>(({
       
       <div className="relative">
         <div className="absolute inset-y-0 left-0 z-10 flex items-center pl-3 pointer-events-none">
-          <Icon icon={EnvelopeIcon} className="w-4 h-4 text-input-placeholder"  />
+          <Icon icon={Mail} className="w-4 h-4 text-input-placeholder"  />
         </div>
         
         <input
@@ -151,9 +152,9 @@ export const EmailInput = forwardRef<HTMLInputElement, EmailInputProps>(({
         {showValidationIcon && (
           <div className="absolute inset-y-0 right-0 z-10 flex items-center pr-3 pointer-events-none">
             {isEmailValid ? (
-              <Icon icon={CheckIcon} className="w-4 h-4 text-accent-success"  />
+              <Icon icon={Check} className="w-4 h-4 text-accent-success"  />
             ) : (
-              <Icon icon={XMarkIcon} className="w-4 h-4 text-accent-error"  />
+              <Icon icon={X} className="w-4 h-4 text-accent-error"  />
             )}
           </div>
         )}

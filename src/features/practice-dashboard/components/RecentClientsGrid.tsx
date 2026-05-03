@@ -1,4 +1,5 @@
-import { EllipsisHorizontalIcon } from '@heroicons/react/24/outline';
+import { MoreHorizontal } from 'lucide-preact';
+
 import { Icon } from '@/shared/ui/Icon';
 import { Button } from '@/shared/ui/Button';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/shared/ui/dropdown';
@@ -81,7 +82,7 @@ export const RecentClientsGrid = ({
                       aria-label={`Client actions for ${client.name}`}
                     >
                       <span className="absolute -inset-2.5" />
-                      <Icon icon={EllipsisHorizontalIcon} className="h-5 w-5"  />
+                      <Icon icon={MoreHorizontal} className="h-5 w-5"  />
                     </button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="min-w-[140px]">

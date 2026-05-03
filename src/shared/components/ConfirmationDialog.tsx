@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'preact/hooks';
 import { useId } from 'preact/hooks';
-import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
+import { AlertTriangle } from 'lucide-preact';
+
 import { Icon } from '@/shared/ui/Icon';
 import { Dialog, DialogBody, DialogFooter } from '@/shared/ui/dialog';
 import { FormActions } from '@/shared/ui/form';
@@ -123,7 +124,7 @@ export default function ConfirmationDialog({
         <DialogBody className="space-y-4">
           <div className="flex items-start gap-3">
             <div className="flex-shrink-0">
-              <Icon icon={ExclamationTriangleIcon} className="w-6 h-6 text-red-500"  />
+              <Icon icon={AlertTriangle} className="w-6 h-6 text-red-500"  />
             </div>
             <div className="flex-1">
               {/* Warning Items List */}

@@ -2,13 +2,8 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import { useTranslation, Trans } from '@/shared/i18n/hooks';
 import { InfoListDialog, type InfoListDialogItem } from '@/shared/ui/dialog';
 import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
-import {
-  ChatBubbleLeftRightIcon,
-  ShieldCheckIcon,
-  ExclamationTriangleIcon,
-  BriefcaseIcon,
-  CreditCardIcon,
-} from '@heroicons/react/24/outline';
+import { MessagesSquare, ShieldCheck, AlertTriangle, Briefcase, CreditCard } from 'lucide-preact';
+
 
 interface WelcomeDialogProps {
   isOpen: boolean;
@@ -34,19 +29,19 @@ const WelcomeDialog = ({ isOpen, onClose, onComplete, workspace }: WelcomeDialog
     ? [
         {
           id: 'messaging',
-          icon: ChatBubbleLeftRightIcon,
+          icon: MessagesSquare,
           title: t('welcome.client.tips.messaging.title'),
           description: t('welcome.client.tips.messaging.description'),
         },
         {
           id: 'matters',
-          icon: BriefcaseIcon,
+          icon: Briefcase,
           title: t('welcome.client.tips.matters.title'),
           description: t('welcome.client.tips.matters.description'),
         },
         {
           id: 'payments',
-          icon: CreditCardIcon,
+          icon: CreditCard,
           title: t('welcome.client.tips.payments.title'),
           description: t('welcome.client.tips.payments.description'),
         },
@@ -54,13 +49,13 @@ const WelcomeDialog = ({ isOpen, onClose, onComplete, workspace }: WelcomeDialog
     : [
         {
           id: 'askAway',
-          icon: ChatBubbleLeftRightIcon,
+          icon: MessagesSquare,
           title: t('onboarding.welcome.tips.askAway.title'),
           description: t('onboarding.welcome.tips.askAway.description'),
         },
         {
           id: 'privacy',
-          icon: ShieldCheckIcon,
+          icon: ShieldCheck,
           title: t('onboarding.welcome.tips.privacy.title'),
           description: (
             <Trans
@@ -82,7 +77,7 @@ const WelcomeDialog = ({ isOpen, onClose, onComplete, workspace }: WelcomeDialog
         },
         {
           id: 'accuracy',
-          icon: ExclamationTriangleIcon,
+          icon: AlertTriangle,
           title: t('onboarding.welcome.tips.accuracy.title'),
           description: t('onboarding.welcome.tips.accuracy.description'),
         },

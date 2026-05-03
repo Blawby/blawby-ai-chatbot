@@ -1,6 +1,7 @@
 import type { ComponentChildren } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
-import { ArrowPathIcon } from '@heroicons/react/24/outline';
+import { RefreshCw } from 'lucide-preact';
+
 import type { FileAttachment } from '../../worker/types';
 import ConfirmationDialog from '@/shared/components/ConfirmationDialog';
 import WelcomeDialog from '@/features/modals/components/WelcomeDialog';
@@ -679,7 +680,7 @@ function PreviewSurface({
             variant="ghost"
             size="xs"
             onClick={onReplay}
-            icon={ArrowPathIcon}
+            icon={RefreshCw}
             iconClassName="h-3.5 w-3.5"
           >
             Replay
@@ -972,7 +973,7 @@ export default function DebugDialogsPage({ previewId }: DebugDialogsPageProps) {
             </p>
           </div>
           <div className="flex gap-2">
-            <Button variant="secondary" size="sm" onClick={replayAnimations} icon={ArrowPathIcon} iconClassName="h-4 w-4">
+            <Button variant="secondary" size="sm" onClick={replayAnimations} icon={RefreshCw} iconClassName="h-4 w-4">
               Replay animations
             </Button>
             <Button variant="secondary" size="sm" onClick={() => navigate('/debug/styles')}>

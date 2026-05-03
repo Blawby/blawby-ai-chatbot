@@ -2,11 +2,8 @@ import { FunctionComponent } from 'preact';
 import { useRef } from 'preact/hooks';
 import { Button } from '@/shared/ui/Button';
 import { analyzeMissingInfo } from '@/shared/utils/matterAnalysis';
-import {
-  DocumentIcon,
-  CheckCircleIcon,
-  ExclamationTriangleIcon
-} from "@heroicons/react/24/outline";
+import { File as FileIcon, CheckCircle2, AlertTriangle } from 'lucide-preact';
+
 import { Icon } from '@/shared/ui/Icon';
 import { MatterData, MatterStatus } from '@/shared/types/matter';
 import { getDefaultDocumentSuggestions } from '@/shared/hooks/useMatterState';
@@ -98,7 +95,7 @@ const MatterTab: FunctionComponent<MatterTabProps> = ({
         }
         pendingUploadDocId.current = null;
       } catch (error) {
-        console.error('DocumentIcon upload failed:', error);
+        console.error('File upload failed:', error);
         // Clear pending document ID even on error
         pendingUploadDocId.current = null;
       }
@@ -120,7 +117,7 @@ const MatterTab: FunctionComponent<MatterTabProps> = ({
   if (status === 'empty') {
     return (
       <div>
-        <Icon icon={DocumentIcon} className="h-4 w-4" />
+        <Icon icon={FileIcon} className="h-4 w-4" />
         <h3>No Matter Yet</h3>
         <p>Start a chat to create your matter</p>
         <Button onClick={onStartChat} variant="primary" size="sm">
@@ -186,7 +183,7 @@ const MatterTab: FunctionComponent<MatterTabProps> = ({
       {missingInfo.length > 0 && (
         <div>
           <div>
-            <Icon icon={ExclamationTriangleIcon} className="h-4 w-4" />
+            <Icon icon={AlertTriangle} className="h-4 w-4" />
             <h4>Missing Information</h4>
           </div>
           <ul>
@@ -206,7 +203,7 @@ const MatterTab: FunctionComponent<MatterTabProps> = ({
       {/* Document Suggestions */}
       <div>
         <div>
-          <Icon icon={DocumentIcon} className="h-4 w-4" />
+          <Icon icon={FileIcon} className="h-4 w-4" />
           <h4>Suggested Documents</h4>
         </div>
         <div>
@@ -214,9 +211,9 @@ const MatterTab: FunctionComponent<MatterTabProps> = ({
             <div key={doc.id}>
               <div>
                 {doc.status === 'uploaded' ? (
-                  <Icon icon={CheckCircleIcon} className="h-4 w-4" />
+                  <Icon icon={CheckCircle2} className="h-4 w-4" />
                 ) : (
-                  <Icon icon={DocumentIcon} className="h-4 w-4" />
+                  <Icon icon={FileIcon} className="h-4 w-4" />
                 )}
                 <div>
                   <p>{doc.name}</p>
@@ -246,7 +243,7 @@ const MatterTab: FunctionComponent<MatterTabProps> = ({
       {status === 'ready' && (
         <div>
           <div>
-            <Icon icon={CheckCircleIcon} className="h-4 w-4" />
+            <Icon icon={CheckCircle2} className="h-4 w-4" />
             <h4>Matter Complete</h4>
           </div>
           <p>All required information has been provided</p>
