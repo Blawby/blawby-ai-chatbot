@@ -7,8 +7,6 @@ export interface CarouselProps {
   children: ComponentChildren[];
   showArrows?: boolean;
   showDots?: boolean;
-  autoPlay?: boolean;
-  interval?: number;
   className?: string;
 }
 
@@ -68,7 +66,7 @@ export function Carousel({
             type="button"
             onClick={prev}
             aria-label="Previous slide"
-            className="absolute left-2 top-1/2 -translate-y-1/2 btn btn-secondary btn-icon-sm opacity-0 group-hover:opacity-100 transition-opacity"
+            className="absolute left-2 top-1/2 -translate-y-1/2 btn btn-secondary btn-icon-sm opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
           >
             <ChevronLeft size={18} />
           </button>
@@ -76,7 +74,7 @@ export function Carousel({
             type="button"
             onClick={next}
             aria-label="Next slide"
-            className="absolute right-2 top-1/2 -translate-y-1/2 btn btn-secondary btn-icon-sm opacity-0 group-hover:opacity-100 transition-opacity"
+            className="absolute right-2 top-1/2 -translate-y-1/2 btn btn-secondary btn-icon-sm opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
           >
             <ChevronRight size={18} />
           </button>

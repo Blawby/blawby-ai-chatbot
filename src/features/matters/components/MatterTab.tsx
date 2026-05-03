@@ -2,7 +2,7 @@ import { FunctionComponent } from 'preact';
 import { useRef } from 'preact/hooks';
 import { Button } from '@/shared/ui/Button';
 import { analyzeMissingInfo } from '@/shared/utils/matterAnalysis';
-import { File, CheckCircle2, AlertTriangle } from 'lucide-preact';
+import { File as FileIcon, CheckCircle2, AlertTriangle } from 'lucide-preact';
 
 import { Icon } from '@/shared/ui/Icon';
 import { MatterData, MatterStatus } from '@/shared/types/matter';
@@ -117,7 +117,7 @@ const MatterTab: FunctionComponent<MatterTabProps> = ({
   if (status === 'empty') {
     return (
       <div>
-        <Icon icon={File} className="h-4 w-4" />
+        <Icon icon={FileIcon} className="h-4 w-4" />
         <h3>No Matter Yet</h3>
         <p>Start a chat to create your matter</p>
         <Button onClick={onStartChat} variant="primary" size="sm">
@@ -203,7 +203,7 @@ const MatterTab: FunctionComponent<MatterTabProps> = ({
       {/* Document Suggestions */}
       <div>
         <div>
-          <Icon icon={File} className="h-4 w-4" />
+          <Icon icon={FileIcon} className="h-4 w-4" />
           <h4>Suggested Documents</h4>
         </div>
         <div>
@@ -213,7 +213,7 @@ const MatterTab: FunctionComponent<MatterTabProps> = ({
                 {doc.status === 'uploaded' ? (
                   <Icon icon={CheckCircle2} className="h-4 w-4" />
                 ) : (
-                  <Icon icon={File} className="h-4 w-4" />
+                  <Icon icon={FileIcon} className="h-4 w-4" />
                 )}
                 <div>
                   <p>{doc.name}</p>

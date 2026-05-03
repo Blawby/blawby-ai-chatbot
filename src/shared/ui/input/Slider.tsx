@@ -19,9 +19,27 @@ export interface SliderProps {
 }
 
 const sizeConfig = {
-  sm: { track: 'h-1', thumb: 'h-3.5 w-3.5' },
-  md: { track: 'h-1.5', thumb: 'h-4.5 w-4.5' },
-  lg: { track: 'h-2', thumb: 'h-5.5 w-5.5' },
+  sm: {
+    track:
+      '[&::-webkit-slider-runnable-track]:h-1 [&::-moz-range-track]:h-1',
+    thumb:
+      '[&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:w-3 [&::-moz-range-thumb]:h-3 [&::-moz-range-thumb]:w-3',
+    thumbOffset: '[&::-webkit-slider-thumb]:-mt-[4px]',
+  },
+  md: {
+    track:
+      '[&::-webkit-slider-runnable-track]:h-1.5 [&::-moz-range-track]:h-1.5',
+    thumb:
+      '[&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:w-4',
+    thumbOffset: '[&::-webkit-slider-thumb]:-mt-[5px]',
+  },
+  lg: {
+    track:
+      '[&::-webkit-slider-runnable-track]:h-2 [&::-moz-range-track]:h-2',
+    thumb:
+      '[&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:w-5 [&::-moz-range-thumb]:h-5 [&::-moz-range-thumb]:w-5',
+    thumbOffset: '[&::-webkit-slider-thumb]:-mt-[6px]',
+  },
 };
 
 export const Slider = forwardRef<HTMLInputElement, SliderProps>(function Slider(
@@ -54,7 +72,7 @@ export const Slider = forwardRef<HTMLInputElement, SliderProps>(function Slider(
     [onChange],
   );
 
-  const { track, thumb } = sizeConfig[size];
+  const { track, thumb, thumbOffset } = sizeConfig[size];
 
   return (
     <div className={cn('flex flex-col gap-1.5', className)}>
@@ -86,15 +104,13 @@ export const Slider = forwardRef<HTMLInputElement, SliderProps>(function Slider(
             'w-full appearance-none bg-transparent cursor-pointer',
             'disabled:opacity-45 disabled:cursor-not-allowed',
             '[&::-webkit-slider-runnable-track]:rounded-full [&::-webkit-slider-runnable-track]:bg-black/10 dark:[&::-webkit-slider-runnable-track]:bg-white/10',
-            `[&::-webkit-slider-runnable-track]:${track}`,
+            track,
             '[&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-accent-500 [&::-webkit-slider-thumb]:shadow-md [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-white dark:[&::-webkit-slider-thumb]:border-slate-800',
-            `[&::-webkit-slider-thumb]:${thumb}`,
-            '[&::-webkit-slider-thumb]:-mt-[5px]',
+            thumb,
+            thumbOffset,
             'focus-visible:outline-none [&:focus-visible::-webkit-slider-thumb]:ring-2 [&:focus-visible::-webkit-slider-thumb]:ring-accent-500/50 [&:focus-visible::-webkit-slider-thumb]:ring-offset-2',
             '[&::-moz-range-track]:rounded-full [&::-moz-range-track]:bg-black/10 dark:[&::-moz-range-track]:bg-white/10',
-            `[&::-moz-range-track]:${track}`,
             '[&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-accent-500 [&::-moz-range-thumb]:shadow-md [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-white dark:[&::-moz-range-thumb]:border-slate-800',
-            `[&::-moz-range-thumb]:${thumb}`,
           )}
           style={{
             background: disabled

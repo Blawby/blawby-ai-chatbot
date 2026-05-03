@@ -1,5 +1,4 @@
 import { FileAttachment } from '../../../worker/types';
-import { Music } from 'lucide-preact';
 
 export interface AggregatedMedia {
   id: string;

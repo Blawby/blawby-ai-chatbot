@@ -1,6 +1,7 @@
 import type { ComponentChildren } from 'preact';
 import { useEffect, useRef } from 'preact/hooks';
 import { cn } from '@/shared/utils/cn';
+import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
 
 export interface InfiniteScrollProps {
   children: ComponentChildren;
@@ -29,7 +30,10 @@ export function InfiniteScroll({
 
     const observer = new IntersectionObserver(
       ([entry]) => {
-        if (entry.isIntersecting) onLoadMore();
+        if (entry.isIntersecting) {
+          observer.disconnect();
+          onLoadMore();
+        }
       },
       { rootMargin: `${threshold}px` },
     );
@@ -44,9 +48,7 @@ export function InfiniteScroll({
       <div ref={sentinelRef} className="shrink-0" />
       {loading && (
         <div className="flex items-center justify-center py-4">
-          {loader ?? (
-            <div className="w-5 h-5 border-2 border-accent-500/30 border-t-accent-500 rounded-full animate-spin" />
-          )}
+          {loader ?? <LoadingSpinner size="sm" />}
         </div>
       )}
     </div>

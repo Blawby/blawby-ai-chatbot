@@ -27,6 +27,8 @@ export function ScrollToTop({ threshold = 300, className }: ScrollToTopProps) {
       type="button"
       onClick={scrollToTop}
       aria-label="Scroll to top"
+      aria-hidden={!visible}
+      tabIndex={visible ? 0 : -1}
       className={cn(
         'fixed bottom-6 right-6 z-[200] btn btn-secondary btn-icon-md',
         'transition-all duration-200',

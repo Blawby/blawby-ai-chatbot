@@ -61,7 +61,7 @@ export function Stepper({
                 className={cn(
                   'shrink-0 flex items-center justify-center rounded-full transition-all',
                   'w-8 h-8 text-xs font-medium',
-                  status === 'completed' && 'bg-accent-500 text-white',
+                  status === 'completed' && 'bg-accent-500 text-[rgb(var(--accent-foreground))]',
                   status === 'active' && 'bg-accent-500/15 text-accent-600 dark:text-accent-400 ring-2 ring-accent-500/30',
                   status === 'upcoming' && 'bg-black/5 dark:bg-white/8 text-input-placeholder',
                 )}

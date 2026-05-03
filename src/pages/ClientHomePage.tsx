@@ -170,25 +170,29 @@ const ClientHomePage = () => {
               label="Profile"
               href={`${clientBasePath}/settings/account`}
             />
-            <Sidebar.SubGroupLabel label="Practice" />
-            <Sidebar.SubItem
-              id="settings-practice"
-              icon={Building2}
-              label="Practice"
-              href={`${clientBasePath}/settings/practice`}
-            />
-            <Sidebar.SubItem
-              id="settings-team"
-              icon={Users}
-              label="Team"
-              href={`${clientBasePath}/settings/practice/team`}
-            />
-            <Sidebar.SubItem
-              id="settings-apps"
-              icon={Puzzle}
-              label="Apps"
-              href={`${clientBasePath}/settings/apps`}
-            />
+            {canAccessPractice && (
+              <>
+                <Sidebar.SubGroupLabel label="Practice" />
+                <Sidebar.SubItem
+                  id="settings-practice"
+                  icon={Building2}
+                  label="Practice"
+                  href={`${clientBasePath}/settings/practice`}
+                />
+                <Sidebar.SubItem
+                  id="settings-team"
+                  icon={Users}
+                  label="Team"
+                  href={`${clientBasePath}/settings/practice/team`}
+                />
+                <Sidebar.SubItem
+                  id="settings-apps"
+                  icon={Puzzle}
+                  label="Apps"
+                  href={`${clientBasePath}/settings/apps`}
+                />
+              </>
+            )}
             <Sidebar.SubGroupLabel label="Support" />
             <Sidebar.SubItem
               id="settings-help"

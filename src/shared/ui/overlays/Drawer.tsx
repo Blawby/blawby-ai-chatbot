@@ -2,6 +2,7 @@ import type { ComponentChildren } from 'preact';
 import { useEffect, useCallback } from 'preact/hooks';
 import { cn } from '@/shared/utils/cn';
 import { X } from 'lucide-preact';
+import { lockBodyScroll, unlockBodyScroll } from '@/shared/utils/modalStack';
 
 export interface DrawerProps {
   open: boolean;
@@ -47,10 +48,10 @@ export function Drawer({
   useEffect(() => {
     if (open) {
       document.addEventListener('keydown', handleKeyDown);
-      document.body.classList.add('modal-open');
+      lockBodyScroll();
       return () => {
         document.removeEventListener('keydown', handleKeyDown);
-        document.body.classList.remove('modal-open');
+        unlockBodyScroll();
       };
     }
   }, [open, handleKeyDown]);

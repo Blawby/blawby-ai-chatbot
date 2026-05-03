@@ -1,6 +1,5 @@
 import { render, RenderOptions } from '@testing-library/preact';
 import { ComponentChildren } from 'preact';
-import { Building2 } from 'lucide-preact';
 // import { ToastProvider } from '@/shared/contexts/ToastContext';
 // import { PracticeProvider } from '@/shared/contexts/PracticeContext';
 import { vi } from 'vitest';

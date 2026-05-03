@@ -1,5 +1,5 @@
 import type { JSX } from 'preact';
-import { useCallback, useRef, useState } from 'preact/hooks';
+import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 import { cn } from '@/shared/utils/cn';
 import { ImageOff } from 'lucide-preact';
 
@@ -31,6 +31,10 @@ export function Image({
 }: ImageProps) {
   const [status, setStatus] = useState<'loading' | 'loaded' | 'error'>('loading');
   const imgRef = useRef<HTMLImageElement>(null);
+
+  useEffect(() => {
+    setStatus('loading');
+  }, [src]);
 
   const handleLoad = useCallback(() => setStatus('loaded'), []);
   const handleError = useCallback(() => setStatus('error'), []);

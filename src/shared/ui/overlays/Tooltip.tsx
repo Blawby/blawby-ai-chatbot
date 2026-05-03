@@ -1,5 +1,5 @@
 import type { ComponentChildren, JSX } from 'preact';
-import { useCallback, useRef, useState } from 'preact/hooks';
+import { useCallback, useEffect, useId, useRef, useState } from 'preact/hooks';
 import { cn } from '@/shared/utils/cn';
 
 export interface TooltipProps {
@@ -26,19 +26,34 @@ export function Tooltip({
 }: TooltipProps) {
   const [visible, setVisible] = useState(false);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const tooltipId = useId();
+
+  const clearPendingTimeout = () => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+  };
 
   const show = useCallback(() => {
-    timeoutRef.current = setTimeout(() => setVisible(true), delay);
+    clearPendingTimeout();
+    timeoutRef.current = setTimeout(() => {
+      setVisible(true);
+      timeoutRef.current = null;
+    }, delay);
   }, [delay]);
 
   const hide = useCallback(() => {
-    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    clearPendingTimeout();
     setVisible(false);
   }, []);
+
+  useEffect(() => () => clearPendingTimeout(), []);
 
   return (
     <span
       className="relative inline-flex"
+      aria-describedby={visible ? tooltipId : undefined}
       onMouseEnter={show}
       onMouseLeave={hide}
       onFocus={show}
@@ -47,6 +62,7 @@ export function Tooltip({
       {children}
       {visible && (
         <span
+          id={tooltipId}
           role="tooltip"
           className={cn(
             'absolute z-[500] px-2.5 py-1.5 text-xs font-medium rounded-lg whitespace-nowrap pointer-events-none',
