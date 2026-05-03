@@ -273,6 +273,7 @@ export default defineConfig(({ mode }: ConfigEnv) => {
 						i18n: ['i18next', 'react-i18next', 'i18next-browser-languagedetector'],
 						stripe: ['@stripe/stripe-js', '@stripe/react-stripe-js'],
 						markdown: ['react-markdown', 'remark-gfm'],
+						icons: ['lucide-preact'],
 					}
 				},
 			},
@@ -284,7 +285,7 @@ export default defineConfig(({ mode }: ConfigEnv) => {
 			assetsInlineLimit: 4096, // 4kb - small assets will be inlined
 		},
 		optimizeDeps: {
-			include: ['preact', 'preact/hooks', 'preact/compat', 'preact/jsx-runtime', 'i18next', 'react-i18next', 'i18next-browser-languagedetector'],
+			include: ['preact', 'preact/hooks', 'preact/compat', 'preact/jsx-runtime', 'i18next', 'react-i18next', 'i18next-browser-languagedetector', 'lucide-preact'],
 		},
 		resolve: {
 			dedupe: ['preact', 'preact/compat', 'react', 'react-dom'],
