@@ -12,6 +12,7 @@ import { uploadFileViaBackend } from '@/shared/lib/uploadsApi';
 
 // Custom hook to dynamically import react-markdown on client
 function useReactMarkdown() {
+  // dynamic import: type is unknown until loaded, must use any
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [ReactMarkdown, setReactMarkdown] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
@@ -257,16 +258,16 @@ export const MarkdownUploadTextarea = ({
         </label>
       ) : null}
 
-      <div className="overflow-hidden rounded-2xl border border-line-glass/30 bg-surface-overlay/60 backdrop-blur-xl">
+      <div className="overflow-hidden rounded-2xl border border-line-glass/30 bg-surface-panel/80 shadow-glass backdrop-blur-xl dark:bg-surface-overlay/70">
         {showTabs ? (
-          <div className="flex items-center justify-between gap-3 border-b border-line-glass/30 bg-surface-overlay/70 px-2 py-2">
+          <div className="flex items-center justify-between gap-3 border-b border-line-glass/30 bg-surface-panel/70 px-2 py-2 dark:bg-surface-overlay/80">
             <div className="flex min-w-0 items-center gap-2 @xl:flex @xl:flex-none @xl:items-center @xl:gap-1">
               <button
                 type="button"
                 className={cn(
                   'rounded-xl px-3 py-2 text-sm font-medium transition-colors @xl:px-3 @xl:py-1.5',
                   activeTab === 'write'
-                    ? 'text-input-text'
+                    ? 'bg-surface-workspace/90 text-input-text shadow-sm ring-1 ring-line-glass/25 dark:bg-surface-overlay/90'
                     : 'text-input-placeholder hover:text-input-text'
                 )}
                 onClick={() => setActiveTab('write')}
@@ -278,7 +279,7 @@ export const MarkdownUploadTextarea = ({
                 className={cn(
                   'rounded-xl px-3 py-2 text-sm font-medium transition-colors @xl:px-3 @xl:py-1.5',
                   activeTab === 'preview'
-                    ? 'text-input-text'
+                    ? 'bg-surface-workspace/90 text-input-text shadow-sm ring-1 ring-line-glass/25 dark:bg-surface-overlay/90'
                     : 'text-input-placeholder hover:text-input-text'
                 )}
                 onClick={() => setActiveTab('preview')}
@@ -366,37 +367,37 @@ export const MarkdownUploadTextarea = ({
             </div>
             <div className="hidden items-center gap-2 text-input-placeholder @xl:flex @xl:flex-wrap">
               <div className="flex items-center gap-1">
-                <button type="button" className="rounded p-1 hover:text-input-text" aria-label="Insert heading" onClick={() => prependToLine('# ', 'Heading')}>
+                <button type="button" className="rounded p-1 transition-colors hover:text-input-text" aria-label="Insert heading" onClick={() => prependToLine('# ', 'Heading')}>
                   <span className="text-xs font-semibold leading-none">H</span>
                 </button>
-                <button type="button" className="rounded p-1 hover:text-input-text" aria-label="Bold" onClick={() => replaceSelection('**', '**', 'bold text')}>
+                <button type="button" className="rounded p-1 transition-colors hover:text-input-text" aria-label="Bold" onClick={() => replaceSelection('**', '**', 'bold text')}>
                   <span className="text-xs font-semibold leading-none">B</span>
                 </button>
-                <button type="button" className="rounded p-1 hover:text-input-text" aria-label="Italic" onClick={() => replaceSelection('*', '*', 'italic text')}>
+                <button type="button" className="rounded p-1 transition-colors hover:text-input-text" aria-label="Italic" onClick={() => replaceSelection('*', '*', 'italic text')}>
                   <span className="text-xs italic leading-none">I</span>
                 </button>
-                <button type="button" className="rounded p-1 hover:text-input-text" aria-label="Quote" onClick={() => prependToLine('> ', 'Quoted text')}>
+                <button type="button" className="rounded p-1 transition-colors hover:text-input-text" aria-label="Quote" onClick={() => prependToLine('> ', 'Quoted text')}>
                   <Icon icon={PanelLeft} className="h-4 w-4" aria-hidden="true" />
                 </button>
               </div>
               <div className="h-4 w-px bg-line-glass/50" />
               <div className="flex items-center gap-1">
-                <button type="button" className="rounded p-1 hover:text-input-text" aria-label="Code block" onClick={() => replaceSelection('```\n', '\n```', 'code')}>
+                <button type="button" className="rounded p-1 transition-colors hover:text-input-text" aria-label="Code block" onClick={() => replaceSelection('```\n', '\n```', 'code')}>
                   <Icon icon={Code} className="h-4 w-4" aria-hidden="true" />
                 </button>
-                <button type="button" className="rounded p-1 hover:text-input-text" aria-label="Insert link" onClick={() => replaceSelection('[', '](https://)', 'link text')}>
+                <button type="button" className="rounded p-1 transition-colors hover:text-input-text" aria-label="Insert link" onClick={() => replaceSelection('[', '](https://)', 'link text')}>
                   <Icon icon={Link} className="h-4 w-4" aria-hidden="true" />
                 </button>
               </div>
               <div className="h-4 w-px bg-line-glass/50" />
               <div className="flex items-center gap-1">
-                <button type="button" className="rounded p-1 hover:text-input-text" aria-label="Bulleted list" onClick={() => prependToLine('- ', 'List item')}>
+                <button type="button" className="rounded p-1 transition-colors hover:text-input-text" aria-label="Bulleted list" onClick={() => prependToLine('- ', 'List item')}>
                   <Icon icon={List} className="h-4 w-4" aria-hidden="true" />
                 </button>
-                <button type="button" className="rounded p-1 hover:text-input-text" aria-label="Numbered list" onClick={() => prependToLine('1. ', 'List item')}>
+                <button type="button" className="rounded p-1 transition-colors hover:text-input-text" aria-label="Numbered list" onClick={() => prependToLine('1. ', 'List item')}>
                   <Icon icon={ListOrdered} className="h-4 w-4" aria-hidden="true" />
                 </button>
-                <button type="button" className="rounded p-1 hover:text-input-text" aria-label="Task list" onClick={() => prependToLine('- [ ] ', 'Task')}>
+                <button type="button" className="rounded p-1 transition-colors hover:text-input-text" aria-label="Task list" onClick={() => prependToLine('- [ ] ', 'Task')}>
                   <Icon icon={FileText} className="h-4 w-4" aria-hidden="true" />
                 </button>
               </div>
@@ -502,9 +503,7 @@ export const MarkdownUploadTextarea = ({
                     Paste, drop, or click to add files
                   </button>
                 </>
-                ) : (
-                  <span>File uploads unlock after the matter exists</span>
-                )}
+              ) : null}
             </div>
             <div className="text-input-placeholder @xl:text-right">{value.length}/{maxLength}</div>
           </div>

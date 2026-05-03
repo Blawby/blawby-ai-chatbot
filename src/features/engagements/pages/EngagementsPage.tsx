@@ -1,18 +1,24 @@
 import { FunctionComponent } from 'preact';
-import { useCallback, useState } from 'preact/hooks';
+import { useCallback, useEffect, useMemo, useState } from 'preact/hooks';
 import { useLocation } from 'preact-iso';
-import { Briefcase } from 'lucide-preact';
+import { Briefcase, Plus } from 'lucide-preact';
 
 import { Panel } from '@/shared/ui/layout/Panel';
 import { WorkspacePlaceholderState } from '@/shared/ui/layout/WorkspacePlaceholderState';
 import { Avatar } from '@/shared/ui/profile';
+import { Button } from '@/shared/ui/Button';
+import { Dialog, DialogBody, DialogFooter } from '@/shared/ui/dialog';
+import { Combobox, type ComboboxOption } from '@/shared/ui/input';
+import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
 import { cn } from '@/shared/utils/cn';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
+import { listMatters, type BackendMatter } from '@/features/matters/services/mattersApi';
 import { EntityList } from '@/shared/ui/list/EntityList';
 import { usePaginatedList } from '@/shared/hooks/usePaginatedList';
-import { listEngagements } from '../api/engagementsApi';
+import { createEngagementContract, listEngagements } from '../api/engagementsApi';
 import type { EngagementListItem } from '../types/engagement';
 import EngagementDetailPage from './EngagementDetailPage';
+import { SELECTED_ACCENT_SURFACE_CLASS } from '@/shared/ui/layout/selectionStyles';
 
 const PAGE_SIZE = 20;
 
@@ -29,12 +35,10 @@ type EngagementsPageProps = {
 };
 
 const ENGAGEMENT_STATUS_CHIP: Record<string, string> = {
-  intake_accepted:    'bg-blue-500/10 text-blue-700 ring-blue-500/20 dark:text-blue-300',
-  engagement_draft:   'bg-amber-500/10 text-amber-700 ring-amber-500/20 dark:text-amber-300',
-  engagement_sent:    'bg-violet-500/10 text-violet-700 ring-violet-500/20 dark:text-violet-300',
-  engagement_pending: 'bg-amber-500/10 text-amber-700 ring-amber-500/20 dark:text-amber-300',
-  engagement_accepted:'bg-emerald-500/10 text-emerald-700 ring-emerald-500/20 dark:text-emerald-300',
-  active:             'bg-emerald-500/10 text-emerald-700 ring-emerald-500/20 dark:text-emerald-300',
+  draft:    'bg-amber-500/10 text-amber-700 ring-amber-500/20 dark:text-amber-300',
+  sent:     'bg-violet-500/10 text-violet-700 ring-violet-500/20 dark:text-violet-300',
+  accepted: 'bg-emerald-500/10 text-emerald-700 ring-emerald-500/20 dark:text-emerald-300',
+  declined: 'bg-rose-500/10 text-rose-700 ring-rose-500/20 dark:text-rose-300',
 };
 const NEUTRAL_CHIP = 'bg-surface-overlay/60 text-input-placeholder ring-line-glass/30';
 
@@ -43,13 +47,15 @@ function engagementStatusChip(status?: string) {
 }
 
 function engagementStatusLabel(status?: string) {
-  if (status === 'intake_accepted') return 'Accepted';
-  if (status === 'engagement_draft') return 'Draft';
-  if (status === 'engagement_sent') return 'Sent to client';
-  if (status === 'engagement_pending') return 'Under review';
-  if (status === 'engagement_accepted') return 'Client accepted';
-  if (status === 'active') return 'Active';
+  if (status === 'draft') return 'Draft';
+  if (status === 'sent') return 'Sent to client';
+  if (status === 'accepted') return 'Client accepted';
+  if (status === 'declined') return 'Declined';
   return status?.replace(/_/g, ' ') ?? 'Unknown';
+}
+
+function matterOptionLabel(matter: BackendMatter) {
+  return matter.title?.trim() || matter.case_number?.trim() || matter.id;
 }
 
 const EngagementListItemRow = ({
@@ -67,7 +73,7 @@ const EngagementListItemRow = ({
   return (
     <div className={cn(
       'w-full px-4 py-3.5 text-left flex items-center gap-3 transition-colors duration-150',
-      isSelected ? 'bg-surface-utility/60' : 'hover:bg-surface-utility/40'
+      isSelected ? SELECTED_ACCENT_SURFACE_CLASS : 'hover:bg-surface-utility/40'
     )}>
       <Avatar
         name={name}
@@ -107,6 +113,22 @@ export const EngagementsPage: FunctionComponent<EngagementsPageProps> = ({
 }) => {
   const location = useLocation();
   const [refreshCounter, setRefreshCounter] = useState(0);
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [matterOptionsSource, setMatterOptionsSource] = useState<BackendMatter[]>([]);
+  const [selectedMatterId, setSelectedMatterId] = useState('');
+  const [isLoadingMatters, setIsLoadingMatters] = useState(false);
+  const [loadMattersError, setLoadMattersError] = useState<string | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+
+  const matterOptions = useMemo<ComboboxOption[]>(() => (
+    matterOptionsSource.map((matter) => ({
+      value: matter.id,
+      label: matterOptionLabel(matter),
+      meta: matter.status ?? undefined,
+      description: matter.description ?? undefined,
+    }))
+  ), [matterOptionsSource]);
 
   // ── Routing ──────────────────────────────────────────────────────────────
   const pathSuffix = location.path.startsWith(basePath) ? location.path.slice(basePath.length) : '';
@@ -146,6 +168,59 @@ export const EngagementsPage: FunctionComponent<EngagementsPageProps> = ({
     location.route(basePath);
   }, [basePath, location]);
 
+  const handleCreateEngagement = useCallback(() => {
+    setIsCreateDialogOpen(true);
+    setCreateError(null);
+  }, []);
+
+  const handleCloseCreateDialog = useCallback(() => {
+    if (isCreating) return;
+    setIsCreateDialogOpen(false);
+    setSelectedMatterId('');
+    setCreateError(null);
+  }, [isCreating]);
+
+  useEffect(() => {
+    if (!isCreateDialogOpen || !practiceId) return;
+
+    const controller = new AbortController();
+    setIsLoadingMatters(true);
+    setLoadMattersError(null);
+    setMatterOptionsSource([]);
+
+    listMatters(practiceId, { page: 1, limit: 100, signal: controller.signal })
+      .then((matters) => {
+        if (controller.signal.aborted) return;
+        setMatterOptionsSource(matters);
+      })
+      .catch((error) => {
+        if (controller.signal.aborted) return;
+        setLoadMattersError(error instanceof Error ? error.message : 'Failed to load matters');
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setIsLoadingMatters(false);
+      });
+
+    return () => controller.abort();
+  }, [isCreateDialogOpen, practiceId]);
+
+  const handleConfirmCreate = useCallback(async () => {
+    if (!practiceId || !selectedMatterId || isCreating) return;
+    setIsCreating(true);
+    setCreateError(null);
+    try {
+      const engagement = await createEngagementContract(practiceId, { matter_id: selectedMatterId });
+      setRefreshCounter((c) => c + 1);
+      setIsCreateDialogOpen(false);
+      setSelectedMatterId('');
+      location.route(`${basePath}/${encodeURIComponent(engagement.id)}`);
+    } catch (error) {
+      setCreateError(error instanceof Error ? error.message : 'Failed to create engagement');
+    } finally {
+      setIsCreating(false);
+    }
+  }, [basePath, isCreating, location, practiceId, selectedMatterId]);
+
   const handleActionComplete = useCallback(() => {
     setRefreshCounter((c) => c + 1);
     handleBack();
@@ -184,16 +259,68 @@ export const EngagementsPage: FunctionComponent<EngagementsPageProps> = ({
           isLoadingMore={isLoadingMore}
           error={error}
           onLoadMore={hasMore ? loadMore : undefined}
+          minMountSkeletonMs={250}
           emptyState={
             <WorkspacePlaceholderState
               icon={Briefcase}
               title="No engagements yet"
               description="When you accept an intake and begin drafting an engagement letter, it will appear here."
+              primaryAction={{
+                label: 'New Engagement',
+                onClick: handleCreateEngagement,
+                disabled: !practiceId,
+                icon: Plus,
+              }}
               className="p-8"
             />
           }
         />
       </Panel>
+      <Dialog
+        isOpen={isCreateDialogOpen}
+        onClose={handleCloseCreateDialog}
+        title="New Engagement"
+        disableBackdropClick={isCreating}
+      >
+        <DialogBody className="space-y-4">
+          {isLoadingMatters ? (
+            <div className="flex min-h-24 items-center justify-center">
+              <LoadingSpinner size="sm" ariaLabel="Loading matters" />
+            </div>
+          ) : (
+            <Combobox
+              label="Matter"
+              placeholder="Select a matter"
+              options={matterOptions}
+              value={selectedMatterId}
+              onChange={setSelectedMatterId}
+              disabled={isCreating || matterOptions.length === 0}
+              searchable
+            />
+          )}
+          {loadMattersError && (
+            <p className="text-sm text-rose-400">{loadMattersError}</p>
+          )}
+          {!isLoadingMatters && !loadMattersError && matterOptions.length === 0 && (
+            <p className="text-sm text-input-placeholder">No matters available.</p>
+          )}
+          {createError && (
+            <p className="text-sm text-rose-400">{createError}</p>
+          )}
+        </DialogBody>
+        <DialogFooter>
+          <Button variant="secondary" onClick={handleCloseCreateDialog} disabled={isCreating}>
+            Cancel
+          </Button>
+          <Button
+            variant="primary"
+            onClick={handleConfirmCreate}
+            disabled={isCreating || !selectedMatterId}
+          >
+            {isCreating ? 'Creating...' : 'Create'}
+          </Button>
+        </DialogFooter>
+      </Dialog>
     </div>
   );
 };

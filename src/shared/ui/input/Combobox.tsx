@@ -248,7 +248,9 @@ export function Combobox({
     if (autoFocus && !disabled) {
       open();
     }
-  }, [autoFocus, disabled]); // eslint-disable-line react-hooks/exhaustive-deps
+    // effect intentionally only runs on autoFocus, disabled
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoFocus, disabled]);
 
   // ------------------------------------------------------------------
   // Derived state
@@ -580,7 +582,7 @@ export function Combobox({
           className={cn(
             'glass-input relative flex w-full gap-2 rounded-xl px-3 py-2.5 transition-all duration-200',
             isOpen && 'isOpen',
-            isMultiple ? 'min-h-[3.5rem] items-start' : 'items-center',
+            'items-center',
             !disabled && 'cursor-pointer'
           )}
         >
@@ -599,7 +601,7 @@ export function Combobox({
           tabIndex={-1}
           onMouseDown={(e) => e.preventDefault()}
           className={cn(
-            'z-50 w-full overflow-hidden rounded-xl absolute',
+            'z-[60] w-full overflow-hidden rounded-xl absolute',
             'bg-surface-overlay shadow-glass border border-line-glass/20',
             hideTrigger ? 'top-0 mt-1' : (direction === 'up' ? 'bottom-full mb-1 top-auto' : 'top-full mt-1')
           )}

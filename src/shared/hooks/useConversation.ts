@@ -128,6 +128,7 @@ export interface UseConversationOptions {
   practiceId?: string;
   conversationId?: string;
   userId?: string | null;
+  isAnonymous?: boolean;
   linkAnonymousConversationOnLoad?: boolean;
   onConversationMetadataUpdated?: (metadata: ConversationMetadata | null) => void;
   skipInitialFetch?: boolean;
@@ -141,12 +142,14 @@ export const useConversation = ({
   practiceId,
   conversationId,
   userId: externalUserId,
+  isAnonymous: externalIsAnonymous,
   linkAnonymousConversationOnLoad = false,
   onConversationMetadataUpdated,
   skipInitialFetch = false,
   onError,
 }: UseConversationOptions) => {
-  const { session, isPending: sessionIsPending, isAnonymous } = useSessionContext();
+  const { session, isPending: sessionIsPending, isAnonymous: contextIsAnonymous } = useSessionContext();
+  const isAnonymous = externalIsAnonymous ?? contextIsAnonymous;
   const hasAnonymousWidgetContext = Boolean(enabled && linkAnonymousConversationOnLoad && conversationId && practiceId);
   const sessionReady = enabled && !sessionIsPending && (Boolean(session?.user) || Boolean(externalUserId && hasAnonymousWidgetContext));
   const currentUserId = externalUserId ?? session?.user?.id ?? null;
@@ -857,8 +860,11 @@ export const useConversation = ({
       if (!isDisposedRef.current && activeConversationId === conversationIdRef.current) {
         if (isLoadMore) {
           batch(() => {
+            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
             applyServerMessages(data.data!.messages ?? []);
+            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
             setHasMoreMessages(Boolean(data.data!.hasMore));
+            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
             setNextCursor(data.data!.cursor ?? null);
           });
         } else {
@@ -891,7 +897,9 @@ export const useConversation = ({
               return dedupeMessagesById([...newBatch, ...prev].sort((a, b) => a.timestamp - b.timestamp));
             });
             setMessagesReady(true);
+            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
             setHasMoreMessages(Boolean(data.data!.hasMore));
+            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
             setNextCursor(data.data!.cursor ?? null);
           });
         }

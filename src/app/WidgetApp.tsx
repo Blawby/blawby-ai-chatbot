@@ -18,7 +18,7 @@ import { createConversation, fetchLatestConversationMessage } from '@/shared/lib
 import { postToParentFrame, resolveAllowedParentOrigins } from '@/shared/utils/widgetEvents';
 import { setupGlobalKeyboardListeners } from '@/shared/utils/keyboard';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
-import { resolveConversationDisplayTitle } from '@/shared/utils/conversationDisplay';
+import { resolveConversationContactName, resolveConversationDisplayTitle } from '@/shared/utils/conversationDisplay';
 import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
 import { practiceDetailsStore } from '@/shared/stores/practiceDetailsStore';
 import { useStore } from '@nanostores/preact';
@@ -124,39 +124,36 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
 
   const createConversationIfNeeded = useCallback(async () => {
     if (effectiveConversationId) return effectiveConversationId;
-    try {
-      // Use ref-based lock to prevent concurrent creation calls during the same tick
-      // or while a fetch is already in flight.
-      if (creatingConversationRef.current) {
-        return creatingConversationRef.current;
-      }
-
-      const createPromise = (async () => {
-        try {
-          const newId = await createConversation(practiceId, {
-            status: 'draft',
-            // Embed the resolved template so the worker can read it back on
-            // every subsequent AI turn without a separate lookup.
-            extraMetadata: { intakeTemplate: activeIntakeTemplate },
-          });
-          locallyCreatedConversationIds.current.add(newId);
-          setBootstrapIgnored(true);
-          setConversationId(newId);
-          return newId;
-        } catch (error) {
-          console.error('Failed to create deferred conversation', error);
-          throw error;
-        } finally {
-          creatingConversationRef.current = null;
-        }
-      })();
-
-      creatingConversationRef.current = createPromise;
-      return createPromise;
-    } catch (error) {
-      console.error('Failed to create deferred conversation', error);
-      throw error;
+    // Use ref-based lock to prevent concurrent creation calls during the same tick
+    // or while a fetch is already in flight.
+    if (creatingConversationRef.current) {
+      return creatingConversationRef.current;
     }
+
+    const createPromise = (async () => {
+      try {
+        const newId = await createConversation(practiceId, {
+          status: 'draft',
+          // Embed the resolved template so the worker can read it back on
+          // every subsequent AI turn without a separate lookup.
+          extraMetadata: { intakeTemplate: activeIntakeTemplate },
+        });
+        locallyCreatedConversationIds.current.add(newId);
+        setBootstrapIgnored(true);
+        setConversationId(newId);
+        return newId;
+      } catch (error) {
+        if (process.env.NODE_ENV !== 'production') {
+          console.error('Failed to create deferred conversation', error);
+        }
+        throw error;
+      } finally {
+        creatingConversationRef.current = null;
+      }
+    })();
+
+    creatingConversationRef.current = createPromise;
+    return createPromise;
   }, [effectiveConversationId, practiceId, setConversationId, activeIntakeTemplate]);
 
   const { details: practiceDetails } = usePracticeDetails(practiceId, practiceConfig.slug);
@@ -265,8 +262,15 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
 
   const { t } = useTranslation('common');
 
-  const handleMessageError = useCallback((error: string | Error) => {
-    const message = typeof error === 'string' ? error : error.message;
+  const handleMessageError = useCallback((error: unknown, _context?: Record<string, unknown>) => {
+    let message: string;
+    if (typeof error === 'string') {
+      message = error;
+    } else if (error instanceof Error) {
+      message = error.message;
+    } else {
+      message = t('weHitASnag.sendingMessage');
+    }
     if (message.toLowerCase().includes('chat connection closed')) return;
     showErrorRef.current?.(message || t('weHitASnag.sendingMessage'));
   }, [t]);
@@ -283,6 +287,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
     conversationId: effectiveConversationId ?? undefined,
     onEnsureConversation: createConversationIfNeeded,
     userId: currentUserId,
+    isAnonymous,
     linkAnonymousConversationOnLoad: true,
     mode: conversationMode,
     onConversationMetadataUpdated: handleConversationMetadataUpdated,
@@ -294,7 +299,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
     messages, conversationMetadata, sendMessage, addMessage: _addMessage, clearMessages,
     requestMessageReactions, toggleMessageReaction,
     intakeStatus, intakeConversationState, handleIntakeCtaResponse: _handleIntakeCtaResponse,
-    slimContactDraft, handleSlimFormContinue: _handleSlimFormContinue, handleBuildBrief: _handleBuildBrief, handleSubmitNow: _handleSubmitNow, handleFinalizeSubmit: _handleFinalizeSubmit,
+    slimContactDraft, handleSlimFormContinue: _handleSlimFormContinue, handleBuildBrief: _handleBuildBrief, handleConfirmSubmit: _handleConfirmSubmit, handleFinalizeSubmit: _handleFinalizeSubmit,
     startConsultFlow: _startConsultFlow, updateConversationMetadata: _updateConversationMetadata, isConsultFlowActive: _isConsultFlowActive,
     ingestServerMessages, messagesReady, hasMoreMessages, isLoadingMoreMessages,
     loadMoreMessages, isSocketReady, applyIntakeFields,
@@ -542,6 +547,8 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
     return relative ? t('workspace.header.activeRelative', { time: relative }) : t('workspace.header.inactive');
   }, [filteredMessagesForHeader, isSocketReady, t]);
 
+  const isReady = useMemo(() => currentUserId !== null && isSocketReady && messagesReady, [currentUserId, isSocketReady, messagesReady]);
+
 
   const isConsultConversation = useMemo(
     () => conversationMode === 'REQUEST_CONSULTATION'
@@ -601,18 +608,27 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
     }
   }, []);
 
-  const intakeProviderValue = {
-    intakeStatus: null,
-    intakeConversationState: null,
-    onIntakeCtaResponse: undefined,
-    onSubmitNow: undefined,
-    onBuildBrief: undefined,
-    onStrengthenCase: undefined,
-    slimContactDraft: null,
-    onSlimFormContinue: undefined,
+  const intakeProviderValue = useMemo(() => ({
+    intakeStatus,
+    intakeConversationState,
+    onIntakeCtaResponse: _handleIntakeCtaResponse,
+    onSubmitNow: _handleConfirmSubmit,
+    onBuildBrief: _handleBuildBrief,
+    onStrengthenCase: _handleStrengthenCase,
+    slimContactDraft,
+    onSlimFormContinue: _handleSlimFormContinue,
     onSlimFormDismiss: undefined,
     isPublicWorkspace: true,
-  };
+  }), [
+    intakeStatus,
+    intakeConversationState,
+    _handleIntakeCtaResponse,
+    _handleConfirmSubmit,
+    _handleBuildBrief,
+    _handleStrengthenCase,
+    slimContactDraft,
+    _handleSlimFormContinue
+  ]);
   const withIntakeProvider = (content: ComponentChildren) => (
     <IntakeProvider value={intakeProviderValue}>
       {content}
@@ -676,6 +692,16 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
         )}
         {view === 'chat' && (
           <>
+            {/* Debug: log readiness and bootstrap session user id to help diagnose disabled composer */}
+            {typeof window !== 'undefined' && process.env.NODE_ENV !== 'production' &&
+              console.debug('[WidgetApp isReady]', {
+                currentUserId,
+                isSocketReady,
+                messagesReady,
+                bootstrapSessionUser: bootstrapSession?.user?.id,
+                effectiveConversationId
+              })}
+
             <div className="flex flex-1 min-h-0 overflow-hidden flex-row">
               <ChatContainer
                 messages={messages}
@@ -683,9 +709,10 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
                   conversationMetadata ?? null,
                   conversationMetadata?.title ?? ''
                 )}
+                conversationContactName={resolveConversationContactName(conversationMetadata ?? null)}
                 conversationId={activeConversationId}
                 onSendMessage={sendMessage}
-                isReady={currentUserId !== null && isSocketReady}
+                isReady={isReady}
                 conversationMode={conversationMode}
                 onToggleReaction={features.enableMessageReactions ? toggleMessageReaction : undefined}
                 onRequestReactions={requestMessageReactions}
@@ -751,7 +778,14 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
                       onClose={() => setIsInspectorOpen(false)}
                       intakeConversationState={intakeConversationState}
                       intakeStatus={intakeStatus}
-                      onIntakeFieldsChange={applyIntakeFields}
+                      onIntakeFieldsChange={(patch, options) => {
+                        // Remove all null values for IntakeFieldsPayload compatibility
+                        const payload: Record<string, unknown> = {};
+                        Object.entries(patch).forEach(([key, value]) => {
+                          if (value !== null) payload[key] = value;
+                        });
+                        return applyIntakeFields(payload, options);
+                      }}
                       practiceDetails={cachedPracticeDetails}
                       intakeSlimContactDraft={slimContactDraft}
                     />
@@ -775,7 +809,13 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
                   onClose={() => setIsInspectorOpen(false)}
                   intakeConversationState={intakeConversationState}
                   intakeStatus={intakeStatus}
-                  onIntakeFieldsChange={applyIntakeFields}
+                  onIntakeFieldsChange={(patch, options) => {
+                    const payload: Record<string, unknown> = {};
+                    Object.entries(patch).forEach(([key, value]) => {
+                      if (value !== null) payload[key] = value;
+                    });
+                    return applyIntakeFields(payload, options);
+                  }}
                   practiceDetails={cachedPracticeDetails}
                   intakeSlimContactDraft={slimContactDraft}
                 />
@@ -786,7 +826,6 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
         
         <NavRail
           variant="bottom"
-          activeHref={view === 'home' ? '#home' : '#list'}
           items={[
             {
               id: 'home',
@@ -794,6 +833,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
               icon: Home,
               href: '#home',
               isAction: true,
+              isActive: view === 'home',
               onClick: () => {
                 setConversationMode(null);
                 setView('home');
@@ -805,6 +845,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
               icon: MessagesSquare,
               href: '#list',
               isAction: true,
+              isActive: view === 'list',
               onClick: () => setView('list')
             }
           ]}

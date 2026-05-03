@@ -20,6 +20,46 @@ import {
 import { SettingsNavIcon } from '@/shared/ui/nav/SettingsNavIcon';
 import { CONTACTS_DIRECTORY_LABEL } from '@/shared/domain/contacts';
 import type { PracticeRole } from '@/shared/utils/practiceRoles';
+import { getPreferencesCategory } from '@/shared/lib/preferencesApi';
+
+/**
+ * Prefetch helpers for nav items. Fired on hover/focus so the route's code
+ * chunk and seed data are already in cache by the time the user clicks.
+ * Both `import()` and `queryCache.coalesceGet` (used by the preferences API)
+ * are idempotent — calling these repeatedly is safe.
+ */
+const prefetchLazyChunk = (loader: () => Promise<unknown>) => () => {
+  // Swallow errors silently — a failed prefetch doesn't break the click.
+  // The lazy boundary will retry on actual navigation and surface the
+  // error there.
+  loader().catch(() => { /* ignore */ });
+};
+
+const prefetchSettingsLanding = () => {
+  void getPreferencesCategory('general');
+};
+
+const prefetchMattersChunk = prefetchLazyChunk(
+  () => import('@/features/matters/pages/PracticeMattersPage')
+);
+const prefetchClientMattersChunk = prefetchLazyChunk(
+  () => import('@/features/matters/pages/ClientMattersPage')
+);
+const prefetchIntakesChunk = prefetchLazyChunk(
+  () => import('@/features/intake/pages/IntakesPage')
+);
+const prefetchPracticeInvoicesChunk = prefetchLazyChunk(
+  () => import('@/features/invoices/pages/PracticeInvoicesPage')
+);
+const prefetchClientInvoicesChunk = prefetchLazyChunk(
+  () => import('@/features/invoices/pages/ClientInvoicesPage')
+);
+const prefetchReportsChunk = prefetchLazyChunk(
+  () => import('@/features/reports/pages/PracticeReportsPage')
+);
+const prefetchPracticeContactsChunk = prefetchLazyChunk(
+  () => import('@/features/clients/pages/PracticeContactsPage')
+);
 
 export type NavCtx = {
   practiceSlug: string;
@@ -44,6 +84,9 @@ export type NavRailItem = {
   /** If true, the unified Sidebar renders an expand chevron even when the item
    *  currently has no children attached (e.g. another section is active). */
   expandable?: boolean;
+  /** Fired on hover/focus — preload code chunk + seed data so the click
+   *  feels instant. Idempotent. */
+  prefetch?: () => void;
 };
 
 export type SecondaryNavItem = {
@@ -55,6 +98,8 @@ export type SecondaryNavItem = {
   variant?: 'default' | 'danger';
   isAction?: boolean;
   icon?: ComponentType<unknown>;
+  /** Fired on hover/focus — preload data for this sub-page. Idempotent. */
+  prefetch?: () => void;
 };
 
 export type NavSection = {
@@ -132,6 +177,7 @@ const buildPracticeRail = (basePath: string): NavRailItem[] => [
     // /engagements lives under Matters in the unified sidebar (per Pencil GtRGH).
     matchHrefs: [`${basePath}/matters`, `${basePath}/engagements`],
     expandable: true,
+    prefetch: prefetchMattersChunk,
   },
   {
     id: 'conversations',
@@ -146,6 +192,7 @@ const buildPracticeRail = (basePath: string): NavRailItem[] => [
     icon: Users,
     href: `${basePath}/contacts`,
     matchHrefs: [`${basePath}/contacts`],
+    prefetch: prefetchPracticeContactsChunk,
   },
   {
     id: 'intakes',
@@ -154,6 +201,7 @@ const buildPracticeRail = (basePath: string): NavRailItem[] => [
     href: `${basePath}/intakes`,
     matchHrefs: [`${basePath}/intakes`],
     expandable: true,
+    prefetch: prefetchIntakesChunk,
   },
   {
     id: 'files',
@@ -170,6 +218,7 @@ const buildPracticeRail = (basePath: string): NavRailItem[] => [
     href: `${basePath}/invoices`,
     matchHrefs: [`${basePath}/invoices`],
     expandable: true,
+    prefetch: prefetchPracticeInvoicesChunk,
   },
   {
     id: 'reports',
@@ -178,6 +227,7 @@ const buildPracticeRail = (basePath: string): NavRailItem[] => [
     href: `${basePath}/reports`,
     matchHrefs: [`${basePath}/reports`],
     expandable: true,
+    prefetch: prefetchReportsChunk,
   },
   {
     id: 'settings',
@@ -186,6 +236,7 @@ const buildPracticeRail = (basePath: string): NavRailItem[] => [
     href: `${basePath}/settings/general`,
     matchHrefs: [`${basePath}/settings`],
     expandable: true,
+    prefetch: prefetchSettingsLanding,
   },
 ];
 
@@ -198,6 +249,7 @@ const buildClientRail = (basePath: string): NavRailItem[] => [
     href: `${basePath}/matters`,
     matchHrefs: [`${basePath}/matters`],
     expandable: true,
+    prefetch: prefetchClientMattersChunk,
   },
   {
     id: 'conversations',
@@ -213,6 +265,7 @@ const buildClientRail = (basePath: string): NavRailItem[] => [
     href: `${basePath}/invoices`,
     matchHrefs: [`${basePath}/invoices`],
     expandable: true,
+    prefetch: prefetchClientInvoicesChunk,
   },
   {
     id: 'settings',
@@ -221,6 +274,7 @@ const buildClientRail = (basePath: string): NavRailItem[] => [
     href: `${basePath}/settings/general`,
     matchHrefs: [`${basePath}/settings`],
     expandable: true,
+    prefetch: prefetchSettingsLanding,
   },
 ];
 

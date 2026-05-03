@@ -13,7 +13,7 @@ import {
   DropdownMenuTrigger
 } from '@/shared/ui/dropdown';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
-import { LoadingBlock, PanelSectionHeader, PanelEmptyState, InteractiveListItem } from '@/shared/ui/layout';
+import { ListRowSkeleton, PanelSectionHeader, PanelEmptyState, InteractiveListItem } from '@/shared/ui/layout';
 import type { MatterDetail, MatterExpense } from '@/features/matters/data/matterTypes';
 import { ExpenseForm, type ExpenseFormValues } from './ExpenseForm';
 
@@ -189,7 +189,7 @@ export const MatterExpensesPanel = ({
           {error}
         </div>
       ) : loading && sortedExpenses.length === 0 ? (
-        <LoadingBlock className="px-6 py-6" label="Loading expenses..." />
+        <ListRowSkeleton rows={4} avatar={false} className="divide-y divide-line-default" />
       ) : sortedExpenses.length === 0 ? (
         <PanelEmptyState message="No expenses yet. Add receipts, filing fees, or other costs tied to this matter." />
       ) : (

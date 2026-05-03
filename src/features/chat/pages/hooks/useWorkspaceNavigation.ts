@@ -4,6 +4,7 @@ import {
   getWorkspaceDefaultSecondaryFilter,
   getWorkspaceRouteState,
   getWorkspaceSection,
+  type WorkspaceView,
 } from '@/shared/utils/workspaceShell';
 import {
   type WorkspaceSection,
@@ -16,23 +17,6 @@ import type { PracticeRole } from '@/shared/utils/practiceRoles';
 type PreviewTab = 'home' | 'messages' | 'intake';
 
 // Mirror of WorkspaceView from workspaceShell (not exported from there).
-type WorkspaceView =
-  | 'home'
-  | 'setup'
-  | 'list'
-  | 'conversation'
-  | 'intakes'
-  | 'intakeDetail'
-  | 'engagements'
-  | 'matters'
-  | 'contacts'
-  | 'invoices'
-  | 'invoiceCreate'
-  | 'invoiceEdit'
-  | 'invoiceDetail'
-  | 'reports'
-  | 'settings';
-
 export const previewTabOptions: Array<{ id: PreviewTab; label: string }> = [
   { id: 'home', label: 'Home' },
   { id: 'messages', label: 'Messages' },
@@ -44,7 +28,7 @@ export type UseWorkspaceNavigationInput = {
   workspace: 'public' | 'practice' | 'client';
   practiceSlug: string | null;
   layoutMode: 'desktop' | 'mobile' | 'widget';
-  location: { path: string };
+  location: { path: string; url?: string };
   navigate: (path: string) => void;
   isPracticeWorkspace: boolean;
   isClientWorkspace: boolean;
@@ -127,8 +111,12 @@ export function useWorkspaceNavigation({
   }, [previewBaseUrl]);
 
   const handleDashboardCreateInvoice = useCallback(() => {
-    navigate(`${normalizedBase}/invoices/new`);
-  }, [navigate, normalizedBase]);
+    const rawUrl = typeof location.url === 'string' && location.url.length > 0
+      ? location.url
+      : location.path;
+    const returnTo = rawUrl.startsWith('/') ? rawUrl : `/${rawUrl.replace(/^\/+/, '')}`;
+    navigate(`${normalizedBase}/invoices/new?returnTo=${encodeURIComponent(returnTo)}`);
+  }, [location.path, location.url, navigate, normalizedBase]);
 
   const workspaceSection: WorkspaceSection = getWorkspaceSection(view);
 

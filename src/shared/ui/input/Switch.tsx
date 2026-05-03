@@ -40,6 +40,18 @@ export const Switch = ({
     lg: value ? 'translate-x-7' : 'translate-x-1'
   };
 
+  const trackClasses = disabled
+    ? value
+      ? 'border-transparent bg-accent-500/35 dark:bg-accent-400/30'
+      : 'border border-line-glass/30 bg-slate-200 dark:bg-slate-700/80'
+    : value
+      ? 'border-transparent bg-accent-500 focus:ring-accent-500'
+      : 'border border-slate-400/35 bg-slate-300 focus:ring-slate-400 dark:border-slate-500/40 dark:bg-slate-600';
+
+  const thumbClasses = disabled
+    ? 'bg-slate-300 dark:bg-slate-100'
+    : 'bg-white';
+
   return (
     <div className={cn('flex items-center justify-between py-3', className)}>
       <div className="flex-1 min-w-0">
@@ -63,10 +75,8 @@ export const Switch = ({
         className={cn(
           'relative inline-flex items-center rounded-full transition-colors focus:outline-none focus:ring-2 ring-inset focus:ring-offset-2 focus:ring-offset-transparent',
           sizeClasses[size],
-          value 
-            ? 'bg-accent-500 focus:ring-accent-500' 
-            : 'bg-surface-utility/70 dark:bg-surface-utility/80 focus:ring-line-glass',
-          disabled && 'opacity-50 cursor-not-allowed'
+          trackClasses,
+          disabled && 'cursor-not-allowed opacity-100'
         )}
         onClick={() => !disabled && onChange(!value)}
         disabled={disabled}
@@ -77,7 +87,8 @@ export const Switch = ({
       >
         <span
           className={cn(
-            'inline-block transform rounded-full bg-[rgb(var(--surface-workspace))] shadow-sm transition-transform duration-200 ease-in-out',
+            'inline-block transform rounded-full shadow-sm transition-transform duration-200 ease-in-out',
+            thumbClasses,
             thumbSizeClasses[size],
             thumbTranslateClasses[size]
           )}

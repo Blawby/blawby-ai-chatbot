@@ -5,6 +5,8 @@ import { useLocation } from 'preact-iso';
 import { Copy, X, MessagesSquare, Plus, User } from 'lucide-preact';
 
 import { DetailHeader } from '@/shared/ui/layout/DetailHeader';
+import { AccentHeroSurface } from '@/shared/ui/layout/AccentHeroSurface';
+import { ResponsiveDefinitionGrid } from '@/shared/ui/layout/ResponsiveDefinitionGrid';
 import { Panel } from '@/shared/ui/layout/Panel';
 import { WorkspacePlaceholderState } from '@/shared/ui/layout/WorkspacePlaceholderState';
 import { LoadingBlock, InteractiveListItem } from '@/shared/ui/layout';
@@ -45,7 +47,6 @@ import {
 import { getPracticeRoleLabel, normalizePracticeRole } from '@/shared/utils/practiceRoles';
 import { AddContactDialog } from '@/shared/ui/contacts/AddContactDialog';
 
-
 const STATUS_LABELS = CONTACT_RELATIONSHIP_STATUS_LABELS;
 
 type DirectoryRecord = {
@@ -78,7 +79,7 @@ const PendingEmptyState = ({ onInviteClient }: { onInviteClient: () => void }) =
     title="No pending invites"
     description="Contact invites you send will appear here until they are accepted."
     primaryAction={{
-      label: 'Invite contact',
+      label: 'New Contact',
       onClick: onInviteClient,
       icon: Plus,
     }}
@@ -98,11 +99,10 @@ const PendingInvitationDetailPanel = ({
 }) => {
   const roleLabel = getPracticeRoleLabel(normalizePracticeRole(invitation.role) ?? 'client');
   return (
-    <div className="h-full overflow-y-auto">
+    <div className="h-full overflow-y-auto @container">
       <div className="space-y-6">
-        <section className="relative overflow-hidden rounded-[28px] bg-gradient-to-b from-accent-500/30 via-surface-overlay/70 to-surface-overlay/85 [--accent-foreground:var(--input-text)]">
-          <div className="absolute inset-0 bg-gradient-to-t from-surface-base/45 via-transparent to-transparent" />
-          <div className="relative px-6 pb-12 pt-10">
+        <AccentHeroSurface>
+          <div className="px-6 pb-12 pt-10">
             <div className="flex flex-col items-center text-center">
               <Avatar name={invitation.email} size="xl" />
               <div className="mt-8 min-w-0 max-w-full">
@@ -113,10 +113,10 @@ const PendingInvitationDetailPanel = ({
               </div>
             </div>
           </div>
-        </section>
+        </AccentHeroSurface>
 
         <section className="glass-panel rounded-2xl">
-          <div className="grid grid-cols-1 divide-y divide-line-glass/5 md:grid-cols-2 md:divide-x md:divide-y-0 md:divide-line-glass/5">
+          <ResponsiveDefinitionGrid>
             <dl className="divide-y divide-line-glass/5">
               <div className="px-5 py-4">
                 <dt className="text-sm font-medium text-input-placeholder">Email</dt>
@@ -137,7 +137,7 @@ const PendingInvitationDetailPanel = ({
                 <dd className="mt-1 text-sm text-input-text">{formatDate(new Date(invitation.expiresAt))}</dd>
               </div>
             </dl>
-          </div>
+          </ResponsiveDefinitionGrid>
         </section>
 
         <section className="px-1 py-1">
@@ -211,11 +211,10 @@ const ClientDetailPanel = ({
     : null;
 
   return (
-    <div className={cn('h-full overflow-y-auto', paddingClassName)}>
+    <div className={cn('h-full overflow-y-auto @container', paddingClassName)}>
       <div className="space-y-6">
-        <section className="relative overflow-hidden rounded-[28px] bg-gradient-to-b from-accent-500/30 via-surface-overlay/70 to-surface-overlay/85 [--accent-foreground:var(--input-text)]">
-          <div className="absolute inset-0 bg-gradient-to-t from-surface-base/45 via-transparent to-transparent" />
-          <div className="relative px-6 pb-12 pt-10">
+        <AccentHeroSurface>
+          <div className="px-6 pb-12 pt-10">
             <div className="flex flex-col items-center text-center">
               <Avatar name={client.name} size="xl" />
               <div className="mt-8 min-w-0 max-w-full">
@@ -227,10 +226,10 @@ const ClientDetailPanel = ({
               </div>
             </div>
           </div>
-        </section>
+        </AccentHeroSurface>
 
         <section className="glass-panel rounded-2xl">
-          <div className="grid grid-cols-1 divide-y divide-line-glass/5 md:grid-cols-2 md:divide-x md:divide-y-0 md:divide-line-glass/5">
+          <ResponsiveDefinitionGrid>
             <dl className="divide-y divide-line-glass/5">
               <div className="px-5 py-4">
                 <dt className="text-sm font-medium text-input-placeholder">Email</dt>
@@ -255,7 +254,7 @@ const ClientDetailPanel = ({
                 </dd>
               </div>
             </dl>
-          </div>
+          </ResponsiveDefinitionGrid>
         </section>
 
         <section className="px-1 py-1">
@@ -300,8 +299,6 @@ export const PracticeContactsPage = ({
   prefetchedLoadingMore = false,
   prefetchedError = null,
   onRefetchList: _onRefetchList,
-  onDetailInspector,
-  detailInspectorOpen = false,
   detailHeaderLeadingAction,
   showDetailBackButton = true,
 }: {
@@ -315,8 +312,6 @@ export const PracticeContactsPage = ({
   prefetchedLoadingMore?: boolean;
   prefetchedError?: string | null;
   onRefetchList?: (signal?: AbortSignal) => Promise<void>;
-  onDetailInspector?: () => void;
-  detailInspectorOpen?: boolean;
   detailHeaderLeadingAction?: ComponentChildren;
   showDetailBackButton?: boolean;
 }) => {
@@ -339,7 +334,6 @@ export const PracticeContactsPage = ({
 
   const pathSuffix = location.path.startsWith(basePath) ? location.path.slice(basePath.length) : '';
   const pathSegments = pathSuffix.replace(/^\/+/, '').split('/').filter(Boolean);
-  const isAddClientOpen = location.query?.create === '1';
   const contactsScope = (() => {
     if (pathSegments[0] === 'archived') return 'archived';
     if (pathSegments[0] === 'team') return 'team';
@@ -381,14 +375,15 @@ export const PracticeContactsPage = ({
     isLoading: invitationsLoading,
     error: invitationsError,
     cancelInvitation,
-    refetch: refetchPendingInvitations,
   } = usePracticeInvitations(activePracticeId);
   const {
     members: teamMembersData,
-    isLoaded: teamMembersLoaded,
     isLoading: isFetchingMembers,
     error: teamMembersError,
   } = usePracticeTeam(activePracticeId, session?.user?.id ?? null, { enabled: Boolean(activePracticeId) });
+  // First load done implied by `!isFetchingMembers` (isLoading is permanently
+  // false after the first response).
+  const teamMembersLoaded = !isFetchingMembers;
 
   const memoTimeline = useMemo(
     () => (activePracticeId ? (memoTimelineByPractice[activePracticeId] ?? {}) : {}),
@@ -484,7 +479,7 @@ export const PracticeContactsPage = ({
       });
       cancelled = true;
     };
-  }, [activePracticeId, hydratedAddressByDetailId, prefetchedItems]);
+  }, [activePracticeId, prefetchedItems, hydratedAddressByDetailId]);
   const teamMembers = useMemo<DirectoryRecord[]>(() => {
     return teamMembersData.map<DirectoryRecord>((member) => ({
         id: `team:${member.userId}`,
@@ -668,6 +663,10 @@ export const PracticeContactsPage = ({
       .then((detail) => {
         if (controller.signal.aborted) return;
         if (!detail) {
+          console.warn('[Contacts] Selected contact was not found', {
+            practiceId: activePracticeId,
+            contactId: selectedClientIdFromPath,
+          });
           setSelectedClientRemote(null);
           return;
         }
@@ -800,16 +799,16 @@ export const PracticeContactsPage = ({
   }, [activePracticeId, basePath, location, sendMessagePending, showError, conversationsPath]);
 
   const handleOpenAddClient = useCallback(() => {
-    location.route(`${location.path}?create=1`);
-  }, [location]);
+    // Normalize to a leading-slash path so encoded returnTo is canonical
+    const raw = typeof location.url === 'string' ? location.url : '';
+    const normalizedUrl = raw.startsWith('/') ? raw : `/${raw}`;
+    const returnTo = encodeURIComponent(normalizedUrl);
+    location.route(`${basePath}/new?returnTo=${returnTo}`);
+  }, [basePath, location]);
   const handleOpenTeamInvite = useCallback(() => {
     const settingsTeamPath = basePath.replace(/\/contacts$/, '/settings/practice/team');
     location.route(`${settingsTeamPath}?invite=1`);
   }, [basePath, location]);
-
-  const handleCloseAddClient = useCallback(() => {
-    location.route(location.path);
-  }, [location]);
 
   const origin = (typeof window !== 'undefined' && window.location)
     ? window.location.origin
@@ -833,10 +832,12 @@ export const PracticeContactsPage = ({
   const handleCancelPendingInvitation = useCallback(async (invitationId: string) => {
     try {
       await cancelInvitation(invitationId);
-      showSuccess('Invitation canceled', 'The pending invitation was successfully canceled');
       if (selectedPendingInvitationIdFromPath === invitationId) {
+        showSuccess('Invitation canceled', 'The pending invitation was successfully canceled');
         location.route(`${basePath}/pending`);
+        return;
       }
+      showSuccess('Invitation canceled', 'The pending invitation was successfully canceled');
     } catch (error) {
       showError('Failed to cancel invitation', error instanceof Error ? error.message : 'Unknown error');
     }
@@ -901,8 +902,8 @@ export const PracticeContactsPage = ({
           ) : null}
         </ul>
       </div>
-      {letters.length > 0 ? (
-        <div className="pointer-events-auto absolute right-1 top-1/2 z-20 -translate-y-1/2 hidden md:flex flex-col items-center gap-1 text-[11px] font-medium text-input-placeholder border border-line-utility bg-surface-workspace/80">
+          {letters.length > 0 ? (
+        <div className="pointer-events-auto absolute right-1 top-1/2 z-20 -translate-y-1/2 hidden md:flex flex-col items-center gap-1 text-[11px] font-medium text-input-placeholder bg-surface-workspace/80">
           {letters.map((letter) => (
             <Button
               key={letter}
@@ -1025,7 +1026,7 @@ export const PracticeContactsPage = ({
       title="Invite a contact to get started"
       description="Invite clients or team members, then select them from the list to view details."
       primaryAction={{
-        label: 'Invite contact',
+        label: 'New Contact',
         onClick: handleOpenAddClient,
       }}
       secondaryAction={{
@@ -1082,15 +1083,6 @@ export const PracticeContactsPage = ({
     </div>
   ) : null;
 
-  const addClientModal = (
-    <AddContactDialog
-      practiceId={activePracticeId}
-      isOpen={isAddClientOpen}
-      onClose={handleCloseAddClient}
-      onSuccess={isPendingListRoute ? () => void refetchPendingInvitations() : undefined}
-    />
-  );
-
   const renderCenteredState = (children: ComponentChildren) => (
     <div className="h-full flex items-center justify-center">
       {children}
@@ -1135,7 +1127,6 @@ export const PracticeContactsPage = ({
     showBack = false,
     leadingAction,
     actions,
-    inspectorOpen,
   }: {
     title: string;
     backHref?: string;
@@ -1143,7 +1134,6 @@ export const PracticeContactsPage = ({
     showBack?: boolean;
     leadingAction?: ComponentChildren;
     actions?: ComponentChildren;
-    inspectorOpen?: boolean;
   }) => (
     <div className="h-full min-h-0 overflow-hidden">
       <div className="h-full min-h-0 flex flex-col">
@@ -1153,8 +1143,6 @@ export const PracticeContactsPage = ({
           onBack={backHref ? () => location.route(backHref) : undefined}
           leadingAction={leadingAction}
           actions={actions}
-          onInspector={onDetailInspector}
-          inspectorOpen={inspectorOpen}
         />
         <div className="min-h-0 flex-1 overflow-hidden px-4 pb-4 sm:px-6 sm:pb-6">
           {body}
@@ -1164,9 +1152,7 @@ export const PracticeContactsPage = ({
   );
   const listPanelContent = isPendingListRoute
     ? {
-        content: sortedPendingInvitations.length === 0
-          ? <PendingEmptyState onInviteClient={handleOpenAddClient} />
-          : <div className="min-h-0 flex-1">{pendingInvitationListPane}</div>,
+        content: <div className="min-h-0 flex-1">{pendingInvitationListPane}</div>,
         useEmptyMinHeight: true,
       }
     : {
@@ -1201,9 +1187,7 @@ export const PracticeContactsPage = ({
           body: detailConfig.body,
           leadingAction: detailHeaderLeadingAction,
           actions: detailHeaderActions,
-          inspectorOpen: detailInspectorOpen,
         })}
-        {addClientModal}
       </>
     );
   }
@@ -1218,9 +1202,7 @@ export const PracticeContactsPage = ({
           body: detailConfig.body,
           leadingAction: detailHeaderLeadingAction,
           actions: detailHeaderActions,
-          inspectorOpen: detailInspectorOpen,
         })}
-        {addClientModal}
       </>
     );
   }
@@ -1235,7 +1217,6 @@ export const PracticeContactsPage = ({
           useEmptyMinHeight: listPanelContent.useEmptyMinHeight,
         })}
       </div>
-      {addClientModal}
     </>
   );
 };

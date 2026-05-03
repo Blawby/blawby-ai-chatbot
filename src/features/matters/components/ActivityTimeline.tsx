@@ -68,7 +68,7 @@ const ActivityTimeline: FunctionComponent<ActivityTimelineProps> = ({
   limit = 25
 }) => {
   // Use the activity hook to fetch real data
-  const { events, loading: _loading, error, hasMore, loadMore, refresh } = useActivity({
+  const { events, isLoading: _isLoading, error, hasMore, loadMore, refresh } = useActivity({
     practiceId,
     matterId,
     conversationId,

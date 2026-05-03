@@ -1,16 +1,62 @@
 import { FunctionComponent } from 'preact';
 import { useTranslation } from '@/shared/i18n/hooks';
-import { Send } from 'lucide-preact';
-
+import { MessageSquare, Send } from 'lucide-preact';
 import { Avatar } from '@/shared/ui/profile/atoms/Avatar';
 import { Button } from '@/shared/ui/Button';
-import { WorkspaceListHeader } from '@/shared/ui/layout';
+import { Icon } from '@/shared/ui/Icon';
+import { WorkspaceListHeader, SkeletonLoader } from '@/shared/ui/layout';
 import { cn } from '@/shared/utils/cn';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
 import type { Conversation } from '@/shared/types/conversation';
 import { chatTypography } from '@/features/chat/styles/chatTypography';
 import { ChatText } from '@/features/chat/components/ChatText';
-import { resolveConversationDisplayTitle } from '@/shared/utils/conversationDisplay';
+import {
+  resolveConversationContactName,
+  resolveConversationDisplayTitle,
+} from '@/shared/utils/conversationDisplay';
+
+const WidgetConversationListSkeleton = ({ rows = 6 }: { rows?: number }) => (
+  <div className="divide-y divide-line-glass/[0.04] pt-1">
+    {Array.from({ length: rows }, (_, i) => {
+      const titleW = ['w-32', 'w-40', 'w-28', 'w-36', 'w-44', 'w-32'][i % 6];
+      const previewW = ['w-44', 'w-52', 'w-36', 'w-48', 'w-40', 'w-44'][i % 6];
+      return (
+        <div
+          key={i}
+          className="flex w-full items-start gap-3 px-4 py-3"
+          aria-hidden="true"
+        >
+          <SkeletonLoader variant="avatar" />
+          <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+            <div className="flex items-center justify-between gap-3">
+              <SkeletonLoader variant="text" height="h-3.5" width={titleW} rounded="rounded-md" />
+              <SkeletonLoader variant="text" height="h-2.5" width="w-10" rounded="rounded" />
+            </div>
+            <SkeletonLoader variant="text" height="h-3" width={previewW} rounded="rounded-md" />
+          </div>
+        </div>
+      );
+    })}
+  </div>
+);
+
+const WidgetConversationListEmptyState = ({
+  title,
+  hint,
+}: { title: string; hint: string }) => (
+  <div className="flex flex-1 items-center justify-center px-6 py-10">
+    <div className="flex max-w-xs flex-col items-center gap-3 text-center">
+      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-surface-overlay/60 ring-1 ring-line-glass/20">
+        <Icon
+          icon={MessageSquare}
+          className="h-6 w-6 text-input-placeholder"
+        />
+      </div>
+      <p className="text-sm font-medium text-input-text">{title}</p>
+      <p className="text-xs leading-5 text-input-placeholder">{hint}</p>
+    </div>
+  </div>
+);
 
 interface ConversationPreview {
   content: string;
@@ -65,20 +111,29 @@ const WidgetConversationListView: FunctionComponent<WidgetConversationListViewPr
         isLoading={isLoading}
       />
 
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex flex-1 flex-col overflow-y-auto">
         {isLoading ? (
-          <div className="py-6 text-sm text-input-text/80">{t('workspace.conversationList.loading')}</div>
+          <WidgetConversationListSkeleton />
         ) : errorMessage ? (
-          <div className="py-6 text-sm text-red-500 dark:text-red-300">
-            {errorMessage}
+          <div className="flex flex-1 items-center justify-center px-6 py-10">
+            <p className="max-w-xs text-center text-sm text-red-500 dark:text-red-300">
+              {errorMessage}
+            </p>
           </div>
         ) : sorted.length === 0 ? (
-          <div className="py-6 text-sm text-input-text/80">{t('workspace.conversationList.empty')}</div>
+          <WidgetConversationListEmptyState
+            title={t('workspace.conversationList.empty', { defaultValue: 'No conversations yet' })}
+            hint={t('workspace.conversationList.emptyHint', {
+              defaultValue: 'New conversations will appear here as they come in.',
+            })}
+          />
         ) : (
           <div className="pt-1 divide-y divide-line-glass/[0.04]">
             {sorted.map((conversation) => {
               const preview = previews[conversation.id];
+              const contactName = resolveConversationContactName(conversation);
               const title = resolveConversationDisplayTitle(conversation, fallbackName);
+              const avatarName = contactName || fallbackName || t('workspace.conversationList.avatarFallback', { defaultValue: 'Contact' });
               const timeLabel = formatRelativeTime(conversation.updated_at);
               const previewText = preview?.content
                 ? preview.content
@@ -99,7 +154,7 @@ const WidgetConversationListView: FunctionComponent<WidgetConversationListViewPr
                 >
                   <Avatar
                     src={null}
-                    name={title}
+                    name={avatarName}
                     size="md"
                     className="ring-2 ring-line-glass/10"
                   />

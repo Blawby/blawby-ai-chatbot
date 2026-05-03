@@ -6,7 +6,7 @@ import { Inbox } from 'lucide-preact';
 import type { IconComponent } from '@/shared/ui/Icon';
 
 const InboxIcon: IconComponent = (props) => (
-  // Heroicons types are incompatible with our IconComponent; adapt here
+  // Heroicons types are incompatible with our IconComponent; forced cast is required
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   <Inbox {...(props as any)} />
 );
@@ -22,6 +22,7 @@ import IntakeDetailPage from './IntakeDetailPage';
 import IntakeTemplatesPage from './IntakeTemplatesPage';
 import { resolveIntakeTitle } from '@/features/intake/utils/intakeTitle';
 import { DEFAULT_INTAKE_TEMPLATE } from '@/shared/constants/intakeTemplates';
+import { SELECTED_ACCENT_SURFACE_CLASS } from '@/shared/ui/layout/selectionStyles';
 
 const PAGE_SIZE = 20;
 // Limit additional backend pages fetched in client-side template filtering to avoid unbounded sequential fetches
@@ -65,7 +66,7 @@ const IntakeListItemRow = ({
   return (
     <div className={cn(
       'w-full px-4 py-3.5 text-left flex items-center gap-3 transition-colors duration-150',
-      isSelected ? 'bg-surface-utility/60' : 'hover:bg-surface-utility/40'
+      isSelected ? SELECTED_ACCENT_SURFACE_CLASS : 'hover:bg-surface-utility/40'
     )}>
       <Avatar
         name={name}
@@ -324,6 +325,7 @@ export const IntakesPage: FunctionComponent<IntakesPageProps> = ({
           isLoadingMore={isLoadingMore}
           error={displayError}
           onLoadMore={hasMore ? loadMore : undefined}
+          minMountSkeletonMs={250}
           emptyState={
             <WorkspacePlaceholderState
               icon={InboxIcon}

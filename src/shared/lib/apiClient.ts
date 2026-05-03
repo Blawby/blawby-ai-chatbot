@@ -19,6 +19,10 @@ import {
 } from '@/shared/utils/money';
 import { isTeamRole } from '@/shared/types/team';
 import { getWidgetAuthToken } from '@/shared/utils/widgetAuth';
+// authClient is already statically bundled via 13+ direct imports across the app.
+// Keeping this as a static import avoids a Vite warning about dynamic imports
+// being collapsed into the main chunk when a static import already exists.
+import { getClient as getAuthClient } from '@/shared/lib/authClient';
 
 let cachedBaseUrl: string | null = null;
 let isHandling401: Promise<void> | null = null;
@@ -288,6 +292,7 @@ async function apiUpload<T>(
     if (config?.onProgress) {
       xhr.upload.onprogress = (event) => {
         if (!event.lengthComputable) return;
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
         config.onProgress!({
           loaded: event.loaded,
           total: event.total,
@@ -597,6 +602,8 @@ export interface PracticeDetailsUpdate {
   services?: Array<Record<string, unknown>> | null;
   serviceStates?: string[] | null;
   supportedStates?: SupportedStateEntry[] | null;
+  /** Map of state code -> array of service ids offered in that state */
+  servicesByState?: Record<string, string[]> | null;
   businessOnboardingHasDraft?: boolean;
   businessOnboardingStatus?: 'not_required' | 'pending' | 'completed' | 'skipped';
   /** Raw JSON string stored in the practice settings column. Passed through as-is. */
@@ -635,6 +642,8 @@ export interface PracticeDetails {
   services?: Array<Record<string, unknown>> | null;
   serviceStates?: string[] | null;
   supportedStates?: SupportedStateEntry[] | null;
+  /** Map of state code -> array of service ids offered in that state */
+  servicesByState?: Record<string, string[]> | null;
   /** Raw JSON string stored in the practice settings column. */
   settings?: string | null;
   /** Arbitrary practice metadata. */
@@ -1486,7 +1495,6 @@ export async function getUserDetailAddressById(
 
 export type CreateUserDetailPayload = {
   email: string;
-  event_name?: string;
 };
 
 type UserDetailBasePayload = {
@@ -1564,11 +1572,11 @@ export async function createUserDetail(
     throw new Error('Email is required');
   }
 
-  // Use Better Auth organization invitation instead of direct user-details creation.
-  const { getClient } = await import('@/shared/lib/authClient');
-  const authClient = getClient();
-
+  // authClient is statically imported at the top of this file; no dynamic
+  // import needed (doing so would produce a Vite warning and no chunk split).
+  let authClient;
   try {
+    authClient = getAuthClient();
     if (import.meta.env.DEV) {
       console.info('[apiClient] inviteMember', {
         organizationId: practiceId,
@@ -1775,9 +1783,6 @@ export async function updatePracticeDetails(
     throw new Error('practiceId is required');
   }
   const normalized = normalizePracticeDetailsPayload(details);
-  if (import.meta.env.DEV) {
-    console.info('[apiClient] updatePracticeDetails payload', { practiceId, payload: normalized });
-  }
   const response = await apiClient.put(
     `/api/practice/${encodeURIComponent(practiceId)}/details`,
     normalized,
@@ -2124,6 +2129,39 @@ function normalizePracticeDetailsPayload(payload: PracticeDetailsUpdate): Record
       : payload.serviceStates;
   }
 
+  // If callers provided a top-level `servicesByState`, serialize and merge
+  // it into the opaque `settings` JSON so the backend receives the
+  // `services_by_state` key. This preserves the write-time type while
+  // ensuring the data is sent inside `settings` as expected by the API.
+  if ('servicesByState' in payload && payload.servicesByState !== undefined) {
+    const existingSettingsRaw = (payload as Record<string, unknown>).settings;
+    let base: Record<string, unknown> = {};
+    if (typeof existingSettingsRaw === 'string' && existingSettingsRaw.trim().length > 0) {
+      try {
+        const parsed = JSON.parse(existingSettingsRaw);
+        if (!isRecord(parsed)) {
+          throw new Error('Practice settings must be a JSON object when servicesByState is provided.');
+        }
+        base = parsed;
+      } catch (err) {
+        throw new Error(`Invalid JSON in payload.settings: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
+    // Only set normalized.settings here if it hasn't already been set, otherwise merge
+    if (typeof normalized.settings === 'string') {
+      try {
+        const current = JSON.parse(normalized.settings);
+        if (isRecord(current)) {
+          base = { ...current, ...base };
+        }
+      } catch {
+        // If normalized.settings is invalid, overwrite with base
+      }
+    }
+    base.services_by_state = payload.servicesByState;
+    normalized.settings = JSON.stringify(base);
+  }
+
   if ('supportedStates' in payload && payload.supportedStates !== undefined) {
     if (Array.isArray(payload.supportedStates)) {
       normalized.supported_states = payload.supportedStates
@@ -2152,6 +2190,11 @@ function normalizePracticeDetailsPayload(payload: PracticeDetailsUpdate): Record
       normalized.supported_states = payload.supportedStates;
     }
   }
+
+  // NOTE: Persist `services_by_state` inside `settings` (opaque JSON string).
+  // The frontend MUST set `payload.settings` to a JSON string that contains
+  // a `services_by_state` property when saving per-state services. Do NOT
+  // create a top-level `services_by_state` field — the backend does not accept it.
 
   return normalized;
 }
@@ -2333,6 +2376,30 @@ export function normalizePracticeDetailsResponse(payload: unknown): PracticeDeta
          .filter((e): e is SupportedStateEntry => e !== null);
        return result;
      })(),
+    servicesByState: (() => {
+      // Persisted location: `settings.services_by_state` (opaque JSON string).
+      // No fallbacks: if not present in `settings`, treat as undefined.
+      if (!('settings' in container)) return undefined;
+      const rawSettings = container.settings;
+      if (typeof rawSettings !== 'string') return undefined;
+      try {
+        const parsed = JSON.parse(rawSettings);
+        if (!isRecord(parsed) || !('services_by_state' in parsed)) return undefined;
+        const raw = (parsed as Record<string, unknown>).services_by_state;
+        if (!isRecord(raw)) return null;
+        const result: Record<string, string[]> = {};
+        for (const [k, v] of Object.entries(raw)) {
+          if (!Array.isArray(v)) continue;
+          const services = v.filter((s): s is string => typeof s === 'string').map((s) => s.trim()).filter(Boolean);
+          if (services.length > 0) {
+            result[k.trim().toUpperCase()] = services;
+          }
+        }
+        return result;
+      } catch {
+        return undefined;
+      }
+    })(),
      // Pass settings through as an opaque string so the UI can read/write it.
      settings: 'settings' in container
        ? (typeof container.settings === 'string' ? container.settings : null)
@@ -2515,4 +2582,3 @@ export async function listSubscriptions(
   const data = response.data as SubscriptionListResponse;
   return normalizeSubscriptionListResponse(data) as SubscriptionListItem[];
 }
-

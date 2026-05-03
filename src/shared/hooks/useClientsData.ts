@@ -47,7 +47,6 @@ export const useClientsData = (
 
   return {
     items: data ?? [],
-    isLoaded: data !== undefined,
     isLoading,
     error,
     refetch,

@@ -6,7 +6,8 @@ import { Icon } from '@/shared/ui/Icon';
 import { Button } from '@/shared/ui/Button';
 import { UserCard } from '@/shared/ui/profile';
 import { EditorShell, DetailHeader } from '@/shared/ui/layout';
-import { LoadingBlock } from '@/shared/ui/layout/LoadingBlock';
+import { MessageRowSkeleton } from '@/shared/ui/layout';
+import { EngagementDetailSkeleton } from '@/features/engagements/components/EngagementDetailSkeleton';
 import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
 import { Dialog, DialogBody, DialogFooter } from '@/shared/ui/dialog';
 import { Textarea } from '@/shared/ui/input';
@@ -18,21 +19,19 @@ import { formatLongDate } from '@/shared/utils/dateFormatter';
 import VirtualMessageList from '@/features/chat/components/VirtualMessageList';
 import type { ChatMessageUI } from '../../../../worker/types';
 import {
-  getEngagement,
   sendEngagementToClient,
-  withdrawEngagement,
+  declineEngagement,
 } from '../api/engagementsApi';
 import type { EngagementDetail, ProposalData, ConflictStatus } from '../types/engagement';
+import { useEngagementDetail } from '../hooks/useEngagementDetail';
 
 // ── Status display utilities ──────────────────────────────────────────────────
 
 const ENGAGEMENT_CHIP: Record<string, string> = {
-  intake_accepted:    'bg-blue-500/10 text-blue-700 ring-blue-500/20 dark:text-blue-300',
-  engagement_draft:   'bg-amber-500/10 text-amber-700 ring-amber-500/20 dark:text-amber-300',
-  engagement_sent:    'bg-violet-500/10 text-violet-700 ring-violet-500/20 dark:text-violet-300',
-  engagement_pending: 'bg-amber-500/10 text-amber-700 ring-amber-500/20 dark:text-amber-300',
-  engagement_accepted:'bg-emerald-500/10 text-emerald-700 ring-emerald-500/20 dark:text-emerald-300',
-  active:             'bg-emerald-500/10 text-emerald-700 ring-emerald-500/20 dark:text-emerald-300',
+  draft:    'bg-amber-500/10 text-amber-700 ring-amber-500/20 dark:text-amber-300',
+  sent:     'bg-violet-500/10 text-violet-700 ring-violet-500/20 dark:text-violet-300',
+  accepted: 'bg-emerald-500/10 text-emerald-700 ring-emerald-500/20 dark:text-emerald-300',
+  declined: 'bg-rose-500/10 text-rose-700 ring-rose-500/20 dark:text-rose-300',
 };
 const NEUTRAL_CHIP = 'bg-surface-overlay/60 text-input-placeholder ring-line-glass/30';
 
@@ -41,13 +40,10 @@ function statusChipClass(status?: string) {
 }
 
 function statusLabel(status?: string) {
-  if (status === 'intake_accepted') return 'Intake Accepted';
-  if (status === 'engagement_draft') return 'Draft';
-  if (status === 'engagement_sent') return 'Sent to client';
-  if (status === 'engagement_pending') return 'Under review';
-  if (status === 'engagement_accepted') return 'Client accepted';
-  if (status === 'active') return 'Active';
-  if (status === 'engagement_withdrawn') return 'Withdrawn';
+  if (status === 'draft') return 'Draft';
+  if (status === 'sent') return 'Sent to client';
+  if (status === 'accepted') return 'Client accepted';
+  if (status === 'declined') return 'Declined';
   return status ?? 'Unknown';
 }
 
@@ -210,20 +206,20 @@ const ScopeCard: FunctionComponent<{ proposal: ProposalData | null | undefined }
 
 // ── Fees card ──────────────────────────────────────────────────────────────────
 
-const FeesCard: FunctionComponent<{ proposal: ProposalData | null | undefined; engagement: EngagementDetail }> = ({
+const FeesCard: FunctionComponent<{ proposal: ProposalData | null | undefined }> = ({
   proposal,
-  engagement,
 }) => {
   const fees = proposal?.fees;
-  const currency = fees?.currency ?? engagement.currency ?? 'USD';
 
   const rows: Array<{ label: string; value: string | null }> = [
-    { label: 'Billing type', value: fees?.billing_type ?? engagement.billing_type ?? null },
-    { label: 'Rate', value: fees?.rate != null ? formatMoney(fees.rate, currency) : (engagement.rate != null ? formatMoney(engagement.rate, currency) : null) },
-    { label: 'Retainer', value: fees?.retainer != null ? formatMoney(fees.retainer, currency) : (engagement.retainer != null ? formatMoney(engagement.retainer, currency) : null) },
-    { label: 'Flat fee', value: fees?.flat_fee != null ? formatMoney(fees.flat_fee, currency) : null },
-    { label: 'Contingency', value: fees?.contingency_pct != null ? `${fees.contingency_pct}%` : null },
-    { label: 'Payment terms', value: fees?.payment_terms ?? null },
+    { label: 'Billing type', value: fees?.billing_type ?? null },
+    { label: 'Attorney rate', value: fees?.hourly_rate_attorney != null ? formatMoney(fees.hourly_rate_attorney) : null },
+    { label: 'Admin rate', value: fees?.hourly_rate_admin != null ? formatMoney(fees.hourly_rate_admin) : null },
+    { label: 'Retainer', value: fees?.retainer_amount != null ? formatMoney(fees.retainer_amount) : null },
+    { label: 'Fixed fee', value: fees?.fixed_fee_amount != null ? formatMoney(fees.fixed_fee_amount) : null },
+    { label: 'Contingency', value: fees?.contingency_percentage != null ? `${fees.contingency_percentage}%` : null },
+    { label: 'Payment frequency', value: fees?.payment_frequency ?? null },
+    { label: 'Fee notes', value: fees?.fee_notes ?? null },
   ].filter((row) => row.value !== null);
 
   if (rows.length === 0) return null;
@@ -269,7 +265,7 @@ const GoalsSection: FunctionComponent<{ proposal: ProposalData | null | undefine
 
 // ── Action dialogs ─────────────────────────────────────────────────────────────
 
-type DialogAction = 'send' | 'withdraw' | null;
+type DialogAction = 'send' | 'decline' | null;
 
 // ── Main component ────────────────────────────────────────────────────────────
 
@@ -296,9 +292,13 @@ export const EngagementDetailPage: FunctionComponent<EngagementDetailPageProps> 
   const { showSuccess, showError } = useToastContext();
   const { session } = useSessionContext();
 
-  const [engagement, setEngagement] = useState<EngagementDetail | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const {
+    data: engagementData,
+    isLoading,
+    error: loadError,
+    setData: setEngagementCache,
+  } = useEngagementDetail(practiceId, engagementId);
+  const engagement: EngagementDetail | null = engagementData ?? null;
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [dialogAction, setDialogAction] = useState<DialogAction>(null);
   const [dialogNote, setDialogNote] = useState('');
@@ -312,31 +312,6 @@ export const EngagementDetailPage: FunctionComponent<EngagementDetailPageProps> 
     isMountedRef.current = true;
     return () => { isMountedRef.current = false; };
   }, []);
-
-  // Load engagement detail
-  useEffect(() => {
-    if (!practiceId || !engagementId) return;
-    const controller = new AbortController();
-    setIsLoading(true);
-    setLoadError(null);
-
-    getEngagement(practiceId, engagementId, { signal: controller.signal })
-      .then((data) => {
-        if (!isMountedRef.current || controller.signal.aborted) return;
-        setEngagement(data);
-        setLocalStatus(data.status ?? null);
-      })
-      .catch((err: unknown) => {
-        if (!isMountedRef.current || controller.signal.aborted) return;
-        if (err instanceof Error && err.name === 'AbortError') return;
-        setLoadError(err instanceof Error ? err.message : 'Failed to load engagement');
-      })
-      .finally(() => {
-        if (isMountedRef.current && !controller.signal.aborted) setIsLoading(false);
-      });
-
-    return () => controller.abort();
-  }, [practiceId, engagementId]);
 
   // Load conversation preview
   useEffect(() => {
@@ -391,12 +366,12 @@ export const EngagementDetailPage: FunctionComponent<EngagementDetailPageProps> 
   }, [isSubmitting]);
 
   const runSendToClient = useCallback(async () => {
-    if (isSubmitting || !engagement) return;
+    if (isSubmitting || !engagement || !practiceId) return;
     setIsSubmitting(true);
     try {
-      const updated = await sendEngagementToClient(engagement.id, dialogNote);
+      const updated = await sendEngagementToClient(practiceId, engagement.id, dialogNote);
       if (isMountedRef.current) {
-        setEngagement(updated);
+        setEngagementCache(updated);
         setLocalStatus(updated.status);
         setDialogAction(null);
         setDialogNote('');
@@ -410,42 +385,40 @@ export const EngagementDetailPage: FunctionComponent<EngagementDetailPageProps> 
     } finally {
       if (isMountedRef.current) setIsSubmitting(false);
     }
-  }, [engagement, isSubmitting, onActionComplete, showError, showSuccess, dialogNote]);
+  }, [engagement, isSubmitting, onActionComplete, showError, showSuccess, dialogNote, setEngagementCache, practiceId]);
 
-  const runWithdraw = useCallback(async () => {
-    if (isSubmitting || !engagement) return;
+  const runDecline = useCallback(async () => {
+    if (isSubmitting || !engagement || !practiceId) return;
     setIsSubmitting(true);
     try {
-      const updated = await withdrawEngagement(engagement.id);
+      const updated = await declineEngagement(practiceId, engagement.id);
       if (isMountedRef.current) {
-        setEngagement(updated);
+        setEngagementCache(updated);
         setLocalStatus(updated.status);
         setDialogAction(null);
         setDialogNote('');
-        showSuccess('Withdrawn', 'The proposal has been withdrawn.');
+        showSuccess('Declined', 'The proposal has been marked declined.');
         onActionComplete?.();
       }
     } catch (err) {
       if (isMountedRef.current) {
-        showError('Failed to withdraw', err instanceof Error ? err.message : 'Could not withdraw proposal');
+        showError('Failed to decline', err instanceof Error ? err.message : 'Could not decline proposal');
       }
     } finally {
       if (isMountedRef.current) setIsSubmitting(false);
     }
-  }, [engagement, isSubmitting, onActionComplete, showError, showSuccess]);
+  }, [engagement, isSubmitting, onActionComplete, showError, showSuccess, setEngagementCache, practiceId]);
 
   const handleDialogConfirm = useCallback(async () => {
     if (dialogAction === 'send') await runSendToClient();
-    else if (dialogAction === 'withdraw') await runWithdraw();
-  }, [dialogAction, runSendToClient, runWithdraw]);
+    else if (dialogAction === 'decline') await runDecline();
+  }, [dialogAction, runSendToClient, runDecline]);
 
   if (isLoading) {
     return (
       <div className="flex h-full flex-col min-h-0">
         <DetailHeader title="Engagement" showBack onBack={onBack} />
-        <div className="flex-1 min-h-0 p-6">
-          <LoadingBlock className="rounded-2xl h-64" />
-        </div>
+        <EngagementDetailSkeleton />
       </div>
     );
   }
@@ -465,9 +438,9 @@ export const EngagementDetailPage: FunctionComponent<EngagementDetailPageProps> 
 
   const effectiveStatus = localStatus ?? engagement.status;
   const proposal = engagement.proposal_data ?? null;
-  const isDraft = effectiveStatus === 'engagement_draft' || effectiveStatus === 'intake_accepted';
-  const isSent = effectiveStatus === 'engagement_sent';
-  const isAccepted = effectiveStatus === 'engagement_accepted' || effectiveStatus === 'active';
+  const isDraft = effectiveStatus === 'draft';
+  const isSent = effectiveStatus === 'sent';
+  const isAccepted = effectiveStatus === 'accepted';
 
   return (
     <EditorShell
@@ -515,8 +488,8 @@ export const EngagementDetailPage: FunctionComponent<EngagementDetailPageProps> 
                   <p className="text-base font-bold text-violet-700 dark:text-violet-300">Sent to Client</p>
                   <p className="text-xs text-input-placeholder mt-2">Awaiting client acceptance.</p>
                 </div>
-                <Button variant="secondary" className="w-full" disabled={isSubmitting} onClick={() => openDialog('withdraw')}>
-                  Withdraw Proposal
+                <Button variant="secondary" className="w-full" disabled={isSubmitting} onClick={() => openDialog('decline')}>
+                  Mark Declined
                 </Button>
               </>
             )}
@@ -581,7 +554,11 @@ export const EngagementDetailPage: FunctionComponent<EngagementDetailPageProps> 
               <div className="flex-1 min-h-0 overflow-hidden bg-surface-overlay/20 touch-pan-y">
                 {previewLoading && previewMessages.length === 0 ? (
                   <div className="h-full flex items-center justify-center p-6">
-                    <LoadingBlock label="Loading conversation..." />
+                    <div className="w-full space-y-3 px-4 py-4">
+                      <MessageRowSkeleton lineWidths={['w-40', 'w-56']} />
+                      <MessageRowSkeleton lineWidths={['w-64', 'w-44', 'w-52']} />
+                      <MessageRowSkeleton lineWidths={['w-36', 'w-48']} />
+                    </div>
                   </div>
                 ) : previewError ? (
                   <div className="h-full flex items-center justify-center p-6 text-center">
@@ -670,7 +647,7 @@ export const EngagementDetailPage: FunctionComponent<EngagementDetailPageProps> 
 
         {/* Detail cards */}
         <ScopeCard proposal={proposal} />
-        <FeesCard proposal={proposal} engagement={engagement} />
+        <FeesCard proposal={proposal} />
         <GoalsSection proposal={proposal} />
         <ConflictPanel proposal={proposal} />
       </div>
@@ -678,11 +655,11 @@ export const EngagementDetailPage: FunctionComponent<EngagementDetailPageProps> 
       <Dialog
         isOpen={dialogAction !== null}
         onClose={closeDialog}
-        title={dialogAction === 'send' ? 'Send to client' : 'Withdraw proposal'}
+        title={dialogAction === 'send' ? 'Send to client' : 'Mark declined'}
         description={
           dialogAction === 'send'
             ? 'The client will receive an email with a link to review and accept the engagement.'
-            : 'This will withdraw the proposal and return the engagement to draft status.'
+            : 'This will mark the proposal as declined.'
         }
         disableBackdropClick={isSubmitting}
       >
@@ -691,7 +668,7 @@ export const EngagementDetailPage: FunctionComponent<EngagementDetailPageProps> 
             <p className="text-sm text-input-placeholder">
               {dialogAction === 'send'
                 ? 'Once sent, the client can review the scope, fee terms, and accept online.'
-                : 'The client link will no longer be active after withdrawal.'}
+                : 'The engagement contract status will be changed to declined.'}
             </p>
           </div>
           {dialogAction === 'send' && (
@@ -711,13 +688,13 @@ export const EngagementDetailPage: FunctionComponent<EngagementDetailPageProps> 
             Cancel
           </Button>
           <Button
-            variant={dialogAction === 'withdraw' ? 'danger' : 'primary'}
+            variant={dialogAction === 'decline' ? 'danger' : 'primary'}
             disabled={isSubmitting || !dialogAction}
             onClick={handleDialogConfirm}
           >
             {isSubmitting
-              ? (dialogAction === 'send' ? 'Sending…' : 'Withdrawing…')
-              : (dialogAction === 'send' ? 'Confirm & send' : 'Withdraw proposal')}
+              ? (dialogAction === 'send' ? 'Sending…' : 'Declining…')
+              : (dialogAction === 'send' ? 'Confirm & send' : 'Mark declined')}
           </Button>
         </DialogFooter>
       </Dialog>

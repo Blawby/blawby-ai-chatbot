@@ -109,7 +109,6 @@ const MessageComposer = ({
   const intakeStep = intakeStatus?.step;
   const isIntakeLocked = isPublicWorkspace && (
     intakeStep === 'pending_review' ||
-    intakeStep === 'accepted' ||
     intakeStep === 'rejected'
   );
   const isComposerDisabled = Boolean(disabled) || isSessionReady === false || isSocketReady === false || isIntakeLocked;

@@ -181,8 +181,6 @@ export interface UseIntakeFlowResult {
    * Called by the parent after payment is confirmed, or immediately if no payment needed.
    */
   handleFinalizeSubmit: (options?: { generatePaymentLinkOnly?: boolean }) => Promise<{ paymentLinkUrl: string | null; intakeUuid: string | null }>;
-  /** Backward-compat alias: runs the full confirm+finalize flow (used where no payment UI is wired) */
-  handleSubmitNow: () => Promise<void>;
   /** Apply fields extracted by AI or manual edits */
   applyIntakeFields: (payload: IntakeFieldsPayload, options?: IntakeFieldChangeOptions) => Promise<void>;
   /** Legacy alias or specialized form submit if needed */
@@ -561,13 +559,16 @@ export function useIntakeFlow({
       try {
         if (!templateHasPaymentConfig) {
           try {
+            type SettingsRecord = { consultationFee?: number; consultation_fee?: number };
             const { data: settingsPayload } = await apiClient.get<{
               success?: boolean;
-              data?: {
-                settings?: { consultationFee?: number; consultation_fee?: number };
-              };
+              settings?: SettingsRecord;
+              data?: { settings?: SettingsRecord };
             }>(getPracticeClientIntakeSettingsEndpoint(effectivePracticeSlug));
-            const settings = settingsPayload.data?.settings;
+            // Backend emits the flat shape ({success, settings, organization}); the
+            // nested ({data: {settings}}) form was used by an earlier version. The
+            // worker-side helper already accepts both, so mirror that here.
+            const settings = settingsPayload.settings ?? settingsPayload.data?.settings;
             consultationFee =
               (typeof settings?.consultationFee === 'number' ? settings.consultationFee : 0) ||
               (typeof settings?.consultation_fee === 'number' ? settings.consultation_fee : 0);
@@ -803,11 +804,6 @@ export function useIntakeFlow({
    
   }, [handlePaymentHandoff]);
 
-  /** Backward-compat alias for callers that don't have a payment UI wired */
-  const handleSubmitNow = useCallback(async () => {
-    await handleConfirmSubmit();
-  }, [handleConfirmSubmit]);
-
   const handleContactFormSubmit = useCallback(async (draft: ContactData) => {
     if (!enabled) return;
     try {
@@ -838,7 +834,6 @@ export function useIntakeFlow({
     resetIntakeCta,
     handleConfirmSubmit,
     handleFinalizeSubmit,
-    handleSubmitNow,
     applyIntakeFields,
     handleContactFormSubmit,
   };

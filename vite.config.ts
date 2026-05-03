@@ -267,14 +267,13 @@ export default defineConfig(({ mode }: ConfigEnv) => {
 						}
 						return 'assets/[name]-[hash][extname]';
 					},
-					// Manualchunks configuration for better code splitting
 					manualChunks: {
 						vendor: ['preact', 'preact/hooks', 'preact/jsx-runtime', 'preact/compat', 'nanostores', '@nanostores/preact'],
 						i18n: ['i18next', 'react-i18next', 'i18next-browser-languagedetector'],
 						stripe: ['@stripe/stripe-js', '@stripe/react-stripe-js'],
 						markdown: ['react-markdown', 'remark-gfm'],
 						icons: ['lucide-preact'],
-					}
+					},
 				},
 			},
 			cssCodeSplit: true,

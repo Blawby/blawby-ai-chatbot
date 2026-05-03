@@ -16,7 +16,7 @@ export type ConversationStatus = 'active' | 'archived' | 'completed' | 'closed';
  */
 export type MessageRole = 'user' | 'assistant' | 'system';
 
-export type ConversationMode = 'ASK_QUESTION' | 'REQUEST_CONSULTATION' | 'PRACTICE_ONBOARDING';
+export type ConversationMode = 'ASK_QUESTION' | 'REQUEST_CONSULTATION' | 'PRACTICE_ONBOARDING' | 'CONVERSATION';
 
 export type ChatMessageActionVariant = 'primary' | 'secondary';
 

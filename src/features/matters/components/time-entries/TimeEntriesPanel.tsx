@@ -3,7 +3,7 @@ import { ChevronLeft, ChevronRight, Plus } from 'lucide-preact';
 
 import { Dialog, DialogBody, DialogFooter } from '@/shared/ui/dialog';
 import { Button } from '@/shared/ui/Button';
-import { LoadingBlock } from '@/shared/ui/layout/LoadingBlock';
+import { ListRowSkeleton } from '@/shared/ui/layout';
 import type { TimeEntry } from '@/features/matters/data/matterTypes';
 import { TimeEntryForm, type TimeEntryFormValues } from './TimeEntryForm';
 import { formatDateOnlyStringUtc } from '@/shared/utils/dateOnly';
@@ -185,7 +185,7 @@ export const TimeEntriesPanel = ({
             {error ? (
               <div className="px-6 py-6 text-sm text-red-600 dark:text-red-400">{error}</div>
             ) : loading && entries.length === 0 ? (
-              <LoadingBlock className="px-6 py-6" label="Loading time entries..." />
+              <ListRowSkeleton rows={4} avatar={false} />
             ) : null}
             {showEntries && dailyEntries.map((day) => (
               <button

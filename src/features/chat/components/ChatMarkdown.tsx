@@ -8,6 +8,7 @@ type UrlTransform = (url: string, key: string, node: unknown) => string;
 
 // Custom hook to dynamically import react-markdown on client
 function useReactMarkdown() {
+  // dynamic import: type is unknown until loaded, must use any
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [ReactMarkdown, setReactMarkdown] = useState<any>(null);
   const [defaultUrlTransform, setDefaultUrlTransform] = useState<UrlTransform | null>(null);

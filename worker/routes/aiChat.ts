@@ -82,6 +82,8 @@ const readFiniteNumberField = (record: Record<string, unknown> | null, keys: str
   return null;
 };
 
+
+
 const resolvePracticeRequiresPaymentBeforeSubmission = (details: Record<string, unknown> | null): boolean => {
   if (!details) return false;
   const consultationFee = readFiniteNumberField(details, [
@@ -306,11 +308,13 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
     throw HttpErrors.badRequest(`message content exceeds ${MAX_MESSAGE_LENGTH} characters`);
   }
 
-  // For anonymous widget sessions the slug is on the body — slug-based cache lookup
-  // does not need practiceId, so we can fire it concurrently with getConversationById.
+  // For anonymous widget sessions the slug is on the body, so slug-based
+  // practice details can load concurrently with getConversationById.
   const practiceSlugFromBody = typeof body.practiceSlug === 'string' ? body.practiceSlug.trim() : '';
-  const anonymousPrefetchEnabled = authContext.isAnonymous === true && practiceSlugFromBody.length > 0;
-  const anonymousPracticeDetailsPrefetch = anonymousPrefetchEnabled
+  if (authContext.isAnonymous === true && practiceSlugFromBody.length === 0) {
+    throw HttpErrors.badRequest('practiceSlug is required for anonymous chat');
+  }
+  const anonymousPracticeDetailsPromise = authContext.isAnonymous === true
     ? fetchPracticeDetailsWithCache(env, request, '', practiceSlugFromBody, {
         bypassCache: body.mode === 'PRACTICE_ONBOARDING',
         preferPracticeIdLookup: false,
@@ -352,81 +356,38 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
 
   const auditService = new SessionAuditService(env);
 
-  // Load practice details - audit write is best-effort and should not crash the flow
-  let practiceDetailsPromise: ReturnType<typeof fetchPracticeDetailsWithCache>;
-  
-  // For anonymous sessions, try to use the prefetch if available and practiceId matches
-  if (anonymousPracticeDetailsPrefetch && practiceId) {
-    practiceDetailsPromise = (async () => {
-      try {
-        // Wait for the prefetch to complete
-        const prefetchResult = await anonymousPracticeDetailsPrefetch;
-        
-        // Check if the prefetch result contains practice details that match our practiceId
-        // We need to extract the practice ID from the prefetch result to validate
-        const prefetchPayload = prefetchResult.details;
-        const prefetchPracticeId = prefetchPayload?.id || prefetchPayload?.practiceId;
-        
-        if (prefetchPracticeId === practiceId) {
-          // Prefetch matches our conversation's practice - use it!
-          Logger.info('Using anonymous prefetch result - practiceId matches', {
-            conversationId: body.conversationId,
-            practiceId,
-            prefetchPracticeId,
-            anonymousPrefetch: true
-          });
-          return prefetchResult;
-        } else {
-          // Prefetch doesn't match - fall back to proper lookup
-          Logger.info('Anonymous prefetch practiceId mismatch - falling back to practiceId lookup', {
-            conversationId: body.conversationId,
-            practiceId,
-            prefetchPracticeId,
-            anonymousPrefetch: true
-          });
-          return fetchPracticeDetailsWithCache(
-            env,
-            request,
-            practiceId,
-            practiceSlug || undefined,
-            {
-              bypassCache: effectiveMode === 'PRACTICE_ONBOARDING',
-              preferPracticeIdLookup: authContext.isAnonymous !== true,
-            }
-          );
+  const canonicalPracticeDetailsOptions = {
+    bypassCache: effectiveMode === 'PRACTICE_ONBOARDING',
+    preferPracticeIdLookup: true,
+  };
+
+  // Load practice details - audit write is best-effort and should not crash the flow.
+  const practiceDetailsPromise = anonymousPracticeDetailsPromise
+    ? anonymousPracticeDetailsPromise.then(async (prefetchedResult) => {
+        const prefetchedPracticeId = prefetchedResult.details?.id;
+        if (prefetchedPracticeId === practiceId) {
+          return prefetchedResult;
         }
-      } catch (error) {
-        // Prefetch failed - fall back to normal lookup
-        Logger.warn('Anonymous prefetch failed - falling back to practiceId lookup', {
+        Logger.warn('Anonymous practice details slug result did not match conversation practice; refetching by practiceId', {
           conversationId: body.conversationId,
           practiceId,
-          error: error instanceof Error ? error.message : String(error)
+          prefetchedPracticeId,
         });
         return fetchPracticeDetailsWithCache(
           env,
           request,
           practiceId,
-          practiceSlug || undefined,
-          {
-            bypassCache: effectiveMode === 'PRACTICE_ONBOARDING',
-            preferPracticeIdLookup: authContext.isAnonymous !== true,
-          }
+          null,
+          canonicalPracticeDetailsOptions,
         );
-      }
-    })();
-  } else {
-    // Normal practice details lookup for authenticated sessions or when no prefetch available
-    practiceDetailsPromise = fetchPracticeDetailsWithCache(
-      env,
-      request,
-      practiceId || '',
-      practiceSlug || undefined,
-      {
-        bypassCache: effectiveMode === 'PRACTICE_ONBOARDING',
-        preferPracticeIdLookup: authContext.isAnonymous !== true,
-      }
-    );
-  }
+      })
+    : fetchPracticeDetailsWithCache(
+        env,
+        request,
+        practiceId,
+        practiceSlug || undefined,
+        canonicalPracticeDetailsOptions
+      );
 
   // Best-effort audit write - errors are caught and logged
   auditService.createEvent({
@@ -453,7 +414,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       conversationId: body.conversationId,
       practiceId,
       elapsedMs: Date.now() - requestStartedAt,
-      anonymousPrefetch: anonymousPrefetchEnabled,
+      anonymousSlugLookup: authContext.isAnonymous === true,
     });
   } catch (error) {
     Logger.error('AI chat failed to load practice details', {
@@ -1015,13 +976,20 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         (shouldRequireDisclaimer(body.messages) || CONSULTATION_CTA_REGEX.test(accumulatedReply));
       const includeActionsInMetadata = Boolean(actions && actions.length > 0);
       
-      // Detect tool-only behavior and normalization
+      // Detect tool-only behavior and normalize successful intake tool turns.
       const wasToolOnly = accumulatedReply.trim().length === 0 && streamResult.toolCalls.length > 0;
+      const shouldUseToolReply = isIntakeMode && finalToolResult?.success === true;
       const normalizationReasons: string[] = [];
       let syntheticReply = '';
 
       if (wasToolOnly) {
         normalizationReasons.push('tool_only_completion');
+      }
+
+      if (shouldUseToolReply) {
+        if (!wasToolOnly && accumulatedReply.trim()) {
+          normalizationReasons.push('tool_completion_replaced_model_text');
+        }
         if (isIntakeMode && lastQuestionResult?.success && typeof lastQuestionResult.message === 'string' && lastQuestionResult.message.trim()) {
           syntheticReply = lastQuestionResult.message.trim();
         } else if (isIntakeMode && finalToolResult?.success && patchToMerge) {
@@ -1041,7 +1009,10 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
             nextRequiredFieldAfterPatch,
             intakeSubmissionGate.nextEnrichmentField ?? null,
           );
-        } else if (isIntakeMode && finalToolResult?.success && typeof finalToolResult.message === 'string' && finalToolResult.message.trim()) {
+          if (!syntheticReply && typeof finalToolResult.message === 'string' && finalToolResult.message.trim()) {
+            syntheticReply = finalToolResult.message.trim();
+          }
+        } else if (typeof finalToolResult.message === 'string' && finalToolResult.message.trim()) {
           syntheticReply = finalToolResult.message.trim();
         }
       }
@@ -1077,7 +1048,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
             ...(shouldPromptConsultation
               ? { modeSelector: { showAskQuestion: false, showRequestConsultation: true, source: 'ai' } }
               : {}),
-            ...(wasToolOnly ? { wasToolOnly, normalizationReasons } : {}),
+            ...(wasToolOnly || normalizationReasons.length > 0 ? { wasToolOnly, normalizationReasons } : {}),
           },
           recipientUserId: authContext.user.id,
           skipPracticeValidation: shouldSkipPracticeValidation,
@@ -1090,7 +1061,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
           conversationId: body.conversationId,
           messageId: storedMessage.id,
           role: 'assistant',
-          kind: wasToolOnly ? 'synthetic' : 'original',
+          kind: syntheticReply ? 'synthetic' : 'original',
           wasToolOnly,
         });
 

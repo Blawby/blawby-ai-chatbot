@@ -67,6 +67,7 @@ export const usePracticeInvitations = (practiceId: string | null | undefined): U
   const { data, error, isLoading, refetch } = useQuery<Invitation[]>({
     key: cacheKey,
     fetcher: async (signal) => {
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       const raw = await listPracticeInvitations(practiceId!, { signal });
       return normalizeInvitations(raw);
     },

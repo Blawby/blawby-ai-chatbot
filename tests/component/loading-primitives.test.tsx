@@ -162,7 +162,7 @@ describe('Loading primitives', () => {
     );
 
     const getBlocks = (testId: string) =>
-      Array.from(screen.getByTestId(testId).querySelectorAll('.animate-pulse')) as HTMLDivElement[];
+      Array.from(screen.getByTestId(testId).querySelectorAll('.skeleton-bar')) as HTMLDivElement[];
 
     const textDefault = getBlocks('skeleton-text-default');
     const textWide = getBlocks('skeleton-text-wide');
@@ -173,7 +173,7 @@ describe('Loading primitives', () => {
 
     expect(textDefault).toHaveLength(1);
     expect(textDefault[0]).toHaveClass('h-3', 'w-20', 'rounded');
-    expect(textDefault[0].className).toContain('bg-[rgb(var(--accent-foreground)/0.1)]');
+    expect(textDefault[0].className).toContain('skeleton-bar');
 
     expect(textWide).toHaveLength(1);
     expect(textWide[0]).toHaveClass('h-3', 'w-28', 'rounded');
@@ -197,7 +197,7 @@ describe('Loading primitives', () => {
   it('renders the message row skeleton preset with an avatar and matching text rows', () => {
     const { container } = render(<MessageRowSkeleton lineWidths={['w-36', 'w-60', 'w-44']} />);
 
-    const blocks = Array.from(container.querySelectorAll('.animate-pulse')) as HTMLDivElement[];
+    const blocks = Array.from(container.querySelectorAll('.skeleton-bar')) as HTMLDivElement[];
 
     expect(blocks).toHaveLength(4);
     expect(blocks[0]).toHaveClass('h-9', 'w-9', 'rounded-full');
@@ -218,12 +218,12 @@ describe('Loading primitives', () => {
     expect(rows).toHaveLength(3);
     rows.forEach((row) => {
       expect(row).toHaveClass('flex', 'items-center', 'justify-between', 'px-4', 'py-2.5');
-      const blocks = Array.from(row.querySelectorAll('.animate-pulse')) as HTMLDivElement[];
+      const blocks = Array.from(row.querySelectorAll('.skeleton-bar')) as HTMLDivElement[];
       expect(blocks).toHaveLength(2);
       expect(blocks[0]).toHaveClass('h-3', 'w-16', 'rounded');
     });
 
-    const rowBlocks = rows.map((row) => Array.from(row.querySelectorAll('.animate-pulse')) as HTMLDivElement[]);
+    const rowBlocks = rows.map((row) => Array.from(row.querySelectorAll('.skeleton-bar')) as HTMLDivElement[]);
     expect(rowBlocks[0][1]).toHaveClass('w-28');
     expect(rowBlocks[1][1]).toHaveClass('w-20');
     expect(rowBlocks[2][1]).toHaveClass('w-28');
@@ -322,6 +322,6 @@ describe('Loading primitives', () => {
     expect(container.querySelector('.w-44')).not.toBeNull();
     expect(container.querySelector('.w-72')).not.toBeNull();
     expect(container.querySelector('.w-32')).not.toBeNull();
-    expect(container.innerHTML).toContain('bg-[rgb(var(--accent-foreground)/0.1)]');
+    expect(container.innerHTML).toContain('skeleton-bar');
   });
 });

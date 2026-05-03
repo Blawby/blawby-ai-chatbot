@@ -20,7 +20,7 @@ import { ContactForm } from '@/features/intake/components/ContactForm';
 import { Dialog, DialogBody, DialogFooter } from '@/shared/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/shared/ui/dropdown';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
-import { LoadingBlock } from '@/shared/ui/layout/LoadingBlock';
+import { SkeletonLoader } from '@/shared/ui/layout';
 import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { useNavigation } from '@/shared/utils/navigation';
@@ -29,6 +29,7 @@ import { fromMinorUnits, toMinorUnitsValue } from '@/shared/utils/money';
 import { getOnboardingStatusPayload } from '@/shared/lib/apiClient';
 import { STANDARD_FIELD_DEFINITIONS, DEFAULT_INTAKE_TEMPLATE } from '@/shared/constants/intakeTemplates';
 import type { FieldPhase, IntakeFieldDefinition, IntakeTemplate } from '@/shared/types/intake';
+import { EmbedCodeDialog, getPublicFormUrl, copyTextToClipboard } from '@/features/intake/components/EmbedCodeBlock';
 
 type IntakeTemplatesPageProps = {
   onBack?: () => void;
@@ -65,28 +66,10 @@ function slugify(name: string): string {
     .replace(/^-+|-+$/g, '');
 }
 
-function getEmbedSnippet(practiceSlug: string, templateSlug: string): string {
-  return [
-    '<script',
-    `  src="https://app.blawby.com/widget.js?template=${templateSlug}"`,
-    `  data-practice="${practiceSlug}"`,
-    '  async',
-    '></script>',
-  ].join('\n');
-}
-
-function getPublicFormUrl(practiceSlug: string, templateSlug: string): string {
-  const origin = typeof window !== 'undefined' && window.location?.origin
-    ? window.location.origin
-    : 'https://app.blawby.com';
-  const url = new URL(`/public/${encodeURIComponent(practiceSlug)}`, origin);
-  url.searchParams.set('template', templateSlug);
-  return url.toString();
-}
 
 function parseTemplatesFromMetadata(metadata: Record<string, unknown> | null | undefined): IntakeTemplate[] {
   if (!metadata) return [];
-  
+
   const raw = metadata.intakeTemplates;
   if (typeof raw === 'string') {
     try {
@@ -273,48 +256,7 @@ function moveItem<T>(items: T[], fromIndex: number, toIndex: number): T[] {
   return next;
 }
 
-function copyTextToClipboard(
-  text: string,
-  onSuccess: () => void,
-  onError: (message: string) => void,
-) {
-  if (
-    typeof navigator !== 'undefined' &&
-    navigator.clipboard &&
-    typeof navigator.clipboard.writeText === 'function'
-  ) {
-    navigator.clipboard.writeText(text)
-      .then(onSuccess)
-      .catch((error) => {
-        onError(error instanceof Error ? error.message : 'Could not copy to clipboard.');
-      });
-    return;
-  }
 
-  if (typeof document === 'undefined') {
-    onError('Clipboard is not available in this environment.');
-    return;
-  }
-
-  try {
-    const textarea = document.createElement('textarea');
-    textarea.value = text;
-    textarea.setAttribute('readonly', '');
-    textarea.style.position = 'absolute';
-    textarea.style.left = '-9999px';
-    document.body.appendChild(textarea);
-    textarea.select();
-    const copied = document.execCommand('copy');
-    document.body.removeChild(textarea);
-    if (copied) {
-      onSuccess();
-    } else {
-      onError('Clipboard is not available.');
-    }
-  } catch (error) {
-    onError(error instanceof Error ? error.message : 'Clipboard is not available.');
-  }
-}
 
 function useDragReorder<T>(items: T[], onReorder: (next: T[]) => void) {
   const dragIndexRef = useRef<number | null>(null);
@@ -399,90 +341,7 @@ function maskStripeAccountId(value?: string | null) {
   return `${value.slice(0, 8)}...${value.slice(-4)}`;
 }
 
-type EmbedCodeBlockProps = {
-  practiceSlug: string;
-  templateSlug: string;
-};
-
-export function EmbedCodeBlock({ practiceSlug, templateSlug }: EmbedCodeBlockProps) {
-  const { showSuccess, showError } = useToastContext();
-  const [copied, setCopied] = useState(false);
-  const [copiedLink, setCopiedLink] = useState(false);
-  const snippet = getEmbedSnippet(practiceSlug, templateSlug);
-  const publicUrl = getPublicFormUrl(practiceSlug, templateSlug);
-
-  const handleCopy = () => {
-    copyTextToClipboard(
-      snippet,
-      () => {
-        setCopied(true);
-        showSuccess('Embed copied', 'The widget snippet is ready to paste.');
-        setTimeout(() => setCopied(false), 2000);
-      },
-      (message) => showError('Copy failed', message),
-    );
-  };
-
-  const handleCopyLink = () => {
-    copyTextToClipboard(
-      publicUrl,
-      () => {
-        setCopiedLink(true);
-        showSuccess('Link copied', 'The public intake link is ready to share.');
-        setTimeout(() => setCopiedLink(false), 2000);
-      },
-      (message) => showError('Copy failed', message),
-    );
-  };
-
-  return (
-    <div className="space-y-5">
-      <div className="space-y-2">
-        <p className="text-sm text-input-placeholder">
-          Share the direct link or install the widget script on your site.
-        </p>
-        <div className="glass-panel rounded-xl px-4 py-3">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="min-w-0">
-              <p className="text-xs font-medium uppercase tracking-widest text-input-placeholder">Public link</p>
-              <a
-                href={publicUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="mt-1 block truncate text-sm font-medium text-input-text underline decoration-line-glass/50 underline-offset-4 hover:decoration-input-text"
-              >
-                {publicUrl}
-              </a>
-            </div>
-            <Button type="button" variant="secondary" size="sm" onClick={handleCopyLink}>
-              {copiedLink ? 'Copied' : 'Copy link'}
-            </Button>
-          </div>
-        </div>
-      </div>
-
-      <div className="space-y-3">
-        <p className="text-sm text-input-placeholder">
-          Paste this script into your site&apos;s <code>&lt;head&gt;</code> or before <code>&lt;/body&gt;</code> to load this intake flow.
-        </p>
-        <div className="relative group">
-          <pre className="bg-elevation-2 overflow-x-auto rounded-xl border border-line-glass/30 p-4 pr-20 text-sm font-mono text-input-text">
-            {snippet}
-          </pre>
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            onClick={handleCopy}
-            className="absolute right-3 top-3 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100"
-          >
-            {copied ? 'Copied' : 'Copy'}
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
-}
+// Embed UI lives in src/features/intake/components/EmbedCodeBlock.tsx
 
 type StatPillProps = {
   label: string;
@@ -973,7 +832,7 @@ function TemplateCard({
     .filter((question) => question.trim().length > 0)
     .slice(0, 3);
   const remainingQuestions = Math.max(template.fields.length - questionPreview.length, 0);
-  const embedSnippet = getEmbedSnippet(practiceSlug, template.slug);
+  const [openEmbedDialog, setOpenEmbedDialog] = useState(false);
   const publicUrl = getPublicFormUrl(practiceSlug, template.slug);
 
   return (
@@ -1024,11 +883,7 @@ function TemplateCard({
               </DropdownMenuItem>
               <DropdownMenuItem
                 onSelect={() => {
-                  copyTextToClipboard(
-                    embedSnippet,
-                    () => showSuccess('Embed copied', 'The widget snippet is ready to paste.'),
-                    (message) => showError('Copy failed', message),
-                  );
+                  setOpenEmbedDialog(true);
                 }}
               >
                 Copy embed code
@@ -1046,6 +901,12 @@ function TemplateCard({
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
+        <EmbedCodeDialog
+          isOpen={openEmbedDialog}
+          onClose={() => setOpenEmbedDialog(false)}
+          practiceSlug={practiceSlug}
+          templateSlug={template.slug}
+        />
 
         <div className="mt-5 space-y-2">
           {questionPreview.map((question, index) => (
@@ -1126,7 +987,6 @@ function TemplateEditor({
   const initialState = useMemo(() => buildEditorState(initial, editorDefaults), [editorDefaults, initial]);
   const initialSnapshot = useMemo(() => serializeTemplate(editorStateToTemplate(initialState)), [initialState]);
   const [state, setState] = useState<EditorState>(initialState);
-  const stateRef = useRef(initialState);
   const [slugError, setSlugError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [stripeStatus, setStripeStatus] = useState<StripeConnectStatus | null>(null);
@@ -1135,10 +995,7 @@ function TemplateEditor({
   const [replacementFieldKey, setReplacementFieldKey] = useState('');
 
   const applyEditorState = useCallback((updater: (prev: EditorState) => EditorState) => {
-    const nextState = updater(stateRef.current);
-    stateRef.current = nextState;
-    setState(nextState);
-    return nextState;
+    setState(updater);
   }, []);
 
   const draftTemplate = useMemo(() => editorStateToTemplate(state), [state]);
@@ -1194,9 +1051,7 @@ function TemplateEditor({
     applyEditorState((prev) => ({ ...prev, enrichmentFields: next }));
   });
 
-  useEffect(() => {
-    stateRef.current = state;
-  }, [state]);
+
 
   useEffect(() => {
     const organizationId = practiceOrganizationId?.trim();
@@ -1496,12 +1351,10 @@ function TemplateEditor({
   };
 
   const handleSave = async () => {
-    const currentState = stateRef.current;
-    if (!validatePublish(currentState)) return;
-
+    if (!validatePublish(state)) return;
     setIsSaving(true);
     try {
-      await onSave(editorStateToTemplate(currentState));
+      await onSave(editorStateToTemplate(state));
     } finally {
       setIsSaving(false);
     }
@@ -1939,6 +1792,34 @@ type TemplateListViewProps = {
   onDelete: (template: IntakeTemplate) => Promise<void>;
 };
 
+/**
+ * Placeholder card matching the eventual TemplateCard layout: title row,
+ * three preview question lines, footer with the response-count link.
+ * Rendered in the same grid as real cards so the swap to data reflows
+ * minimally.
+ */
+function FormCardSkeleton({ titleWidth = 'w-32' }: { titleWidth?: string }) {
+  return (
+    <div
+      className="glass-card flex min-h-[230px] flex-col rounded-2xl p-5"
+      aria-hidden="true"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <SkeletonLoader variant="text" height="h-4" width={titleWidth} rounded="rounded-md" />
+        <SkeletonLoader variant="text" height="h-4" width="w-1" rounded="rounded" />
+      </div>
+      <div className="mt-4 space-y-2.5">
+        <SkeletonLoader variant="text" height="h-3" width="w-full" rounded="rounded-md" />
+        <SkeletonLoader variant="text" height="h-3" width="w-5/6" rounded="rounded-md" />
+        <SkeletonLoader variant="text" height="h-3" width="w-3/4" rounded="rounded-md" />
+      </div>
+      <div className="mt-auto pt-6">
+        <SkeletonLoader variant="text" height="h-3" width="w-24" rounded="rounded-md" />
+      </div>
+    </div>
+  );
+}
+
 function TemplateListView({
   defaultTemplate,
   existingTemplates,
@@ -1953,10 +1834,18 @@ function TemplateListView({
 }: TemplateListViewProps) {
   const [deleteTarget, setDeleteTarget] = useState<IntakeTemplate | null>(null);
   const [responseCounts, setResponseCounts] = useState<Record<string, number>>({});
+  // Gate the cards on counts having loaded (or definitively failed) so the
+  // skeleton is visible during the fetch — including on warm navigation
+  // when the practice/templates are already cached. Without this, the
+  // page renders cards instantly with placeholder "0 responses" labels
+  // that pop to real counts a moment later.
+  const [responseCountsLoaded, setResponseCountsLoaded] = useState(false);
 
   useEffect(() => {
+    setResponseCountsLoaded(false);
     if (!practiceId) {
       setResponseCounts({});
+      setResponseCountsLoaded(true);
       return;
     }
 
@@ -1978,10 +1867,31 @@ function TemplateListView({
         if (controller.signal.aborted) return;
         console.warn('[IntakeTemplatesPage] Failed to load form response counts:', error);
         setResponseCounts({});
+      })
+      .finally(() => {
+        if (controller.signal.aborted) return;
+        setResponseCountsLoaded(true);
       });
 
     return () => controller.abort();
   }, [practiceId]);
+
+  if (!responseCountsLoaded) {
+    return (
+      <div className="max-w-7xl mx-auto px-6 py-6">
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+            <FormCardSkeleton titleWidth="w-24" />
+            <FormCardSkeleton titleWidth="w-36" />
+            <FormCardSkeleton titleWidth="w-28" />
+            <FormCardSkeleton titleWidth="w-32" />
+            <FormCardSkeleton titleWidth="w-40" />
+            <FormCardSkeleton titleWidth="w-24" />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-7xl mx-auto px-6 py-6">
@@ -2078,7 +1988,7 @@ export default function IntakeTemplatesPage({
   routeTemplateSlug = null,
   routeMode = 'list',
 }: IntakeTemplatesPageProps) {
-  const { currentPractice, loading: practiceLoading, updatePractice } = usePracticeManagement({ fetchPracticeDetails: true });
+  const { currentPractice, isLoading: practiceLoading, updatePractice } = usePracticeManagement({ fetchPracticeDetails: true });
   const { details: practiceDetails, setDetails } = usePracticeDetails(
     currentPractice?.id,
     currentPractice?.slug,
@@ -2124,8 +2034,10 @@ export default function IntakeTemplatesPage({
 
     const nextMetadata = { ...currentMetadata, intakeTemplates: JSON.stringify(nextTemplates) };
 
+    // Snapshot BEFORE optimistic update
+    const snapshot = practiceDetails;
     const optimisticDetails = {
-      ...(practiceDetails ?? {}),
+      ...(snapshot ?? {}),
       metadata: nextMetadata,
     };
 
@@ -2134,7 +2046,7 @@ export default function IntakeTemplatesPage({
     try {
       await updatePractice(currentPractice.id, { metadata: nextMetadata });
     } catch (error) {
-      setDetails(practiceDetails ?? null);
+      setDetails(snapshot ?? null);
       throw error;
     }
   }, [currentPractice, practiceDetails, setDetails, updatePractice]);
@@ -2165,43 +2077,27 @@ export default function IntakeTemplatesPage({
       // Prevent renaming if there are existing intake responses tied to the
       // current edit target's slug, since renaming would orphan those links.
       if (editTarget && template.slug !== editTarget.slug && currentPractice) {
-        // Fetch a bounded set of intakes and check for any that reference the
-        // editTarget.slug. This avoids breaking existing links.
+        // Fetch only the first page of intakes and check for any that reference the editTarget.slug
         try {
-          let hasResponses = false;
-          let page = 1;
-          while (true) {
-            const result = await listIntakes(currentPractice.id, { page, limit: 100 });
-            if (result.intakes.some((i) => getResponseTemplateSlug(i) === editTarget.slug)) {
-              hasResponses = true;
-              break;
-            }
-            if (page >= result.total_pages || result.intakes.length === 0) {
-              break;
-            }
-            page++;
+          const result = await listIntakes(currentPractice.id, { page: 1, limit: 100 });
+          const hasResponses = result.intakes.some((i) => getResponseTemplateSlug(i) === editTarget.slug);
+          if (!hasResponses && result.total > 100) {
+            // Too many to check client-side — block rename conservatively
+            showError('Rename check failed', 'Unable to verify whether this form has existing responses. Rename aborted.');
+            setIsSaving(false);
+            return;
           }
-
           if (hasResponses) {
             showError('Rename not allowed', 'This form has existing responses and cannot be renamed.');
             setIsSaving(false);
             return;
           }
         } catch (_err) {
-          // If the check fails, be conservative and prevent rename to avoid
-          // accidental orphaning.
+          // If the check fails, be conservative and prevent rename to avoid accidental orphaning.
           showError('Rename check failed', 'Unable to verify whether this form has existing responses. Rename aborted.');
           setIsSaving(false);
           return;
         }
-      }
-
-      // Prevent slug collision with another template (except when it's the same
-      // template being edited).
-      if (existingTemplates.some((e) => e.slug === template.slug && e.slug !== (editTarget?.slug ?? ''))) {
-        showError('Slug conflict', 'Another form already uses this slug. Choose a different slug.');
-        setIsSaving(false);
-        return;
       }
 
       // Build the next templates list by removing any existing entries with the
@@ -2233,18 +2129,27 @@ export default function IntakeTemplatesPage({
     }
   };
 
-  if (practiceLoading) {
-    return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <LoadingBlock showLabel={false} showSpinner size="lg" />
-      </div>
-    );
-  }
-
-  if (!currentPractice) {
+  // Show the skeleton grid while EITHER the practice is loading OR before
+  // the local hook subscription has populated `currentPractice`. The latter
+  // is critical: when navigating into this page from elsewhere in the app,
+  // queryCache already has the practice → `practiceLoading` flips false on
+  // the first render → BUT the local `currentPractice` state is still null
+  // for one tick until the subscriber broadcast lands. Without this guard,
+  // the page briefly fell through to the "No practice selected" empty
+  // state instead of a skeleton.
+  if (practiceLoading || !currentPractice) {
     return (
       <div className="max-w-7xl mx-auto px-6 py-6">
-        <p className="text-sm text-input-placeholder">No practice selected.</p>
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+            <FormCardSkeleton titleWidth="w-24" />
+            <FormCardSkeleton titleWidth="w-36" />
+            <FormCardSkeleton titleWidth="w-28" />
+            <FormCardSkeleton titleWidth="w-32" />
+            <FormCardSkeleton titleWidth="w-40" />
+            <FormCardSkeleton titleWidth="w-24" />
+          </div>
+        </div>
       </div>
     );
   }

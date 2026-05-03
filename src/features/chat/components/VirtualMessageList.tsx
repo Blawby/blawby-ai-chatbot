@@ -16,7 +16,7 @@ import { useIntakeContext } from '@/shared/contexts/IntakeContext';
 import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
 import type { ReplyTarget } from '@/features/chat/types';
 import { isIntakeSubmittable } from '@/shared/utils/consultationState';
-import { MessageRowSkeleton } from '@/shared/ui/layout/skeleton-presets/MessageRowSkeleton';
+import { MessageRowSkeleton } from '@/shared/ui/layout';
 import { quickActionDebugLog, isQuickActionDebugEnabled } from '@/shared/utils/quickActionDebug';
 import { createBuildBriefAction, createSubmitAction, hasTerminalChatAction, hasBuildBriefAction, normalizeChatActions } from '@/shared/utils/chatActions';
 import { STREAMING_BUBBLE_PREFIX } from '@/shared/hooks/useConversation';
@@ -77,7 +77,7 @@ const DEBOUNCE_DELAY = 50;
 const DEBUG_PAGINATION = typeof process !== 'undefined' && process.env.NODE_ENV === 'development';
 const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
     messages,
-    conversationTitle,
+    conversationTitle: _conversationTitle,
     conversationContactName,
     viewerContext,
     practiceConfig,
@@ -141,12 +141,11 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
     const _loggedNoServerPaginationRef = useRef(false);
     const _prevHasMoreRef = useRef<boolean | undefined>(hasMoreMessages);
     const sessionUserName = session?.user?.name || session?.user?.email || '';
-    const resolvedConversationName = conversationTitle?.trim() || '';
     const currentUserName = (
         isPublicWorkspace
         && (session?.user?.is_anonymous === true || !sessionUserName)
-        && resolvedConversationName
-    ) ? resolvedConversationName : (sessionUserName || 'You');
+        && conversationContactName?.trim()
+    ) ? conversationContactName.trim() : (sessionUserName || 'You');
     const virtualizationEnabled = dedupedMessages.length > BATCH_SIZE * 2;
     const isNearTail = virtualizationEnabled && endIndex >= Math.max(0, dedupedMessages.length - 2);
     const useTailWindow = virtualizationEnabled && (isScrolledToBottomRef.current || isNearTail);
@@ -174,7 +173,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
         name: 'Practice'
     };
     const clientProfile = {
-        name: conversationContactName?.trim() || conversationTitle?.trim() || 'Contact'
+        name: conversationContactName?.trim() || 'Contact'
     };
     const blawbyProfile = {
         src: '/blawby-favicon-iframe.png',
@@ -684,7 +683,8 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                         avatar: replyAvatar,
                         isMissing: !replySource
                     } : null;
-                    const canReply = Boolean(onReply && message.id);
+                    const isViewerAnonymous = session?.user?.is_anonymous === true;
+                    const canReply = Boolean(onReply && message.id && resolvedViewerContext !== 'public' && !isViewerAnonymous);
                     const isLast = (_index + derivedStart) === (dedupedMessages.length - 1);
                     const isStreamingMessage = Boolean(message.id?.startsWith(STREAMING_BUBBLE_PREFIX));
 

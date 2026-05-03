@@ -51,6 +51,7 @@ CREATE TABLE IF NOT EXISTS conversations (
   tags TEXT, -- JSON array
   internal_notes TEXT,
   last_message_at DATETIME,
+  last_message_content TEXT,
   first_response_at DATETIME,
   closed_at DATETIME,
   latest_seq INTEGER NOT NULL DEFAULT 0,

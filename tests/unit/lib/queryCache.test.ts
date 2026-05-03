@@ -123,16 +123,27 @@ describe('queryCache.set / .get', () => {
     expect(queryCache.get('does-not-exist')).toBeUndefined();
   });
 
-  it('returns undefined when the entry has expired', () => {
+  it('keeps stale entries readable until evictAt while flipping isFresh false', () => {
+    // Post-G1: get() returns stale data so SWR consumers can render it
+    // while a background refresh runs. isFresh() distinguishes fresh
+    // from stale. Eviction happens at STALE_FACTOR × ttl past expiresAt.
     const now = Date.now();
     vi.useFakeTimers();
     vi.setSystemTime(now);
 
     queryCache.set('k', 'value', 100);
     expect(queryCache.get('k')).toBe('value');
+    expect(queryCache.isFresh('k')).toBe(true);
 
+    // Past TTL but well within the stale window: still readable, no longer fresh.
     vi.setSystemTime(now + 200);
+    expect(queryCache.get('k')).toBe('value');
+    expect(queryCache.isFresh('k')).toBe(false);
+
+    // Past STALE_FACTOR × ttl (24 × 100ms): evicted.
+    vi.setSystemTime(now + 100 * 25);
     expect(queryCache.get('k')).toBeUndefined();
+    expect(queryCache.isFresh('k')).toBe(false);
 
     vi.useRealTimers();
   });

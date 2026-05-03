@@ -1,7 +1,9 @@
 // Removed per-Card action menu: cards are now clickable
 import { Avatar } from '@/shared/ui/profile';
 import { SkeletonLoader } from '@/shared/ui/layout/SkeletonLoader';
+import { Button } from '@/shared/ui/Button';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
+import { fromMinorUnits } from '@/shared/utils/money';
 import { formatDate } from '@/shared/utils/dateTime';
 import type { IntakeListItem } from '@/features/intake/api/intakesApi';
 import { resolveIntakeTitle } from '@/features/intake/utils/intakeTitle';
@@ -32,17 +34,13 @@ export const RecentIntakesGrid = ({
       <div className="flex items-center justify-between">
         <h2 className="text-base font-semibold text-input-text">Recent Intakes</h2>
         {onViewAll ? (
-          <button
-            type="button"
-            onClick={onViewAll}
-            className="text-sm font-semibold text-accent-400 hover:text-accent-300"
-          >
+          <Button variant="link" size="sm" onClick={onViewAll}>
             View all
-          </button>
+          </Button>
         ) : (
           <span
             aria-disabled="true"
-            className="text-sm font-semibold text-accent-400 opacity-50 cursor-default"
+            className="text-sm font-semibold text-input-placeholder opacity-70 cursor-default"
           >
             View all
           </span>
@@ -120,7 +118,7 @@ export const RecentIntakesGrid = ({
                   <dt className="text-input-placeholder">Amount</dt>
                   <dd className="flex items-start gap-x-2">
                     <div className="font-medium text-input-text">
-                      {formatCurrency(intake.amount, intake.currency)}
+                      {formatCurrency(fromMinorUnits(intake.amount), intake.currency)}
                     </div>
                   </dd>
                 </div>

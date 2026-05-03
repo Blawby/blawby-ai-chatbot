@@ -4,7 +4,7 @@ import { CheckCircle2, MessagesSquare, Scale, DollarSign, Briefcase, AlertTriang
  *
  * Route: /client/:practiceSlug/engagements/:engagementId/review
  *
- * Authenticated (no magic link). By engagement_sent, the client is already
+ * Authenticated (no magic link). Once sent, the client is already
  * authenticated through the intake invite flow. Normal auth redirects apply.
  *
  * Actions:
@@ -22,8 +22,9 @@ import { cn } from '@/shared/utils/cn';
 import { useNavigation } from '@/shared/utils/navigation';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { formatLongDate } from '@/shared/utils/dateFormatter';
-import { getEngagement, acceptEngagement } from '../api/engagementsApi';
+import { acceptEngagement } from '../api/engagementsApi';
 import type { EngagementDetail, ProposalData } from '../types/engagement';
+import { useEngagementDetail } from '../hooks/useEngagementDetail';
 
 // ── Fee helpers ────────────────────────────────────────────────────────────────
 
@@ -88,20 +89,20 @@ const ScopeSection: FunctionComponent<{ proposal: ProposalData }> = ({ proposal 
 
 // ── Fees section ──────────────────────────────────────────────────────────────
 
-const FeesSection: FunctionComponent<{ proposal: ProposalData; engagement: EngagementDetail }> = ({
+const FeesSection: FunctionComponent<{ proposal: ProposalData }> = ({
   proposal,
-  engagement,
 }) => {
   const fees = proposal.fees;
-  const currency = fees?.currency ?? engagement.currency ?? 'USD';
 
   const rows: Array<{ label: string; value: string | null }> = [
     { label: 'Billing type', value: fees?.billing_type?.replace(/_/g, ' ') ?? null },
-    { label: 'Rate', value: fees?.rate != null ? formatMoney(fees.rate, currency) : null },
-    { label: 'Retainer', value: fees?.retainer != null ? formatMoney(fees.retainer, currency) : null },
-    { label: 'Flat fee', value: fees?.flat_fee != null ? formatMoney(fees.flat_fee, currency) : null },
-    { label: 'Contingency', value: fees?.contingency_pct != null ? `${fees.contingency_pct}%` : null },
-    { label: 'Payment terms', value: fees?.payment_terms ?? null },
+    { label: 'Attorney rate', value: fees?.hourly_rate_attorney != null ? formatMoney(fees.hourly_rate_attorney) : null },
+    { label: 'Admin rate', value: fees?.hourly_rate_admin != null ? formatMoney(fees.hourly_rate_admin) : null },
+    { label: 'Retainer', value: fees?.retainer_amount != null ? formatMoney(fees.retainer_amount) : null },
+    { label: 'Fixed fee', value: fees?.fixed_fee_amount != null ? formatMoney(fees.fixed_fee_amount) : null },
+    { label: 'Contingency', value: fees?.contingency_percentage != null ? `${fees.contingency_percentage}%` : null },
+    { label: 'Payment frequency', value: fees?.payment_frequency ?? null },
+    { label: 'Fee notes', value: fees?.fee_notes ?? null },
   ].filter((row) => row.value !== null);
 
   if (rows.length === 0) return null;
@@ -212,11 +213,17 @@ export const ClientEngagementReviewPage: FunctionComponent<ClientEngagementRevie
   const { navigate } = useNavigation();
   const { showSuccess, showError } = useToastContext();
 
-  const [engagement, setEngagement] = useState<EngagementDetail | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const {
+    data: engagementData,
+    isLoading,
+    error: loadError,
+  } = useEngagementDetail(practiceId, engagementId);
+  const engagement: EngagementDetail | null = engagementData ?? null;
   const [isAccepting, setIsAccepting] = useState(false);
-  const [accepted, setAccepted] = useState(false);
+  // Server-side accepted statuses also count as "accepted" in the UI without a click.
+  const [acceptedClick, setAcceptedClick] = useState(false);
+  const accepted = acceptedClick
+    || engagement?.status === 'accepted';
   const isMountedRef = useRef(true);
   const navigationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -228,39 +235,13 @@ export const ClientEngagementReviewPage: FunctionComponent<ClientEngagementRevie
     };
   }, []);
 
-  useEffect(() => {
-    if (!practiceId || !engagementId) return;
-    const controller = new AbortController();
-    setIsLoading(true);
-    setLoadError(null);
-
-    getEngagement(practiceId, engagementId, { signal: controller.signal })
-      .then((data) => {
-        if (!isMountedRef.current || controller.signal.aborted) return;
-        setEngagement(data);
-        if (data.status === 'engagement_accepted' || data.status === 'active') {
-          setAccepted(true);
-        }
-      })
-      .catch((err: unknown) => {
-        if (!isMountedRef.current || controller.signal.aborted) return;
-        if (err instanceof Error && err.name === 'AbortError') return;
-        setLoadError(err instanceof Error ? err.message : 'Failed to load engagement');
-      })
-      .finally(() => {
-        if (isMountedRef.current && !controller.signal.aborted) setIsLoading(false);
-      });
-
-    return () => controller.abort();
-  }, [practiceId, engagementId]);
-
   const handleAccept = async () => {
     if (isAccepting || !engagement) return;
     setIsAccepting(true);
     try {
-      await acceptEngagement(engagement.id);
+      await acceptEngagement(practiceId, engagement.id);
       if (isMountedRef.current) {
-        setAccepted(true);
+        setAcceptedClick(true);
         showSuccess('Accepted!', 'Your engagement has been confirmed. Opening your conversation…');
         if (engagement.conversation_id && conversationsBasePath) {
           navigationTimeoutRef.current = setTimeout(() => {
@@ -349,7 +330,7 @@ export const ClientEngagementReviewPage: FunctionComponent<ClientEngagementRevie
           <>
             <PartiesSection proposal={proposal} practiceName={practiceName} />
             <ScopeSection proposal={proposal} />
-            <FeesSection proposal={proposal} engagement={engagement} />
+            <FeesSection proposal={proposal} />
             <GoalsSection proposal={proposal} />
             <AcknowledgmentsSection proposal={proposal} />
           </>

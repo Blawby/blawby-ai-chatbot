@@ -8,7 +8,7 @@
 import { FunctionComponent } from 'preact';
 import { Button } from '@/shared/ui/Button';
 import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
-import { CompletionRing } from '@/shared/ui/CompletionRing';
+import { ProgressRing } from '@/shared/ui/ProgressRing';
 import type { PracticeSetupStatus } from '../../practice-setup/utils/status';
 
 export interface OnboardingActionsProps {
@@ -88,10 +88,14 @@ const OnboardingActions: FunctionComponent<OnboardingActionsProps> = ({
             </p>
           </div>
           <div className="relative">
-            <CompletionRing 
-              score={completionScore} 
+            <ProgressRing
+              progress={completionScore}
+              useTrafficLights
               size={64}
-            />
+              fontSize="10px"
+            >
+              <span className="font-bold">{Math.round(completionScore)}%</span>
+            </ProgressRing>
           </div>
         </div>
 

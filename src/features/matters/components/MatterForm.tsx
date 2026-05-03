@@ -117,7 +117,6 @@ const STATUS_ICON: Record<MatterStatus, preact.ComponentType<preact.JSX.SVGAttri
   referred: Redo2,
   consultation_scheduled: FileCheck2,
   declined: XCircle,
-  intake_accepted: CheckCircle2,
   engagement_draft: Briefcase,
   engagement_sent: Briefcase,
   engagement_accepted: CheckCircle2,
@@ -299,7 +298,6 @@ const MatterMilestoneForm = ({
 const MatterFormInner = ({
   onClose,
   onSubmit,
-  onContactCreated,
   practiceId,
   clients,
   practiceAreas,
@@ -307,12 +305,12 @@ const MatterFormInner = ({
   assignees,
   mode = 'create',
   initialValues,
-  requireClientSelection = true
+  requireClientSelection = true,
+  onContactCreated,
 }: MatterFormProps) => {
   const [formState, setFormState] = useState<MatterFormState>(() => buildInitialState(mode, initialValues));
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [addPersonOpen, setAddPersonOpen] = useState(false);
   const clientOptions = useMemo(
     () => clients.map((client) => ({
       value: client.id,
@@ -343,6 +341,7 @@ const MatterFormInner = ({
     [assignees]
   );
 
+  const [addPersonOpen, setAddPersonOpen] = useState(false);
   const [isMilestoneFormVisible, setIsMilestoneFormVisible] = useState(false);
   const [milestoneDraft, setMilestoneDraft] = useState<MilestoneDraftState>({
     description: '',
@@ -447,7 +446,7 @@ const MatterFormInner = ({
             onChange={(value) => updateForm('status', value as MatterStatus)}
           />
 
-          <Combobox
+            <Combobox
             label={`Contact${requireClientSelection ? ' *' : ''}`}
             placeholder="Select contact"
             value={formState.clientId}
@@ -698,11 +697,19 @@ const MatterFormInner = ({
                 label="Contingency percentage"
                 value={formState.contingencyPercent !== undefined ? String(formState.contingencyPercent) : ''}
                 onChange={(value) => {
-                  const parsed = value.trim() === '' ? undefined : Number(value);
-                  updateForm(
-                    'contingencyPercent',
-                    Number.isFinite(parsed) ? Math.max(0, Math.min(100, parsed)) : undefined
-                  );
+                  if (value.trim() === '') {
+                    updateForm('contingencyPercent', undefined);
+                  } else {
+                    const parsed = Number(value);
+                    if (Number.isNaN(parsed)) {
+                      updateForm('contingencyPercent', undefined);
+                    } else {
+                      updateForm(
+                        'contingencyPercent',
+                        Math.max(0, Math.min(100, parsed))
+                      );
+                    }
+                  }
                 }}
                 placeholder="20"
                 type="number"

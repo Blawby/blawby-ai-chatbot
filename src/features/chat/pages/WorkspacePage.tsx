@@ -4,7 +4,6 @@ import { useMemo, useRef, useState, useEffect, useCallback } from 'preact/hooks'
 import { useLocation } from 'preact-iso';
 import { Plus } from 'lucide-preact';
 
-
 import { useNavigation } from '@/shared/utils/navigation';
 import { signOut } from '@/shared/utils/auth';
 import { SessionNotReadyError } from '@/shared/types/errors';
@@ -52,25 +51,22 @@ import { SettingsContent, type SettingsView } from '@/features/settings/pages/Se
 import { mockApps } from '@/features/settings/pages/appsData';
 import type { ChatMessageUI } from '../../../../worker/types';
 import type { Conversation, ConversationMode } from '@/shared/types/conversation';
-import type { LayoutMode } from '@/app/MainApp';
+import type { LayoutMode, WorkspaceView } from '@/app/MainApp';
 import type { UserDetailRecord, UserDetailStatus, PracticeDetails } from '@/shared/lib/apiClient';
 import type { BackendMatter } from '@/features/matters/services/mattersApi';
 import type { IntakeConversationState, DerivedIntakeStatus, IntakeFieldChangeOptions } from '@/shared/types/intake';
 import { features } from '@/config/features';
 
-type WorkspaceView = 'home' | 'setup' | 'list' | 'conversation' | 'intakes' | 'intakeDetail' | 'engagements' | 'matters' | 'contacts' | 'invoices' | 'invoiceCreate' | 'invoiceEdit' | 'invoiceDetail' | 'reports' | 'settings';
 type PreviewTab = 'home' | 'messages' | 'intake';
 type WorkspacePrefetchData = {
   mattersData?: {
     items: BackendMatter[];
-    isLoaded: boolean;
     isLoading: boolean;
     error: string | null;
     refetch: (signal?: AbortSignal) => Promise<void>;
   };
   contactsData?: {
     items: UserDetailRecord[];
-    isLoaded: boolean;
     isLoading: boolean;
     error: string | null;
     refetch: (signal?: AbortSignal) => Promise<void>;
@@ -352,8 +348,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
 
   useEffect(() => {
     setup.resetForPracticeId();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [practiceId]);
+  }, [practiceId, setup]);
 
   const { conversationPreviews } = useConversationPreviews({
     practiceId,
@@ -943,10 +938,11 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     mattersData: mattersDataForView, // filtered for the list view
     contactsData,
   };
+  // First load done implied by `!isLoading` post-Phase-C3 (isLoading is permanently
+  // false after the first response, so a falsy isLoading equals "have loaded").
   const shouldShowDesktopMattersListPanel = !(
     layoutMode === 'desktop'
     && view === 'matters'
-    && mattersDataForView.isLoaded
     && !mattersDataForView.isLoading
     && !mattersDataForView.error
     && mattersDataForView.items.length === 0
@@ -955,7 +951,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     layoutMode === 'desktop'
     && view === 'contacts'
     && activeSecondaryFilter !== 'contacts-pending'
-    && contactsData.isLoaded
     && !contactsData.isLoading
     && !contactsData.error
     && contactsData.items.length === 0
@@ -963,7 +958,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   const shouldShowDesktopInvoicesListPanel = view === 'invoices' && hasDesktopInvoiceListItems !== false;
   const matterListIsEmpty = layoutMode === 'desktop'
     && view === 'matters'
-    && mattersDataForView.isLoaded
     && !mattersDataForView.isLoading
     && !mattersDataForView.error
     && mattersDataForView.items.length === 0;

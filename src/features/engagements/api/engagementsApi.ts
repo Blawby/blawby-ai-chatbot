@@ -1,49 +1,122 @@
 /**
  * Engagements API
  *
- * Endpoints proxy to the remote backend (/api/matters/:practiceId and /api/matters/:id/engagement).
+ * Endpoints proxy to the remote backend (/api/engagement-contracts/:practiceId).
  * Backend is the authority for all lifecycle transitions, conflict checks, and side effects.
  * Frontend must not invent fallback workflow logic — fail fast and surface backend errors.
  */
 import type {
   EngagementDetail,
-  EngagementListItem,
   EngagementListResponse,
   ProposalData,
   ConflictOverridePayload,
   EngagementStatus,
 } from '../types/engagement';
-import { matterItemPath, encodeSegment } from '@/config/urls';
+import { encodeSegment } from '@/config/urls';
 import { apiClient, isHttpError } from '@/shared/lib/apiClient';
 
 // ── Engagement statuses that belong in the engagement feature ──────────────────
 export const ENGAGEMENT_STATUSES: EngagementStatus[] = [
-  'intake_accepted',
-  'engagement_draft',
-  'engagement_sent',
-  'engagement_accepted',
-  'engagement_pending',
-  'active',
+  'draft',
+  'sent',
+  'accepted',
+  'declined',
 ];
 
-// Unwrap a `{ success, data }` envelope to the inner payload, or pass through
-// the raw object when the endpoint replies with an unwrapped response.
-const unwrapEnvelope = (raw: unknown): Record<string, unknown> => {
-  if (!raw || typeof raw !== 'object') return {};
-  const record = raw as Record<string, unknown>;
-  if (record.success !== undefined && record.data && typeof record.data === 'object') {
-    return record.data as Record<string, unknown>;
-  }
-  return record;
+type EngagementContractListPayload = {
+  data: unknown[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+  };
 };
 
-const mutationError = (error: unknown, fallback: string): Error => {
+type CreateEngagementContractPayload = {
+  matter_id: string;
+  contract_body?: string;
+  engagement_notes?: string;
+  proposal_data?: ProposalData;
+};
+
+const mutationError = (error: unknown, defaultMessage: string): Error => {
   if (isHttpError(error)) {
     const data = error.response.data as { message?: string; error?: string } | undefined;
     const message = data?.message ?? data?.error;
-    return new Error(message ? String(message) : `${fallback} (HTTP ${error.response.status})`);
+    return new Error(message ? String(message) : `${defaultMessage} (HTTP ${error.response.status})`);
   }
-  return error instanceof Error ? error : new Error(fallback);
+  return error instanceof Error ? error : new Error(defaultMessage);
+};
+
+const asRecord = (value: unknown): Record<string, unknown> =>
+  value && typeof value === 'object' ? value as Record<string, unknown> : {};
+
+const requireString = (data: Record<string, unknown>, field: string): string => {
+  const value = data[field];
+  if (typeof value !== 'string' || value.length === 0) {
+    throw new Error(`Engagement is missing ${field}`);
+  }
+  return value;
+};
+
+const optionalString = (value: unknown): string | null =>
+  typeof value === 'string' && value.length > 0 ? value : null;
+
+const parseContractListPayload = (raw: unknown): EngagementContractListPayload => {
+  const data = asRecord(raw);
+  if (!Array.isArray(data.data)) {
+    throw new Error('Engagement contract list is missing data');
+  }
+  const pagination = asRecord(data.pagination);
+  if (
+    typeof pagination.page !== 'number'
+    || typeof pagination.limit !== 'number'
+    || typeof pagination.total !== 'number'
+  ) {
+    throw new Error('Engagement contract list is missing pagination');
+  }
+  return {
+    data: data.data,
+    pagination: {
+      page: pagination.page,
+      limit: pagination.limit,
+      total: pagination.total,
+    },
+  };
+};
+
+const normalizeEngagementContract = (raw: unknown): EngagementDetail => {
+  const data = asRecord(raw);
+  if (!data.id) throw new Error('Engagement not found');
+  if (typeof data.status !== 'string' || !ENGAGEMENT_STATUSES.includes(data.status as EngagementStatus)) {
+    throw new Error('Engagement has an invalid status');
+  }
+
+  const proposalData = data.proposal_data && typeof data.proposal_data === 'object'
+    ? data.proposal_data as ProposalData
+    : null;
+  const clientSummary = proposalData?.client_summary;
+  const sourceSnapshot = proposalData?.source_snapshot;
+
+  return {
+    ...(data as unknown as EngagementDetail),
+    id: requireString(data, 'id'),
+    matter_id: requireString(data, 'matter_id'),
+    organization_id: requireString(data, 'organization_id'),
+    status: data.status as EngagementStatus,
+    proposal_data: proposalData,
+    client_name: clientSummary?.client_name ?? null,
+    client_email: optionalString(data.client_email),
+    title: clientSummary?.matter_summary ?? null,
+    description: clientSummary?.matter_summary ?? null,
+    conversation_id: sourceSnapshot?.conversation_id ?? null,
+    practice_area: sourceSnapshot?.practice_area ?? null,
+    urgency: sourceSnapshot?.urgency ?? null,
+    opposing_party: sourceSnapshot?.opposing_party ?? null,
+    desired_outcome: sourceSnapshot?.desired_outcome ?? null,
+    created_at: requireString(data, 'created_at'),
+    updated_at: optionalString(data.updated_at),
+  };
 };
 
 // ── List engagements for a practice ──────────────────────────────────────────
@@ -59,71 +132,46 @@ export async function listEngagements(
   const requestedLimit = Math.max(1, params.limit ?? 20);
 
   const engagementStatuses = new Set<string>(ENGAGEMENT_STATUSES);
-  const requestedStatuses = params.status && params.status.length > 0
-    ? params.status.filter((s): s is EngagementStatus => engagementStatuses.has(s))
+  const rawStatuses = params.status ?? [];
+  const hasStatusFilter = rawStatuses.length > 0;
+  const requestedStatuses = hasStatusFilter
+    ? rawStatuses.filter((s): s is EngagementStatus => engagementStatuses.has(s))
     : ENGAGEMENT_STATUSES;
 
-  const invalidStatuses = params.status && params.status.length > 0
-    ? params.status.filter((s) => !engagementStatuses.has(s))
+  const invalidStatuses = hasStatusFilter
+    ? rawStatuses.filter((s) => !engagementStatuses.has(s))
     : [];
 
   if (invalidStatuses.length > 0) {
     throw new Error(`Invalid engagement status filter: ${invalidStatuses.join(', ')}`);
   }
 
+
   const allowedStatuses = new Set<string>(requestedStatuses);
 
-  const baseQuery = new URLSearchParams();
-  baseQuery.set('limit', String(requestedLimit));
+  const query = new URLSearchParams();
+  query.set('page', String(requestedPage));
+  query.set('limit', String(requestedLimit));
   if (requestedStatuses.length > 0) {
-    requestedStatuses.forEach((s) => baseQuery.append('status', s));
+    requestedStatuses.forEach(s => query.append('status', s));
   }
 
-  const filteredItems: EngagementListItem[] = [];
-  let backendPage = 1;
-  let backendTotalPages: number | null = null;
-
-  // We loop until we have enough items for the requested page plus one item to check hasMore.
-  // This is a bridge until the backend provides a dedicated /engagements endpoint.
-  while (true) {
-    const pageQuery = new URLSearchParams(baseQuery);
-    pageQuery.set('page', String(backendPage));
-
-    let raw: unknown;
-    try {
-      const result = await apiClient.get<unknown>(
-        `/api/matters/${encodeSegment(practiceId)}?${pageQuery.toString()}`,
-        { signal: options.signal },
-      );
-      raw = result.data;
-    } catch (error) {
-      throw mutationError(error, 'Failed to fetch engagements');
-    }
-
-    const data = unwrapEnvelope(raw);
-    const allItems = (Array.isArray(data.items) ? data.items : []) as EngagementListItem[];
-
-    filteredItems.push(
-      ...allItems.filter((item) => allowedStatuses.has(item.status as string))
+  let raw: unknown;
+  try {
+    const result = await apiClient.get<unknown>(
+      `/api/engagement-contracts/${encodeSegment(practiceId)}?${query.toString()}`,
+      { signal: options.signal },
     );
-
-    if (typeof data.total_pages === 'number' && Number.isFinite(data.total_pages)) {
-      backendTotalPages = data.total_pages;
-    }
-
-    const reachedKnownEnd = backendTotalPages !== null && backendPage >= backendTotalPages;
-    const reachedEmptyPage = allItems.length === 0;
-    const hasEnoughForPagination = filteredItems.length >= (requestedPage * requestedLimit) + 1;
-
-    if (reachedKnownEnd || reachedEmptyPage || hasEnoughForPagination) break;
-    backendPage += 1;
+    raw = result.data;
+  } catch (error) {
+    throw mutationError(error, 'Failed to fetch engagements');
   }
 
-  const total = filteredItems.length;
-  const page_size = requestedLimit;
-  const total_pages = Math.max(1, Math.ceil(total / page_size));
-  const startIndex = (requestedPage - 1) * requestedLimit;
-  const items = filteredItems.slice(startIndex, startIndex + requestedLimit);
+  const data = parseContractListPayload(raw);
+  const allItems = data.data.map(normalizeEngagementContract);
+  const items = allItems.filter((item) => allowedStatuses.has(item.status));
+  const total = data.pagination.total;
+  const total_pages = Math.max(1, Math.ceil(total / requestedLimit));
 
   return {
     items,
@@ -133,48 +181,69 @@ export async function listEngagements(
   };
 }
 
-// ── Get engagement detail ─────────────────────────────────────────────────────
+// ── Create engagement contract ─────────────────────────────────────────────────────
 
-export async function getEngagement(
+export async function createEngagementContract(
   practiceId: string,
-  matterId: string,
+  payload: CreateEngagementContractPayload,
   options: { signal?: AbortSignal } = {}
 ): Promise<EngagementDetail> {
   if (!practiceId) throw new Error('practiceId is required');
-  if (!matterId) throw new Error('matterId is required');
+  if (!payload.matter_id) throw new Error('matter_id is required');
 
   let raw: unknown;
   try {
-    const result = await apiClient.get<unknown>(matterItemPath(practiceId, matterId), {
-      signal: options.signal,
-    });
+    const result = await apiClient.post<unknown>(
+      `/api/engagement-contracts/${encodeSegment(practiceId)}`,
+      payload,
+      { signal: options.signal },
+    );
+    raw = result.data;
+  } catch (error) {
+    throw mutationError(error, 'Failed to create engagement');
+  }
+
+  return normalizeEngagementContract(raw);
+}
+
+export async function getEngagement(
+  practiceId: string,
+  contractId: string,
+  options: { signal?: AbortSignal } = {}
+): Promise<EngagementDetail> {
+  if (!practiceId) throw new Error('practiceId is required');
+  if (!contractId) throw new Error('contractId is required');
+
+  let raw: unknown;
+  try {
+    const result = await apiClient.get<unknown>(
+      `/api/engagement-contracts/${encodeSegment(practiceId)}/${encodeSegment(contractId)}`,
+      { signal: options.signal },
+    );
     raw = result.data;
   } catch (error) {
     throw mutationError(error, 'Failed to fetch engagement');
   }
 
-  const data = unwrapEnvelope(raw);
-  if (!data || typeof data !== 'object' || !data.id) {
-    throw new Error('Engagement not found');
-  }
-
-  return data as unknown as EngagementDetail;
+  return normalizeEngagementContract(raw);
 }
 
 // ── Patch proposal_data ────────────────────────────────────────────────────────
 // Always sends the full proposal_data object — never partial updates.
 
 export async function patchEngagementProposal(
-  matterId: string,
+  practiceId: string,
+  contractId: string,
   proposalData: ProposalData,
   options: { signal?: AbortSignal } = {}
 ): Promise<EngagementDetail> {
-  if (!matterId) throw new Error('matterId is required');
+  if (!practiceId) throw new Error('practiceId is required');
+  if (!contractId) throw new Error('contractId is required');
 
   let raw: unknown;
   try {
     const result = await apiClient.patch<unknown>(
-      `/api/matters/${encodeSegment(matterId)}/engagement`,
+      `/api/engagement-contracts/${encodeSegment(practiceId)}/${encodeSegment(contractId)}`,
       { proposal_data: proposalData },
       { signal: options.signal },
     );
@@ -183,24 +252,27 @@ export async function patchEngagementProposal(
     throw mutationError(error, 'Failed to update proposal');
   }
 
-  const data = unwrapEnvelope(raw);
-  return data as unknown as EngagementDetail;
+  return normalizeEngagementContract(raw);
 }
 
 // ── Send to client ─────────────────────────────────────────────────────────────
 
 export async function sendEngagementToClient(
-  matterId: string,
+  practiceId: string,
+  contractId: string,
   note?: string,
   options: { signal?: AbortSignal } = {}
 ): Promise<EngagementDetail> {
-  if (!matterId) throw new Error('matterId is required');
+  if (!practiceId) throw new Error('practiceId is required');
+  if (!contractId) throw new Error('contractId is required');
 
   let raw: unknown;
   try {
-    const result = await apiClient.post<unknown>(
-      `/api/matters/${encodeSegment(matterId)}/engagement/send`,
-      { note },
+    const patchPayload: Record<string, unknown> = { status: 'sent' };
+    if (note?.trim()) patchPayload.engagement_notes = note.trim();
+    const result = await apiClient.patch<unknown>(
+      `/api/engagement-contracts/${encodeSegment(practiceId)}/${encodeSegment(contractId)}`,
+      patchPayload,
       { signal: options.signal },
     );
     raw = result.data;
@@ -208,47 +280,49 @@ export async function sendEngagementToClient(
     throw mutationError(error, 'Failed to send engagement');
   }
 
-  const data = unwrapEnvelope(raw);
-  return data as unknown as EngagementDetail;
+  return normalizeEngagementContract(raw);
 }
 
-// ── Withdraw proposal ──────────────────────────────────────────────────────────
+// ── Mark proposal declined ─────────────────────────────────────────────────────
 
-export async function withdrawEngagement(
-  matterId: string,
+export async function declineEngagement(
+  practiceId: string,
+  contractId: string,
   options: { signal?: AbortSignal } = {}
 ): Promise<EngagementDetail> {
-  if (!matterId) throw new Error('matterId is required');
+  if (!practiceId) throw new Error('practiceId is required');
+  if (!contractId) throw new Error('contractId is required');
 
   let raw: unknown;
   try {
-    const result = await apiClient.post<unknown>(
-      `/api/matters/${encodeSegment(matterId)}/engagement/withdraw`,
-      {},
+    const result = await apiClient.patch<unknown>(
+      `/api/engagement-contracts/${encodeSegment(practiceId)}/${encodeSegment(contractId)}/status`,
+      { status: 'declined' },
       { signal: options.signal },
     );
     raw = result.data;
   } catch (error) {
-    throw mutationError(error, 'Failed to withdraw engagement');
+    throw mutationError(error, 'Failed to decline engagement');
   }
 
-  const data = unwrapEnvelope(raw);
-  return data as unknown as EngagementDetail;
+  return normalizeEngagementContract(raw);
 }
 
 // ── Client: accept engagement ──────────────────────────────────────────────────
 
 export async function acceptEngagement(
-  matterId: string,
+  practiceId: string,
+  contractId: string,
   options: { signal?: AbortSignal } = {}
 ): Promise<EngagementDetail> {
-  if (!matterId) throw new Error('matterId is required');
+  if (!practiceId) throw new Error('practiceId is required');
+  if (!contractId) throw new Error('contractId is required');
 
   let raw: unknown;
   try {
-    const result = await apiClient.post<unknown>(
-      `/api/matters/${encodeSegment(matterId)}/engagement/accept`,
-      {},
+    const result = await apiClient.patch<unknown>(
+      `/api/engagement-contracts/${encodeSegment(practiceId)}/${encodeSegment(contractId)}/status`,
+      { status: 'accepted' },
       { signal: options.signal },
     );
     raw = result.data;
@@ -256,8 +330,7 @@ export async function acceptEngagement(
     throw mutationError(error, 'Failed to accept engagement');
   }
 
-  const data = unwrapEnvelope(raw);
-  return data as unknown as EngagementDetail;
+  return normalizeEngagementContract(raw);
 }
 
 // ── Staff: override conflict check ────────────────────────────────────────────

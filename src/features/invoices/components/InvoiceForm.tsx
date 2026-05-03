@@ -1,14 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { forwardRef, useImperativeHandle } from 'preact/compat';
 import { Plus } from 'lucide-preact';
-
 import { Button } from '@/shared/ui/Button';
 import { Combobox, Input, Textarea } from '@/shared/ui/input';
+import { useLocation } from 'preact-iso';
+import { useNavigation } from '@/shared/utils/navigation';
 import { asMajor, safeAdd } from '@/shared/utils/money';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import type { MatterDetail } from '@/features/matters/data/matterTypes';
 import type { Invoice, InvoiceLineItem } from '@/features/matters/types/billing.types';
 import { createInvoice, sendInvoice, updateInvoice } from '@/features/invoices/services/invoicesService';
+import { createPendingInvoiceDraftContext } from '@/features/invoices/utils/invoiceDraftContext';
 import { InvoiceLineItemsForm } from '@/features/invoices/components/InvoiceLineItemsForm';
 import { InvoicePreview } from '@/features/invoices/components/InvoicePreview';
 import { SendInvoiceDialog } from '@/features/invoices/components/SendInvoiceDialog';
@@ -16,7 +18,6 @@ import type { InvoicePageMode } from '@/features/invoices/utils/invoicePageConfi
 import { buildDefaultDueDate, detectDefaultInvoiceType } from '@/features/invoices/utils/invoiceDefaults';
 import { ContentWithPreview } from '@/shared/ui/layout';
 import { Tabs } from '@/shared/ui/tabs';
-import { AddContactDialog } from '@/shared/ui/contacts/AddContactDialog';
 
 type InvoiceFormProps = {
   mode?: InvoicePageMode;
@@ -47,7 +48,6 @@ type InvoiceFormProps = {
   practiceEmail?: string | null;
   /** Practice billing increment in minutes (e.g. 6 for 0.1h steps) */
   billingIncrementMinutes?: number | null;
-  onContactCreated?: () => Promise<void> | void;
 };
 
 export type InvoiceFormHandle = {
@@ -78,7 +78,7 @@ const InvoiceEmailPlaceholder = () => (
   </div>
 );
 
-const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 
 const buildInvoiceUpdatePayload = ({
   dueDate,
@@ -125,9 +125,10 @@ export const InvoiceForm = forwardRef<InvoiceFormHandle, InvoiceFormProps>(({
   practiceLogoUrl = null,
   practiceEmail = null,
   billingIncrementMinutes = null,
-  onContactCreated,
 }, ref) => {
   const { showError } = useToastContext();
+  const location = useLocation();
+  const { navigate } = useNavigation();
   const resolvedMode: InvoicePageMode = mode ?? (readOnly ? 'readOnly' : (editMode ? 'edit' : 'create'));
   const resolvedReadOnly = resolvedMode === 'readOnly';
   const resolvedEditMode = resolvedMode !== 'create';
@@ -152,7 +153,6 @@ export const InvoiceForm = forwardRef<InvoiceFormHandle, InvoiceFormProps>(({
   const [isSaving, setIsSaving] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [showSendDialog, setShowSendDialog] = useState(false);
-  const [addPersonOpen, setAddPersonOpen] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
   const [createdInvoiceId, setCreatedInvoiceId] = useState<string | null>(
     resolvedEditMode ? existingInvoiceId ?? null : null
@@ -221,9 +221,10 @@ export const InvoiceForm = forwardRef<InvoiceFormHandle, InvoiceFormProps>(({
   }, [markDirty]);
 
   const handleDueDateModeChange = useCallback((nextMode: 'tomorrow' | 'custom') => {
+    if (dueDateMode === nextMode) return;
     setDueDateMode(nextMode);
     markDirty();
-  }, [markDirty]);
+  }, [dueDateMode, markDirty]);
 
   const total = useMemo(() => lineItems.reduce((acc, item) => safeAdd(acc, item.line_total), asMajor(0)), [lineItems]);
   const previewIssueDateRef = useRef(new Date());
@@ -233,8 +234,12 @@ export const InvoiceForm = forwardRef<InvoiceFormHandle, InvoiceFormProps>(({
   const [showPreview, setShowPreview] = useState(true);
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
 
+  // Use backend/real data to determine Stripe readiness — accept any
+  // non-empty connectedAccountId here instead of enforcing a UUID pattern.
+  // This removes a custom client-side gate and relies on server-side
+  // validation/ownership for correctness.
   const isValidConnectedAccount = useMemo(
-    () => Boolean(connectedAccountId && UUID_REGEX.test(connectedAccountId)),
+    () => Boolean(connectedAccountId && String(connectedAccountId).trim().length > 0),
     [connectedAccountId]
   );
   const disableActions = isSaving || isSending || resolvedReadOnly || !isValidConnectedAccount || lineItems.length === 0;
@@ -437,21 +442,37 @@ export const InvoiceForm = forwardRef<InvoiceFormHandle, InvoiceFormProps>(({
                   options={resolvedClientOptions}
                   placeholder="Choose a contact"
                   disabled={resolvedReadOnly}
-                  footer={!resolvedReadOnly ? (
-                    (close) => (
+                  footer={!resolvedReadOnly ? () => (
+                    <div className="px-3 py-2 text-sm text-input-placeholder">
                       <button
                         type="button"
-                        className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-accent-utility hover:bg-surface-utility/10"
-                        onMouseDown={(e) => e.preventDefault()}
+                        className="inline-flex items-center gap-2 text-sm text-accent-foreground underline"
                         onClick={() => {
-                          close();
-                          setAddPersonOpen(true);
+                          try {
+                            const draftId = createPendingInvoiceDraftContext({
+                              clientId: clientId || undefined,
+                              matterId: matterId || undefined,
+                              lineItems: lineItems || undefined,
+                              dueDate: dueDate || undefined,
+                              notes: notes || undefined,
+                              memo: memo || undefined,
+                              invoiceType: invoiceType || undefined,
+                              invoiceContext: invoiceContext || 'default',
+                              returnPath: location.url,
+                              returnLabel: 'Back to invoice',
+                            });
+                            const baseMatch = (location.url || '').match(/^\/practice\/[^/]+/);
+                            const contactsBase = baseMatch ? `${baseMatch[0]}/contacts` : `/practice/${practiceId}/contacts`;
+                            navigate(`${contactsBase}/new?draft=${encodeURIComponent(draftId)}`);
+                          } catch (err) {
+                            showError('Could not create draft', err instanceof Error ? err.message : 'Failed to prepare draft');
+                          }
                         }}
                       >
                         <Plus className="h-4 w-4" />
                         Invite contact
                       </button>
-                    )
+                    </div>
                   ) : undefined}
                 />
                 <Combobox
@@ -558,12 +579,6 @@ export const InvoiceForm = forwardRef<InvoiceFormHandle, InvoiceFormProps>(({
           previewNotes={notes || null}
         />
       ) : null}
-      <AddContactDialog
-        practiceId={practiceId}
-        isOpen={addPersonOpen}
-        onClose={() => setAddPersonOpen(false)}
-        onSuccess={onContactCreated}
-      />
     </div>
   );
 });

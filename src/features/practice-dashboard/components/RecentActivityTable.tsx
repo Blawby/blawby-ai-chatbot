@@ -2,6 +2,7 @@ import { Fragment } from 'preact';
 import { ArrowDownCircle, RefreshCw, ArrowUpCircle } from 'lucide-preact';
 
 import { Icon } from '@/shared/ui/Icon';
+import { Button } from '@/shared/ui/Button';
 import { cn } from '@/shared/utils/cn';
 import { SkeletonLoader } from '@/shared/ui/layout/SkeletonLoader';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
@@ -146,13 +147,9 @@ export const RecentActivityTable = ({ days, loading = false, error = null, onOpe
                           </td>
                           <td className="py-5 text-right">
                             <div className="flex justify-end">
-                              <button
-                                type="button"
-                                onClick={() => onOpenInvoice?.(entry)}
-                                className="text-sm font-medium text-accent-400 hover:text-accent-300"
-                              >
+                              <Button variant="link" size="sm" onClick={() => onOpenInvoice?.(entry)}>
                                 View invoice
-                              </button>
+                              </Button>
                             </div>
                             <div className="mt-1 text-xs text-input-placeholder">
                               Invoice <span className="text-input-text">#{entry.invoiceNumber ?? entry.invoiceId?.slice(0, 6)}</span>

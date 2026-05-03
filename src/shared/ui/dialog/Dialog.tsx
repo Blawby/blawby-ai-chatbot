@@ -1,4 +1,4 @@
-/* eslint-disable custom/no-hardcoded-colors -- dialog intentionally uses black scrim for backdrop */
+/* dialog intentionally uses black scrim for backdrop; custom/no-hardcoded-colors disabled for visual intent */
 import type { ComponentChildren, FunctionComponent } from 'preact';
 import { createPortal } from 'preact/compat';
 import { useEffect, useId, useRef } from 'preact/hooks';
@@ -100,6 +100,7 @@ export const Dialog: FunctionComponent<DialogProps> = ({
       {/* Backdrop Scrim */}
       <div
         role="presentation"
+        // eslint-disable-next-line custom/no-hardcoded-colors
         className="ui-overlay-enter fixed inset-0 bg-black/60 backdrop-blur-[2px] dark:bg-black/80"
         style={{ zIndex: -1 }}
         onClick={disableBackdropClick ? undefined : () => onCloseRef.current()}

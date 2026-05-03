@@ -11,7 +11,7 @@ import { StackedAvatars, UserCard } from '@/shared/ui/profile';
 import { AddressExperienceForm } from '@/shared/ui/address/AddressExperienceForm';
 import { STATE_OPTIONS } from '@/shared/ui/address/AddressFields';
 import { Dialog } from '@/shared/ui/dialog';
-import { InspectorSectionSkeleton } from '@/shared/ui/layout/skeleton-presets/InspectorSectionSkeleton';
+import { InspectorSectionSkeleton } from '@/shared/ui/layout';
 import {
   InfoRow,
   InspectorEditableRow,
@@ -289,16 +289,16 @@ export const InspectorPanel = ({
     <span className="flex items-center gap-1">
       No one —{' '}
       {currentUserId ? (
-        <button 
-          type="button" 
-          className="text-accent-500 transition-colors hover:text-accent-600 hover:underline focus:outline-none"
+        <Button
+          variant="link"
+          size="xs"
           onClick={(e) => {
             e.stopPropagation();
             void handleConversationAssignmentChange(currentUserId);
           }}
         >
           Assign yourself
-        </button>
+        </Button>
       ) : (
         'Assign yourself'
       )}

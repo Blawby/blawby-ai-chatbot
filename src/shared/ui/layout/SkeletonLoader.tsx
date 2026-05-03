@@ -22,6 +22,12 @@ const SKELETON_DEFAULTS: Record<SkeletonVariant, { width: string; height: string
   rect: { width: 'w-full', height: 'h-4', rounded: 'rounded' }
 };
 
+/**
+ * Skeleton placeholder bar. Visual treatment is owned by the `.skeleton-bar`
+ * utility class in `src/index.css` (gradient-sweep shimmer keyed off
+ * `--input-placeholder` so contrast flips correctly between light and dark
+ * themes; honors `prefers-reduced-motion`).
+ */
 export const SkeletonLoader = ({
   variant = 'rect',
   lines = 1,
@@ -43,7 +49,7 @@ export const SkeletonLoader = ({
         <div
           key={index}
           className={cn(
-            'animate-pulse bg-[rgb(var(--accent-foreground)/0.1)]',
+            'skeleton-bar',
             resolvedHeight,
             resolvedWidth,
             resolvedRounded,

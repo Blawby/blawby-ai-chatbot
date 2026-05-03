@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from 'preact/hooks';
 import { useLocation } from 'preact-iso';
-import { Page } from '@/shared/ui/layout/Page';
+import { EditorShell } from '@/shared/ui/layout';
 import { useNavigation } from '@/shared/utils/navigation';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
@@ -10,6 +10,7 @@ import {
   clearPendingInvoiceDraftContext,
   readPendingInvoiceDraftContext,
 } from '@/features/invoices/utils/invoiceDraftContext';
+import { getValidatedInternalReturnPath } from '@/shared/utils/workspace';
 
 export function PracticeInvoiceCreatePage({
   practiceId,
@@ -40,7 +41,18 @@ export function PracticeInvoiceCreatePage({
     if (!practiceSlug) return null;
     return `/practice/${encodeURIComponent(practiceSlug)}/invoices`;
   }, [practiceSlug]);
-  const returnPath = draftContext?.returnPath?.trim() || invoicesPath;
+  const returnTo = useMemo(() => {
+    const fallback = invoicesPath ?? '/practice';
+    return getValidatedInternalReturnPath(
+      typeof location.query?.returnTo === 'string'
+        ? location.query.returnTo
+        : typeof location.query?.backTo === 'string'
+          ? location.query.backTo
+          : draftContext?.returnPath ?? null,
+      fallback
+    );
+  }, [draftContext?.returnPath, invoicesPath, location.query?.backTo, location.query?.returnTo]);
+  const returnPath = returnTo ?? invoicesPath;
   const canRenderBuilder = Boolean(practiceId) && (!draftId || Boolean(draftContext));
 
   const handleBackToInvoices = useCallback(() => {
@@ -88,8 +100,15 @@ export function PracticeInvoiceCreatePage({
   }, [draftContext?.matterId, draftContext?.milestoneToComplete, draftId, invoicesPath, navigate, practiceId, showError]);
 
   return (
-    <Page className="min-h-full">
-      <div className="mx-auto flex max-w-7xl flex-col gap-6">
+    <EditorShell
+      title="Create Invoice"
+      subtitle="Build, preview, and send an invoice."
+      showBack
+      backVariant="close"
+      onBack={handleBackToInvoices}
+      contentMaxWidth={null}
+    >
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
         {draftId && !draftContext ? (
           <div className="rounded-xl border border-accent-error/30 bg-accent-error/10 px-4 py-3 text-sm text-accent-error-foreground">
             Invoice draft context was not found. Start invoice creation from the matter or invoices page again.
@@ -109,7 +128,7 @@ export function PracticeInvoiceCreatePage({
           />
         ) : null}
       </div>
-    </Page>
+    </EditorShell>
   );
 }
 

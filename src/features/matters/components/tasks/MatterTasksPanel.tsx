@@ -12,7 +12,7 @@ import {
 } from '@/shared/ui/dropdown';
 import { Combobox } from '@/shared/ui/input/Combobox';
 import { Input } from '@/shared/ui/input/Input';
-import { LoadingBlock, PanelSectionHeader, PanelEmptyState, InteractiveListItem } from '@/shared/ui/layout';
+import { ListRowSkeleton, PanelSectionHeader, PanelEmptyState, InteractiveListItem } from '@/shared/ui/layout';
 import type { MatterOption, MatterTask } from '@/features/matters/data/matterTypes';
 import { formatDateOnlyUtc } from '@/shared/utils/dateOnly';
 import { toTaskStageOptions } from '@/features/matters/utils/matterUtils';
@@ -181,8 +181,8 @@ export const MatterTasksPanel = ({
       {error ? <div className="px-6 py-4 text-sm text-red-600 dark:text-red-400">{error}</div> : null}
       {requestError ? <div className="px-6 py-4 text-sm text-red-600 dark:text-red-400">{requestError}</div> : null}
 
-      {loading ? (
-        <LoadingBlock className="px-6 py-6" label="Loading tasks..." />
+      {loading && tasks.length === 0 ? (
+        <ListRowSkeleton rows={4} avatar={false} className="divide-y divide-line-default" />
       ) : tasks.length === 0 ? (
         <PanelEmptyState message="No tasks yet." />
       ) : (

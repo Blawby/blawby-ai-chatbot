@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 import { UploadSurface, type UploadSurfaceItem } from '@/shared/ui/upload/organisms/UploadSurface';
 import { useToastContext } from '@/shared/contexts/ToastContext';
-import { LoadingBlock } from '@/shared/ui/layout/LoadingBlock';
+import { ListRowSkeleton } from '@/shared/ui/layout';
 import {
   listMatterUploads,
   uploadFileViaBackend,
@@ -193,8 +193,8 @@ export function MatterFilesPanel({ matterId, isPrivilegedUploads = true }: Matte
     })),
   ];
 
-  if (loading) {
-    return <LoadingBlock className="p-8" label="Loading files…" />;
+  if (loading && surfaceItems.length === 0) {
+    return <ListRowSkeleton rows={4} className="divide-y divide-line-default" />;
   }
 
   if (error && surfaceItems.length === 0) {

@@ -129,6 +129,7 @@ export const ChatActionCard: FunctionComponent<ChatActionCardProps> = ({
         {canUseElements ? (
           <Suspense fallback={<div className="flex justify-center py-4"><LoadingSpinner size="sm" ariaLabel="Loading payment form" /></div>}>
             <LazyPaymentPanel
+              // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
               elementsOptions={elementsOptions!}
               amount={paymentProps.request.amount}
               currency={paymentProps.request.currency}
