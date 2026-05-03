@@ -4,6 +4,7 @@ import { Suspense } from 'preact/compat';
 import { I18nextProvider } from 'react-i18next';
 import AuthPage from '@/pages/AuthPage';
 import AcceptInvitationPage from '@/pages/AcceptInvitationPage';
+import ClientHomePage from '@/pages/ClientHomePage';
 import OnboardingPage from '@/pages/OnboardingPage';
 import PricingPage from '@/pages/PricingPage';
 import PaymentResultPage from '@/pages/PaymentResultPage';
@@ -85,7 +86,7 @@ const resolveAuthenticatedHomePath = ({
   hasPracticeMembership: boolean;
 }): string | null => {
   if (!hasPracticeMembership) {
-    return '/pricing';
+    return '/client/dashboard';
   }
 
   if (!fallbackSlug) {
@@ -324,6 +325,7 @@ function AppShell() {
           <Route path="/public/:practiceSlug/conversations/:conversationId" component={PublicPracticeRoute} workspaceView="conversation" />
           <Route path="/public/:practiceSlug/matters" component={PublicPracticeRoute} workspaceView="matters" />
           <Route path="/client" component={App404} />
+          <Route path="/client/dashboard" component={ClientDashboardRoute} />
           <Route path="/client/:practiceSlug" component={ClientPracticeRoute} workspaceView="home" />
           <Route path="/client/:practiceSlug/conversations" component={ClientPracticeRoute} workspaceView="list" />
           <Route path="/client/:practiceSlug/conversations/:conversationId" component={ClientPracticeRoute} workspaceView="conversation" />
@@ -698,6 +700,14 @@ function PracticeAppRoute({
         practiceSlug={normalizedPracticeSlug || undefined}
       />
   );
+}
+
+function ClientDashboardRoute() {
+  const { session, isPending: sessionIsPending } = useSessionContext();
+
+  if (sessionIsPending) return <LoadingScreen />;
+  if (!session?.user) return <AuthPage />;
+  return <ClientHomePage />;
 }
 
 function ClientPracticeRoute({
