@@ -38,3 +38,6 @@ export type { WorkspacePlaceholderAction } from './WorkspacePlaceholderState';
 export type { EditorShellProps } from './EditorShell';
 export type { ContentWithBuilderProps } from './ContentWithBuilder';
 export type { ContentWithPreviewProps } from './ContentWithPreview';
+
+export { InfiniteScroll } from './InfiniteScroll';
+export type { InfiniteScrollProps } from './InfiniteScroll';
