@@ -620,6 +620,8 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       items={navConfig.rail}
       activeHref={activeHref}
       onItemActivate={handleNavActivate}
+      maxItems={5}
+      onOverflowClick={() => setIsMobileNavOpen(true)}
     />
   ) : undefined;
 

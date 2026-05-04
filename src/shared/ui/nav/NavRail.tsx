@@ -1,5 +1,6 @@
 import type { FunctionComponent } from 'preact';
 import { useLocation } from 'preact-iso';
+import { MoreHorizontal } from 'lucide-preact';
 import { Icon, type IconComponent } from '@/shared/ui/Icon';
 import { useNavigation } from '@/shared/utils/navigation';
 import { cn } from '@/shared/utils/cn';
@@ -28,6 +29,12 @@ export interface NavRailProps {
   hidden?: boolean;
   className?: string;
   onItemActivate?: () => void;
+  /** Bottom-variant only. When set and `items.length > maxItems`, the bottom
+   *  nav renders the first `maxItems - 1` items followed by a "More" button
+   *  that fires {@link onOverflowClick}. Ignored for `variant === 'rail'`. */
+  maxItems?: number;
+  onOverflowClick?: () => void;
+  overflowLabel?: string;
 }
 
 const normalizePath = (value: string): string => {
@@ -60,6 +67,9 @@ export const NavRail: FunctionComponent<NavRailProps> = ({
   hidden = false,
   className,
   onItemActivate,
+  maxItems,
+  onOverflowClick,
+  overflowLabel = 'More',
 }) => {
   const location = useLocation();
   const { navigate } = useNavigation();
@@ -79,9 +89,14 @@ export const NavRail: FunctionComponent<NavRailProps> = ({
   const getIsActive = (item: NavRailItem) =>
     item.isActive !== undefined ? item.isActive : (!item.isAction && activeItemId === item.id);
 
-  const activeIndex = variant === 'bottom' ? items.findIndex(getIsActive) : -1;
+  const shouldOverflow =
+    variant === 'bottom' && typeof maxItems === 'number' && items.length > maxItems;
+  const renderedItems = shouldOverflow ? items.slice(0, maxItems - 1) : items;
+  const totalCells = renderedItems.length + (shouldOverflow ? 1 : 0);
 
-  const baseW = 100 / items.length;
+  const activeIndex = variant === 'bottom' ? renderedItems.findIndex(getIsActive) : -1;
+
+  const baseW = 100 / totalCells;
 
   const baseButtonClass = 'relative z-10 flex items-center justify-center rounded-xl font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50';
   const layoutClass = variant === 'rail'
@@ -108,7 +123,7 @@ export const NavRail: FunctionComponent<NavRailProps> = ({
           }}
         />
       )}
-      {items.map((item) => {
+      {renderedItems.map((item) => {
         const icon = item.icon;
         const isActive = getIsActive(item);
         const isDanger = item.variant === 'danger';
@@ -164,6 +179,25 @@ export const NavRail: FunctionComponent<NavRailProps> = ({
           </button>
         );
       })}
+      {shouldOverflow ? (
+        <button
+          type="button"
+          title={overflowLabel}
+          aria-label={overflowLabel}
+          className={cn(
+            baseButtonClass,
+            layoutClass,
+            'text-[rgb(var(--input-text)_/_0.75)] hover:text-[rgb(var(--input-text))] hover:bg-[rgb(255_255_255_/_0.06)]',
+          )}
+          onClick={() => {
+            onOverflowClick?.();
+            onItemActivate?.();
+          }}
+        >
+          <Icon icon={MoreHorizontal} className="h-5 w-5" />
+          {variant === 'bottom' && showLabels ? <span className="truncate max-w-full">{overflowLabel}</span> : null}
+        </button>
+      ) : null}
     </div>
   );
 };

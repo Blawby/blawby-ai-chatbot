@@ -31,11 +31,11 @@ Smoke specs assert no horizontal overflow at each tier (`tests/e2e/responsive-pu
 | File                                                           | Mobile | Tablet | Desktop | Notes                                                                              |
 | -------------------------------------------------------------- | :----: | :----: | :-----: | ---------------------------------------------------------------------------------- |
 | `src/app/MainApp.tsx`                                          |   ⬜   |   ⬜   |    ✅   | `layoutMode` switch (widget/mobile/desktop) exists; mobile path needs verification |
-| `src/shared/ui/layout/AppShell.tsx`                            |   ⚠️  |   ⬜   |    ✅   | Drawer scaffolding present; no hamburger trigger wired                             |
-| `src/shared/ui/nav/Sidebar.tsx`                                |   ⚠️  |   ⬜   |    ✅   | 260/64px adaptive on desktop; mobile drawer overlay needs trigger + swipe dismiss  |
-| `src/shared/ui/nav/ClientSidebar.tsx`                          |   ⚠️  |   ⬜   |    ✅   | Same drawer issue as `Sidebar.tsx`                                                 |
-| `src/shared/ui/nav/PracticeSidebar.tsx`                        |   ⚠️  |   ⬜   |    ✅   | Same drawer issue as `Sidebar.tsx`                                                 |
-| `src/features/chat/pages/WorkspacePage.tsx`                    |   ⚠️  |   ⚠️  |    ✅   | Inspector panes need to collapse to full-screen overlay below `md`                 |
+| `src/shared/ui/layout/AppShell.tsx`                            |   ✅   |   ⬜   |    ✅   | Drawer + scrim + dismiss wired (`AppShell.tsx:195-211`)                            |
+| `src/shared/ui/nav/Sidebar.tsx`                                |   ✅   |   ⬜   |    ✅   | Renders inside the drawer; trigger lives in `WorkspaceShellHeader.tsx:118`         |
+| `src/shared/ui/nav/ClientSidebar.tsx`                          |   ✅   |   ⬜   |    ✅   | Same drawer flow as `Sidebar.tsx`                                                  |
+| `src/shared/ui/nav/PracticeSidebar.tsx`                        |   ✅   |   ⬜   |    ✅   | Same drawer flow as `Sidebar.tsx`                                                  |
+| `src/features/chat/pages/WorkspacePage.tsx`                    |   ✅   |   ⚠️  |    ✅   | Bottom nav overflow ("More" → drawer) wired via `NavRail` `maxItems`. Inspector panes still need full-screen overlay below `md` |
 
 ## Practice pages
 
