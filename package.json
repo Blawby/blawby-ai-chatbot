@@ -43,6 +43,8 @@
     "test:e2e:ui": "playwright test -c playwright.public.config.ts --ui",
     "test:e2e:responsive": "playwright test -c playwright.public.config.ts --grep @responsive --project=mobile --project=tablet --project=desktop",
     "test:e2e:responsive:auth": "playwright test -c playwright.auth.config.ts --grep @responsive --project=mobile --project=tablet --project=desktop",
+    "test:e2e:screenshots": "playwright test -c playwright.auth.config.ts --grep @responsive-screenshots --project=mobile --project=tablet --project=desktop",
+    "test:e2e:screenshots:update": "playwright test -c playwright.auth.config.ts --grep @responsive-screenshots --project=mobile --project=tablet --project=desktop --update-snapshots",
     "smoke:ai-gateway": "tsx scripts/ai-gateway-smoke-test.ts",
     "deploy": "npx wrangler deploy",
     "deploy:preview": "npx wrangler deploy --env preview"

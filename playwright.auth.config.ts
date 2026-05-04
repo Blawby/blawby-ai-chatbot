@@ -23,7 +23,13 @@ export default defineConfig({
     /.*intake-invite\.spec\.ts/,
     /.*notifications\.spec\.ts/,
     /.*responsive-auth\.spec\.ts/,
+    /.*responsive-screenshots\.spec\.ts/,
   ],
+  // Strip the platform suffix so a baseline produced on Windows is
+  // comparable against Linux CI when the underlying browser version
+  // matches. Default template includes -{platform} which would force
+  // per-OS baselines.
+  snapshotPathTemplate: '{testFileDir}/__screenshots__/{testFilePath}/{arg}-{projectName}{ext}',
   fullyParallel: true,
   retries: 0,
   workers: resolveWorkers(),

@@ -6,6 +6,7 @@ const PUBLIC_WIDGET_SPECS = [
   /.*widget-embed\.spec\.ts/,
   /.*widget-performance\.spec\.ts/,
   /.*responsive-public\.spec\.ts/,
+  /.*responsive-screenshots\.spec\.ts/,
 ];
 
 const RESPONSIVE_VIEWPORTS = {
@@ -26,6 +27,11 @@ export default defineConfig({
   timeout: 150000,
   testDir: './tests/e2e',
   testMatch: PUBLIC_WIDGET_SPECS,
+  // Strip the platform suffix so a baseline produced on Windows is
+  // comparable against Linux CI when the underlying browser version
+  // matches. Default template includes -{platform} which would force
+  // per-OS baselines.
+  snapshotPathTemplate: '{testFileDir}/__screenshots__/{testFilePath}/{arg}-{projectName}{ext}',
   fullyParallel: true,
   retries: 0,
   workers: resolveWorkers(),
