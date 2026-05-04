@@ -30,11 +30,11 @@ Smoke specs assert no horizontal overflow at each tier (`tests/e2e/responsive-pu
 
 | File                                                           | Mobile | Tablet | Desktop | Notes                                                                              |
 | -------------------------------------------------------------- | :----: | :----: | :-----: | ---------------------------------------------------------------------------------- |
-| `src/app/MainApp.tsx`                                          |   ⬜   |   ⬜   |    ✅   | `layoutMode` switch (widget/mobile/desktop) exists; mobile path needs verification |
-| `src/shared/ui/layout/AppShell.tsx`                            |   ✅   |   ⬜   |    ✅   | Drawer + scrim + dismiss wired (`AppShell.tsx:195-211`)                            |
-| `src/shared/ui/nav/Sidebar.tsx`                                |   ✅   |   ⬜   |    ✅   | Renders inside the drawer; trigger lives in `WorkspaceShellHeader.tsx:118`         |
-| `src/shared/ui/nav/ClientSidebar.tsx`                          |   ✅   |   ⬜   |    ✅   | Same drawer flow as `Sidebar.tsx`                                                  |
-| `src/shared/ui/nav/PracticeSidebar.tsx`                        |   ✅   |   ⬜   |    ✅   | Same drawer flow as `Sidebar.tsx`                                                  |
+| `src/app/MainApp.tsx`                                          |   ⬜   |   ⬜   |    ✅   | `layoutMode` switch (widget/mobile/desktop) exists; mobile path renders a different shell — needs runtime verification |
+| `src/shared/ui/layout/AppShell.tsx`                            |   ✅   |   ✅   |    ✅   | Drawer + scrim + dismiss (`AppShell.tsx:195-211`); same drawer flow on tablet (below `lg`)            |
+| `src/shared/ui/nav/Sidebar.tsx`                                |   ✅   |   ✅   |    ✅   | Drawer flow at all viewports below `lg`; trigger in `WorkspaceShellHeader.tsx:118`                    |
+| `src/shared/ui/nav/ClientSidebar.tsx`                          |   ✅   |   ✅   |    ✅   | Same drawer flow as `Sidebar.tsx`                                                                     |
+| `src/shared/ui/nav/PracticeSidebar.tsx`                        |   ✅   |   ✅   |    ✅   | Same drawer flow as `Sidebar.tsx`                                                                     |
 | `src/features/chat/pages/WorkspacePage.tsx`                    |   ✅   |   ⚠️  |    ✅   | Bottom nav overflow ("More" → drawer) wired via `NavRail` `maxItems`. Inspector panes still need full-screen overlay below `md` |
 
 ## Practice pages
@@ -52,11 +52,11 @@ Smoke specs assert no horizontal overflow at each tier (`tests/e2e/responsive-pu
 | `src/features/invoices/pages/PracticeInvoicesPage.tsx`              |   ⚠️  |   ⬜   |    ✅   | Uses `DataTable` — runtime verification at 375px still pending              |
 | `src/features/invoices/pages/PracticeInvoiceCreatePage.tsx`         |   ✅   |   ✅   |    ✅   | `max-w-7xl` cap + responsive padding                                        |
 | `src/features/invoices/pages/PracticeInvoiceEditPage.tsx`           |   ✅   |   ✅   |    ✅   | `max-w-7xl` cap + responsive padding                                        |
-| `src/features/invoices/pages/PracticeInvoiceDetailPage.tsx`         |   ⬜   |   ⬜   |    ⬜   | Static scan inconclusive; needs deeper read                                  |
-| `src/features/reports/pages/PracticeReportsPage.tsx`                |   ⬜   |   ⬜   |    ⬜   | Not scanned                                                                  |
-| `src/features/engagements/pages/EngagementsPage.tsx`                |   ⬜   |   ⬜   |    ⬜   | Not scanned                                                                  |
+| `src/features/invoices/pages/PracticeInvoiceDetailPage.tsx`         |   ✅   |   ✅   |    ✅   | No fixed widths in main layout; only `max-w-xl` on a dialog                  |
+| `src/features/reports/pages/PracticeReportsPage.tsx`                |   ✅   |   ✅   |    ✅   | No fixed widths or non-responsive grids                                      |
+| `src/features/engagements/pages/EngagementsPage.tsx`                |   ✅   |   ✅   |    ✅   | No fixed widths or non-responsive grids                                      |
 | `src/features/engagements/pages/EngagementDetailPage.tsx`           |   ✅   |   ✅   |    ✅   | `grid-cols-1 sm:grid-cols-2`, `md:grid-cols-2` definition grids             |
-| `src/features/practice-onboarding/pages/PracticeOnboardingPage.tsx` |   ⬜   |   ⬜   |    ⬜   | Not scanned                                                                  |
+| `src/features/practice-onboarding/pages/PracticeOnboardingPage.tsx` |   ✅   |   ✅   |    ✅   | No fixed widths or non-responsive grids                                      |
 
 ## Client pages
 
@@ -66,7 +66,7 @@ Smoke specs assert no horizontal overflow at each tier (`tests/e2e/responsive-pu
 | `src/features/matters/pages/ClientMattersPage.tsx`            |   ✅   |   ✅   |    ✅   | `sm:grid-cols-2` definition grid                   |
 | `src/features/invoices/pages/ClientInvoicesPage.tsx`          |   ⚠️  |   ⬜   |    ✅   | Uses `DataTable` — runtime verification pending   |
 | `src/features/invoices/pages/ClientInvoiceDetailPage.tsx`     |   ✅   |   ✅   |    ✅   | `sm:grid-cols-3`, `lg:grid-cols-3`                 |
-| `src/features/payments/pages/ClientPaymentsPage.tsx`          |   ⬜   |   ⬜   |    ⬜   | Not scanned                                        |
+| `src/features/payments/pages/ClientPaymentsPage.tsx`          |   ✅   |   ✅   |    ✅   | No fixed widths or non-responsive grids            |
 | `src/features/engagements/pages/ClientEngagementReviewPage.tsx` |   ✅  |   ✅   |    ✅   | `max-w-2xl` cap + `px-4 py-4` / `py-8`             |
 
 ## Settings pages
@@ -91,11 +91,11 @@ Smoke specs assert no horizontal overflow at each tier (`tests/e2e/responsive-pu
 
 | File                                  | Mobile | Tablet | Desktop | Notes |
 | ------------------------------------- | :----: | :----: | :-----: | ----- |
-| `src/pages/AuthPage.tsx`              |   ⬜   |   ⬜   |    ⬜   |       |
-| `src/pages/AcceptInvitationPage.tsx`  |   ⬜   |   ⬜   |    ⬜   |       |
-| `src/pages/OnboardingPage.tsx`        |   ⬜   |   ⬜   |    ⬜   |       |
-| `src/pages/PaymentResultPage.tsx`     |   ⬜   |   ⬜   |    ⬜   |       |
-| `src/pages/PricingPage.tsx`           |   ⬜   |   ⬜   |    ⬜   |       |
+| `src/pages/AuthPage.tsx`              |   ✅   |   ✅   |    ✅   | `sm:mx-auto sm:w-full sm:max-w-md` — full-width below sm, centered card at sm+ |
+| `src/pages/AcceptInvitationPage.tsx`  |   ✅   |   ✅   |    ✅   | `mx-auto max-w-xl` (no breakpoint; max-w wider than mobile viewport so full-width) |
+| `src/pages/OnboardingPage.tsx`        |   ✅   |   ✅   |    ✅   | No fixed widths in scan                                                        |
+| `src/pages/PaymentResultPage.tsx`     |   ✅   |   ✅   |    ✅   | `sm:max-w-md` centered card; same pattern as `AuthPage`                        |
+| `src/pages/PricingPage.tsx`           |   ✅   |   ✅   |    ✅   | `sm:max-w-xl` centered card                                                    |
 
 ## Practice dashboard widgets
 
