@@ -41,7 +41,7 @@ Smoke specs assert no horizontal overflow at each tier (`tests/e2e/responsive-pu
 
 | File                                                                | Mobile | Tablet | Desktop | Notes                                                                       |
 | ------------------------------------------------------------------- | :----: | :----: | :-----: | --------------------------------------------------------------------------- |
-| `src/pages/PracticeHomePage.tsx`                                    |   ⬜   |   ⬜   |    ✅   |                                                                             |
+| `src/pages/PracticeHomePage.tsx`                                    |   ✅   |   ✅   |    ✅   | Functional at all viewports; uses viewport queries (`sm:`/`md:`/`lg:`). Convention drift — should migrate to container queries when the file lands. |
 | `src/features/matters/pages/PracticeMattersPage.tsx`                |   ✅   |   ✅   |    ✅   | Container queries throughout (`@lg:` / `@2xl:` / `@3xl:` / `@5xl:`)         |
 | `src/features/matters/pages/PracticeMatterCreatePage.tsx`           |   ⬜   |   ⬜   |    ⬜   |                                                                             |
 | `src/features/clients/pages/PracticeContactsPage.tsx`               |   ⬜   |   ⬜   |    ✅   | `@container` on detail wrapper                                              |
@@ -109,10 +109,10 @@ Smoke specs assert no horizontal overflow at each tier (`tests/e2e/responsive-pu
 
 ## Workspace views
 
-| File                                                                          | Mobile | Tablet | Desktop | Notes                                          |
-| ----------------------------------------------------------------------------- | :----: | :----: | :-----: | ---------------------------------------------- |
-| Workspace home view (chat root)                                               |   ✅   |   ✅   |    ✅   | Flex layout, no hardcoded widths               |
-| `WorkspaceDashboardView` (within WorkspacePage)                               |   ⚠️  |   ⬜   |    ✅   | `max-w-5xl` cap doesn't adapt to narrow shell  |
+| File                                                                          | Mobile | Tablet | Desktop | Notes                                                                              |
+| ----------------------------------------------------------------------------- | :----: | :----: | :-----: | ---------------------------------------------------------------------------------- |
+| Workspace home view (chat root)                                               |   ✅   |   ✅   |    ✅   | Flex layout, no hardcoded widths                                                   |
+| `MobileInspectorOverlay` (`src/shared/ui/inspector/`)                         |   ✅   |   ✅   |    —    | `lg:hidden` overlay portal; takes over inspector below `lg` (1024px), full-screen  |
 
 ## Primitives
 
@@ -129,8 +129,16 @@ Smoke specs assert no horizontal overflow at each tier (`tests/e2e/responsive-pu
 
 ## Phase plan (high level)
 
-1. **Foundation** — this PR. Test infra + conventions doc + this checklist. No visible changes.
-2. **Shared primitives** — DataTable stacked variant, Sidebar drawer trigger + bottom-tab integration (`workspaceShell.ts:301`), modal responsiveness.
-3. **Workspace shell + nav** — drop `WorkspaceDashboardView` `max-w-5xl`; inspector overlay below `md`.
-4. **Per-page sweeps** — dashboard widgets, settings, client pages, intake flows.
-5. **Visual snapshot regression** — `toHaveScreenshot` for top routes at all three viewports.
+1. **Foundation** ✅ — Test infra + conventions doc + this checklist (commit `800a2952`).
+2. **Bottom-nav overflow** ✅ — `NavRail` `maxItems` / "More" → drawer (commit `7ef7a29d`).
+3. **Cleanup + visual regression** — Removed dead `WorkspaceDashboardView`; verified inspector already overlays below `lg`. Visual snapshot harness landed (see *Visual regression* below).
+4. **Per-page sweeps** — dashboard widgets, settings, client pages, intake flows. In progress.
+
+## Visual regression
+
+`tests/e2e/responsive-screenshots.spec.ts` captures `toHaveScreenshot` baselines at 375/768/1440 for representative routes (public widget, practice home, practice matters). Not on the default CI path — run intentionally:
+
+- `npm run test:e2e:screenshots` — compare current rendering against baselines; fails on diff.
+- `npm run test:e2e:screenshots:update` — regenerate baselines. After any intentional UI change, run this, **visually review the new PNGs**, then commit them alongside the source change.
+
+Baselines are stored under `tests/e2e/__screenshots__/`. The `snapshotPathTemplate` in the Playwright configs strips the OS suffix, so a baseline produced on Windows is comparable on Linux as long as the underlying browser version matches.
