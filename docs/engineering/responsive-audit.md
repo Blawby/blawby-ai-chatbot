@@ -101,11 +101,11 @@ Smoke specs assert no horizontal overflow at each tier (`tests/e2e/responsive-pu
 
 | File                                                                       | Mobile | Tablet | Desktop | Notes                                          |
 | -------------------------------------------------------------------------- | :----: | :----: | :-----: | ---------------------------------------------- |
-| `src/features/practice-dashboard/components/DashboardSummaryCards.tsx`     |   ✅   |   ✅   |    ✅   | sm:/lg: variants present                       |
-| `src/features/practice-dashboard/components/RecentClientsGrid.tsx`         |   ✅   |   ✅   |    ✅   | sm:/lg:grid-cols                               |
-| `src/features/practice-dashboard/components/RecentIntakesGrid.tsx`         |   ⬜   |   ⬜   |    ⬜   |                                                |
-| `src/features/practice-dashboard/components/BillingActionsWidget.tsx`      |   ⬜   |   ⬜   |    ⬜   | No responsive variants — needs verification    |
-| `src/features/practice-dashboard/components/OutstandingPaymentsWidget.tsx` |   ⬜   |   ⬜   |    ⬜   | No responsive variants — needs verification    |
+| `src/features/practice-dashboard/components/DashboardSummaryCards.tsx`     |   ✅   |   ✅   |    ✅   | sm:/lg: variants present                                     |
+| `src/features/practice-dashboard/components/RecentClientsGrid.tsx`         |   ✅   |   ✅   |    ✅   | sm:/lg: grid-cols                                            |
+| `src/features/practice-dashboard/components/RecentIntakesGrid.tsx`         |   ✅   |   ✅   |    ✅   | `lg:grid-cols-3 xl:gap-x-8`; viewport queries (drift)        |
+| `src/features/practice-dashboard/components/BillingActionsWidget.tsx`      |   ✅   |   ✅   |    ✅   | All vertical / flex; no fixed widths                         |
+| `src/features/practice-dashboard/components/OutstandingPaymentsWidget.tsx` |   ✅   |   ✅   |    ✅   | All vertical / flex; full-width footer button                |
 
 ## Workspace views
 
