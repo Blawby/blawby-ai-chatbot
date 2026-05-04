@@ -43,49 +43,49 @@ Smoke specs assert no horizontal overflow at each tier (`tests/e2e/responsive-pu
 | ------------------------------------------------------------------- | :----: | :----: | :-----: | --------------------------------------------------------------------------- |
 | `src/pages/PracticeHomePage.tsx`                                    |   ✅   |   ✅   |    ✅   | Functional at all viewports; uses viewport queries (`sm:`/`md:`/`lg:`). Convention drift — should migrate to container queries when the file lands. |
 | `src/features/matters/pages/PracticeMattersPage.tsx`                |   ✅   |   ✅   |    ✅   | Container queries throughout (`@lg:` / `@2xl:` / `@3xl:` / `@5xl:`)         |
-| `src/features/matters/pages/PracticeMatterCreatePage.tsx`           |   ⬜   |   ⬜   |    ⬜   |                                                                             |
-| `src/features/clients/pages/PracticeContactsPage.tsx`               |   ⬜   |   ⬜   |    ✅   | `@container` on detail wrapper                                              |
-| `src/features/clients/pages/PracticeContactEditorPage.tsx`          |   ⬜   |   ⬜   |    ⬜   |                                                                             |
-| `src/features/intake/pages/IntakesPage.tsx`                         |   ⬜   |   ⬜   |    ⬜   |                                                                             |
-| `src/features/intake/pages/IntakeDetailPage.tsx`                    |   ⬜   |   ⬜   |    ⬜   |                                                                             |
-| `src/features/intake/pages/IntakeTemplatesPage.tsx`                 |   ⬜   |   ⬜   |    ⬜   |                                                                             |
-| `src/features/invoices/pages/PracticeInvoicesPage.tsx`              |   ⚠️  |   ⬜   |    ✅   | Uses `DataTable` (overflow issue below `sm`)                                |
-| `src/features/invoices/pages/PracticeInvoiceCreatePage.tsx`         |   ⬜   |   ⬜   |    ⬜   |                                                                             |
-| `src/features/invoices/pages/PracticeInvoiceEditPage.tsx`           |   ⬜   |   ⬜   |    ⬜   |                                                                             |
-| `src/features/invoices/pages/PracticeInvoiceDetailPage.tsx`         |   ⬜   |   ⬜   |    ⬜   |                                                                             |
-| `src/features/reports/pages/PracticeReportsPage.tsx`                |   ⬜   |   ⬜   |    ⬜   |                                                                             |
-| `src/features/engagements/pages/EngagementsPage.tsx`                |   ⬜   |   ⬜   |    ⬜   |                                                                             |
-| `src/features/engagements/pages/EngagementDetailPage.tsx`           |   ⬜   |   ⬜   |    ⬜   |                                                                             |
-| `src/features/practice-onboarding/pages/PracticeOnboardingPage.tsx` |   ⬜   |   ⬜   |    ⬜   |                                                                             |
+| `src/features/matters/pages/PracticeMatterCreatePage.tsx`           |   ✅   |   ✅   |    ✅   | `max-w-6xl` cap + `px-4 py-6 sm:px-6 lg:px-8` (drift)                       |
+| `src/features/clients/pages/PracticeContactsPage.tsx`               |   ✅   |   ✅   |    ✅   | `@container` on detail wrapper                                              |
+| `src/features/clients/pages/PracticeContactEditorPage.tsx`          |   ✅   |   ✅   |    ✅   | `max-w-3xl` cap + responsive padding                                        |
+| `src/features/intake/pages/IntakesPage.tsx`                         |   ✅   |   ✅   |    ✅   | EntityList + Avatar primitives; flex with `min-w-0 flex-1` + `truncate`     |
+| `src/features/intake/pages/IntakeDetailPage.tsx`                    |   ✅   |   ✅   |    ✅   | `lg:grid-cols-[minmax(0,1fr)_280px]`, `xl:grid-cols-[minmax(0,1fr)_360px]`  |
+| `src/features/intake/pages/IntakeTemplatesPage.tsx`                 |   ✅   |   ✅   |    ✅   | `grid-cols-1 sm:grid-cols-2 md:grid-cols-3`; fixed `px-6` (minor drift)     |
+| `src/features/invoices/pages/PracticeInvoicesPage.tsx`              |   ⚠️  |   ⬜   |    ✅   | Uses `DataTable` — runtime verification at 375px still pending              |
+| `src/features/invoices/pages/PracticeInvoiceCreatePage.tsx`         |   ✅   |   ✅   |    ✅   | `max-w-7xl` cap + responsive padding                                        |
+| `src/features/invoices/pages/PracticeInvoiceEditPage.tsx`           |   ✅   |   ✅   |    ✅   | `max-w-7xl` cap + responsive padding                                        |
+| `src/features/invoices/pages/PracticeInvoiceDetailPage.tsx`         |   ⬜   |   ⬜   |    ⬜   | Static scan inconclusive; needs deeper read                                  |
+| `src/features/reports/pages/PracticeReportsPage.tsx`                |   ⬜   |   ⬜   |    ⬜   | Not scanned                                                                  |
+| `src/features/engagements/pages/EngagementsPage.tsx`                |   ⬜   |   ⬜   |    ⬜   | Not scanned                                                                  |
+| `src/features/engagements/pages/EngagementDetailPage.tsx`           |   ✅   |   ✅   |    ✅   | `grid-cols-1 sm:grid-cols-2`, `md:grid-cols-2` definition grids             |
+| `src/features/practice-onboarding/pages/PracticeOnboardingPage.tsx` |   ⬜   |   ⬜   |    ⬜   | Not scanned                                                                  |
 
 ## Client pages
 
 | File                                                          | Mobile | Tablet | Desktop | Notes                                            |
 | ------------------------------------------------------------- | :----: | :----: | :-----: | ------------------------------------------------ |
-| `src/pages/ClientHomePage.tsx`                                |   ⬜   |   ⬜   |    ✅   |                                                  |
-| `src/features/matters/pages/ClientMattersPage.tsx`            |   ⬜   |   ⬜   |    ⬜   |                                                  |
-| `src/features/invoices/pages/ClientInvoicesPage.tsx`          |   ⚠️  |   ⬜   |    ✅   | Uses `DataTable` (overflow issue below `sm`)     |
-| `src/features/invoices/pages/ClientInvoiceDetailPage.tsx`     |   ⬜   |   ⬜   |    ⬜   |                                                  |
-| `src/features/payments/pages/ClientPaymentsPage.tsx`          |   ⬜   |   ⬜   |    ⬜   |                                                  |
-| `src/features/engagements/pages/ClientEngagementReviewPage.tsx` |   ⬜  |   ⬜   |    ⬜   |                                                  |
+| `src/pages/ClientHomePage.tsx`                                |   ✅   |   ✅   |    ✅   | Uses `WorkspaceShellHeader` + `AppShell`           |
+| `src/features/matters/pages/ClientMattersPage.tsx`            |   ✅   |   ✅   |    ✅   | `sm:grid-cols-2` definition grid                   |
+| `src/features/invoices/pages/ClientInvoicesPage.tsx`          |   ⚠️  |   ⬜   |    ✅   | Uses `DataTable` — runtime verification pending   |
+| `src/features/invoices/pages/ClientInvoiceDetailPage.tsx`     |   ✅   |   ✅   |    ✅   | `sm:grid-cols-3`, `lg:grid-cols-3`                 |
+| `src/features/payments/pages/ClientPaymentsPage.tsx`          |   ⬜   |   ⬜   |    ⬜   | Not scanned                                        |
+| `src/features/engagements/pages/ClientEngagementReviewPage.tsx` |   ✅  |   ✅   |    ✅   | `max-w-2xl` cap + `px-4 py-4` / `py-8`             |
 
 ## Settings pages
 
 | File                                                          | Mobile | Tablet | Desktop | Notes                                                |
 | ------------------------------------------------------------- | :----: | :----: | :-----: | ---------------------------------------------------- |
-| `src/features/settings/pages/SettingsContent.tsx`             |   ⬜   |   ⬜   |    ⬜   |                                                      |
-| `src/features/settings/pages/GeneralPage.tsx`                 |   ✅   |   ✅   |    ✅   | Uses `FormGrid` pattern                              |
-| `src/features/settings/pages/NotificationsPage.tsx`           |   ⬜   |   ⬜   |    ⬜   |                                                      |
-| `src/features/settings/pages/SecurityPage.tsx`                |   ⬜   |   ⬜   |    ⬜   |                                                      |
-| `src/features/settings/pages/AccountPage.tsx`                 |   ⬜   |   ⬜   |    ⬜   |                                                      |
-| `src/features/settings/pages/MFAEnrollmentPage.tsx`           |   ⬜   |   ⬜   |    ⬜   |                                                      |
-| `src/features/settings/pages/PracticePage.tsx`                |   ⬜   |   ⬜   |    ⬜   |                                                      |
-| `src/features/settings/pages/PracticeCoveragePage.tsx`        |   ⬜   |   ⬜   |    ⬜   |                                                      |
-| `src/features/settings/pages/PracticeTeamPage.tsx`            |   ⬜   |   ⬜   |    ⬜   |                                                      |
-| `src/features/settings/pages/PayoutsPage.tsx`                 |   ⬜   |   ⬜   |    ⬜   |                                                      |
-| `src/features/settings/pages/AppsPage.tsx`                    |   ⬜   |   ⬜   |    ⬜   |                                                      |
-| `src/features/settings/pages/AppDetailPage.tsx`               |   ⬜   |   ⬜   |    ⬜   |                                                      |
-| `src/features/settings/pages/HelpPage.tsx`                    |   ⬜   |   ⬜   |    ⬜   |                                                      |
+| `src/features/settings/pages/SettingsContent.tsx`             |   ✅   |   ✅   |    ✅   | Router/wrapper for settings pages                       |
+| `src/features/settings/pages/GeneralPage.tsx`                 |   ✅   |   ✅   |    ✅   | Uses `FormGrid` pattern                                 |
+| `src/features/settings/pages/NotificationsPage.tsx`           |   ✅   |   ✅   |    ✅   | `SettingSection` + `SettingRow` (responsive primitives) |
+| `src/features/settings/pages/SecurityPage.tsx`                |   ✅   |   ✅   |    ✅   | `SettingSection` + `SettingRow`                         |
+| `src/features/settings/pages/AccountPage.tsx`                 |   ✅   |   ✅   |    ✅   | `SettingSection` + `SettingRow`; dropdown `min-w-[220px]` is local |
+| `src/features/settings/pages/MFAEnrollmentPage.tsx`           |   ✅   |   ✅   |    ✅   | `max-w-md` centered card; QR-grid is contained in `w-32` |
+| `src/features/settings/pages/PracticePage.tsx`                |   ✅   |   ✅   |    ✅   | Uses `FormGrid` + `EditorShell`                         |
+| `src/features/settings/pages/PracticeCoveragePage.tsx`        |   ✅   |   ✅   |    ✅   | Local `max-w-[220px]` / `min-w-[120px]` are field widths |
+| `src/features/settings/pages/PracticeTeamPage.tsx`            |   ✅   |   ✅   |    ✅   | `SettingSection` + `SettingRow`                         |
+| `src/features/settings/pages/PayoutsPage.tsx`                 |   ✅   |   ✅   |    ✅   | Local `max-w-[220px]` is a field width                  |
+| `src/features/settings/pages/AppsPage.tsx`                    |   ✅   |   ✅   |    ✅   | `SettingSection` + `SettingRow`                         |
+| `src/features/settings/pages/AppDetailPage.tsx`               |   ✅   |   ✅   |    ✅   | `SettingSection` + `SettingRow`                         |
+| `src/features/settings/pages/HelpPage.tsx`                    |   ✅   |   ✅   |    ✅   | `SettingSection` + `SettingRow`                         |
 
 ## Top-level pages
 
@@ -123,7 +123,7 @@ Smoke specs assert no horizontal overflow at each tier (`tests/e2e/responsive-pu
 | `src/shared/ui/layout/Page.tsx`                               |   ✅   |   ✅   |    ✅   | `px-4 py-6 sm:px-6 lg:px-8`                                                   |
 | `src/features/matters/components/MatterSummaryCards.tsx`      |   ✅   |   ✅   |    ✅   | Multi-level container queries — reference pattern                             |
 | DataTable (`src/shared/ui/...`)                               |   ⚠️  |   ⬜   |    ✅   | `overflow-x-auto` + `hideAt`; needs stacked card-per-row variant below `sm`   |
-| Modal / Dialog primitives                                     |   ⬜   |   ⬜   |    ⬜   | `DialogFooter`/`DialogBody` — verify `max-h-[90dvh]` + footer stack below sm  |
+| Modal / Dialog primitives                                     |   ✅   |   ✅   |    ✅   | `Dialog.tsx`: `max-h-[90dvh] w-full max-w-lg`; `DialogFooter`: `flex-col-reverse sm:flex-row` |
 
 ---
 
