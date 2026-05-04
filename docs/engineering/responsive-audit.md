@@ -30,7 +30,7 @@ Smoke specs assert no horizontal overflow at each tier (`tests/e2e/responsive-pu
 
 | File                                                           | Mobile | Tablet | Desktop | Notes                                                                              |
 | -------------------------------------------------------------- | :----: | :----: | :-----: | ---------------------------------------------------------------------------------- |
-| `src/app/MainApp.tsx`                                          |   ⬜   |   ⬜   |    ✅   | `layoutMode` switch (widget/mobile/desktop) exists; mobile path renders a different shell — needs runtime verification |
+| `src/app/MainApp.tsx`                                          |   —    |   —    |    ✅   | `layoutMode` enum: 'desktop' uses AppShell (audited here); 'mobile' (authenticated client on phone) and 'widget' (3rd-party iframe) render entirely separate shells outside this audit's scope |
 | `src/shared/ui/layout/AppShell.tsx`                            |   ✅   |   ✅   |    ✅   | Drawer + scrim + dismiss (`AppShell.tsx:195-211`); same drawer flow on tablet (below `lg`)            |
 | `src/shared/ui/nav/Sidebar.tsx`                                |   ✅   |   ✅   |    ✅   | Drawer flow at all viewports below `lg`; trigger in `WorkspaceShellHeader.tsx:118`                    |
 | `src/shared/ui/nav/ClientSidebar.tsx`                          |   ✅   |   ✅   |    ✅   | Same drawer flow as `Sidebar.tsx`                                                                     |
