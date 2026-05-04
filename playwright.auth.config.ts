@@ -1,5 +1,11 @@
 import { defineConfig, devices } from '@playwright/test';
 
+const RESPONSIVE_VIEWPORTS = {
+  mobile: { width: 375, height: 667 },
+  tablet: { width: 768, height: 1024 },
+  desktop: { width: 1440, height: 900 },
+} as const;
+
 const resolveWorkers = (): number => {
   const raw = Number(process.env.E2E_WORKERS);
   if (Number.isFinite(raw) && raw > 0) {
@@ -16,6 +22,7 @@ export default defineConfig({
     /.*clients\.spec\.ts/,
     /.*intake-invite\.spec\.ts/,
     /.*notifications\.spec\.ts/,
+    /.*responsive-auth\.spec\.ts/,
   ],
   fullyParallel: true,
   retries: 0,
@@ -26,7 +33,12 @@ export default defineConfig({
     trace: 'retain-on-failure',
     storageState: './.tmp/playwright/auth/state/owner.json',
   },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  projects: [
+    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+    { name: 'mobile',  use: { ...devices['Desktop Chrome'], viewport: RESPONSIVE_VIEWPORTS.mobile  } },
+    { name: 'tablet',  use: { ...devices['Desktop Chrome'], viewport: RESPONSIVE_VIEWPORTS.tablet  } },
+    { name: 'desktop', use: { ...devices['Desktop Chrome'], viewport: RESPONSIVE_VIEWPORTS.desktop } },
+  ],
   globalSetup: './tests/e2e/global-setup.auth.ts',
   reporter: [
     ['html', { outputFolder: './.tmp/playwright/auth/report', open: 'never' }],

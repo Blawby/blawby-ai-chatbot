@@ -5,7 +5,14 @@ const PUBLIC_WIDGET_SPECS = [
   /.*widget-intake-flow\.spec\.ts/,
   /.*widget-embed\.spec\.ts/,
   /.*widget-performance\.spec\.ts/,
+  /.*responsive-public\.spec\.ts/,
 ];
+
+const RESPONSIVE_VIEWPORTS = {
+  mobile: { width: 375, height: 667 },
+  tablet: { width: 768, height: 1024 },
+  desktop: { width: 1440, height: 900 },
+} as const;
 
 const resolveWorkers = (): number => {
   const raw = Number(process.env.E2E_WORKERS);
@@ -28,7 +35,12 @@ export default defineConfig({
     trace: 'retain-on-failure',
     storageState: { cookies: [], origins: [] },
   },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  projects: [
+    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+    { name: 'mobile',  use: { ...devices['Desktop Chrome'], viewport: RESPONSIVE_VIEWPORTS.mobile  } },
+    { name: 'tablet',  use: { ...devices['Desktop Chrome'], viewport: RESPONSIVE_VIEWPORTS.tablet  } },
+    { name: 'desktop', use: { ...devices['Desktop Chrome'], viewport: RESPONSIVE_VIEWPORTS.desktop } },
+  ],
   globalSetup: './tests/e2e/global-setup.public.ts',
   reporter: [
     ['html', { outputFolder: './.tmp/playwright/public/report', open: 'never' }],
