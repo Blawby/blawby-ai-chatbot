@@ -101,7 +101,7 @@ export const Dialog: FunctionComponent<DialogProps> = ({
       <div
         role="presentation"
         // eslint-disable-next-line custom/no-hardcoded-colors
-        className="ui-overlay-enter fixed inset-0 bg-black/60 backdrop-blur-[2px] dark:bg-black/80"
+        className="ui-overlay-enter fixed inset-0 bg-black/30 backdrop-blur-[2px] dark:bg-black/40"
         style={{ zIndex: -1 }}
         onClick={disableBackdropClick ? undefined : () => onCloseRef.current()}
       />

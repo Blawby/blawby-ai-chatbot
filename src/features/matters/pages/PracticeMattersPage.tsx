@@ -5,7 +5,6 @@ import { PageHeader } from '@/shared/ui/layout/PageHeader';
 import { Page } from '@/shared/ui/layout/Page';
 import { Panel } from '@/shared/ui/layout/Panel';
 import { DetailHeader } from '@/shared/ui/layout/DetailHeader';
-import { AccentHeroSurface } from '@/shared/ui/layout/AccentHeroSurface';
 import { WorkspacePlaceholderState } from '@/shared/ui/layout/WorkspacePlaceholderState';
 import { Button } from '@/shared/ui/Button';
 import { EntityList } from '@/shared/ui/list/EntityList';
@@ -15,7 +14,7 @@ import { CurrencyInput } from '@/shared/ui/input';
 import { ActivityTimeline, type TimelineItem, type TimelinePerson } from '@/shared/ui/activity/ActivityTimeline';
 import { Avatar, UserCard } from '@/shared/ui/profile';
 import { Dialog } from '@/shared/ui/dialog';
-import { MessagesSquare, CheckCircle2, DollarSign, Folder, Home, Paperclip, SquarePen, Plus } from 'lucide-preact';
+import { MessagesSquare, CheckCircle2, DollarSign, Folder, Home, Paperclip, SquarePen, Plus, Bell } from 'lucide-preact';
 
 import { MATTER_STATUS_LABELS, type MatterStatus } from '@/shared/types/matterStatus';
 import {
@@ -284,7 +283,6 @@ export const PracticeMattersPage = ({
   const pathSegments = pathSuffix.replace(/^\/+/, '').split('/').filter(Boolean);
   const firstSegment = pathSegments[0] ?? '';
   const secondSegment = pathSegments[1] ?? '';
-  const isCreateRouteFromPath = firstSegment === 'new';
   const selectedMatterIdFromPath = firstSegment && firstSegment !== 'activity' && firstSegment !== 'new'
     ? decodeURIComponent(firstSegment)
     : null;
@@ -293,7 +291,6 @@ export const PracticeMattersPage = ({
       ? secondSegment
       : 'overview')
     : 'overview';
-  const isCreateRoute = renderMode === 'listOnly' ? false : isCreateRouteFromPath;
   const selectedMatterId = renderMode === 'listOnly' ? null : selectedMatterIdFromPath;
   const convertIntakeUuid = useMemo(
     () => resolveQueryValue(location.query?.convertIntake),
@@ -966,59 +963,6 @@ export const PracticeMattersPage = ({
   }, [activePracticeId, selectedMatterId]);
 
   // ── Matter CRUD ───────────────────────────────────────────────────────────
-  const handleCreateMatter = useCallback(async (values: MatterFormState) => {
-    if (!activePracticeId) throw new Error('Practice ID is required to create a matter.');
-    if (values.clientId && !isUuid(values.clientId)) throw new Error(`Invalid client_id UUID: "${values.clientId}"`);
-    if (values.practiceAreaId && !isUuid(values.practiceAreaId)) throw new Error(`Invalid practice_service_id UUID: "${values.practiceAreaId}"`);
-
-    const created = await createMatter(activePracticeId, prunePayload(buildCreatePayload(values)));
-    refreshMatters();
-    createdMatterIdRef.current = created?.id ?? null;
-  }, [activePracticeId, refreshMatters]);
-
-  const handleConvertIntake = useCallback(async (values: MatterFormState) => {
-    if (!activePracticeId || !convertIntakeUuid) {
-      throw new Error('Practice ID and intake UUID are required to convert an intake.');
-    }
-
-    let payload: {
-      matter?: { id?: string };
-      data?: { matter?: { id?: string } };
-    };
-    try {
-      const result = await apiClient.patch<{
-        matter?: { id?: string };
-        data?: { matter?: { id?: string } };
-      }>(
-        `/api/practice-client-intakes/${encodeURIComponent(convertIntakeUuid)}/convert`,
-        {
-          billing_type: values.billingType || undefined,
-          responsible_attorney_id: values.responsibleAttorneyId || undefined,
-          practice_service_id: values.practiceAreaId || undefined,
-          title: values.title || undefined,
-          status: values.status || 'engagement_pending',
-          open_date: values.openDate || undefined,
-        },
-        { invalidates: [`matters:${activePracticeId}:`] }
-      );
-      payload = result.data;
-    } catch (apiError) {
-      if (isHttpError(apiError)) {
-        const err = apiError.response.data as { message?: string; error?: string } | undefined;
-        throw new Error(err?.message ?? err?.error ?? `Intake conversion failed (HTTP ${apiError.response.status})`);
-      }
-      throw apiError;
-    }
-
-    const matterId = payload.matter?.id ?? payload.data?.matter?.id;
-    if (!matterId) {
-      throw new Error('Intake conversion response did not include a matter ID.');
-    }
-
-    refreshMatters();
-    createdMatterIdRef.current = matterId;
-  }, [activePracticeId, convertIntakeUuid, refreshMatters]);
-
   const handleUpdateMatter = useCallback(async (values: MatterFormState) => {
     if (!activePracticeId || !selectedMatterId) return;
     if (values.clientId && !isUuid(values.clientId)) throw new Error(`Invalid client_id UUID: "${values.clientId}"`);
@@ -1716,53 +1660,9 @@ export const PracticeMattersPage = ({
     };
   }, [handlePatchMatter, selectedMatterId, showError]);
 
-  // =========================================================================
-  // Render — create route
-  // =========================================================================
-  if (isCreateRoute) {
-    const submitHandler = convertIntakeUuid ? handleConvertIntake : handleCreateMatter;
-    const shouldDeferCreateForm = Boolean(convertIntakeUuid && convertLoading && !convertInitialValues);
-    return (
-      <Page className="min-h-full">
-        <div className="max-w-6xl mx-auto flex flex-col gap-6">
-          <Breadcrumbs
-            items={[{ label: 'Matters', href: basePath }, { label: 'Create matter' }]}
-            onNavigate={navigate}
-          />
-          <PageHeader
-            title={convertIntakeUuid ? 'Convert Intake to Matter' : 'Create Matter'}
-            subtitle={convertIntakeUuid
-              ? 'Finalize intake details and convert this intake into a new matter.'
-              : 'Capture matter details, billing structure, and assignment in one place.'}
-          />
-          {convertError && <ErrorBanner>{convertError}</ErrorBanner>}
-          {convertIntakeUuid && convertLoading && !convertInitialValues ? (
-            <Panel className="p-6">
-              <LoadingState message="Loading intake details..." />
-            </Panel>
-          ) : null}
-          {!shouldDeferCreateForm ? (
-              <MatterCreateForm
-              onClose={() => {
-                const id = createdMatterIdRef.current;
-                createdMatterIdRef.current = null;
-                if (id) { goToDetail(id); return; }
-                goToList();
-              }}
-              onSubmit={submitHandler}
-              practiceId={activePracticeId}
-              clients={clientOptions}
-              practiceAreas={practiceAreaOptions}
-              practiceAreasLoading={servicesLoading}
-              assignees={assigneeOptions}
-              initialValues={convertInitialValues}
-              requireClientSelection={!convertIntakeUuid}
-            />
-          ) : null}
-        </div>
-      </Page>
-    );
-  }
+  // Create flow is rendered as a dialog overlay by PracticeMatterCreatePage in
+  // index.tsx — this page falls through to list rendering on /matters/new so
+  // the matters list stays visible behind the dialog scrim.
 
   // =========================================================================
   // Render — detail route
@@ -1822,143 +1722,145 @@ export const PracticeMattersPage = ({
               className="sticky top-0 z-30"
             />
             {detailHeaderMeta ? (
-          <div className="px-4 py-4 @container">
-                <AccentHeroSurface>
-                  <div className="px-4 pb-8 pt-8 sm:px-6 sm:pb-12 sm:pt-10">
-                    <div className="flex flex-col items-center gap-5 text-center @4xl:flex-row @4xl:items-start @4xl:text-left @4xl:gap-8">
-                      <Avatar
-                        size="xl"
-                        className="mx-auto h-28 w-28 @4xl:mx-0 @4xl:h-36 @4xl:w-36"
-                        src={detailClientOption?.image ?? null}
-                        name={detailClientOption?.name ?? 'Unassigned client'}
-                      />
-                      <div className="min-w-0 flex-1">
-                        {selectedMatterDetail ? (
-                          <div>
-                            {isDescriptionEditing ? (
-                              <div className="space-y-3">
-                                <div>
-                                  <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-[rgb(var(--accent-foreground))]/80" htmlFor="matter-title-editor">
-                                    Title
-                                  </label>
-                                  <input
-                                    id="matter-title-editor"
-                                    type="text"
-                                    value={titleDraft}
-                                    onInput={(event) => setTitleDraft((event.currentTarget as HTMLInputElement).value)}
-                                    placeholder="Matter title"
-                                    className="glass-input w-full rounded-xl px-3 py-2.5 text-sm"
-                                  />
-                                </div>
-                                <MarkdownUploadTextarea
-                                  label="Description"
-                                  value={descriptionDraft}
-                                  onChange={setDescriptionDraft}
-                                  practiceId={activePracticeId}
-                                  matterId={selectedMatterDetail.id}
-                                  showLabel={false}
-                                  showTabs
-                                  showFooter
-                                  rows={10}
-                                  defaultTab="write"
+              <div className="px-4 py-4 @container">
+                <section className="rounded-[20px] border border-card-border bg-surface-elevated p-6 sm:p-8">
+                  <div className="flex flex-col items-center gap-5 text-center @2xl:flex-row @2xl:items-start @2xl:text-left @2xl:gap-6">
+                    <Avatar
+                      size="lg"
+                      className="mx-auto !h-28 !w-28 [&>span]:!text-3xl @2xl:mx-0"
+                      src={detailClientOption?.image ?? null}
+                      name={detailClientOption?.name ?? 'Unassigned client'}
+                    />
+                    <div className="min-w-0 flex-1">
+                      {selectedMatterDetail ? (
+                        <div>
+                          {isDescriptionEditing ? (
+                            <div className="space-y-3">
+                              <div>
+                                <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-input-placeholder" htmlFor="matter-title-editor">
+                                  Title
+                                </label>
+                                <input
+                                  id="matter-title-editor"
+                                  type="text"
+                                  value={titleDraft}
+                                  onInput={(event) => setTitleDraft((event.currentTarget as HTMLInputElement).value)}
+                                  placeholder="Matter title"
+                                  className="glass-input w-full rounded-xl px-3 py-2.5 text-sm"
                                 />
-                                <div className="flex justify-end gap-2">
-                                  <Button size="sm" variant="secondary" onClick={cancelDescriptionEdit} disabled={isSavingDescription}>
-                                    Cancel
-                                  </Button>
-                                  <Button size="sm" onClick={() => void saveDescription()} disabled={isSavingDescription}>
-                                    {isSavingDescription ? 'Saving...' : 'Save changes'}
-                                  </Button>
-                                </div>
                               </div>
-                            ) : (
-                              <>
-                                <div className="flex flex-col items-center gap-1 @4xl:flex-row @4xl:items-baseline @4xl:justify-between @4xl:gap-3">
-                                  <h4 className="mx-auto max-w-[20ch] break-words text-center text-2xl font-semibold leading-tight text-[rgb(var(--accent-foreground))] @2xl:text-3xl @4xl:mx-0 @4xl:text-left @4xl:text-4xl @6xl:text-5xl">
-                                    {selectedMatterDetail.title?.trim() || 'Untitled matter'}
-                                  </h4>
-                                  {selectedMatterDetail.caseNumber?.trim() ? (
-                                    <span className="hidden shrink-0 text-sm font-normal text-[rgb(var(--accent-foreground))]/65 @4xl:inline @4xl:pt-2">
-                                      #{selectedMatterDetail.caseNumber.trim()}
-                                    </span>
-                                  ) : null}
-                                </div>
+                              <MarkdownUploadTextarea
+                                label="Description"
+                                value={descriptionDraft}
+                                onChange={setDescriptionDraft}
+                                practiceId={activePracticeId}
+                                matterId={selectedMatterDetail.id}
+                                showLabel={false}
+                                showTabs
+                                showFooter
+                                rows={10}
+                                defaultTab="write"
+                              />
+                              <div className="flex justify-end gap-2">
+                                <Button size="sm" variant="secondary" onClick={cancelDescriptionEdit} disabled={isSavingDescription}>
+                                  Cancel
+                                </Button>
+                                <Button size="sm" onClick={() => void saveDescription()} disabled={isSavingDescription}>
+                                  {isSavingDescription ? 'Saving...' : 'Save changes'}
+                                </Button>
+                              </div>
+                            </div>
+                          ) : (
+                            <>
+                              <div className="flex flex-col items-center gap-1 @2xl:flex-row @2xl:items-baseline @2xl:justify-between @2xl:gap-3">
+                                <h4 className="mx-auto max-w-[24ch] break-words text-center text-2xl font-bold leading-tight text-input-text @2xl:mx-0 @2xl:text-left @2xl:text-[28px]">
+                                  {selectedMatterDetail.title?.trim() || 'Untitled matter'}
+                                </h4>
                                 {selectedMatterDetail.caseNumber?.trim() ? (
-                                  <p className="text-xs font-medium uppercase tracking-[0.16em] text-[rgb(var(--accent-foreground))]/65 @4xl:hidden">
+                                  <span className="hidden shrink-0 text-sm font-normal text-input-placeholder @2xl:inline @2xl:pt-2">
                                     #{selectedMatterDetail.caseNumber.trim()}
-                                  </p>
+                                  </span>
                                 ) : null}
-                                <p className="mt-2 break-words whitespace-pre-wrap text-sm leading-relaxed text-[rgb(var(--accent-foreground))]/85">
-                                  {selectedMatterDetail.description?.trim() || 'No description yet.'}
+                              </div>
+                              {selectedMatterDetail.caseNumber?.trim() ? (
+                                <p className="text-xs font-medium uppercase tracking-[0.16em] text-input-placeholder @2xl:hidden">
+                                  #{selectedMatterDetail.caseNumber.trim()}
                                 </p>
-                              </>
-                            )}
-                          </div>
-                        ) : null}
-                        <nav className="mt-6 flex flex-wrap items-center justify-center gap-2 @4xl:justify-start @4xl:gap-3" aria-label="Matter detail tabs">
-                          {DETAIL_TABS.map((tab) => {
-                            const isActive = detailSection === tab.id;
-                            const TabIcon = tab.icon;
-                            return (
-                              <button
-                                key={tab.id}
-                                type="button"
-                                onClick={() => {
-                                  if (!selectedMatterId) return;
-                                  goToDetail(selectedMatterId, tab.id === 'overview' ? null : tab.id);
-                                }}
-                                aria-selected={isActive}
-                                aria-label={tab.label}
-                                title={tab.label}
-                                role="tab"
-                                className={[
-                                  'flex h-10 w-10 items-center justify-center rounded-full transition-colors duration-150 sm:h-11 sm:w-11',
-                                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500',
-                                  isActive
-                                    ? 'bg-surface-workspace/20 text-[rgb(var(--accent-foreground))]'
-                                    : 'bg-surface-workspace/10 text-[rgb(var(--accent-foreground))]/80 hover:bg-surface-workspace/15 hover:text-[rgb(var(--accent-foreground))]'
-                                ].join(' ')}
-                              >
-                                <TabIcon className="h-5 w-5" aria-hidden="true" />
-                              </button>
-                            );
-                          })}
-                        </nav>
-                        {selectedMatterDetail ? (
-                          <div className="mt-6 grid grid-cols-1 gap-4 text-center @2xl:grid-cols-2 @2xl:text-left @4xl:grid-cols-3">
+                              ) : null}
+                              <p className="mt-1 break-words whitespace-pre-wrap text-sm leading-relaxed text-input-placeholder">
+                                {selectedMatterDetail.description?.trim() || 'No description yet.'}
+                              </p>
+                            </>
+                          )}
+                        </div>
+                      ) : null}
+                      <nav className="mt-5 flex flex-wrap items-center justify-center gap-2 @2xl:justify-start" aria-label="Matter detail tabs">
+                        {DETAIL_TABS.map((tab) => {
+                          const isActive = detailSection === tab.id;
+                          const TabIcon = tab.icon;
+                          return (
+                            <button
+                              key={tab.id}
+                              type="button"
+                              onClick={() => {
+                                if (!selectedMatterId) return;
+                                goToDetail(selectedMatterId, tab.id === 'overview' ? null : tab.id);
+                              }}
+                              aria-selected={isActive}
+                              aria-label={tab.label}
+                              title={tab.label}
+                              role="tab"
+                              className={[
+                                'flex h-10 w-10 items-center justify-center rounded-xl transition-colors duration-150',
+                                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500',
+                                isActive
+                                  ? 'bg-card text-input-text'
+                                  : 'bg-card/40 text-input-placeholder hover:bg-card hover:text-input-text'
+                              ].join(' ')}
+                            >
+                              <TabIcon className="h-[18px] w-[18px]" aria-hidden="true" />
+                            </button>
+                          );
+                        })}
+                      </nav>
+                      {selectedMatterDetail ? (
+                        <>
+                          <div className="my-5 h-px w-full bg-card-border" />
+                          <div className="grid grid-cols-1 gap-4 text-center @2xl:grid-cols-3 @2xl:text-left">
                             <div>
-                              <p className="text-xs font-medium uppercase tracking-wide text-[rgb(var(--accent-foreground))]/70">Client</p>
-                              <p className="mt-1 break-all text-sm text-[rgb(var(--accent-foreground))] @2xl:break-words">
+                              <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-input-placeholder">Client</p>
+                              <p className="mt-1 break-all text-sm font-medium text-input-text @2xl:break-words">
                                 {detailClientOption?.name ?? 'Unassigned client'}
                               </p>
                             </div>
                             <div>
-                              <p className="text-xs font-medium uppercase tracking-wide text-[rgb(var(--accent-foreground))]/70">Assigned</p>
+                              <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-input-placeholder">Assigned</p>
                               {(() => {
                                 const attId = selectedMatterDetail.responsibleAttorneyId ?? '';
                                 const member = membersById.get(attId);
                                 const attName = assigneeNameById.get(attId);
-                                if (!attName) return <p className="mt-1 text-sm text-[rgb(var(--accent-foreground))]/60">Not set</p>;
+                                if (!attName) return <p className="mt-1 text-sm text-input-placeholder">Not set</p>;
                                 return (
                                   <div className="mt-1 flex items-center justify-center gap-1.5 @2xl:justify-start">
                                     <Avatar src={member?.image ?? null} name={attName} size="xs" />
-                                    <span className="min-w-0 text-sm text-[rgb(var(--accent-foreground))]">{attName}</span>
+                                    <span className="min-w-0 text-sm font-medium text-input-text">{attName}</span>
                                   </div>
                                 );
                               })()}
                             </div>
                             <div>
-                              <p className="text-xs font-medium uppercase tracking-wide text-[rgb(var(--accent-foreground))]/70">Status</p>
-                              <p className="mt-1 text-sm text-[rgb(var(--accent-foreground))]">
+                              <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-input-placeholder">Status</p>
+                              <p className="mt-1 inline-flex items-center gap-1.5 rounded-md bg-card px-2.5 py-1 text-sm font-medium text-input-text">
+                                <span className="h-1.5 w-1.5 rounded-full bg-accent-500" aria-hidden="true" />
                                 {MATTER_STATUS_LABELS[selectedMatterDetail.status]}
                               </p>
                             </div>
                           </div>
-                        ) : null}
-                      </div>
+                        </>
+                      ) : null}
                     </div>
                   </div>
-                </AccentHeroSurface>
+                </section>
               </div>
             ) : null}
             <div className="px-4 pb-4 pt-2">
@@ -1988,39 +1890,39 @@ export const PracticeMattersPage = ({
 
                 {/* Read-only matter details */}
                 {selectedMatterDetail && (
-                  <section className="glass-panel rounded-2xl">
-                    <div className="grid grid-cols-1 divide-y divide-line-glass/5 md:grid-cols-2 md:divide-x md:divide-y-0 md:divide-line-glass/5">
-                      <dl className="divide-y divide-line-glass/5">
-                        <div className="px-5 py-4">
-                          <dt className="text-sm font-medium text-input-placeholder">Court</dt>
+                  <section className="overflow-hidden rounded-[20px] border border-card-border bg-surface-elevated">
+                    <div className="grid grid-cols-1 divide-y divide-card-border md:grid-cols-2 md:divide-x md:divide-y-0">
+                      <dl className="divide-y divide-card-border">
+                        <div className="px-6 py-5">
+                          <dt className="text-[11px] font-semibold uppercase tracking-wide text-input-placeholder">Court</dt>
                           <dd className="mt-1 text-sm text-input-text">{selectedMatterDetail.court?.trim() || 'Not set'}</dd>
                         </div>
-                        <div className="px-5 py-4">
-                          <dt className="text-sm font-medium text-input-placeholder">Judge</dt>
+                        <div className="px-6 py-5">
+                          <dt className="text-[11px] font-semibold uppercase tracking-wide text-input-placeholder">Judge</dt>
                           <dd className="mt-1 text-sm text-input-text">{selectedMatterDetail.judge?.trim() || 'Not set'}</dd>
                         </div>
-                        <div className="px-5 py-4">
-                          <dt className="text-sm font-medium text-input-placeholder">Opposing party</dt>
+                        <div className="px-6 py-5">
+                          <dt className="text-[11px] font-semibold uppercase tracking-wide text-input-placeholder">Opposing party</dt>
                           <dd className="mt-1 text-sm text-input-text">{selectedMatterDetail.opposingParty?.trim() || 'Not set'}</dd>
                         </div>
-                        <div className="px-5 py-4">
-                          <dt className="text-sm font-medium text-input-placeholder">Opposing counsel</dt>
+                        <div className="px-6 py-5">
+                          <dt className="text-[11px] font-semibold uppercase tracking-wide text-input-placeholder">Opposing counsel</dt>
                           <dd className="mt-1 text-sm text-input-text">{selectedMatterDetail.opposingCounsel?.trim() || 'Not set'}</dd>
                         </div>
                       </dl>
-                      <dl className="divide-y divide-line-glass/5">
-                        <div className="px-5 py-4">
-                          <dt className="text-sm font-medium text-input-placeholder">Matter type</dt>
+                      <dl className="divide-y divide-card-border">
+                        <div className="px-6 py-5">
+                          <dt className="text-[11px] font-semibold uppercase tracking-wide text-input-placeholder">Matter type</dt>
                           <dd className="mt-1 text-sm text-input-text">{selectedMatterDetail.matterType?.trim() || 'Not set'}</dd>
                         </div>
-                        <div className="px-5 py-4">
-                          <dt className="text-sm font-medium text-input-placeholder">Urgency</dt>
+                        <div className="px-6 py-5">
+                          <dt className="text-[11px] font-semibold uppercase tracking-wide text-input-placeholder">Urgency</dt>
                           <dd className="mt-1 text-sm text-input-text">
                             {selectedMatterDetail.urgency ? selectedMatterDetail.urgency.replace(/_/g, ' ') : 'Not set'}
                           </dd>
                         </div>
-                        <div className="px-5 py-4">
-                          <dt className="text-sm font-medium text-input-placeholder">Responsible attorney</dt>
+                        <div className="px-6 py-5">
+                          <dt className="text-[11px] font-semibold uppercase tracking-wide text-input-placeholder">Responsible attorney</dt>
                           <dd className="mt-1">
                             {(() => {
                               const attorneyId = selectedMatterDetail.responsibleAttorneyId;
@@ -2044,8 +1946,8 @@ export const PracticeMattersPage = ({
                             })()}
                           </dd>
                         </div>
-                        <div className="px-5 py-4">
-                          <dt className="text-sm font-medium text-input-placeholder">Originating attorney</dt>
+                        <div className="px-6 py-5">
+                          <dt className="text-[11px] font-semibold uppercase tracking-wide text-input-placeholder">Originating attorney</dt>
                           <dd className="mt-1">
                             {(() => {
                               const attorneyId = selectedMatterDetail.originatingAttorneyId;
@@ -2076,7 +1978,15 @@ export const PracticeMattersPage = ({
 
                 {/* Activity timeline */}
                 <div>
-                  <h3 className="text-sm font-semibold text-input-text">Recent activity</h3>
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-base font-semibold text-input-text">Recent activity</h3>
+                    {timelineItems.length > 0 ? (
+                      <span className="inline-flex items-center gap-1.5 rounded-md bg-card px-2.5 py-1 text-xs font-semibold text-input-text">
+                        <Bell className="h-3 w-3 text-input-placeholder" aria-hidden="true" />
+                        {timelineItems.length} {timelineItems.length === 1 ? 'update' : 'updates'}
+                      </span>
+                    ) : null}
+                  </div>
                   <div className="mt-4">
                     {activityLoading && activityItems.length === 0 ? (
                       <LoadingState message="Loading activity..." />
@@ -2323,7 +2233,18 @@ export const PracticeMattersPage = ({
           </WarningBanner>
         )}
         {mattersError && <ErrorBanner>{mattersError}</ErrorBanner>}
-        <Panel className="list-panel-card-gradient min-h-0 flex-1 overflow-hidden">
+        <div className="px-3 py-2 border-b border-card-border bg-card">
+          <Button
+            size="sm"
+            icon={Plus}
+            className="w-full justify-center"
+            onClick={() => navigate(`${basePath}/new?returnTo=${encodeURIComponent(location.url)}`)}
+            disabled={!activePracticeId}
+          >
+            New Matter
+          </Button>
+        </div>
+        <div className="min-h-0 flex-1 overflow-hidden border-r border-card-border bg-card">
           <EntityList
             items={sortedMatterSummaries}
             renderItem={(matter, isSelected) => (
@@ -2341,7 +2262,7 @@ export const PracticeMattersPage = ({
             minMountSkeletonMs={250}
             emptyState={<EmptyState onCreate={() => navigate(`${basePath}/new?returnTo=${encodeURIComponent(location.url)}`)} disableCreate={!activePracticeId} />}
           />
-        </Panel>
+        </div>
       </div>
     );
   }
@@ -2356,7 +2277,19 @@ export const PracticeMattersPage = ({
 
       {mattersError && <ErrorBanner>{mattersError}</ErrorBanner>}
 
-      <Panel className="list-panel-card-gradient overflow-hidden">
+      <div className="px-3 py-2 border-b border-card-border bg-card">
+        <Button
+          size="sm"
+          icon={Plus}
+          className="w-full justify-center"
+          onClick={() => navigate(`${basePath}/new?returnTo=${encodeURIComponent(location.url)}`)}
+          disabled={!activePracticeId}
+        >
+          New Matter
+        </Button>
+      </div>
+
+      <div className="overflow-hidden border-r border-card-border bg-card">
         <EntityList
           items={sortedMatterSummaries}
           renderItem={(matter, isSelected) => (
@@ -2374,7 +2307,7 @@ export const PracticeMattersPage = ({
           minMountSkeletonMs={250}
           emptyState={<EmptyState onCreate={() => navigate(`${basePath}/new?returnTo=${encodeURIComponent(location.url)}`)} disableCreate={!activePracticeId} />}
         />
-      </Panel>
+      </div>
     </div>
   );
 };

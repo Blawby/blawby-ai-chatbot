@@ -8,10 +8,10 @@ import { Combobox } from '@/shared/ui/input/Combobox';
 import { RadioGroupWithDescriptions } from '@/shared/ui/input/RadioGroupWithDescriptions';
 import { renderUserAvatar } from '@/shared/ui/profile';
 import { type MatterOption, type MatterMilestoneFormInput } from '@/features/matters/data/matterTypes';
-import { MATTER_STATUS_LABELS, MATTER_WORKFLOW_STATUSES, type MatterStatus } from '@/shared/types/matterStatus';
+import { type MatterStatus } from '@/shared/types/matterStatus';
 import type { ComponentChildren } from 'preact';
 import type { DescribedRadioOption } from '@/shared/ui/input/RadioGroupWithDescriptions';
-import { Scale, ShieldCheck, User, MessagesSquare, Search, Briefcase, CheckCircle2, XCircle, AlertTriangle, Plus, Redo2, FileCheck2, CirclePause, ShieldAlert } from 'lucide-preact';
+import { Scale, ShieldCheck, User, Briefcase, Plus } from 'lucide-preact';
 
 
 import { Icon } from '@/shared/ui/Icon';
@@ -36,6 +36,8 @@ interface MatterFormProps {
   mode?: MatterFormMode;
   initialValues?: Partial<MatterFormState>;
   requireClientSelection?: boolean;
+  /** Render without the surrounding Panel surface (e.g. when hosted inside a Dialog). */
+  unwrapped?: boolean;
 }
 
 type MatterCreateFormProps = Omit<MatterFormProps, 'mode'>;
@@ -100,37 +102,6 @@ const BILLING_OPTIONS = [
     description: 'Provide services without charge'
   }
 ];
-
-const STATUS_OPTIONS: Array<{ value: MatterStatus; label: string }> = MATTER_WORKFLOW_STATUSES.map(
-  (status) => ({
-    value: status,
-    label: MATTER_STATUS_LABELS[status]
-  })
-);
-
-const STATUS_ICON: Record<MatterStatus, preact.ComponentType<preact.JSX.SVGAttributes<SVGSVGElement>>> = {
-  first_contact: MessagesSquare,
-  intake_pending: Search,
-  conflict_check: ShieldAlert,
-  conflicted: AlertTriangle,
-  eligibility: Scale,
-  referred: Redo2,
-  consultation_scheduled: FileCheck2,
-  declined: XCircle,
-  engagement_draft: Briefcase,
-  engagement_sent: Briefcase,
-  engagement_accepted: CheckCircle2,
-  engagement_pending: CirclePause,
-  active: Briefcase,
-  pleadings_filed: FileCheck2,
-  discovery: Search,
-  mediation: Scale,
-  pre_trial: ShieldAlert,
-  trial: AlertTriangle,
-  order_entered: CheckCircle2,
-  appeal_pending: Redo2,
-  closed: CheckCircle2
-};
 
 const PAYMENT_FREQUENCY_OPTIONS: DescribedRadioOption[] = [
   {
@@ -307,6 +278,7 @@ const MatterFormInner = ({
   initialValues,
   requireClientSelection = true,
   onContactCreated,
+  unwrapped = false,
 }: MatterFormProps) => {
   const [formState, setFormState] = useState<MatterFormState>(() => buildInitialState(mode, initialValues));
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -373,36 +345,36 @@ const MatterFormInner = ({
     setIsMilestoneFormVisible(false);
   };
 
-  return (
-    <>
-      <Panel className="p-4 sm:p-6 lg:p-8">
-        <form
-          className="space-y-6 max-w-4xl mx-auto"
-          onSubmit={async (event) => {
-            event.preventDefault();
-            if (!canSubmit) return;
-            setSubmitError(null);
-            if (!onSubmit) {
-              onClose();
-              return;
-            }
-            setIsSubmitting(true);
-            try {
-              await onSubmit({ ...formState });
-              setIsSubmitting(false);
-              onClose();
-            } catch (error) {
-              const message = error instanceof Error ? error.message : 'Failed to save matter';
-              setSubmitError(message);
-              setIsSubmitting(false);
-            }
-          }}
-        >
-        <h2 className="text-xl font-semibold text-input-text">{modalTitle}</h2>
+  const formNode = (
+    <form
+      className={unwrapped ? 'space-y-6' : 'space-y-6 max-w-4xl mx-auto'}
+      onSubmit={async (event) => {
+        event.preventDefault();
+        if (!canSubmit) return;
+        setSubmitError(null);
+        if (!onSubmit) {
+          onClose();
+          return;
+        }
+        setIsSubmitting(true);
+        try {
+          await onSubmit({ ...formState });
+          setIsSubmitting(false);
+          onClose();
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'Failed to save matter';
+          setSubmitError(message);
+          setIsSubmitting(false);
+        }
+      }}
+    >
+        {unwrapped ? null : (
+          <h2 className="text-xl font-semibold text-input-text">{modalTitle}</h2>
+        )}
 
         <Input
-          label="Matter Title"
-          placeholder="Enter matter title"
+          label="Matter title"
+          placeholder="e.g. Johnson v. Smith"
           value={formState.title}
           onChange={(value) => updateForm('title', value)}
           required
@@ -420,33 +392,8 @@ const MatterFormInner = ({
           />
         </div>
 
-        <hr className="h-px border-line-glass/30" />
-
         <div className="space-y-4">
-          <h2 className="text-lg font-medium text-input-text">Provide matter details</h2>
           <Combobox
-            label="Matter Status"
-            placeholder="Select status"
-            value={formState.status}
-            options={STATUS_OPTIONS.map((option) => ({
-              value: option.value,
-              label: option.label
-            }))}
-            leading={(selectedOption) => {
-              const selectedStatus = (selectedOption?.value ?? formState.status) as MatterStatus;
-              const StatusIcon = STATUS_ICON[selectedStatus] ?? Scale;
-              return (
-                <Icon icon={StatusIcon} className="h-4 w-4 text-input-placeholder" />
-              );
-            }}
-            optionLeading={(option) => {
-              const StatusIcon = STATUS_ICON[option.value as MatterStatus] ?? Scale;
-              return <Icon icon={StatusIcon} className="h-4 w-4 text-input-placeholder" />;
-            }}
-            onChange={(value) => updateForm('status', value as MatterStatus)}
-          />
-
-            <Combobox
             label={`Contact${requireClientSelection ? ' *' : ''}`}
             placeholder="Select contact"
             value={formState.clientId}
@@ -489,7 +436,7 @@ const MatterFormInner = ({
           />
 
           <Combobox
-            label="Practice Area"
+            label="Practice area"
             placeholder={practiceAreasLoading ? 'Loading services...' : 'Select practice area'}
             value={formState.practiceAreaId}
             options={practiceAreaOptions}
@@ -751,8 +698,12 @@ const MatterFormInner = ({
             </Button>
           </div>
         </div>
-        </form>
-      </Panel>
+    </form>
+  );
+
+  return (
+    <>
+      {unwrapped ? formNode : <Panel className="p-4 sm:p-6 lg:p-8">{formNode}</Panel>}
       <AddContactDialog
         practiceId={practiceId ?? null}
         isOpen={addPersonOpen}

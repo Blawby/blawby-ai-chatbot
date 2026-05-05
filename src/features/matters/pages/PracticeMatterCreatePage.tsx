@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'preact/hooks';
 import { useLocation } from 'preact-iso';
-import { EditorShell, LoadingBlock } from '@/shared/ui/layout';
+import { Dialog } from '@/shared/ui/dialog/Dialog';
+import { DialogBody } from '@/shared/ui/dialog/DialogBody';
+import { LoadingBlock } from '@/shared/ui/layout';
 import { MatterCreateForm, type MatterFormState } from '@/features/matters/components/MatterForm';
 import { useNavigation } from '@/shared/utils/navigation';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
@@ -250,17 +252,16 @@ export function PracticeMatterCreatePage({
     : 'Capture matter details, billing structure, and assignment in one place.';
 
   return (
-    <EditorShell
+    <Dialog
+      isOpen
+      onClose={handleClose}
       title={title}
-      subtitle={subtitle}
-      showBack
-      backVariant="close"
-      onBack={() => navigate(returnTo)}
-      contentMaxWidth={null}
+      description={subtitle}
+      contentClassName="!max-w-3xl"
     >
-      <div className="mx-auto flex min-h-0 w-full max-w-6xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
+      <DialogBody>
         {convertError ? (
-          <div className="rounded-xl border border-accent-error/30 bg-accent-error/10 px-4 py-3 text-sm text-accent-error-foreground">
+          <div className="mb-4 rounded-xl border border-accent-error/30 bg-accent-error/10 px-4 py-3 text-sm text-accent-error-foreground">
             {convertError}
           </div>
         ) : null}
@@ -270,11 +271,12 @@ export function PracticeMatterCreatePage({
           </div>
         ) : null}
         {!shouldDeferCreateForm ? (
-            <MatterCreateForm
-              onClose={handleClose}
-              onSubmit={handleSubmit}
-              practiceId={practiceId}
-              clients={clientOptions}
+          <MatterCreateForm
+            unwrapped
+            onClose={handleClose}
+            onSubmit={handleSubmit}
+            practiceId={practiceId}
+            clients={clientOptions}
             practiceAreas={practiceAreaOptions}
             practiceAreasLoading={!practiceDetails?.services}
             assignees={assigneeOptions}
@@ -282,8 +284,8 @@ export function PracticeMatterCreatePage({
             requireClientSelection={!convertIntakeUuid}
           />
         ) : null}
-      </div>
-    </EditorShell>
+      </DialogBody>
+    </Dialog>
   );
 }
 
