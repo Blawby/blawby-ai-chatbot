@@ -27,7 +27,9 @@ const FREEZE_STYLE = `
 const stabilize = async (page: Page) => {
   await page.addStyleTag({ content: FREEZE_STYLE });
   // Wait for fonts so the first paint matches subsequent paints.
-  await page.evaluate(() => document.fonts?.ready ?? Promise.resolve());
+  await page.evaluate(async () => {
+    await (document.fonts?.ready ?? Promise.resolve());
+  });
 };
 
 test.describe('@responsive-screenshots @responsive', () => {

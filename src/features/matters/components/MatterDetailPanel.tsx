@@ -59,22 +59,28 @@ const ReadField = ({
   label,
   value,
   forceShow = false,
-  className
+  className,
+  numeric = false
 }: {
   label: string;
   value: string | null | undefined;
   forceShow?: boolean;
   className?: string;
+  numeric?: boolean;
 }) => {
   const display = value?.trim() || null;
   if (!display && !forceShow) return null;
   return (
     <div className={className}>
-      <p className="text-xs font-medium text-input-placeholder">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-input-placeholder">
         {label}
       </p>
-      <p className={cn('mt-1 text-sm', display ? 'text-input-text' : 'text-input-placeholder italic')}>
-        {display ?? 'Not set'}
+      <p className={cn(
+        'mt-1.5 text-sm leading-snug',
+        numeric && 'tabular-nums',
+        display ? 'text-input-text' : 'text-input-placeholder/50'
+      )}>
+        {display ?? '—'}
       </p>
     </div>
   );
@@ -160,8 +166,8 @@ const SectionHeader = ({
   onSave: () => void;
   onCancel: () => void;
 }) => (
-  <div className="flex items-center justify-between mb-4">
-    <h4 className="text-sm font-medium text-input-text">
+  <div className="mb-4 flex items-center justify-between">
+    <h4 className="font-display text-sm font-semibold tracking-tight text-input-text">
       {title}
     </h4>
     {isEditing ? (
@@ -192,8 +198,8 @@ const SectionHeader = ({
         onClick={onEdit}
         icon={Pencil} iconClassName="h-4 w-4"
         className={cn(
-          'text-input-placeholder/80 transition-colors',
-          'hover:text-input-text focus-visible:text-input-text'
+          'text-input-placeholder transition-all',
+          'hover:bg-surface-utility/40 hover:text-input-text focus-visible:text-input-text'
         )}
         aria-label={`Edit ${title.toLowerCase()}`}
       />
@@ -372,8 +378,9 @@ export const MatterDetailsPanel = ({
 
   return (
     <div className="glass-panel divide-y divide-white/[0.06]">
-      <div className="px-5 py-4">
-        <h3 className="text-sm font-semibold text-input-text">Matter details</h3>
+      <div className="flex items-center justify-between px-5 py-4">
+        <h3 className="font-display text-sm font-semibold tracking-tight text-input-text">Matter details</h3>
+        <span aria-hidden="true" className="h-px w-8 bg-gradient-to-r from-accent-500/0 via-accent-500/60 to-accent-500/0" />
       </div>
 
       {/* ── Case identifiers ────────────────────────────────────────────── */}
@@ -590,6 +597,7 @@ export const MatterDetailsPanel = ({
               label="Settlement amount"
               value={detail.settlementAmount != null ? formatCurrency(detail.settlementAmount) : null}
               forceShow={financialHasData}
+              numeric
             />
           )}
         </div>

@@ -41,7 +41,7 @@ export function ContextMenu({ children, items, className }: ContextMenuProps) {
   }, [position, close]);
 
   return (
-    <div onContextMenu={handleContextMenu} className={className}>
+    <div role="presentation" onContextMenu={handleContextMenu} className={className}>
       {children}
       {position && (
         <div

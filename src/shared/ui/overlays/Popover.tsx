@@ -70,7 +70,21 @@ export function Popover({
 
   return (
     <div ref={containerRef} className="relative inline-flex">
-      <div onClick={() => setOpen(!isOpen)}>{trigger}</div>
+      <div
+        role="button"
+        tabIndex={0}
+        aria-haspopup="dialog"
+        aria-expanded={isOpen}
+        onClick={() => setOpen(!isOpen)}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            setOpen(!isOpen);
+          }
+        }}
+      >
+        {trigger}
+      </div>
       {isOpen && (
         <div
           className={cn(

@@ -65,6 +65,7 @@ export function Drawer({
       aria-hidden={!open}
     >
       <div
+        role="presentation"
         className="absolute inset-0 bg-black/40 dark:bg-black/60 backdrop-blur-sm"
         onClick={onClose}
       />

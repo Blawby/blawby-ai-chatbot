@@ -26,6 +26,7 @@ import {
 } from '@/features/matters/data/matterTypes';
 import { MatterCreateForm, type MatterFormState } from '@/features/matters/components/MatterForm';
 import { MatterListItem } from '@/features/matters/components/MatterListItem';
+import { MatterStatusDot } from '@/features/matters/components/MatterStatusDot';
 import { TimeEntriesPanel } from '@/features/matters/components/time-entries/TimeEntriesPanel';
 import { TimeEntryForm, type TimeEntryFormValues } from '@/features/matters/components/time-entries/TimeEntryForm';
 import { MatterExpensesPanel } from '@/features/matters/components/expenses/MatterExpensesPanel';
@@ -42,6 +43,7 @@ import { usePracticeTeam } from '@/shared/hooks/usePracticeTeam';
 import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
 import { asMajor, getMajorAmountValue, safeAdd, safeDivide, safeMultiply, type MajorAmount } from '@/shared/utils/money';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
+import { cn } from '@/shared/utils/cn';
 import {
   createMatter,
   getMatter,
@@ -140,10 +142,57 @@ const EmptyState = ({ onCreate, disableCreate }: { onCreate?: () => void; disabl
 );
 
 const LoadingState = ({ message }: { message: string }) => (
-  <div className="flex h-full items-center justify-center p-8 text-sm text-input-placeholder">
+  <div className="flex h-full items-center justify-center p-8 font-display text-sm tracking-tight text-input-placeholder">
     {message}
   </div>
 );
+
+// Defer skeleton until loading has lasted long enough to be perceptible, then
+// hold it long enough that it doesn't flash. Avoids cached/fast loads showing
+// a 50ms skeleton flicker.
+const SKELETON_SHOW_AFTER_MS = 150;
+const SKELETON_HOLD_AT_LEAST_MS = 400;
+
+const useDelayedSkeleton = (loading: boolean): boolean => {
+  const [show, setShow] = useState(false);
+  const shownAtRef = useRef<number | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+
+    if (loading) {
+      if (show) return;
+      timeoutRef.current = setTimeout(() => {
+        shownAtRef.current = Date.now();
+        setShow(true);
+      }, SKELETON_SHOW_AFTER_MS);
+      return;
+    }
+
+    if (!show) return;
+    const elapsed = shownAtRef.current ? Date.now() - shownAtRef.current : 0;
+    const remaining = Math.max(0, SKELETON_HOLD_AT_LEAST_MS - elapsed);
+    if (remaining === 0) {
+      shownAtRef.current = null;
+      setShow(false);
+      return;
+    }
+    timeoutRef.current = setTimeout(() => {
+      shownAtRef.current = null;
+      setShow(false);
+    }, remaining);
+  }, [loading, show]);
+
+  useEffect(() => () => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+  }, []);
+
+  return show;
+};
 
 // ---------------------------------------------------------------------------
 // Detail field row — shared between overview grid cells
@@ -470,6 +519,14 @@ export const PracticeMattersPage = ({
         : null
     };
   }, [clientNameById, selectedMatterDetailState, serviceNameById]);
+
+  // Skeleton-flash guard: skeleton appears only if loading lasts >150ms and
+  // holds for ≥400ms once shown. Hook must run unconditionally on every render.
+  const detailReadyForSkeletonGate =
+    Boolean(selectedMatterDetail) && selectedMatterDetail?.id === selectedMatterId;
+  const showDetailSkeleton = useDelayedSkeleton(
+    Boolean(selectedMatterId) && detailLoading && !detailReadyForSkeletonGate
+  );
 
   const membersById = useMemo(() => {
     if (teamMembers.length === 0) return new Map<string, { name: string; email?: string | null; image?: string | null }>();
@@ -1684,7 +1741,14 @@ export const PracticeMattersPage = ({
     // has empty billing / court / activity fields). Wait for the real
     // detail to land before painting.
     if (detailLoading && !detailReady) {
-      return <Page className="h-full"><MatterDetailSkeleton /></Page>;
+      // Loading is in flight. If it has been brief, render an empty page so we
+      // don't briefly paint stale or partial content. Once the loading state
+      // crosses the perceptibility threshold, swap in the skeleton.
+      return (
+        <Page className="h-full">
+          {showDetailSkeleton ? <MatterDetailSkeleton /> : null}
+        </Page>
+      );
     }
     if (detailError && !detailReady) {
       return <MatterLoadError message={detailError} onBack={goToList} />;
@@ -1709,7 +1773,7 @@ export const PracticeMattersPage = ({
 
     return (
       <>
-        <div className="h-full overflow-y-auto">
+        <div className="themed-scrollbar h-full overflow-y-auto">
           <div className="relative z-20 overflow-visible">
             <DetailHeader
               title="Matter details"
@@ -1723,11 +1787,21 @@ export const PracticeMattersPage = ({
             />
             {detailHeaderMeta ? (
               <div className="px-4 py-4 @container">
-                <section className="rounded-[20px] border border-card-border bg-surface-elevated p-6 sm:p-8">
-                  <div className="flex flex-col items-center gap-5 text-center @2xl:flex-row @2xl:items-start @2xl:text-left @2xl:gap-6">
+                <section className="relative overflow-hidden rounded-[20px] border border-card-border bg-surface-elevated p-6 sm:p-8">
+                  {/* Atmospheric halo — single high-impact moment */}
+                  <div
+                    aria-hidden="true"
+                    className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-[radial-gradient(circle_at_center,rgb(var(--accent-500)/0.10),transparent_70%)] blur-2xl"
+                  />
+                  {/* Gold rule */}
+                  <div
+                    aria-hidden="true"
+                    className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-accent-500/40 to-transparent"
+                  />
+                  <div className="relative flex flex-col items-center gap-5 text-center @2xl:flex-row @2xl:items-start @2xl:text-left @2xl:gap-6">
                     <Avatar
                       size="lg"
-                      className="mx-auto !h-28 !w-28 [&>span]:!text-3xl @2xl:mx-0"
+                      className="mx-auto !h-28 !w-28 ring-2 ring-accent-500/15 ring-offset-2 ring-offset-surface-elevated [&>span]:!text-3xl @2xl:mx-0"
                       src={detailClientOption?.image ?? null}
                       name={detailClientOption?.name ?? 'Unassigned client'}
                     />
@@ -1772,29 +1846,28 @@ export const PracticeMattersPage = ({
                             </div>
                           ) : (
                             <>
-                              <div className="flex flex-col items-center gap-1 @2xl:flex-row @2xl:items-baseline @2xl:justify-between @2xl:gap-3">
-                                <h4 className="mx-auto max-w-[24ch] break-words text-center text-2xl font-bold leading-tight text-input-text @2xl:mx-0 @2xl:text-left @2xl:text-[28px]">
+                              <div className="flex flex-col items-center gap-2 @2xl:flex-row @2xl:items-baseline @2xl:justify-between @2xl:gap-3">
+                                <h4 className="mx-auto max-w-[24ch] break-words text-center font-display text-[28px] font-bold leading-[1.1] tracking-tight text-input-text @2xl:mx-0 @2xl:text-left @2xl:text-[34px]">
                                   {selectedMatterDetail.title?.trim() || 'Untitled matter'}
                                 </h4>
                                 {selectedMatterDetail.caseNumber?.trim() ? (
-                                  <span className="hidden shrink-0 text-sm font-normal text-input-placeholder @2xl:inline @2xl:pt-2">
+                                  <span className="inline-flex shrink-0 items-center rounded-md bg-accent-500/10 px-2 py-0.5 font-mono text-[11px] font-medium tracking-wide text-accent-600 dark:text-accent-400">
                                     #{selectedMatterDetail.caseNumber.trim()}
                                   </span>
                                 ) : null}
                               </div>
-                              {selectedMatterDetail.caseNumber?.trim() ? (
-                                <p className="text-xs font-medium uppercase tracking-[0.16em] text-input-placeholder @2xl:hidden">
-                                  #{selectedMatterDetail.caseNumber.trim()}
-                                </p>
-                              ) : null}
-                              <p className="mt-1 break-words whitespace-pre-wrap text-sm leading-relaxed text-input-placeholder">
+                              <p className="mt-1.5 max-w-prose break-words whitespace-pre-wrap text-sm leading-relaxed text-input-placeholder">
                                 {selectedMatterDetail.description?.trim() || 'No description yet.'}
                               </p>
                             </>
                           )}
                         </div>
                       ) : null}
-                      <nav className="mt-5 flex flex-wrap items-center justify-center gap-2 @2xl:justify-start" aria-label="Matter detail tabs">
+                      <div
+                        role="tablist"
+                        aria-label="Matter detail tabs"
+                        className="mt-5 inline-flex items-center gap-0.5 rounded-2xl border border-line-glass/30 bg-surface-utility/40 p-1 shadow-inner @2xl:flex"
+                      >
                         {DETAIL_TABS.map((tab) => {
                           const isActive = detailSection === tab.id;
                           const TabIcon = tab.icon;
@@ -1810,19 +1883,19 @@ export const PracticeMattersPage = ({
                               aria-label={tab.label}
                               title={tab.label}
                               role="tab"
-                              className={[
-                                'flex h-10 w-10 items-center justify-center rounded-xl transition-colors duration-150',
+                              className={cn(
+                                'flex h-9 w-9 items-center justify-center rounded-xl transition-all duration-150',
                                 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500',
                                 isActive
-                                  ? 'bg-card text-input-text'
-                                  : 'bg-card/40 text-input-placeholder hover:bg-card hover:text-input-text'
-                              ].join(' ')}
+                                  ? 'bg-card text-input-text shadow-sm'
+                                  : 'text-input-placeholder hover:bg-card/60 hover:text-input-text'
+                              )}
                             >
                               <TabIcon className="h-[18px] w-[18px]" aria-hidden="true" />
                             </button>
                           );
                         })}
-                      </nav>
+                      </div>
                       {selectedMatterDetail ? (
                         <>
                           <div className="my-5 h-px w-full bg-card-border" />
@@ -1851,7 +1924,7 @@ export const PracticeMattersPage = ({
                             <div>
                               <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-input-placeholder">Status</p>
                               <p className="mt-1 inline-flex items-center gap-1.5 rounded-md bg-card px-2.5 py-1 text-sm font-medium text-input-text">
-                                <span className="h-1.5 w-1.5 rounded-full bg-accent-500" aria-hidden="true" />
+                                <MatterStatusDot status={selectedMatterDetail.status} className="p-0" />
                                 {MATTER_STATUS_LABELS[selectedMatterDetail.status]}
                               </p>
                             </div>
@@ -1891,46 +1964,61 @@ export const PracticeMattersPage = ({
                 {/* Read-only matter details */}
                 {selectedMatterDetail && (
                   <section className="overflow-hidden rounded-[20px] border border-card-border bg-surface-elevated">
+                    <header className="flex items-center justify-between border-b border-card-border px-6 py-4">
+                      <h3 className="font-display text-sm font-semibold tracking-tight text-input-text">Case details</h3>
+                      <span aria-hidden="true" className="h-px w-8 bg-gradient-to-r from-accent-500/0 via-accent-500/60 to-accent-500/0" />
+                    </header>
                     <div className="grid grid-cols-1 divide-y divide-card-border md:grid-cols-2 md:divide-x md:divide-y-0">
                       <dl className="divide-y divide-card-border">
-                        <div className="px-6 py-5">
-                          <dt className="text-[11px] font-semibold uppercase tracking-wide text-input-placeholder">Court</dt>
-                          <dd className="mt-1 text-sm text-input-text">{selectedMatterDetail.court?.trim() || 'Not set'}</dd>
+                        <div className="px-6 py-4">
+                          <dt className="text-[10px] font-semibold uppercase tracking-[0.14em] text-input-placeholder">Court</dt>
+                          <dd className={cn('mt-1.5 text-sm leading-snug', selectedMatterDetail.court?.trim() ? 'text-input-text' : 'text-input-placeholder/50')}>
+                            {selectedMatterDetail.court?.trim() || '—'}
+                          </dd>
                         </div>
-                        <div className="px-6 py-5">
-                          <dt className="text-[11px] font-semibold uppercase tracking-wide text-input-placeholder">Judge</dt>
-                          <dd className="mt-1 text-sm text-input-text">{selectedMatterDetail.judge?.trim() || 'Not set'}</dd>
+                        <div className="px-6 py-4">
+                          <dt className="text-[10px] font-semibold uppercase tracking-[0.14em] text-input-placeholder">Judge</dt>
+                          <dd className={cn('mt-1.5 text-sm leading-snug', selectedMatterDetail.judge?.trim() ? 'text-input-text' : 'text-input-placeholder/50')}>
+                            {selectedMatterDetail.judge?.trim() || '—'}
+                          </dd>
                         </div>
-                        <div className="px-6 py-5">
-                          <dt className="text-[11px] font-semibold uppercase tracking-wide text-input-placeholder">Opposing party</dt>
-                          <dd className="mt-1 text-sm text-input-text">{selectedMatterDetail.opposingParty?.trim() || 'Not set'}</dd>
+                        <div className="px-6 py-4">
+                          <dt className="text-[10px] font-semibold uppercase tracking-[0.14em] text-input-placeholder">Opposing party</dt>
+                          <dd className={cn('mt-1.5 text-sm leading-snug', selectedMatterDetail.opposingParty?.trim() ? 'text-input-text' : 'text-input-placeholder/50')}>
+                            {selectedMatterDetail.opposingParty?.trim() || '—'}
+                          </dd>
                         </div>
-                        <div className="px-6 py-5">
-                          <dt className="text-[11px] font-semibold uppercase tracking-wide text-input-placeholder">Opposing counsel</dt>
-                          <dd className="mt-1 text-sm text-input-text">{selectedMatterDetail.opposingCounsel?.trim() || 'Not set'}</dd>
+                        <div className="px-6 py-4">
+                          <dt className="text-[10px] font-semibold uppercase tracking-[0.14em] text-input-placeholder">Opposing counsel</dt>
+                          <dd className={cn('mt-1.5 text-sm leading-snug', selectedMatterDetail.opposingCounsel?.trim() ? 'text-input-text' : 'text-input-placeholder/50')}>
+                            {selectedMatterDetail.opposingCounsel?.trim() || '—'}
+                          </dd>
                         </div>
                       </dl>
                       <dl className="divide-y divide-card-border">
-                        <div className="px-6 py-5">
-                          <dt className="text-[11px] font-semibold uppercase tracking-wide text-input-placeholder">Matter type</dt>
-                          <dd className="mt-1 text-sm text-input-text">{selectedMatterDetail.matterType?.trim() || 'Not set'}</dd>
-                        </div>
-                        <div className="px-6 py-5">
-                          <dt className="text-[11px] font-semibold uppercase tracking-wide text-input-placeholder">Urgency</dt>
-                          <dd className="mt-1 text-sm text-input-text">
-                            {selectedMatterDetail.urgency ? selectedMatterDetail.urgency.replace(/_/g, ' ') : 'Not set'}
+                        <div className="px-6 py-4">
+                          <dt className="text-[10px] font-semibold uppercase tracking-[0.14em] text-input-placeholder">Matter type</dt>
+                          <dd className={cn('mt-1.5 text-sm leading-snug', selectedMatterDetail.matterType?.trim() ? 'text-input-text' : 'text-input-placeholder/50')}>
+                            {selectedMatterDetail.matterType?.trim() || '—'}
                           </dd>
                         </div>
-                        <div className="px-6 py-5">
-                          <dt className="text-[11px] font-semibold uppercase tracking-wide text-input-placeholder">Responsible attorney</dt>
-                          <dd className="mt-1">
+                        <div className="px-6 py-4">
+                          <dt className="text-[10px] font-semibold uppercase tracking-[0.14em] text-input-placeholder">Urgency</dt>
+                          <dd className={cn('mt-1.5 text-sm leading-snug', selectedMatterDetail.urgency ? 'text-input-text' : 'text-input-placeholder/50')}>
+                            {selectedMatterDetail.urgency ? selectedMatterDetail.urgency.replace(/_/g, ' ') : '—'}
+                          </dd>
+                        </div>
+                        <div className="px-6 py-4">
+                          <dt className="text-[10px] font-semibold uppercase tracking-[0.14em] text-input-placeholder">Responsible attorney</dt>
+                          <dd className="mt-1.5">
                             {(() => {
                               const attorneyId = selectedMatterDetail.responsibleAttorneyId;
                               const member = attorneyId ? membersById.get(attorneyId) : undefined;
                               if (!member) {
+                                const fallback = assigneeNameById.get(attorneyId || '');
                                 return (
-                                  <span className="text-sm text-input-text">
-                                    {assigneeNameById.get(attorneyId || '') || 'Not set'}
+                                  <span className={cn('text-sm leading-snug', fallback ? 'text-input-text' : 'text-input-placeholder/50')}>
+                                    {fallback || '—'}
                                   </span>
                                 );
                               }
@@ -1946,16 +2034,17 @@ export const PracticeMattersPage = ({
                             })()}
                           </dd>
                         </div>
-                        <div className="px-6 py-5">
-                          <dt className="text-[11px] font-semibold uppercase tracking-wide text-input-placeholder">Originating attorney</dt>
-                          <dd className="mt-1">
+                        <div className="px-6 py-4">
+                          <dt className="text-[10px] font-semibold uppercase tracking-[0.14em] text-input-placeholder">Originating attorney</dt>
+                          <dd className="mt-1.5">
                             {(() => {
                               const attorneyId = selectedMatterDetail.originatingAttorneyId;
                               const member = attorneyId ? membersById.get(attorneyId) : undefined;
                               if (!member) {
+                                const fallback = assigneeNameById.get(attorneyId || '');
                                 return (
-                                  <span className="text-sm text-input-text">
-                                    {assigneeNameById.get(attorneyId || '') || 'Not set'}
+                                  <span className={cn('text-sm leading-snug', fallback ? 'text-input-text' : 'text-input-placeholder/50')}>
+                                    {fallback || '—'}
                                   </span>
                                 );
                               }
@@ -2233,17 +2322,23 @@ export const PracticeMattersPage = ({
           </WarningBanner>
         )}
         {mattersError && <ErrorBanner>{mattersError}</ErrorBanner>}
-        <div className="px-3 py-2 border-b border-card-border bg-card">
+        <header className="flex items-center justify-between gap-3 border-b border-card-border bg-card/70 px-4 py-3 backdrop-blur-xl">
+          <div className="flex min-w-0 items-baseline gap-2">
+            <h2 className="font-display text-base font-semibold tracking-tight text-input-text">Matters</h2>
+            <span className="text-xs tabular-nums text-input-placeholder">
+              {sortedMatterSummaries.length}
+            </span>
+          </div>
           <Button
-            size="sm"
+            size="xs"
+            variant="secondary"
             icon={Plus}
-            className="w-full justify-center"
+            aria-label="New matter"
+            title="New matter"
             onClick={() => navigate(`${basePath}/new?returnTo=${encodeURIComponent(location.url)}`)}
             disabled={!activePracticeId}
-          >
-            New Matter
-          </Button>
-        </div>
+          />
+        </header>
         <div className="min-h-0 flex-1 overflow-hidden border-r border-card-border bg-card">
           <EntityList
             items={sortedMatterSummaries}
@@ -2277,17 +2372,23 @@ export const PracticeMattersPage = ({
 
       {mattersError && <ErrorBanner>{mattersError}</ErrorBanner>}
 
-      <div className="px-3 py-2 border-b border-card-border bg-card">
+      <header className="flex items-center justify-between gap-3 border-b border-card-border bg-card/70 px-4 py-3 backdrop-blur-xl">
+        <div className="flex min-w-0 items-baseline gap-2">
+          <h2 className="font-display text-base font-semibold tracking-tight text-input-text">Matters</h2>
+          <span className="text-xs tabular-nums text-input-placeholder">
+            {sortedMatterSummaries.length}
+          </span>
+        </div>
         <Button
-          size="sm"
+          size="xs"
+          variant="secondary"
           icon={Plus}
-          className="w-full justify-center"
+          aria-label="New matter"
+          title="New matter"
           onClick={() => navigate(`${basePath}/new?returnTo=${encodeURIComponent(location.url)}`)}
           disabled={!activePracticeId}
-        >
-          New Matter
-        </Button>
-      </div>
+        />
+      </header>
 
       <div className="overflow-hidden border-r border-card-border bg-card">
         <EntityList

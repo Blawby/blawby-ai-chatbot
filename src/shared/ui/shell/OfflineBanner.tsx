@@ -32,7 +32,7 @@ export function OfflineBanner({ className }: OfflineBannerProps) {
       )}
     >
       <WifiOff size={14} />
-      <span>You're offline. Some features may be unavailable.</span>
+      <span>You&apos;re offline. Some features may be unavailable.</span>
     </div>
   );
 }
