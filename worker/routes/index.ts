@@ -17,4 +17,5 @@ export { handleDebug } from './debug';
 export { handleWidgetBootstrap } from './widget';
 export { handlePracticeTeam } from './practiceTeam';
 export { handleBillingSummary } from './billingSummary';
+export { handleSidebarCounts } from './sidebarCounts';
 export { handleMetricsVitals } from './metrics';

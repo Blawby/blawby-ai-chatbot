@@ -721,6 +721,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   const SECTION_TITLES: Record<WorkspaceSection, string> = {
     home: 'Home',
     conversations: 'Inbox',
+    forms: 'Forms',
     intakes: 'Intakes',
     engagements: 'Engagements',
     matters: 'Matters',
@@ -1050,6 +1051,12 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       return { kind: 'full-page', overflow: 'hidden' };
     }
     if (view === 'matters') {
+      // Practice matters renders a full-width table in the main pane
+      // (no master/detail rail); client matters retains the split-detail
+      // rail + placeholder pattern.
+      if (isPracticeWorkspace) {
+        return { kind: 'full-page', overflow: selectedMatterIdFromPath ? 'hidden' : 'auto' };
+      }
       return {
         kind: 'split-detail',
         hasSelection: Boolean(selectedMatterIdFromPath || isMatterNonListRoute),

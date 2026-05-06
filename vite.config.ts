@@ -128,6 +128,10 @@ const serveStaticHtmlPlugin = (): Plugin => {
 							try {
 								const content = await fs.readFile(requestedPath, 'utf-8');
 								res.setHeader('Content-Type', urlPath.endsWith('.js') ? 'application/javascript' : 'text/html');
+								// Dev-only: disable browser caching for these public/ files so
+								// edits to widget-loader.js / widget-test.html / etc. show up
+								// on a normal refresh instead of being served from disk cache.
+								res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
 								res.end(content);
 								return;
 							} catch (_e) {
@@ -169,7 +173,13 @@ export default defineConfig(({ mode }: ConfigEnv) => {
 			// static files (widget-test.html, widget-loader.js) during local development.
 			// In production, Cloudflare Pages + _headers/_redirects handle routing.
 			VitePWA({
-				registerType: 'autoUpdate',
+				// 'prompt' (vs 'autoUpdate') so the new SW waits in `installed` state instead
+				// of silently calling skipWaiting + clientsClaim. A refresh toast wired
+				// via virtual:pwa-register (src/shared/lib/swUpdate.ts) lets the user
+				// click Refresh to activate the new SW and reload — avoiding the "open
+				// tab on old code, new SW serving new chunks" mismatch that breaks
+				// lazy imports after a deploy.
+				registerType: 'prompt',
 				// ↓ KEY: disable the SW in dev mode entirely
 				devOptions: {
 					enabled: false,
@@ -198,6 +208,11 @@ export default defineConfig(({ mode }: ConfigEnv) => {
 					]
 				},
 				workbox: {
+					// Wait for the user to click Refresh in the update toast before
+					// activating the new SW. Pairs with registerType: 'prompt' above.
+					skipWaiting: false,
+					clientsClaim: false,
+					cleanupOutdatedCaches: true,
 					// Precache only app shell JS/CSS and PWA icons.
 					// Images, HTML pages, and widget assets are served by Cloudflare Pages directly.
 					globPatterns: ['assets/**/*.{js,css}'],

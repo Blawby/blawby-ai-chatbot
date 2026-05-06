@@ -14,7 +14,7 @@ import type { PracticeDetails } from '@/shared/lib/apiClient';
 import type { Address } from '@/shared/types/address';
 import { buildPracticeProfilePayloads } from '@/shared/utils/practiceProfile';
 import { getPracticeDetails } from '@/shared/lib/apiClient';
-import { normalizeAccentColor } from '@/shared/utils/accentColors';
+import { applyAccentColor, normalizeAccentColor } from '@/shared/utils/accentColors';
 import { uploadPracticeLogo } from '@/shared/utils/practiceLogoUpload';
 import ServicesByStateEditor from '@/features/services/components/ServicesByStateEditor';
 import { STATE_OPTIONS } from '@/shared/ui/address/AddressFields';
@@ -36,6 +36,86 @@ type ContactDraft = {
 };
 
 // ─── helpers ────────────────────────────────────────────────────────────────
+
+/**
+ * Normalize a free-text input into a URL-safe slug:
+ *   "Smith & Associates" → "smith-associates"
+ *   "  Foo__BAR " → "foo-bar"
+ *   "café" → "cafe"
+ * Strips diacritics, lowercases, replaces non-alphanumerics with dashes,
+ * collapses dash runs, and trims leading/trailing dashes.
+ */
+const formatSlug = (raw: string): string =>
+  raw
+    .normalize('NFKD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+
+interface SlugFieldProps {
+  label: string;
+  placeholder: string;
+  description: string;
+  urlLabel: string;
+  suggestPrefix: string;
+  suggestSuffix: string;
+  value: string;
+  practiceName: string;
+  disabled?: boolean;
+  onChange: (value: string) => void;
+  onAcceptSuggestion: (suggested: string) => void;
+}
+
+const SlugField = ({
+  label,
+  placeholder,
+  description,
+  urlLabel,
+  suggestPrefix,
+  suggestSuffix,
+  value,
+  practiceName,
+  disabled = false,
+  onChange,
+  onAcceptSuggestion,
+}: SlugFieldProps) => {
+  const trimmedSlug = value.trim();
+  const previewSlug = trimmedSlug || placeholder;
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  const suggested = formatSlug(practiceName);
+  const showSuggestion = suggested.length > 0 && suggested !== trimmedSlug;
+
+  return (
+    <div>
+      <Input
+        label={label}
+        value={value}
+        onChange={onChange}
+        disabled={disabled}
+        placeholder={placeholder}
+        description={description}
+      />
+      <p className="mt-2 text-xs text-input-placeholder">
+        <span>{urlLabel}: </span>
+        <span className="font-mono text-input-text">
+          {origin}/practice/<span className="text-accent-500">{previewSlug}</span>
+        </span>
+      </p>
+      {showSuggestion ? (
+        <button
+          type="button"
+          onClick={() => onAcceptSuggestion(suggested)}
+          disabled={disabled}
+          className="mt-1 text-xs text-accent-500 hover:underline disabled:opacity-50"
+        >
+          {suggestPrefix} <span className="font-mono">{suggested}</span> {suggestSuffix}
+        </button>
+      ) : null}
+    </div>
+  );
+};
 
 const mapAddressSource = (src: string | Record<string, unknown> | null | undefined) => {
   if (typeof src === 'string') return { address: src };
@@ -201,6 +281,9 @@ export const PracticePage = ({ className, onBack }: PracticePageProps) => {
     publicSlugLabel: t('settings:practice.identity.slugLabel', { defaultValue: 'Public slug' }),
     publicSlugPlaceholder: t('settings:practice.identity.slugPlaceholder', { defaultValue: 'smith-associates' }),
     publicSlugDescription: t('settings:practice.identity.slugDescription', { defaultValue: 'This controls the workspace URL.' }),
+    publicSlugUrlLabel: t('settings:practice.identity.slugUrlLabel', { defaultValue: 'Your URL' }),
+    publicSlugSuggestPrefix: t('settings:practice.identity.slugSuggestPrefix', { defaultValue: 'Use' }),
+    publicSlugSuggestSuffix: t('settings:practice.identity.slugSuggestSuffix', { defaultValue: 'from your practice name' }),
     brandTitle: t('settings:practice.brand.title', { defaultValue: 'Brand' }),
     brandDescription: t('settings:practice.brand.description', { defaultValue: 'Avatar and accent color used throughout the widget experience.' }),
     avatarLabel: t('settings:practice.brand.avatarLabel', { defaultValue: 'Upload brand avatar' }),
@@ -398,6 +481,19 @@ export const PracticePage = ({ className, onBack }: PracticePageProps) => {
       setLicensedStates(validStates);
       setServicesDirty(false);
       setDraft({});
+
+      // Apply and cache the new brand color now. updateDetails doesn't refresh
+      // currentPractice, so without this the AppShell effect won't fire and
+      // the next refresh would paint the old color (or the gold fallback).
+      applyAccentColor(normalizedAccentColor);
+      try {
+        localStorage.setItem('accent-color', normalizedAccentColor);
+        const slug = currentPractice?.slug;
+        if (slug) localStorage.setItem(`accent-color:${slug}`, normalizedAccentColor);
+      } catch (_error) {
+        // localStorage may be unavailable (private mode, iframe restrictions, etc.)
+      }
+
       showSuccess(practiceText.savedTitle, practiceText.savedBody);
     } catch (error) {
       showError(
@@ -485,13 +581,18 @@ export const PracticePage = ({ className, onBack }: PracticePageProps) => {
               disabled={isSaving}
               placeholder={practiceText.practiceNamePlaceholder}
             />
-            <Input
+            <SlugField
               label={practiceText.publicSlugLabel}
-              value={contactValues.slug || ''}
-              onChange={(value) => setDraft((prev) => ({ ...prev, slug: value }))}
-              disabled={isSaving}
               placeholder={practiceText.publicSlugPlaceholder}
               description={practiceText.publicSlugDescription}
+              urlLabel={practiceText.publicSlugUrlLabel}
+              suggestPrefix={practiceText.publicSlugSuggestPrefix}
+              suggestSuffix={practiceText.publicSlugSuggestSuffix}
+              value={contactValues.slug || ''}
+              practiceName={contactValues.name || ''}
+              disabled={isSaving}
+              onChange={(value) => setDraft((prev) => ({ ...prev, slug: formatSlug(value) }))}
+              onAcceptSuggestion={(suggested) => setDraft((prev) => ({ ...prev, slug: suggested }))}
             />
           </FormGrid>
         </SettingSection>

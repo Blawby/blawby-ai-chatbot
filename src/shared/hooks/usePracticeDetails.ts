@@ -93,6 +93,11 @@ export const usePracticeDetails = (
     async (payload: Parameters<typeof updatePracticeDetailsStandalone>[1]) => {
       if (!practiceId) throw new Error('Practice id is required for details update');
       const result = await updatePracticeDetailsStandalone(practiceId, payload);
+      // Re-seed the details store with the server's canonical response so every
+      // consumer (AppShell brand-color effect, MainApp, sibling pages) sees the
+      // new values on the next render — without each caller having to remember
+      // to call setPracticeDetailsEntry / setDetails themselves.
+      if (result) setPracticeDetailsEntry(practiceId, result);
       return result;
     },
     [practiceId],

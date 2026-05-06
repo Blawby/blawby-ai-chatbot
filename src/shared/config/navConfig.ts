@@ -3,12 +3,13 @@ import {
   Bell,
   Briefcase,
   Building2,
-  ClipboardList,
   Contact,
   CreditCard,
+  FileText,
   Folder,
   Home,
   LifeBuoy,
+  Map,
   MessageSquare,
   Palette,
   Puzzle,
@@ -67,7 +68,7 @@ export type NavCtx = {
   canAccessPractice: boolean;
 };
 
-export type WorkspaceSection = 'home' | 'conversations' | 'intakes' | 'engagements' | 'matters' | 'invoices' | 'reports' | 'settings';
+export type WorkspaceSection = 'home' | 'conversations' | 'forms' | 'intakes' | 'engagements' | 'matters' | 'invoices' | 'reports' | 'settings' | 'coverage';
 
 
 
@@ -185,6 +186,7 @@ const buildPracticeRail = (basePath: string): NavRailItem[] => [
     icon: MessageSquare,
     href: `${basePath}/conversations`,
     matchHrefs: [`${basePath}/conversations`],
+    expandable: true,
   },
   {
     id: 'contacts',
@@ -195,11 +197,19 @@ const buildPracticeRail = (basePath: string): NavRailItem[] => [
     prefetch: prefetchPracticeContactsChunk,
   },
   {
+    id: 'forms',
+    label: 'Forms',
+    icon: FileText,
+    href: `${basePath}/intakes`,
+    matchHrefs: [`${basePath}/intakes`],
+    prefetch: prefetchIntakesChunk,
+  },
+  {
     id: 'intakes',
     label: 'Intakes',
     icon: Contact,
-    href: `${basePath}/intakes`,
-    matchHrefs: [`${basePath}/intakes`],
+    href: `${basePath}/intakes/responses`,
+    matchHrefs: [`${basePath}/intakes/responses`],
     expandable: true,
     prefetch: prefetchIntakesChunk,
   },
@@ -209,7 +219,6 @@ const buildPracticeRail = (basePath: string): NavRailItem[] => [
     icon: Folder,
     href: `${basePath}/files`,
     matchHrefs: [`${basePath}/files`],
-    expandable: true,
   },
   {
     id: 'invoices',
@@ -228,6 +237,13 @@ const buildPracticeRail = (basePath: string): NavRailItem[] => [
     matchHrefs: [`${basePath}/reports`],
     expandable: true,
     prefetch: prefetchReportsChunk,
+  },
+  {
+    id: 'coverage',
+    label: 'Coverage',
+    icon: Map,
+    href: `${basePath}/coverage`,
+    matchHrefs: [`${basePath}/coverage`],
   },
   {
     id: 'settings',
@@ -257,6 +273,7 @@ const buildClientRail = (basePath: string): NavRailItem[] => [
     icon: MessageSquare,
     href: `${basePath}/conversations`,
     matchHrefs: [`${basePath}/conversations`],
+    expandable: true,
   },
   {
     id: 'invoices',
@@ -409,7 +426,6 @@ const buildSettingsSecondary = (basePath: string, canAccessPractice: boolean): N
       label: 'Practice',
       items: [
         { id: 'practice', label: 'Practice', href: `${basePath}/settings/practice`, icon: Building2 },
-        { id: 'practice-coverage', label: 'Intake Forms', href: `${basePath}/settings/practice/coverage`, icon: ClipboardList },
         { id: 'practice-payouts', label: 'Payouts', href: `${basePath}/settings/practice/payouts`, icon: CreditCard },
         { id: 'practice-team', label: 'Team', href: `${basePath}/settings/practice/team`, icon: Users },
         { id: 'apps', label: 'Apps', href: `${basePath}/settings/apps`, icon: Puzzle },
@@ -422,24 +438,12 @@ const buildSettingsSecondary = (basePath: string, canAccessPractice: boolean): N
     items: [{ id: 'help', label: 'Help', href: `${basePath}/settings/help`, icon: LifeBuoy }],
   });
 
-  sections.push({
-    items: [
-      {
-        id: 'sign-out',
-        label: 'Sign out',
-        isAction: true,
-        variant: 'danger',
-      },
-    ],
-  });
-
   return sections;
 };
 
 const buildIntakesSecondary = (basePath: string): NavSection[] => [{
-  label: 'Intakes',
+  label: 'Responses',
   items: [
-    { id: 'forms', label: 'Forms', href: `${basePath}/intakes` },
     { id: 'all', label: 'All responses', href: `${basePath}/intakes/responses` },
     { id: 'pending_review', label: 'Pending', href: `${basePath}/intakes/responses` },
     { id: 'accepted', label: 'Accepted', href: `${basePath}/intakes/responses` },
@@ -536,12 +540,14 @@ export type SidebarConfig = {
  */
 const RAIL_ID_TO_SECTION: Record<string, WorkspaceSection> = {
   conversations: 'conversations',
+  forms: 'forms',
   intakes: 'intakes',
   engagements: 'engagements',
   matters: 'matters',
   invoices: 'invoices',
   reports: 'reports',
   settings: 'settings',
+  coverage: 'coverage',
 };
 
 /**

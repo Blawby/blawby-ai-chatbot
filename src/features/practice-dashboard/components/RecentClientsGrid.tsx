@@ -52,7 +52,7 @@ export const RecentClientsGrid = ({
           ))}
         </div>
       ) : error ? (
-        <div className="mt-6 rounded-xl border border-line-glass/40 bg-surface-glass px-3 py-2 text-sm text-input-text">
+        <div className="mt-6 rounded-xl border border-card-border bg-card px-3 py-2 text-sm text-input-text">
           {error}
         </div>
       ) : clients.length === 0 ? (

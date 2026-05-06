@@ -7,7 +7,7 @@ export interface DialogBodyProps {
 }
 
 export const DialogBody: FunctionComponent<DialogBodyProps> = ({ children, className }) => (
-  <div className={cn('min-h-0 flex-1 overflow-auto px-5 pb-5 pt-3', className)}>
+  <div className={cn('themed-scrollbar min-h-0 flex-1 overflow-auto px-5 pb-5 pt-3', className)}>
     {children}
   </div>
 );

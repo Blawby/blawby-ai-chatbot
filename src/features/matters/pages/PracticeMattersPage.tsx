@@ -1,20 +1,16 @@
-import type { ComponentChildren } from 'preact';
-import { useCallback, useEffect, useMemo, useRef, useState, useErrorBoundary } from 'preact/hooks';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { useLocation } from 'preact-iso';
 import { PageHeader } from '@/shared/ui/layout/PageHeader';
 import { Page } from '@/shared/ui/layout/Page';
-import { Panel } from '@/shared/ui/layout/Panel';
-import { DetailHeader } from '@/shared/ui/layout/DetailHeader';
 import { WorkspacePlaceholderState } from '@/shared/ui/layout/WorkspacePlaceholderState';
 import { Button } from '@/shared/ui/Button';
-import { EntityList } from '@/shared/ui/list/EntityList';
-import { Breadcrumbs } from '@/shared/ui/navigation';
-import { MarkdownUploadTextarea } from '@/shared/ui/input/MarkdownUploadTextarea';
-import { CurrencyInput } from '@/shared/ui/input';
-import { ActivityTimeline, type TimelineItem, type TimelinePerson } from '@/shared/ui/activity/ActivityTimeline';
-import { Avatar, UserCard } from '@/shared/ui/profile';
-import { Dialog } from '@/shared/ui/dialog';
-import { MessagesSquare, CheckCircle2, DollarSign, Folder, Home, Paperclip, SquarePen, Plus, Bell } from 'lucide-preact';
+import { CurrencyInput, Input } from '@/shared/ui/input';
+import { DataTable, type DataTableColumn, type DataTableRow } from '@/shared/ui/table/DataTable';
+import { type TimelineItem, type TimelinePerson } from '@/shared/ui/activity/ActivityTimeline';
+import { Dialog, DialogBody } from '@/shared/ui/dialog';
+import { Popover } from '@/shared/ui/overlays';
+import { Folder, SquarePen, Plus, Search, SlidersHorizontal } from 'lucide-preact';
+import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
 
 import { MATTER_STATUS_LABELS, type MatterStatus } from '@/shared/types/matterStatus';
 import {
@@ -24,28 +20,26 @@ import {
   type MatterTask,
   type TimeEntry
 } from '@/features/matters/data/matterTypes';
-import { MatterCreateForm, type MatterFormState } from '@/features/matters/components/MatterForm';
-import { MatterListItem } from '@/features/matters/components/MatterListItem';
-import { MatterStatusDot } from '@/features/matters/components/MatterStatusDot';
-import { TimeEntriesPanel } from '@/features/matters/components/time-entries/TimeEntriesPanel';
+import { MatterEditForm, type MatterFormState } from '@/features/matters/components/MatterForm';
 import { TimeEntryForm, type TimeEntryFormValues } from '@/features/matters/components/time-entries/TimeEntryForm';
-import { MatterExpensesPanel } from '@/features/matters/components/expenses/MatterExpensesPanel';
-import { MatterMilestonesPanel } from '@/features/matters/components/milestones/MatterMilestonesPanel';
-import { MatterTasksPanel } from '@/features/matters/components/tasks/MatterTasksPanel';
-import { MatterMessagesPanel } from '@/features/matters/components/messages/MatterMessagesPanel';
-import { MatterFilesPanel } from '@/features/matters/components/files/MatterFilesPanel';
-import { InvoicesSection } from '@/features/matters/components/billing/InvoicesSection';
-import { UnbilledSummaryCard } from '@/features/matters/components/billing/UnbilledSummaryCard';
-import { MatterSummaryCards } from '@/features/matters/components/MatterSummaryCards';
+import {
+  MatterDetailPanel,
+  type DetailSectionId
+} from '@/features/matters/components/MatterDetailPanel';
+import { type WorkSubTab } from '@/features/matters/components/MatterWorkTab';
+import { type BillingSubTab } from '@/features/matters/components/MatterBillingTab';
+import { getEngagementForMatter } from '@/features/engagements/api/engagementsApi';
+import type { EngagementDetail } from '@/features/engagements/types/engagement';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { usePracticeTeam } from '@/shared/hooks/usePracticeTeam';
 import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
-import { asMajor, getMajorAmountValue, safeAdd, safeDivide, safeMultiply, type MajorAmount } from '@/shared/utils/money';
+import { asMajor, getMajorAmountValue, safeDivide, safeMultiply, type MajorAmount } from '@/shared/utils/money';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import { cn } from '@/shared/utils/cn';
 import {
   createMatter,
+  deleteMatter,
   getMatter,
   getMatterActivity,
   updateMatter,
@@ -56,11 +50,9 @@ import {
   createMatterExpense,
   createMatterNote,
   createMatterMilestone,
-  createMatterTask,
   createMatterTimeEntry,
   deleteMatterExpense,
   deleteMatterMilestone,
-  deleteMatterTask,
   deleteMatterTimeEntry,
   getMatterTimeEntryStats,
   listMatterExpenses,
@@ -71,7 +63,6 @@ import {
   reorderMatterMilestones,
   updateMatterExpense,
   updateMatterMilestone,
-  updateMatterTask,
   updateMatterTimeEntry
 } from '@/features/matters/services/mattersApi';
 import { useBillingData } from '@/features/matters/hooks/useBillingData';
@@ -79,9 +70,8 @@ import type { Invoice, InvoiceLineItem } from '@/features/matters/types/billing.
 import { createPendingInvoiceDraftContext } from '@/features/invoices/utils/invoiceDraftContext';
 import { getPracticeIntake } from '@/features/intake/api/intakesApi';
 import { resolveIntakeTitle } from '@/features/intake/utils/intakeTitle';
-import { apiClient, isHttpError, getOnboardingStatus, listUserDetails, type UserDetailRecord } from '@/shared/lib/apiClient';
+import { apiClient, isHttpError, listUserDetails, type UserDetailRecord } from '@/shared/lib/apiClient';
 import { getConversation } from '@/shared/lib/conversationApi';
-import { normalizePracticeOnboardingStatus } from '@/features/practice/types/onboarding.types';
 import {
   buildActivityTimelineItem,
   buildCreatePayload,
@@ -108,14 +98,19 @@ import { MatterDetailSkeleton } from '@/features/matters/components/MatterDetail
 // Types
 // ---------------------------------------------------------------------------
 
-type DetailSectionId = 'overview' | 'tasks' | 'billing' | 'messages' | 'files';
-const DETAIL_TABS: Array<{ id: DetailSectionId; label: string; icon: typeof CheckCircle2 }> = [
-  { id: 'overview', label: 'Overview', icon: Home },
-  { id: 'tasks', label: 'Tasks', icon: CheckCircle2 },
-  { id: 'billing', label: 'Billing', icon: DollarSign },
-  { id: 'messages', label: 'Messages', icon: MessagesSquare },
-  { id: 'files', label: 'Files', icon: Paperclip }
-];
+const isDetailSection = (value: string): value is DetailSectionId =>
+  value === 'work'
+    || value === 'notes'
+    || value === 'billing'
+    || value === 'files'
+    || value === 'activity'
+    || value === 'settings';
+
+const isWorkSubTab = (value: string): value is WorkSubTab =>
+  value === 'tasks' || value === 'milestones';
+
+const isBillingSubTab = (value: string): value is BillingSubTab =>
+  value === 'unbilled' || value === 'time' || value === 'expenses' || value === 'rates';
 
 const resolveQueryValue = (value?: string | string[] | null) => {
   if (!value) return null;
@@ -125,6 +120,37 @@ const resolveQueryValue = (value?: string | string[] | null) => {
 // ---------------------------------------------------------------------------
 // Small local components
 // ---------------------------------------------------------------------------
+
+const ACTIVE_STATUSES: ReadonlySet<MatterStatus> = new Set([
+  'active', 'engagement_accepted', 'pleadings_filed', 'discovery', 'mediation', 'pre_trial', 'trial'
+]);
+const CLOSING_STATUSES: ReadonlySet<MatterStatus> = new Set(['engagement_pending', 'order_entered', 'appeal_pending']);
+const DECLINED_STATUSES: ReadonlySet<MatterStatus> = new Set(['declined', 'conflicted']);
+
+const matterStatusToneClass = (status: MatterStatus): string => {
+  if (ACTIVE_STATUSES.has(status)) return 'text-emerald-600 dark:text-emerald-400';
+  if (status === 'closed' || DECLINED_STATUSES.has(status)) return 'text-input-placeholder';
+  return 'text-amber-600 dark:text-amber-400';
+};
+
+type MatterFilterCategory = 'all' | 'new' | 'active' | 'closing' | 'closed' | 'declined';
+
+const MATTER_FILTER_CATEGORIES: ReadonlyArray<{ id: MatterFilterCategory; label: string }> = [
+  { id: 'all', label: 'All' },
+  { id: 'new', label: 'New' },
+  { id: 'active', label: 'Active' },
+  { id: 'closing', label: 'Closing' },
+  { id: 'closed', label: 'Closed' },
+  { id: 'declined', label: 'Declined' },
+];
+
+const matterStatusCategory = (status: MatterStatus): Exclude<MatterFilterCategory, 'all'> => {
+  if (status === 'closed') return 'closed';
+  if (DECLINED_STATUSES.has(status)) return 'declined';
+  if (ACTIVE_STATUSES.has(status)) return 'active';
+  if (CLOSING_STATUSES.has(status)) return 'closing';
+  return 'new';
+};
 
 const EmptyState = ({ onCreate, disableCreate }: { onCreate?: () => void; disableCreate?: boolean }) => (
   <WorkspacePlaceholderState
@@ -139,12 +165,6 @@ const EmptyState = ({ onCreate, disableCreate }: { onCreate?: () => void; disabl
     }}
     className="p-8"
   />
-);
-
-const LoadingState = ({ message }: { message: string }) => (
-  <div className="flex h-full items-center justify-center p-8 font-display text-sm tracking-tight text-input-placeholder">
-    {message}
-  </div>
 );
 
 // Defer skeleton until loading has lasted long enough to be perceptible, then
@@ -261,34 +281,6 @@ const MatterLoadError = ({
   </Page>
 );
 
-const BillingErrorBoundary = ({ children, onRetry }: { children: preact.ComponentChildren; onRetry: () => void }) => {
-  const [error, resetError] = useErrorBoundary((err) => {
-    console.error('[PracticeMattersPage] Billing tab render failed', err);
-  });
-
-  if (error) {
-    return (
-      <ErrorBanner>
-        <div className="flex items-center justify-between gap-4">
-          <span>Unable to load billing data.</span>
-          <Button
-            size="xs"
-            variant="secondary"
-            onClick={() => {
-              resetError();
-              onRetry();
-            }}
-          >
-            Retry
-          </Button>
-        </div>
-      </ErrorBanner>
-    );
-  }
-
-  return <>{children}</>;
-};
-
 // ---------------------------------------------------------------------------
 // Main page
 // ---------------------------------------------------------------------------
@@ -302,10 +294,6 @@ type PracticeMattersPageProps = {
   prefetchedLoading?: boolean;
   prefetchedError?: string | null;
   onRefetchList?: (signal?: AbortSignal) => Promise<void>;
-  onDetailInspector?: () => void;
-  detailInspectorOpen?: boolean;
-  detailHeaderLeadingAction?: ComponentChildren;
-  showDetailBackButton?: boolean;
 };
 
 export const PracticeMattersPage = ({
@@ -317,10 +305,6 @@ export const PracticeMattersPage = ({
   prefetchedLoading = false,
   prefetchedError = null,
   onRefetchList,
-  onDetailInspector,
-  detailInspectorOpen = false,
-  detailHeaderLeadingAction,
-  showDetailBackButton = true,
 }: PracticeMattersPageProps) => {
   const location = useLocation();
   const { session, activePracticeId: sessionActivePracticeId } = useSessionContext();
@@ -335,11 +319,16 @@ export const PracticeMattersPage = ({
   const selectedMatterIdFromPath = firstSegment && firstSegment !== 'activity' && firstSegment !== 'new'
     ? decodeURIComponent(firstSegment)
     : null;
-  const detailSection: DetailSectionId = selectedMatterIdFromPath
-    ? (secondSegment === 'tasks' || secondSegment === 'billing' || secondSegment === 'messages' || secondSegment === 'files'
-      ? secondSegment
-      : 'overview')
+  const detailSection: DetailSectionId = selectedMatterIdFromPath && isDetailSection(secondSegment)
+    ? secondSegment
     : 'overview';
+  const thirdSegment = pathSegments[2] ?? '';
+  const workSubTab: WorkSubTab = detailSection === 'work' && isWorkSubTab(thirdSegment)
+    ? thirdSegment
+    : 'tasks';
+  const billingSubTab: BillingSubTab = detailSection === 'billing' && isBillingSubTab(thirdSegment)
+    ? thirdSegment
+    : 'unbilled';
   const selectedMatterId = renderMode === 'listOnly' ? null : selectedMatterIdFromPath;
   const convertIntakeUuid = useMemo(
     () => resolveQueryValue(location.query?.convertIntake),
@@ -347,11 +336,21 @@ export const PracticeMattersPage = ({
   );
   const navigate = useCallback((path: string) => location.route(path), [location]);
   const goToList = () => navigate(basePath);
-  const goToDetail = (id: string, section: Exclude<DetailSectionId, 'overview'> | null = null) =>
-    navigate(section ? `${basePath}/${encodeURIComponent(id)}/${section}` : `${basePath}/${encodeURIComponent(id)}`);
-  const conversationBasePath = basePath.endsWith('/matters')
-    ? basePath.replace(/\/matters$/, '/conversations')
-    : '/practice/conversations';
+  const goToDetail = (
+    id: string,
+    section: Exclude<DetailSectionId, 'overview'> | null = null,
+    subTab: string | null = null
+  ) => {
+    let path = `${basePath}/${encodeURIComponent(id)}`;
+    if (section) {
+      path += `/${section}`;
+      const defaultSubTab = section === 'work' ? 'tasks' : section === 'billing' ? 'unbilled' : null;
+      if (subTab && subTab !== defaultSubTab) {
+        path += `/${subTab}`;
+      }
+    }
+    navigate(path);
+  };
   const invoicesBasePath = useMemo(() => {
     return basePath.replace(/\/matters(?:\/.*)?$/, '/invoices');
   }, [basePath]);
@@ -372,6 +371,11 @@ export const PracticeMattersPage = ({
   const [selectedMatterDetailState, setSelectedMatterDetail] = useState<MatterDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
+
+  // ── List view state ──────────────────────────────────────────────────────
+  const [matterSearchQuery, setMatterSearchQuery] = useState('');
+  const [matterCategoryFilter, setMatterCategoryFilter] = useState<MatterFilterCategory>('all');
+  const [filterPopoverOpen, setFilterPopoverOpen] = useState(false);
 
   // ── Activity / notes ──────────────────────────────────────────────────────
   const [activityRecords, setActivityRecords] = useState<BackendMatterActivity[]>([]);
@@ -399,6 +403,12 @@ export const PracticeMattersPage = ({
   const [tasksError, setTasksError] = useState<string | null>(null);
   const [tasksNotImplemented, setTasksNotImplemented] = useState(false);
 
+  // ── Engagement state ──────────────────────────────────────────────────────
+  const [engagement, setEngagement] = useState<EngagementDetail | null>(null);
+  const [engagementLoading, setEngagementLoading] = useState(false);
+  const [engagementError, setEngagementError] = useState<string | null>(null);
+  const [engagementRetryCount, setEngagementRetryCount] = useState(0);
+
   // ── Person / service / assignee options ───────────────────────────────────
   const [clientOptions, setClientOptions] = useState<MatterOption[]>([]);
   const [isClientListTruncated, setIsClientListTruncated] = useState(false);
@@ -422,14 +432,11 @@ export const PracticeMattersPage = ({
   const [isQuickTimeEntryOpen, setIsQuickTimeEntryOpen] = useState(false);
   const [isSettlementModalOpen, setIsSettlementModalOpen] = useState(false);
   const [settlementDraft, setSettlementDraft] = useState<MajorAmount | undefined>(undefined);
-  const [connectedAccountId, setConnectedAccountId] = useState<string | null>(null);
-  const [stripeAccountId, setStripeAccountId] = useState<string | null>(null);
-  const [onboardingUrl, setOnboardingUrl] = useState<string | null>(null);
+  const [matterDeleteOpen, setMatterDeleteOpen] = useState(false);
+  const [matterDeleteConfirmInput, setMatterDeleteConfirmInput] = useState('');
+  const [matterCloseOpen, setMatterCloseOpen] = useState(false);
   const [_quickTimeEntryKey, _setQuickTimeEntryKey] = useState(0);
-  const [isDescriptionEditing, setIsDescriptionEditing] = useState(false);
-  const [titleDraft, setTitleDraft] = useState('');
-  const [descriptionDraft, setDescriptionDraft] = useState('');
-  const [isSavingDescription, setIsSavingDescription] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [convertInitialValues, setConvertInitialValues] = useState<Partial<MatterFormState> | undefined>(undefined);
   const [convertLoading, setConvertLoading] = useState(false);
   const [convertError, setConvertError] = useState<string | null>(null);
@@ -543,32 +550,6 @@ export const PracticeMattersPage = ({
     clientName: selectedMatterDetail?.clientName ?? null,
     practiceArea: selectedMatterDetail?.practiceArea ?? null
   }), [selectedMatterDetail?.title, selectedMatterDetail?.clientName, selectedMatterDetail?.practiceArea]);
-
-  useEffect(() => {
-    if (!activePracticeId) {
-      setConnectedAccountId(null);
-      setStripeAccountId(null);
-      setOnboardingUrl(null);
-      return;
-    }
-    let cancelled = false;
-    getOnboardingStatus(activePracticeId)
-      .then((status) => {
-        if (cancelled) return;
-        const normalized = normalizePracticeOnboardingStatus(status);
-        setConnectedAccountId(normalized.connected_account_id ?? null);
-        setStripeAccountId(normalized.stripe_account_id ?? null);
-        setOnboardingUrl(normalized.url ?? null);
-      })
-      .catch((error) => {
-        if (cancelled) return;
-        console.warn('[PracticeMattersPage] Failed to load connected Stripe account', error);
-        setConnectedAccountId(null);
-        setStripeAccountId(null);
-        setOnboardingUrl(null);
-      });
-    return () => { cancelled = true; };
-  }, [activePracticeId]);
 
   // ── Person resolver ───────────────────────────────────────────────────────
   const resolvePerson = useCallback((userId?: string | null): TimelinePerson => {
@@ -768,7 +749,6 @@ export const PracticeMattersPage = ({
   }, [onRefetchList]);
   const matters = prefetchedItems;
   const mattersLoading = prefetchedLoading;
-  const mattersLoadingMore = false;
   const mattersError = prefetchedError;
 
   // ── Data fetching: matter detail ──────────────────────────────────────────
@@ -903,7 +883,7 @@ export const PracticeMattersPage = ({
 
   // ── Data fetching: expenses ───────────────────────────────────────────────
   useEffect(() => {
-    if (detailSection !== 'billing') return;
+    if (detailSection !== 'work') return;
     if (!activePracticeId || !selectedMatterId) {
       setExpenses([]); setExpensesError(null); setExpensesLoading(false);
       return;
@@ -960,8 +940,9 @@ export const PracticeMattersPage = ({
   }, [activePracticeId, selectedMatterId, selectedMatterDetail?.billingType, selectedMatterDetail?.paymentFrequency]);
 
   // ── Data fetching: tasks ──────────────────────────────────────────────────
+  // Loaded for both 'overview' (Next action / Open tasks cards) and 'work' tab.
   useEffect(() => {
-    if (detailSection !== 'tasks') return;
+    if (detailSection !== 'overview' && detailSection !== 'work') return;
     if (!activePracticeId || !selectedMatterId) {
       setTasks([]);
       setTasksError(null);
@@ -994,6 +975,34 @@ export const PracticeMattersPage = ({
 
     return () => controller.abort();
   }, [detailSection, activePracticeId, selectedMatterId]);
+
+  // ── Data fetching: engagement (eager, alongside detail) ──────────────────
+  useEffect(() => {
+    if (!activePracticeId || !selectedMatterId) {
+      setEngagement(null);
+      setEngagementLoading(false);
+      setEngagementError(null);
+      return;
+    }
+
+    const controller = new AbortController();
+    setEngagementLoading(true);
+    setEngagementError(null);
+
+    getEngagementForMatter(activePracticeId, selectedMatterId, { signal: controller.signal })
+      .then((result) => setEngagement(result))
+      .catch((error: unknown) => {
+        if ((error as DOMException).name === 'AbortError') return;
+        console.warn('[PracticeMattersPage] Failed to load engagement', error);
+        setEngagementError(error instanceof Error ? error.message : 'Failed to load engagement');
+        setEngagement(null);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setEngagementLoading(false);
+      });
+
+    return () => controller.abort();
+  }, [activePracticeId, selectedMatterId, engagementRetryCount]);
 
   // ── Refresh helpers ───────────────────────────────────────────────────────
   const refreshSelectedMatter = useCallback(async () => {
@@ -1039,6 +1048,26 @@ export const PracticeMattersPage = ({
     if (!selectedMatterDetail || !activePracticeId) return;
     void handleUpdateMatter(buildFormStateFromDetail(selectedMatterDetail, { status: newStatus }));
   }, [selectedMatterDetail, activePracticeId, handleUpdateMatter]);
+
+  const handleConfirmCloseMatter = useCallback(async () => {
+    setMatterCloseOpen(false);
+    handleUpdateStatus('closed');
+  }, [handleUpdateStatus]);
+
+  const handleConfirmDeleteMatter = useCallback(async () => {
+    if (!activePracticeId || !selectedMatterId) return;
+    try {
+      await deleteMatter(activePracticeId, selectedMatterId);
+      setMatterDeleteOpen(false);
+      setMatterDeleteConfirmInput('');
+      refreshMatters();
+      navigate(basePath);
+    } catch (error) {
+      console.error('[PracticeMattersPage] Failed to delete matter', error);
+      showError('Could not delete matter', error instanceof Error ? error.message : 'Please try again.');
+    }
+  }, [activePracticeId, selectedMatterId, refreshMatters, navigate, basePath, showError]);
+
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const handleWorkspaceMatterStatusChange = (
@@ -1054,39 +1083,6 @@ export const PracticeMattersPage = ({
       window.removeEventListener('workspace:matter-status-change', handleWorkspaceMatterStatusChange);
     };
   }, [handleUpdateStatus, selectedMatterId]);
-
-  // ── Description edit handlers ─────────────────────────────────────────────
-  const startDescriptionEdit = useCallback(() => {
-    if (!selectedMatterDetail) return;
-    setTitleDraft(selectedMatterDetail.title ?? '');
-    setDescriptionDraft(selectedMatterDetail.description ?? '');
-    setIsDescriptionEditing(true);
-  }, [selectedMatterDetail]);
-
-  const cancelDescriptionEdit = useCallback(() => {
-    setIsDescriptionEditing(false);
-    setTitleDraft('');
-    setDescriptionDraft('');
-  }, []);
-
-  const saveDescription = useCallback(async () => {
-    if (!selectedMatterDetail || !activePracticeId) return;
-    setIsSavingDescription(true);
-    try {
-      await handleUpdateMatter(buildFormStateFromDetail(selectedMatterDetail, {
-        title: titleDraft.trim() || selectedMatterDetail.title,
-        description: descriptionDraft
-      }));
-      setIsDescriptionEditing(false);
-      setTitleDraft('');
-      setDescriptionDraft('');
-    } catch (error) {
-      console.error('[PracticeMattersPage] Failed to update matter title/description', error);
-      showError('Could not save matter details', 'Please try again.');
-    } finally {
-      setIsSavingDescription(false);
-    }
-  }, [selectedMatterDetail, activePracticeId, titleDraft, descriptionDraft, handleUpdateMatter, showError]);
 
   // ── Time entry handlers ───────────────────────────────────────────────────
   const refreshTimeEntries = useCallback(async () => {
@@ -1308,56 +1304,6 @@ export const PracticeMattersPage = ({
     }
   }, [activePracticeId, selectedMatterId, milestones, showError]);
 
-  // ── Task handlers ─────────────────────────────────────────────────────────
-  const refreshTasks = useCallback(async (signal?: AbortSignal) => {
-    if (!activePracticeId || !selectedMatterId) return;
-    const items = await listMatterTasks(activePracticeId, selectedMatterId, {}, { signal });
-    setTasks(items.map(toMatterTask));
-    setTasksError(null);
-  }, [activePracticeId, selectedMatterId]);
-
-  const handleCreateTask = useCallback(async (values: {
-    name: string;
-    description: string;
-    assigneeId: string | null;
-    dueDate: string | null;
-    status: MatterTask['status'];
-    priority: MatterTask['priority'];
-    stage: string;
-  }) => {
-    if (!activePracticeId || !selectedMatterId) throw new Error('IDs required');
-    await createMatterTask(activePracticeId, selectedMatterId, {
-      name: values.name,
-      description: values.description.trim() || undefined,
-      assignee_id: values.assigneeId,
-      due_date: values.dueDate,
-      status: values.status,
-      priority: values.priority,
-      stage: values.stage
-    });
-    await refreshTasks();
-  }, [activePracticeId, selectedMatterId, refreshTasks]);
-
-  const handleUpdateTask = useCallback(async (task: MatterTask, patch: Partial<{
-    name: string;
-    description: string | null;
-    assignee_id: string | null;
-    due_date: string | null;
-    status: MatterTask['status'];
-    priority: MatterTask['priority'];
-    stage: string;
-  }>) => {
-    if (!activePracticeId || !selectedMatterId) throw new Error('IDs required');
-    await updateMatterTask(activePracticeId, selectedMatterId, task.id, patch);
-    await refreshTasks();
-  }, [activePracticeId, selectedMatterId, refreshTasks]);
-
-  const handleDeleteTask = useCallback(async (task: MatterTask) => {
-    if (!activePracticeId || !selectedMatterId) throw new Error('IDs required');
-    await deleteMatterTask(activePracticeId, selectedMatterId, task.id);
-    await refreshTasks();
-  }, [activePracticeId, selectedMatterId, refreshTasks]);
-
   // ── Note handler ──────────────────────────────────────────────────────────
   const handleCreateNote = useCallback(async (values: { content: string }) => {
     if (!activePracticeId || !selectedMatterId) throw new Error('IDs required');
@@ -1476,40 +1422,6 @@ export const PracticeMattersPage = ({
 
     return [...timeItems, ...expenseItems];
   }, [selectedMatterDetail?.attorneyHourlyRate, selectedMatterDetail?.adminHourlyRate, unbilledTimeEntries, unbilledExpenses]);
-
-  const fixedSummaryMetrics = useMemo(() => {
-    const milestones = selectedMatterDetail?.milestones ?? [];
-    const hasMilestones = milestones.length > 0;
-    const milestonesPaid = milestones.filter((milestone) => milestone.status === 'completed');
-    const milestonesRemaining = milestones.filter((milestone) => milestone.status !== 'completed');
-
-    const milestonesPaidAmount = milestonesPaid.reduce(
-      (sum, milestone) => safeAdd(sum, milestone.amount ?? asMajor(0)),
-      asMajor(0)
-    );
-    const milestonesRemainingAmount = milestonesRemaining.reduce(
-      (sum, milestone) => safeAdd(sum, milestone.amount ?? asMajor(0)),
-      asMajor(0)
-    );
-
-    const totalEarnings = invoices
-      .filter((invoice) => invoice.status === 'paid')
-      .reduce((sum, invoice) => {
-        const paidValue = getMajorAmountValue(invoice.amount_paid);
-        return safeAdd(sum, paidValue > 0 ? invoice.amount_paid : invoice.total);
-      }, asMajor(0));
-
-    return {
-      projectPrice: selectedMatterDetail?.totalFixedPrice ?? null,
-      projectFunds: unbilledSummary?.totalUnbilled ?? null,
-      totalEarnings,
-      milestonesPaidCount: milestonesPaid.length,
-      milestonesPaidAmount,
-      milestonesRemainingCount: milestonesRemaining.length,
-      milestonesRemainingAmount,
-      hasMilestones
-    };
-  }, [invoices, selectedMatterDetail?.milestones, selectedMatterDetail?.totalFixedPrice, unbilledSummary?.totalUnbilled]);
 
   useEffect(() => {
     if (!import.meta.env.DEV) return;
@@ -1756,501 +1668,198 @@ export const PracticeMattersPage = ({
     if (!resolvedSelectedMatter) {
       return <MatterNotFound matterId={selectedMatterId} onBack={goToList} />;
     }
+    if (!selectedMatterDetail) {
+      // Detail not loaded yet — keep skeleton visible.
+      return (
+        <Page className="h-full">
+          {showDetailSkeleton ? <MatterDetailSkeleton /> : null}
+        </Page>
+      );
+    }
 
-    const matterDetailHeaderActions = (
-      <div className="flex items-center gap-2">
-        <Button
-          type="button"
-          variant={isDescriptionEditing ? 'secondary' : 'icon'}
-          size="icon-sm"
-          onClick={isDescriptionEditing ? cancelDescriptionEdit : startDescriptionEdit}
-          icon={SquarePen}
-          iconClassName="h-4 w-4"
-          aria-label={isDescriptionEditing ? 'Close matter editor' : 'Edit matter title and description'}
-        />
-      </div>
-    );
-
+    const assigneeLabelComputed = (() => {
+      const ids = selectedMatterDetail.assigneeIds ?? [];
+      const names = ids
+        .map((id) => assigneeNameById.get(id))
+        .filter((n): n is string => Boolean(n));
+      return names.length > 0 ? names.join(', ') : null;
+    })();
+    const responsibleAttorneyLabel = selectedMatterDetail.responsibleAttorneyId
+      ? assigneeNameById.get(selectedMatterDetail.responsibleAttorneyId) ?? null
+      : null;
+    const originatingAttorneyLabel = selectedMatterDetail.originatingAttorneyId
+      ? assigneeNameById.get(selectedMatterDetail.originatingAttorneyId) ?? null
+      : null;
+    const composerPerson: TimelinePerson = {
+      name: session?.user?.name ?? session?.user?.email ?? 'You',
+      imageUrl: session?.user?.image ?? null
+    };
+    const onActivityRetry = () => {
+      setActivityError(null);
+      setActivityRetryCount((count) => count + 1);
+    };
+    const onCreateNoteSafely = async (content: string) => {
+      try {
+        await handleCreateNote({ content });
+      } catch (err) {
+        console.error('[PracticeMattersPage] Failed to create note', err);
+        showError('Could not save comment', 'Please try again.');
+      }
+    };
+    const weeklyHoursLabel = (() => {
+      const seconds = timeStats?.totalSeconds ?? null;
+      const hours = timeStats?.totalHours ?? null;
+      const totalMin =
+        seconds != null && seconds > 0
+          ? Math.round(seconds / 60)
+          : hours != null && hours > 0
+          ? Math.round(hours * 60)
+          : 0;
+      const h = Math.floor(totalMin / 60);
+      const m = totalMin % 60;
+      return `${h}:${String(m).padStart(2, '0')} hrs`;
+    })();
+    const attorneyRateLabel = selectedMatterDetail.attorneyHourlyRate
+      ? `${formatCurrency(selectedMatterDetail.attorneyHourlyRate)}/hr`
+      : null;
+    const adminRateLabel = selectedMatterDetail.adminHourlyRate
+      ? `${formatCurrency(selectedMatterDetail.adminHourlyRate)}/hr`
+      : null;
     return (
       <>
-        <div className="themed-scrollbar h-full overflow-y-auto">
-          <div className="relative z-20 overflow-visible">
-            <DetailHeader
-              title="Matter details"
-              showBack={showDetailBackButton}
-              onBack={goToList}
-              leadingAction={detailHeaderLeadingAction}
-              actions={matterDetailHeaderActions}
-              onInspector={onDetailInspector}
-              inspectorOpen={detailInspectorOpen}
-              className="sticky top-0 z-30"
-            />
-            {detailHeaderMeta ? (
-              <div className="px-4 py-4 @container">
-                <section className="relative overflow-hidden rounded-[20px] border border-card-border bg-surface-elevated p-6 sm:p-8">
-                  {/* Atmospheric halo — single high-impact moment */}
-                  <div
-                    aria-hidden="true"
-                    className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-[radial-gradient(circle_at_center,rgb(var(--accent-500)/0.10),transparent_70%)] blur-2xl"
-                  />
-                  {/* Gold rule */}
-                  <div
-                    aria-hidden="true"
-                    className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-accent-500/40 to-transparent"
-                  />
-                  <div className="relative flex flex-col items-center gap-5 text-center @2xl:flex-row @2xl:items-start @2xl:text-left @2xl:gap-6">
-                    <Avatar
-                      size="lg"
-                      className="mx-auto !h-28 !w-28 ring-2 ring-accent-500/15 ring-offset-2 ring-offset-surface-elevated [&>span]:!text-3xl @2xl:mx-0"
-                      src={detailClientOption?.image ?? null}
-                      name={detailClientOption?.name ?? 'Unassigned client'}
-                    />
-                    <div className="min-w-0 flex-1">
-                      {selectedMatterDetail ? (
-                        <div>
-                          {isDescriptionEditing ? (
-                            <div className="space-y-3">
-                              <div>
-                                <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-input-placeholder" htmlFor="matter-title-editor">
-                                  Title
-                                </label>
-                                <input
-                                  id="matter-title-editor"
-                                  type="text"
-                                  value={titleDraft}
-                                  onInput={(event) => setTitleDraft((event.currentTarget as HTMLInputElement).value)}
-                                  placeholder="Matter title"
-                                  className="glass-input w-full rounded-xl px-3 py-2.5 text-sm"
-                                />
-                              </div>
-                              <MarkdownUploadTextarea
-                                label="Description"
-                                value={descriptionDraft}
-                                onChange={setDescriptionDraft}
-                                practiceId={activePracticeId}
-                                matterId={selectedMatterDetail.id}
-                                showLabel={false}
-                                showTabs
-                                showFooter
-                                rows={10}
-                                defaultTab="write"
-                              />
-                              <div className="flex justify-end gap-2">
-                                <Button size="sm" variant="secondary" onClick={cancelDescriptionEdit} disabled={isSavingDescription}>
-                                  Cancel
-                                </Button>
-                                <Button size="sm" onClick={() => void saveDescription()} disabled={isSavingDescription}>
-                                  {isSavingDescription ? 'Saving...' : 'Save changes'}
-                                </Button>
-                              </div>
-                            </div>
-                          ) : (
-                            <>
-                              <div className="flex flex-col items-center gap-2 @2xl:flex-row @2xl:items-baseline @2xl:justify-between @2xl:gap-3">
-                                <h4 className="mx-auto max-w-[24ch] break-words text-center font-display text-[28px] font-bold leading-[1.1] tracking-tight text-input-text @2xl:mx-0 @2xl:text-left @2xl:text-[34px]">
-                                  {selectedMatterDetail.title?.trim() || 'Untitled matter'}
-                                </h4>
-                                {selectedMatterDetail.caseNumber?.trim() ? (
-                                  <span className="inline-flex shrink-0 items-center rounded-md bg-accent-500/10 px-2 py-0.5 font-mono text-[11px] font-medium tracking-wide text-accent-600 dark:text-accent-400">
-                                    #{selectedMatterDetail.caseNumber.trim()}
-                                  </span>
-                                ) : null}
-                              </div>
-                              <p className="mt-1.5 max-w-prose break-words whitespace-pre-wrap text-sm leading-relaxed text-input-placeholder">
-                                {selectedMatterDetail.description?.trim() || 'No description yet.'}
-                              </p>
-                            </>
-                          )}
-                        </div>
-                      ) : null}
-                      <div
-                        role="tablist"
-                        aria-label="Matter detail tabs"
-                        className="mt-5 inline-flex items-center gap-0.5 rounded-2xl border border-line-glass/30 bg-surface-utility/40 p-1 shadow-inner @2xl:flex"
-                      >
-                        {DETAIL_TABS.map((tab) => {
-                          const isActive = detailSection === tab.id;
-                          const TabIcon = tab.icon;
-                          return (
-                            <button
-                              key={tab.id}
-                              type="button"
-                              onClick={() => {
-                                if (!selectedMatterId) return;
-                                goToDetail(selectedMatterId, tab.id === 'overview' ? null : tab.id);
-                              }}
-                              aria-selected={isActive}
-                              aria-label={tab.label}
-                              title={tab.label}
-                              role="tab"
-                              className={cn(
-                                'flex h-9 w-9 items-center justify-center rounded-xl transition-all duration-150',
-                                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500',
-                                isActive
-                                  ? 'bg-card text-input-text shadow-sm'
-                                  : 'text-input-placeholder hover:bg-card/60 hover:text-input-text'
-                              )}
-                            >
-                              <TabIcon className="h-[18px] w-[18px]" aria-hidden="true" />
-                            </button>
-                          );
-                        })}
-                      </div>
-                      {selectedMatterDetail ? (
-                        <>
-                          <div className="my-5 h-px w-full bg-card-border" />
-                          <div className="grid grid-cols-1 gap-4 text-center @2xl:grid-cols-3 @2xl:text-left">
-                            <div>
-                              <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-input-placeholder">Client</p>
-                              <p className="mt-1 break-all text-sm font-medium text-input-text @2xl:break-words">
-                                {detailClientOption?.name ?? 'Unassigned client'}
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-input-placeholder">Assigned</p>
-                              {(() => {
-                                const attId = selectedMatterDetail.responsibleAttorneyId ?? '';
-                                const member = membersById.get(attId);
-                                const attName = assigneeNameById.get(attId);
-                                if (!attName) return <p className="mt-1 text-sm text-input-placeholder">Not set</p>;
-                                return (
-                                  <div className="mt-1 flex items-center justify-center gap-1.5 @2xl:justify-start">
-                                    <Avatar src={member?.image ?? null} name={attName} size="xs" />
-                                    <span className="min-w-0 text-sm font-medium text-input-text">{attName}</span>
-                                  </div>
-                                );
-                              })()}
-                            </div>
-                            <div>
-                              <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-input-placeholder">Status</p>
-                              <p className="mt-1 inline-flex items-center gap-1.5 rounded-md bg-card px-2.5 py-1 text-sm font-medium text-input-text">
-                                <MatterStatusDot status={selectedMatterDetail.status} className="p-0" />
-                                {MATTER_STATUS_LABELS[selectedMatterDetail.status]}
-                              </p>
-                            </div>
-                          </div>
-                        </>
-                      ) : null}
-                    </div>
-                  </div>
-                </section>
-              </div>
-            ) : null}
-            <div className="px-4 pb-4 pt-2">
-              <MatterSummaryCards
-                activeTab="overview"
-                onCreateInvoice={handleCreateInvoiceFromSummary}
-                onViewTimesheet={() => {
-                  if (!selectedMatterId) return;
-                  goToDetail(selectedMatterId, 'billing');
-                }}
-                timeStats={timeStats}
-                billingType={selectedMatterDetail?.billingType}
-                attorneyHourlyRate={selectedMatterDetail?.attorneyHourlyRate ?? null}
-                adminHourlyRate={selectedMatterDetail?.adminHourlyRate ?? null}
-                totalFixedPrice={selectedMatterDetail?.totalFixedPrice ?? null}
-                contingencyPercent={selectedMatterDetail?.contingencyPercent ?? null}
-                paymentFrequency={selectedMatterDetail?.paymentFrequency ?? null}
-                fixedMetrics={fixedSummaryMetrics}
-              />
-            </div>
-          </div>
-          <div className="space-y-6 p-4 sm:p-6">
-          {/* Tab panels */}
-          <section>
-            {detailSection === 'overview' ? (
-            <div className="space-y-6">
-
-                {/* Read-only matter details */}
-                {selectedMatterDetail && (
-                  <section className="overflow-hidden rounded-[20px] border border-card-border bg-surface-elevated">
-                    <header className="flex items-center justify-between border-b border-card-border px-6 py-4">
-                      <h3 className="font-display text-sm font-semibold tracking-tight text-input-text">Case details</h3>
-                      <span aria-hidden="true" className="h-px w-8 bg-gradient-to-r from-accent-500/0 via-accent-500/60 to-accent-500/0" />
-                    </header>
-                    <div className="grid grid-cols-1 divide-y divide-card-border md:grid-cols-2 md:divide-x md:divide-y-0">
-                      <dl className="divide-y divide-card-border">
-                        <div className="px-6 py-4">
-                          <dt className="text-[10px] font-semibold uppercase tracking-[0.14em] text-input-placeholder">Court</dt>
-                          <dd className={cn('mt-1.5 text-sm leading-snug', selectedMatterDetail.court?.trim() ? 'text-input-text' : 'text-input-placeholder/50')}>
-                            {selectedMatterDetail.court?.trim() || '—'}
-                          </dd>
-                        </div>
-                        <div className="px-6 py-4">
-                          <dt className="text-[10px] font-semibold uppercase tracking-[0.14em] text-input-placeholder">Judge</dt>
-                          <dd className={cn('mt-1.5 text-sm leading-snug', selectedMatterDetail.judge?.trim() ? 'text-input-text' : 'text-input-placeholder/50')}>
-                            {selectedMatterDetail.judge?.trim() || '—'}
-                          </dd>
-                        </div>
-                        <div className="px-6 py-4">
-                          <dt className="text-[10px] font-semibold uppercase tracking-[0.14em] text-input-placeholder">Opposing party</dt>
-                          <dd className={cn('mt-1.5 text-sm leading-snug', selectedMatterDetail.opposingParty?.trim() ? 'text-input-text' : 'text-input-placeholder/50')}>
-                            {selectedMatterDetail.opposingParty?.trim() || '—'}
-                          </dd>
-                        </div>
-                        <div className="px-6 py-4">
-                          <dt className="text-[10px] font-semibold uppercase tracking-[0.14em] text-input-placeholder">Opposing counsel</dt>
-                          <dd className={cn('mt-1.5 text-sm leading-snug', selectedMatterDetail.opposingCounsel?.trim() ? 'text-input-text' : 'text-input-placeholder/50')}>
-                            {selectedMatterDetail.opposingCounsel?.trim() || '—'}
-                          </dd>
-                        </div>
-                      </dl>
-                      <dl className="divide-y divide-card-border">
-                        <div className="px-6 py-4">
-                          <dt className="text-[10px] font-semibold uppercase tracking-[0.14em] text-input-placeholder">Matter type</dt>
-                          <dd className={cn('mt-1.5 text-sm leading-snug', selectedMatterDetail.matterType?.trim() ? 'text-input-text' : 'text-input-placeholder/50')}>
-                            {selectedMatterDetail.matterType?.trim() || '—'}
-                          </dd>
-                        </div>
-                        <div className="px-6 py-4">
-                          <dt className="text-[10px] font-semibold uppercase tracking-[0.14em] text-input-placeholder">Urgency</dt>
-                          <dd className={cn('mt-1.5 text-sm leading-snug', selectedMatterDetail.urgency ? 'text-input-text' : 'text-input-placeholder/50')}>
-                            {selectedMatterDetail.urgency ? selectedMatterDetail.urgency.replace(/_/g, ' ') : '—'}
-                          </dd>
-                        </div>
-                        <div className="px-6 py-4">
-                          <dt className="text-[10px] font-semibold uppercase tracking-[0.14em] text-input-placeholder">Responsible attorney</dt>
-                          <dd className="mt-1.5">
-                            {(() => {
-                              const attorneyId = selectedMatterDetail.responsibleAttorneyId;
-                              const member = attorneyId ? membersById.get(attorneyId) : undefined;
-                              if (!member) {
-                                const fallback = assigneeNameById.get(attorneyId || '');
-                                return (
-                                  <span className={cn('text-sm leading-snug', fallback ? 'text-input-text' : 'text-input-placeholder/50')}>
-                                    {fallback || '—'}
-                                  </span>
-                                );
-                              }
-                              return (
-                                <UserCard
-                                  name={member.name || assigneeNameById.get(attorneyId) || ''}
-                                  image={member.image}
-                                  secondary={member.email}
-                                  size="sm"
-                                  className="-ml-3"
-                                />
-                              );
-                            })()}
-                          </dd>
-                        </div>
-                        <div className="px-6 py-4">
-                          <dt className="text-[10px] font-semibold uppercase tracking-[0.14em] text-input-placeholder">Originating attorney</dt>
-                          <dd className="mt-1.5">
-                            {(() => {
-                              const attorneyId = selectedMatterDetail.originatingAttorneyId;
-                              const member = attorneyId ? membersById.get(attorneyId) : undefined;
-                              if (!member) {
-                                const fallback = assigneeNameById.get(attorneyId || '');
-                                return (
-                                  <span className={cn('text-sm leading-snug', fallback ? 'text-input-text' : 'text-input-placeholder/50')}>
-                                    {fallback || '—'}
-                                  </span>
-                                );
-                              }
-                              return (
-                                <UserCard
-                                  name={member.name || assigneeNameById.get(attorneyId) || ''}
-                                  image={member.image}
-                                  secondary={member.email}
-                                  size="sm"
-                                  className="-ml-3"
-                                />
-                              );
-                            })()}
-                          </dd>
-                        </div>
-                      </dl>
-                    </div>
-                  </section>
-                )}
-
-                {/* Activity timeline */}
-                <div>
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-base font-semibold text-input-text">Recent activity</h3>
-                    {timelineItems.length > 0 ? (
-                      <span className="inline-flex items-center gap-1.5 rounded-md bg-card px-2.5 py-1 text-xs font-semibold text-input-text">
-                        <Bell className="h-3 w-3 text-input-placeholder" aria-hidden="true" />
-                        {timelineItems.length} {timelineItems.length === 1 ? 'update' : 'updates'}
-                      </span>
-                    ) : null}
-                  </div>
-                  <div className="mt-4">
-                    {activityLoading && activityItems.length === 0 ? (
-                      <LoadingState message="Loading activity..." />
-                    ) : activityError && activityItems.length === 0 ? (
-                      <p className="px-4 py-3 text-sm text-input-placeholder">
-                        Could not load activity.{' '}
-                        <button
-                          type="button"
-                          className="underline"
-                          onClick={() => {
-                            setActivityError(null);
-                            setActivityRetryCount((count) => count + 1);
-                          }}
-                        >
-                          Retry
-                        </button>
-                      </p>
-                    ) : (
-                      <ActivityTimeline
-                        items={timelineItems}
-                        showComposer
-                        composerDisabled={activityLoading || !selectedMatterDetail}
-                        composerLabel="Comment"
-                        composerPlaceholder="Add your comment..."
-                        composerPracticeId={activePracticeId}
-                        composerPerson={{
-                          name: session?.user?.name ?? session?.user?.email ?? 'You',
-                          imageUrl: session?.user?.image ?? null
-                        }}
-                        onTaskClick={() => {
-                          if (!selectedMatterId) return;
-                          goToDetail(selectedMatterId, 'tasks');
-                        }}
-                        onComposerSubmit={async (value) => {
-                          try {
-                            await handleCreateNote({ content: value });
-                          } catch (err) {
-                            console.error('[PracticeMattersPage] Failed to create note', err);
-                            showError('Could not save comment', 'Please try again.');
-                          }
-                        }}
-                      />
-                    )}
-                  </div>
-                </div>
-
-              </div>
-            ) : null}
-            {detailSection === 'tasks' ? (
-              <div className="space-y-6">
-                {tasksNotImplemented ? (
-                  <div className="flex flex-col items-center justify-center h-full min-h-[200px] gap-3 text-center p-8">
-                    <p className="text-sm font-medium text-muted-foreground">Tasks coming soon</p>
-                    <p className="text-xs text-muted-foreground/70">Task management for this matter is not yet available.</p>
-                  </div>
-                ) : (
-                  <MatterTasksPanel
-                    tasks={tasks}
-                    loading={tasksLoading}
-                    error={tasksError}
-                    assignees={assigneeOptions}
-                    onCreateTask={handleCreateTask}
-                    onUpdateTask={handleUpdateTask}
-                    onDeleteTask={handleDeleteTask}
-                  />
-                )}
-                {selectedMatterDetail?.billingType === 'fixed' && selectedMatterDetail.paymentFrequency === 'milestone' ? (
-                  <MatterMilestonesPanel
-                    key={`milestones-${selectedMatterDetail.id}`}
-                    matter={selectedMatterDetail}
-                    milestones={milestones}
-                    loading={milestonesLoading}
-                    error={milestonesError}
-                    onCreateMilestone={handleCreateMilestone}
-                    onUpdateMilestone={handleUpdateMilestone}
-                    onDeleteMilestone={handleDeleteMilestone}
-                    onReorderMilestones={handleReorderMilestones}
-                    allowReorder
-                  />
-                ) : null}
-              </div>
-            ) : detailSection === 'billing' && selectedMatterDetail ? (
-              <BillingErrorBoundary onRetry={refetchBilling}>
-                <div className="space-y-6">
-                  {invoicesError ? (
-                    <ErrorBanner>
-                      <div className="flex items-center justify-between gap-4">
-                        <span>{invoicesError}</span>
-                        <Button size="xs" variant="secondary" onClick={() => void refetchBilling()}>
-                          Retry
-                        </Button>
-                      </div>
-                    </ErrorBanner>
-                  ) : null}
-                  {!connectedAccountId ? (
-                    <WarningBanner>
-                      <div className="flex flex-wrap items-center justify-between gap-3">
-                        <span>Complete Stripe onboarding to save or send invoices.</span>
-                        {onboardingUrl ? (
-                          <Button
-                            size="xs"
-                            variant="secondary"
-                            onClick={() => {
-                              if (typeof window !== 'undefined') {
-                                window.open(onboardingUrl, '_blank', 'noopener,noreferrer');
-                              }
-                            }}
-                          >
-                            Open onboarding
-                          </Button>
-                        ) : null}
-                      </div>
-                      {stripeAccountId ? (
-                        <p className="mt-2 text-xs text-input-placeholder">
-                          Stripe account: {stripeAccountId}
-                        </p>
-                      ) : null}
-                    </WarningBanner>
-                  ) : null}
-                  {!unbilledSummary && (unbilledTimeEntries.length > 0 || unbilledExpenses.length > 0) ? (
-                    <WarningBanner>
-                      Unbilled summary is still calculating. Showing time and expense data directly.
-                    </WarningBanner>
-                  ) : null}
-                  <TimeEntriesPanel
-                    key={`time-${selectedMatterDetail.id}`}
-                    entries={timeEntries}
-                    onSaveEntry={(values, existing) => void handleSaveTimeEntry(values, existing)}
-                    onDeleteEntry={(entry) => void handleDeleteTimeEntry(entry)}
-                    loading={timeEntriesLoading}
-                    error={timeEntriesError}
-                  />
-                  <MatterExpensesPanel
-                    key={`expenses-${selectedMatterDetail.id}`}
-                    matter={selectedMatterDetail}
-                    expenses={expenses}
-                    loading={expensesLoading}
-                    error={expensesError}
-                    onCreateExpense={handleCreateExpense}
-                    onUpdateExpense={handleUpdateExpense}
-                    onDeleteExpense={handleDeleteExpense}
-                  />
-                  {unbilledSummary ? (
-                    <UnbilledSummaryCard
-                      summary={unbilledSummary}
-                      matter={selectedMatterDetail}
-                      onCreateInvoice={handleCreateInvoiceFromSummary}
-                      onInvoiceMilestone={handleCreateMilestoneInvoice}
-                      onEnterSettlement={handleOpenSettlementModal}
-                    />
-                  ) : null}
-                  <InvoicesSection
-                    invoices={invoices}
-                    loading={invoicesLoading}
-                    error={invoicesError}
-                    onViewInvoice={handleViewInvoice}
-                  />
-                </div>
-              </BillingErrorBoundary>
-            ) : detailSection === 'messages' && selectedMatterDetail ? (
-              <MatterMessagesPanel
-                key={`messages-${selectedMatterDetail.id}`}
-                matter={selectedMatterDetail}
-                practiceId={activePracticeId}
-                conversationBasePath={conversationBasePath}
-              />
-            ) : detailSection === 'files' && selectedMatterId ? (
-              <MatterFilesPanel
-                key={`files-${selectedMatterId}`}
-                matterId={selectedMatterId}
-              />
-            ) : null}
-          </section>
-          </div>
-        </div>
+        <MatterDetailPanel
+          matterId={selectedMatterId}
+          detailSection={detailSection}
+          onSectionChange={(next) => {
+            if (next === 'overview') goToDetail(selectedMatterDetail.id, null);
+            else goToDetail(selectedMatterDetail.id, next);
+          }}
+          header={{
+            detail: selectedMatterDetail,
+            clientLabel: detailClientOption?.name ?? 'Unassigned client',
+            clientEmail: detailClientOption?.email ?? null,
+            clientImageUrl: detailClientOption?.image ?? null,
+            practiceAreaLabel: selectedMatterDetail.practiceArea ?? null,
+            onLogTime: () => goToDetail(selectedMatterDetail.id, 'billing', 'time'),
+            onAddTask: () => goToDetail(selectedMatterDetail.id, 'work', 'tasks'),
+            onAddNote: () => goToDetail(selectedMatterDetail.id, 'notes'),
+            onUploadFile: () => goToDetail(selectedMatterDetail.id, 'files'),
+            moreMenuItems: [
+              {
+                label: 'Edit matter',
+                icon: SquarePen,
+                onClick: () => setIsEditDialogOpen(true)
+              }
+            ]
+          }}
+          overview={{
+            detail: selectedMatterDetail,
+            clientLabel: detailClientOption?.name ?? 'Unassigned client',
+            clientEmail: detailClientOption?.email ?? null,
+            assigneeLabel: assigneeLabelComputed,
+            responsibleAttorneyLabel,
+            tasks,
+            engagement,
+            engagementLoading,
+            engagementError,
+            onEngagementRetry: () => {
+              setEngagementError(null);
+              setEngagementRetryCount((count) => count + 1);
+            },
+            onViewEngagement: () => {
+              // TODO: route to engagement detail when a route exists.
+              showError('Engagement detail coming soon', 'Open the Billing tab for engagement summary.');
+            },
+            timelineItems,
+            activityLoading,
+            activityError,
+            onActivityRetry,
+            onCreateNote: onCreateNoteSafely,
+            composerPerson,
+            composerPracticeId: activePracticeId,
+            weeklyHoursLabel,
+            attorneyRateLabel,
+            adminRateLabel,
+            onOpenClient: undefined,
+            onCreateInvoice: handleCreateInvoiceFromSummary,
+            onViewTimesheet: () => goToDetail(selectedMatterDetail.id, 'billing', 'time'),
+            onViewAllActivity: () => goToDetail(selectedMatterDetail.id, 'activity'),
+            onViewTasks: () => goToDetail(selectedMatterDetail.id, 'work', 'tasks'),
+            onTaskClick: () => goToDetail(selectedMatterDetail.id, 'work', 'tasks'),
+            onUploadFile: () => goToDetail(selectedMatterDetail.id, 'files'),
+            onViewFiles: () => goToDetail(selectedMatterDetail.id, 'files')
+          }}
+          work={{
+            detail: selectedMatterDetail,
+            subTab: workSubTab,
+            onSubTabChange: (next) => goToDetail(selectedMatterDetail.id, 'work', next),
+            tasks,
+            tasksLoading,
+            tasksError,
+            tasksNotImplemented,
+            assignees: assigneeOptions,
+            milestones,
+            milestonesLoading,
+            milestonesError,
+            onCreateMilestone: handleCreateMilestone,
+            onUpdateMilestone: handleUpdateMilestone,
+            onDeleteMilestone: handleDeleteMilestone,
+            onReorderMilestones: handleReorderMilestones
+          }}
+          notes={{
+            noteItems,
+            noteLoading: activityLoading,
+            noteError: activityError,
+            onNoteRetry: onActivityRetry,
+            onCreateNote: onCreateNoteSafely,
+            composerPerson,
+            composerPracticeId: activePracticeId
+          }}
+          billing={{
+            detail: selectedMatterDetail,
+            subTab: billingSubTab,
+            onSubTabChange: (next) => goToDetail(selectedMatterDetail.id, 'billing', next),
+            timeEntries,
+            timeEntriesLoading,
+            timeEntriesError,
+            onSaveTimeEntry: (values, existing) => void handleSaveTimeEntry(values, existing),
+            onDeleteTimeEntry: (entry) => void handleDeleteTimeEntry(entry),
+            expenses,
+            expensesLoading,
+            expensesError,
+            onCreateExpense: handleCreateExpense,
+            onUpdateExpense: handleUpdateExpense,
+            onDeleteExpense: handleDeleteExpense,
+            invoices,
+            invoicesLoading,
+            invoicesError,
+            unbilledSummary,
+            onCreateInvoice: handleCreateInvoiceFromSummary,
+            onCreateMilestoneInvoice: handleCreateMilestoneInvoice,
+            onEnterSettlement: () => setIsSettlementModalOpen(true),
+            onViewInvoice: handleViewInvoice,
+            onRetry: () => void refetchBilling()
+          }}
+          activity={{
+            timelineItems,
+            activityLoading,
+            activityError,
+            onActivityRetry,
+            onCreateNote: onCreateNoteSafely,
+            composerPerson,
+            composerPracticeId: activePracticeId,
+            onTaskClick: () => goToDetail(selectedMatterDetail.id, 'work', 'tasks')
+          }}
+          settings={{
+            detail: selectedMatterDetail,
+            responsibleAttorneyLabel,
+            originatingAttorneyLabel,
+            assigneeLabel: assigneeLabelComputed,
+            onEditMatter: () => setIsEditDialogOpen(true),
+            onCloseMatter: selectedMatterDetail.status === 'closed' ? undefined : () => setMatterCloseOpen(true),
+            onDeleteMatter: () => { setMatterDeleteConfirmInput(''); setMatterDeleteOpen(true); }
+          }}
+        />
 
         {/* Quick time entry modal */}
         {isQuickTimeEntryOpen && (
@@ -2267,6 +1876,86 @@ export const PracticeMattersPage = ({
             />
           </Dialog>
         )}
+
+        {isEditDialogOpen && selectedMatterDetail ? (
+          <Dialog
+            isOpen
+            onClose={() => setIsEditDialogOpen(false)}
+            title="Edit Matter"
+            description="Update matter details, billing structure, and assignment."
+            contentClassName="!max-w-3xl"
+          >
+            <DialogBody>
+              <MatterEditForm
+                unwrapped
+                onClose={() => setIsEditDialogOpen(false)}
+                onSubmit={handleUpdateMatter}
+                practiceId={activePracticeId}
+                clients={clientOptions}
+                practiceAreas={practiceAreaOptions}
+                assignees={assigneeOptions}
+                initialValues={buildFormStateFromDetail(selectedMatterDetail)}
+              />
+            </DialogBody>
+          </Dialog>
+        ) : null}
+
+        {matterCloseOpen ? (
+          <Dialog
+            isOpen={matterCloseOpen}
+            onClose={() => setMatterCloseOpen(false)}
+            title="Close this matter?"
+            contentClassName="max-w-md"
+          >
+            <DialogBody className="space-y-3">
+              <p className="text-sm text-input-placeholder">
+                Closing marks this matter as closed. No new time entries or tasks can be added.
+              </p>
+            </DialogBody>
+            <div className="flex justify-end gap-2 px-6 pb-6">
+              <Button variant="secondary" onClick={() => setMatterCloseOpen(false)}>Cancel</Button>
+              <Button variant="primary" onClick={() => void handleConfirmCloseMatter()}>Close matter</Button>
+            </div>
+          </Dialog>
+        ) : null}
+
+        {matterDeleteOpen ? (
+          <Dialog
+            isOpen={matterDeleteOpen}
+            onClose={() => { setMatterDeleteOpen(false); setMatterDeleteConfirmInput(''); }}
+            title="Delete this matter?"
+            contentClassName="max-w-md"
+          >
+            <DialogBody className="space-y-4">
+              <p className="text-sm text-input-placeholder">
+                This permanently deletes <strong className="text-input-text">{selectedMatterDetail.title}</strong> and all associated data (time entries, expenses, notes, files, milestones). This cannot be undone.
+              </p>
+              <div className="space-y-2">
+                <label className="block text-xs font-medium text-input-text">
+                  Type <span className="font-semibold">{selectedMatterDetail.title}</span> to confirm
+                </label>
+                <Input
+                  value={matterDeleteConfirmInput}
+                  onChange={(value) => setMatterDeleteConfirmInput(value)}
+                  placeholder={selectedMatterDetail.title}
+                  autoFocus
+                />
+              </div>
+            </DialogBody>
+            <div className="flex justify-end gap-2 px-6 pb-6">
+              <Button variant="secondary" onClick={() => { setMatterDeleteOpen(false); setMatterDeleteConfirmInput(''); }}>
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                disabled={matterDeleteConfirmInput.trim() !== selectedMatterDetail.title.trim()}
+                onClick={() => void handleConfirmDeleteMatter()}
+              >
+                Delete matter
+              </Button>
+            </div>
+          </Dialog>
+        ) : null}
 
         {isSettlementModalOpen ? (
           <Dialog
@@ -2303,111 +1992,203 @@ export const PracticeMattersPage = ({
   }
 
   // =========================================================================
-  // Render — list route (default)
+  // Render — list route (default): full-width matters table
   // =========================================================================
   if (renderMode === 'detailOnly') {
     return null;
   }
 
-  if (renderMode === 'listOnly') {
-    if (!mattersLoading && !mattersError && sortedMatterSummaries.length === 0) {
-      return null;
-    }
+  const handleNewMatter = () => navigate(`${basePath}/new?returnTo=${encodeURIComponent(location.url)}`);
+  const showLoading = mattersLoading || clientsLoading;
 
-    return (
-      <div className="h-full min-h-0 flex flex-col gap-2">
-        {isClientListTruncated && (
+  const normalizedSearch = matterSearchQuery.trim().toLowerCase();
+  const filteredByCategory = matterCategoryFilter === 'all'
+    ? sortedMatterSummaries
+    : sortedMatterSummaries.filter((matter) => matterStatusCategory(matter.status) === matterCategoryFilter);
+  const filteredMatterSummaries = normalizedSearch
+    ? filteredByCategory.filter((matter) =>
+      matter.title.toLowerCase().includes(normalizedSearch)
+        || matter.clientName.toLowerCase().includes(normalizedSearch)
+        || (matter.practiceArea?.toLowerCase().includes(normalizedSearch) ?? false)
+    )
+    : filteredByCategory;
+  const activeCategoryFilterCount = matterCategoryFilter === 'all' ? 0 : 1;
+
+  const headerCellClassName = 'text-xs font-semibold uppercase tracking-wide text-input-placeholder';
+  const tableColumns: DataTableColumn[] = [
+    { id: 'title', label: 'Matter Name', isPrimary: true, headerClassName: headerCellClassName },
+    { id: 'client', label: 'Client', hideAt: 'sm', headerClassName: headerCellClassName },
+    { id: 'practiceArea', label: 'Practice Area', hideAt: 'md', headerClassName: headerCellClassName },
+    { id: 'status', label: 'Status', headerClassName: headerCellClassName },
+    { id: 'stage', label: 'Stage', hideAt: 'lg', headerClassName: headerCellClassName },
+    { id: 'created', label: 'Created', align: 'right', hideAt: 'sm', headerClassName: headerCellClassName },
+  ];
+
+  const tableRows: DataTableRow[] = filteredMatterSummaries.map((matter) => {
+    const statusLabel = MATTER_STATUS_LABELS[matter.status];
+    return {
+      id: matter.id,
+      onClick: () => goToDetail(matter.id),
+      cells: {
+        title: <span className="truncate font-medium text-input-text">{matter.title}</span>,
+        client: <span className="truncate">{matter.clientName}</span>,
+        practiceArea: matter.practiceArea ?? '—',
+        status: (
+          <span className={cn('font-medium', matterStatusToneClass(matter.status))}>
+            {statusLabel}
+          </span>
+        ),
+        stage: statusLabel,
+        created: <span className="tabular-nums">{formatRelativeTime(matter.createdAt)}</span>,
+      },
+    };
+  });
+
+  const showEmpty = !showLoading && !mattersError && sortedMatterSummaries.length === 0;
+  const showFilteredEmpty = !showLoading && !mattersError && sortedMatterSummaries.length > 0 && filteredMatterSummaries.length === 0;
+  const filteredEmptyMessage = normalizedSearch
+    ? `No matters match “${matterSearchQuery}”.`
+    : 'No matters match the selected filter.';
+
+  return (
+    <div className="flex h-full min-h-0 flex-col">
+      {isClientListTruncated && (
+        <div className="px-6 pt-4">
           <WarningBanner>
             <strong>Warning:</strong> The contacts list is incomplete. Some names or options may be missing.
           </WarningBanner>
-        )}
-        {mattersError && <ErrorBanner>{mattersError}</ErrorBanner>}
-        <header className="flex items-center justify-between gap-3 border-b border-card-border bg-card/70 px-4 py-3 backdrop-blur-xl">
-          <div className="flex min-w-0 items-baseline gap-2">
-            <h2 className="font-display text-base font-semibold tracking-tight text-input-text">Matters</h2>
-            <span className="text-xs tabular-nums text-input-placeholder">
-              {sortedMatterSummaries.length}
-            </span>
-          </div>
-          <Button
-            size="xs"
-            variant="secondary"
-            icon={Plus}
-            aria-label="New matter"
-            title="New matter"
-            onClick={() => navigate(`${basePath}/new?returnTo=${encodeURIComponent(location.url)}`)}
-            disabled={!activePracticeId}
-          />
-        </header>
-        <div className="min-h-0 flex-1 overflow-hidden border-r border-card-border bg-card">
-          <EntityList
-            items={sortedMatterSummaries}
-            renderItem={(matter, isSelected) => (
-              <MatterListItem
-                matter={matter}
-                isSelected={isSelected}
-                onSelect={(selected) => goToDetail(selected.id)}
-              />
-            )}
-            onSelect={(matter) => goToDetail(matter.id)}
-            selectedId={selectedMatterId ?? undefined}
-            isLoading={mattersLoading || clientsLoading}
-            isLoadingMore={mattersLoadingMore}
-            error={mattersError}
-            minMountSkeletonMs={250}
-            emptyState={<EmptyState onCreate={() => navigate(`${basePath}/new?returnTo=${encodeURIComponent(location.url)}`)} disableCreate={!activePracticeId} />}
-          />
         </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="min-h-0 flex flex-1 flex-col gap-2">
-      {isClientListTruncated && (
-        <WarningBanner>
-            <strong>Warning:</strong> The contacts list is incomplete. Some names or options may be missing.
-        </WarningBanner>
       )}
 
-      {mattersError && <ErrorBanner>{mattersError}</ErrorBanner>}
+      {mattersError && (
+        <div className="px-6 pt-4">
+          <ErrorBanner>{mattersError}</ErrorBanner>
+        </div>
+      )}
 
-      <header className="flex items-center justify-between gap-3 border-b border-card-border bg-card/70 px-4 py-3 backdrop-blur-xl">
-        <div className="flex min-w-0 items-baseline gap-2">
-          <h2 className="font-display text-base font-semibold tracking-tight text-input-text">Matters</h2>
-          <span className="text-xs tabular-nums text-input-placeholder">
+      <header className="flex flex-wrap items-center justify-between gap-3 px-6 py-4">
+        <div className="flex items-baseline gap-2">
+          <h1 className="font-display text-xl font-semibold tracking-tight text-input-text">Matters</h1>
+          <span className="text-sm tabular-nums text-input-placeholder">
             {sortedMatterSummaries.length}
           </span>
         </div>
         <Button
-          size="xs"
-          variant="secondary"
+          size="sm"
+          variant="primary"
           icon={Plus}
-          aria-label="New matter"
-          title="New matter"
-          onClick={() => navigate(`${basePath}/new?returnTo=${encodeURIComponent(location.url)}`)}
+          onClick={handleNewMatter}
           disabled={!activePracticeId}
-        />
+          className="!rounded-full"
+        >
+          New Matter
+        </Button>
       </header>
 
-      <div className="overflow-hidden border-r border-card-border bg-card">
-        <EntityList
-          items={sortedMatterSummaries}
-          renderItem={(matter, isSelected) => (
-            <MatterListItem
-              matter={matter}
-              isSelected={isSelected}
-              onSelect={(selected) => goToDetail(selected.id)}
-            />
-          )}
-          onSelect={(matter) => goToDetail(matter.id)}
-          selectedId={selectedMatterId ?? undefined}
-          isLoading={mattersLoading || clientsLoading}
-          isLoadingMore={mattersLoadingMore}
-          error={mattersError}
-          minMountSkeletonMs={250}
-          emptyState={<EmptyState onCreate={() => navigate(`${basePath}/new?returnTo=${encodeURIComponent(location.url)}`)} disableCreate={!activePracticeId} />}
-        />
+      <div className="h-px w-full bg-card-border" />
+
+      <div className="flex flex-wrap items-center gap-3 px-6 py-3">
+        <div className="relative min-w-0 flex-1">
+          <Input
+            type="search"
+            placeholder="Search matters..."
+            value={matterSearchQuery}
+            onChange={setMatterSearchQuery}
+            size="sm"
+            className="!pl-9"
+            aria-label="Search matters"
+          />
+          <Search
+            aria-hidden="true"
+            className="pointer-events-none absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-input-text/80"
+          />
+        </div>
+        <Popover
+          side="bottom"
+          align="end"
+          open={filterPopoverOpen}
+          onOpenChange={setFilterPopoverOpen}
+          trigger={
+            <Button
+              size="sm"
+              variant="secondary"
+              icon={SlidersHorizontal}
+              aria-label="Filter matters"
+              aria-expanded={filterPopoverOpen}
+            >
+              Filters
+              {activeCategoryFilterCount > 0 ? (
+                <span className="ml-1 inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-accent-500 px-1 text-[10px] font-semibold leading-none text-[rgb(var(--accent-foreground))]">
+                  {activeCategoryFilterCount}
+                </span>
+              ) : null}
+            </Button>
+          }
+        >
+          <div className="w-[320px] space-y-3">
+            <div className="text-[11px] font-semibold uppercase tracking-wider text-input-placeholder">
+              Status
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {MATTER_FILTER_CATEGORIES.map((category) => {
+                const isSelected = matterCategoryFilter === category.id;
+                return (
+                  <button
+                    key={category.id}
+                    type="button"
+                    onClick={() => setMatterCategoryFilter(category.id)}
+                    aria-pressed={isSelected}
+                    className={cn(
+                      'rounded-md px-3 py-1.5 text-sm font-medium transition-colors duration-150',
+                      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50',
+                      isSelected
+                        ? 'bg-accent-500 text-[rgb(var(--accent-foreground))]'
+                        : 'bg-surface-utility/40 text-input-text hover:bg-surface-utility/70'
+                    )}
+                  >
+                    {category.label}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="flex justify-end gap-2 border-t border-card-border pt-3">
+              <Button
+                size="xs"
+                variant="ghost"
+                onClick={() => setMatterCategoryFilter('all')}
+                disabled={matterCategoryFilter === 'all'}
+              >
+                Clear
+              </Button>
+              <Button
+                size="xs"
+                variant="primary"
+                onClick={() => setFilterPopoverOpen(false)}
+              >
+                Done
+              </Button>
+            </div>
+          </div>
+        </Popover>
+      </div>
+
+      <div className="min-h-0 flex-1 overflow-auto px-6 pb-6">
+        {showEmpty ? (
+          <EmptyState onCreate={handleNewMatter} disableCreate={!activePracticeId} />
+        ) : showFilteredEmpty ? (
+          <div className="px-2 py-8 text-sm text-input-placeholder">
+            {filteredEmptyMessage}
+          </div>
+        ) : (
+          <DataTable
+            columns={tableColumns}
+            rows={tableRows}
+            loading={showLoading}
+            density="compact"
+            stickyHeader
+            rowClassName="transition-colors duration-150 hover:!bg-surface-utility/40"
+          />
+        )}
       </div>
     </div>
   );

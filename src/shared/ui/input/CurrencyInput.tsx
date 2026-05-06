@@ -141,24 +141,30 @@ export const CurrencyInput = forwardRef<HTMLInputElement, CurrencyInputProps>(({
             onChange?.(rounded);
           }}
           onInput={(event) => {
-            const nextValue = event.currentTarget.value;
-            const trimmed = nextValue.trim();
-            // Allow only digits and at most one decimal point while editing
-            if (trimmed && !/^\d*\.?\d*$/.test(trimmed)) {
-              // ignore invalid chars
+            const raw = event.currentTarget.value;
+            // Strip everything that isn't a digit or a decimal point, then
+            // collapse any extra decimal points so the field can never display
+            // a non-numeric character (e.g. "12a3" → "123", "1.2.3" → "1.23").
+            const stripped = raw.replace(/[^\d.]/g, '');
+            const firstDot = stripped.indexOf('.');
+            const cleaned = firstDot === -1
+              ? stripped
+              : stripped.slice(0, firstDot + 1) + stripped.slice(firstDot + 1).replace(/\./g, '');
+            if (cleaned !== raw) {
+              // Reflect the sanitized value into the DOM so the bad character
+              // never appears — Preact doesn't re-sync the input when state
+              // skips the update.
+              event.currentTarget.value = cleaned;
+            }
+            setDisplayValue(cleaned);
+            if (!cleaned) {
               return;
             }
-            setDisplayValue(nextValue);
-            if (!trimmed) {
-              // empty input
-              return;
-            }
-            if (trimmed.endsWith('.')) {
+            if (cleaned.endsWith('.')) {
               // leave user in editing mode
               return;
             }
-            // Parse and emit a normalized value matching the blur behavior
-            const parsed = parseFloat(trimmed);
+            const parsed = parseFloat(cleaned);
             if (!Number.isFinite(parsed)) return;
             const stepNum = typeof step === 'number' && Number.isFinite(step) && step > 0 ? step : 0.01;
             const precision = precisionForStep(stepNum);

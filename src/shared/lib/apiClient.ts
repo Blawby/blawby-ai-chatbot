@@ -200,7 +200,7 @@ async function apiFetch<T>(
   // `response.headers` may be missing in test stubs that fake just `{ ok, json }`;
   // prefer Headers when present, fall back to an empty Headers instance.
   const responseHeaders = response.headers ?? new Headers();
-  if (response.status === 304 || (isAccepted && response.status === 204)) {
+  if (response.status === 304 || response.status === 204) {
     // 304 Not Modified and 204 No Content carry no body. Don't try to parse.
     return { data: null as T, status: response.status, headers: responseHeaders };
   }

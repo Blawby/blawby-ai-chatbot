@@ -17,6 +17,7 @@ import {
   handleParalegal,
   handleWidgetBootstrap,
   handleBillingSummary,
+  handleSidebarCounts,
   handleMetricsVitals,
 } from './routes';
 import { handleConversations } from './routes/conversations.js';
@@ -103,6 +104,11 @@ export const routes: RouteEntry[] = [
     match: regex(/^\/api\/practice\/[^/]+\/billing\/summary$/),
     // Auth declared at the route table — handler reads via getAttachedAuthContext.
     handler: withAuth((req, env) => handleBillingSummary(req, env), { required: true }),
+  },
+  {
+    mode: 'owned',
+    match: regex(/^\/api\/practice\/[^/]+\/sidebar\/counts$/),
+    handler: withAuth((req, env) => handleSidebarCounts(req, env), { required: true }),
   },
   { mode: 'proxy', match: matchesBackendProxy, handler: (req, env) => handleBackendProxy(req, env) },
   { mode: 'proxy', match: prefix('/api/practices'), handler: (req, env) => handlePractices(req, env) },

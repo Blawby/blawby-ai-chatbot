@@ -32,6 +32,16 @@
 /sw.js
   Cache-Control: no-cache, no-store, must-revalidate
 
+# ── HTML shell — must revalidate so deploys take effect on next refresh ──────
+# Without this, Cloudflare Pages applies its default cache to /index.html and
+# users keep loading a stale shell that references hashed assets which no
+# longer exist after a deploy. `no-cache` (not no-store) keeps the cached body
+# but forces a conditional GET on every load — unchanged shells return 304.
+/
+  Cache-Control: no-cache, must-revalidate
+/index.html
+  Cache-Control: no-cache, must-revalidate
+
 # ── Default security headers for all pages ───────────────────────────────────
 /*
   X-Content-Type-Options: nosniff

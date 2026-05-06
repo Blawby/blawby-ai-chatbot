@@ -47,6 +47,7 @@
     --surface-collection: 248 249 252;
     --surface-workspace: 255 255 255;
     --surface-utility: 244 246 250;
+    --surface-elevated: 232 232 232; /* #E8E8E8 (Pencil $bg-elevated) */
     --line-utility: 204 210 221;
     --accent-utility: var(--accent-500);
 
@@ -126,56 +127,59 @@
   }
 
   .dark {
-    --surface-app-frame: 3 7 18;
-    --surface-navigation: 8 11 16;
-    --surface-collection: 10 14 22;
-    --surface-workspace: 5 9 18;
-    --surface-utility: 13 18 26;
-    --line-utility: 40 48 64;
+    /* Neutral gray palette: chrome (frame/sidebar/header/page bg) sits at #1A1A1A,
+       cards/components at #3A3A3A, hover #474747, border #525252,
+       border-subtle #454545. Two-step contrast lets components read as elevated. */
+    --surface-app-frame: 26 26 26;     /* #1A1A1A */
+    --surface-navigation: 26 26 26;    /* #1A1A1A */
+    --surface-collection: 26 26 26;    /* #1A1A1A */
+    --surface-workspace: 26 26 26;     /* #1A1A1A */
+    --surface-utility: 58 58 58;       /* #3A3A3A (component panel) */
+    --surface-elevated: 71 71 71;      /* #474747 (Pencil $bg-elevated, raised cards on a panel) */
+    --line-utility: 82 82 82;          /* #525252 */
     --accent-utility: var(--accent-400);
 
     /* Legacy surface aliases */
     --surface-base: var(--surface-app-frame);
-    --surface-overlay: 10 15 26;
+    --surface-overlay: 58 58 58;       /* #3A3A3A (modal surface) */
     --surface-nav-rail: var(--surface-navigation);
-    --surface-nav-secondary: 15 20 29;
+    --surface-nav-secondary: 26 26 26; /* #1A1A1A */
     --surface-list-panel: var(--surface-collection);
     --surface-inspector: var(--surface-utility);
 
     --surface-glass: 255 255 255;
     --line-glass: 255 255 255;
-    --input-text: 249 250 251;
+    --input-text: 228 228 228;         /* #E4E4E4 (Pencil $text-primary) */
     --input-foreground: var(--input-text);
-    --input-placeholder: 156 163 175;
+    --input-placeholder: 176 176 176;  /* #B0B0B0 (Pencil $text-secondary) */
 
     /* Navigation Tokens (Dark Mode) */
     --nav-surface: var(--surface-nav-rail);
     --nav-active-text: var(--input-text);
     --nav-active-bg: var(--accent-500) / 0.22;
 
-    /* Sidebar (Pencil GtRGH) — Dark Mode, surfaces sourced from design;
-       active state uses brand --accent-* tokens (NOT the indigo from the Pencil mockup,
-       which is a placeholder accent). */
-    --sidebar-bg: 22 27 38;            /* #161B26 (Pencil $bg-sidebar) */
-    --sidebar-border: 30 41 59;        /* #1E293B (Pencil $border) */
-    --sidebar-divider: 30 41 59;       /* #1E293B */
-    --sidebar-text: 241 245 249;       /* #F1F5F9 (Pencil $text-primary) */
-    --sidebar-text-secondary: 148 163 184; /* #94A3B8 (Pencil $text-secondary) */
-    --sidebar-section-label: 100 116 139;  /* #64748B (Pencil $text-muted) */
+    /* Sidebar — chrome at #1A1A1A; popovers/menus stay at component #3A3A3A
+       so they read as elevated against the rail. */
+    --sidebar-bg: 26 26 26;            /* #1A1A1A */
+    --sidebar-border: 82 82 82;        /* #525252 */
+    --sidebar-divider: 69 69 69;       /* #454545 */
+    --sidebar-text: 228 228 228;       /* #E4E4E4 */
+    --sidebar-text-secondary: 176 176 176; /* #B0B0B0 */
+    --sidebar-section-label: 152 152 152;  /* #989898 */
     --sidebar-active-bg: var(--accent-500);
     --sidebar-active-text: var(--accent-foreground);
     --sidebar-badge-bg: var(--accent-500);
     --sidebar-badge-text: var(--accent-foreground);
     --sidebar-warning-badge-bg: 245 158 11; /* #F59E0B */
-    --sidebar-hover-bg: 30 41 59;
-    --sidebar-menu-bg: 21 28 44;       /* #151C2C (Pencil $bg-card) */
-    --sidebar-menu-border: 37 50 71;   /* #253247 (Pencil $bg-card-border) */
+    --sidebar-hover-bg: 58 58 58;      /* #3A3A3A (matches component step) */
+    --sidebar-menu-bg: 58 58 58;       /* #3A3A3A */
+    --sidebar-menu-border: 82 82 82;   /* #525252 */
 
-    /* Workspace shell header — Dark (Pencil rt13A / RuuTq) */
-    --header-bg: 26 32 48;             /* #1A2030 (Pencil $bg-panel) */
-    --header-border: 30 41 59;         /* #1E293B */
-    --header-search-bg: 30 41 59;      /* #1E293B (Pencil $bg-surface) */
-    --header-shortcut-bg: 37 50 71;    /* #253247 (Pencil $bg-card-border) */
+    /* Workspace shell header — chrome at #1A1A1A; search input stays at #3A3A3A. */
+    --header-bg: 26 26 26;             /* #1A1A1A */
+    --header-border: 69 69 69;         /* #454545 */
+    --header-search-bg: 58 58 58;      /* #3A3A3A */
+    --header-shortcut-bg: 82 82 82;    /* #525252 */
     --shadow-glass: 0 20px 44px rgb(0 0 0 / 40%), 0 0 1px rgb(255 255 255 / 10%);
 
     /* Slightly brighter rims in dark mode — more contrast against dark bg */
@@ -186,21 +190,21 @@
     --glass-rim-subtle: inset 1px 1px 0px -1px rgba(255, 255, 255, 0.36),
       inset 0 0 2px 1px rgba(255, 255, 255, 0.10);
 
-    /* Glass Material Variables — Dark Mode */
-    --glass-bg-top: rgba(43, 48, 58, 0.72);
-    --glass-bg-mid: rgba(36, 40, 49, 0.68);
-    --glass-bg-bottom: rgba(30, 34, 42, 0.64);
+    /* Glass Material Variables — Dark Mode (neutral gray) */
+    --glass-bg-top: rgba(58, 58, 58, 0.72);
+    --glass-bg-mid: rgba(50, 50, 50, 0.68);
+    --glass-bg-bottom: rgba(44, 44, 44, 0.64);
     --glass-inset-rim: inset 0 1px 0 rgba(255, 255, 255, 0.09), inset 0 -1px 0 rgba(255, 255, 255, 0.03);
     --glass-shadow: 0 10px 24px rgba(0, 0, 0, 0.24);
 
-    /* Panel Variables — Dark Mode */
-    --panel-bg-top: rgba(38, 42, 50, 0.60);
-    --panel-bg-bottom: rgba(28, 32, 38, 0.52);
+    /* Panel Variables — Dark Mode (neutral gray) */
+    --panel-bg-top: rgba(58, 58, 58, 0.60);
+    --panel-bg-bottom: rgba(44, 44, 44, 0.52);
     --panel-shadow: 0 8px 20px rgba(0, 0, 0, 0.20);
 
-    /* Input Variables — Dark Mode */
-    --input-bg-top: rgba(32, 36, 42, 0.40);
-    --input-bg-bottom: rgba(26, 30, 36, 0.32);
+    /* Input Variables — Dark Mode (neutral gray) */
+    --input-bg-top: rgba(58, 58, 58, 0.40);
+    --input-bg-bottom: rgba(44, 44, 44, 0.32);
     --input-shadow: 0 6px 16px rgba(0, 0, 0, 0.18);
     --success-foreground: 74 222 128;
     --warning-foreground: 249 115 22;
@@ -395,8 +399,8 @@
   .dark .glass-panel {
     background: linear-gradient(
       to bottom,
-      rgba(43, 48, 58, 0.72),
-      rgba(36, 40, 49, 0.68)
+      rgba(58, 58, 58, 0.72),
+      rgba(50, 50, 50, 0.68)
     );
     @apply border-none;
 
@@ -1271,6 +1275,64 @@
 
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
+  }
+
+  /* Slim themed scrollbar for opt-in scroll containers (dialogs, matter list,
+     matter detail panel). Qualified with `body.modal-open` so the selector
+     specificity beats the `body.modal-open .overflow-auto` hide rule above —
+     otherwise the scrollbar would stay suppressed inside any open modal. */
+  body.modal-open .themed-scrollbar,
+  body .themed-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(var(--sidebar-border)) transparent;
+    -ms-overflow-style: auto;
+  }
+
+  body.modal-open .themed-scrollbar::-webkit-scrollbar,
+  body .themed-scrollbar::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+    display: block;
+  }
+
+  body .themed-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  body .themed-scrollbar::-webkit-scrollbar-thumb {
+    background: rgb(var(--sidebar-border));
+    border-radius: 9999px;
+  }
+
+  body .themed-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgb(var(--sidebar-text-secondary));
+  }
+
+  /* Slim themed scrollbar that overrides the global scrollbar-hide. Used by the
+     Sidebar so long nav lists remain reachable on short viewports. */
+  .sidebar-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(var(--sidebar-border)) transparent;
+    -ms-overflow-style: auto;
+  }
+
+  .sidebar-scroll::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+    display: block;
+  }
+
+  .sidebar-scroll::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .sidebar-scroll::-webkit-scrollbar-thumb {
+    background: rgb(var(--sidebar-border));
+    border-radius: 9999px;
+  }
+
+  .sidebar-scroll::-webkit-scrollbar-thumb:hover {
+    background: rgb(var(--sidebar-text-secondary));
   }
 
   /* ============================================================

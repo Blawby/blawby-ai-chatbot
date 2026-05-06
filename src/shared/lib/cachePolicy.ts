@@ -37,6 +37,10 @@ export const CACHE_POLICY = [
 
   // Onboarding/setup flows
   { prefix: 'onboarding:', ttl: MINUTE },
+
+  // Sidebar counts — match the worker edge-cache window so client and edge
+  // refresh roughly together; fresh badges arrive within ~30s of changes.
+  { prefix: 'sidebar:counts:', ttl: 30 * SECOND },
 ] as const;
 
 const DEFAULT_TTL = MINUTE;

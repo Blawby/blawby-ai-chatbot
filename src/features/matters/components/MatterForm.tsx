@@ -320,7 +320,27 @@ const MatterFormInner = ({
     dueDate: '',
     amount: undefined as MajorAmount | undefined
   });
-  const canSubmit = Boolean(formState.title && (!requireClientSelection || formState.clientId));
+  const billingValid = (() => {
+    switch (formState.billingType) {
+      case 'hourly':
+        return isMajorAmount(formState.attorneyHourlyRate) && isMajorAmount(formState.adminHourlyRate);
+      case 'fixed':
+        if (formState.paymentFrequency === 'project') return isMajorAmount(formState.totalFixedPrice);
+        if (formState.paymentFrequency === 'milestone') return formState.milestones.length > 0;
+        return false;
+      case 'contingency':
+        return typeof formState.contingencyPercent === 'number' && formState.contingencyPercent > 0;
+      case 'pro_bono':
+        return true;
+      default:
+        return false;
+    }
+  })();
+  const canSubmit = Boolean(
+    formState.title &&
+    (!requireClientSelection || formState.clientId) &&
+    billingValid
+  );
 
   const updateForm = <K extends keyof MatterFormState>(key: K, value: MatterFormState[K]) => {
     setFormState((prev) => ({ ...prev, [key]: value }));
@@ -586,7 +606,7 @@ const MatterFormInner = ({
           {formState.billingType === 'hourly' && (
             <FormGrid>
               <CurrencyInput
-                label="Attorney hourly rate"
+                label="Attorney hourly rate *"
                 value={formState.attorneyHourlyRate}
                 onChange={(value) =>
                   updateForm('attorneyHourlyRate', typeof value === 'number' ? asMajor(value) : undefined)
@@ -594,7 +614,7 @@ const MatterFormInner = ({
                 placeholder="150"
               />
               <CurrencyInput
-                label="Admin hourly rate"
+                label="Admin hourly rate *"
                 value={formState.adminHourlyRate}
                 onChange={(value) =>
                   updateForm('adminHourlyRate', typeof value === 'number' ? asMajor(value) : undefined)
@@ -607,7 +627,7 @@ const MatterFormInner = ({
           {formState.billingType === 'fixed' && (
             <div className="space-y-6">
               <RadioGroupWithDescriptions
-                label="Payment frequency"
+                label="Payment frequency *"
                 name="payment-frequency"
                 value={formState.paymentFrequency ?? ''}
                 options={PAYMENT_FREQUENCY_OPTIONS}
@@ -616,7 +636,7 @@ const MatterFormInner = ({
 
               {formState.paymentFrequency === 'project' && (
                 <CurrencyInput
-                  label="Total Fixed Price"
+                  label="Total Fixed Price *"
                   value={formState.totalFixedPrice}
                   onChange={(value) =>
                     updateForm('totalFixedPrice', typeof value === 'number' ? asMajor(value) : undefined)
@@ -641,7 +661,7 @@ const MatterFormInner = ({
           {formState.billingType === 'contingency' && (
             <div className="max-w-sm">
               <Input
-                label="Contingency percentage"
+                label="Contingency percentage *"
                 value={formState.contingencyPercent !== undefined ? String(formState.contingencyPercent) : ''}
                 onChange={(value) => {
                   if (value.trim() === '') {
@@ -656,6 +676,13 @@ const MatterFormInner = ({
                         Math.max(0, Math.min(100, parsed))
                       );
                     }
+                  }
+                }}
+                onKeyDown={(event) => {
+                  // type=number still accepts these — block scientific notation
+                  // and signs so the field is digits/decimal only.
+                  if (['e', 'E', '+', '-'].includes(event.key)) {
+                    event.preventDefault();
                   }
                 }}
                 placeholder="20"
