@@ -99,7 +99,8 @@ import { MatterDetailSkeleton } from '@/features/matters/components/MatterDetail
 // ---------------------------------------------------------------------------
 
 const isDetailSection = (value: string): value is DetailSectionId =>
-  value === 'work'
+  value === 'overview'
+    || value === 'work'
     || value === 'notes'
     || value === 'billing'
     || value === 'files'
@@ -308,7 +309,7 @@ export const PracticeMattersPage = ({
 }: PracticeMattersPageProps) => {
   const location = useLocation();
   const { session, activePracticeId: sessionActivePracticeId } = useSessionContext();
-  const { showError } = useToastContext();
+  const { showError, showInfo } = useToastContext();
   const activePracticeId = routePracticeId ?? sessionActivePracticeId;
 
   // ── Routing ──────────────────────────────────────────────────────────────
@@ -382,9 +383,9 @@ export const PracticeMattersPage = ({
   const [noteRecords, setNoteRecords] = useState<BackendMatterNote[]>([]);
   const [activityLoading, setActivityLoading] = useState(false);
   const [activityError, setActivityError] = useState<string | null>(null);
-  const [_noteLoading, setNoteLoading] = useState(false);
-  const [_noteError, setNoteError] = useState<string | null>(null);
-  const [_noteRetryCount, _setNoteRetryCount] = useState(0);
+  const [noteLoading, setNoteLoading] = useState(false);
+  const [noteError, setNoteError] = useState<string | null>(null);
+  const [noteRetryCount, setNoteRetryCount] = useState(0);
   const [activityRetryCount, setActivityRetryCount] = useState(0);
 
   // ── Sub-resource state ────────────────────────────────────────────────────
@@ -831,7 +832,7 @@ export const PracticeMattersPage = ({
       });
 
     return () => controller.abort();
-  }, [activePracticeId, selectedMatterId, _noteRetryCount]);
+  }, [activePracticeId, selectedMatterId, noteRetryCount]);
 
   // ── Data fetching: time stats (used by summary cards) ────────────────────
   useEffect(() => {
@@ -1050,9 +1051,14 @@ export const PracticeMattersPage = ({
   }, [selectedMatterDetail, activePracticeId, handleUpdateMatter]);
 
   const handleConfirmCloseMatter = useCallback(async () => {
-    setMatterCloseOpen(false);
-    handleUpdateStatus('closed');
-  }, [handleUpdateStatus]);
+    if (!selectedMatterDetail || !activePracticeId) return;
+    try {
+      await handleUpdateMatter(buildFormStateFromDetail(selectedMatterDetail, { status: 'closed' }));
+      setMatterCloseOpen(false);
+    } catch (error) {
+      showError('Could not close matter', error instanceof Error ? error.message : 'Please try again.');
+    }
+  }, [selectedMatterDetail, activePracticeId, handleUpdateMatter, showError]);
 
   const handleConfirmDeleteMatter = useCallback(async () => {
     if (!activePracticeId || !selectedMatterId) return;
@@ -1768,7 +1774,7 @@ export const PracticeMattersPage = ({
             },
             onViewEngagement: () => {
               // TODO: route to engagement detail when a route exists.
-              showError('Engagement detail coming soon', 'Open the Billing tab for engagement summary.');
+              showInfo('Engagement detail coming soon', 'Open the Billing tab for engagement summary.');
             },
             timelineItems,
             activityLoading,
@@ -1808,9 +1814,12 @@ export const PracticeMattersPage = ({
           }}
           notes={{
             noteItems,
-            noteLoading: activityLoading,
-            noteError: activityError,
-            onNoteRetry: onActivityRetry,
+            noteLoading,
+            noteError,
+            onNoteRetry: () => {
+              setNoteError(null);
+              setNoteRetryCount((count) => count + 1);
+            },
             onCreateNote: onCreateNoteSafely,
             composerPerson,
             composerPracticeId: activePracticeId

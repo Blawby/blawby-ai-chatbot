@@ -44,7 +44,6 @@ export const PracticeCoveragePage = ({ className, onBack }: PracticeCoveragePage
   const [licensedStatesDraft, setLicensedStatesDraft] = useState<string[]>([]);
   const [statesDraftTouched, setStatesDraftTouched] = useState(false);
   // Local-only: bar/admission info keyed by state code
-  const [licensedStatesMeta, setLicensedStatesMeta] = useState<Record<string, { barNumber?: string; admissionDate?: string }>>({});
   const [isSavingStates, setIsSavingStates] = useState(false);
   const [billingIncrementDraft, setBillingIncrementDraft] = useState<number | ''>('');
   const [billingTouched, setBillingTouched] = useState(false);
@@ -180,14 +179,17 @@ export const PracticeCoveragePage = ({ className, onBack }: PracticeCoveragePage
 
   const handleSaveLicensedStates = async () => {
     if (!currentPractice) return;
-    // Only use licensedStatesDraft if touched and non-empty, otherwise fallback to savedLicensedStates
-    const validStates = (statesDraftTouched && licensedStatesDraft.length > 0)
+    // Honor an explicitly emptied draft: if the user touched the field, save
+    // exactly what they entered (including an empty list) instead of falling
+    // back to the previously-saved value.
+    const validStates = statesDraftTouched
       ? licensedStatesDraft.filter(validateStateCode)
       : savedLicensedStates;
     // Only send state codes to backend
     const { detailsPayload } = buildPracticeProfilePayloads({ serviceStates: validStates });
     setStatesError(null);
     setIsSavingStates(true);
+    const prevDetails = details;
     try {
       const optimisticDetails = {
         ...(details ?? { services: [] }),
@@ -198,16 +200,10 @@ export const PracticeCoveragePage = ({ className, onBack }: PracticeCoveragePage
       if (savedDetails !== undefined) setDetails(savedDetails);
       setLicensedStatesDraft(validStates);
       setStatesDraftTouched(false);
-      // Optionally: prune meta for removed states
-      setLicensedStatesMeta(meta => {
-        const next: typeof meta = {};
-        for (const state of validStates) {
-          if (meta[state]) next[state] = meta[state];
-        }
-        return next;
-      });
       showSuccess(t('settings:practice.licensedStatesUpdated') || 'Licensed states updated.');
     } catch (err) {
+      // Revert the optimistic update so the UI matches server state on failure.
+      setDetails(prevDetails);
       const message = err instanceof Error ? err.message : (t('settings:practice.licensedStatesUpdateFailed') || 'Failed to update licensed states');
       setStatesError(message);
       showError(message);
@@ -348,53 +344,14 @@ export const PracticeCoveragePage = ({ className, onBack }: PracticeCoveragePage
             onChange={(nextStates) => {
               setLicensedStatesDraft(nextStates);
               setStatesDraftTouched(true);
-              // Add meta for new states, prune for removed
-              setLicensedStatesMeta(meta => {
-                const next: typeof meta = {};
-                for (const state of nextStates) {
-                  next[state] = meta[state] || { barNumber: '', admissionDate: '' };
-                }
-                return next;
-              });
             }}
             placeholder="Select licensed states"
             disabled={isSavingStates}
             aria-label="Licensed states"
           />
-          {/* Per-state bar number/admission date fields (local only) */}
-          {displayedLicensedStates.length > 0 && (
-            <div className="mt-4 space-y-3">
-              {displayedLicensedStates.map((state) => {
-                const meta = licensedStatesMeta[state] || { barNumber: '', admissionDate: '' };
-                const stateLabel = STATE_OPTIONS.find(opt => opt.value === state)?.label || state;
-                return (
-                  <div key={state} className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4 border border-line-glass/10 rounded-xl p-3 bg-surface-workspace/40">
-                    <div className="font-medium min-w-[120px]">{stateLabel}</div>
-                    <input
-                      type="text"
-                      className="input input-sm w-full md:w-48"
-                      placeholder="Bar number (optional)"
-                      value={meta.barNumber || ''}
-                      onInput={e => {
-                        const val = (e.target as HTMLInputElement).value;
-                        setLicensedStatesMeta(m => ({ ...m, [state]: { ...m[state], barNumber: val } }));
-                      }}
-                    />
-                    <input
-                      type="date"
-                      className="input input-sm w-full md:w-48"
-                      placeholder="Admission date (optional)"
-                      value={meta.admissionDate || ''}
-                      onInput={e => {
-                        const val = (e.target as HTMLInputElement).value;
-                        setLicensedStatesMeta(m => ({ ...m, [state]: { ...m[state], admissionDate: val } }));
-                      }}
-                    />
-                  </div>
-                );
-              })}
-            </div>
-          )}
+          {/* Per-state bar number/admission date inputs hidden until backend
+              support exists — they were local-only and never persisted, which
+              misled users into thinking they were saving credentials. */}
           <SectionDivider />
           <div className="flex items-center justify-end gap-2">
             <Button

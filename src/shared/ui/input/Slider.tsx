@@ -109,6 +109,7 @@ export const Slider = forwardRef<HTMLInputElement, SliderProps>(function Slider(
             thumb,
             thumbOffset,
             'focus-visible:outline-none [&:focus-visible::-webkit-slider-thumb]:ring-2 [&:focus-visible::-webkit-slider-thumb]:ring-accent-500/50 [&:focus-visible::-webkit-slider-thumb]:ring-offset-2',
+            '[&:focus-visible::-moz-range-thumb]:ring-2 [&:focus-visible::-moz-range-thumb]:ring-accent-500/50 [&:focus-visible::-moz-range-thumb]:ring-offset-2',
             '[&::-moz-range-track]:rounded-full [&::-moz-range-track]:bg-black/10 dark:[&::-moz-range-track]:bg-white/10',
             '[&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-accent-500 [&::-moz-range-thumb]:shadow-md [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-white dark:[&::-moz-range-thumb]:border-neutral-800',
           )}

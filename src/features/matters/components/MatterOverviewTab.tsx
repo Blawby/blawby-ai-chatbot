@@ -388,7 +388,7 @@ const BillingCard = ({
 
 const RecentFilesCard = ({
   onUploadFile,
-  onViewFiles: _onViewFiles
+  onViewFiles
 }: {
   onUploadFile: () => void;
   onViewFiles: () => void;
@@ -404,6 +404,13 @@ const RecentFilesCard = ({
     >
       Upload file
     </Button>
+    <button
+      type="button"
+      onClick={onViewFiles}
+      className="text-center text-[13px] font-medium text-accent-500 hover:text-accent-600 dark:text-accent-400 dark:hover:text-accent-300"
+    >
+      View all files
+    </button>
   </InfoCard>
 );
 

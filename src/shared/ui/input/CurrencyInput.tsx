@@ -153,8 +153,32 @@ export const CurrencyInput = forwardRef<HTMLInputElement, CurrencyInputProps>(({
             if (cleaned !== raw) {
               // Reflect the sanitized value into the DOM so the bad character
               // never appears — Preact doesn't re-sync the input when state
-              // skips the update.
-              event.currentTarget.value = cleaned;
+              // skips the update. Preserve the caret by mapping the prior
+              // selection through the same character-removal that produced
+              // `cleaned`, so typing in the middle of the value doesn't jump
+              // the cursor to the end.
+              const target = event.currentTarget;
+              const selStart = target.selectionStart;
+              const selEnd = target.selectionEnd;
+              const mapIndex = (idx: number | null): number => {
+                if (idx === null) return cleaned.length;
+                const prefix = raw.slice(0, idx);
+                const cleanedPrefix = prefix.replace(/[^\d.]/g, '');
+                const firstDotInPrefix = cleanedPrefix.indexOf('.');
+                const adjustedPrefix = firstDotInPrefix === -1
+                  ? cleanedPrefix
+                  : cleanedPrefix.slice(0, firstDotInPrefix + 1)
+                    + cleanedPrefix.slice(firstDotInPrefix + 1).replace(/\./g, '');
+                return Math.min(adjustedPrefix.length, cleaned.length);
+              };
+              const nextStart = mapIndex(selStart);
+              const nextEnd = mapIndex(selEnd);
+              target.value = cleaned;
+              try {
+                target.setSelectionRange(nextStart, nextEnd);
+              } catch {
+                // Some input types (e.g. number) reject setSelectionRange; ignore.
+              }
             }
             setDisplayValue(cleaned);
             if (!cleaned) {

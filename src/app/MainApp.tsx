@@ -58,7 +58,8 @@ import { features } from '@/config/features';
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
-export type WorkspaceView = 'home' | 'setup' | 'list' | 'conversation' | 'intakes' | 'intakeDetail' | 'engagements' | 'matters' | 'contacts' | 'invoices' | 'invoiceCreate' | 'invoiceEdit' | 'invoiceDetail' | 'reports' | 'settings' | 'coverage';
+import type { WorkspaceView } from '@/shared/utils/workspaceShell';
+export type { WorkspaceView };
 
 /**
  * LayoutMode controls how ChatContainer renders its shell.

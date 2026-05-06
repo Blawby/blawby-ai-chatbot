@@ -73,7 +73,7 @@ export function Popover({
       <div
         role="button"
         tabIndex={0}
-        aria-haspopup="dialog"
+        aria-haspopup="true"
         aria-expanded={isOpen}
         onClick={() => setOpen(!isOpen)}
         onKeyDown={(event) => {

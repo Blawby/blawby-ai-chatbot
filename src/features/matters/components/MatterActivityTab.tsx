@@ -55,7 +55,13 @@ export const MatterActivityTab = ({
             onChange={(value) => setSearchQuery(value)}
           />
         </div>
-        <Button size="sm" variant="secondary" icon={SlidersHorizontal}>
+        <Button
+          size="sm"
+          variant="secondary"
+          icon={SlidersHorizontal}
+          disabled
+          aria-label="Filters (coming soon)"
+        >
           Filters
         </Button>
       </div>

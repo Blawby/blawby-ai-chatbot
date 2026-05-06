@@ -220,12 +220,20 @@ const fetchFilesCount = async (
   env: Env,
   practiceId: string,
 ): Promise<BackendSidebarCounts['files']> => {
-  const row = await env.DB.prepare(
-    `SELECT COUNT(*) AS n FROM files WHERE practice_id = ? AND is_deleted = FALSE`
-  )
-    .bind(practiceId)
-    .first<{ n: number }>();
-  return { total: typeof row?.n === 'number' ? row.n : 0 };
+  try {
+    const row = await env.DB.prepare(
+      `SELECT COUNT(*) AS n FROM files WHERE practice_id = ? AND is_deleted = FALSE`
+    )
+      .bind(practiceId)
+      .first<{ n: number }>();
+    return { total: typeof row?.n === 'number' ? row.n : 0 };
+  } catch (error) {
+    Logger.warn('sidebar-counts: files D1 query failed', {
+      practiceId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return undefined;
+  }
 };
 
 /**
@@ -283,24 +291,32 @@ const fetchConversationCounts = async (
   // Pull the rows we need once, bucket in JS. Cheaper than 5+ COUNT queries
   // each repeating the same JOINs, and lets us apply the same visibility
   // filter the frontend uses (matter_id != null OR has accepted intake).
-  const result = await env.DB.prepare(
-    `SELECT
-       c.id,
-       c.matter_id,
-       c.assigned_to,
-       c.status,
-       c.tags,
-       c.latest_seq,
-       COALESCE(r.last_read_seq, 0) AS last_read_seq
-     FROM conversations c
-     LEFT JOIN conversation_read_state r
-       ON r.conversation_id = c.id AND r.user_id = ?
-     WHERE c.practice_id = ?`
-  )
-    .bind(userId, practiceId)
-    .all<ConversationRow>();
-
-  const rows = result.results ?? [];
+  let rows: ConversationRow[];
+  try {
+    const result = await env.DB.prepare(
+      `SELECT
+         c.id,
+         c.matter_id,
+         c.assigned_to,
+         c.status,
+         c.tags,
+         c.latest_seq,
+         COALESCE(r.last_read_seq, 0) AS last_read_seq
+       FROM conversations c
+       LEFT JOIN conversation_read_state r
+         ON r.conversation_id = c.id AND r.user_id = ?
+       WHERE c.practice_id = ?`
+    )
+      .bind(userId, practiceId)
+      .all<ConversationRow>();
+    rows = result.results ?? [];
+  } catch (error) {
+    Logger.warn('sidebar-counts: conversations D1 query failed', {
+      practiceId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return undefined;
+  }
   // Same predicate as shouldShowConversationInPracticeInbox with
   // requireAcceptedIntakeRecord: status must be active or have an intake
   // record, AND must have a matter_id or an accepted intake link.

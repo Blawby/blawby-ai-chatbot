@@ -244,24 +244,36 @@ export async function getEngagementForMatter(
   if (!practiceId) throw new Error('practiceId is required');
   if (!matterId) throw new Error('matterId is required');
 
-  let raw: unknown;
-  try {
-    const result = await apiClient.get<unknown>(
-      `/api/engagement-contracts/${encodeSegment(practiceId)}?page=1&limit=200`,
-      { signal: options.signal },
-    );
-    raw = result.data;
-  } catch (error) {
-    throw mutationError(error, 'Failed to fetch engagement for matter');
+  const limit = 200;
+  let page = 1;
+  // Guard against unbounded loops if backend pagination is malformed.
+  const MAX_PAGES = 100;
+
+  while (page <= MAX_PAGES) {
+    let raw: unknown;
+    try {
+      const result = await apiClient.get<unknown>(
+        `/api/engagement-contracts/${encodeSegment(practiceId)}?page=${page}&limit=${limit}`,
+        { signal: options.signal },
+      );
+      raw = result.data;
+    } catch (error) {
+      throw mutationError(error, 'Failed to fetch engagement for matter');
+    }
+
+    const data = parseContractListPayload(raw);
+    for (const item of data.data) {
+      const record = asRecord(item);
+      if (record.matter_id === matterId) {
+        return normalizeEngagementContract(item);
+      }
+    }
+
+    if (data.data.length === 0) break;
+    if (page * limit >= data.pagination.total) break;
+    page += 1;
   }
 
-  const data = parseContractListPayload(raw);
-  for (const item of data.data) {
-    const record = asRecord(item);
-    if (record.matter_id === matterId) {
-      return normalizeEngagementContract(item);
-    }
-  }
   return null;
 }
 

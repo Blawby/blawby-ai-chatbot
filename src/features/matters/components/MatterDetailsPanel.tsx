@@ -323,13 +323,16 @@ export const MatterDetailsPanel = ({
       void commitSave({ settlementAmount: undefined });
       return;
     }
-    const raw = parseFloat(trimmed);
-    if (Number.isNaN(raw)) {
+    const raw = Number(trimmed);
+    if (!Number.isFinite(raw)) {
       setSaveError('Settlement amount must be a valid number');
       return;
     }
-    const amount = asMajor(raw);
-    void commitSave({ settlementAmount: amount });
+    if (raw < 0) {
+      setSaveError('Settlement amount must be non-negative');
+      return;
+    }
+    void commitSave({ settlementAmount: asMajor(raw) });
   };
 
   // ── Resolve attorney names for read mode ──────────────────────────────────

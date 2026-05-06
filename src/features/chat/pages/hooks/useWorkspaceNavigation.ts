@@ -62,6 +62,24 @@ export function useWorkspaceNavigation({
     }
   });
   useEffect(() => {
+    // Rehydrate when the storage key changes (workspace switch) so the new
+    // workspace's persisted filters replace the prior one's in-memory state.
+    if (typeof window === 'undefined') return;
+    try {
+      const raw = window.localStorage.getItem(filtersStorageKey);
+      if (!raw) {
+        setSecondaryFilterBySection({});
+        return;
+      }
+      const parsed = JSON.parse(raw);
+      setSecondaryFilterBySection(
+        parsed && typeof parsed === 'object' ? parsed as Partial<Record<WorkspaceSection, string>> : {}
+      );
+    } catch {
+      setSecondaryFilterBySection({});
+    }
+  }, [filtersStorageKey]);
+  useEffect(() => {
     if (typeof window === 'undefined') return;
     try {
       window.localStorage.setItem(filtersStorageKey, JSON.stringify(secondaryFilterBySection));
