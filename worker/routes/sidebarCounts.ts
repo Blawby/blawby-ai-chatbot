@@ -366,7 +366,12 @@ export async function handleSidebarCounts(request: Request, env: Env): Promise<R
   const match = url.pathname.match(/^\/api\/practice\/([^/]+)\/sidebar\/counts$/);
   if (!match) throw HttpErrors.notFound('Route not found');
 
-  const practiceId = decodeURIComponent(match[1] ?? '');
+  let practiceId = '';
+  try {
+    practiceId = decodeURIComponent(match[1] ?? '');
+  } catch (err) {
+    throw HttpErrors.badRequest('Invalid practice ID');
+  }
   if (!practiceId) throw HttpErrors.badRequest('Practice ID required');
   if (!PRACTICE_ID_RE.test(practiceId)) throw HttpErrors.badRequest('Invalid practice ID');
 

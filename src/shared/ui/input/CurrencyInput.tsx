@@ -182,6 +182,7 @@ export const CurrencyInput = forwardRef<HTMLInputElement, CurrencyInputProps>(({
             }
             setDisplayValue(cleaned);
             if (!cleaned) {
+              onChange?.(undefined);
               return;
             }
             if (cleaned.endsWith('.')) {

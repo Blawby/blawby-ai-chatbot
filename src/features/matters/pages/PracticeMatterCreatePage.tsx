@@ -244,10 +244,10 @@ export function PracticeMatterCreatePage({
     const id = createdMatterIdRef.current;
     createdMatterIdRef.current = null;
     if (id && practiceSlug) {
-      navigate(`/practice/${encodeURIComponent(practiceSlug)}/matters/${encodeURIComponent(id)}`);
+      navigate(`/practice/${encodeURIComponent(practiceSlug)}/matters/${encodeURIComponent(id)}`, { replace: true });
       return;
     }
-    navigate(returnTo);
+    navigate(returnTo, { replace: true });
   }, [navigate, practiceSlug, returnTo]);
 
   const shouldDeferCreateForm = Boolean(convertIntakeUuid && convertLoading && !convertInitialValues);
@@ -266,7 +266,7 @@ export function PracticeMatterCreatePage({
     >
       <DialogBody>
         {convertError ? (
-          <div className="mb-4 rounded-xl border border-accent-error/30 bg-accent-error/10 px-4 py-3 text-sm text-accent-error-foreground">
+          <div className="mb-4 rounded-xl border border-accent-error/30 bg-accent-error/10 px-4 py-3 text-sm text-accent-error">
             {convertError}
           </div>
         ) : null}

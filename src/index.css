@@ -354,7 +354,7 @@
 
   .page-detail-header {
     @apply px-4 py-5 sm:px-6;
-    background-color: rgb(var(--surface-header));
+    background-color: transparent;
   }
 
   .tab-bar {
@@ -823,13 +823,13 @@
 
   /* Accent ghost — accent text, no bg until hover */
   .btn-accent-ghost {
-    @apply bg-transparent text-accent-500;
+    @apply bg-transparent text-accent-500 dark:text-accent-400;
     box-shadow: none;
   }
 
   .btn-accent-ghost:hover:not(:disabled) {
     background-color: rgb(var(--accent-muted));
-    @apply text-accent-400;
+    @apply text-accent-500 dark:text-accent-400;
     box-shadow: none;
   }
 

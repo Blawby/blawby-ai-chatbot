@@ -73,7 +73,7 @@ export const MatterListItem = ({ matter, onSelect, isSelected = false }: MatterL
             'h-auto rounded-none bg-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50'
           )}
           aria-current={isSelected ? 'true' : undefined}
-          aria-label={`Select matter ${matter.title} for ${matter.clientName} (${matter.status})`}
+          aria-label={`Select matter ${matter.title} for ${matter.clientName} (${statusLabel})`}
         >
           {content}
         </button>

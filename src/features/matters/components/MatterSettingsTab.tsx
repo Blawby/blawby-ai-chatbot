@@ -125,15 +125,15 @@ export const MatterSettingsTab = ({
           <DetailRow label="Billing type" value={BILLING_TYPE_LABEL[detail.billingType]} />
           <DetailRow
             label="Attorney rate"
-            value={detail.attorneyHourlyRate ? `${formatCurrency(detail.attorneyHourlyRate)}/hr` : null}
+            value={detail.attorneyHourlyRate != null ? `${formatCurrency(detail.attorneyHourlyRate)}/hr` : null}
           />
           <DetailRow
             label="Admin rate"
-            value={detail.adminHourlyRate ? `${formatCurrency(detail.adminHourlyRate)}/hr` : null}
+            value={detail.adminHourlyRate != null ? `${formatCurrency(detail.adminHourlyRate)}/hr` : null}
           />
           <DetailRow
             label="Fixed price"
-            value={detail.totalFixedPrice ? formatCurrency(detail.totalFixedPrice) : null}
+            value={detail.totalFixedPrice != null ? formatCurrency(detail.totalFixedPrice) : null}
           />
           <DetailRow
             label="Contingency %"

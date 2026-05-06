@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useCallback } from 'preact/hooks';
+import { useEffect, useMemo, useState, useCallback, useRef } from 'preact/hooks';
 import {
   getWorkspaceActiveSecondaryFilter,
   getWorkspaceDefaultSecondaryFilter,
@@ -14,14 +14,6 @@ import {
 } from '@/shared/config/navConfig';
 import type { PracticeRole } from '@/shared/utils/practiceRoles';
 
-type PreviewTab = 'home' | 'messages' | 'intake';
-
-// Mirror of WorkspaceView from workspaceShell (not exported from there).
-export const previewTabOptions: Array<{ id: PreviewTab; label: string }> = [
-  { id: 'home', label: 'Home' },
-  { id: 'messages', label: 'Messages' },
-  { id: 'intake', label: 'Intake form' },
-];
 
 export type UseWorkspaceNavigationInput = {
   view: WorkspaceView;
@@ -50,6 +42,8 @@ export function useWorkspaceNavigation({
   // the last-clicked stage (e.g. Active) instead of falling back to default.
   // Scoped per workspace so practice and client filters don't collide.
   const filtersStorageKey = `blawby:secondary-filters:${workspace}`;
+  const filtersStorageKeyRef = useRef(filtersStorageKey);
+  filtersStorageKeyRef.current = filtersStorageKey;
   const [secondaryFilterBySection, setSecondaryFilterBySection] = useState<Partial<Record<WorkspaceSection, string>>>(() => {
     if (typeof window === 'undefined') return {};
     try {
@@ -82,11 +76,11 @@ export function useWorkspaceNavigation({
   useEffect(() => {
     if (typeof window === 'undefined') return;
     try {
-      window.localStorage.setItem(filtersStorageKey, JSON.stringify(secondaryFilterBySection));
+      window.localStorage.setItem(filtersStorageKeyRef.current, JSON.stringify(secondaryFilterBySection));
     } catch {
       // localStorage may be disabled (private mode, quota); persistence is best-effort.
     }
-  }, [filtersStorageKey, secondaryFilterBySection]);
+  }, [secondaryFilterBySection]);
 
   const workspaceBasePath = useMemo(() => {
     let base = '/';

@@ -329,7 +329,7 @@ const MatterFormInner = ({
         if (formState.paymentFrequency === 'milestone') return formState.milestones.length > 0;
         return false;
       case 'contingency':
-        return typeof formState.contingencyPercent === 'number' && formState.contingencyPercent > 0;
+        return typeof formState.contingencyPercent === 'number' && formState.contingencyPercent >= 0 && formState.contingencyPercent <= 100;
       case 'pro_bono':
         return true;
       default:
