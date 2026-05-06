@@ -73,7 +73,8 @@ export const WorkspaceShellHeader: FunctionComponent<WorkspaceShellHeaderProps> 
       {/* Desktop variant — Pencil rt13A: 64px, padding [24,14], gap 16 */}
       <div className="hidden h-16 items-center justify-between gap-4 px-6 lg:flex">
         <div className="flex min-w-0 items-center gap-4">
-          <Logo initial={orgInitial} size="md" />
+          {/* Hide org logo on desktop, already present in sidebar */}
+          {/* <Logo initial={orgInitial} size="md" /> */}
           <div className="flex min-w-0 flex-col gap-0.5">
             {trail ? (
               <div className="flex items-center gap-1.5 text-[11px] font-medium text-[rgb(var(--sidebar-text-secondary))]">

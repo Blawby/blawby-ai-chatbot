@@ -131,8 +131,11 @@ export const AppShell = ({
         </div>
       )}
 
+
+      {/* On desktop, header is rendered inside main area (right of sidebar). On mobile, keep at top. */}
+      {/* Mobile header (top bar) */}
       {hasHeader && (
-        <header className={cn('relative z-10 col-span-full', headerClassName)}>
+        <header className={cn('relative z-10 col-span-full lg:hidden', headerClassName)}>
           {header}
         </header>
       )}
@@ -171,6 +174,12 @@ export const AppShell = ({
           mainClassName
         )}
       >
+        {/* Desktop header (inside main area, right of sidebar) */}
+        {hasHeader && (
+          <header className={cn('hidden lg:block', headerClassName)}>
+            {header}
+          </header>
+        )}
         {main}
       </main>
 
