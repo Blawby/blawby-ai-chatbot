@@ -30,6 +30,7 @@ import { handleAutocompleteWithCORS } from './routes/api/geo/autocomplete.js';
 import { Env } from './types';
 import { handleError } from './errorHandler';
 import { withCORS, getCorsConfig } from './middleware/cors';
+import { edgeCache } from './utils/edgeCache.js';
 import type { ScheduledEvent } from '@cloudflare/workers-types';
 import { handleNotificationQueue } from './queues/notificationProcessor.js';
 
@@ -209,6 +210,31 @@ const apiNotFoundResponse = () =>
     headers: { 'Content-Type': 'application/json' },
   });
 
+/**
+ * Path prefixes whose mutations change aggregated sidebar counts. Mirrors
+ * the frontend list in `src/shared/lib/apiClient.ts`. After a successful
+ * non-GET to any of these paths the worker drops cached `sidebar:counts:`
+ * entries so the next `/sidebar/counts` call recomputes against fresh
+ * upstream data instead of waiting for the 30s TTL to elapse.
+ *
+ * Per-isolate prefix invalidation is cheap; we don't have practiceId for
+ * every URL shape (e.g. `/api/matters/:id`), so we clear the whole
+ * `sidebar:counts:` namespace and let the next read repopulate.
+ */
+const SIDEBAR_COUNT_MUTATION_PREFIXES = [
+  '/api/matters',
+  '/api/practice-client-intakes',
+  '/api/invoices',
+  '/api/conversations',
+  '/api/uploads',
+];
+
+const isMutatingMethod = (method: string): boolean =>
+  method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS';
+
+const affectsSidebarCounts = (pathname: string): boolean =>
+  SIDEBAR_COUNT_MUTATION_PREFIXES.some((p) => pathname.startsWith(p));
+
 async function handleRequestInternal(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
   const url = new URL(request.url);
   const path = url.pathname;
@@ -226,9 +252,22 @@ async function handleRequestInternal(request: Request, env: Env, ctx: ExecutionC
 
   try {
     const route = findRoute(path, env);
-    if (route) return await route.handler(request, env, ctx);
-    if (path.startsWith('/api/')) return apiNotFoundResponse();
-    return await handleRoot(request, env);
+    let response: Response;
+    if (route) {
+      response = await route.handler(request, env, ctx);
+    } else if (path.startsWith('/api/')) {
+      return apiNotFoundResponse();
+    } else {
+      return await handleRoot(request, env);
+    }
+    if (
+      response.status >= 200 && response.status < 300 &&
+      isMutatingMethod(request.method) &&
+      affectsSidebarCounts(path)
+    ) {
+      edgeCache.invalidate('sidebar:counts:', /* prefix */ true);
+    }
+    return response;
   } catch (error) {
     return handleError(error);
   }

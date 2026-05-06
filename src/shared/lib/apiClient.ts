@@ -253,6 +253,37 @@ const applyInvalidations = (invalidates: string[] | undefined): void => {
   }
 };
 
+/**
+ * Backend paths whose mutations affect aggregated sidebar counts
+ * (matters, intakes, invoices, conversations, files). After any successful
+ * non-GET against these, drop the cached `sidebar:counts:` entries so the
+ * Sidebar refetches fresh totals on the next render rather than waiting for
+ * the 30s TTL to elapse.
+ *
+ * Path matching is intentionally broad — false positives just trigger one
+ * extra count refetch, which is cheap; false negatives leave the badge
+ * stale, which is what we're fixing.
+ */
+const SIDEBAR_COUNT_PATH_PREFIXES = [
+  '/api/matters',
+  '/api/practice-client-intakes',
+  '/api/invoices',
+  '/api/conversations',
+  '/api/uploads',
+] as const;
+
+const affectsSidebarCounts = (url: string): boolean => {
+  // `url` may be absolute or relative; only the pathname portion matters.
+  const path = url.startsWith('http') ? new URL(url).pathname : url.split('?')[0];
+  return SIDEBAR_COUNT_PATH_PREFIXES.some((p) => path.startsWith(p));
+};
+
+const invalidateSidebarCountsIfRelevant = (url: string): void => {
+  if (affectsSidebarCounts(url)) {
+    queryCache.invalidate('sidebar:counts:', /* prefix */ true);
+  }
+};
+
 export type UploadProgress = { loaded: number; total: number; percent: number };
 export type UploadConfig = {
   signal?: AbortSignal;
@@ -319,6 +350,7 @@ async function apiUpload<T>(
         try { parsed = xhr.responseText ? JSON.parse(xhr.responseText) : null; } catch { /* keep text */ }
       }
       if (xhr.status >= 200 && xhr.status < 300) {
+        invalidateSidebarCountsIfRelevant(url);
         resolve({ data: parsed as T, status: xhr.status });
         return;
       }
@@ -413,6 +445,7 @@ const mutate = async <T>(
   // Invalidate on 2xx only — apiFetch throws HttpError otherwise, so reaching
   // this line means the mutation succeeded.
   applyInvalidations(config?.invalidates);
+  invalidateSidebarCountsIfRelevant(url);
   return result;
 };
 
