@@ -199,7 +199,7 @@ const SectionHeader = ({
         icon={Pencil} iconClassName="h-4 w-4"
         className={cn(
           'text-input-placeholder transition-all',
-          'hover:bg-surface-utility/40 hover:text-input-text focus-visible:text-input-text'
+          'hover:bg-surface-card-hover hover:text-input-text focus-visible:text-input-text'
         )}
         aria-label={`Edit ${title.toLowerCase()}`}
       />
@@ -380,7 +380,7 @@ export const MatterDetailsPanel = ({
     hasData || editing === group;
 
   return (
-    <div className="glass-panel divide-y divide-white/[0.06]">
+    <div className="panel divide-y divide-white/[0.06]">
       <div className="flex items-center justify-between px-5 py-4">
         <h3 className="font-display text-sm font-semibold tracking-tight text-input-text">Matter details</h3>
         <span aria-hidden="true" className="h-px w-8 bg-gradient-to-r from-accent-500/0 via-accent-500/60 to-accent-500/0" />

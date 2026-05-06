@@ -437,7 +437,7 @@ const SidebarItem: FunctionComponent<SidebarItemProps> = ({
           isDanger
             ? 'text-red-400 hover:bg-red-500/10'
             : isActive
-              ? 'bg-[rgb(var(--sidebar-active-bg))] text-[rgb(var(--sidebar-active-text))]'
+              ? 'bg-[rgb(var(--sidebar-active-bg))] text-[rgb(var(--sidebar-active-text))] before:absolute before:left-0 before:top-1.5 before:bottom-1.5 before:w-0.5 before:rounded-full before:bg-accent-utility [&_svg]:text-accent-utility'
               : 'text-[rgb(var(--sidebar-text-secondary))] hover:bg-[rgb(var(--sidebar-hover-bg))] hover:text-[rgb(var(--sidebar-text))]',
         )}
       >
@@ -463,7 +463,7 @@ const SidebarItem: FunctionComponent<SidebarItemProps> = ({
           isDanger
             ? 'text-red-400 hover:bg-red-500/10'
             : isActive
-              ? 'bg-[rgb(var(--sidebar-active-bg))] text-[rgb(var(--sidebar-active-text))]'
+              ? 'relative bg-[rgb(var(--sidebar-active-bg))] text-[rgb(var(--sidebar-active-text))] before:absolute before:left-0 before:top-1.5 before:bottom-1.5 before:w-0.5 before:rounded-full before:bg-accent-utility [&_svg]:text-accent-utility'
               : 'text-[rgb(var(--sidebar-text-secondary))] hover:bg-[rgb(var(--sidebar-hover-bg))]',
         )}
       >
@@ -550,7 +550,7 @@ const SidebarSubItem: FunctionComponent<SidebarSubItemProps> = ({
         isDanger
           ? 'text-red-400 hover:bg-red-500/10'
           : isActive
-            ? 'bg-[rgb(var(--sidebar-active-bg))] text-[rgb(var(--sidebar-active-text))]'
+            ? 'relative bg-[rgb(var(--sidebar-active-bg))] text-[rgb(var(--sidebar-active-text))] before:absolute before:left-0 before:top-1.5 before:bottom-1.5 before:w-0.5 before:rounded-full before:bg-accent-utility [&_svg]:text-accent-utility'
             : 'text-[rgb(var(--sidebar-text-secondary))] hover:bg-[rgb(var(--sidebar-hover-bg))]',
       )}
     >

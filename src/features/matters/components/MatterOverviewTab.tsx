@@ -3,12 +3,10 @@ import {
   FileText as FileTextIcon,
   Briefcase,
   Activity,
-  User as UserIcon,
   ExternalLink,
   Circle,
   CheckCircle2,
   ListChecks,
-  ArrowRight,
   Folder as FolderIcon,
   ClipboardList,
   DollarSign
@@ -18,13 +16,13 @@ import { Button } from '@/shared/ui/Button';
 import { LoadingBlock } from '@/shared/ui/layout';
 import { InfoCard } from '@/shared/ui/cards/InfoCard';
 import { DetailRow } from '@/shared/ui/detail/DetailRow';
-import { ActivityTimeline, type TimelineItem, type TimelinePerson } from '@/shared/ui/activity/ActivityTimeline';
+import { ActivityTimeline, type TimelineItem } from '@/shared/ui/activity/ActivityTimeline';
 import type { MatterDetail, MatterTask } from '@/features/matters/data/matterTypes';
 import type { EngagementDetail } from '@/features/engagements/types/engagement';
 import { formatDateOnlyUtc } from '@/shared/utils/dateOnly';
 import { cn } from '@/shared/utils/cn';
-
-const microLabel = 'text-[11px] font-semibold uppercase tracking-[0.08em] text-input-placeholder';
+import { MATTER_STATUS_LABELS } from '@/shared/types/matterStatus';
+import { MATTER_STATUS_BADGE_CLASS } from '@/features/matters/utils/matterStatusStyles';
 
 const ENGAGEMENT_STATUS_LABEL: Record<EngagementDetail['status'], string> = {
   draft: 'Draft',
@@ -62,16 +60,14 @@ export interface MatterOverviewTabProps {
   engagementError: string | null;
   onEngagementRetry: () => void;
   onViewEngagement: () => void;
+  onCreateEngagement: () => void;
+  engagementActionLoading?: boolean;
 
   // Activity
   timelineItems: TimelineItem[];
   activityLoading: boolean;
   activityError: string | null;
   onActivityRetry: () => void;
-  onCreateNote: (content: string) => Promise<void>;
-  composerPerson: TimelinePerson;
-  composerPracticeId: string | null;
-
   // Billing
   weeklyHoursLabel: string;
   attorneyRateLabel: string | null;
@@ -80,6 +76,7 @@ export interface MatterOverviewTabProps {
   // Navigation handlers
   onOpenClient?: () => void;
   onCreateInvoice: () => void;
+  onLogTime: () => void;
   onViewTimesheet: () => void;
   onViewAllActivity: () => void;
   onViewTasks: () => void;
@@ -110,51 +107,85 @@ const sortByDue = (a: MatterTask, b: MatterTask): number => {
 // Card sub-components
 // ---------------------------------------------------------------------------
 
-const NextActionCard = ({
+const OperationalNextStepCard = ({
   tasks,
+  engagement,
+  engagementLoading,
+  engagementError,
+  engagementActionLoading,
+  onCreateEngagement,
+  onViewEngagement,
+  onEngagementRetry,
   onViewTasks
 }: {
   tasks: MatterTask[];
+  engagement: EngagementDetail | null;
+  engagementLoading: boolean;
+  engagementError: string | null;
+  engagementActionLoading?: boolean;
+  onCreateEngagement: () => void;
+  onViewEngagement: () => void;
+  onEngagementRetry: () => void;
   onViewTasks: () => void;
 }) => {
   const nextTask = [...tasks].filter(isOpenTask).sort(sortByDue)[0] ?? null;
+  const hasEngagement = Boolean(engagement);
+  const title = hasEngagement ? 'Review engagement' : 'Create an engagement';
+  const body = hasEngagement
+    ? 'Continue from the engagement agreement before advancing client work.'
+    : 'Create and send an engagement agreement before starting work.';
 
   return (
     <InfoCard
       icon={Target}
-      title="Next action"
+      title="Next step"
       bodyGap="sm"
-      trailing={
+    >
+      <div className="space-y-2">
+        <p className="text-sm font-semibold text-input-text">{title}</p>
+        <p className="text-[13px] leading-5 text-input-placeholder">{body}</p>
+        {engagementError && !engagement ? (
+          <p className="text-xs text-amber-300">
+            Engagement unavailable.{' '}
+            <button type="button" className="underline" onClick={onEngagementRetry}>
+              Retry
+            </button>
+          </p>
+        ) : null}
+        {engagementLoading && !engagement ? <p className="text-xs text-input-placeholder">Checking engagement status...</p> : null}
+        {nextTask ? (
+          <p className="text-xs text-input-placeholder">Next open task: <span className="text-input-text">{nextTask.name}</span></p>
+        ) : null}
+      </div>
+      <div className="flex flex-wrap gap-2">
         <Button
           size="sm"
-          variant="secondary"
-          icon={ArrowRight}
-          iconPosition="right"
-          onClick={onViewTasks}
+          variant="primary"
+          onClick={hasEngagement ? onViewEngagement : onCreateEngagement}
+          disabled={engagementLoading || engagementActionLoading}
         >
-          View tasks
+          {engagementActionLoading ? 'Creating...' : hasEngagement ? 'View engagement' : 'Create engagement'}
         </Button>
-      }
-    >
-      <p className={cn('text-[13px]', nextTask ? 'text-input-text' : 'text-input-placeholder')}>
-        {nextTask
-          ? `${nextTask.name} — due ${formatDueDate(nextTask.dueDate)}`
-          : 'No upcoming tasks.'}
-      </p>
+        <Button size="sm" variant="secondary" onClick={onViewTasks}>
+          Add task
+        </Button>
+      </div>
     </InfoCard>
   );
 };
 
-const EngagementCard = ({
+const EngagementStatusCard = ({
   detail,
   engagement,
   engagementLoading,
   engagementError,
   onEngagementRetry,
-  onViewEngagement
+  onViewEngagement,
+  onCreateEngagement,
+  engagementActionLoading
 }: Pick<
   MatterOverviewTabProps,
-  'detail' | 'engagement' | 'engagementLoading' | 'engagementError' | 'onEngagementRetry' | 'onViewEngagement'
+  'detail' | 'engagement' | 'engagementLoading' | 'engagementError' | 'onEngagementRetry' | 'onViewEngagement' | 'onCreateEngagement' | 'engagementActionLoading'
 >) => {
   const billingLabel = BILLING_TYPE_LABEL[detail.billingType];
   const rateLabel = detail.attorneyHourlyRate
@@ -170,13 +201,16 @@ const EngagementCard = ({
       {engagementLoading && !engagement ? (
         <LoadingBlock label="Loading engagement" />
       ) : engagementError && !engagement ? (
-        <p className="text-[13px] text-input-placeholder">
-          Could not load engagement.{' '}
-          <button type="button" className="underline" onClick={onEngagementRetry}>
-            Retry
-          </button>
-        </p>
-      ) : (
+        <div className="space-y-1">
+          <p className="text-[13px] text-input-text">No engagement yet</p>
+          <p className="text-[12px] text-amber-300">
+            Engagement unavailable.{' '}
+            <button type="button" className="underline" onClick={onEngagementRetry}>
+              Retry
+            </button>
+          </p>
+        </div>
+      ) : engagement ? (
         <div className="space-y-1">
           <p className="text-[13px] text-input-text">
             {engagement?.title?.trim() || 'Standard Legal Services Agreement'}
@@ -185,17 +219,22 @@ const EngagementCard = ({
             <p className="text-[13px] text-input-placeholder">{summaryParts.join(' · ')}</p>
           ) : null}
         </div>
+      ) : (
+        <div className="space-y-1">
+          <p className="text-[13px] text-input-text">No engagement yet</p>
+          <p className="text-[13px] text-input-placeholder">Create an engagement to get started.</p>
+        </div>
       )}
       <div>
         <Button
           size="sm"
-          variant="secondary"
-          icon={ExternalLink}
+          variant={engagement ? 'secondary' : 'primary'}
+          icon={engagement ? ExternalLink : undefined}
           iconPosition="right"
-          onClick={onViewEngagement}
-          disabled={!engagement}
+          onClick={engagement ? onViewEngagement : onCreateEngagement}
+          disabled={engagementLoading || engagementActionLoading}
         >
-          View engagement
+          {engagementActionLoading ? 'Creating...' : engagement ? 'View engagement' : 'Create engagement'}
         </Button>
       </div>
     </InfoCard>
@@ -231,11 +270,11 @@ const OpenTasksCard = ({
               <button
                 type="button"
                 onClick={onTaskClick}
-                className="flex w-full items-center justify-between gap-3 py-2 text-left transition-colors hover:bg-card"
+                className="flex w-full items-center justify-between gap-3 rounded-lg px-2 py-2 text-left transition-colors hover:bg-surface-card-hover"
               >
                 <span className="flex min-w-0 items-center gap-2.5">
                   {task.status === 'in_progress' ? (
-                    <CheckCircle2 className="h-4 w-4 shrink-0 text-accent-500" aria-hidden="true" />
+                    <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400" aria-hidden="true" />
                   ) : (
                     <Circle className="h-4 w-4 shrink-0 text-input-placeholder" aria-hidden="true" />
                   )}
@@ -269,9 +308,6 @@ const RecentActivityCard = ({
   activityLoading,
   activityError,
   onActivityRetry,
-  onCreateNote,
-  composerPerson,
-  composerPracticeId,
   onTaskClick,
   onViewAllActivity
 }: Pick<
@@ -280,9 +316,6 @@ const RecentActivityCard = ({
   | 'activityLoading'
   | 'activityError'
   | 'onActivityRetry'
-  | 'onCreateNote'
-  | 'composerPerson'
-  | 'composerPracticeId'
   | 'onTaskClick'
   | 'onViewAllActivity'
 >) => {
@@ -303,19 +336,13 @@ const RecentActivityCard = ({
       ) : (
         <ActivityTimeline
           items={visibleItems}
-          showComposer
-          composerDisabled={activityLoading}
-          composerLabel="Comment"
-          composerPlaceholder="Add your comment..."
-          composerPracticeId={composerPracticeId}
-          composerPerson={composerPerson}
           onTaskClick={onTaskClick}
-          onComposerSubmit={async (value) => {
-            await onCreateNote(value);
-          }}
         />
       )}
-      {hasMore ? (
+      {timelineItems.length === 0 && !activityLoading && !activityError ? (
+        <p className="text-[13px] text-input-placeholder">No recent activity.</p>
+      ) : null}
+      {hasMore || timelineItems.length > 0 ? (
         <button
           type="button"
           onClick={onViewAllActivity}
@@ -328,20 +355,30 @@ const RecentActivityCard = ({
   );
 };
 
-const ClientCard = ({
+const MatterSummaryCard = ({
   clientEmail,
   clientLabel,
+  detail,
+  responsibleAttorneyLabel,
+  assigneeLabel,
   onOpenClient
 }: {
   clientEmail: string | null;
   clientLabel: string;
+  detail: MatterDetail;
+  responsibleAttorneyLabel: string | null;
+  assigneeLabel: string | null;
   onOpenClient?: () => void;
 }) => (
-  <InfoCard icon={UserIcon} title="Client">
-    <div className="space-y-1">
-      <p className={microLabel}>Email</p>
-      <p className="break-all text-[13px] text-input-text">{clientEmail ?? clientLabel}</p>
-    </div>
+  <InfoCard icon={ClipboardList} title="Matter summary" bodyGap="sm">
+    <DetailRow label="Client" value={clientLabel} />
+    <DetailRow label="Status" value={<span className={cn('rounded-full px-2 py-0.5 text-xs font-semibold ring-1 ring-inset', MATTER_STATUS_BADGE_CLASS[detail.status])}>{MATTER_STATUS_LABELS[detail.status]}</span>} />
+    <DetailRow label="Practice area" value={detail.practiceArea} />
+    <DetailRow label="Case number" value={detail.caseNumber} />
+    <DetailRow label="Court" value={detail.court} />
+    <DetailRow label="Responsible" value={responsibleAttorneyLabel} />
+    <DetailRow label="Assigned" value={assigneeLabel} />
+    {clientEmail ? <p className="break-all text-xs text-input-placeholder">{clientEmail}</p> : null}
     {onOpenClient ? (
       <Button
         variant="outline"
@@ -362,29 +399,34 @@ const BillingCard = ({
   attorneyRateLabel,
   adminRateLabel,
   onCreateInvoice,
+  onLogTime,
   onViewTimesheet
 }: Pick<
   MatterOverviewTabProps,
-  'weeklyHoursLabel' | 'attorneyRateLabel' | 'adminRateLabel' | 'onCreateInvoice' | 'onViewTimesheet'
->) => (
-  <InfoCard icon={DollarSign} title="Billing" bodyGap="sm">
-    <p className="text-[22px] font-bold leading-tight text-input-text">
-      {weeklyHoursLabel} <span className="text-[13px] font-normal text-input-placeholder">this week</span>
-    </p>
-    <DetailRow label="Attorney" value={attorneyRateLabel} />
-    <DetailRow label="Admin" value={adminRateLabel} />
-    <Button variant="primary" size="sm" onClick={onCreateInvoice} className="w-full justify-center">
-      Invoice
-    </Button>
-    <button
-      type="button"
-      onClick={onViewTimesheet}
-      className="text-center text-[13px] font-medium text-accent-500 hover:text-accent-600 dark:text-accent-400 dark:hover:text-accent-300"
-    >
-      View timesheet
-    </button>
-  </InfoCard>
-);
+  'weeklyHoursLabel' | 'attorneyRateLabel' | 'adminRateLabel' | 'onCreateInvoice' | 'onLogTime' | 'onViewTimesheet'
+>) => {
+  const hasBillableTime = !weeklyHoursLabel.startsWith('0:00');
+  return (
+    <InfoCard icon={DollarSign} title="Billing" bodyGap="sm">
+      <p className="text-[22px] font-bold leading-tight text-input-text">
+        {weeklyHoursLabel} <span className="text-[13px] font-normal text-input-placeholder">this week</span>
+      </p>
+      <p className="text-[13px] text-input-placeholder">{hasBillableTime ? 'Billable time is ready to review.' : 'No billable time yet.'}</p>
+      <DetailRow label="Attorney" value={attorneyRateLabel} />
+      <DetailRow label="Admin" value={adminRateLabel} />
+      <Button variant={hasBillableTime ? 'primary' : 'secondary'} size="sm" onClick={hasBillableTime ? onCreateInvoice : onLogTime} className="w-full justify-center">
+        {hasBillableTime ? 'Invoice' : 'Log time'}
+      </Button>
+      <button
+        type="button"
+        onClick={onViewTimesheet}
+        className="text-center text-[13px] font-medium text-accent-500 hover:text-accent-600 dark:text-accent-400 dark:hover:text-accent-300"
+      >
+        View timesheet
+      </button>
+    </InfoCard>
+  );
+};
 
 const RecentFilesCard = ({
   onUploadFile,
@@ -394,7 +436,7 @@ const RecentFilesCard = ({
   onViewFiles: () => void;
 }) => (
   <InfoCard icon={FolderIcon} title="Recent files" bodyGap="sm">
-    <p className="text-[13px] text-input-placeholder">No files uploaded yet</p>
+    <p className="text-[13px] text-input-placeholder">No files uploaded yet.</p>
     <Button
       variant="outline"
       size="sm"
@@ -411,26 +453,6 @@ const RecentFilesCard = ({
     >
       View all files
     </button>
-  </InfoCard>
-);
-
-const KeyFactsCard = ({
-  detail,
-  responsibleAttorneyLabel,
-  assigneeLabel
-}: {
-  detail: MatterDetail;
-  responsibleAttorneyLabel: string | null;
-  assigneeLabel: string | null;
-}) => (
-  <InfoCard icon={ClipboardList} title="Key facts" bodyGap="sm">
-    <DetailRow label="Matter type" value={detail.matterType} />
-    <DetailRow label="Case number" value={detail.caseNumber} />
-    <DetailRow label="Court" value={detail.court} />
-    <DetailRow label="Judge" value={detail.judge} />
-    <DetailRow label="Opposing party" value={detail.opposingParty} />
-    <DetailRow label="Responsible attorney" value={responsibleAttorneyLabel} />
-    <DetailRow label="Assigned" value={assigneeLabel} />
   </InfoCard>
 );
 
@@ -451,18 +473,18 @@ export const MatterOverviewTab = (props: MatterOverviewTabProps) => {
     engagementError,
     onEngagementRetry,
     onViewEngagement,
+    onCreateEngagement,
+    engagementActionLoading,
     timelineItems,
     activityLoading,
     activityError,
     onActivityRetry,
-    onCreateNote,
-    composerPerson,
-    composerPracticeId,
     weeklyHoursLabel,
     attorneyRateLabel,
     adminRateLabel,
     onOpenClient,
     onCreateInvoice,
+    onLogTime,
     onViewTimesheet,
     onViewAllActivity,
     onViewTasks,
@@ -475,43 +497,55 @@ export const MatterOverviewTab = (props: MatterOverviewTabProps) => {
     <div className="@container">
       <div className="grid grid-cols-1 gap-6 @4xl:grid-cols-[minmax(0,1fr)_340px]">
         <div className="space-y-5">
-          <NextActionCard tasks={tasks} onViewTasks={onViewTasks} />
-          <EngagementCard
+          <OperationalNextStepCard
+            tasks={tasks}
+            engagement={engagement}
+            engagementLoading={engagementLoading}
+            engagementError={engagementError}
+            engagementActionLoading={engagementActionLoading}
+            onCreateEngagement={onCreateEngagement}
+            onViewEngagement={onViewEngagement}
+            onEngagementRetry={onEngagementRetry}
+            onViewTasks={onViewTasks}
+          />
+          <EngagementStatusCard
             detail={detail}
             engagement={engagement}
             engagementLoading={engagementLoading}
             engagementError={engagementError}
             onEngagementRetry={onEngagementRetry}
             onViewEngagement={onViewEngagement}
+            onCreateEngagement={onCreateEngagement}
+            engagementActionLoading={engagementActionLoading}
           />
-          <OpenTasksCard tasks={tasks} onTaskClick={onTaskClick} onViewTasks={onViewTasks} />
+          {tasks.some(isOpenTask) ? <OpenTasksCard tasks={tasks} onTaskClick={onTaskClick} onViewTasks={onViewTasks} /> : null}
           <RecentActivityCard
             timelineItems={timelineItems}
             activityLoading={activityLoading}
             activityError={activityError}
             onActivityRetry={onActivityRetry}
-            onCreateNote={onCreateNote}
-            composerPerson={composerPerson}
-            composerPracticeId={composerPracticeId}
             onTaskClick={onTaskClick}
             onViewAllActivity={onViewAllActivity}
           />
         </div>
         <div className="space-y-5">
-          <ClientCard clientEmail={clientEmail} clientLabel={clientLabel} onOpenClient={onOpenClient} />
+          <MatterSummaryCard
+            clientEmail={clientEmail}
+            clientLabel={clientLabel}
+            detail={detail}
+            responsibleAttorneyLabel={responsibleAttorneyLabel}
+            assigneeLabel={assigneeLabel}
+            onOpenClient={onOpenClient}
+          />
           <BillingCard
             weeklyHoursLabel={weeklyHoursLabel}
             attorneyRateLabel={attorneyRateLabel}
             adminRateLabel={adminRateLabel}
             onCreateInvoice={onCreateInvoice}
+            onLogTime={onLogTime}
             onViewTimesheet={onViewTimesheet}
           />
           <RecentFilesCard onUploadFile={onUploadFile} onViewFiles={onViewFiles} />
-          <KeyFactsCard
-            detail={detail}
-            responsibleAttorneyLabel={responsibleAttorneyLabel}
-            assigneeLabel={assigneeLabel}
-          />
         </div>
       </div>
     </div>

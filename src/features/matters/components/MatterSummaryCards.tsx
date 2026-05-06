@@ -37,17 +37,17 @@ interface MatterSummaryCardsProps {
 
 const summaryItemBase = 'min-w-0 flex flex-col gap-1';
 const gridBase = 'grid grid-cols-1 gap-x-4 gap-y-5 @lg:grid-cols-2 @3xl:grid-cols-4 @3xl:gap-x-6';
-const wrapperBase = 'relative overflow-hidden rounded-[20px] border border-card-border bg-surface-elevated @container p-5 sm:p-7';
+const wrapperBase = 'card relative overflow-hidden rounded-[20px] @container p-5 sm:p-7';
 const labelClass = 'text-[10px] font-semibold uppercase tracking-[0.14em] text-input-placeholder';
 const kpiValueClass = 'font-display text-[28px] font-bold leading-none tracking-tight tabular-nums text-input-text';
 const denseValueClass = 'font-display text-[24px] font-bold leading-none tracking-tight tabular-nums text-input-text';
-const iconSquareClass = 'inline-flex h-7 w-7 items-center justify-center rounded-lg bg-accent-500/10 text-accent-600 dark:text-accent-400';
+const iconSquareClass = 'inline-flex h-7 w-7 items-center justify-center rounded-lg border border-card-border bg-surface-card-raised text-accent-utility';
 const revealClass = 'motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-1 motion-safe:duration-300';
 
 const Halo = () => (
   <div
     aria-hidden="true"
-    className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-[radial-gradient(circle_at_center,rgb(var(--accent-500)/0.06),transparent_70%)] blur-2xl"
+    className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-[radial-gradient(circle_at_center,rgb(var(--accent-500)/0.035),transparent_70%)] blur-2xl"
   />
 );
 

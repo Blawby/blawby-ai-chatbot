@@ -173,7 +173,7 @@ export const MatterExpensesPanel = ({
   };
 
   return (
-    <section className="glass-panel">
+    <section className="panel">
       <PanelSectionHeader
         title="Expenses"
         subtitle={`${sortedExpenses.length} recorded · ${formatCurrency(totalExpenses)} total · ${formatCurrency(billableTotal)} billable`}

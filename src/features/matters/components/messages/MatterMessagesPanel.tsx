@@ -67,8 +67,8 @@ export const MatterMessagesPanel = ({ matter, practiceId, conversationBasePath }
   ).replace(/\/+$/, '');
 
   return (
-    <section className="glass-panel overflow-hidden">
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line-glass/30 px-6 py-4">
+    <section className="panel overflow-hidden">
+      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line-subtle px-6 py-4">
         <div>
           <p className="text-xs font-medium text-input-placeholder">Linked conversations</p>
           <h3 className="text-base font-semibold text-input-text">{matter.title}</h3>

@@ -148,7 +148,7 @@ export const MatterSettingsTab = ({
     </div>
 
     {(onCloseMatter || onArchiveMatter || onDeleteMatter) ? (
-      <section className="space-y-4 rounded-xl border border-rose-500/50 bg-card p-5">
+      <section className="card space-y-4 rounded-xl border-rose-500/50 p-5">
         <div className="flex items-center gap-2.5">
           <AlertTriangle className="h-[18px] w-[18px] text-rose-500" />
           <h3 className="text-base font-semibold text-rose-500">Danger zone</h3>

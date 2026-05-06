@@ -53,16 +53,16 @@ export const MatterDetailPanel = ({
   activity,
   settings
 }: MatterDetailPanelProps) => (
-  <div className="themed-scrollbar flex h-full flex-col overflow-y-auto">
+  <div className="page-detail">
     <MatterDetailHeader {...header} />
-    <div className="border-b border-card-border px-4 sm:px-6">
+    <div className="tab-bar">
       <Tabs
         items={MATTER_DETAIL_TABS}
         activeId={detailSection}
         onChange={(id) => onSectionChange(id as DetailSectionId)}
       />
     </div>
-    <div className="p-4 sm:p-6">
+    <div className="page-content">
       {detailSection === 'overview' ? <MatterOverviewTab {...overview} /> : null}
       {detailSection === 'work' ? <MatterWorkTab {...work} /> : null}
       {detailSection === 'notes' ? <MatterNotesTab {...notes} /> : null}

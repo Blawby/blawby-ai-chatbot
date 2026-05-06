@@ -180,8 +180,8 @@ export const MatterMilestonesPanel = ({
   };
 
   return (
-    <section className="glass-panel">
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line-glass/30 px-6 py-4">
+    <section className="panel">
+      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line-subtle px-6 py-4">
         <div>
           <h3 className="text-sm font-semibold text-input-text">Milestones</h3>
           <p className="text-xs text-input-placeholder">

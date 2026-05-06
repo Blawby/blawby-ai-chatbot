@@ -28,7 +28,7 @@ import {
 } from '@/features/matters/components/MatterDetailPanel';
 import { type WorkSubTab } from '@/features/matters/components/MatterWorkTab';
 import { type BillingSubTab } from '@/features/matters/components/MatterBillingTab';
-import { getEngagementForMatter } from '@/features/engagements/api/engagementsApi';
+import { createEngagementContract, getEngagementForMatter } from '@/features/engagements/api/engagementsApi';
 import type { EngagementDetail } from '@/features/engagements/types/engagement';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { useToastContext } from '@/shared/contexts/ToastContext';
@@ -253,7 +253,7 @@ const MatterNotFound = ({
         subtitle="This matter may have been removed or is no longer available."
         actions={<Button size="sm" variant="secondary" onClick={onBack}>Back to matters</Button>}
       />
-      <section className="glass-panel p-6">
+      <section className="panel p-6">
         <p className="text-sm text-input-placeholder">
           We could not find a matter with the ID{' '}
           <span className="font-mono text-input-text">{matterId}</span>{' '}
@@ -309,7 +309,7 @@ export const PracticeMattersPage = ({
 }: PracticeMattersPageProps) => {
   const location = useLocation();
   const { session, activePracticeId: sessionActivePracticeId } = useSessionContext();
-  const { showError, showInfo } = useToastContext();
+  const { showError, showSuccess } = useToastContext();
   const activePracticeId = routePracticeId ?? sessionActivePracticeId;
 
   // ── Routing ──────────────────────────────────────────────────────────────
@@ -337,7 +337,7 @@ export const PracticeMattersPage = ({
   );
   const navigate = useCallback((path: string) => location.route(path), [location]);
   const goToList = () => navigate(basePath);
-  const goToDetail = (
+  const goToDetail = useCallback((
     id: string,
     section: Exclude<DetailSectionId, 'overview'> | null = null,
     subTab: string | null = null
@@ -351,7 +351,7 @@ export const PracticeMattersPage = ({
       }
     }
     navigate(path);
-  };
+  }, [basePath, navigate]);
   const invoicesBasePath = useMemo(() => {
     return basePath.replace(/\/matters(?:\/.*)?$/, '/invoices');
   }, [basePath]);
@@ -409,6 +409,7 @@ export const PracticeMattersPage = ({
   const [engagementLoading, setEngagementLoading] = useState(false);
   const [engagementError, setEngagementError] = useState<string | null>(null);
   const [engagementRetryCount, setEngagementRetryCount] = useState(0);
+  const [engagementCreating, setEngagementCreating] = useState(false);
 
   // ── Person / service / assignee options ───────────────────────────────────
   const [clientOptions, setClientOptions] = useState<MatterOption[]>([]);
@@ -1028,6 +1029,28 @@ export const PracticeMattersPage = ({
       console.warn('[PracticeMattersPage] Failed to refresh matter detail', error);
     }
   }, [activePracticeId, selectedMatterId]);
+
+  const handleEngagementPrimaryAction = useCallback(async () => {
+    if (engagement) {
+      if (selectedMatterId) goToDetail(selectedMatterId, 'billing');
+      return;
+    }
+    if (!activePracticeId || !selectedMatterId || engagementCreating) return;
+
+    setEngagementCreating(true);
+    setEngagementError(null);
+    try {
+      const created = await createEngagementContract(activePracticeId, { matter_id: selectedMatterId });
+      setEngagement(created);
+      setEngagementRetryCount((count) => count + 1);
+      showSuccess('Engagement created', 'The engagement agreement is ready to review.');
+    } catch (error) {
+      setEngagementError(error instanceof Error ? error.message : 'Failed to create engagement');
+      showError('Could not create engagement', error instanceof Error ? error.message : 'Please try again.');
+    } finally {
+      setEngagementCreating(false);
+    }
+  }, [activePracticeId, engagement, engagementCreating, goToDetail, selectedMatterId, showError, showSuccess]);
 
   // ── Matter CRUD ───────────────────────────────────────────────────────────
   const handleUpdateMatter = useCallback(async (values: MatterFormState) => {
@@ -1746,10 +1769,15 @@ export const PracticeMattersPage = ({
             clientEmail: detailClientOption?.email ?? null,
             clientImageUrl: detailClientOption?.image ?? null,
             practiceAreaLabel: selectedMatterDetail.practiceArea ?? null,
+            responsibleAttorneyLabel,
+            assigneeLabel: assigneeLabelComputed,
             onLogTime: () => goToDetail(selectedMatterDetail.id, 'billing', 'time'),
             onAddTask: () => goToDetail(selectedMatterDetail.id, 'work', 'tasks'),
             onAddNote: () => goToDetail(selectedMatterDetail.id, 'notes'),
             onUploadFile: () => goToDetail(selectedMatterDetail.id, 'files'),
+            engagementActionLabel: engagement ? 'View engagement' : 'Create engagement',
+            onEngagementAction: () => void handleEngagementPrimaryAction(),
+            engagementActionLoading: engagementCreating,
             moreMenuItems: [
               {
                 label: 'Edit matter',
@@ -1772,22 +1800,19 @@ export const PracticeMattersPage = ({
               setEngagementError(null);
               setEngagementRetryCount((count) => count + 1);
             },
-            onViewEngagement: () => {
-              // TODO: route to engagement detail when a route exists.
-              showInfo('Engagement detail coming soon', 'Open the Billing tab for engagement summary.');
-            },
+            onViewEngagement: () => void handleEngagementPrimaryAction(),
+            onCreateEngagement: () => void handleEngagementPrimaryAction(),
+            engagementActionLoading: engagementCreating,
             timelineItems,
             activityLoading,
             activityError,
             onActivityRetry,
-            onCreateNote: onCreateNoteSafely,
-            composerPerson,
-            composerPracticeId: activePracticeId,
             weeklyHoursLabel,
             attorneyRateLabel,
             adminRateLabel,
             onOpenClient: undefined,
             onCreateInvoice: handleCreateInvoiceFromSummary,
+            onLogTime: () => goToDetail(selectedMatterDetail.id, 'billing', 'time'),
             onViewTimesheet: () => goToDetail(selectedMatterDetail.id, 'billing', 'time'),
             onViewAllActivity: () => goToDetail(selectedMatterDetail.id, 'activity'),
             onViewTasks: () => goToDetail(selectedMatterDetail.id, 'work', 'tasks'),
@@ -2151,8 +2176,8 @@ export const PracticeMattersPage = ({
                       'rounded-md px-3 py-1.5 text-sm font-medium transition-colors duration-150',
                       'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50',
                       isSelected
-                        ? 'bg-accent-500 text-[rgb(var(--accent-foreground))]'
-                        : 'bg-surface-utility/40 text-input-text hover:bg-surface-utility/70'
+                        ? 'border border-accent-border bg-surface-card-raised text-input-text shadow-[inset_0_0_0_1px_rgb(var(--accent-border))]'
+                        : 'border border-card-border bg-surface-card-raised text-input-text hover:bg-surface-card-hover'
                     )}
                   >
                     {category.label}
@@ -2195,7 +2220,7 @@ export const PracticeMattersPage = ({
             loading={showLoading}
             density="compact"
             stickyHeader
-            rowClassName="transition-colors duration-150 hover:!bg-surface-utility/40"
+            rowClassName="transition-colors duration-150 hover:!bg-surface-card-hover"
           />
         )}
       </div>

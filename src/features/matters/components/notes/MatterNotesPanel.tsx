@@ -167,7 +167,7 @@ export const MatterNotesPanel = ({
   };
 
   return (
-    <section className="glass-panel">
+    <section className="panel">
       <PanelSectionHeader
         title="Notes"
         subtitle={sortedNotes.length}
@@ -204,7 +204,7 @@ export const MatterNotesPanel = ({
                       {note.author.name}
                     </p>
                     {note.author.role && (
-                      <span className="glass-input rounded-full px-2 py-0.5 text-xs font-medium text-input-placeholder">
+                      <span className="input-surface rounded-full px-2 py-0.5 text-xs font-medium text-input-placeholder">
                         {note.author.role}
                       </span>
                     )}

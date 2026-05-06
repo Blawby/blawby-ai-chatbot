@@ -1,10 +1,10 @@
 import type { LucideIcon } from 'lucide-preact';
-import { Plus, Timer, FileText, Paperclip, MoreHorizontal } from 'lucide-preact';
+import { Plus, Timer, FileText, Paperclip, MoreHorizontal, Sparkles, ChevronDown } from 'lucide-preact';
 
 import { Button } from '@/shared/ui/Button';
 import { Avatar } from '@/shared/ui/profile';
 import { Popover } from '@/shared/ui/overlays';
-import { MatterStatusDot } from '@/features/matters/components/MatterStatusDot';
+import { MATTER_STATUS_BADGE_CLASS } from '@/features/matters/utils/matterStatusStyles';
 import { MATTER_STATUS_LABELS } from '@/shared/types/matterStatus';
 import type { MatterDetail } from '@/features/matters/data/matterTypes';
 import { cn } from '@/shared/utils/cn';
@@ -15,10 +15,10 @@ export interface MatterMoreMenuItem {
   onClick: () => void;
 }
 
-const URGENCY_DOT: Record<NonNullable<MatterDetail['urgency']>, string> = {
-  routine: 'bg-emerald-500',
-  time_sensitive: 'bg-amber-500',
-  emergency: 'bg-rose-500'
+const URGENCY_BADGE: Record<NonNullable<MatterDetail['urgency']>, string> = {
+  routine: 'bg-[#123524] text-[#4ADE80] ring-[#166534]/80',
+  time_sensitive: 'bg-[#3A2A12] text-[#FBBF24] ring-[#854D0E]/80',
+  emergency: 'bg-[#3B1216] text-[#F87171] ring-[#7F1D1D]/80'
 };
 
 const URGENCY_LABEL: Record<NonNullable<MatterDetail['urgency']>, string> = {
@@ -35,18 +35,21 @@ const heroInitial = (...candidates: Array<string | null | undefined>) => {
   return '?';
 };
 
-const microLabel = 'text-[11px] font-semibold uppercase tracking-[0.08em] text-input-placeholder';
-
 export interface MatterDetailHeaderProps {
   detail: MatterDetail;
   clientLabel: string;
   clientEmail: string | null;
   clientImageUrl?: string | null;
   practiceAreaLabel?: string | null;
+  responsibleAttorneyLabel?: string | null;
+  assigneeLabel?: string | null;
   onLogTime: () => void;
   onAddTask: () => void;
   onAddNote: () => void;
   onUploadFile: () => void;
+  engagementActionLabel: string;
+  onEngagementAction: () => void;
+  engagementActionLoading?: boolean;
   moreMenuItems?: MatterMoreMenuItem[];
 }
 
@@ -56,83 +59,95 @@ export const MatterDetailHeader = ({
   clientEmail,
   clientImageUrl,
   practiceAreaLabel,
+  responsibleAttorneyLabel,
+  assigneeLabel,
   onLogTime,
   onAddTask,
   onAddNote,
   onUploadFile,
+  engagementActionLabel,
+  onEngagementAction,
+  engagementActionLoading = false,
   moreMenuItems
 }: MatterDetailHeaderProps) => {
   const title = detail.title?.trim() || 'Untitled matter';
   const subtitleParts = [clientLabel, practiceAreaLabel].filter((p): p is string => Boolean(p?.trim()));
   const subtitle = subtitleParts.length > 0 ? subtitleParts.join(' · ') : (clientEmail ?? '');
+  const teamParts = [
+    responsibleAttorneyLabel ? `Responsible: ${responsibleAttorneyLabel}` : null,
+    assigneeLabel ? `Assigned: ${assigneeLabel}` : null
+  ].filter((p): p is string => Boolean(p));
 
   return (
-    <header className="flex flex-wrap items-center gap-4 px-4 py-4 sm:px-6">
-      <div className="flex min-w-0 flex-1 items-center gap-3">
-        {clientImageUrl ? (
-          <Avatar src={clientImageUrl} name={clientLabel} size="lg" />
-        ) : (
-          <div
-            aria-hidden="true"
-            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-accent-500 text-[20px] font-bold text-[rgb(var(--accent-foreground))]"
-          >
-            {heroInitial(clientEmail, clientLabel, title)}
+    <header className="page-detail-header">
+      <div className="flex flex-wrap items-start justify-between gap-5">
+        <div className="flex min-w-0 flex-1 items-start gap-3">
+          {clientImageUrl ? (
+            <Avatar src={clientImageUrl} name={clientLabel} size="lg" />
+          ) : (
+            <div
+              aria-hidden="true"
+              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-accent-500 text-[20px] font-bold text-[rgb(var(--accent-foreground))]"
+            >
+              {heroInitial(clientEmail, clientLabel, title)}
+            </div>
+          )}
+
+          <div className="min-w-0 flex-1">
+            <h2 className="truncate text-lg font-semibold leading-tight text-input-text">{title}</h2>
+            {subtitle ? <p className="truncate text-[13px] text-input-placeholder">{subtitle}</p> : null}
+            {teamParts.length > 0 ? (
+              <p className="mt-1 truncate text-xs text-input-placeholder">{teamParts.join(' · ')}</p>
+            ) : null}
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <span
+                className={cn(
+                  'inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset',
+                  MATTER_STATUS_BADGE_CLASS[detail.status]
+                )}
+              >
+                {MATTER_STATUS_LABELS[detail.status]}
+              </span>
+              {detail.urgency ? (
+                <span
+                  className={cn(
+                    'inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset',
+                    URGENCY_BADGE[detail.urgency]
+                  )}
+                >
+                  {URGENCY_LABEL[detail.urgency]}
+                </span>
+              ) : null}
+            </div>
           </div>
-        )}
-
-        <div className="min-w-0 flex-1">
-          <h2 className="truncate text-lg font-semibold leading-tight text-input-text">{title}</h2>
-          {subtitle ? (
-            <p className="truncate text-[13px] text-input-placeholder">{subtitle}</p>
-          ) : null}
         </div>
-      </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="flex items-center gap-1.5 text-[13px] text-input-text">
-          <MatterStatusDot status={detail.status} className="p-0" />
-          <span>{MATTER_STATUS_LABELS[detail.status]}</span>
-        </div>
-        {detail.urgency ? (
-          <div className="flex items-center gap-1.5 text-[13px] text-input-text">
-            <span aria-hidden="true" className={cn('h-1.5 w-1.5 rounded-full', URGENCY_DOT[detail.urgency])} />
-            <span>{URGENCY_LABEL[detail.urgency]}</span>
-          </div>
-        ) : null}
-      </div>
-
-      <div className="flex flex-wrap items-center gap-2">
-        <Button size="sm" variant="primary" icon={Timer} onClick={onLogTime}>
-          Log time
-        </Button>
-        <Button size="sm" variant="secondary" icon={Plus} onClick={onAddTask}>
-          Add task
-        </Button>
-        <Button size="sm" variant="secondary" icon={FileText} onClick={onAddNote}>
-          Add note
-        </Button>
-        <Button size="sm" variant="secondary" icon={Paperclip} onClick={onUploadFile}>
-          Upload file
-        </Button>
-        {moreMenuItems && moreMenuItems.length > 0 ? (
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <Button size="sm" variant="primary" icon={Sparkles} onClick={onEngagementAction} disabled={engagementActionLoading}>
+            {engagementActionLoading ? 'Creating...' : engagementActionLabel}
+          </Button>
           <Popover
             side="bottom"
             align="end"
             trigger={
-              <Button size="sm" variant="secondary" icon={MoreHorizontal} aria-label="More actions">
-                More
+              <Button size="sm" variant="secondary" icon={Plus}>
+                Add <ChevronDown className="ml-1 h-3.5 w-3.5" aria-hidden="true" />
               </Button>
             }
           >
             <ul className="flex min-w-[180px] flex-col gap-0.5">
-              {moreMenuItems.map((item, index) => {
+              {[
+                { label: 'Task', icon: Plus, onClick: onAddTask },
+                { label: 'Note', icon: FileText, onClick: onAddNote },
+                { label: 'File', icon: Paperclip, onClick: onUploadFile }
+              ].map((item) => {
                 const Icon = item.icon;
                 return (
-                  <li key={index}>
+                  <li key={item.label}>
                     <button
                       type="button"
                       onClick={item.onClick}
-                      className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-sm text-input-text transition-colors hover:bg-card"
+                      className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-sm text-input-text transition-colors hover:bg-surface-card-hover"
                     >
                       {Icon ? <Icon className="h-4 w-4 text-input-placeholder" aria-hidden="true" /> : null}
                       {item.label}
@@ -142,10 +157,40 @@ export const MatterDetailHeader = ({
               })}
             </ul>
           </Popover>
-        ) : null}
+          <Button size="sm" variant="secondary" icon={Timer} onClick={onLogTime}>
+            Log time
+          </Button>
+          {moreMenuItems && moreMenuItems.length > 0 ? (
+            <Popover
+              side="bottom"
+              align="end"
+              trigger={
+                <Button size="sm" variant="secondary" icon={MoreHorizontal} aria-label="More actions">
+                  More
+                </Button>
+              }
+            >
+              <ul className="flex min-w-[180px] flex-col gap-0.5">
+                {moreMenuItems.map((item, index) => {
+                  const Icon = item.icon;
+                  return (
+                    <li key={index}>
+                      <button
+                        type="button"
+                        onClick={item.onClick}
+                        className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-sm text-input-text transition-colors hover:bg-surface-card-hover"
+                      >
+                        {Icon ? <Icon className="h-4 w-4 text-input-placeholder" aria-hidden="true" /> : null}
+                        {item.label}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </Popover>
+          ) : null}
+        </div>
       </div>
-      {/* Reserved for future use (e.g., kbd hint) */}
-      <span className={cn(microLabel, 'sr-only')}>Matter actions</span>
     </header>
   );
 };

@@ -73,7 +73,7 @@ export const WorkDiaryCalendar = ({ selectedWeekStart, onSelectWeek }: WorkDiary
   ));
 
   return (
-    <div className="glass-panel p-4">
+    <div className="panel p-4">
       <div className="text-sm font-semibold text-input-text text-center">{monthLabel}</div>
 
       <div
@@ -101,7 +101,7 @@ export const WorkDiaryCalendar = ({ selectedWeekStart, onSelectWeek }: WorkDiary
               className={[
                 'h-9 w-9 rounded-full text-sm font-medium transition-colors',
                 isCurrentMonth ? 'text-input-text' : 'text-input-placeholder',
-                isSelectedWeek ? 'bg-surface-elevated text-input-text' : 'hover:bg-surface-elevated/60',
+                isSelectedWeek ? 'bg-surface-card-raised text-input-text' : 'hover:bg-surface-card-hover',
                 isToday ? 'ring-2 ring-accent-500' : 'ring-1 ring-transparent'
               ].join(' ')}
             >

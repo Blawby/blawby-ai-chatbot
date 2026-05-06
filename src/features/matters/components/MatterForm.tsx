@@ -145,7 +145,7 @@ const buildInitialState = (mode: MatterFormMode, initialValues?: Partial<MatterF
 });
 
 const buildLeadingIcon = (icon: ComponentChildren) => (
-  <div className="w-6 h-6 rounded-full border border-dashed border-line-glass/30 flex items-center justify-center text-input-placeholder">
+  <div className="w-6 h-6 rounded-full border border-dashed border-line-subtle flex items-center justify-center text-input-placeholder">
     {icon}
   </div>
 );
@@ -177,7 +177,7 @@ const MatterMilestoneForm = ({
     isMajorAmount(draft.amount);
 
   return (
-    <div className="border-t border-line-glass/30 pt-6 space-y-4">
+    <div className="border-t border-line-subtle pt-6 space-y-4">
       <h4 className="text-lg font-medium text-input-text">Enter project milestones</h4>
 
       {milestones.length > 0 && (
@@ -441,7 +441,7 @@ const MatterFormInner = ({
               (close) => (
                 <button
                   type="button"
-                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-accent-utility hover:bg-surface-utility/10"
+                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-accent-utility hover:bg-surface-card-hover"
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => {
                     close();
@@ -560,7 +560,7 @@ const MatterFormInner = ({
           </FormGrid>
         </div>
 
-        <div className="border-t border-line-glass/30 pt-6 space-y-4">
+        <div className="border-t border-line-subtle pt-6 space-y-4">
           <h3 className="text-lg font-medium text-input-text">Attorney assignments</h3>
           <FormGrid>
             <Combobox
@@ -594,7 +594,7 @@ const MatterFormInner = ({
           </FormGrid>
         </div>
 
-        <div className="border-t border-line-glass/30 pt-6 space-y-4">
+        <div className="border-t border-line-subtle pt-6 space-y-4">
           <RadioGroupWithDescriptions
             label="Billing type"
             name="billing-type"

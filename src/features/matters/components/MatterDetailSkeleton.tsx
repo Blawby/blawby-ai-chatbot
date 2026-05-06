@@ -15,7 +15,7 @@ const MetaCellSkeleton = ({ labelW = 'w-16', valueW = 'w-28' }: { labelW?: strin
 );
 
 const KpiCardSkeleton = () => (
-  <div className="glass-panel flex flex-col gap-3 rounded-2xl p-5">
+  <div className="panel flex flex-col gap-3 rounded-2xl p-5">
     <div className="flex items-center gap-2">
       <div className="skeleton-bar h-7 w-7 rounded-lg" />
       <SkeletonLoader variant="text" height="h-2.5" width="w-24" rounded="rounded" />
@@ -35,7 +35,7 @@ const DetailRowSkeleton = ({ labelW, valueW }: { labelW: string; valueW: string 
 export const MatterDetailSkeleton = () => (
   <div className="flex h-full min-h-0 flex-col overflow-y-auto" aria-hidden="true">
     {/* Hero card (avatar + title + description + segmented tab group) */}
-    <section className="glass-card mx-4 mt-4 overflow-hidden rounded-3xl p-6 sm:p-8">
+    <section className="card mx-4 mt-4 overflow-hidden rounded-3xl p-6 sm:p-8">
       <div className="flex items-start gap-5">
         <div className="skeleton-bar h-20 w-20 rounded-full" />
         <div className="flex flex-1 flex-col gap-3 min-w-0">
@@ -45,7 +45,7 @@ export const MatterDetailSkeleton = () => (
       </div>
 
       {/* Segmented tab group placeholder */}
-      <div className="mt-5 inline-flex gap-1 rounded-2xl border border-line-glass/30 bg-surface-utility/40 p-1">
+      <div className="mt-5 inline-flex gap-1 rounded-2xl border border-line-subtle bg-surface-card-raised p-1">
         {[0, 1, 2, 3, 4].map((i) => (
           <div key={i} className="skeleton-bar h-9 w-9 rounded-xl" />
         ))}
@@ -67,7 +67,7 @@ export const MatterDetailSkeleton = () => (
     </section>
 
     {/* Case details panel — header + 8 read-only field rows */}
-    <section className="glass-card mx-4 mt-4 rounded-2xl">
+    <section className="card mx-4 mt-4 rounded-2xl">
       <div className="flex items-center justify-between border-b border-card-border px-6 py-4">
         <SkeletonLoader variant="text" height="h-3.5" width="w-24" rounded="rounded-md" />
         <div className="skeleton-bar h-px w-8 rounded" />
@@ -85,7 +85,7 @@ export const MatterDetailSkeleton = () => (
     </section>
 
     {/* Recent activity */}
-    <section className="glass-card mx-4 mt-4 mb-4 rounded-2xl p-6 sm:p-8">
+    <section className="card mx-4 mt-4 mb-4 rounded-2xl p-6 sm:p-8">
       <SkeletonLoader variant="text" height="h-4" width="w-28" rounded="rounded-md" />
       <div className="mt-5 space-y-4">
         {[0, 1, 2].map((i) => (

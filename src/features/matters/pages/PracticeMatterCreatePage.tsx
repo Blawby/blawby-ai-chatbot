@@ -271,7 +271,7 @@ export function PracticeMatterCreatePage({
           </div>
         ) : null}
         {convertIntakeUuid && convertLoading && !convertInitialValues ? (
-          <div className="rounded-xl border border-line-glass/30 bg-surface-card p-6">
+          <div className="card rounded-xl p-6">
             <LoadingBlock label="Loading intake details..." />
           </div>
         ) : null}

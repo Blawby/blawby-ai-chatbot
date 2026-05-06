@@ -418,7 +418,7 @@ export const ClientMattersPage = ({
             inspectorOpen={detailInspectorOpen}
           />
           <nav
-            className="relative z-10 flex items-end gap-0 border-b border-line-glass/20 px-4"
+            className="relative z-10 flex items-end gap-0 border-b border-line-subtle px-4"
             aria-label="Matter sections"
           >
             {DETAIL_TABS.map((tab) => {
@@ -439,7 +439,7 @@ export const ClientMattersPage = ({
                     'after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:rounded-full after:transition-all after:duration-150',
                     isActive
                       ? 'text-input-text after:bg-accent-500'
-                      : 'text-input-placeholder hover:text-input-text after:bg-transparent hover:after:bg-line-glass/20'
+                      : 'text-input-placeholder hover:text-input-text after:bg-transparent hover:after:bg-line-subtle'
                   ].join(' ')}
                 >
                   {tab.label}
@@ -463,8 +463,8 @@ export const ClientMattersPage = ({
                   paymentFrequency={resolvedMatter.paymentFrequency ?? null}
                   fixedMetrics={fixedSummaryMetrics}
                 />
-                <section className="glass-panel overflow-hidden">
-                  <header className="border-b border-line-glass/30 px-6 py-4">
+                <section className="panel overflow-hidden">
+                  <header className="border-b border-line-subtle px-6 py-4">
                     <h3 className="text-sm font-semibold text-input-text">Matter details</h3>
                   </header>
                   <div className="grid gap-4 px-6 py-5 text-sm sm:grid-cols-2">
@@ -486,8 +486,8 @@ export const ClientMattersPage = ({
                     </div>
                   </div>
                 </section>
-                <section className="glass-panel overflow-hidden">
-                  <header className="border-b border-line-glass/30 px-6 py-4">
+                <section className="panel overflow-hidden">
+                  <header className="border-b border-line-subtle px-6 py-4">
                     <h3 className="text-sm font-semibold text-input-text">Matter description</h3>
                   </header>
                   <div className="px-6 py-5">

@@ -167,7 +167,7 @@ export const MatterTasksPanel = ({
   };
 
   return (
-    <section className="glass-panel">
+    <section className="panel">
       <PanelSectionHeader
         title="Tasks"
         subtitle={readOnly ? 'Review matter work items.' : 'Plan and track matter work items.'}
