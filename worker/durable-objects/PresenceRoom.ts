@@ -1,3 +1,4 @@
+/* global WebSocketPair, WebSocket */
 /**
  * PresenceRoom — practice-scoped presence tracker.
  *
@@ -79,21 +80,20 @@ export class PresenceRoom {
   }
 
   webSocketClose(ws: WebSocket, _code: number, _reason: string, _wasClean: boolean): void {
-    // Closing the only socket for a userId removes them from `online`. The
-    // mapping is recomputed from the live socket set, not from a separate
-    // counter, so we never drift.
-    void ws;
-    this.broadcastSnapshot();
+    // The closing socket may still appear in state.getWebSockets() while the
+    // close is being processed; pass it through so collectOnlineUserIds can
+    // exclude it and remote tabs see the user drop offline immediately.
+    this.broadcastSnapshot(ws);
   }
 
   webSocketError(ws: WebSocket): void {
-    void ws;
-    this.broadcastSnapshot();
+    this.broadcastSnapshot(ws);
   }
 
-  private collectOnlineUserIds(): string[] {
+  private collectOnlineUserIds(exclude?: WebSocket): string[] {
     const ids = new Set<string>();
     for (const ws of this.state.getWebSockets()) {
+      if (exclude && ws === exclude) continue;
       const tags = this.state.getTags(ws);
       const userId = tags.find((tag) => typeof tag === 'string' && tag.length > 0);
       if (userId) ids.add(userId);
@@ -101,13 +101,14 @@ export class PresenceRoom {
     return Array.from(ids);
   }
 
-  private buildSnapshotFrame(): string {
-    return JSON.stringify({ type: 'presence', online: this.collectOnlineUserIds() });
+  private buildSnapshotFrame(exclude?: WebSocket): string {
+    return JSON.stringify({ type: 'presence', online: this.collectOnlineUserIds(exclude) });
   }
 
-  private broadcastSnapshot(): void {
-    const payload = this.buildSnapshotFrame();
+  private broadcastSnapshot(exclude?: WebSocket): void {
+    const payload = this.buildSnapshotFrame(exclude);
     for (const ws of this.state.getWebSockets()) {
+      if (exclude && ws === exclude) continue;
       this.sendFrameTo(ws, payload);
     }
   }

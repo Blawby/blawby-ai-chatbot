@@ -807,6 +807,10 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     });
     if (newConversationId && postFailed) {
       showError('Conversation created, but the first message did not send', 'Try sending it again from the thread.');
+      // Keep the draft alive so the user's typed message + attachments don't
+      // vanish — the conversation now exists, but the composer state still
+      // belongs to the draft view until the user retries successfully.
+      return;
     }
     if (newConversationId) {
       setDraftConversation(null);

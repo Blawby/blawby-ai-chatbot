@@ -160,16 +160,10 @@ export const resolveConversationPresence = (
     const ms = date.getTime();
     return Number.isFinite(ms) ? ms : 0;
   })();
-  // Compute age; if timestamp is in the future, treat as invalid (not active)
-  let ageMsRaw = Date.now() - lastTs;
-  let ageMs: number;
-  if (ageMsRaw < 0) {
-    // Future timestamp: treat as not active
-    ageMs = Number.POSITIVE_INFINITY;
-    // Optionally, could return a special label here
-  } else {
-    ageMs = lastTs > 0 ? ageMsRaw : Number.POSITIVE_INFINITY;
-  }
+  // Future timestamps and missing/invalid lastTs both fall through to
+  // POSITIVE_INFINITY so they're never treated as "active".
+  const ageMsRaw = Date.now() - lastTs;
+  const ageMs = ageMsRaw < 0 || lastTs <= 0 ? Number.POSITIVE_INFINITY : ageMsRaw;
   // If isLive, always active; otherwise, only if age is within threshold
   const isActive = isLive || ageMs <= ACTIVE_PRESENCE_THRESHOLD_MS;
   if (isActive) {

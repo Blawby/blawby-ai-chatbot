@@ -1091,12 +1091,22 @@ export async function handleConversations(request: Request, env: Env): Promise<R
   if (segments.length === 4 && segments[3] === 'read' && request.method === 'POST') {
     const requestWithContext = await withPracticeContext(request, env, {
       requirePractice: true,
-      authContext
+      authContext,
+      allowAuthenticatedUrlPracticeId: true,
     });
     const conversationId = segments[2];
     const practiceId = getPracticeId(requestWithContext);
 
-    await conversationService.validateParticipantAccess(conversationId, practiceId, userId, { previousAnonUserId: prevAnonId });
+    // Mirror the staff-bypass on GET /messages: practice staff can mark any
+    // thread in their practice as read without being explicit participants.
+    if (authContext.isAnonymous) {
+      await conversationService.validateParticipantAccess(conversationId, practiceId, userId, { previousAnonUserId: prevAnonId });
+    } else {
+      const membership = await checkPracticeMembership(request, env, practiceId, { authContext });
+      if (!isStaffMemberRole(membership.memberRole)) {
+        await conversationService.validateParticipantAccess(conversationId, practiceId, userId, { previousAnonUserId: prevAnonId });
+      }
+    }
 
     // Get the current latest_seq for the conversation to update read state
     const conversation = await conversationService.getConversation(conversationId, practiceId);
