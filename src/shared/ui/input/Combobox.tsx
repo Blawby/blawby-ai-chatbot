@@ -686,7 +686,11 @@ export function Combobox({
 
             {filteredOptions.length === 0 && !showAddRow && (
               <p className="px-4 py-3 text-center text-sm text-input-placeholder">
-                No options found.
+                {allowCustomValues
+                  ? (trimmedQuery
+                    ? 'No matches — keep typing to add it as a new option.'
+                    : 'No options yet. Type above to add one.')
+                  : 'No options found.'}
               </p>
             )}
           </div>
@@ -694,6 +698,13 @@ export function Combobox({
           {resolvedFooter ? (
             <div className="border-t border-line-glass/10 px-2 py-2">
               {resolvedFooter}
+            </div>
+          ) : allowCustomValues && filteredOptions.length === 0 && !showAddRow ? (
+            <div className="flex items-center gap-2 border-t border-line-glass/10 px-3 py-2 text-xs text-input-placeholder">
+              <span className="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded bg-accent-500/20 text-accent-utility">
+                <Icon icon={Plus} className="h-3 w-3" />
+              </span>
+              <span>Type a name and press Enter to add a new option.</span>
             </div>
           ) : null}
         </div>

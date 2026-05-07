@@ -5,7 +5,7 @@ import { DetailHeader } from '@/shared/ui/layout/DetailHeader';
 import { MatterCreateForm, type MatterFormState } from '@/features/matters/components/MatterForm';
 import { MatterListItem } from '@/features/matters/components/MatterListItem';
 import { MatterStatusPopover } from '@/features/matters/components/MatterStatusPopover';
-import { MatterDetailsPanel } from '@/features/matters/components/MatterDetailPanel';
+import { MatterDetailsPanel } from '@/features/matters/components/MatterDetailsPanel';
 import { MatterSummaryCards } from '@/features/matters/components/MatterSummaryCards';
 import { TimeEntriesPanel } from '@/features/matters/components/time-entries/TimeEntriesPanel';
 import { MarkdownUploadTextarea } from '@/shared/ui/input/MarkdownUploadTextarea';

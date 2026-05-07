@@ -131,11 +131,6 @@ export const AppShell = ({
         </div>
       )}
 
-      {hasHeader && (
-        <header className={cn('relative z-10 col-span-full', headerClassName)}>
-          {header}
-        </header>
-      )}
 
       {hasSidebar && (
         <aside
@@ -171,6 +166,14 @@ export const AppShell = ({
           mainClassName
         )}
       >
+        {/* Header is mounted once here. On mobile, sidebar/listPanel/inspector
+            are hidden, so this sits at the top of the viewport; on desktop it
+            sits inside main, right of the sidebar. */}
+        {hasHeader && (
+          <header className={cn('relative z-10', headerClassName)}>
+            {header}
+          </header>
+        )}
         {main}
       </main>
 

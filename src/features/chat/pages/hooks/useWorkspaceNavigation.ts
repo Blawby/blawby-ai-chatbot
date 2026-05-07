@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback } from 'preact/hooks';
+import { useEffect, useMemo, useState, useCallback, useRef } from 'preact/hooks';
 import {
   getWorkspaceActiveSecondaryFilter,
   getWorkspaceDefaultSecondaryFilter,
@@ -14,14 +14,6 @@ import {
 } from '@/shared/config/navConfig';
 import type { PracticeRole } from '@/shared/utils/practiceRoles';
 
-type PreviewTab = 'home' | 'messages' | 'intake';
-
-// Mirror of WorkspaceView from workspaceShell (not exported from there).
-export const previewTabOptions: Array<{ id: PreviewTab; label: string }> = [
-  { id: 'home', label: 'Home' },
-  { id: 'messages', label: 'Messages' },
-  { id: 'intake', label: 'Intake form' },
-];
 
 export type UseWorkspaceNavigationInput = {
   view: WorkspaceView;
@@ -46,7 +38,49 @@ export function useWorkspaceNavigation({
   isClientWorkspace,
   normalizedRole,
 }: UseWorkspaceNavigationInput) {
-  const [secondaryFilterBySection, setSecondaryFilterBySection] = useState<Partial<Record<WorkspaceSection, string>>>({});
+  // Persist the per-section secondary filter so refreshing /matters returns to
+  // the last-clicked stage (e.g. Active) instead of falling back to default.
+  // Scoped per workspace so practice and client filters don't collide.
+  const filtersStorageKey = `blawby:secondary-filters:${workspace}`;
+  const filtersStorageKeyRef = useRef(filtersStorageKey);
+  filtersStorageKeyRef.current = filtersStorageKey;
+  const [secondaryFilterBySection, setSecondaryFilterBySection] = useState<Partial<Record<WorkspaceSection, string>>>(() => {
+    if (typeof window === 'undefined') return {};
+    try {
+      const raw = window.localStorage.getItem(filtersStorageKey);
+      if (!raw) return {};
+      const parsed = JSON.parse(raw);
+      return parsed && typeof parsed === 'object' ? parsed as Partial<Record<WorkspaceSection, string>> : {};
+    } catch {
+      return {};
+    }
+  });
+  useEffect(() => {
+    // Rehydrate when the storage key changes (workspace switch) so the new
+    // workspace's persisted filters replace the prior one's in-memory state.
+    if (typeof window === 'undefined') return;
+    try {
+      const raw = window.localStorage.getItem(filtersStorageKey);
+      if (!raw) {
+        setSecondaryFilterBySection({});
+        return;
+      }
+      const parsed = JSON.parse(raw);
+      setSecondaryFilterBySection(
+        parsed && typeof parsed === 'object' ? parsed as Partial<Record<WorkspaceSection, string>> : {}
+      );
+    } catch {
+      setSecondaryFilterBySection({});
+    }
+  }, [filtersStorageKey]);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      window.localStorage.setItem(filtersStorageKeyRef.current, JSON.stringify(secondaryFilterBySection));
+    } catch {
+      // localStorage may be disabled (private mode, quota); persistence is best-effort.
+    }
+  }, [secondaryFilterBySection]);
 
   const workspaceBasePath = useMemo(() => {
     let base = '/';
@@ -118,7 +152,9 @@ export function useWorkspaceNavigation({
     navigate(`${normalizedBase}/invoices/new?returnTo=${encodeURIComponent(returnTo)}`);
   }, [location.path, location.url, navigate, normalizedBase]);
 
-  const workspaceSection: WorkspaceSection = getWorkspaceSection(view);
+  const rawSection = getWorkspaceSection(view);
+  const workspaceSection: WorkspaceSection =
+    rawSection === 'intakes' && isIntakeTemplateRoute ? 'forms' : rawSection;
 
   const navConfig = useMemo(() => {
     const slug = (practiceSlug ?? '').trim();
@@ -194,7 +230,7 @@ export function useWorkspaceNavigation({
       return;
     }
     if (workspaceSection === 'intakes') {
-      navigate(id === 'forms' ? `${basePath}/intakes` : `${basePath}/intakes/responses`);
+      navigate(`${basePath}/intakes/responses`);
       setSecondaryFilterBySection((prev) => ({ ...prev, [workspaceSection]: id }));
       return;
     }

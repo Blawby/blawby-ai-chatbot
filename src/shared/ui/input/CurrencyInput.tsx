@@ -141,24 +141,55 @@ export const CurrencyInput = forwardRef<HTMLInputElement, CurrencyInputProps>(({
             onChange?.(rounded);
           }}
           onInput={(event) => {
-            const nextValue = event.currentTarget.value;
-            const trimmed = nextValue.trim();
-            // Allow only digits and at most one decimal point while editing
-            if (trimmed && !/^\d*\.?\d*$/.test(trimmed)) {
-              // ignore invalid chars
+            const raw = event.currentTarget.value;
+            // Strip everything that isn't a digit or a decimal point, then
+            // collapse any extra decimal points so the field can never display
+            // a non-numeric character (e.g. "12a3" → "123", "1.2.3" → "1.23").
+            const stripped = raw.replace(/[^\d.]/g, '');
+            const firstDot = stripped.indexOf('.');
+            const cleaned = firstDot === -1
+              ? stripped
+              : stripped.slice(0, firstDot + 1) + stripped.slice(firstDot + 1).replace(/\./g, '');
+            if (cleaned !== raw) {
+              // Reflect the sanitized value into the DOM so the bad character
+              // never appears — Preact doesn't re-sync the input when state
+              // skips the update. Preserve the caret by mapping the prior
+              // selection through the same character-removal that produced
+              // `cleaned`, so typing in the middle of the value doesn't jump
+              // the cursor to the end.
+              const target = event.currentTarget;
+              const selStart = target.selectionStart;
+              const selEnd = target.selectionEnd;
+              const mapIndex = (idx: number | null): number => {
+                if (idx === null) return cleaned.length;
+                const prefix = raw.slice(0, idx);
+                const cleanedPrefix = prefix.replace(/[^\d.]/g, '');
+                const firstDotInPrefix = cleanedPrefix.indexOf('.');
+                const adjustedPrefix = firstDotInPrefix === -1
+                  ? cleanedPrefix
+                  : cleanedPrefix.slice(0, firstDotInPrefix + 1)
+                    + cleanedPrefix.slice(firstDotInPrefix + 1).replace(/\./g, '');
+                return Math.min(adjustedPrefix.length, cleaned.length);
+              };
+              const nextStart = mapIndex(selStart);
+              const nextEnd = mapIndex(selEnd);
+              target.value = cleaned;
+              try {
+                target.setSelectionRange(nextStart, nextEnd);
+              } catch {
+                // Some input types (e.g. number) reject setSelectionRange; ignore.
+              }
+            }
+            setDisplayValue(cleaned);
+            if (!cleaned) {
+              onChange?.(undefined);
               return;
             }
-            setDisplayValue(nextValue);
-            if (!trimmed) {
-              // empty input
-              return;
-            }
-            if (trimmed.endsWith('.')) {
+            if (cleaned.endsWith('.')) {
               // leave user in editing mode
               return;
             }
-            // Parse and emit a normalized value matching the blur behavior
-            const parsed = parseFloat(trimmed);
+            const parsed = parseFloat(cleaned);
             if (!Number.isFinite(parsed)) return;
             const stepNum = typeof step === 'number' && Number.isFinite(step) && step > 0 ? step : 0.01;
             const precision = precisionForStep(stepNum);

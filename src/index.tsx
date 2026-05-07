@@ -5,6 +5,7 @@ import { I18nextProvider } from 'react-i18next';
 import AuthPage from '@/pages/AuthPage';
 import AcceptInvitationPage from '@/pages/AcceptInvitationPage';
 import ClientHomePage from '@/pages/ClientHomePage';
+import PracticeHomePage from '@/pages/PracticeHomePage';
 import OnboardingPage from '@/pages/OnboardingPage';
 import PricingPage from '@/pages/PricingPage';
 import PaymentResultPage from '@/pages/PaymentResultPage';
@@ -19,6 +20,7 @@ import { ToastProvider } from '@/shared/contexts/ToastContext';
 import { SessionProvider, useSessionContext } from '@/shared/contexts/SessionContext';
 import { getSession } from '@/shared/lib/authClient';
 import { MainApp } from '@/app/MainApp';
+import type { WorkspaceView } from '@/shared/utils/workspaceShell';
 import { PublicWorkspaceRoute } from '@/app/PublicWorkspaceRoute';
 import { useNavigation } from '@/shared/utils/navigation';
 import { usePracticeConfig } from '@/shared/hooks/usePracticeConfig';
@@ -47,7 +49,9 @@ const ExclamationIcon: IconComponent = (props) => (
 import { WorkspacePlaceholderState } from '@/shared/ui/layout/WorkspacePlaceholderState';
 import './index.css';
 import { i18n, initI18n } from '@/shared/i18n';
-import { initializeAccentColor } from '@/shared/utils/accentColors';
+import { applyAccentColor, initializeAccentColor } from '@/shared/utils/accentColors';
+import { registerSWWithUpdatePrompt } from '@/shared/lib/swUpdate';
+import { UpdateAvailableToast } from '@/shared/ui/UpdateAvailableToast';
 import { consumePostAuthConversationContext } from '@/shared/utils/anonymousIdentity';
 import { isWidgetRuntimeContext as _isWidgetRuntimeContext } from '@/shared/utils/widgetAuth';
 import { useTheme } from '@/shared/hooks/useTheme';
@@ -129,22 +133,42 @@ const DevDebugMatterRoute = () => {
 };
 
 
-// PWA Cache Trap Breaker (Development Only)
-// Since we disabled the PWA in dev, old workers from previous sessions aggressively intercept
-// navigation requests (like /widget-test.html) and serve the SPA shell, trapping the user.
+// Dev Cache Trap Breaker (Development Only)
+//
+// PWA is disabled in dev (vite.config.ts → devOptions.enabled: false), but a
+// service worker registered during a prior production session — or a leftover
+// CacheStorage entry from one — aggressively intercepts requests and serves
+// stale assets, breaking HMR and forcing hard refreshes.
+//
+// On dev boot we:
+//   1. Await unregister() for every active registration (the previous version
+//      fired-and-forgot, racing the reload below).
+//   2. Delete every CacheStorage key — unregistering the SW does NOT clear
+//      caches, and any remaining cache could still answer fetches from a
+//      leftover client.
+//   3. Reload only if we actually cleared something, so we don't loop.
 if (import.meta.env.DEV && typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
-  navigator.serviceWorker.getRegistrations().then((registrations) => {
-    let unregistered = false;
-    for (const registration of registrations) {
-      registration.unregister();
-      unregistered = true;
-      console.warn('⚠️ Unregistered rogue development service worker.');
-    }
-    if (unregistered) {
-      console.warn('🔄 Reloading page to escape SPA cache trap...');
+  void (async () => {
+    try {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      const cacheKeys = typeof caches !== 'undefined' ? await caches.keys() : [];
+      if (registrations.length === 0 && cacheKeys.length === 0) return;
+
+      await Promise.all(registrations.map((r) => r.unregister()));
+      await Promise.all(cacheKeys.map((k) => caches.delete(k)));
+
+      if (registrations.length > 0) {
+        console.warn(`⚠️ Unregistered ${registrations.length} rogue dev service worker(s).`);
+      }
+      if (cacheKeys.length > 0) {
+        console.warn(`🧹 Cleared ${cacheKeys.length} CacheStorage entry/entries.`);
+      }
+      console.warn('🔄 Reloading to escape the cache trap...');
       window.location.reload();
+    } catch (error) {
+      console.warn('[dev cache breaker] failed to clear SW / caches', error);
     }
-  });
+  })();
 }
 
 // Client routes align with public structure
@@ -202,6 +226,23 @@ function AppShell() {
   const { defaultWorkspace, currentPractice, practices, hasPracticeMembership } = useWorkspaceResolver({
     autoFetchPractices: shouldFetchWorkspacePractices
   });
+
+  // Apply the active org's brand color at the shell level so routes that
+  // bypass MainApp (e.g. PracticeHomePage, ClientHomePage) still get branded.
+  // Persist per-org so the next page load can paint the right brand color on
+  // the first frame, before currentPractice has a chance to refetch.
+  useEffect(() => {
+    const accent = currentPractice?.accentColor;
+    if (!accent) return;
+    applyAccentColor(accent);
+    try {
+      localStorage.setItem('accent-color', accent);
+      const slug = currentPractice?.slug;
+      if (slug) localStorage.setItem(`accent-color:${slug}`, accent);
+    } catch (_error) {
+      // localStorage may be unavailable (private mode, iframe restrictions, etc.)
+    }
+  }, [currentPractice?.accentColor, currentPractice?.slug]);
 
   const authenticatedHomePath = useMemo(() => {
     const fallbackSlug = currentPractice?.slug ?? practices[0]?.slug ?? null;
@@ -311,6 +352,7 @@ function AppShell() {
 
   return (
     <ToastProvider>
+      <UpdateAvailableToast />
       <Suspense fallback={<LoadingScreen />}>
         <Router>
           <Route path="/auth" component={AuthPage} />
@@ -376,6 +418,7 @@ function AppShell() {
           <Route path="/practice/:practiceSlug/settings/general" component={PracticeAppRoute} workspaceView="settings" settingsView="general" />
           <Route path="/practice/:practiceSlug/settings/notifications" component={PracticeAppRoute} workspaceView="settings" settingsView="notifications" />
           <Route path="/practice/:practiceSlug/settings/account" component={PracticeAppRoute} workspaceView="settings" settingsView="account" />
+          <Route path="/practice/:practiceSlug/coverage" component={PracticeAppRoute} workspaceView="coverage" />
           <Route path="/practice/:practiceSlug/settings/practice" component={PracticeAppRoute} workspaceView="settings" settingsView="practice" />
           <Route path="/practice/:practiceSlug/settings/practice/payouts" component={PracticeAppRoute} workspaceView="settings" settingsView="practice-payouts" />
           <Route path="/practice/:practiceSlug/settings/practice/team" component={PracticeAppRoute} workspaceView="settings" settingsView="practice-team" />
@@ -579,7 +622,7 @@ function PracticeAppRoute({
   conversationId?: string;
   invoiceId?: string;
   appId?: string;
-  workspaceView?: 'home' | 'setup' | 'list' | 'conversation' | 'intakes' | 'intakeDetail' | 'engagements' | 'matters' | 'contacts' | 'invoices' | 'invoiceCreate' | 'invoiceEdit' | 'invoiceDetail' | 'reports' | 'settings';
+  workspaceView?: WorkspaceView;
   settingsView?: 'general' | 'notifications' | 'account' | 'practice' | 'practice-payouts' | 'practice-team' | 'apps' | 'app-detail' | 'security' | 'help';
   practiceSlug?: string;
 }) {
@@ -693,15 +736,8 @@ function PracticeAppRoute({
   }
   if (!resolvedPracticeId) return <LoadingScreen />;
 
-  if (isMatterCreateRoute) {
-    return (
-      <Suspense fallback={<LoadingScreen />}>
-        <PracticeMatterCreatePage
-          practiceId={resolvedPracticeId}
-          practiceSlug={normalizedPracticeSlug || null}
-        />
-      </Suspense>
-    );
+  if (workspaceView === 'home') {
+    return <PracticeHomePage />;
   }
 
   if (isContactCreateRoute) {
@@ -739,6 +775,7 @@ function PracticeAppRoute({
   }
 
   return (
+    <>
       <MainApp
         practiceId={resolvedPracticeId}
         practiceConfig={practiceConfig}
@@ -751,6 +788,15 @@ function PracticeAppRoute({
         workspaceView={workspaceView}
         practiceSlug={normalizedPracticeSlug || undefined}
       />
+      {isMatterCreateRoute ? (
+        <Suspense fallback={null}>
+          <PracticeMatterCreatePage
+            practiceId={resolvedPracticeId}
+            practiceSlug={normalizedPracticeSlug || null}
+          />
+        </Suspense>
+      ) : null}
+    </>
   );
 }
 
@@ -913,8 +959,26 @@ async function mountClientApp() {
     document.documentElement.classList.add('dark');
   }
 
-  // Initialize default accent color before workspace/practice details load.
-  initializeAccentColor();
+  // Restore the active org's brand color synchronously so it paints on the
+  // first frame instead of flashing the gold default while currentPractice
+  // loads from the API. The cache is keyed per-org by the slug in the URL so
+  // multi-org users don't see another org's color when switching.
+  let savedAccent: string | null = null;
+  try {
+    const slugMatch = window.location.pathname.match(/^\/(?:practice|client|public)\/([^/]+)/);
+    const slug = slugMatch ? decodeURIComponent(slugMatch[1]) : null;
+    savedAccent = (slug && localStorage.getItem(`accent-color:${slug}`))
+      || localStorage.getItem('accent-color');
+  } catch (_error) {
+    // localStorage may be unavailable (private mode, iframe restrictions, etc.)
+  }
+  initializeAccentColor(savedAccent);
+
+  // Register the service worker with a controlled update flow. The new SW
+  // waits in `installed` state until the user clicks Refresh in
+  // UpdateAvailableToast, avoiding the "open tab on old code, new SW serving
+  // new chunks" mismatch that broke lazy imports under autoUpdate.
+  registerSWWithUpdatePrompt();
 
   initI18n()
     .then(() => {

@@ -356,38 +356,19 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
 
   const auditService = new SessionAuditService(env);
 
-  const canonicalPracticeDetailsOptions = {
-    bypassCache: effectiveMode === 'PRACTICE_ONBOARDING',
-    preferPracticeIdLookup: true,
-  };
-
-  // Load practice details - audit write is best-effort and should not crash the flow.
-  const practiceDetailsPromise = anonymousPracticeDetailsPromise
-    ? anonymousPracticeDetailsPromise.then(async (prefetchedResult) => {
-        const prefetchedPracticeId = prefetchedResult.details?.id;
-        if (prefetchedPracticeId === practiceId) {
-          return prefetchedResult;
-        }
-        Logger.warn('Anonymous practice details slug result did not match conversation practice; refetching by practiceId', {
-          conversationId: body.conversationId,
-          practiceId,
-          prefetchedPracticeId,
-        });
-        return fetchPracticeDetailsWithCache(
-          env,
-          request,
-          practiceId,
-          null,
-          canonicalPracticeDetailsOptions,
-        );
-      })
-    : fetchPracticeDetailsWithCache(
-        env,
-        request,
-        practiceId,
-        practiceSlug || undefined,
-        canonicalPracticeDetailsOptions
-      );
+  // The internal practiceId is the upstream organization_id (the practice/org id),
+  // not details.id — see worker/routes/widget.ts. Use the slug-based prefetch as-is
+  // when present rather than re-comparing identifiers.
+  const practiceDetailsPromise = anonymousPracticeDetailsPromise ?? fetchPracticeDetailsWithCache(
+    env,
+    request,
+    practiceId,
+    practiceSlug || undefined,
+    {
+      bypassCache: effectiveMode === 'PRACTICE_ONBOARDING',
+      preferPracticeIdLookup: true,
+    }
+  );
 
   // Best-effort audit write - errors are caught and logged
   auditService.createEvent({
@@ -410,6 +391,37 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
   let isPublic = false;
   try {
     ({ details, isPublic } = await practiceDetailsPromise);
+    // If the details were loaded via anonymous slug, verify the org/practice id matches the conversation's practice_id
+    if (
+      anonymousPracticeDetailsPromise && details &&
+      typeof conversation.practice_id === 'string'
+    ) {
+      // Acceptable id fields on details
+      const resolvedId =
+        typeof details.organization_id === 'string' ? details.organization_id :
+        typeof details.practice_id === 'string' ? details.practice_id :
+        typeof details.id === 'string' ? details.id : null;
+      if (resolvedId && resolvedId !== conversation.practice_id) {
+        // Mismatch: fetch canonical details for practiceId
+        const canonical = await fetchPracticeDetailsWithCache(
+          env,
+          request,
+          conversation.practice_id,
+          undefined,
+          {
+            bypassCache: effectiveMode === 'PRACTICE_ONBOARDING',
+            preferPracticeIdLookup: true,
+          }
+        );
+        details = canonical.details;
+        isPublic = canonical.isPublic;
+        Logger.info('AI chat: Discarded mismatched slug-derived practice details, loaded canonical by practice_id', {
+          conversationId: body.conversationId,
+          practiceId: conversation.practice_id,
+          resolvedId,
+        });
+      }
+    }
     Logger.info('AI chat timing: practice details loaded', {
       conversationId: body.conversationId,
       practiceId,

@@ -25,6 +25,10 @@ export const CACHE_POLICY = [
 
   // Aggregated billing summary — short window so usage updates show up
   { prefix: 'billing:summary:', ttlMs: 30 * SECOND },
+
+  // Sidebar counts — short window so newly-arrived intakes/messages appear
+  // promptly without spamming the backend on every nav.
+  { prefix: 'sidebar:counts:', ttlMs: 30 * SECOND },
 ] as const;
 
 const DEFAULT_TTL_MS = MINUTE;

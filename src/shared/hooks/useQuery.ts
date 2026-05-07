@@ -56,6 +56,11 @@ export function useQuery<T>({ key, fetcher, ttl, enabled = true, swr = true }: U
     }
   }, [key, ttl, swr]);
 
+  // Re-run when the cache entry disappears (e.g. after queryCache.invalidate)
+  // so consumers automatically refetch instead of being left with empty data
+  // and isFetching=false. Tracked as a boolean so we don't refire on every
+  // entry mutation.
+  const hasEntry = entry !== undefined;
   useEffect(() => {
     if (!enabled) { setIsFetching(false); return; }
     // Only skip the fetch when data is fresh. Stale data is displayed AND
@@ -64,7 +69,7 @@ export function useQuery<T>({ key, fetcher, ttl, enabled = true, swr = true }: U
     const controller = new AbortController();
     void load(controller.signal);
     return () => controller.abort();
-  }, [enabled, key, load]);
+  }, [enabled, key, load, hasEntry]);
 
   const refetch = useCallback(async () => {
     queryCache.invalidate(key);

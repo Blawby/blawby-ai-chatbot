@@ -87,7 +87,7 @@ export function EntityList<T extends { id: string }>({
     <div className={cn('flex h-full min-h-0 flex-col', className)}>
       <VList
         style={{ flex: 1, minHeight: 0 }}
-        className="pt-1"
+        className="themed-scrollbar pt-1"
         onScrollEnd={onLoadMore}
       >
         {items.map((item) => {

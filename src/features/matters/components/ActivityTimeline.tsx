@@ -112,7 +112,7 @@ const ActivityTimeline: FunctionComponent<ActivityTimelineProps> = ({
                     )}
                     
                     {/* Icon */}
-                    <div className="glass-input relative flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center">
+                    <div className="input-surface relative flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center">
                       <IconComponent className="w-3 h-3 text-input-placeholder" />
                     </div>
                     

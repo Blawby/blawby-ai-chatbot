@@ -15,7 +15,8 @@ export type WorkspaceView =
   | 'invoiceEdit'
   | 'invoiceDetail'
   | 'reports'
-  | 'settings';
+  | 'settings'
+  | 'coverage';
 
 type WorkspaceRouteState = {
   isIntakeTemplateRoute: boolean;
@@ -199,10 +200,7 @@ export const getWorkspaceDefaultSecondaryFilter = ({
   if (workspaceSection === 'reports' && isPracticeWorkspace) {
     return reportSectionFromPath;
   }
-  if (workspaceSection === 'intakes' && isPracticeWorkspace && isIntakeTemplateRoute) {
-    return 'forms';
-  }
-  if (workspaceSection === 'intakes' && isPracticeWorkspace && isIntakeResponsesRoute) {
+  if (workspaceSection === 'intakes' && isPracticeWorkspace) {
     return 'all';
   }
   // Matters > Engagements is a peer route rendered as the first sub-item; the default
@@ -235,6 +233,7 @@ export const getWorkspaceActiveSecondaryFilter = ({
   defaultSecondaryFilterId: string | null;
 }) => {
   if (workspaceSection === 'settings') return null;
+  if (workspaceSection === 'forms') return null;
   if (workspaceSection === 'home' && isPracticeWorkspace) {
     if (view !== 'contacts') return 'overview';
     if (contactsRouteKind === 'archived') return 'contacts-archived';
@@ -246,16 +245,10 @@ export const getWorkspaceActiveSecondaryFilter = ({
   if (workspaceSection === 'reports' && isPracticeWorkspace) {
     return reportSectionFromPath;
   }
-  if (workspaceSection === 'intakes' && isPracticeWorkspace && isIntakeTemplateRoute) {
-    return 'forms';
-  }
-  if (
-    workspaceSection === 'intakes'
-    && isPracticeWorkspace
-    && isIntakeResponsesRoute
-    && secondaryFilterBySection.intakes === 'forms'
-  ) {
-    return defaultSecondaryFilterId;
+  // /engagements is a peer route under the Matters rail item — the active
+  // sub-item must follow the URL, not whatever Matters filter was last picked.
+  if (workspaceSection === 'matters' && view === 'engagements') {
+    return 'engagements';
   }
   return secondaryFilterBySection[workspaceSection] ?? defaultSecondaryFilterId;
 };

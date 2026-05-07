@@ -8,10 +8,10 @@ import { Combobox } from '@/shared/ui/input/Combobox';
 import { RadioGroupWithDescriptions } from '@/shared/ui/input/RadioGroupWithDescriptions';
 import { renderUserAvatar } from '@/shared/ui/profile';
 import { type MatterOption, type MatterMilestoneFormInput } from '@/features/matters/data/matterTypes';
-import { MATTER_STATUS_LABELS, MATTER_WORKFLOW_STATUSES, type MatterStatus } from '@/shared/types/matterStatus';
+import { type MatterStatus } from '@/shared/types/matterStatus';
 import type { ComponentChildren } from 'preact';
 import type { DescribedRadioOption } from '@/shared/ui/input/RadioGroupWithDescriptions';
-import { Scale, ShieldCheck, User, MessagesSquare, Search, Briefcase, CheckCircle2, XCircle, AlertTriangle, Plus, Redo2, FileCheck2, CirclePause, ShieldAlert } from 'lucide-preact';
+import { Scale, ShieldCheck, User, Briefcase, Plus } from 'lucide-preact';
 
 
 import { Icon } from '@/shared/ui/Icon';
@@ -36,6 +36,8 @@ interface MatterFormProps {
   mode?: MatterFormMode;
   initialValues?: Partial<MatterFormState>;
   requireClientSelection?: boolean;
+  /** Render without the surrounding Panel surface (e.g. when hosted inside a Dialog). */
+  unwrapped?: boolean;
 }
 
 type MatterCreateFormProps = Omit<MatterFormProps, 'mode'>;
@@ -101,37 +103,6 @@ const BILLING_OPTIONS = [
   }
 ];
 
-const STATUS_OPTIONS: Array<{ value: MatterStatus; label: string }> = MATTER_WORKFLOW_STATUSES.map(
-  (status) => ({
-    value: status,
-    label: MATTER_STATUS_LABELS[status]
-  })
-);
-
-const STATUS_ICON: Record<MatterStatus, preact.ComponentType<preact.JSX.SVGAttributes<SVGSVGElement>>> = {
-  first_contact: MessagesSquare,
-  intake_pending: Search,
-  conflict_check: ShieldAlert,
-  conflicted: AlertTriangle,
-  eligibility: Scale,
-  referred: Redo2,
-  consultation_scheduled: FileCheck2,
-  declined: XCircle,
-  engagement_draft: Briefcase,
-  engagement_sent: Briefcase,
-  engagement_accepted: CheckCircle2,
-  engagement_pending: CirclePause,
-  active: Briefcase,
-  pleadings_filed: FileCheck2,
-  discovery: Search,
-  mediation: Scale,
-  pre_trial: ShieldAlert,
-  trial: AlertTriangle,
-  order_entered: CheckCircle2,
-  appeal_pending: Redo2,
-  closed: CheckCircle2
-};
-
 const PAYMENT_FREQUENCY_OPTIONS: DescribedRadioOption[] = [
   {
     value: 'project',
@@ -174,7 +145,7 @@ const buildInitialState = (mode: MatterFormMode, initialValues?: Partial<MatterF
 });
 
 const buildLeadingIcon = (icon: ComponentChildren) => (
-  <div className="w-6 h-6 rounded-full border border-dashed border-line-glass/30 flex items-center justify-center text-input-placeholder">
+  <div className="w-6 h-6 rounded-full border border-dashed border-line-subtle flex items-center justify-center text-input-placeholder">
     {icon}
   </div>
 );
@@ -206,7 +177,7 @@ const MatterMilestoneForm = ({
     isMajorAmount(draft.amount);
 
   return (
-    <div className="border-t border-line-glass/30 pt-6 space-y-4">
+    <div className="border-t border-line-subtle pt-6 space-y-4">
       <h4 className="text-lg font-medium text-input-text">Enter project milestones</h4>
 
       {milestones.length > 0 && (
@@ -307,6 +278,7 @@ const MatterFormInner = ({
   initialValues,
   requireClientSelection = true,
   onContactCreated,
+  unwrapped = false,
 }: MatterFormProps) => {
   const [formState, setFormState] = useState<MatterFormState>(() => buildInitialState(mode, initialValues));
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -348,7 +320,27 @@ const MatterFormInner = ({
     dueDate: '',
     amount: undefined as MajorAmount | undefined
   });
-  const canSubmit = Boolean(formState.title && (!requireClientSelection || formState.clientId));
+  const billingValid = (() => {
+    switch (formState.billingType) {
+      case 'hourly':
+        return isMajorAmount(formState.attorneyHourlyRate) && isMajorAmount(formState.adminHourlyRate);
+      case 'fixed':
+        if (formState.paymentFrequency === 'project') return isMajorAmount(formState.totalFixedPrice);
+        if (formState.paymentFrequency === 'milestone') return formState.milestones.length > 0;
+        return false;
+      case 'contingency':
+        return typeof formState.contingencyPercent === 'number' && formState.contingencyPercent >= 0 && formState.contingencyPercent <= 100;
+      case 'pro_bono':
+        return true;
+      default:
+        return false;
+    }
+  })();
+  const canSubmit = Boolean(
+    formState.title &&
+    (!requireClientSelection || formState.clientId) &&
+    billingValid
+  );
 
   const updateForm = <K extends keyof MatterFormState>(key: K, value: MatterFormState[K]) => {
     setFormState((prev) => ({ ...prev, [key]: value }));
@@ -373,36 +365,36 @@ const MatterFormInner = ({
     setIsMilestoneFormVisible(false);
   };
 
-  return (
-    <>
-      <Panel className="p-4 sm:p-6 lg:p-8">
-        <form
-          className="space-y-6 max-w-4xl mx-auto"
-          onSubmit={async (event) => {
-            event.preventDefault();
-            if (!canSubmit) return;
-            setSubmitError(null);
-            if (!onSubmit) {
-              onClose();
-              return;
-            }
-            setIsSubmitting(true);
-            try {
-              await onSubmit({ ...formState });
-              setIsSubmitting(false);
-              onClose();
-            } catch (error) {
-              const message = error instanceof Error ? error.message : 'Failed to save matter';
-              setSubmitError(message);
-              setIsSubmitting(false);
-            }
-          }}
-        >
-        <h2 className="text-xl font-semibold text-input-text">{modalTitle}</h2>
+  const formNode = (
+    <form
+      className={unwrapped ? 'space-y-6' : 'space-y-6 max-w-4xl mx-auto'}
+      onSubmit={async (event) => {
+        event.preventDefault();
+        if (!canSubmit) return;
+        setSubmitError(null);
+        if (!onSubmit) {
+          onClose();
+          return;
+        }
+        setIsSubmitting(true);
+        try {
+          await onSubmit({ ...formState });
+          setIsSubmitting(false);
+          onClose();
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'Failed to save matter';
+          setSubmitError(message);
+          setIsSubmitting(false);
+        }
+      }}
+    >
+        {unwrapped ? null : (
+          <h2 className="text-xl font-semibold text-input-text">{modalTitle}</h2>
+        )}
 
         <Input
-          label="Matter Title"
-          placeholder="Enter matter title"
+          label="Matter title"
+          placeholder="e.g. Johnson v. Smith"
           value={formState.title}
           onChange={(value) => updateForm('title', value)}
           required
@@ -420,33 +412,8 @@ const MatterFormInner = ({
           />
         </div>
 
-        <hr className="h-px border-line-glass/30" />
-
         <div className="space-y-4">
-          <h2 className="text-lg font-medium text-input-text">Provide matter details</h2>
           <Combobox
-            label="Matter Status"
-            placeholder="Select status"
-            value={formState.status}
-            options={STATUS_OPTIONS.map((option) => ({
-              value: option.value,
-              label: option.label
-            }))}
-            leading={(selectedOption) => {
-              const selectedStatus = (selectedOption?.value ?? formState.status) as MatterStatus;
-              const StatusIcon = STATUS_ICON[selectedStatus] ?? Scale;
-              return (
-                <Icon icon={StatusIcon} className="h-4 w-4 text-input-placeholder" />
-              );
-            }}
-            optionLeading={(option) => {
-              const StatusIcon = STATUS_ICON[option.value as MatterStatus] ?? Scale;
-              return <Icon icon={StatusIcon} className="h-4 w-4 text-input-placeholder" />;
-            }}
-            onChange={(value) => updateForm('status', value as MatterStatus)}
-          />
-
-            <Combobox
             label={`Contact${requireClientSelection ? ' *' : ''}`}
             placeholder="Select contact"
             value={formState.clientId}
@@ -474,7 +441,7 @@ const MatterFormInner = ({
               (close) => (
                 <button
                   type="button"
-                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-accent-utility hover:bg-surface-utility/10"
+                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-accent-utility hover:bg-surface-card-hover"
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => {
                     close();
@@ -489,7 +456,7 @@ const MatterFormInner = ({
           />
 
           <Combobox
-            label="Practice Area"
+            label="Practice area"
             placeholder={practiceAreasLoading ? 'Loading services...' : 'Select practice area'}
             value={formState.practiceAreaId}
             options={practiceAreaOptions}
@@ -593,7 +560,7 @@ const MatterFormInner = ({
           </FormGrid>
         </div>
 
-        <div className="border-t border-line-glass/30 pt-6 space-y-4">
+        <div className="border-t border-line-subtle pt-6 space-y-4">
           <h3 className="text-lg font-medium text-input-text">Attorney assignments</h3>
           <FormGrid>
             <Combobox
@@ -627,7 +594,7 @@ const MatterFormInner = ({
           </FormGrid>
         </div>
 
-        <div className="border-t border-line-glass/30 pt-6 space-y-4">
+        <div className="border-t border-line-subtle pt-6 space-y-4">
           <RadioGroupWithDescriptions
             label="Billing type"
             name="billing-type"
@@ -639,7 +606,7 @@ const MatterFormInner = ({
           {formState.billingType === 'hourly' && (
             <FormGrid>
               <CurrencyInput
-                label="Attorney hourly rate"
+                label="Attorney hourly rate *"
                 value={formState.attorneyHourlyRate}
                 onChange={(value) =>
                   updateForm('attorneyHourlyRate', typeof value === 'number' ? asMajor(value) : undefined)
@@ -647,7 +614,7 @@ const MatterFormInner = ({
                 placeholder="150"
               />
               <CurrencyInput
-                label="Admin hourly rate"
+                label="Admin hourly rate *"
                 value={formState.adminHourlyRate}
                 onChange={(value) =>
                   updateForm('adminHourlyRate', typeof value === 'number' ? asMajor(value) : undefined)
@@ -660,7 +627,7 @@ const MatterFormInner = ({
           {formState.billingType === 'fixed' && (
             <div className="space-y-6">
               <RadioGroupWithDescriptions
-                label="Payment frequency"
+                label="Payment frequency *"
                 name="payment-frequency"
                 value={formState.paymentFrequency ?? ''}
                 options={PAYMENT_FREQUENCY_OPTIONS}
@@ -669,7 +636,7 @@ const MatterFormInner = ({
 
               {formState.paymentFrequency === 'project' && (
                 <CurrencyInput
-                  label="Total Fixed Price"
+                  label="Total Fixed Price *"
                   value={formState.totalFixedPrice}
                   onChange={(value) =>
                     updateForm('totalFixedPrice', typeof value === 'number' ? asMajor(value) : undefined)
@@ -694,7 +661,7 @@ const MatterFormInner = ({
           {formState.billingType === 'contingency' && (
             <div className="max-w-sm">
               <Input
-                label="Contingency percentage"
+                label="Contingency percentage *"
                 value={formState.contingencyPercent !== undefined ? String(formState.contingencyPercent) : ''}
                 onChange={(value) => {
                   if (value.trim() === '') {
@@ -709,6 +676,13 @@ const MatterFormInner = ({
                         Math.max(0, Math.min(100, parsed))
                       );
                     }
+                  }
+                }}
+                onKeyDown={(event) => {
+                  // type=number still accepts these — block scientific notation
+                  // and signs so the field is digits/decimal only.
+                  if (['e', 'E', '+', '-'].includes(event.key)) {
+                    event.preventDefault();
                   }
                 }}
                 placeholder="20"
@@ -751,8 +725,12 @@ const MatterFormInner = ({
             </Button>
           </div>
         </div>
-        </form>
-      </Panel>
+    </form>
+  );
+
+  return (
+    <>
+      {unwrapped ? formNode : <Panel className="p-4 sm:p-6 lg:p-8">{formNode}</Panel>}
       <AddContactDialog
         practiceId={practiceId ?? null}
         isOpen={addPersonOpen}

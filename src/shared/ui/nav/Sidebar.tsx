@@ -1,5 +1,5 @@
-import { createContext } from 'preact';
-import type { ComponentChildren, FunctionComponent, JSX } from 'preact';
+import { createContext, toChildArray, isValidElement } from 'preact';
+import type { ComponentChildren, FunctionComponent, JSX, VNode } from 'preact';
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { ChevronDown, ChevronRight, ChevronsUpDown, MoreHorizontal, PanelLeft } from 'lucide-preact';
 import { Icon, type IconComponent } from '@/shared/ui/Icon';
@@ -64,6 +64,16 @@ export const Sidebar: FunctionComponent<SidebarProps> & {
     () => ({ activeItemId, onItemActivate, collapsed, onToggleCollapsed }),
     [activeItemId, onItemActivate, collapsed, onToggleCollapsed],
   );
+  // Split children into pinned regions (Org at top, Footer at bottom) and a
+  // scrollable middle. Org/Footer keep their natural place even on short viewports
+  // so the profile menu and org switcher stay reachable without scrolling.
+  const childArr = toChildArray(children);
+  const isOfType = (node: unknown, target: unknown): node is VNode =>
+    isValidElement(node) && (node as VNode).type === target;
+  const orgEls = childArr.filter((c) => isOfType(c, SidebarOrg));
+  const footerEls = childArr.filter((c) => isOfType(c, SidebarFooter));
+  const bodyEls = childArr.filter((c) => !isOfType(c, SidebarOrg) && !isOfType(c, SidebarFooter));
+
   // Collapsed mode: toggle button sticks out half-over the right edge so the user
   // can always grab it. Aside uses overflow-visible to allow the bleed; inner
   // content wrapper handles its own scrolling.
@@ -79,7 +89,11 @@ export const Sidebar: FunctionComponent<SidebarProps> & {
         style={width ? { width: typeof width === 'number' ? `${width}px` : width } : undefined}
       >
         <div className={cn('flex h-full min-h-0 flex-col gap-2 overflow-hidden', collapsed ? 'p-2 pt-3' : 'p-3')}>
-          {children}
+          {orgEls.length > 0 ? <div className="shrink-0">{orgEls}</div> : null}
+          <div className="sidebar-scroll flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">
+            {bodyEls}
+          </div>
+          {footerEls.length > 0 ? <div className="shrink-0">{footerEls}</div> : null}
         </div>
         {collapsed && onToggleCollapsed ? (
           <button
@@ -267,10 +281,27 @@ export interface SidebarItemProps {
   /** Controlled expanded state. */
   expanded?: boolean;
   onExpandedChange?: (expanded: boolean) => void;
+  /** When set, the uncontrolled expanded state is persisted to localStorage under
+   *  `blawby:sidebar:expand:${persistKey}` and restored on mount. Persistence wins
+   *  over `defaultExpanded`/auto-expand on first render so a user's manual collapse
+   *  survives a refresh. */
+  persistKey?: string;
   /** Optional trailing icon (overrides chevron when set). */
   trailingIcon?: IconComponent;
   children?: ComponentChildren;
 }
+
+const readPersistedExpanded = (persistKey: string | undefined): boolean | null => {
+  if (!persistKey || typeof window === 'undefined') return null;
+  try {
+    const raw = window.localStorage.getItem(`blawby:sidebar:expand:${persistKey}`);
+    if (raw === '1') return true;
+    if (raw === '0') return false;
+  } catch {
+    // localStorage may be disabled (private mode, quota); persistence is best-effort.
+  }
+  return null;
+};
 
 const SidebarItem: FunctionComponent<SidebarItemProps> = ({
   id,
@@ -286,6 +317,7 @@ const SidebarItem: FunctionComponent<SidebarItemProps> = ({
   defaultExpanded,
   expanded: controlledExpanded,
   onExpandedChange,
+  persistKey,
   trailingIcon,
   children,
 }) => {
@@ -300,9 +332,11 @@ const SidebarItem: FunctionComponent<SidebarItemProps> = ({
     return childIdsOf(children).includes(ctx.activeItemId);
   }, [children, hasChildren, ctx.activeItemId]);
 
-  const [uncontrolledExpanded, setUncontrolledExpanded] = useState<boolean>(
-    defaultExpanded ?? childActiveAuto,
-  );
+  const [uncontrolledExpanded, setUncontrolledExpanded] = useState<boolean>(() => {
+    const persisted = readPersistedExpanded(persistKey);
+    if (persisted !== null) return persisted;
+    return defaultExpanded ?? childActiveAuto;
+  });
   // Auto-expand when a child becomes the active item (i.e. user navigates INTO the
   // section). Doesn't override manual collapses while staying inside the section.
   const previousChildActiveRef = useRef(childActiveAuto);
@@ -312,6 +346,33 @@ const SidebarItem: FunctionComponent<SidebarItemProps> = ({
     }
     previousChildActiveRef.current = childActiveAuto;
   }, [childActiveAuto]);
+
+  // Force-collapse when the user navigates AWAY from this section (neither the
+  // rail item itself nor any of its children is active). Without this, the
+  // persisted expanded state would re-open the dropdown on return — leaking
+  // expansion across sections so multiple rail items appear "open" at once.
+  useEffect(() => {
+    if (!expandable || controlledExpanded !== undefined) return;
+    if (!isActive && !childActiveAuto && uncontrolledExpanded) {
+      setUncontrolledExpanded(false);
+    }
+  }, [expandable, controlledExpanded, isActive, childActiveAuto, uncontrolledExpanded]);
+
+  // Persist uncontrolled expand state so a manual collapse/expand survives a
+  // refresh. Only writes when the item has children (otherwise the state has no
+  // visual effect) and the parent isn't controlling expansion.
+  useEffect(() => {
+    if (!persistKey || controlledExpanded !== undefined || typeof window === 'undefined') return;
+    if (!hasChildren) return;
+    try {
+      window.localStorage.setItem(
+        `blawby:sidebar:expand:${persistKey}`,
+        uncontrolledExpanded ? '1' : '0',
+      );
+    } catch {
+      // localStorage may be disabled (private mode, quota); persistence is best-effort.
+    }
+  }, [persistKey, controlledExpanded, hasChildren, uncontrolledExpanded]);
 
   const isControlled = controlledExpanded !== undefined;
   const isExpanded = hasChildren && (isControlled ? controlledExpanded : uncontrolledExpanded);
@@ -376,7 +437,7 @@ const SidebarItem: FunctionComponent<SidebarItemProps> = ({
           isDanger
             ? 'text-red-400 hover:bg-red-500/10'
             : isActive
-              ? 'bg-[rgb(var(--sidebar-active-bg))] text-[rgb(var(--sidebar-active-text))]'
+              ? 'bg-[rgb(var(--sidebar-active-bg))] text-[rgb(var(--sidebar-active-text))] before:absolute before:left-0 before:top-1.5 before:bottom-1.5 before:w-0.5 before:rounded-full before:bg-accent-utility [&_svg]:text-accent-utility'
               : 'text-[rgb(var(--sidebar-text-secondary))] hover:bg-[rgb(var(--sidebar-hover-bg))] hover:text-[rgb(var(--sidebar-text))]',
         )}
       >
@@ -402,7 +463,7 @@ const SidebarItem: FunctionComponent<SidebarItemProps> = ({
           isDanger
             ? 'text-red-400 hover:bg-red-500/10'
             : isActive
-              ? 'bg-[rgb(var(--sidebar-active-bg))] text-[rgb(var(--sidebar-active-text))]'
+              ? 'relative bg-[rgb(var(--sidebar-active-bg))] text-[rgb(var(--sidebar-active-text))] before:absolute before:left-0 before:top-1.5 before:bottom-1.5 before:w-0.5 before:rounded-full before:bg-accent-utility [&_svg]:text-accent-utility'
               : 'text-[rgb(var(--sidebar-text-secondary))] hover:bg-[rgb(var(--sidebar-hover-bg))]',
         )}
       >
@@ -411,10 +472,16 @@ const SidebarItem: FunctionComponent<SidebarItemProps> = ({
           <span className="truncate">{label}</span>
         </span>
         <span className="flex shrink-0 items-center gap-2">
-          {badge != null && badge !== '' ? <SidebarBadge>{badge}</SidebarBadge> : null}
-          {count != null && count !== '' ? (
-            <span className="text-[11px] font-medium text-[rgb(var(--sidebar-text-secondary))]">{count}</span>
-          ) : null}
+          {(() => {
+            const formattedBadge = formatBadgeValue(badge);
+            return formattedBadge !== null ? <SidebarBadge>{formattedBadge}</SidebarBadge> : null;
+          })()}
+          {(() => {
+            const formattedCount = formatBadgeValue(count);
+            return formattedCount !== null ? (
+              <span className="text-[11px] font-medium text-[rgb(var(--sidebar-text-secondary))]">{formattedCount}</span>
+            ) : null;
+          })()}
           {ResolvedTrailing ? <Icon icon={ResolvedTrailing} className="h-3.5 w-3.5 text-[rgb(var(--sidebar-text-secondary))]" /> : null}
         </span>
       </button>
@@ -483,7 +550,7 @@ const SidebarSubItem: FunctionComponent<SidebarSubItemProps> = ({
         isDanger
           ? 'text-red-400 hover:bg-red-500/10'
           : isActive
-            ? 'bg-[rgb(var(--sidebar-active-bg))] text-[rgb(var(--sidebar-active-text))]'
+            ? 'relative bg-[rgb(var(--sidebar-active-bg))] text-[rgb(var(--sidebar-active-text))] before:absolute before:left-0 before:top-1.5 before:bottom-1.5 before:w-0.5 before:rounded-full before:bg-accent-utility [&_svg]:text-accent-utility'
             : 'text-[rgb(var(--sidebar-text-secondary))] hover:bg-[rgb(var(--sidebar-hover-bg))]',
       )}
     >
@@ -491,9 +558,12 @@ const SidebarSubItem: FunctionComponent<SidebarSubItemProps> = ({
         {icon ? <Icon icon={icon} className="h-3.5 w-3.5 shrink-0" /> : null}
         <span className="truncate">{label}</span>
       </span>
-      {count != null && count !== '' ? (
-        <span className="text-[11px] font-medium">{count}</span>
-      ) : null}
+      {(() => {
+        const formattedCount = formatBadgeValue(count);
+        return formattedCount !== null ? (
+          <span className="text-[11px] font-medium">{formattedCount}</span>
+        ) : null;
+      })()}
     </button>
   );
 };
@@ -632,6 +702,17 @@ function childIdsOf(children: ComponentChildren): string[] {
   visit(children);
   return ids;
 }
+
+/**
+ * Cap numeric badge/count values at "99+" so a busy practice (hundreds of
+ * matters / invoices / files) doesn't blow up the pill width. Strings and
+ * other non-numeric values pass through untouched.
+ */
+const formatBadgeValue = (value: number | string | null | undefined): string | null => {
+  if (value == null || value === '') return null;
+  if (typeof value === 'number') return value > 99 ? '99+' : String(value);
+  return value;
+};
 
 const SidebarBadge: FunctionComponent<{ children: ComponentChildren }> = ({ children }) => (
   <span className="inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-[rgb(var(--sidebar-badge-bg))] px-2 py-[2px] text-[10px] font-semibold leading-none text-[rgb(var(--sidebar-badge-text))]">

@@ -440,36 +440,49 @@ const _uuidOrNull = (value: string | undefined | null): string | null | undefine
   return isUuid(value) ? value : undefined;
 };
 
-export const buildCreatePayload = (values: MatterFormState): Record<string, unknown> => ({
-  title: values.title.trim(),
-  billing_type: values.billingType,
-  status: values.status,
-  client_id: values.clientId || undefined,
-  practice_service_id: values.practiceAreaId || undefined,
-  description: values.description || undefined,
-  case_number: values.caseNumber || undefined,
-  matter_type: values.matterType || undefined,
-  urgency: values.urgency || undefined,
-  responsible_attorney_id: values.responsibleAttorneyId || undefined,
-  originating_attorney_id: values.originatingAttorneyId || undefined,
-  court: values.court || undefined,
-  judge: values.judge || undefined,
-  opposing_party: values.opposingParty || undefined,
-  opposing_counsel: values.opposingCounsel || undefined,
-  attorney_hourly_rate: values.attorneyHourlyRate ?? undefined,
-  admin_hourly_rate: values.adminHourlyRate ?? undefined,
-  payment_frequency: values.paymentFrequency ?? undefined,
-  total_fixed_price: values.totalFixedPrice ?? undefined,
-  contingency_percentage: values.contingencyPercent ?? undefined,
-  settlement_amount: values.settlementAmount ?? undefined,
-  assignee_ids: values.assigneeIds.length > 0 ? values.assigneeIds : undefined,
-  milestones: values.milestones.map((m, i) => ({
-    description: m.description,
-    amount: m.amount ?? 0,
-    due_date: m.dueDate || null,
-    order: i + 1
-  }))
-});
+export const buildCreatePayload = (values: MatterFormState): Record<string, unknown> => {
+  // Backend's billing validator requires `total_fixed_price` for fixed billing
+  // regardless of payment_frequency. For milestone billing the form doesn't
+  // collect a top-line price, so derive it from the milestone amounts.
+  const isMilestoneFixed =
+    values.billingType === 'fixed' &&
+    values.paymentFrequency === 'milestone' &&
+    values.milestones.length > 0;
+  const milestoneTotal = isMilestoneFixed
+    ? values.milestones.reduce((sum, m) => sum + (m.amount ?? 0), 0)
+    : undefined;
+
+  return {
+    title: values.title.trim(),
+    billing_type: values.billingType,
+    status: values.status,
+    client_id: values.clientId || undefined,
+    practice_service_id: values.practiceAreaId || undefined,
+    description: values.description || undefined,
+    case_number: values.caseNumber || undefined,
+    matter_type: values.matterType || undefined,
+    urgency: values.urgency || undefined,
+    responsible_attorney_id: values.responsibleAttorneyId || undefined,
+    originating_attorney_id: values.originatingAttorneyId || undefined,
+    court: values.court || undefined,
+    judge: values.judge || undefined,
+    opposing_party: values.opposingParty || undefined,
+    opposing_counsel: values.opposingCounsel || undefined,
+    attorney_hourly_rate: values.attorneyHourlyRate ?? undefined,
+    admin_hourly_rate: values.adminHourlyRate ?? undefined,
+    payment_frequency: values.paymentFrequency ?? undefined,
+    total_fixed_price: values.totalFixedPrice ?? milestoneTotal,
+    contingency_percentage: values.contingencyPercent ?? undefined,
+    settlement_amount: values.settlementAmount ?? undefined,
+    assignee_ids: values.assigneeIds.length > 0 ? values.assigneeIds : undefined,
+    milestones: values.milestones.map((m, i) => ({
+      description: m.description,
+      amount: m.amount ?? 0,
+      due_date: m.dueDate || null,
+      order: i + 1
+    }))
+  };
+};
 
 export const buildUpdatePayload = (
   values: MatterFormState,

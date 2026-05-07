@@ -1,6 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from 'preact/hooks';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { useLocation } from 'preact-iso';
-import { EditorShell, LoadingBlock } from '@/shared/ui/layout';
+import { Dialog } from '@/shared/ui/dialog/Dialog';
+import { DialogBody } from '@/shared/ui/dialog/DialogBody';
+import { LoadingBlock } from '@/shared/ui/layout';
 import { MatterCreateForm, type MatterFormState } from '@/features/matters/components/MatterForm';
 import { useNavigation } from '@/shared/utils/navigation';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
@@ -77,7 +79,10 @@ export function PracticeMatterCreatePage({
   const [convertInitialValues, setConvertInitialValues] = useState<Partial<MatterFormState> | undefined>(undefined);
   const [convertLoading, setConvertLoading] = useState(false);
   const [convertError, setConvertError] = useState<string | null>(null);
-  const [createdMatterId, setCreatedMatterId] = useState<string | null>(null);
+  // Ref (not state) so handleClose reads the freshly-created id synchronously —
+  // MatterFormInner calls onClose() right after awaiting onSubmit(), before
+  // React commits a state update.
+  const createdMatterIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!currentPractice?.id || hasDetails) return;
@@ -155,7 +160,7 @@ export function PracticeMatterCreatePage({
 
   const clientOptions = useMemo(
     () => clients.items.map((client) => ({
-      id: client.user?.id ?? client.id,
+      id: client.id,
       name: client.user?.name?.trim() || client.user?.email?.trim() || 'Unnamed contact',
       email: client.user?.email ?? '',
       role: 'client' as const,
@@ -192,7 +197,7 @@ export function PracticeMatterCreatePage({
     if (values.practiceAreaId && !isUuid(values.practiceAreaId)) throw new Error(`Invalid practice_service_id UUID: "${values.practiceAreaId}"`);
     const created = await createMatter(practiceId, prunePayload(buildCreatePayload(values)));
     invalidateMattersForPractice(practiceId);
-    setCreatedMatterId((created as BackendMatter | null)?.id ?? null);
+    createdMatterIdRef.current = (created as BackendMatter | null)?.id ?? null;
   }, [practiceId]);
 
   const handleConvertIntake = useCallback(async (values: MatterFormState) => {
@@ -231,17 +236,19 @@ export function PracticeMatterCreatePage({
     }
 
     invalidateMattersForPractice(practiceId);
-    setCreatedMatterId(matterId);
+    createdMatterIdRef.current = matterId;
   }, [convertIntakeUuid, practiceId]);
 
   const handleSubmit = convertIntakeUuid ? handleConvertIntake : handleCreateMatter;
   const handleClose = useCallback(() => {
-    if (createdMatterId && practiceSlug) {
-      navigate(`/practice/${encodeURIComponent(practiceSlug)}/matters/${encodeURIComponent(createdMatterId)}`);
+    const id = createdMatterIdRef.current;
+    createdMatterIdRef.current = null;
+    if (id && practiceSlug) {
+      navigate(`/practice/${encodeURIComponent(practiceSlug)}/matters/${encodeURIComponent(id)}`, true);
       return;
     }
-    navigate(returnTo);
-  }, [createdMatterId, navigate, practiceSlug, returnTo]);
+    navigate(returnTo, true);
+  }, [navigate, practiceSlug, returnTo]);
 
   const shouldDeferCreateForm = Boolean(convertIntakeUuid && convertLoading && !convertInitialValues);
   const title = convertIntakeUuid ? 'Convert Intake to Matter' : 'Create Matter';
@@ -250,31 +257,31 @@ export function PracticeMatterCreatePage({
     : 'Capture matter details, billing structure, and assignment in one place.';
 
   return (
-    <EditorShell
+    <Dialog
+      isOpen
+      onClose={handleClose}
       title={title}
-      subtitle={subtitle}
-      showBack
-      backVariant="close"
-      onBack={() => navigate(returnTo)}
-      contentMaxWidth={null}
+      description={subtitle}
+      contentClassName="!max-w-3xl"
     >
-      <div className="mx-auto flex min-h-0 w-full max-w-6xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
+      <DialogBody>
         {convertError ? (
-          <div className="rounded-xl border border-accent-error/30 bg-accent-error/10 px-4 py-3 text-sm text-accent-error-foreground">
+          <div className="mb-4 rounded-xl border border-accent-error/30 bg-accent-error/10 px-4 py-3 text-sm text-accent-error">
             {convertError}
           </div>
         ) : null}
         {convertIntakeUuid && convertLoading && !convertInitialValues ? (
-          <div className="rounded-xl border border-line-glass/30 bg-surface-card p-6">
+          <div className="card rounded-xl p-6">
             <LoadingBlock label="Loading intake details..." />
           </div>
         ) : null}
         {!shouldDeferCreateForm ? (
-            <MatterCreateForm
-              onClose={handleClose}
-              onSubmit={handleSubmit}
-              practiceId={practiceId}
-              clients={clientOptions}
+          <MatterCreateForm
+            unwrapped
+            onClose={handleClose}
+            onSubmit={handleSubmit}
+            practiceId={practiceId}
+            clients={clientOptions}
             practiceAreas={practiceAreaOptions}
             practiceAreasLoading={!practiceDetails?.services}
             assignees={assigneeOptions}
@@ -282,8 +289,8 @@ export function PracticeMatterCreatePage({
             requireClientSelection={!convertIntakeUuid}
           />
         ) : null}
-      </div>
-    </EditorShell>
+      </DialogBody>
+    </Dialog>
   );
 }
 

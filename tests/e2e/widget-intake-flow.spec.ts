@@ -245,13 +245,11 @@ test.describe('Public widget intake flow', () => {
       status: number;
       payload: {
         success?: boolean;
-        data?: {
-          settings?: {
-            paymentLinkEnabled?: boolean;
-            payment_link_enabled?: boolean;
-            consultationFee?: number;
-            consultation_fee?: number;
-          };
+        settings?: {
+          paymentLinkEnabled?: boolean;
+          payment_link_enabled?: boolean;
+          consultationFee?: number;
+          consultation_fee?: number;
         };
       } | null;
     }> = [];
@@ -304,13 +302,11 @@ test.describe('Public widget intake flow', () => {
               status: response.status(),
               payload: payload as {
                 success?: boolean;
-                data?: {
-                  settings?: {
-                    paymentLinkEnabled?: boolean;
-                    payment_link_enabled?: boolean;
-                    consultationFee?: number;
-                    consultation_fee?: number;
-                  };
+                settings?: {
+                  paymentLinkEnabled?: boolean;
+                  payment_link_enabled?: boolean;
+                  consultationFee?: number;
+                  consultation_fee?: number;
                 };
               } | null,
             });
@@ -364,7 +360,7 @@ test.describe('Public widget intake flow', () => {
           .map((el) => (el.textContent ?? '').trim())
           .slice(-5);
 
-        const settings = latestSettings?.payload?.data?.settings ?? null;
+        const settings = latestSettings?.payload?.settings ?? null;
 
         return {
           url: window.location.href,
@@ -814,7 +810,7 @@ test.describe('Public widget intake flow', () => {
       .not.toBeNull();
 
     const latestSettingsPayload = intakeSettingsPayloads[intakeSettingsPayloads.length - 1] ?? null;
-    const latestSettingsRecord = latestSettingsPayload?.payload?.data?.settings;
+    const latestSettingsRecord = latestSettingsPayload?.payload?.settings;
     const resolvedConsultationFee = typeof latestSettingsRecord?.consultationFee === 'number'
       ? latestSettingsRecord.consultationFee
       : typeof latestSettingsRecord?.consultation_fee === 'number'

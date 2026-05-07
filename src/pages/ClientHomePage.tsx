@@ -1,30 +1,13 @@
 import { useMemo, useState } from 'preact/hooks';
 import { useLocation } from 'preact-iso';
-import {
-  Bell,
-  Briefcase,
-  Building2,
-  FileText,
-  Home,
-  LifeBuoy,
-  MessageSquare,
-  Puzzle,
-  Settings as SettingsIcon,
-  Shield,
-  Sparkles,
-  User,
-  Users,
-} from 'lucide-preact';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { useWorkspace } from '@/shared/hooks/useWorkspace';
 import { useWorkspaceResolver } from '@/shared/hooks/useWorkspaceResolver';
 import { useNavigation } from '@/shared/utils/navigation';
-import { signOut } from '@/shared/lib/authClient';
 import { getWorkspaceSettingsPath } from '@/shared/utils/workspace';
 import { Button } from '@/shared/ui/Button';
 import { NextStepsCard, type NextStepsItem } from '@/shared/ui/cards/NextStepsCard';
-import { Sidebar } from '@/shared/ui/nav/Sidebar';
-import { SidebarProfileMenu } from '@/shared/ui/nav/SidebarProfileMenu';
+import { ClientSidebar } from '@/shared/ui/nav/ClientSidebar';
 import { WorkspaceShellHeader } from '@/shared/ui/layout/WorkspaceShellHeader';
 import { AppShell } from '@/shared/ui/layout/AppShell';
 
@@ -43,9 +26,6 @@ const ClientHomePage = () => {
   const showUpgrade = !canAccessPractice;
 
   const clientPracticeSlug = currentPractice?.slug ?? practices[0]?.slug ?? null;
-  const clientBasePath = clientPracticeSlug
-    ? `/client/${encodeURIComponent(clientPracticeSlug)}`
-    : null;
   const orgName = currentPractice?.name?.trim() || userName;
   const orgInitial = (orgName.charAt(0) || 'B').toUpperCase();
 
@@ -94,125 +74,22 @@ const ClientHomePage = () => {
 
   const sidebarUser = { name: userName, email: userEmail, image: userImage };
 
-  const renderSidebar = (forceExpanded: boolean) => (
-    <Sidebar
-      activeItemId="home"
-      collapsed={forceExpanded ? false : desktopCollapsed}
-      onToggleCollapsed={forceExpanded ? undefined : () => setDesktopCollapsed((v) => !v)}
-      onItemActivate={() => setMobileSidebarOpen(false)}
-    >
-      <Sidebar.Org
-        name={orgName}
-        subtitle="Client Portal"
-        logo={
-          <span
-            aria-hidden="true"
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-[rgb(var(--accent-500))] text-sm font-bold text-[rgb(var(--accent-foreground))]"
-          >
-            {orgInitial}
-          </span>
-        }
-        onCollapseClick={forceExpanded ? undefined : () => setDesktopCollapsed((v) => !v)}
+  const renderSidebar = (forceExpanded: boolean) =>
+    clientPracticeSlug ? (
+      <ClientSidebar
+        practiceSlug={clientPracticeSlug}
+        org={{ name: orgName, initial: orgInitial }}
+        user={sidebarUser}
+        collapsed={desktopCollapsed}
+        forceExpanded={forceExpanded}
+        onToggleCollapsed={() => setDesktopCollapsed((v) => !v)}
+        onItemActivate={() => setMobileSidebarOpen(false)}
+        activeItemId="home"
+        workspaceSection="home"
+        showUpgradeItem={showUpgrade}
+        onUpgradeClick={() => navigateToPricing()}
       />
-      <Sidebar.Section first label="Navigation">
-        <Sidebar.Item id="home" icon={Home} label="Home" />
-        {clientBasePath ? (
-          <>
-            <Sidebar.Item
-              id="matters"
-              icon={Briefcase}
-              label="My Matter"
-              href={`${clientBasePath}/matters`}
-            />
-            <Sidebar.Item
-              id="invoices"
-              icon={FileText}
-              label="Invoices"
-              href={`${clientBasePath}/invoices`}
-            />
-            <Sidebar.Item
-              id="messages"
-              icon={MessageSquare}
-              label="Messages"
-              href={`${clientBasePath}/conversations`}
-            />
-          </>
-        ) : null}
-        {showUpgrade ? (
-          <Sidebar.Item
-            id="upgrade"
-            icon={Sparkles}
-            label="Upgrade to Practice"
-            onClick={() => navigateToPricing()}
-          />
-        ) : null}
-      </Sidebar.Section>
-      {clientBasePath ? (
-        <Sidebar.Section label="Workspace">
-          <Sidebar.Item id="settings" icon={SettingsIcon} label="Settings" expandable>
-            <Sidebar.SubGroupLabel label="Personal" first />
-            <Sidebar.SubItem
-              id="settings-notifications"
-              icon={Bell}
-              label="Notifications"
-              href={`${clientBasePath}/settings/notifications`}
-            />
-            <Sidebar.SubGroupLabel label="Account" />
-            <Sidebar.SubItem
-              id="settings-security"
-              icon={Shield}
-              label="Security"
-              href={`${clientBasePath}/settings/security`}
-            />
-            <Sidebar.SubItem
-              id="settings-profile"
-              icon={User}
-              label="Profile"
-              href={`${clientBasePath}/settings/account`}
-            />
-            {canAccessPractice && (
-              <>
-                <Sidebar.SubGroupLabel label="Practice" />
-                <Sidebar.SubItem
-                  id="settings-practice"
-                  icon={Building2}
-                  label="Practice"
-                  href={`${clientBasePath}/settings/practice`}
-                />
-                <Sidebar.SubItem
-                  id="settings-team"
-                  icon={Users}
-                  label="Team"
-                  href={`${clientBasePath}/settings/practice/team`}
-                />
-                <Sidebar.SubItem
-                  id="settings-apps"
-                  icon={Puzzle}
-                  label="Apps"
-                  href={`${clientBasePath}/settings/apps`}
-                />
-              </>
-            )}
-            <Sidebar.SubGroupLabel label="Support" />
-            <Sidebar.SubItem
-              id="settings-help"
-              icon={LifeBuoy}
-              label="Help"
-              href={`${clientBasePath}/settings/help`}
-            />
-          </Sidebar.Item>
-        </Sidebar.Section>
-      ) : null}
-      <Sidebar.Footer>
-        <SidebarProfileMenu
-          user={sidebarUser}
-          collapsed={forceExpanded ? false : desktopCollapsed}
-          onAccount={() => settingsPath && navigate(settingsPath)}
-          onSignOut={() => void signOut({ navigate })}
-        />
-      </Sidebar.Footer>
-    </Sidebar>
-  );
+    ) : null;
 
   const header = (
     <WorkspaceShellHeader
@@ -228,7 +105,7 @@ const ClientHomePage = () => {
         <div>
           <h1 className="text-2xl text-heading">Welcome back, {userName}</h1>
           <p className="mt-2 text-sm text-secondary">
-            Here's an overview of your matter. Check messages, review documents, or pick up where you left off.
+            Here&apos;s an overview of your matter. Check messages, review documents, or pick up where you left off.
           </p>
         </div>
 

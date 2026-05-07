@@ -19,7 +19,7 @@ export function StatCard({ label, value, trend, icon, className }: StatCardProps
       : 'text-input-placeholder';
 
   return (
-    <div className={cn('glass-panel p-4 rounded-2xl', className)}>
+    <div className={cn('panel p-4 rounded-2xl', className)}>
       <div className="flex items-start justify-between mb-2">
         <span className="text-xs text-input-placeholder">{label}</span>
         {icon && <span className="text-input-placeholder/60">{icon}</span>}

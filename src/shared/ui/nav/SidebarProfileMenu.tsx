@@ -113,7 +113,12 @@ export const SidebarProfileMenu: FunctionComponent<SidebarProfileMenuProps> = ({
           <ProfileMenuItem icon={CircleUser} label="Account" onClick={() => select(onAccount)} />
           <ProfileMenuItem icon={Wallet} label="Payments" onClick={() => select(onPayments)} />
           <Separator />
-          <ProfileMenuItem icon={LogOut} label="Sign out" onClick={() => select(onSignOut)} />
+          <ProfileMenuItem
+            icon={LogOut}
+            label="Sign out"
+            onClick={() => select(onSignOut)}
+            variant="danger"
+          />
         </div>
       ) : null}
     </div>
@@ -126,20 +131,37 @@ const Separator: FunctionComponent = () => (
   </div>
 );
 
-const ProfileMenuItem: FunctionComponent<{ icon: IconComponent; label: ComponentChildren; onClick: () => void }> = ({
-  icon,
-  label,
-  onClick,
-}) => (
-  <button
-    type="button"
-    role="menuitem"
-    onClick={onClick}
-    className="flex h-9 w-full items-center gap-2 rounded-md px-2 text-left text-[13px] text-[rgb(var(--sidebar-text))] transition-colors hover:bg-[rgb(var(--sidebar-hover-bg))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50"
-  >
-    <Icon icon={icon} className="h-4 w-4 text-[rgb(var(--sidebar-text-secondary))]" />
-    <span>{label}</span>
-  </button>
-);
+const ProfileMenuItem: FunctionComponent<{
+  icon: IconComponent;
+  label: ComponentChildren;
+  onClick: () => void;
+  variant?: 'default' | 'danger';
+}> = ({ icon, label, onClick, variant = 'default' }) => {
+  const isDanger = variant === 'danger';
+  return (
+    <button
+      type="button"
+      role="menuitem"
+      onClick={onClick}
+      className={cn(
+        'group flex h-9 w-full items-center gap-2 rounded-md px-2 text-left text-[13px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50',
+        isDanger
+          ? 'text-red-400 hover:bg-red-500/10 hover:text-red-300'
+          : 'text-[rgb(var(--sidebar-text))] hover:bg-[rgb(var(--sidebar-hover-bg))]',
+      )}
+    >
+      <Icon
+        icon={icon}
+        className={cn(
+          'h-4 w-4',
+          isDanger
+            ? 'text-red-400 group-hover:text-red-300'
+            : 'text-[rgb(var(--sidebar-text-secondary))]',
+        )}
+      />
+      <span>{label}</span>
+    </button>
+  );
+};
 
 export default SidebarProfileMenu;

@@ -153,8 +153,8 @@ export const TimeEntriesPanel = ({
           selectedWeekStart={selectedWeekStart}
           onSelectWeek={(date) => setSelectedWeekStart(getStartOfWeek(date))}
         />
-        <div className="glass-panel overflow-hidden">
-          <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line-glass/30 px-6 py-4">
+        <div className="panel overflow-hidden">
+          <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line-subtle px-6 py-4">
             <div className="flex items-center gap-3">
               <Button
                 variant="ghost"
@@ -192,7 +192,7 @@ export const TimeEntriesPanel = ({
                 key={day.dateKey}
                 type="button"
                 onClick={() => openNewEntry(day.dateKey)}
-                className="w-full text-left px-4 py-3 sm:px-6 hover:bg-surface-utility/10 transition-colors"
+                className="w-full text-left px-4 py-3 sm:px-6 hover:bg-surface-card-hover transition-colors"
               >
                 <div className="grid gap-2 sm:grid-cols-12 sm:items-center">
                   <div className="text-sm font-medium text-input-placeholder sm:col-span-3">
@@ -200,7 +200,7 @@ export const TimeEntriesPanel = ({
                   </div>
                   <div className="sm:col-span-9">
                     <div className="flex items-center gap-3">
-                      <div className="flex-1 h-2 rounded-full bg-line-glass/60">
+                      <div className="flex-1 h-2 rounded-full bg-line-subtle">
                         <div
                           className="h-2 rounded-full bg-accent-500"
                           style={{ width: `${day.progressPercentage}%` }}

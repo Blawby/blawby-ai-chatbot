@@ -9,6 +9,7 @@ import {
   type MatterStatus
 } from '@/shared/types/matterStatus';
 import { cn } from '@/shared/utils/cn';
+import { MATTER_STATUS_BADGE_CLASS } from '@/features/matters/utils/matterStatusStyles';
 
 const STATUS_ICON: Record<MatterStatus, unknown> = {
   first_contact: MessagesSquare,
@@ -32,30 +33,6 @@ const STATUS_ICON: Record<MatterStatus, unknown> = {
   order_entered: CheckCircle2,
   appeal_pending: Redo2,
   closed: CheckCircle2
-};
-
-const STATUS_COLOR: Record<MatterStatus, string> = {
-  first_contact: 'bg-accent-500 text-[rgb(var(--accent-foreground))] ring-accent-500/40',
-  intake_pending: 'bg-amber-500 text-slate-950 ring-amber-500/45',
-  conflict_check: 'bg-amber-500 text-slate-950 ring-amber-500/45',
-  conflicted: 'bg-red-500 text-[rgb(var(--accent-foreground))] ring-red-500/45',
-  eligibility: 'bg-accent-500 text-[rgb(var(--accent-foreground))] ring-accent-500/40',
-  referred: 'bg-surface-workspace text-input-text ring-line-glass/40',
-  consultation_scheduled: 'bg-accent-500 text-[rgb(var(--accent-foreground))] ring-accent-500/40',
-  declined: 'bg-red-500 text-[rgb(var(--accent-foreground))] ring-red-500/45',
-  engagement_draft: 'bg-amber-500 text-slate-950 ring-amber-500/45',
-  engagement_sent: 'bg-violet-500 text-[rgb(var(--accent-foreground))] ring-violet-500/45',
-  engagement_accepted: 'bg-emerald-500 text-[rgb(var(--accent-foreground))] ring-emerald-500/45',
-  engagement_pending: 'bg-amber-500 text-slate-950 ring-amber-500/45',
-  active: 'bg-emerald-500 text-[rgb(var(--accent-foreground))] ring-emerald-500/45',
-  pleadings_filed: 'bg-accent-500 text-[rgb(var(--accent-foreground))] ring-accent-500/40',
-  discovery: 'bg-accent-500 text-[rgb(var(--accent-foreground))] ring-accent-500/40',
-  mediation: 'bg-amber-500 text-slate-950 ring-amber-500/45',
-  pre_trial: 'bg-amber-500 text-slate-950 ring-amber-500/45',
-  trial: 'bg-red-500 text-[rgb(var(--accent-foreground))] ring-red-500/45',
-  order_entered: 'bg-emerald-500 text-[rgb(var(--accent-foreground))] ring-emerald-500/45',
-  appeal_pending: 'bg-amber-500 text-slate-950 ring-amber-500/45',
-  closed: 'bg-surface-workspace text-input-text ring-line-glass/40'
 };
 
 interface MatterStatusPopoverProps {
@@ -125,7 +102,7 @@ export const MatterStatusPopover = ({ currentStatus, onSelect, disabled }: Matte
   };
 
   const StatusIcon = (STATUS_ICON[currentStatus] as preact.ComponentType<{ className?: string; 'aria-hidden'?: boolean }>) ?? Scale;
-  const colorClasses = STATUS_COLOR[currentStatus];
+  const colorClasses = MATTER_STATUS_BADGE_CLASS[currentStatus];
 
   return (
     <div ref={ref} className="relative">
@@ -147,7 +124,7 @@ export const MatterStatusPopover = ({ currentStatus, onSelect, disabled }: Matte
           'inline-flex items-center gap-2 rounded-full px-3 py-1.5',
           'text-sm font-medium ring-1 ring-inset',
           'transition-all duration-150',
-          'hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500',
+          'hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-ring',
           'disabled:opacity-50 disabled:cursor-not-allowed',
           colorClasses
         )}
@@ -168,7 +145,7 @@ export const MatterStatusPopover = ({ currentStatus, onSelect, disabled }: Matte
           onKeyDown={handleListboxKeyDown}
           className={cn(
             'absolute left-0 top-full z-50 mt-2 w-56',
-            'rounded-xl border border-line-glass/10',
+            'rounded-xl border border-line-subtle',
             'bg-surface-overlay/95 backdrop-blur-2xl shadow-glass',
             'py-1 overflow-y-auto max-h-72'
           )}
@@ -193,19 +170,19 @@ export const MatterStatusPopover = ({ currentStatus, onSelect, disabled }: Matte
                 className={cn(
                   'w-full flex items-center gap-2.5 px-3 py-2 text-left text-sm transition-colors duration-100',
                   isSelected
-                    ? 'bg-accent-500 text-[rgb(var(--accent-foreground))]'
-                    : 'text-input-text hover:bg-surface-utility/10'
+                    ? cn(MATTER_STATUS_BADGE_CLASS[status], 'ring-1 ring-inset')
+                    : 'text-input-text hover:bg-surface-card-hover'
                 )}
               >
                 <Icon
                   icon={statusIcon}
                   className={cn(
                     'h-4 w-4 shrink-0',
-                    isSelected ? 'text-[rgb(var(--accent-foreground))]' : 'text-input-placeholder'
+                    isSelected ? '' : 'text-input-placeholder'
                   )}
                 />
                 <span className="flex-1">{MATTER_STATUS_LABELS[status]}</span>
-                {isSelected && <Icon icon={Check} className="h-3.5 w-3.5 shrink-0 text-[rgb(var(--accent-foreground))]" aria-hidden  />}
+                {isSelected && <Icon icon={Check} className="h-3.5 w-3.5 shrink-0" aria-hidden  />}
               </button>
             );
           })}

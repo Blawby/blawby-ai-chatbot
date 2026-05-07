@@ -58,7 +58,8 @@ import { features } from '@/config/features';
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
-export type WorkspaceView = 'home' | 'setup' | 'list' | 'conversation' | 'intakes' | 'intakeDetail' | 'engagements' | 'matters' | 'contacts' | 'invoices' | 'invoiceCreate' | 'invoiceEdit' | 'invoiceDetail' | 'reports' | 'settings';
+import type { WorkspaceView } from '@/shared/utils/workspaceShell';
+export type { WorkspaceView };
 
 /**
  * LayoutMode controls how ChatContainer renders its shell.
@@ -720,21 +721,17 @@ export function MainApp({
       mattersView={
         isPracticeWorkspace
           ? (practiceMattersPath
-            ? (statusFilter, prefetchData, onDetailInspector, detailInspectorOpen, detailHeaderLeadingAction) => (
+            ? (statusFilter, prefetchData) => (
               <LazyRouteBoundary>
                 <PracticeMattersPage
                   basePath={practiceMattersPath}
                   practiceId={effectivePracticeId ?? practiceId}
-                  renderMode={layoutMode === 'desktop' ? 'detailOnly' : 'full'}
+                  renderMode="full"
                   statusFilter={statusFilter}
                   prefetchedItems={prefetchData?.mattersData?.items}
                   prefetchedLoading={prefetchData?.mattersData?.isLoading}
                   prefetchedError={prefetchData?.mattersData?.error}
                   onRefetchList={prefetchData?.mattersData?.refetch}
-                  onDetailInspector={onDetailInspector}
-                  detailInspectorOpen={detailInspectorOpen}
-                  detailHeaderLeadingAction={detailHeaderLeadingAction}
-                  showDetailBackButton={showWorkspaceDetailBack}
                 />
               </LazyRouteBoundary>
             )
@@ -762,11 +759,11 @@ export function MainApp({
             : undefined
       }
       mattersListContent={
-        isPracticeWorkspace && layoutMode === 'desktop' && practiceMattersPath
+        isClientWorkspace && layoutMode === 'desktop' && clientMattersPath
           ? (statusFilter, prefetchData) => (
             <LazyRouteBoundary>
-              <PracticeMattersPage
-                basePath={practiceMattersPath}
+              <ClientMattersPage
+                basePath={clientMattersPath}
                 practiceId={effectivePracticeId ?? practiceId}
                 renderMode="listOnly"
                 statusFilter={statusFilter}
@@ -778,22 +775,6 @@ export function MainApp({
               />
             </LazyRouteBoundary>
           )
-          : isClientWorkspace && layoutMode === 'desktop' && clientMattersPath
-            ? (statusFilter, prefetchData) => (
-              <LazyRouteBoundary>
-                <ClientMattersPage
-                  basePath={clientMattersPath}
-                  practiceId={effectivePracticeId ?? practiceId}
-                  renderMode="listOnly"
-                  statusFilter={statusFilter}
-                  prefetchedItems={prefetchData?.mattersData?.items}
-                  prefetchedLoading={prefetchData?.mattersData?.isLoading}
-                  prefetchedError={prefetchData?.mattersData?.error}
-                  onRefetchList={prefetchData?.mattersData?.refetch}
-                  showDetailBackButton={showWorkspaceDetailBack}
-                />
-              </LazyRouteBoundary>
-            )
           : undefined
       }
       contactsView={isPracticeWorkspace && practiceContactsPath != null

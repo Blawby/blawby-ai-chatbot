@@ -52,6 +52,7 @@ export function Tooltip({
 
   return (
     <span
+      role="presentation"
       className="relative inline-flex"
       aria-describedby={visible ? tooltipId : undefined}
       onMouseEnter={show}

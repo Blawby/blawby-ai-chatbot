@@ -3,6 +3,8 @@ import { cn } from '@/shared/utils/cn';
 import { Avatar } from '@/shared/ui/profile';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
 import { SELECTED_ACCENT_SURFACE_CLASS } from '@/shared/ui/layout/selectionStyles';
+import { MatterStatusDot } from '@/features/matters/components/MatterStatusDot';
+import { MATTER_STATUS_LABELS } from '@/shared/types/matterStatus';
 
 interface MatterListItemProps {
   matter: MatterSummary;
@@ -13,33 +15,48 @@ interface MatterListItemProps {
 export const MatterListItem = ({ matter, onSelect, isSelected = false }: MatterListItemProps) => {
   const updatedLabel = formatRelativeTime(matter.updatedAt);
   const isInteractive = Boolean(onSelect);
+  const statusLabel = MATTER_STATUS_LABELS[matter.status];
 
   const rowClassName = cn(
-    'w-full text-left flex items-center gap-3 px-4 py-3.5 transition-colors duration-150',
+    'relative w-full text-left flex items-center gap-3 px-4 py-3 transition-all duration-150',
     isSelected ? SELECTED_ACCENT_SURFACE_CLASS : '',
-    isInteractive ? 'hover:bg-surface-utility/40 cursor-pointer' : 'cursor-default'
+    isInteractive ? 'hover:bg-surface-card-hover cursor-pointer' : 'cursor-default'
   );
 
   const content = (
     <>
-      <Avatar
-        name={matter.clientName}
-        size="sm"
-        className="bg-surface-utility/40 text-input-text ring-1 ring-line-glass/20"
-      />
+      {isSelected ? (
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-y-2 left-0 w-[3px] rounded-full bg-accent-500"
+        />
+      ) : null}
+      <div className="relative shrink-0">
+        <Avatar
+          name={matter.clientName}
+          size="sm"
+          className="bg-surface-card-raised text-input-text ring-1 ring-line-subtle"
+        />
+        <MatterStatusDot
+          status={matter.status}
+          className="absolute -bottom-0.5 -right-0.5 p-0 ring-2 ring-card"
+        />
+      </div>
       <div className="min-w-0 flex-1">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
-            <h2 className="min-w-0 truncate text-sm font-semibold leading-6 text-input-text">
+            <h2 className="min-w-0 truncate text-[14px] font-semibold leading-5 tracking-tight text-input-text">
               {matter.title}
             </h2>
-            <div className="mt-1 flex items-center gap-2 text-xs text-input-placeholder">
+            <p className="mt-0.5 flex min-w-0 items-center gap-1.5 text-xs text-input-placeholder">
               <span className="truncate">{matter.clientName}</span>
-            </div>
+              <span aria-hidden="true" className="text-input-placeholder/30">·</span>
+              <span className="truncate">{statusLabel}</span>
+            </p>
           </div>
-          <div className="flex flex-col items-end gap-1">
-            <span className="text-xs text-input-placeholder">{updatedLabel}</span>
-          </div>
+          <span className="shrink-0 text-[11px] tabular-nums text-input-placeholder/80">
+            {updatedLabel}
+          </span>
         </div>
       </div>
     </>
@@ -56,7 +73,7 @@ export const MatterListItem = ({ matter, onSelect, isSelected = false }: MatterL
             'h-auto rounded-none bg-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50'
           )}
           aria-current={isSelected ? 'true' : undefined}
-          aria-label={`Select matter ${matter.title} for ${matter.clientName} (${matter.status})`}
+          aria-label={`Select matter ${matter.title} for ${matter.clientName} (${statusLabel})`}
         >
           {content}
         </button>

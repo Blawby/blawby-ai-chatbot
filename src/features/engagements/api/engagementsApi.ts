@@ -145,15 +145,17 @@ export async function listEngagements(
   if (invalidStatuses.length > 0) {
     throw new Error(`Invalid engagement status filter: ${invalidStatuses.join(', ')}`);
   }
-
+  if (hasStatusFilter && requestedStatuses.length !== 1) {
+    throw new Error('Engagement list supports exactly one status filter');
+  }
 
   const allowedStatuses = new Set<string>(requestedStatuses);
 
   const query = new URLSearchParams();
   query.set('page', String(requestedPage));
   query.set('limit', String(requestedLimit));
-  if (requestedStatuses.length > 0) {
-    requestedStatuses.forEach(s => query.append('status', s));
+  if (hasStatusFilter && requestedStatuses.length === 1) {
+    query.set('status', requestedStatuses[0]);
   }
 
   let raw: unknown;
@@ -226,6 +228,53 @@ export async function getEngagement(
   }
 
   return normalizeEngagementContract(raw);
+}
+
+// ── Find engagement for matter ─────────────────────────────────────────────────
+// Domain rule: a matter always has an engagement. The list endpoint doesn't
+// filter by matter_id server-side, so we fetch the practice's engagements and
+// pick the one that references this matter. Returns null only if the matter
+// is in an inconsistent state (no engagement found).
+
+export async function getEngagementForMatter(
+  practiceId: string,
+  matterId: string,
+  options: { signal?: AbortSignal } = {}
+): Promise<EngagementDetail | null> {
+  if (!practiceId) throw new Error('practiceId is required');
+  if (!matterId) throw new Error('matterId is required');
+
+  const limit = 200;
+  let page = 1;
+  // Guard against unbounded loops if backend pagination is malformed.
+  const MAX_PAGES = 100;
+
+  while (page <= MAX_PAGES) {
+    let raw: unknown;
+    try {
+      const result = await apiClient.get<unknown>(
+        `/api/engagement-contracts/${encodeSegment(practiceId)}?page=${page}&limit=${limit}`,
+        { signal: options.signal },
+      );
+      raw = result.data;
+    } catch (error) {
+      throw mutationError(error, 'Failed to fetch engagement for matter');
+    }
+
+    const data = parseContractListPayload(raw);
+    for (const item of data.data) {
+      const record = asRecord(item);
+      if (record.matter_id === matterId) {
+        return normalizeEngagementContract(item);
+      }
+    }
+
+    if (data.data.length === 0) break;
+    if (page * limit >= data.pagination.total) break;
+    page += 1;
+  }
+
+  return null;
 }
 
 // ── Patch proposal_data ────────────────────────────────────────────────────────

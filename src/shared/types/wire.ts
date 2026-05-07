@@ -113,6 +113,10 @@ export {
   UserDetailStatusSchema,
 } from '../../../worker/types/wire/client';
 
+// ── Sidebar Counts ────────────────────────────────────────────────────────
+export type { BackendSidebarCounts } from '../../../worker/types/wire/sidebarCounts';
+export { BackendSidebarCountsSchema } from '../../../worker/types/wire/sidebarCounts';
+
 // ── Activity ──────────────────────────────────────────────────────────────
 export type {
   BackendActivityEvent,

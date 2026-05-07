@@ -43,13 +43,13 @@ export const Switch = ({
   const trackClasses = disabled
     ? value
       ? 'border-transparent bg-accent-500/35 dark:bg-accent-400/30'
-      : 'border border-line-glass/30 bg-slate-200 dark:bg-slate-700/80'
+      : 'border border-line-glass/30 bg-neutral-200 dark:bg-neutral-700/80'
     : value
       ? 'border-transparent bg-accent-500 focus:ring-accent-500'
-      : 'border border-slate-400/35 bg-slate-300 focus:ring-slate-400 dark:border-slate-500/40 dark:bg-slate-600';
+      : 'border border-neutral-400/35 bg-neutral-300 focus:ring-neutral-400 dark:border-neutral-500/40 dark:bg-neutral-600';
 
   const thumbClasses = disabled
-    ? 'bg-slate-300 dark:bg-slate-100'
+    ? 'bg-neutral-300 dark:bg-neutral-100'
     : 'bg-white';
 
   return (

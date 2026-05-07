@@ -5,7 +5,6 @@ import { useLocation } from 'preact-iso';
 import { Plus } from 'lucide-preact';
 
 import { useNavigation } from '@/shared/utils/navigation';
-import { signOut } from '@/shared/utils/auth';
 import { SessionNotReadyError } from '@/shared/types/errors';
 import WorkspaceHomeView from '@/features/chat/views/WorkspaceHomeView';
 import { WorkspaceHomeSection } from '@/features/chat/components/WorkspaceHomeSection';
@@ -20,7 +19,7 @@ import { WorkspaceListHeader } from '@/shared/ui/layout/WorkspaceListHeader';
 import type { WorkspacePlaceholderAction } from '@/shared/ui/layout/WorkspacePlaceholderState';
 import { Button } from '@/shared/ui/Button';
 import { useWorkspaceConversations } from './hooks/useWorkspaceConversations';
-import { useWorkspaceNavigation, previewTabOptions } from './hooks/useWorkspaceNavigation';
+import { useWorkspaceNavigation } from './hooks/useWorkspaceNavigation';
 import { resolveConsultationState } from '@/shared/utils/consultationState';
 import { useWorkspaceSetup } from './hooks/useWorkspaceSetup';
 import { useWorkspaceData } from './hooks/useWorkspaceData';
@@ -43,11 +42,13 @@ import {
   type WorkspaceSection,
   buildSidebarConfig,
 } from '@/shared/config/navConfig';
+import { useSidebarCounts } from '@/shared/hooks/useSidebarCounts';
 import NavRail from '@/shared/ui/nav/NavRail';
-import { Sidebar } from '@/shared/ui/nav/Sidebar';
-import { SidebarProfileMenu } from '@/shared/ui/nav/SidebarProfileMenu';
+import { PracticeSidebar } from '@/shared/ui/nav/PracticeSidebar';
+import { ClientSidebar } from '@/shared/ui/nav/ClientSidebar';
 import InspectorPanel from '@/shared/ui/inspector/InspectorPanel';
 import { SettingsContent, type SettingsView } from '@/features/settings/pages/SettingsContent';
+import { PracticeCoveragePage } from '@/features/settings/pages/PracticeCoveragePage';
 import { mockApps } from '@/features/settings/pages/appsData';
 import type { ChatMessageUI } from '../../../../worker/types';
 import type { Conversation, ConversationMode } from '@/shared/types/conversation';
@@ -58,6 +59,11 @@ import type { IntakeConversationState, DerivedIntakeStatus, IntakeFieldChangeOpt
 import { features } from '@/config/features';
 
 type PreviewTab = 'home' | 'messages' | 'intake';
+const previewTabOptions: Array<{ id: PreviewTab; label: string }> = [
+  { id: 'home', label: 'Home' },
+  { id: 'messages', label: 'Messages' },
+  { id: 'intake', label: 'Intake form' },
+];
 type WorkspacePrefetchData = {
   mattersData?: {
     items: BackendMatter[];
@@ -206,11 +212,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     }
   }, [isDesktopSidebarCollapsed]);
   const [isInspectorOpen, setIsInspectorOpen] = useState(false);
-  const handleSettingsActionItemClick = useCallback((item: SecondaryNavItem) => {
-    if (item.id === 'sign-out') {
-      void signOut({ navigate });
-    }
-  }, [navigate]);
   const navigationInitiatedRef = useRef(false);
   const hasAutoNavigatedRef = useRef(false);
   const filteredMessages = useMemo(() => filterWorkspaceMessages(messages), [messages]);
@@ -620,6 +621,8 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       items={navConfig.rail}
       activeHref={activeHref}
       onItemActivate={handleNavActivate}
+      maxItems={5}
+      onOverflowClick={() => setIsMobileNavOpen(true)}
     />
   ) : undefined;
 
@@ -649,11 +652,23 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     }
 
     if (workspaceSection === 'settings' && navConfig.secondary) {
+      // Longest-prefix-match: nested settings (e.g. practice/team) must beat
+      // their parent (practice). Plain startsWith would always pick whichever
+      // item appears first in the array, which is the parent.
+      let bestSettingsId: string | null = null;
+      let bestSettingsScore = -1;
       for (const section of navConfig.secondary) {
         for (const item of section.items) {
-          if (item.href && activeHref.startsWith(item.href)) return item.id;
+          if (!item.href) continue;
+          const matches = activeHref === item.href || activeHref.startsWith(`${item.href}/`);
+          if (!matches) continue;
+          if (item.href.length > bestSettingsScore) {
+            bestSettingsScore = item.href.length;
+            bestSettingsId = item.id;
+          }
         }
       }
+      if (bestSettingsId) return bestSettingsId;
     }
 
     const matchedSidebarItem = sidebarConfig?.sections
@@ -668,10 +683,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
 
   const handleSidebarSubItemSelect = (id: string, item: SecondaryNavItem) => {
     if (workspaceSection === 'settings') {
-      if (item.isAction) {
-        handleSettingsActionItemClick(item);
-        return;
-      }
       if (item.href) navigate(item.href);
       handleNavActivate();
       return;
@@ -681,6 +692,12 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       navigate(item.href);
       handleNavActivate();
       return;
+    }
+    // On /engagements, the Matters sub-items still render (Matters owns the rail
+    // section) but selecting one only flips the filter — it doesn't navigate.
+    // Force a route back to /matters so the filter actually takes effect.
+    if (workspaceSection === 'matters' && view === 'engagements' && item.href) {
+      navigate(item.href);
     }
     handleSecondaryFilterSelect(id);
     handleNavActivate();
@@ -709,12 +726,14 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   const SECTION_TITLES: Record<WorkspaceSection, string> = {
     home: 'Home',
     conversations: 'Inbox',
+    forms: 'Forms',
     intakes: 'Intakes',
     engagements: 'Engagements',
     matters: 'Matters',
     invoices: 'Payments',
     reports: 'Reports',
     settings: 'Settings',
+    coverage: 'Coverage',
   };
   const headerTitle = SECTION_TITLES[workspaceSection] ?? 'Home';
   const headerBreadcrumb = orgDisplayName ? [orgDisplayName, headerTitle] : undefined;
@@ -733,168 +752,44 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     />
   ) : undefined;
 
-  // Practice areas (Pencil paWrap): first three services + a "More" button.
-  // Color cycle from Pencil mockup ($accent-emerald, $accent-cyan, amber).
-  const PRACTICE_AREA_COLORS = ['#10B981', '#06B6D4', '#F59E0B', '#A855F7', '#EF4444'];
-  const allPracticeAreaNames = (() => {
-    const source = practiceDetails?.services ?? currentPractice?.services ?? [];
-    if (!Array.isArray(source)) return [] as string[];
-    const names = source
-      .map((entry: unknown) => {
-        if (typeof entry === 'string') return entry;
-        if (entry && typeof entry === 'object') {
-          const r = entry as Record<string, unknown>;
-          if (typeof r.name === 'string') return r.name;
-          if (typeof r.title === 'string') return r.title;
-        }
-        return '';
-      })
-      .filter((s): s is string => Boolean(s));
-    return Array.from(new Set(names));
-  })();
-  const practiceAreas = allPracticeAreaNames.slice(0, 3).map((name, i) => ({
-    name,
-    color: PRACTICE_AREA_COLORS[i % PRACTICE_AREA_COLORS.length],
-  }));
-  const hasMorePracticeAreas = allPracticeAreaNames.length > practiceAreas.length;
+  // Sidebar counts come from the /api/practice/:id/sidebar/counts worker
+  // endpoint (Pencil GtRGH badges). All sections — matters, intakes, inbox,
+  // payments, files — are computed server-side; the active workspaceSection
+  // determines which sub-counts (active/closed/pending/etc.) get written into
+  // the map for the visible expanded rail item.
+  const { counts: sidebarCounts } = useSidebarCounts(
+    isPracticeWorkspace ? practiceId : null,
+    workspaceSection,
+    { enabled: isPracticeWorkspace },
+  );
 
-  // Build the Sidebar tree as a function so we can render it twice — once for the
-  // desktop column (respects collapsed state) and once for the mobile drawer (always
-  // expanded so the rail-style icons don't show in the drawer overlay).
-  const renderSidebarTree = (forceExpanded: boolean) => sidebarConfig ? (
-    <Sidebar
-      activeItemId={sidebarActiveItemId}
-      onItemActivate={handleNavActivate}
-      collapsed={forceExpanded ? false : isDesktopSidebarCollapsed}
-      onToggleCollapsed={forceExpanded ? undefined : () => setIsDesktopSidebarCollapsed((v) => !v)}
-    >
-      {sidebarOrg ? (
-        <Sidebar.Org
-          name={sidebarOrg.name}
-          subtitle={sidebarOrg.plan}
-          logo={
-            <span
-              aria-hidden="true"
-              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-[rgb(var(--accent-500))] text-sm font-bold text-[rgb(var(--accent-foreground))]"
-            >
-              {sidebarOrg.initial}
-            </span>
-          }
-          onCollapseClick={forceExpanded ? undefined : () => setIsDesktopSidebarCollapsed((v) => !v)}
-        />
-      ) : null}
-      {sidebarConfig.sections.map((section, idx) => (
-        <Sidebar.Section key={section.label ?? `section-${idx}`} label={section.label} first={idx === 0}>
-          {section.items.map((item) => {
-            const children = item.children ?? [];
-            const railSecondary = navConfig.secondary ?? [];
-            const findSecondaryItem = (id: string): SecondaryNavItem | undefined => {
-              for (const s of railSecondary) {
-                for (const i of s.items) {
-                  if (i.id === id) return i;
-                  const child = i.children?.find((c) => c.id === id);
-                  if (child) return child;
-                }
-              }
-              return undefined;
-            };
-            return (
-              <Sidebar.Item
-                key={item.id}
-                id={item.id}
-                label={item.label}
-                icon={item.icon}
-                href={item.href}
-                badge={item.badge ?? null}
-                variant={item.variant}
-                isAction={item.isAction}
-                onClick={item.onClick}
-                expandable={item.expandable || children.length > 0}
-              >
-                {(() => {
-                  let groupIndex = -1;
-                  return children.map((child) => {
-                    if (child.isGroupLabel) {
-                      groupIndex += 1;
-                      return (
-                        <Sidebar.SubGroupLabel
-                          key={child.id}
-                          label={child.label}
-                          first={groupIndex === 0}
-                        />
-                      );
-                    }
-                    return (
-                      <Sidebar.SubItem
-                        key={child.id}
-                        id={child.id}
-                        label={child.label}
-                        href={child.href}
-                        count={child.count ?? null}
-                        variant={child.variant}
-                        isAction={child.isAction}
-                        icon={child.icon}
-                        onClick={() => {
-                          const matched = findSecondaryItem(child.id);
-                          if (matched) handleSidebarSubItemSelect(child.id, matched);
-                        }}
-                      />
-                    );
-                  });
-                })()}
-              </Sidebar.Item>
-            );
-          })}
-        </Sidebar.Section>
-      ))}
-      {practiceAreas.length > 0 ? (
-        <Sidebar.Section label="Practice Areas">
-          {practiceAreas.map((pa) => (
-            <Sidebar.PracticeAreaItem
-              key={pa.name}
-              label={pa.name}
-              color={pa.color}
-              onClick={() => navigate(`${normalizedBase}/settings/practice/coverage`)}
-            />
-          ))}
-          {hasMorePracticeAreas ? (() => {
-            const moreCollapsed = forceExpanded ? false : isDesktopSidebarCollapsed;
-            return (
-              <button
-                type="button"
-                onClick={() => navigate(`${normalizedBase}/settings/practice/coverage`)}
-                title="More"
-                aria-label="More practice areas"
-                className={
-                  moreCollapsed
-                    ? 'flex h-9 w-full items-center justify-center rounded-lg text-[rgb(var(--sidebar-text-secondary))] transition-colors hover:bg-[rgb(var(--sidebar-hover-bg))] hover:text-[rgb(var(--sidebar-text))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50'
-                    : 'flex items-center gap-2.5 rounded-lg px-2.5 py-[9px] text-left text-xs text-[rgb(var(--sidebar-text-secondary))] transition-colors hover:text-[rgb(var(--sidebar-text))] hover:bg-[rgb(var(--sidebar-hover-bg))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50'
-                }
-              >
-                <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
-                  <circle cx="5" cy="12" r="1" />
-                  <circle cx="12" cy="12" r="1" />
-                  <circle cx="19" cy="12" r="1" />
-                </svg>
-                {moreCollapsed ? null : <span>More</span>}
-              </button>
-            );
-          })() : null}
-        </Sidebar.Section>
-      ) : null}
-      {sidebarUser ? (
-        <Sidebar.Footer>
-          <SidebarProfileMenu
-            user={sidebarUser}
-            collapsed={forceExpanded ? false : isDesktopSidebarCollapsed}
-            onAccount={() => navigate(`${normalizedBase}/settings/account`)}
-            onPayments={() => navigate(`${normalizedBase}/invoices`)}
-            onSignOut={() => void signOut({ navigate })}
-          />
-        </Sidebar.Footer>
-      ) : null}
-    </Sidebar>
-  ) : undefined;
+  // Build the per-workspace sidebar as a function so we can render it twice —
+  // once for the desktop column (respects collapsed state) and once for the
+  // mobile drawer (always expanded so the rail icons don't show in the overlay).
+  const renderSidebarTree = (forceExpanded: boolean) => {
+    if (!sidebarConfig || !sidebarOrg || !practiceSlug) return undefined;
+    const commonProps = {
+      org: { name: sidebarOrg.name, initial: sidebarOrg.initial, subtitle: sidebarOrg.plan },
+      user: sidebarUser,
+      collapsed: isDesktopSidebarCollapsed,
+      forceExpanded,
+      onToggleCollapsed: () => setIsDesktopSidebarCollapsed((v) => !v),
+      onItemActivate: handleNavActivate,
+      activeItemId: sidebarActiveItemId,
+      workspaceSection,
+      onSecondaryItemClick: handleSidebarSubItemSelect,
+    };
+    return isPracticeWorkspace ? (
+      <PracticeSidebar
+        {...commonProps}
+        practiceSlug={practiceSlug}
+        services={practiceDetails?.services ?? currentPractice?.services}
+        counts={sidebarCounts}
+      />
+    ) : (
+      <ClientSidebar {...commonProps} practiceSlug={practiceSlug} />
+    );
+  };
   const sidebarNav = renderSidebarTree(false);
   const mobileSidebarNav = renderSidebarTree(true);
   const showMobileMenuButton = shouldShowWorkspaceMobileMenuButton({
@@ -910,7 +805,8 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   // The global WorkspaceShellHeader provides the mobile menu button now, so the
   // per-section mobile top bar no longer needs its own hamburger.
   void showMobileMenuButton;
-  const mobileCreateButton = primaryCreateAction && showMobileMenuButton ? (
+  const suppressShellCreateButton = view === 'matters';
+  const mobileCreateButton = primaryCreateAction && showMobileMenuButton && !suppressShellCreateButton ? (
     <Button
       type="button"
       variant="icon"
@@ -921,7 +817,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       iconClassName="h-5 w-5"
     />
   ) : null;
-  const desktopCreateButton = primaryCreateAction ? (
+  const desktopCreateButton = primaryCreateAction && !suppressShellCreateButton ? (
     <Button
       type="button"
       variant="icon"
@@ -1026,6 +922,9 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       className="h-full"
     />
   ) : null;
+  const coverageContent = (
+    <PracticeCoveragePage className="h-full" />
+  );
   const chatContent = (
     <div className="flex h-full min-h-0 flex-1 flex-col">
       {chatView}
@@ -1088,6 +987,8 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
         return 'Engagements';
       case 'settings':
         return 'Settings';
+      case 'coverage':
+        return 'Coverage';
       case 'home':
         return 'Home';
       case 'setup':
@@ -1140,6 +1041,8 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
         return reportsContent;
       case 'settings':
         return settingsContent;
+      case 'coverage':
+        return coverageContent;
       case 'conversation':
       default:
         return chatContent;
@@ -1153,6 +1056,12 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       return { kind: 'full-page', overflow: 'hidden' };
     }
     if (view === 'matters') {
+      // Practice matters renders a full-width table in the main pane
+      // (no master/detail rail); client matters retains the split-detail
+      // rail + placeholder pattern.
+      if (isPracticeWorkspace) {
+        return { kind: 'full-page', overflow: selectedMatterIdFromPath ? 'hidden' : 'auto' };
+      }
       return {
         kind: 'split-detail',
         hasSelection: Boolean(selectedMatterIdFromPath || isMatterNonListRoute),

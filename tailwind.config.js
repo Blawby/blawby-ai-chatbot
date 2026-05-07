@@ -1,4 +1,29 @@
-/** @type {import('tailwindcss').Config} */
+/**
+ * Responsive breakpoint conventions
+ * ---------------------------------
+ * Default Tailwind viewport breakpoints are kept as-is:
+ *   sm: 640px · md: 768px · lg: 1024px · xl: 1280px · 2xl: 1536px
+ * Plus one custom screen below: `short` ((max-height: 500px)).
+ *
+ * When to use viewport queries (`sm:` / `md:` / `lg:` / ...):
+ *   - The shell, sidebar, and routing chrome (AppShell, Sidebar, MainApp).
+ *   - Anything whose layout depends on the actual viewport, not container width.
+ *
+ * When to use container queries (`@sm:` / `@md:` / `@lg:` / ...):
+ *   - Components rendered inside the workspace shell (their available width
+ *     changes with sidebar state and inspector panes — the viewport doesn't
+ *     reflect what the component actually has to work with).
+ *   - Cards, grids, forms, detail panes.
+ *
+ * Reference patterns to mirror:
+ *   - src/shared/ui/layout/FormGrid.tsx           — @container + @md:grid-cols-2
+ *   - src/shared/ui/layout/ResponsiveDefinitionGrid.tsx
+ *   - src/features/matters/components/MatterSummaryCards.tsx
+ *
+ * Tracking: see docs/engineering/responsive-audit.md for per-file status.
+ *
+ * @type {import('tailwindcss').Config}
+ */
 module.exports = {
   content: [
     "./index.html",
@@ -17,6 +42,14 @@ module.exports = {
       // Custom color scheme - keeping your custom colors
       colors: {
         surface: {
+          app: 'rgb(var(--surface-app) / <alpha-value>)',
+          sidebar: 'rgb(var(--surface-sidebar) / <alpha-value>)',
+          header: 'rgb(var(--surface-header) / <alpha-value>)',
+          page: 'rgb(var(--surface-page) / <alpha-value>)',
+          section: 'rgb(var(--surface-section) / <alpha-value>)',
+          input: 'rgb(var(--surface-input) / <alpha-value>)',
+          popover: 'rgb(var(--surface-popover) / <alpha-value>)',
+          modal: 'rgb(var(--surface-modal) / <alpha-value>)',
           base: 'rgb(var(--surface-base) / <alpha-value>)',
           overlay: 'rgb(var(--surface-overlay) / <alpha-value>)',
           'nav-rail': 'rgb(var(--surface-nav-rail))',
@@ -29,16 +62,35 @@ module.exports = {
           collection: 'rgb(var(--surface-collection) / <alpha-value>)',
           workspace: 'rgb(var(--surface-workspace) / <alpha-value>)',
           utility: 'rgb(var(--surface-utility) / <alpha-value>)',
+          elevated: 'rgb(var(--surface-elevated) / <alpha-value>)',
           panel: 'rgb(var(--surface-panel) / <alpha-value>)',
+          card: 'rgb(var(--surface-card) / <alpha-value>)',
+          hover: 'rgb(var(--surface-card-hover) / <alpha-value>)',
+          'card-hover': 'rgb(var(--surface-card-hover) / <alpha-value>)',
+          'card-raised': 'rgb(var(--surface-card-raised) / <alpha-value>)',
+        },
+        // Solid card surface — normal dashboard cards should stay neutral, not glassy.
+        // Use bg-card / border-card-border for card-like surfaces that should NOT be translucent.
+        card: {
+          DEFAULT: 'rgb(var(--surface-card) / <alpha-value>)',
+          border: 'rgb(var(--border-subtle) / <alpha-value>)',
         },
         line: {
           glass: 'rgb(var(--line-glass) / <alpha-value>)',
           utility: 'rgb(var(--line-utility) / <alpha-value>)',
+          subtle: 'rgb(var(--border-subtle) / <alpha-value>)',
+          strong: 'rgb(var(--border-strong) / <alpha-value>)',
         },
         input: {
 
           text: 'rgb(var(--input-text) / <alpha-value>)',
           placeholder: 'rgb(var(--input-placeholder) / <alpha-value>)',
+        },
+        text: {
+          primary: 'rgb(var(--text-primary) / <alpha-value>)',
+          secondary: 'rgb(var(--text-secondary) / <alpha-value>)',
+          muted: 'rgb(var(--text-muted) / <alpha-value>)',
+          disabled: 'rgb(var(--text-disabled) / <alpha-value>)',
         },
         // Primary colors (brand colors - dark blue theme)
         primary: {
@@ -72,6 +124,10 @@ module.exports = {
           warning: 'rgb(var(--warning-foreground) / <alpha-value>)',
           foreground: 'rgb(var(--accent-foreground) / <alpha-value>)',
           utility: 'rgb(var(--accent-utility) / <alpha-value>)',
+          soft: 'rgb(var(--accent-soft))',
+          muted: 'rgb(var(--accent-muted))',
+          border: 'rgb(var(--accent-border))',
+          ring: 'rgb(var(--accent-ring))',
         },
         // Light theme colors
 
