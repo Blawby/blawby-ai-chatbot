@@ -6,15 +6,17 @@ import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
 import { cn } from '@/shared/utils/cn';
 import { useUniqueId } from '@/shared/hooks/useUniqueId';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/shared/ui/dropdown';
-import remarkGfm from 'remark-gfm';
-import { markdownComponents } from '@/shared/ui/markdown/markdownComponents';
 import { uploadFileViaBackend } from '@/shared/lib/uploadsApi';
 
-// Custom hook to dynamically import react-markdown on client
+// Lazy-load react-markdown + remark-gfm + the shared markdownComponents map
+// in the same async block so the entire markdown surface stays off the
+// first-load critical path.
 function useReactMarkdown() {
-  // dynamic import: type is unknown until loaded, must use any
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  /* eslint-disable @typescript-eslint/no-explicit-any */
   const [ReactMarkdown, setReactMarkdown] = useState<any>(null);
+  const [remarkGfm, setRemarkGfm] = useState<any>(null);
+  const [components, setComponents] = useState<any>(null);
+  /* eslint-enable @typescript-eslint/no-explicit-any */
   const [error, setError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
 
@@ -23,9 +25,15 @@ function useReactMarkdown() {
 
     const loadMarkdown = async () => {
       try {
-        const mod = await import('react-markdown');
+        const [mod, gfm, comps] = await Promise.all([
+          import('react-markdown'),
+          import('remark-gfm'),
+          import('@/shared/ui/markdown/markdownComponents'),
+        ]);
         if (mounted) {
           setReactMarkdown(() => mod.default);
+          setRemarkGfm(() => gfm.default);
+          setComponents(() => comps.markdownComponents);
           setError(null);
         }
       } catch (err) {
@@ -33,6 +41,8 @@ function useReactMarkdown() {
           const errorMsg = err instanceof Error ? err.message : 'Failed to load markdown preview';
           setError(errorMsg);
           setReactMarkdown(null);
+          setRemarkGfm(null);
+          setComponents(null);
         }
       }
     };
@@ -48,7 +58,7 @@ function useReactMarkdown() {
     setRetryCount((prev) => prev + 1);
   };
 
-  return { component: ReactMarkdown, error, retry };
+  return { component: ReactMarkdown, remarkGfm, components, error, retry };
 }
 
 type UploadState = {
@@ -103,7 +113,13 @@ export const MarkdownUploadTextarea = ({
   className = '',
   defaultTab = 'write'
 }: MarkdownUploadTextareaProps) => {
-  const { component: ReactMarkdown, error: markdownError, retry: retryMarkdown } = useReactMarkdown();
+  const {
+    component: ReactMarkdown,
+    remarkGfm,
+    components: markdownComponents,
+    error: markdownError,
+    retry: retryMarkdown,
+  } = useReactMarkdown();
 
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -472,7 +488,7 @@ export const MarkdownUploadTextarea = ({
                       Retry
                     </button>
                   </div>
-                ) : ReactMarkdown ? (
+                ) : ReactMarkdown && remarkGfm && markdownComponents ? (
                   <ReactMarkdown components={markdownComponents} remarkPlugins={[remarkGfm]}>
                     {value}
                   </ReactMarkdown>

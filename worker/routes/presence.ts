@@ -2,6 +2,7 @@ import type { Request as WorkerRequest } from '@cloudflare/workers-types';
 import type { Env } from '../types.js';
 import { HttpErrors } from '../errorHandler.js';
 import { optionalAuth } from '../middleware/auth.js';
+import { RemoteApiService } from '../services/RemoteApiService.js';
 
 /**
  * GET /api/presence/:practiceId/ws
@@ -37,9 +38,10 @@ export async function handlePresence(request: Request, env: Env): Promise<Respon
   }
   const userId = auth.user.id;
 
-  // Membership/authorization check: user must be a member of the practice
-  const members = await env.RemoteApiService.getPracticeMembers(env, practiceId, request);
-  const isMember = Array.isArray(members) && members.some(m => m.user_id === userId);
+  // Membership/authorization check: user must be a member of the practice.
+  // RemoteApiService is a class with static methods, not an env binding.
+  const members = await RemoteApiService.getPracticeMembers(env, practiceId, request);
+  const isMember = Array.isArray(members) && members.some((m) => m.user_id === userId);
   if (!isMember) {
     throw HttpErrors.forbidden('Not authorized for this practice');
   }

@@ -2,24 +2,10 @@ import { hydrate, prerender as ssr, Router, Route, useLocation, LocationProvider
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { Suspense } from 'preact/compat';
 import { I18nextProvider } from 'react-i18next';
-import AuthPage from '@/pages/AuthPage';
-import AcceptInvitationPage from '@/pages/AcceptInvitationPage';
-import ClientHomePage from '@/pages/ClientHomePage';
-import PracticeHomePage from '@/pages/PracticeHomePage';
-import OnboardingPage from '@/pages/OnboardingPage';
-import PricingPage from '@/pages/PricingPage';
-import PaymentResultPage from '@/pages/PaymentResultPage';
-import DebugStylesPage from '@/pages/DebugStylesPage';
-import DebugDialogsPage from '@/pages/DebugDialogsPage';
-import DebugChatPage from '@/pages/DebugChatPage';
-import DebugConversationsPage from '@/pages/DebugConversationsPage';
-import DebugMatterPage from '@/pages/DebugMatterPage';
-import { ClientEngagementReviewPage } from '@/features/engagements/pages/ClientEngagementReviewPage';
 import { SEOHead } from '@/app/SEOHead';
 import { ToastProvider } from '@/shared/contexts/ToastContext';
 import { SessionProvider, useSessionContext } from '@/shared/contexts/SessionContext';
 import { getSession } from '@/shared/lib/authClient';
-import { MainApp } from '@/app/MainApp';
 import type { WorkspaceView } from '@/shared/utils/workspaceShell';
 import { PublicWorkspaceRoute } from '@/app/PublicWorkspaceRoute';
 import { useNavigation } from '@/shared/utils/navigation';
@@ -57,6 +43,28 @@ import { isWidgetRuntimeContext as _isWidgetRuntimeContext } from '@/shared/util
 import { useTheme } from '@/shared/hooks/useTheme';
 import { setActivePractice } from '@/shared/lib/apiClient';
 import { lazy } from 'preact/compat';
+// Top-level pages are lazy so they don't bloat the entry chunk. Each page
+// loads its own bundle on demand the first time the matching route renders.
+const AuthPage = lazy(() => import('@/pages/AuthPage'));
+const AcceptInvitationPage = lazy(() => import('@/pages/AcceptInvitationPage'));
+const ClientHomePage = lazy(() => import('@/pages/ClientHomePage'));
+const PracticeHomePage = lazy(() => import('@/pages/PracticeHomePage'));
+const OnboardingPage = lazy(() => import('@/pages/OnboardingPage'));
+const PricingPage = lazy(() => import('@/pages/PricingPage'));
+const PaymentResultPage = lazy(() => import('@/pages/PaymentResultPage'));
+// Debug pages — never used in real flows but were eating into the entry
+// chunk because of the static imports. Lazy is the cheapest way to keep
+// them mounted-by-route while excluding their code from first-load.
+const DebugStylesPage = lazy(() => import('@/pages/DebugStylesPage'));
+const DebugDialogsPage = lazy(() => import('@/pages/DebugDialogsPage'));
+const DebugChatPage = lazy(() => import('@/pages/DebugChatPage'));
+const DebugConversationsPage = lazy(() => import('@/pages/DebugConversationsPage'));
+const DebugMatterPage = lazy(() => import('@/pages/DebugMatterPage'));
+const ClientEngagementReviewPage = lazy(() => import('@/features/engagements/pages/ClientEngagementReviewPage').then((m) => ({ default: m.ClientEngagementReviewPage })));
+// MainApp is the workspace shell — it carries the chat composer, file
+// upload pipeline, presence provider, etc. Lazy so the browser only loads
+// it once the user lands on a route that mounts a workspace.
+const MainApp = lazy(() => import('@/app/MainApp').then((m) => ({ default: m.MainApp })));
 const PracticeMatterCreatePage = lazy(() => import('@/features/matters/pages/PracticeMatterCreatePage').then((m) => ({ default: m.PracticeMatterCreatePage })));
 const PracticeContactEditorPage = lazy(() => import('@/features/clients/pages/PracticeContactEditorPage').then((m) => ({ default: m.PracticeContactEditorPage })));
 const PracticeInvoiceCreatePage = lazy(() => import('@/features/invoices/pages/PracticeInvoiceCreatePage').then((m) => ({ default: m.PracticeInvoiceCreatePage })));
