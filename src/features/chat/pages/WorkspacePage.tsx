@@ -19,7 +19,7 @@ import { WorkspaceListHeader } from '@/shared/ui/layout/WorkspaceListHeader';
 import type { WorkspacePlaceholderAction } from '@/shared/ui/layout/WorkspacePlaceholderState';
 import { Button } from '@/shared/ui/Button';
 import { useWorkspaceConversations } from './hooks/useWorkspaceConversations';
-import { useWorkspaceNavigation, previewTabOptions } from './hooks/useWorkspaceNavigation';
+import { useWorkspaceNavigation } from './hooks/useWorkspaceNavigation';
 import { resolveConsultationState } from '@/shared/utils/consultationState';
 import { useWorkspaceSetup } from './hooks/useWorkspaceSetup';
 import { useWorkspaceData } from './hooks/useWorkspaceData';
@@ -59,6 +59,11 @@ import type { IntakeConversationState, DerivedIntakeStatus, IntakeFieldChangeOpt
 import { features } from '@/config/features';
 
 type PreviewTab = 'home' | 'messages' | 'intake';
+const previewTabOptions: Array<{ id: PreviewTab; label: string }> = [
+  { id: 'home', label: 'Home' },
+  { id: 'messages', label: 'Messages' },
+  { id: 'intake', label: 'Intake form' },
+];
 type WorkspacePrefetchData = {
   mattersData?: {
     items: BackendMatter[];

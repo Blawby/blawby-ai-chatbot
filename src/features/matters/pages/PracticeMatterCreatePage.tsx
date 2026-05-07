@@ -244,10 +244,10 @@ export function PracticeMatterCreatePage({
     const id = createdMatterIdRef.current;
     createdMatterIdRef.current = null;
     if (id && practiceSlug) {
-      navigate(`/practice/${encodeURIComponent(practiceSlug)}/matters/${encodeURIComponent(id)}`, { replace: true });
+      navigate(`/practice/${encodeURIComponent(practiceSlug)}/matters/${encodeURIComponent(id)}`, true);
       return;
     }
-    navigate(returnTo, { replace: true });
+    navigate(returnTo, true);
   }, [navigate, practiceSlug, returnTo]);
 
   const shouldDeferCreateForm = Boolean(convertIntakeUuid && convertLoading && !convertInitialValues);

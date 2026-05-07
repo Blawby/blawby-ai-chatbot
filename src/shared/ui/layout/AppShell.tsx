@@ -132,14 +132,6 @@ export const AppShell = ({
       )}
 
 
-      {/* On desktop, header is rendered inside main area (right of sidebar). On mobile, keep at top. */}
-      {/* Mobile header (top bar) */}
-      {hasHeader && (
-        <header className={cn('relative z-10 col-span-full lg:hidden', headerClassName)}>
-          {header}
-        </header>
-      )}
-
       {hasSidebar && (
         <aside
           className={cn(
@@ -174,9 +166,11 @@ export const AppShell = ({
           mainClassName
         )}
       >
-        {/* Desktop header (inside main area, right of sidebar) */}
+        {/* Header is mounted once here. On mobile, sidebar/listPanel/inspector
+            are hidden, so this sits at the top of the viewport; on desktop it
+            sits inside main, right of the sidebar. */}
         {hasHeader && (
-          <header className={cn('hidden lg:block', headerClassName)}>
+          <header className={cn('relative z-10', headerClassName)}>
             {header}
           </header>
         )}
