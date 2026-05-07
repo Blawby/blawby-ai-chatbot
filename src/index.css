@@ -346,25 +346,33 @@
 @layer components {
 
   /* Canonical layout primitives. Feature components choose these roles; tokens decide color. */
+
   .page-detail {
     @apply themed-scrollbar flex h-full flex-col overflow-y-auto;
+
     background-color: rgb(var(--surface-page));
     color: rgb(var(--text-primary));
   }
 
+
   .page-detail-header {
     @apply px-4 py-5 sm:px-6;
+
     background-color: transparent;
   }
 
+
   .tab-bar {
     @apply border-b px-4 sm:px-6;
+
     background-color: rgb(var(--surface-header));
     border-color: rgb(var(--border-subtle));
   }
 
+
   .page-content {
     @apply p-4 sm:p-6;
+
     background-color: rgb(var(--surface-page));
   }
 
@@ -417,12 +425,14 @@
     @apply ml-auto flex items-center gap-2;
   }
 
+
   .card,
   .card-surface,
   .glass-card {
     @apply rounded-2xl border;
     position: relative;
     overflow: visible;
+
     background-color: rgb(var(--surface-card));
     background-image:
       linear-gradient(135deg, rgb(255 255 255 / 0.032) 0%, transparent 38%),

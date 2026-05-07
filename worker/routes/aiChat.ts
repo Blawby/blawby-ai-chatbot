@@ -391,6 +391,37 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
   let isPublic = false;
   try {
     ({ details, isPublic } = await practiceDetailsPromise);
+    // If the details were loaded via anonymous slug, verify the org/practice id matches the conversation's practice_id
+    if (
+      anonymousPracticeDetailsPromise && details &&
+      typeof conversation.practice_id === 'string'
+    ) {
+      // Acceptable id fields on details
+      const resolvedId =
+        typeof details.organization_id === 'string' ? details.organization_id :
+        typeof details.practice_id === 'string' ? details.practice_id :
+        typeof details.id === 'string' ? details.id : null;
+      if (resolvedId && resolvedId !== conversation.practice_id) {
+        // Mismatch: fetch canonical details for practiceId
+        const canonical = await fetchPracticeDetailsWithCache(
+          env,
+          request,
+          conversation.practice_id,
+          undefined,
+          {
+            bypassCache: effectiveMode === 'PRACTICE_ONBOARDING',
+            preferPracticeIdLookup: true,
+          }
+        );
+        details = canonical.details;
+        isPublic = canonical.isPublic;
+        Logger.info('AI chat: Discarded mismatched slug-derived practice details, loaded canonical by practice_id', {
+          conversationId: body.conversationId,
+          practiceId: conversation.practice_id,
+          resolvedId,
+        });
+      }
+    }
     Logger.info('AI chat timing: practice details loaded', {
       conversationId: body.conversationId,
       practiceId,
