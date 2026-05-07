@@ -61,9 +61,6 @@ export class PresenceRoom {
     // `getTags(ws)` lookup tells us who hung up after a cold start.
     this.state.acceptWebSocket(server, [userId]);
     this.broadcastSnapshot();
-    // Also send the current snapshot directly to the new joiner so they
-    // populate state without waiting for the next delta.
-    this.sendFrameTo(server, this.buildSnapshotFrame());
 
     return new Response(null, { status: 101, webSocket: client });
   }

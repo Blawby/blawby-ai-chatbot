@@ -25,10 +25,7 @@ export async function handlePresence(request: Request, env: Env): Promise<Respon
   if (segments.length !== 4 || segments[0] !== 'api' || segments[1] !== 'presence' || segments[3] !== 'ws') {
     throw HttpErrors.notFound('Presence route not found');
   }
-  const practiceId = segments[2];
-  if (!practiceId) {
-    throw HttpErrors.badRequest('practiceId is required');
-  }
+  const practiceId = segments[2]; // segments.length !== 4 guard above ensures this is always present
 
   if (request.headers.get('Upgrade')?.toLowerCase() !== 'websocket') {
     throw HttpErrors.badRequest('expected websocket upgrade');
@@ -39,6 +36,13 @@ export async function handlePresence(request: Request, env: Env): Promise<Respon
     throw HttpErrors.unauthorized('Authentication required for presence');
   }
   const userId = auth.user.id;
+
+  // Membership/authorization check: user must be a member of the practice
+  const members = await env.RemoteApiService.getPracticeMembers(env, practiceId, request);
+  const isMember = Array.isArray(members) && members.some(m => m.user_id === userId);
+  if (!isMember) {
+    throw HttpErrors.forbidden('Not authorized for this practice');
+  }
 
   const id = env.PRESENCE_ROOM.idFromName(practiceId);
   const stub = env.PRESENCE_ROOM.get(id);

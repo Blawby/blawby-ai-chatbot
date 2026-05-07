@@ -808,7 +808,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     if (newConversationId && postFailed) {
       showError('Conversation created, but the first message did not send', 'Try sending it again from the thread.');
     }
-    if (newConversationId && !postFailed) {
+    if (newConversationId) {
       setDraftConversation(null);
     }
   };

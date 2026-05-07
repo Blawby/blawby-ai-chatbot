@@ -118,7 +118,7 @@ const buildActivityEntries = (conversation: Conversation | null): ActivityEntry[
 };
 
 /**
- * Pencil rxzde right-side context panel. Renders three label-left, value-right
+ * Right-side context panel. Renders three label-left, value-right
  * sections (Contact, Linked Matter, Recent Activity) inside a single column.
  * All data sources are optional — sections gracefully render placeholder rows
  * when fields are missing rather than collapsing.

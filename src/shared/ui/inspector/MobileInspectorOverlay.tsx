@@ -70,7 +70,8 @@ export const MobileInspectorOverlay: FunctionComponent<MobileInspectorOverlayPro
         type="button"
         className="absolute inset-0 bg-input-text/10 backdrop-blur-[2px]"
         onClick={onClose}
-        aria-label="Close inspector"
+        aria-hidden="true"
+        tabIndex={-1}
       />
       <aside
         ref={asideRef}
@@ -90,7 +91,7 @@ export const MobileInspectorOverlay: FunctionComponent<MobileInspectorOverlayPro
           onClick={onClose}
           aria-label="Close inspector"
           icon={X} iconClassName="h-5 w-5"
-          className="absolute right-3 top-3 z-10 h-9 w-9 p-0 rounded-full bg-surface-utility/30 hover:bg-surface-utility/50"
+          className="absolute right-3 top-3 z-10 p-0 rounded-full bg-surface-utility/30 hover:bg-surface-utility/50"
         />
         {children}
       </aside>

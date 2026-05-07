@@ -778,6 +778,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
                       onClose={() => setIsInspectorOpen(false)}
                       intakeConversationState={intakeConversationState}
                       intakeStatus={intakeStatus}
+                      intake={activeIntake}
                       onIntakeFieldsChange={(patch, options) => {
                         // Remove all null values for IntakeFieldsPayload compatibility
                         const payload: Record<string, unknown> = {};
@@ -809,6 +810,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
                   onClose={() => setIsInspectorOpen(false)}
                   intakeConversationState={intakeConversationState}
                   intakeStatus={intakeStatus}
+                  intake={activeIntake}
                   onIntakeFieldsChange={(patch, options) => {
                     const payload: Record<string, unknown> = {};
                     Object.entries(patch).forEach(([key, value]) => {

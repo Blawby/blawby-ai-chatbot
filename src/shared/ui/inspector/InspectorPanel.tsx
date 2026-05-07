@@ -91,6 +91,7 @@ type InspectorPanelProps = {
   practiceLogo?: string;
   intakeConversationState?: IntakeConversationState | null;
   intakeStatus?: DerivedIntakeStatus | null;
+  intake?: PracticeIntakeDetail | null;
   onIntakeFieldsChange?: (patch: Partial<IntakeConversationState>, options?: import('@/shared/types/intake').IntakeFieldChangeOptions) => Promise<void> | void;
   practiceDetails?: PracticeDetails | null;
   conversationMode?: ConversationMode;
@@ -968,6 +969,21 @@ export const InspectorPanel = ({
                   website={practiceDetail?.website}
                 />
                 <div className="mt-2">
+                  {/* Canonical Intake Status from backend */}
+                  {intake ? (
+                    <div className="mt-4">
+                      <InspectorGroup label="Intake Status">
+                        <InfoRow
+                          label="Status"
+                          value={intake.status || '—'}
+                        />
+                        <InfoRow
+                          label="Triage Status"
+                          value={intake.triage_status || '—'}
+                        />
+                      </InspectorGroup>
+                    </div>
+                  ) : null}
                   {intakeConversationState ? (
                     <div className="mt-4">
                       {(() => {

@@ -371,7 +371,7 @@ const MessageComposer = ({
             </div>
           )}
 
-          {/* Pencil Q7ijvs — single rounded pill. + (FileMenu) sits at the
+            {/* Single rounded pill. + (FileMenu) sits at the
               left edge inside the pill, then the textarea, then the voice-memo
               mic, then the send button. The grid CSS class is intentionally
               dropped here in favor of inline flex so the icons live inside the
@@ -389,7 +389,9 @@ const MessageComposer = ({
               )}
               {showScrollFade && (
                 <div
-                  className={`pointer-events-none absolute right-20 top-2 h-4 bg-gradient-to-b from-surface-app-frame/60 dark:from-black/20 to-transparent z-10 ${canShowAttachmentMenu ? 'left-12' : 'left-2'}`}
+                  className={`pointer-events-none absolute top-2 h-4 bg-gradient-to-b from-surface-app-frame/60 dark:from-black/20 to-transparent z-10
+                    ${canShowAttachmentMenu ? (features.enableAudioRecording && !isRecording ? 'right-20 left-12' : 'right-12 left-12') : (features.enableAudioRecording && !isRecording ? 'right-20 left-2' : 'right-12 left-2')}
+                  `}
                 />
               )}
               <div className="relative flex-1 min-w-0 self-stretch flex items-center px-1">
@@ -481,7 +483,7 @@ const MessageComposer = ({
                   </div>
                 </div>
               ) : null}
-              {features.enableAudioRecording ? (
+              {features.enableAudioRecording && !isComposerDisabled ? (
                 <div className="flex-shrink-0 self-end">
                   <MediaControls onMediaCapture={handleMediaCapture} onRecordingStateChange={setIsRecording} />
                 </div>

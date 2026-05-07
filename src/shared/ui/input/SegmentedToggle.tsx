@@ -1,4 +1,4 @@
-import { useMemo, useRef } from 'preact/hooks';
+import { useRef, useState, useLayoutEffect } from 'preact/hooks';
 import { cn } from '@/shared/utils/cn';
 
 export interface SegmentedToggleOption<T extends string> {
@@ -31,11 +31,12 @@ export const SegmentedToggle = <T extends string>({
   // before splitting into per-item slots; otherwise the thumb drifts as items shrink.
   // Read inset from CSS variable to support compact sizing (0.25rem fallback).
   const rootRef = useRef<HTMLDivElement>(null);
-  const thumbInsetRem = useMemo(() => {
-    if (!rootRef.current) return 0.25;
+  const [thumbInsetRem, setThumbInsetRem] = useState(0.25);
+  useLayoutEffect(() => {
+    if (!rootRef.current) return;
     const computed = getComputedStyle(rootRef.current).getPropertyValue('--segmented-toggle-inset');
     const parsed = parseFloat(computed);
-    return isNaN(parsed) ? 0.25 : parsed;
+    setThumbInsetRem(isNaN(parsed) ? 0.25 : parsed);
   }, []);
   const itemGapRem = 0.25;
   const thumbInset = `${thumbInsetRem}rem`;

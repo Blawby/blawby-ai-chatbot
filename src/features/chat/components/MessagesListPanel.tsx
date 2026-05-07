@@ -41,14 +41,14 @@ interface MessagesListPanelProps {
   draftEntry?: { contactName?: string; contactEmail?: string } | null;
   onSelectDraftEntry?: () => void;
   activeConversationId?: string | null;
-  /** Optional segmented filter (Pencil oYsFt mobile tab bar). Pass to render
+  /** Optional segmented filter (mobile tab bar). Pass to render
    *  segmented tabs above the search input — typically only on mobile where
    *  the sidebar's secondary-nav filters aren't visible. */
   tabs?: MessagesListPanelTabs<string> | null;
 }
 
 /**
- * Pencil rxzde "Messages" list column. Wraps ConversationListView with a header
+ * "Messages" list column. Wraps ConversationListView with a header
  * row (title + count badge + compose action) and a search input that filters
  * the list client-side by contact name and last-message preview.
  */
@@ -148,9 +148,9 @@ const MessagesListPanel: FunctionComponent<MessagesListPanelProps> = ({
             onClick={() => onSelectDraftEntry?.()}
             className={cn(
               'mx-2 mt-2 mb-1 flex w-[calc(100%-1rem)] items-start gap-3 rounded-xl px-3 py-2.5 text-left transition-colors',
-              'nav-item-active'
+              activeConversationId === null && 'nav-item-active'
             )}
-            aria-current="page"
+            aria-current={activeConversationId === null ? 'page' : undefined}
           >
             <Avatar
               src={null}

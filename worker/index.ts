@@ -151,8 +151,8 @@ export const routes: RouteEntry[] = [
   },
   {
     mode: 'owned',
-    match: prefix('/api/presence/'),
-    handler: (req, env) => handlePresence(req, env),
+    match: prefix('/api/presence'),
+    handler: withAuth((req, env) => handlePresence(req, env), { required: false }),
   },
   {
     mode: 'owned',

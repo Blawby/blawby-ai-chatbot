@@ -43,9 +43,10 @@ const DragDropOverlay: FunctionComponent<DragDropOverlayProps> = ({ isVisible, o
       ref={overlayRef}
       tabIndex={-1}
       className="pointer-events-none fixed inset-0 z-[9999] flex items-center justify-center bg-surface-app-frame/40 backdrop-blur-[2px]"
-      role="dialog"
+      role="status"
       aria-label="Drop files to add to the conversation"
-      aria-modal="true"
+      aria-live="polite"
+      aria-atomic="true"
     >
       <div className="flex flex-col items-center gap-4 px-6 text-center">
         {/* Icon stack — overlapping "talk + image + doc" tiles to mirror the

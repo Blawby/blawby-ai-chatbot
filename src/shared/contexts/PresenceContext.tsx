@@ -38,7 +38,7 @@ interface PresenceProviderProps {
 }
 
 /**
- * Holds a single WebSocket to /api/practice/presence/:practiceId/ws and
+ * Holds a single WebSocket to /api/presence/:practiceId/ws and
  * exposes the most recent presence snapshot via PresenceContext. Reconnects
  * with exponential backoff if the socket drops.
  */
@@ -50,8 +50,10 @@ export const PresenceProvider = ({ practiceId, userId, enabled = true, children 
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cancelledRef = useRef(false);
 
+
   useEffect(() => {
     cancelledRef.current = false;
+    reconnectAttemptsRef.current = 0;
     if (!enabled || !practiceId || !userId || typeof WebSocket === 'undefined') {
       return () => undefined;
     }

@@ -17,7 +17,7 @@ export type DetailHeaderProps = {
   /** Optional badge rendered inline next to the title (e.g. "Unread" pill). */
   titleBadge?: ComponentChildren;
   /** Optional second row rendered below the main header row, sharing the bottom border.
-   *  Used by Pencil rxzde to surface the contact info strip (email · phone · linked matter). */
+   *  Used by Pencil to surface the contact info strip (email · phone · linked matter). */
   secondaryRow?: ComponentChildren;
 };
 
@@ -61,10 +61,14 @@ export const DetailHeader = ({
         </div>
       ) : null}
       <div className="workspace-header__identity">
-        <div className="flex min-w-0 items-center gap-2">
+        {titleBadge ? (
+          <div className="flex min-w-0 items-center gap-2">
+            <h1 className="workspace-header__title">{resolvedTitle}</h1>
+            {titleBadge}
+          </div>
+        ) : (
           <h1 className="workspace-header__title">{resolvedTitle}</h1>
-          {titleBadge}
-        </div>
+        )}
         {resolvedSubtitle ? <p className="workspace-header__subtitle">{resolvedSubtitle}</p> : null}
       </div>
       {(actions || onInspector) ? (

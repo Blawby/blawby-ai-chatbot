@@ -85,9 +85,10 @@ interface ConversationItemProps {
   fallbackName: string;
   isActive: boolean;
   onSelect: (id: string) => void;
+  presence: ReturnType<typeof resolveConversationPresence>;
 }
 
-const ConversationItem = memo(({ conversation, preview, fallbackName, isActive, onSelect }: ConversationItemProps) => {
+const ConversationItem = memo(({ conversation, preview, fallbackName, isActive, onSelect, presence }: ConversationItemProps) => {
   const { t } = useTranslation();
   const contactName = resolveConversationContactName(conversation);
   const fallbackTitle = resolveConversationDisplayTitle(conversation, fallbackName);
@@ -96,22 +97,6 @@ const ConversationItem = memo(({ conversation, preview, fallbackName, isActive, 
   const timeLabel = formatRelativeTime(conversation.updated_at);
   const previewText = (preview?.content ?? conversation.last_message_content ?? '').trim();
   const isUnread = Number(conversation.unread_count ?? 0) > 0;
-
-  // Presence: prefer real online state from the practice's PresenceRoom (a
-  // contact-level "is at least one of their tabs connected right now" check).
-  // Fall back to the timestamp proxy on `last_message_at` for accounts that
-  // can't subscribe (e.g. offline contacts that have never reconnected) so
-  // the indicator stays consistent.
-  const { onlineUserIds } = usePresenceContext();
-  const { session } = useSessionContext();
-  const currentUserId = session?.user?.id ?? null;
-  const contactUserId = (Array.isArray(conversation.participants) ? conversation.participants : [])
-    .find((id) => typeof id === 'string' && id !== currentUserId) ?? null;
-  const isContactLive = contactUserId ? onlineUserIds.has(contactUserId) : false;
-  const presence = resolveConversationPresence(
-    conversation.last_message_at ?? conversation.updated_at ?? null,
-    isContactLive,
-  );
 
   return (
     <button
@@ -170,13 +155,15 @@ const ConversationItem = memo(({ conversation, preview, fallbackName, isActive, 
       </div>
       {/* Unread indicator (Pencil vHO59) — small accent dot anchored to the right edge. */}
       <span
-        aria-hidden={!isUnread}
-        aria-label={isUnread ? t('conversation.badge.unread', { defaultValue: 'Unread' }) : undefined}
+        aria-hidden="true"
         className={cn(
           'mt-2 h-2 w-2 flex-shrink-0 rounded-full transition-opacity',
           isUnread ? 'bg-accent-500 opacity-100' : 'opacity-0'
         )}
       />
+      {isUnread && (
+        <span className="sr-only">Unread</span>
+      )}
     </button>
   );
 });
@@ -215,9 +202,27 @@ const ConversationListView: FunctionComponent<ConversationListViewProps> = ({
         ? t('workspace.conversationList.error', { defaultValue: 'Failed to load conversations.' })
         : null;
   const fallbackName = typeof practiceName === 'string' ? practiceName.trim() : '';
+  const { onlineUserIds } = usePresenceContext();
+  const { session } = useSessionContext();
+  const currentUserId = session?.user?.id ?? null;
   const sorted = conversations
     .filter((conversation) => conversation.user_info?.mode !== 'PRACTICE_ONBOARDING')
     .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
+
+  // Precompute contactId and presence for each conversation
+  const conversationItems = sorted.map((conversation) => {
+    let contactUserId: string | null = null;
+    if (currentUserId) {
+      contactUserId = (Array.isArray(conversation.participants) ? conversation.participants : [])
+        .find((id) => typeof id === 'string' && id !== currentUserId) ?? null;
+    }
+    const isContactLive = contactUserId ? onlineUserIds.has(contactUserId) : false;
+    const presence = resolveConversationPresence(
+      conversation.last_message_at ?? conversation.updated_at ?? null,
+      isContactLive,
+    );
+    return { conversation, presence };
+  });
 
   return (
     <div className="flex h-full flex-col bg-transparent">
@@ -238,7 +243,7 @@ const ConversationListView: FunctionComponent<ConversationListViewProps> = ({
         />
       ) : (
         <VList style={{ flex: 1, minHeight: 0 }} className="px-2 py-2">
-          {sorted.map((conversation) => (
+          {conversationItems.map(({ conversation, presence }) => (
             <div key={conversation.id} className="mb-1">
               <ConversationItem
                 conversation={conversation}
@@ -246,6 +251,7 @@ const ConversationListView: FunctionComponent<ConversationListViewProps> = ({
                 fallbackName={fallbackName}
                 isActive={activeConversationId === conversation.id}
                 onSelect={onSelectConversation}
+                presence={presence}
               />
             </div>
           ))}

@@ -339,17 +339,23 @@ export const removeMessageReaction = async (
   }
 };
 
+interface MarkAsReadEnvelope {
+  success: boolean;
+  data?: { markedAsRead: boolean; lastReadSeq: number };
+}
+
 export const markAsRead = async (
   conversationId: string,
   practiceId: string
 ): Promise<{ markedAsRead: boolean; lastReadSeq: number }> => {
   try {
-    const { data } = await apiClient.post<{ markedAsRead: boolean; lastReadSeq: number }>(
+    const { data } = await apiClient.post<MarkAsReadEnvelope>(
       `/api/conversations/${encodeURIComponent(conversationId)}/read`,
       {},
       { params: { practiceId } },
     );
-    return data;
+    if (!data.success || !data.data) throw new Error('Failed to mark as read');
+    return data.data;
   } catch (error) {
     throw toErrorMessage(error, 'Failed to mark conversation as read');
   }

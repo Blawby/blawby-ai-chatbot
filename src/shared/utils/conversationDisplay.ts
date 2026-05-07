@@ -153,13 +153,24 @@ export const resolveConversationPresence = (
   lastActivityAt: string | number | Date | null | undefined,
   isLive: boolean = false
 ): ConversationPresence => {
+  // Guard against null/undefined, but allow 0 (Unix epoch)
   const lastTs = (() => {
-    if (!lastActivityAt) return 0;
+    if (lastActivityAt == null) return 0;
     const date = lastActivityAt instanceof Date ? lastActivityAt : new Date(lastActivityAt);
     const ms = date.getTime();
     return Number.isFinite(ms) ? ms : 0;
   })();
-  const ageMs = lastTs > 0 ? Math.max(0, Date.now() - lastTs) : Number.POSITIVE_INFINITY;
+  // Compute age; if timestamp is in the future, treat as invalid (not active)
+  let ageMsRaw = Date.now() - lastTs;
+  let ageMs: number;
+  if (ageMsRaw < 0) {
+    // Future timestamp: treat as not active
+    ageMs = Number.POSITIVE_INFINITY;
+    // Optionally, could return a special label here
+  } else {
+    ageMs = lastTs > 0 ? ageMsRaw : Number.POSITIVE_INFINITY;
+  }
+  // If isLive, always active; otherwise, only if age is within threshold
   const isActive = isLive || ageMs <= ACTIVE_PRESENCE_THRESHOLD_MS;
   if (isActive) {
     return { status: 'active', label: 'Active now' };
@@ -181,7 +192,7 @@ const formatRelativePresence = (ageMs: number): string => {
   const weeks = Math.floor(days / 7);
   if (weeks < 5) return `${weeks} wk ago`;
   const months = Math.floor(days / 30);
-  if (months < 12) return `${months} mo ago`;
   const years = Math.floor(days / 365);
-  return `${years} yr ago`;
+  if (years >= 1) return `${years} yr ago`;
+  return `${months} mo ago`;
 };

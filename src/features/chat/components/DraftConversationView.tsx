@@ -64,6 +64,8 @@ export const DraftConversationView: FunctionComponent<DraftConversationViewProps
 }) => {
   const [inputValue, setInputValue] = useState('');
   const [isSending, setIsSending] = useState(false);
+  // Use a ref to avoid TOCTOU race on isSending
+  const sendingRef = useRef(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   // Real presence — option values are userIds for clients/team rows. Pending
   // invites use a `__pending__:` prefix and can't be online.
@@ -111,14 +113,21 @@ export const DraftConversationView: FunctionComponent<DraftConversationViewProps
     const trimmed = inputValue.trim();
     const attachments = fileUploadProps?.previewFiles ?? [];
     if (!trimmed && attachments.length === 0) return;
-    if (isSending) return;
+    if (sendingRef.current) return;
+    sendingRef.current = true;
+    setIsSending(true);
     try {
-      setIsSending(true);
       await onSendFirstMessage(trimmed, attachments);
       setInputValue('');
       fileUploadProps?.clearPreviewFiles();
+    } catch (err) {
+      // Optionally show user feedback or log
+      // eslint-disable-next-line no-console
+      console.error('Failed to send first message', err);
+      // Optionally: show error to user here
     } finally {
       setIsSending(false);
+      sendingRef.current = false;
     }
   };
 
@@ -186,7 +195,13 @@ export const DraftConversationView: FunctionComponent<DraftConversationViewProps
               />
             );
           }}
-          optionMeta={(option) => option.meta || option.description || ''}
+          optionMeta={(option) =>
+            typeof option.meta === 'string'
+              ? option.meta
+              : typeof option.description === 'string'
+                ? option.description
+                : ''
+          }
           footer={onInviteContact ? (close) => (
             <button
               type="button"
