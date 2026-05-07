@@ -266,8 +266,12 @@ export const useChatComposer = ({
     conversationId?: string | null
   ) => {
     if (!enabled) throw new Error('Chat is suspended.');
-    if (!content.trim()) throw new Error('Message cannot be empty.');
-    
+    // Allow file-only messages: a send is valid if there's text OR at least
+    // one attachment. Mirrors the worker's relaxed validation.
+    if (!content.trim() && attachments.length === 0) {
+      throw new Error('Message cannot be empty.');
+    }
+
     const effectivePracticeId = (practiceIdRef.current ?? '').trim();
     const activeConversationId = conversationId?.trim() || await ensureConversationId();
     if (!effectivePracticeId) throw new Error('practiceId is required');
@@ -590,8 +594,12 @@ export const useChatComposer = ({
     options?: { additionalContext?: string; mentionedUserIds?: string[]; suppressAi?: boolean }
   ) => {
     try {
-      if (!message.trim()) throw new Error('Message cannot be empty.');
-      
+      // Allow file-only messages — same relaxed precondition as
+      // sendMessageOverWs and the worker route.
+      if (!message.trim() && attachments.length === 0) {
+        throw new Error('Message cannot be empty.');
+      }
+
       const resolvedConversationId = await ensureConversationId();
       if (!resolvedConversationId) throw new Error('conversationId is required');
 

@@ -103,6 +103,20 @@ export const getConversation = async (
   }
 };
 
+export const deleteConversation = async (
+  conversationId: string,
+  practiceId: string
+): Promise<void> => {
+  try {
+    await apiClient.delete<{ success: boolean; data?: { deleted: boolean } }>(
+      `/api/conversations/${encodeURIComponent(conversationId)}`,
+      { params: { practiceId } },
+    );
+  } catch (error) {
+    throw toErrorMessage(error, 'Failed to delete conversation');
+  }
+};
+
 export const updateConversationTriage = async (
   conversationId: string,
   practiceId: string,
@@ -322,5 +336,27 @@ export const removeMessageReaction = async (
     return (data.data?.reactions ?? []).map(toMessageReaction);
   } catch (error) {
     throw toErrorMessage(error, 'Failed to remove reaction');
+  }
+};
+
+interface MarkAsReadEnvelope {
+  success: boolean;
+  data?: { markedAsRead: boolean; lastReadSeq: number };
+}
+
+export const markAsRead = async (
+  conversationId: string,
+  practiceId: string
+): Promise<{ markedAsRead: boolean; lastReadSeq: number }> => {
+  try {
+    const { data } = await apiClient.post<MarkAsReadEnvelope>(
+      `/api/conversations/${encodeURIComponent(conversationId)}/read`,
+      {},
+      { params: { practiceId } },
+    );
+    if (!data.success || !data.data) throw new Error('Failed to mark as read');
+    return data.data;
+  } catch (error) {
+    throw toErrorMessage(error, 'Failed to mark conversation as read');
   }
 };

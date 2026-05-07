@@ -21,6 +21,7 @@ import {
   handleMetricsVitals,
 } from './routes';
 import { handleConversations } from './routes/conversations.js';
+import { handlePresence } from './routes/presence.js';
 import { handleAiChat } from './routes/aiChat.js';
 import { handleAiIntent } from './routes/aiIntent.js';
 import { withAuth, withCache, withRateLimit } from './middleware/compose.js';
@@ -147,6 +148,11 @@ export const routes: RouteEntry[] = [
     // Anonymous and authenticated users are both admitted; downstream
     // operations gate via requirePracticeMember per-branch where needed.
     handler: withAuth((req, env) => handleConversations(req, env), { required: false }),
+  },
+  {
+    mode: 'owned',
+    match: prefix('/api/presence'),
+    handler: withAuth((req, env) => handlePresence(req, env), { required: false }),
   },
   {
     mode: 'owned',
@@ -303,3 +309,4 @@ export async function scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionC
 export { ChatRoom } from './durable-objects/ChatRoom';
 export { ChatCounterObject } from './durable-objects/ChatCounterObject';
 export { MatterProgressRoom } from './durable-objects/MatterProgressRoom';
+export { PresenceRoom } from './durable-objects/PresenceRoom';

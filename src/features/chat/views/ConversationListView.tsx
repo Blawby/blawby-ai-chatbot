@@ -14,7 +14,10 @@ import { ChatText } from '@/features/chat/components/ChatText';
 import {
   resolveConversationContactName,
   resolveConversationDisplayTitle,
+  resolveConversationPresence,
 } from '@/shared/utils/conversationDisplay';
+import { usePresenceContext } from '@/shared/contexts/PresenceContext';
+import { useSessionContext } from '@/shared/contexts/SessionContext';
 
 /**
  * Placeholder rows shaped like ConversationItem (avatar + title + time +
@@ -82,9 +85,10 @@ interface ConversationItemProps {
   fallbackName: string;
   isActive: boolean;
   onSelect: (id: string) => void;
+  presence: ReturnType<typeof resolveConversationPresence>;
 }
 
-const ConversationItem = memo(({ conversation, preview, fallbackName, isActive, onSelect }: ConversationItemProps) => {
+const ConversationItem = memo(({ conversation, preview, fallbackName, isActive, onSelect, presence }: ConversationItemProps) => {
   const { t } = useTranslation();
   const contactName = resolveConversationContactName(conversation);
   const fallbackTitle = resolveConversationDisplayTitle(conversation, fallbackName);
@@ -109,6 +113,7 @@ const ConversationItem = memo(({ conversation, preview, fallbackName, isActive, 
         name={avatarName}
         size="md"
         className="ring-1 ring-line-glass/10"
+        status={presence.status}
       />
       <div className="min-w-0 flex-1">
         <div className="flex items-start justify-between gap-3">
@@ -148,6 +153,17 @@ const ConversationItem = memo(({ conversation, preview, fallbackName, isActive, 
           </div>
         ) : null}
       </div>
+      {/* Unread indicator (Pencil vHO59) — small accent dot anchored to the right edge. */}
+      <span
+        aria-hidden="true"
+        className={cn(
+          'mt-2 h-2 w-2 flex-shrink-0 rounded-full transition-opacity',
+          isUnread ? 'bg-accent-500 opacity-100' : 'opacity-0'
+        )}
+      />
+      {isUnread && (
+        <span className="sr-only">Unread</span>
+      )}
     </button>
   );
 });
@@ -186,9 +202,27 @@ const ConversationListView: FunctionComponent<ConversationListViewProps> = ({
         ? t('workspace.conversationList.error', { defaultValue: 'Failed to load conversations.' })
         : null;
   const fallbackName = typeof practiceName === 'string' ? practiceName.trim() : '';
+  const { onlineUserIds } = usePresenceContext();
+  const { session } = useSessionContext();
+  const currentUserId = session?.user?.id ?? null;
   const sorted = conversations
     .filter((conversation) => conversation.user_info?.mode !== 'PRACTICE_ONBOARDING')
     .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
+
+  // Precompute contactId and presence for each conversation
+  const conversationItems = sorted.map((conversation) => {
+    let contactUserId: string | null = null;
+    if (currentUserId) {
+      contactUserId = (Array.isArray(conversation.participants) ? conversation.participants : [])
+        .find((id) => typeof id === 'string' && id !== currentUserId) ?? null;
+    }
+    const isContactLive = contactUserId ? onlineUserIds.has(contactUserId) : false;
+    const presence = resolveConversationPresence(
+      conversation.last_message_at ?? conversation.updated_at ?? null,
+      isContactLive,
+    );
+    return { conversation, presence };
+  });
 
   return (
     <div className="flex h-full flex-col bg-transparent">
@@ -209,7 +243,7 @@ const ConversationListView: FunctionComponent<ConversationListViewProps> = ({
         />
       ) : (
         <VList style={{ flex: 1, minHeight: 0 }} className="px-2 py-2">
-          {sorted.map((conversation) => (
+          {conversationItems.map(({ conversation, presence }) => (
             <div key={conversation.id} className="mb-1">
               <ConversationItem
                 conversation={conversation}
@@ -217,6 +251,7 @@ const ConversationListView: FunctionComponent<ConversationListViewProps> = ({
                 fallbackName={fallbackName}
                 isActive={activeConversationId === conversation.id}
                 onSelect={onSelectConversation}
+                presence={presence}
               />
             </div>
           ))}

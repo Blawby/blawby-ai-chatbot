@@ -276,13 +276,19 @@ export async function handleConversations(request: Request, env: Env): Promise<R
     };
 
     const content = typeof body.content === 'string' ? body.content.trim() : '';
-    if (!content) {
-      throw HttpErrors.badRequest('content is required');
-    }
 
     const metadata = (body.metadata && typeof body.metadata === 'object' && !Array.isArray(body.metadata))
       ? body.metadata as Record<string, unknown>
       : undefined;
+
+    // Allow file-only messages: empty content is OK as long as the metadata
+    // carries attachments. Mirrors the WebSocket sendMessageOverWs path
+    // which accepts attachment-only sends.
+    const hasAttachments = Array.isArray(metadata?.attachments)
+      && (metadata?.attachments as unknown[]).length > 0;
+    if (!content && !hasAttachments) {
+      throw HttpErrors.badRequest('content or valid attachments are required');
+    }
 
     const storedMessage = await conversationService.sendMessage({
       conversationId,
@@ -623,6 +629,27 @@ export async function handleConversations(request: Request, env: Env): Promise<R
 
     const conversation = await conversationService.getConversation(conversationId, practiceId);
     return createJsonResponse(conversation);
+  }
+
+  // DELETE /api/conversations/:id - Hard-delete a conversation and its dependents
+  if (segments.length === 3 && request.method === 'DELETE') {
+    const requestWithContext = await withPracticeContext(request, env, {
+      requirePractice: true,
+      authContext,
+    });
+    const conversationId = segments[2];
+    const practiceId = getPracticeId(requestWithContext);
+
+    if (authContext.isAnonymous) {
+      throw HttpErrors.unauthorized('Authentication required');
+    }
+    // Only practice staff can hard-delete; clients should not be able to wipe
+    // a thread out from under the practice. Paralegal+ matches other write
+    // ops on this resource.
+    await requirePracticeMemberRole(request, env, practiceId, 'paralegal', { authContext });
+
+    await conversationService.deleteConversation(conversationId, practiceId);
+    return createJsonResponse({ deleted: true, conversationId });
   }
 
   // PATCH /api/conversations/:id/matter - Link or unlink a conversation to a matter
@@ -1058,6 +1085,43 @@ export async function handleConversations(request: Request, env: Env): Promise<R
     });
 
     return createJsonResponse({ logged: true });
+  }
+
+  // POST /api/conversations/:id/read - Mark conversation as read for the current user
+  if (segments.length === 4 && segments[3] === 'read' && request.method === 'POST') {
+    const requestWithContext = await withPracticeContext(request, env, {
+      requirePractice: true,
+      authContext,
+      allowAuthenticatedUrlPracticeId: true,
+    });
+    const conversationId = segments[2];
+    const practiceId = getPracticeId(requestWithContext);
+
+    // Mirror the staff-bypass on GET /messages: practice staff can mark any
+    // thread in their practice as read without being explicit participants.
+    if (authContext.isAnonymous) {
+      await conversationService.validateParticipantAccess(conversationId, practiceId, userId, { previousAnonUserId: prevAnonId });
+    } else {
+      const membership = await checkPracticeMembership(request, env, practiceId, { authContext });
+      if (!isStaffMemberRole(membership.memberRole)) {
+        await conversationService.validateParticipantAccess(conversationId, practiceId, userId, { previousAnonUserId: prevAnonId });
+      }
+    }
+
+    // Get the current latest_seq for the conversation to update read state
+    const conversation = await conversationService.getConversation(conversationId, practiceId);
+    const latestSeq = conversation.latest_seq ?? 0;
+
+    // Update or insert conversation_read_state
+    await env.DB.prepare(`
+      INSERT INTO conversation_read_state (conversation_id, user_id, last_read_seq, updated_at)
+      VALUES (?, ?, ?, datetime('now'))
+      ON CONFLICT(conversation_id, user_id) DO UPDATE SET
+        last_read_seq = excluded.last_read_seq,
+        updated_at = datetime('now')
+    `).bind(conversationId, userId, latestSeq).run();
+
+    return createJsonResponse({ markedAsRead: true, lastReadSeq: latestSeq });
   }
 
   // GET /api/conversations/:id/participants - Get participant profiles for a conversation

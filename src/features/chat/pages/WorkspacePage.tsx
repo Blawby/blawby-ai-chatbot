@@ -9,7 +9,17 @@ import { SessionNotReadyError } from '@/shared/types/errors';
 import WorkspaceHomeView from '@/features/chat/views/WorkspaceHomeView';
 import { WorkspaceHomeSection } from '@/features/chat/components/WorkspaceHomeSection';
 import { WorkspaceSetupSection } from '@/features/chat/components/WorkspaceSetupSection';
-import ConversationListView from '@/features/chat/views/ConversationListView';
+import MessagesListPanel from '@/features/chat/components/MessagesListPanel';
+import ConversationContextPanel from '@/features/chat/components/ConversationContextPanel';
+import { type ComboboxOption } from '@/shared/ui/input/Combobox';
+import { deleteConversation, markAsRead, postConversationMessage, updateConversationTriage } from '@/shared/lib/conversationApi';
+import { AddContactDialog } from '@/shared/ui/contacts/AddContactDialog';
+import { Dialog } from '@/shared/ui/dialog/Dialog';
+import { useClientsData } from '@/shared/hooks/useClientsData';
+import { usePracticeTeam } from '@/shared/hooks/usePracticeTeam';
+import { usePracticeInvitations } from '@/shared/hooks/usePracticeInvitations';
+import { DraftConversationView } from '@/features/chat/components/DraftConversationView';
+import { getPracticeRoleLabel } from '@/shared/utils/practiceRoles';
 import { AppShell } from '@/shared/ui/layout/AppShell';
 import { WorkspaceShellHeader } from '@/shared/ui/layout/WorkspaceShellHeader';
 import { WorkspaceMainPane } from '@/shared/ui/layout/WorkspaceMainPane';
@@ -21,6 +31,7 @@ import { Button } from '@/shared/ui/Button';
 import { useWorkspaceConversations } from './hooks/useWorkspaceConversations';
 import { useWorkspaceNavigation } from './hooks/useWorkspaceNavigation';
 import { resolveConsultationState } from '@/shared/utils/consultationState';
+import { resolveConversationContactName, resolveConversationDisplayTitle } from '@/shared/utils/conversationDisplay';
 import { useWorkspaceSetup } from './hooks/useWorkspaceSetup';
 import { useWorkspaceData } from './hooks/useWorkspaceData';
 import { useConversationPreviews } from './hooks/useConversationPreviews';
@@ -50,7 +61,7 @@ import InspectorPanel from '@/shared/ui/inspector/InspectorPanel';
 import { SettingsContent, type SettingsView } from '@/features/settings/pages/SettingsContent';
 import { PracticeCoveragePage } from '@/features/settings/pages/PracticeCoveragePage';
 import { mockApps } from '@/features/settings/pages/appsData';
-import type { ChatMessageUI } from '../../../../worker/types';
+import type { ChatMessageUI, FileAttachment } from '../../../../worker/types';
 import type { Conversation, ConversationMode } from '@/shared/types/conversation';
 import type { LayoutMode, WorkspaceView } from '@/app/MainApp';
 import type { UserDetailRecord, UserDetailStatus, PracticeDetails } from '@/shared/lib/apiClient';
@@ -96,10 +107,32 @@ interface WorkspacePageProps {
   onStartNewConversation: (
     mode: ConversationMode,
     preferredConversationId?: string,
-    options?: { forceCreate?: boolean; silentSessionNotReady?: boolean }
+    options?: {
+      forceCreate?: boolean;
+      silentSessionNotReady?: boolean;
+      additionalParticipantUserIds?: string[];
+      additionalMetadata?: Record<string, unknown>;
+    }
   ) => Promise<string>;
   activeConversationId?: string | null;
   chatView: ComponentChildren;
+  /** File-upload state from MainApp's useFileUpload, passed through so the
+   *  draft composer reuses the same upload pipeline + preview state as the
+   *  main chat composer. Optional — when omitted, the draft composer falls
+   *  back to a no-attachments mode. */
+  fileUploadProps?: {
+    previewFiles: import('../../../../worker/types').FileAttachment[];
+    uploadingFiles: import('@/shared/types/upload').UploadingFile[];
+    isReadyToUpload: boolean;
+    handleFileSelect: (files: File[]) => Promise<unknown>;
+    handleCameraCapture: (file: File) => Promise<void>;
+    removePreviewFile: (index: number) => void;
+    clearPreviewFiles: () => void;
+    cancelUpload: (fileId: string) => void;
+    handleMediaCapture: (blob: Blob, type: 'audio' | 'video') => void;
+    isRecording: boolean;
+    setIsRecording: (recording: boolean) => void;
+  };
   mattersView?: ComponentChildren | ((statusFilter: string[], prefetchData?: WorkspacePrefetchData, onDetailInspector?: (() => void), detailInspectorOpen?: boolean, detailHeaderLeadingAction?: ComponentChildren) => ComponentChildren);
   mattersListContent?: ComponentChildren | ((statusFilter: string[], prefetchData?: WorkspacePrefetchData) => ComponentChildren);
   contactsView?: ComponentChildren | ((statusFilter: UserDetailStatus | null, prefetchData?: WorkspacePrefetchData, onDetailInspector?: (() => void), detailInspectorOpen?: boolean, detailHeaderLeadingAction?: ComponentChildren) => ComponentChildren);
@@ -171,6 +204,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   onStartNewConversation,
   activeConversationId = null,
   chatView,
+  fileUploadProps,
   mattersView,
   mattersListContent,
   contactsView,
@@ -212,6 +246,20 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     }
   }, [isDesktopSidebarCollapsed]);
   const [isInspectorOpen, setIsInspectorOpen] = useState(false);
+  const [conversationPendingDelete, setConversationPendingDelete] = useState<Conversation | null>(null);
+  const [optimisticallyReadConversationIds, setOptimisticallyReadConversationIds] = useState<Set<string>>(new Set());
+  const [isDeletingConversation, setIsDeletingConversation] = useState(false);
+  const [isAddClientDialogOpen, setIsAddClientDialogOpen] = useState(false);
+  // Draft conversation state. When non-null, the chat area renders
+  // DraftConversationView and the messages list shows a synthetic "Draft"
+  // entry pinned at the top. POST + assignment + first message are deferred
+  // until the user actually sends from the draft view.
+  const [draftConversation, setDraftConversation] = useState<{
+    contactUserId?: string | null;
+    contactName?: string;
+    contactEmail?: string;
+  } | null>(null);
+  const [pendingInviteOption, setPendingInviteOption] = useState<{ name: string; email: string } | null>(null);
   const navigationInitiatedRef = useRef(false);
   const hasAutoNavigatedRef = useRef(false);
   const filteredMessages = useMemo(() => filterWorkspaceMessages(messages), [messages]);
@@ -303,6 +351,18 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     window.addEventListener('workspace:open-inspector', handleOpenInspector);
     return () => window.removeEventListener('workspace:open-inspector', handleOpenInspector);
   }, [inspectorTarget]);
+  // Practice Messages design (Pencil rxzde) keeps the 320px context panel visible
+  // by default. Auto-open the inspector when a practice user lands on a
+  // conversation on desktop. Re-fires on conversation switch so flipping between
+  // threads brings the panel back even if it was closed for a previous one.
+  const inspectorTargetId = inspectorTarget?.entityType === 'conversation' ? inspectorTarget.entityId : null;
+  useEffect(() => {
+    if (!isPracticeWorkspace) return;
+    if (layoutMode !== 'desktop') return;
+    if (workspaceSection !== 'conversations') return;
+    if (!inspectorTargetId) return;
+    setIsInspectorOpen(true);
+  }, [isPracticeWorkspace, layoutMode, workspaceSection, inspectorTargetId]);
   const {
     mattersStatusFilter,
     contactsStatusFilter,
@@ -365,12 +425,35 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
 
   const handleSelectConversation = useCallback((conversationId: string) => {
     hasAutoNavigatedRef.current = true;
+    // Selecting a real conversation always exits draft mode — otherwise the
+    // draft view stays mounted on top of the chosen thread on mobile and the
+    // pinned "Draft" entry stays in the list.
+    setDraftConversation(null);
+    setPendingInviteOption(null);
+
+    // Mark conversation as read if it has unread messages
+    const conversation = resolvedConversations.find((c) => c.id === conversationId);
+    if (conversation && practiceId && Number(conversation.unread_count ?? 0) > 0) {
+      // Optimistically update UI immediately
+      setOptimisticallyReadConversationIds((prev) => new Set([...prev, conversationId]));
+      // Then call the backend
+      void markAsRead(conversationId, practiceId).catch((error) => {
+        console.warn('[WorkspacePage] Failed to mark conversation as read', error);
+        // Remove from optimistic set on failure
+        setOptimisticallyReadConversationIds((prev) => {
+          const next = new Set(prev);
+          next.delete(conversationId);
+          return next;
+        });
+      });
+    }
+
     if (onSelectConversationOverride) {
       onSelectConversationOverride(conversationId);
       return;
     }
     navigate(withWidgetQuery(`${conversationsPath}/${encodeURIComponent(conversationId)}`));
-  }, [conversationsPath, navigate, onSelectConversationOverride, withWidgetQuery]);
+  }, [conversationsPath, navigate, onSelectConversationOverride, withWidgetQuery, resolvedConversations, practiceId]);
 
 
   useWorkspaceAutoNavigation({
@@ -463,7 +546,82 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     forcePreviewReload();
   }, [showSuccess, forcePreviewReload]);
 
+  // ── compose picker data ──────────────────────────────────────────────
+  // Loaded as soon as the user enters draft mode so the inline Combobox in
+  // DraftConversationView populates without a perceptible delay.
+  const composePickerEnabled = isPracticeWorkspace && draftConversation !== null;
+  const composeClientsData = useClientsData(practiceId, null, sessionUserId, {
+    enabled: composePickerEnabled,
+  });
+  const composeTeamData = usePracticeTeam(practiceId, sessionUserId, {
+    enabled: composePickerEnabled,
+  });
+  const composePracticeInvitations = usePracticeInvitations(composePickerEnabled ? practiceId : null);
+
+  const composePickerOptions = useMemo<ComboboxOption[]>(() => {
+    if (!composePickerEnabled) return [];
+    const seen = new Set<string>();
+    const rows: ComboboxOption[] = [];
+    // Clients with an account get added to the picker; ones without are
+    // not selectable and are surfaced via the "Invite client" footer action.
+    for (const client of composeClientsData.items) {
+      const userId = (client.user_id ?? client.user?.id ?? '').trim();
+      if (!userId || userId === sessionUserId || seen.has(userId)) continue;
+      seen.add(userId);
+      const name = client.user?.name?.trim() || client.user?.email?.trim() || 'Unnamed client';
+      const email = client.user?.email?.trim() ?? '';
+      rows.push({
+        value: userId,
+        label: name,
+        meta: email,
+        description: 'Client',
+      });
+    }
+    for (const member of composeTeamData.members) {
+      const userId = member.userId?.trim() ?? '';
+      if (!userId || userId === sessionUserId || seen.has(userId)) continue;
+      seen.add(userId);
+      const name = member.name?.trim() || member.email;
+      rows.push({
+        value: userId,
+        label: name,
+        meta: member.email,
+        description: getPracticeRoleLabel(member.role),
+      });
+    }
+    return rows;
+  }, [
+    composePickerEnabled,
+    composeClientsData.items,
+    composeTeamData.members,
+    sessionUserId,
+  ]);
+
+  // Pending invitations: invitees haven't accepted yet so they have no userId
+  // and can't actually receive a message. Surface them in the picker as
+  // distinguished rows so the user knows the invite is in flight.
+  const composePendingInviteOptions = useMemo<ComboboxOption[]>(() => {
+    if (!composePickerEnabled) return [];
+    const pending = composePracticeInvitations.invitations.filter((inv) => inv.status === 'pending');
+    return pending.map((invitation) => ({
+      value: invitation.id,
+      label: invitation.email,
+      description: 'Pending invite',
+      meta: 'Waiting for accept',
+    }));
+  }, [composePickerEnabled, composePracticeInvitations.invitations]);
+
   const showSidebarPreview = (previewStrongReady || (onboardingProgress?.completionScore ?? 0) >= 80) && setupSidebarView === 'preview';
+
+  // Apply optimistic read state to conversations for immediate UI feedback
+  const filteredConversationsWithOptimisticRead = useMemo(() => {
+    if (optimisticallyReadConversationIds.size === 0) return filteredConversations;
+    return filteredConversations.map((conversation) =>
+      optimisticallyReadConversationIds.has(conversation.id)
+        ? { ...conversation, unread_count: 0 }
+        : conversation
+    );
+  }, [filteredConversations, optimisticallyReadConversationIds]);
 
   useEffect(() => {
     if (previewStrongReady || (onboardingProgress?.completionScore ?? 0) >= 80) {
@@ -473,9 +631,22 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     setSetupSidebarView('info');
   }, [previewStrongReady, onboardingProgress?.completionScore]);
 
-  const handleStartConversation = async (mode: ConversationMode) => {
+  const handleStartConversation = async (
+    mode: ConversationMode,
+    options?: {
+      forceNew?: boolean;
+      additionalParticipantUserIds?: string[];
+      additionalMetadata?: Record<string, unknown>;
+      /** Runs after the conversation is created but BEFORE the list refresh
+       *  and URL navigate. Use for follow-up writes (assign, send first
+       *  message, etc.) that need to land before useWorkspaceAutoNavigation
+       *  observes the new active conversation id — otherwise the new thread
+       *  isn't yet in the filtered list and the auto-nav toast fires. */
+      afterCreate?: (conversationId: string) => Promise<void>;
+    }
+  ): Promise<string | undefined> => {
     try {
-      const shouldReuseConversation = mode !== 'REQUEST_CONSULTATION';
+      const shouldReuseConversation = mode !== 'REQUEST_CONSULTATION' && !options?.forceNew;
       const reusableAskQuestionConversations = shouldReuseConversation
         ? resolvedConversations.filter((conversation) => {
             const metadata = conversation.user_info ?? null;
@@ -495,21 +666,47 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       // In embedded public widget mode, reuse the bootstrapped/current conversation
       // to avoid an extra create-conversation round-trip right after bootstrap.
       // Other surfaces keep the fresh-thread behavior for consultation CTA.
-      const forceCreate = mode === 'REQUEST_CONSULTATION'
-        ? !(workspace === 'public' && layoutMode === 'widget')
-        : !preferredConversationId;
+      const forceCreate = options?.forceNew
+        ? true
+        : mode === 'REQUEST_CONSULTATION'
+          ? !(workspace === 'public' && layoutMode === 'widget')
+          : !preferredConversationId;
 
       const conversationId = await onStartNewConversation(
         mode,
         preferredConversationId,
-        forceCreate ? { forceCreate: true } : undefined
+        forceCreate
+          ? {
+              forceCreate: true,
+              additionalParticipantUserIds: options?.additionalParticipantUserIds,
+              additionalMetadata: options?.additionalMetadata,
+            }
+          : undefined
       );
+      // Run caller-provided follow-up writes (assign, post first message, etc.)
+      // before the list refresh + navigate so useWorkspaceAutoNavigation sees a
+      // fully-formed conversation in the filtered inbox.
+      if (options?.afterCreate) {
+        try {
+          await options.afterCreate(conversationId);
+        } catch (afterCreateError) {
+          console.warn('[WorkspacePage] afterCreate hook failed', afterCreateError);
+        }
+      }
+      // When we just forced a brand-new conversation in the practice workspace,
+      // refresh the list before navigating. Otherwise useWorkspaceAutoNavigation
+      // sees a stale list (without the new id) and bumps us to filteredConversations[0].
+      if (options?.forceNew && isPracticeWorkspace) {
+        await refreshConversations();
+      }
       navigate(withWidgetQuery(`${conversationsPath}/${encodeURIComponent(conversationId)}`));
+      return conversationId;
     } catch (error) {
       // "Session not ready" — the toast was already shown by MainApp, so finish gracefully.
-      if (error instanceof SessionNotReadyError) return;
+      if (error instanceof SessionNotReadyError) return undefined;
       console.error('[WorkspacePage] Failed to start conversation:', error);
       showError('Unable to start conversation', 'Please try again in a moment.');
+      return undefined;
     }
   };
 
@@ -520,6 +717,129 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     }
     navigate(withWidgetQuery(conversationsPath));
   };
+
+  const handleEnterDraftMode = () => {
+    setDraftConversation((prev) => prev ?? { contactUserId: null });
+  };
+
+  const handleCancelDraft = () => {
+    setDraftConversation(null);
+    setPendingInviteOption(null);
+  };
+
+  const handleDraftContactChange = (next: { userId: string; name: string; email?: string } | null) => {
+    if (!next) {
+      setDraftConversation((prev) => prev ? { ...prev, contactUserId: null, contactName: undefined, contactEmail: undefined } : null);
+      return;
+    }
+    // If an existing conversation with this contact is already in the
+    // resolved list, jump into it instead of creating a duplicate. We match
+    // any conversation whose participant set includes the picked user — the
+    // current user is always a participant, so a hit means it's a 1-on-1
+    // (or a group containing them) we should reuse.
+    if (sessionUserId) {
+      const existing = resolvedConversations.find((conversation) => {
+        const participants = Array.isArray(conversation.participants) ? conversation.participants : [];
+        return participants.length === 2 && participants.includes(sessionUserId) && participants.includes(next.userId);
+      });
+      if (existing) {
+        setDraftConversation(null);
+        navigate(withWidgetQuery(`${conversationsPath}/${encodeURIComponent(existing.id)}`));
+        return;
+      }
+    }
+    setDraftConversation({
+      contactUserId: next.userId,
+      contactName: next.name,
+      contactEmail: next.email,
+    });
+  };
+
+  const handleDraftSendFirstMessage = async (message: string, attachments: FileAttachment[] = []) => {
+    if (!draftConversation?.contactUserId || !practiceId) return;
+    const contactName = draftConversation.contactName?.trim();
+    const contactEmail = draftConversation.contactEmail?.trim();
+    const additionalMetadata = (contactName || contactEmail)
+      ? {
+          contactDetails: {
+            ...(contactName ? { name: contactName } : {}),
+            ...(contactEmail ? { email: contactEmail } : {}),
+          },
+        }
+      : undefined;
+    // Attachments go through the same metadata.attachments shape the
+    // WebSocket path uses (see useChatComposer.sendMessageOverWs) so the
+    // worker stores file ids consistently regardless of transport.
+    const attachmentIds = attachments
+      .map((file) => file.id || file.storageKey || '')
+      .filter(Boolean);
+    const messageMetadata: Record<string, unknown> | undefined = attachmentIds.length > 0
+      ? { attachments: attachmentIds }
+      : undefined;
+    let postFailed = false;
+    const newConversationId = await handleStartConversation('ASK_QUESTION', {
+      forceNew: true,
+      additionalParticipantUserIds: [draftConversation.contactUserId],
+      additionalMetadata,
+      // Send the first message AND assign the creator before navigation so the
+      // resulting thread is already in "Your inbox" when useWorkspaceAutoNavigation
+      // observes the new active id. Otherwise the toast "currently hidden by
+      // filters or still loading" fires.
+      afterCreate: async (newId) => {
+        try {
+          await postConversationMessage(newId, practiceId, {
+            content: message,
+            metadata: messageMetadata,
+          });
+        } catch (error) {
+          postFailed = true;
+          console.warn('[WorkspacePage] Failed to send draft first message', error);
+          throw error;
+        }
+        if (sessionUserId) {
+          try {
+            await updateConversationTriage(newId, practiceId, { assignedTo: sessionUserId });
+          } catch (error) {
+            console.warn('[WorkspacePage] Failed to assign new conversation', error);
+          }
+        }
+      },
+    });
+    if (newConversationId && postFailed) {
+      showError('Conversation created, but the first message did not send', 'Try sending it again from the thread.');
+      // Keep the draft alive so the user's typed message + attachments don't
+      // vanish — the conversation now exists, but the composer state still
+      // belongs to the draft view until the user retries successfully.
+      return;
+    }
+    if (newConversationId) {
+      setDraftConversation(null);
+    }
+  };
+
+  const draftView = draftConversation ? (
+    <DraftConversationView
+      contactOptions={composePickerOptions}
+      pendingInviteOptions={composePendingInviteOptions}
+      isLoadingContacts={composeClientsData.isLoading || composeTeamData.isLoading}
+      draftContact={draftConversation.contactUserId
+        ? {
+          userId: draftConversation.contactUserId,
+          name: draftConversation.contactName ?? '',
+          email: draftConversation.contactEmail,
+        }
+        : null}
+      onChangeContact={handleDraftContactChange}
+      onSendFirstMessage={handleDraftSendFirstMessage}
+      onCancel={handleCancelDraft}
+      onInviteContact={() => setIsAddClientDialogOpen(true)}
+      onClickPendingInvite={(option) => setPendingInviteOption({
+        name: option.label,
+        email: typeof option.meta === 'string' && option.meta && option.meta !== 'Waiting for accept' ? option.meta : option.label,
+      })}
+      fileUploadProps={fileUploadProps}
+    />
+  ) : null;
 
   const workspaceFallbackHome = (
     <WorkspaceHomeView
@@ -725,7 +1045,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   // Workspace shell header (Pencil rt13A / RuuTq).
   const SECTION_TITLES: Record<WorkspaceSection, string> = {
     home: 'Home',
-    conversations: 'Inbox',
+    conversations: 'Messages',
     forms: 'Forms',
     intakes: 'Intakes',
     engagements: 'Engagements',
@@ -735,8 +1055,19 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     settings: 'Settings',
     coverage: 'Coverage',
   };
-  const headerTitle = SECTION_TITLES[workspaceSection] ?? 'Home';
-  const headerBreadcrumb = orgDisplayName ? [orgDisplayName, headerTitle] : undefined;
+  const baseHeaderTitle = SECTION_TITLES[workspaceSection] ?? 'Home';
+  // Reflect draft state in the shell header so the user has a clear visual
+  // anchor for "I'm composing a new conversation" — important on mobile where
+  // the listPanel isn't visible alongside the draft view.
+  const draftHeaderLabel = draftConversation
+    ? (draftConversation.contactName?.trim() || 'New conversation')
+    : null;
+  const headerTitle = draftHeaderLabel ?? baseHeaderTitle;
+  const headerBreadcrumb = orgDisplayName
+    ? draftHeaderLabel
+      ? [orgDisplayName, baseHeaderTitle, draftHeaderLabel]
+      : [orgDisplayName, baseHeaderTitle]
+    : undefined;
   const shellHeader = sidebarOrg ? (
     <WorkspaceShellHeader
       orgInitial={sidebarOrg.initial}
@@ -857,18 +1188,45 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     && !mattersDataForView.isLoading
     && !mattersDataForView.error
     && mattersDataForView.items.length === 0;
+  // Pencil oYsFt mobile tab bar — practice mobile sees segmented filters
+  // (Your Messages / Unassigned / All) above the search input. On desktop the
+  // same filters live in the sidebar's secondary nav, so tabs are mobile-only.
+  const mobileMessageTabs = useMemo(() => {
+    if (!isPracticeWorkspace) return null;
+    if (layoutMode === 'desktop') return null;
+    // Short single-word labels keep all three tabs visible without truncation
+    // on a 390-wide viewport ("Your Messages" + "Unassigned" used to overflow).
+    const options = [
+      { value: 'your-inbox', label: 'Yours' },
+      { value: 'unassigned', label: 'Unassigned' },
+      { value: 'all', label: 'All' },
+    ] as const;
+    const value = activeSecondaryFilter && options.some((o) => o.value === activeSecondaryFilter)
+      ? activeSecondaryFilter
+      : 'your-inbox';
+    return {
+      value,
+      options,
+      onChange: (next: string) => handleSecondaryFilterSelect(next),
+    };
+  }, [isPracticeWorkspace, layoutMode, activeSecondaryFilter, handleSecondaryFilterSelect]);
+
   const listContent = (
-    <ConversationListView
-      conversations={filteredConversations}
+    <MessagesListPanel
+      conversations={filteredConversationsWithOptimisticRead}
       previews={conversationPreviews}
       practiceName={practiceName}
       practiceLogo={practiceLogo}
       isLoading={combinedResolvedConversationsLoading}
       error={combinedResolvedConversationsError}
       onSelectConversation={handleSelectConversation}
-      onSendMessage={() => handleStartConversation('ASK_QUESTION')}
-      showSendMessageButton={false /* Permanent UX decision: conversation creation is initiated from guided entry points, not from list headers. */}
+      onCompose={handleEnterDraftMode}
+      draftEntry={draftConversation
+        ? { contactName: draftConversation.contactName, contactEmail: draftConversation.contactEmail }
+        : null}
+      onSelectDraftEntry={handleEnterDraftMode}
       activeConversationId={activeConversationId}
+      tabs={mobileMessageTabs}
     />
   );
   const desktopCreate = layoutMode === 'desktop' ? desktopCreateButton ?? undefined : undefined;
@@ -927,7 +1285,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   );
   const chatContent = (
     <div className="flex h-full min-h-0 flex-1 flex-col">
-      {chatView}
+      {draftView ?? chatView}
     </div>
   );
   const matterListPanel = layoutMode === 'desktop' && (isPracticeWorkspace || isClientWorkspace) && view === 'matters' && shouldShowDesktopMattersListPanel
@@ -943,16 +1301,19 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   const conversationListView = (
     <div className="flex h-full min-h-0 flex-1 flex-col gap-2">
       <Panel className="list-panel-card-gradient min-h-0 flex-1 overflow-hidden">
-        <ConversationListView
-          conversations={filteredConversations}
+        <MessagesListPanel
+          conversations={filteredConversationsWithOptimisticRead}
           previews={conversationPreviews}
           practiceName={practiceName}
           practiceLogo={practiceLogo}
           isLoading={combinedResolvedConversationsLoading}
           error={combinedResolvedConversationsError}
           onSelectConversation={handleSelectConversation}
-          onSendMessage={() => handleStartConversation('ASK_QUESTION')}
-          showSendMessageButton={false /* Permanent UX decision: conversation creation is initiated from guided entry points, not from list headers. */}
+          onCompose={handleEnterDraftMode}
+          draftEntry={draftConversation
+            ? { contactName: draftConversation.contactName, contactEmail: draftConversation.contactEmail }
+            : null}
+          onSelectDraftEntry={handleEnterDraftMode}
           activeConversationId={activeConversationId}
         />
       </Panel>
@@ -1016,6 +1377,12 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     primaryCreateAction,
   });
   const sectionContent = (() => {
+    // On mobile the listPanel is hidden — when in draft mode we want the
+    // draft view to take over the main pane instead of staying on the list.
+    // Desktop keeps the list visible alongside via the dedicated listPanel.
+    if (draftView && layoutMode !== 'desktop' && (view === 'list' || view === 'conversation')) {
+      return draftView;
+    }
     switch (view) {
       case 'setup':
         return setupContent;
@@ -1092,13 +1459,35 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       layoutMode={layoutMode}
       view={view}
       content={sectionContent}
-      chatView={chatView}
+      chatView={draftView ?? chatView}
       layout={sectionLayout}
       topBar={invoiceBuilderTopBar ?? (layoutMode === 'desktop' ? undefined : mobileSectionTopBar)}
       bottomNav={bottomNav}
     />
   );
-  const inspectorPanel = inspectorTarget ? (
+  // Pencil rxzde context panel: when viewing a practice conversation, render a
+  // dedicated three-section panel (Contact / Linked Matter / Recent Activity)
+  // instead of the generic InspectorPanel surface. Other entity types keep
+  // using InspectorPanel.
+  const linkedMatter = useMemo(() => {
+    if (!selectedConversation?.matter_id) return null;
+    return mattersData.items.find((m) => m.id === selectedConversation.matter_id) ?? null;
+  }, [mattersData.items, selectedConversation?.matter_id]);
+  const conversationContextPanel = isPracticeWorkspace
+    && inspectorTarget?.entityType === 'conversation'
+    ? (
+      <ConversationContextPanel
+        conversation={selectedConversation}
+        matter={linkedMatter}
+        practiceName={practiceName}
+        onOpenMatter={(matterId) => navigate(`${normalizedBase}/matters/${encodeURIComponent(matterId)}`)}
+        onDeleteConversation={selectedConversation
+          ? () => setConversationPendingDelete(selectedConversation)
+          : undefined}
+      />
+    )
+    : null;
+  const inspectorPanel = conversationContextPanel ?? (inspectorTarget ? (
     <InspectorPanel
       key={`${inspectorTarget.entityType}:${inspectorTarget.entityId}`}
       entityType={inspectorTarget.entityType}
@@ -1137,27 +1526,123 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
         matterOpposingCounsel: selectedMatterInspectorData.matterOpposingCounsel,
       } : {})}
     />
-  ) : null;
+  ) : null);
   const activeInspector = detailInspectorOpen ? inspectorPanel : null;
+
+  const handleConfirmDeleteConversation = async () => {
+    const target = conversationPendingDelete;
+    if (!target || !practiceId || isDeletingConversation) return;
+    try {
+      setIsDeletingConversation(true);
+      await deleteConversation(target.id, practiceId);
+      setConversationPendingDelete(null);
+      // If the user is currently viewing the deleted conversation, send them
+      // back to the list so we don't 404 on the next /messages call.
+      if (activeConversationId === target.id) {
+        navigate(withWidgetQuery(conversationsPath));
+      }
+      await refreshConversations();
+    } catch (error) {
+      console.error('[WorkspacePage] Failed to delete conversation', error);
+      showError('Could not delete conversation', error instanceof Error ? error.message : 'Please try again.');
+    } finally {
+      setIsDeletingConversation(false);
+    }
+  };
+
   return (
-    <AppShell
-      className="bg-transparent h-dvh"
-      accentBackdropVariant="none"
-      header={shellHeader}
-      sidebar={sidebarNav}
-      desktopSidebarCollapsed={isDesktopSidebarCollapsed}
-      mobileSidebar={mobileSidebarNav}
-      listPanel={conversationListPanel ?? matterListPanel ?? contactsListPanel ?? invoicesListPanel}
-      inspector={activeInspector ?? undefined}
-      inspectorMobileOpen={detailInspectorOpen && isMobileLayout}
-      onInspectorMobileClose={() => setIsInspectorOpen(false)}
-      mobileSidebarOpen={isMobileNavOpen}
-      onMobileSidebarClose={() => setIsMobileNavOpen(false)}
-      main={unifiedMainShell}
-      mainClassName="min-h-0 h-full overflow-hidden"
-      bottomBar={layoutMode === 'desktop' ? bottomNav : undefined}
-      bottomBarClassName={layoutMode === 'desktop' && showBottomNav ? 'md:hidden fixed inset-x-0 bottom-0 z-40 bg-transparent' : undefined}
-    />
+    <>
+      <AppShell
+        className="bg-transparent h-dvh"
+        accentBackdropVariant="none"
+        header={shellHeader}
+        sidebar={sidebarNav}
+        desktopSidebarCollapsed={isDesktopSidebarCollapsed}
+        mobileSidebar={mobileSidebarNav}
+        listPanel={conversationListPanel ?? matterListPanel ?? contactsListPanel ?? invoicesListPanel}
+        inspector={activeInspector ?? undefined}
+        inspectorMobileOpen={detailInspectorOpen && isMobileLayout}
+        onInspectorMobileClose={() => setIsInspectorOpen(false)}
+        mobileSidebarOpen={isMobileNavOpen}
+        onMobileSidebarClose={() => setIsMobileNavOpen(false)}
+        main={unifiedMainShell}
+        mainClassName="min-h-0 h-full overflow-hidden"
+        bottomBar={layoutMode === 'desktop' ? bottomNav : undefined}
+        bottomBarClassName={layoutMode === 'desktop' && showBottomNav ? 'md:hidden fixed inset-x-0 bottom-0 z-40 bg-transparent' : undefined}
+      />
+      <AddContactDialog
+        practiceId={practiceId ?? null}
+        isOpen={isAddClientDialogOpen}
+        onClose={() => setIsAddClientDialogOpen(false)}
+        onSuccess={async () => {
+          // Refresh the picker data so the just-invited contact shows up. The
+          // draft view stays open underneath; the invite is also reflected in
+          // the pending-invitations section since they haven't accepted yet.
+          await composeClientsData.refetch();
+          await composePracticeInvitations.refetch();
+        }}
+      />
+      <Dialog
+        isOpen={Boolean(pendingInviteOption)}
+        onClose={() => setPendingInviteOption(null)}
+        title="Invite still pending"
+        description={pendingInviteOption
+          ? `${pendingInviteOption.email} hasn't accepted the invite yet. They'll be able to chat once they accept.`
+          : ''}
+      >
+        <div className="flex justify-end gap-2 px-6 pb-6">
+          <Button
+            type="button"
+            variant="primary"
+            size="sm"
+            onClick={() => setPendingInviteOption(null)}
+          >
+            Got it
+          </Button>
+        </div>
+      </Dialog>
+      <Dialog
+        isOpen={Boolean(conversationPendingDelete)}
+        onClose={() => {
+          if (isDeletingConversation) return;
+          setConversationPendingDelete(null);
+        }}
+        title="Delete conversation"
+        description="This permanently removes the conversation, its messages, reactions, and audit history. This action cannot be undone."
+      >
+        <div className="flex flex-col gap-4 px-6 pb-6">
+          <p className="text-sm text-input-text">
+            Are you sure you want to delete{' '}
+            <span className="font-semibold">
+              {conversationPendingDelete
+                ? (resolveConversationContactName(conversationPendingDelete)
+                  || resolveConversationDisplayTitle(conversationPendingDelete, practiceName ?? 'this conversation'))
+                : 'this conversation'}
+            </span>?
+          </p>
+          <div className="flex justify-end gap-2">
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => setConversationPendingDelete(null)}
+              disabled={isDeletingConversation}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="danger"
+              size="sm"
+              onClick={() => { void handleConfirmDeleteConversation(); }}
+              disabled={isDeletingConversation}
+            >
+              {isDeletingConversation ? 'Deleting…' : 'Delete'}
+            </Button>
+          </div>
+        </div>
+      </Dialog>
+    </>
   );
 };
 

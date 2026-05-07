@@ -91,9 +91,9 @@ type InspectorPanelProps = {
   practiceLogo?: string;
   intakeConversationState?: IntakeConversationState | null;
   intakeStatus?: DerivedIntakeStatus | null;
+  intake?: PracticeIntakeDetail | null;
   onIntakeFieldsChange?: (patch: Partial<IntakeConversationState>, options?: import('@/shared/types/intake').IntakeFieldChangeOptions) => Promise<void> | void;
   practiceDetails?: PracticeDetails | null;
-  intakeSlimContactDraft?: import('@/shared/types/intake').SlimContactDraft | null;
   conversationMode?: ConversationMode;
   setupFields?: SetupFieldsPayload;
   onSetupFieldsChange?: (patch: Partial<SetupFieldsPayload>, options?: { sendSystemAck?: boolean }) => Promise<void> | void;
@@ -156,7 +156,6 @@ export const InspectorPanel = ({
   intakeStatus,
   onIntakeFieldsChange,
   practiceDetails: propPracticeDetails,
-  intakeSlimContactDraft,
   conversationMode,
   setupFields,
   onSetupFieldsChange,
@@ -970,6 +969,21 @@ export const InspectorPanel = ({
                   website={practiceDetail?.website}
                 />
                 <div className="mt-2">
+                  {/* Canonical Intake Status from backend */}
+                  {intake ? (
+                    <div className="mt-4">
+                      <InspectorGroup label="Intake Status">
+                        <InfoRow
+                          label="Status"
+                          value={intake.status || '—'}
+                        />
+                        <InfoRow
+                          label="Triage Status"
+                          value={intake.triage_status || '—'}
+                        />
+                      </InspectorGroup>
+                    </div>
+                  ) : null}
                   {intakeConversationState ? (
                     <div className="mt-4">
                       {(() => {
@@ -990,67 +1004,57 @@ export const InspectorPanel = ({
                             </div>
 
                             {/* Contact Information */}
-                            <InspectorGroup 
-                              label="Name" 
-                              onToggle={canEditIntake ? () => setActiveConversationEditor(prev => prev === 'intakeName' ? null : 'intakeName') : undefined}
-                              isOpen={activeConversationEditor === 'intakeName'}
-                            >
-                              <InspectorEditableRow
-                                label=""
-                                summary={intakeSlimContactDraft?.name || 'Not set'}
-                                summaryMuted={!intakeSlimContactDraft?.name}
-                                isOpen={activeConversationEditor === 'intakeName'}
-                              >
-                                <Input
-                                  value={intakeSlimContactDraft?.name ?? ''}
-                                  placeholder="Full name"
-                                  readOnly
-                                  className="w-full"
-                                />
-                              </InspectorEditableRow>
-                            </InspectorGroup>
-
-                            <InspectorGroup 
-                              label="Email" 
-                              onToggle={canEditIntake ? () => setActiveConversationEditor(prev => prev === 'intakeEmail' ? null : 'intakeEmail') : undefined}
-                              isOpen={activeConversationEditor === 'intakeEmail'}
-                            >
-                              <InspectorEditableRow
-                                label=""
-                                summary={intakeSlimContactDraft?.email || 'Not set'}
-                                summaryMuted={!intakeSlimContactDraft?.email}
-                                isOpen={activeConversationEditor === 'intakeEmail'}
-                              >
-                                <Input
-                                  value={intakeSlimContactDraft?.email ?? ''}
-                                  placeholder="Email address"
-                                  readOnly
-                                  className="w-full"
-                                  type="email"
-                                />
-                              </InspectorEditableRow>
-                            </InspectorGroup>
-
-                            <InspectorGroup 
-                              label="Phone" 
-                              onToggle={canEditIntake ? () => setActiveConversationEditor(prev => prev === 'intakePhone' ? null : 'intakePhone') : undefined}
-                              isOpen={activeConversationEditor === 'intakePhone'}
-                            >
-                              <InspectorEditableRow
-                                label=""
-                                summary={intakeSlimContactDraft?.phone || 'Not set'}
-                                summaryMuted={!intakeSlimContactDraft?.phone}
-                                isOpen={activeConversationEditor === 'intakePhone'}
-                              >
-                                <Input
-                                  value={intakeSlimContactDraft?.phone ?? ''}
-                                  placeholder="Phone number"
-                                  readOnly
-                                  className="w-full"
-                                  type="tel"
-                                />
-                              </InspectorEditableRow>
-                            </InspectorGroup>
+                            {canEditIntake ? null : (
+                              <>
+                                <InspectorGroup label="Name">
+                                  <InspectorEditableRow
+                                    label=""
+                                    summary={conversation?.user_info?.consultation?.contact?.name || 'Not set'}
+                                    summaryMuted={!conversation?.user_info?.consultation?.contact?.name}
+                                    isOpen={false}
+                                  >
+                                    <Input
+                                      value={conversation?.user_info?.consultation?.contact?.name ?? ''}
+                                      placeholder="Full name"
+                                      readOnly
+                                      className="w-full"
+                                    />
+                                  </InspectorEditableRow>
+                                </InspectorGroup>
+                                <InspectorGroup label="Email">
+                                  <InspectorEditableRow
+                                    label=""
+                                    summary={conversation?.user_info?.consultation?.contact?.email || 'Not set'}
+                                    summaryMuted={!conversation?.user_info?.consultation?.contact?.email}
+                                    isOpen={false}
+                                  >
+                                    <Input
+                                      value={conversation?.user_info?.consultation?.contact?.email ?? ''}
+                                      placeholder="Email address"
+                                      readOnly
+                                      className="w-full"
+                                      type="email"
+                                    />
+                                  </InspectorEditableRow>
+                                </InspectorGroup>
+                                <InspectorGroup label="Phone">
+                                  <InspectorEditableRow
+                                    label=""
+                                    summary={conversation?.user_info?.consultation?.contact?.phone || 'Not set'}
+                                    summaryMuted={!conversation?.user_info?.consultation?.contact?.phone}
+                                    isOpen={false}
+                                  >
+                                    <Input
+                                      value={conversation?.user_info?.consultation?.contact?.phone ?? ''}
+                                      placeholder="Phone number"
+                                      readOnly
+                                      className="w-full"
+                                      type="tel"
+                                    />
+                                  </InspectorEditableRow>
+                                </InspectorGroup>
+                              </>
+                            )}
 
                             {(() => {
                               const rawPracticeServiceUuid = intakeConversationState.practiceServiceUuid;

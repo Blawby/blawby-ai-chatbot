@@ -9,6 +9,50 @@ import {
 } from '@/shared/config/navConfig';
 import type { Conversation } from '@/shared/types/conversation';
 
+// Intake records can reference conversation_ids that no longer exist (orphaned
+// after a conversation was deleted). The list endpoint can't help us — those
+// rows aren't in it. Cache 404s in localStorage (scoped per-practice) so we
+// don't re-fetch known-dead ids on every list refresh / page reload and
+// pollute the worker error log + browser network tab. Random UUIDs mean a new
+// conversation will never reuse a known-missing id, so caching is safe.
+const KNOWN_MISSING_KEY_PREFIX = 'workspace:knownMissingConversations:';
+const KNOWN_MISSING_LIMIT = 500;
+
+const loadKnownMissing = (practiceId: string): Set<string> => {
+  if (typeof window === 'undefined') return new Set();
+  try {
+    const raw = window.localStorage.getItem(KNOWN_MISSING_KEY_PREFIX + practiceId);
+    if (!raw) return new Set();
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return new Set();
+    return new Set(parsed.filter((id): id is string => typeof id === 'string' && id.length > 0));
+  } catch {
+    return new Set();
+  }
+};
+
+const saveKnownMissing = (practiceId: string, ids: Set<string>): void => {
+  if (typeof window === 'undefined') return;
+  try {
+    // Cap the cache so a long-lived browser doesn't hoard MB of dead UUIDs;
+    // truncation drops the oldest entries (insertion order on Set).
+    const arr = Array.from(ids);
+    const trimmed = arr.length > KNOWN_MISSING_LIMIT ? arr.slice(arr.length - KNOWN_MISSING_LIMIT) : arr;
+    window.localStorage.setItem(KNOWN_MISSING_KEY_PREFIX + practiceId, JSON.stringify(trimmed));
+  } catch {
+    // localStorage may be disabled (private mode, quota exceeded). Cache
+    // becomes session-scoped via the in-memory ref below — best effort.
+  }
+};
+
+// `getConversation` re-wraps HttpError into a plain Error before reaching the
+// caller, so we have to sniff the message. 404s from the worker carry "not
+// found" in the body or fall through to the generic "HTTP 404" fallback.
+const isMissingConversationError = (error: unknown): boolean => {
+  if (!(error instanceof Error)) return false;
+  return error.message.includes('Conversation not found') || /HTTP 404/i.test(error.message);
+};
+
 type UseWorkspaceConversationsInput = {
   practiceId: string;
   workspace: 'public' | 'practice' | 'client';
@@ -34,6 +78,16 @@ export function useWorkspaceConversations({
   sessionUserId,
   mockConversations = null,
 }: UseWorkspaceConversationsInput) {
+  // Per-practice cache of conversation_ids we've seen 404 on. Loaded from
+  // localStorage on first render so cold reloads don't re-fetch and re-log
+  // the same orphaned ids. The ref is the live mutable view; saves push to
+  // localStorage on every addition.
+  const knownMissingRef = useRef<Set<string>>(loadKnownMissing(practiceId));
+  // Re-hydrate when practiceId changes (rare, but the cache is per-practice).
+  useEffect(() => {
+    knownMissingRef.current = loadKnownMissing(practiceId);
+  }, [practiceId]);
+
   const conversationAssignedToFilter = workspaceSection === 'conversations'
     ? (isPracticeWorkspace
       ? (activeSecondaryFilter ? PRACTICE_CONVERSATIONS_ASSIGNED_TO_MAP[activeSecondaryFilter] : null)
@@ -111,7 +165,11 @@ export function useWorkspaceConversations({
       ...resolvedConversations.map((conversation) => conversation.id),
       ...acceptedIntakeConversationsRef.current.map((conversation) => conversation.id),
     ]);
-    const missingConversationIds = acceptedIntakeConversationIds.filter((conversationId) => !knownConversationIds.has(conversationId));
+    const missingConversationIds = acceptedIntakeConversationIds.filter(
+      (conversationId) =>
+        !knownConversationIds.has(conversationId)
+        && !knownMissingRef.current.has(conversationId),
+    );
     if (missingConversationIds.length === 0) {
       setAcceptedIntakeConversations((prev) => {
         const filtered = prev.filter((conversation) => acceptedIntakeConversationIds.includes(conversation.id));
@@ -136,9 +194,22 @@ export function useWorkspaceConversations({
         if (controller.signal.aborted) break;
         const chunk = missingConversationIds.slice(i, i + chunkSize);
         const results = await Promise.all(
-          chunk.map((conversationId) =>
-            getConversation(conversationId, practiceId, { signal: controller.signal }).catch(() => null)
-          )
+          chunk.map(async (conversationId) => {
+            try {
+              return await getConversation(conversationId, practiceId, { signal: controller.signal });
+            } catch (error) {
+              // Mark as known-missing on 404 only so subsequent list refreshes
+              // skip the lookup and don't 404-storm the worker error log.
+              // Conversations sometimes get deleted while the originating intake
+              // row sticks around. Network/server/abort errors must not poison
+              // the cache — those ids could come back on a later attempt.
+              if (!controller.signal.aborted && isMissingConversationError(error)) {
+                knownMissingRef.current.add(conversationId);
+                saveKnownMissing(practiceId, knownMissingRef.current);
+              }
+              return null;
+            }
+          })
         );
         loadedConversations.push(...results);
       }

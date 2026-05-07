@@ -3,10 +3,12 @@ import type { ComponentChildren } from 'preact';
 import { useLocation } from 'preact-iso';
 import ChatContainer from '@/features/chat/components/ChatContainer';
 import DragDropOverlay from '@/shared/ui/DragDropOverlay';
+import { Avatar } from '@/shared/ui/profile/atoms/Avatar';
 import WorkspacePage from '@/features/chat/pages/WorkspacePage';
 import { useSessionContext, useMemberRoleContext } from '@/shared/contexts/SessionContext';
 import { RoutePracticeProvider } from '@/shared/contexts/RoutePracticeContext';
 import { IntakeProvider } from '@/shared/contexts/IntakeContext';
+import { PresenceProvider } from '@/shared/contexts/PresenceContext';
 import type { UIPracticeConfig } from '@/shared/hooks/usePracticeConfig';
 import type { WorkspaceType } from '@/shared/types/workspace';
 import { useMessageHandling } from '@/shared/hooks/useMessageHandling';
@@ -25,7 +27,7 @@ import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
 import type { ConversationMode } from '@/shared/types/conversation';
 import { lazy } from 'preact/compat';
-import { Info, Send, Plus } from 'lucide-preact';
+import { Send, Plus, Mail, Phone, Briefcase } from 'lucide-preact';
 import { INVOICE_CREATE_SEND_EVENT } from '@/features/invoices/utils/invoicePageConfig';
 const PracticeMattersPage = lazy(() => import('@/features/matters/pages/PracticeMattersPage').then(m => ({ default: m.PracticeMattersPage })));
 const PracticeContactsPage = lazy(() => import('@/features/clients/pages/PracticeContactsPage').then(m => ({ default: m.PracticeContactsPage })));
@@ -46,13 +48,12 @@ import { Button } from '@/shared/ui/Button';
 import { Icon } from '@/shared/ui/Icon';
 import { shouldShowWorkspaceDetailBack } from '@/shared/utils/workspaceDetailNavigation';
 import {
-  resolveConversationCaseTitle,
   resolveConversationContactName,
   resolveConversationDisplayTitle,
+  resolveConversationPresence,
 } from '@/shared/utils/conversationDisplay';
 import { DetailHeader } from '@/shared/ui/layout/DetailHeader';
 import { LazyRouteBoundary } from '@/shared/ui/layout/LazyRouteBoundary';
-import { resolveStrengthStyle, resolveStrengthTier } from '@/shared/utils/intakeStrength';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
 import { features } from '@/config/features';
 
@@ -234,6 +235,7 @@ export function MainApp({
     conversationId: setupConversationId,
     setConversationId: _setConversationId,
     isCreatingConversation,
+    createConversation,
     ensureConversation,
     applyConversationMode,
   } = useConversationSetup({
@@ -341,7 +343,12 @@ export function MainApp({
   const handleStartNewConversation = useCallback(async (
     nextMode: ConversationMode,
     preferredConversationId?: string,
-    options?: { forceCreate?: boolean; silentSessionNotReady?: boolean }
+    options?: {
+      forceCreate?: boolean;
+      silentSessionNotReady?: boolean;
+      additionalParticipantUserIds?: string[];
+      additionalMetadata?: Record<string, unknown>;
+    }
   ): Promise<string> => {
     try {
       if (!practiceId) throw new Error('Practice context is required');
@@ -359,8 +366,17 @@ export function MainApp({
       }
 
       // ── Create new conversation ─────────────────────────────────────────────
-      // ensureConversation waits for the session to settle before creating.
-      const newConversationId = await ensureConversation();
+      // forceCreate must skip ensureConversation (which short-circuits to the
+      // current active id) and call createConversation directly. The
+      // allowPracticeWorkspace flag opts out of the staff-auto-create guard so
+      // the explicit "New conversation" affordance works for practice users too.
+      const newConversationId = options?.forceCreate
+        ? await createConversation({
+            allowPracticeWorkspace: true,
+            additionalParticipantUserIds: options.additionalParticipantUserIds,
+            additionalMetadata: options.additionalMetadata,
+          })
+        : await ensureConversation();
 
       if (!newConversationId) {
         // Practice workspace or other condition where creation is not applicable.
@@ -376,7 +392,7 @@ export function MainApp({
       console.warn('[MainApp] Failed to start new conversation', error);
       throw error;
     }
-  }, [activeConversationId, applyConversationMode, ensureConversation, practiceId, startConsultFlow]);
+  }, [activeConversationId, applyConversationMode, createConversation, ensureConversation, practiceId, startConsultFlow]);
 
   // ── send message ───────────────────────────────────────────────────────────
   const handleSendMessage = useCallback(async (
@@ -411,9 +427,55 @@ export function MainApp({
     conversationId: activeConversationId ?? undefined,
     enabled: features.enableFileAttachments && isAuthenticatedWorkspace,
   });
-  const isDragging = features.enableFileAttachments && isAuthenticatedWorkspace
-    ? uploadingFiles.length > 0 || previewFiles.length > 0
-    : false;
+
+  // Page-level drop handler. Tracks real drag state via window listeners
+  // (matters pattern: depth ref to debounce nested enter/leave from children)
+  // and drives the page-wide DragDropOverlay's visibility.
+  const [isDraggingFiles, setIsDraggingFiles] = useState(false);
+  const dragDepthRef = useRef(0);
+  useEffect(() => {
+    if (!features.enableFileAttachments || !isAuthenticatedWorkspace || isWidget) return;
+    const hasDraggedFiles = (event: DragEvent) => {
+      const types = event.dataTransfer?.types;
+      return Boolean(types && Array.from(types).includes('Files'));
+    };
+    const onDragEnter = (event: DragEvent) => {
+      if (!hasDraggedFiles(event)) return;
+      event.preventDefault();
+      dragDepthRef.current += 1;
+      setIsDraggingFiles(true);
+    };
+    const onDragOver = (event: DragEvent) => {
+      if (!hasDraggedFiles(event)) return;
+      event.preventDefault();
+      if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
+      setIsDraggingFiles(true);
+    };
+    const onDragLeave = (event: DragEvent) => {
+      if (!hasDraggedFiles(event)) return;
+      event.preventDefault();
+      dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
+      if (dragDepthRef.current === 0) setIsDraggingFiles(false);
+    };
+    const onDrop = (event: DragEvent) => {
+      if (!hasDraggedFiles(event)) return;
+      event.preventDefault();
+      dragDepthRef.current = 0;
+      setIsDraggingFiles(false);
+      const dropped = event.dataTransfer?.files ? Array.from(event.dataTransfer.files) : [];
+      if (dropped.length > 0) void handleFileSelect(dropped);
+    };
+    window.addEventListener('dragenter', onDragEnter);
+    window.addEventListener('dragover', onDragOver);
+    window.addEventListener('dragleave', onDragLeave);
+    window.addEventListener('drop', onDrop);
+    return () => {
+      window.removeEventListener('dragenter', onDragEnter);
+      window.removeEventListener('dragover', onDragOver);
+      window.removeEventListener('dragleave', onDragLeave);
+      window.removeEventListener('drop', onDrop);
+    };
+  }, [features.enableFileAttachments, isAuthenticatedWorkspace, isWidget, handleFileSelect]);
 
   // ── welcome modals ─────────────────────────────────────────────────────────
   const { shouldShow: shouldShowWelcome, markAsShown: markWelcomeAsShown } = useWelcomeDialog({ enabled: workspace !== 'public' });
@@ -477,22 +539,26 @@ export function MainApp({
     return hasNonSystem ? base.filter((message) => message.metadata?.systemMessageKey !== 'intro') : base;
   }, [messages]);
 
-  const conversationHeaderActiveLabel = useMemo(() => {
-    if (isSocketReady) return 'Active';
-    const lastTimestamp = [...filteredMessagesForHeader].reverse().find((message) => typeof message.timestamp === 'number')?.timestamp;
-    if (!lastTimestamp) return 'Inactive';
-    const relative = formatRelativeTime(new Date(lastTimestamp));
-    return relative ? `Active ${relative}` : 'Inactive';
+  // Resolve presence (active | offline) for the conversation header. We can't
+  // read PresenceContext from this scope (MainApp renders the provider, so
+  // hooks here resolve outside it) — the list view does that. Fall back to
+  // the timestamp proxy + socket-ready as a "this thread is live" hint.
+  const conversationHeaderPresence = useMemo(() => {
+    const lastTimestamp = [...filteredMessagesForHeader].reverse()
+      .find((message) => typeof message.timestamp === 'number')?.timestamp;
+    return resolveConversationPresence(lastTimestamp ?? null, isSocketReady);
   }, [filteredMessagesForHeader, isSocketReady]);
-  const conversationCaseTitle = useMemo(() => (
-    resolveConversationCaseTitle(
-      conversationMetadata ?? null,
-      resolveConversationDisplayTitle(conversationMetadata ?? null, resolvedPracticeName)
-    )
-  ), [conversationMetadata, resolvedPracticeName]);
+  const conversationHeaderActiveLabel = conversationHeaderPresence.label;
   const conversationContactName = useMemo(() => (
     resolveConversationContactName(conversationMetadata ?? null)
   ), [conversationMetadata]);
+  // Conversation header always shows the contact name (the person being
+  // chatted with). No fallback to metadata.title or the practice name —
+  // those leak case-internal labels into the header. If the contact is
+  // unknown, render a generic placeholder rather than a misleading fallback.
+  const conversationCaseTitle = useMemo(() => (
+    conversationContactName?.trim() || 'Conversation'
+  ), [conversationContactName]);
 
   const isConsultConversation = useMemo(
     () => conversationMode === 'REQUEST_CONSULTATION'
@@ -514,52 +580,148 @@ export function MainApp({
     [conversationMetadata, conversationMode, intakeConversationState, intakeStatus, slimContactDraft]
   );
 
-  const conversationStrengthAction = useMemo(() => {
-    if (!isConsultConversation) return null;
+  // On desktop practice/client surfaces the inspector panel is open by default,
+  // so the 3-dot inspector toggle in the conversation header would be redundant
+  // chrome. Mobile keeps it (the inspector is a drawer there) and the public
+  // widget is left untouched.
+  const hideInspectorChrome = layoutMode === 'desktop' && isAuthenticatedWorkspace;
 
-    const tier = resolveStrengthTier(intakeConversationState);
-    const { percent, ringClass } = resolveStrengthStyle(tier);
-    const radius = 9;
-    const circumference = 2 * Math.PI * radius;
-    const dashOffset = circumference - (percent / 100) * circumference;
-
+  // Pencil rxzde detail header: practice viewers see a primary "Create
+  // Engagement" CTA. The CTA jumps to the engagements page where the existing
+  // creation flow lives. Hidden on non-desktop layouts (Pencil d08Mpc keeps the
+  // mobile detail header spartan — only back + title + overflow menu).
+  const createEngagementAction = useMemo(() => {
+    if (!isPracticeWorkspace) return null;
+    if (!practiceEngagementsPath) return null;
+    if (layoutMode !== 'desktop') return null;
     return (
       <Button
         type="button"
-        variant="icon"
-        size="icon-sm"
-        onClick={() => {
-          if (typeof window === 'undefined') return;
-          window.dispatchEvent(new CustomEvent('workspace:open-inspector'));
-        }}
-        aria-label="Case strength"
+        variant="primary"
+        size="sm"
+        onClick={() => navigate(practiceEngagementsPath)}
+        icon={Plus}
+        iconClassName="h-4 w-4"
+        iconPosition="left"
       >
-        <span className="relative flex h-6 w-6 items-center justify-center">
-          <svg className="-rotate-90 absolute inset-0 h-6 w-6" viewBox="0 0 24 24" aria-hidden="true">
-            <circle cx="12" cy="12" r={radius} strokeWidth="2" fill="none" className="text-line-glass/30" stroke="currentColor" />
-            <circle
-              cx="12" cy="12" r={radius} strokeWidth="2" fill="none" strokeLinecap="round"
-              className={`transition-all duration-300 ${ringClass}`} stroke="currentColor"
-              strokeDasharray={circumference} strokeDashoffset={dashOffset}
-            />
-          </svg>
-          <Icon icon={Info} className="relative z-10 h-3.5 w-3.5" aria-hidden="true" />
-        </span>
+        Create Engagement
       </Button>
     );
-  }, [intakeConversationState, isConsultConversation]);
+  }, [isPracticeWorkspace, layoutMode, practiceEngagementsPath, navigate]);
+
+  const conversationHeaderActions = useMemo(() => {
+    if (!createEngagementAction) return null;
+    return (
+      <div className="flex items-center gap-2">
+        {createEngagementAction}
+      </div>
+    );
+  }, [createEngagementAction]);
+
+  // Pencil rxzde header strip: email + phone + linked-matter chip rendered as a
+  // second row below the main header. Email/phone come from the same intake
+  // sources used by ConversationContextPanel — keep both surfaces aligned so a
+  // value visible in the right panel is also visible up here.
+  const conversationHeaderEmail = useMemo(() => {
+    const intake = (intakeConversationState ?? null) as Record<string, unknown> | null;
+    if (typeof intake?.email === 'string' && intake.email.trim()) return intake.email.trim();
+    if (typeof slimContactDraft?.email === 'string' && slimContactDraft.email.trim()) return slimContactDraft.email.trim();
+    return '';
+  }, [intakeConversationState, slimContactDraft]);
+  const conversationHeaderPhone = useMemo(() => {
+    const intake = (intakeConversationState ?? null) as Record<string, unknown> | null;
+    if (typeof intake?.phone === 'string' && intake.phone.trim()) return intake.phone.trim();
+    if (typeof slimContactDraft?.phone === 'string' && slimContactDraft.phone.trim()) return slimContactDraft.phone.trim();
+    return '';
+  }, [intakeConversationState, slimContactDraft]);
+  const conversationHeaderMatterLabel = useMemo(() => {
+    const meta = conversationMetadata as Record<string, unknown> | null | undefined;
+    const candidates = [
+      meta?.matter_title,
+      meta?.matterTitle,
+      meta?.matter_name,
+      meta?.matterName,
+    ];
+    for (const value of candidates) {
+      if (typeof value === 'string' && value.trim()) return value.trim();
+    }
+    return '';
+  }, [conversationMetadata]);
+
+  const conversationHeaderSecondaryRow = useMemo(() => {
+    if (!isPracticeWorkspace) return undefined;
+    if (layoutMode !== 'desktop') return undefined;
+    if (!conversationHeaderEmail && !conversationHeaderPhone && !conversationHeaderMatterLabel) return undefined;
+    return (
+      <>
+        {conversationHeaderEmail ? (
+          <a
+            href={`mailto:${conversationHeaderEmail}`}
+            className="inline-flex min-w-0 items-center gap-1.5 truncate hover:text-input-text"
+          >
+            <Icon icon={Mail} className="h-3.5 w-3.5 shrink-0" />
+            <span className="truncate">{conversationHeaderEmail}</span>
+          </a>
+        ) : null}
+        {conversationHeaderPhone ? (
+          <a
+            href={`tel:${conversationHeaderPhone.replace(/[^0-9+]/g, '')}`}
+            className="inline-flex min-w-0 items-center gap-1.5 truncate hover:text-input-text"
+          >
+            <Icon icon={Phone} className="h-3.5 w-3.5 shrink-0" />
+            <span className="truncate">{conversationHeaderPhone}</span>
+          </a>
+        ) : null}
+        {conversationHeaderMatterLabel ? (
+          <span className="inline-flex min-w-0 items-center gap-1.5 truncate rounded-full bg-accent-500/10 px-2 py-0.5 text-accent-utility">
+            <Icon icon={Briefcase} className="h-3.5 w-3.5 shrink-0" />
+            <span className="truncate">{conversationHeaderMatterLabel}</span>
+          </span>
+        ) : null}
+      </>
+    );
+  }, [
+    conversationHeaderEmail, conversationHeaderMatterLabel, conversationHeaderPhone,
+    isPracticeWorkspace, layoutMode,
+  ]);
+
+  // Pencil rxzde inline "• Unread" pill next to the title — only shown when the
+  // active conversation hasn't been read yet (socket marks it read once messages
+  // are loaded, so this is mostly a transient state on initial open).
+  const conversationHeaderUnreadBadge = useMemo(() => {
+    if (!isPracticeWorkspace) return undefined;
+    if (isSocketReady) return undefined;
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-accent-500/15 px-2 py-0.5 text-[11px] font-semibold text-accent-utility">
+        <span className="h-1.5 w-1.5 rounded-full bg-accent-500" aria-hidden="true" />
+        Unread
+      </span>
+    );
+  }, [isPracticeWorkspace, isSocketReady]);
 
   const conversationHeaderContent = useMemo(() => {
     if (!conversationsBasePath || !activeConversationId) return undefined;
     const showConversationBack = shouldShowWorkspaceDetailBack(layoutMode, Boolean(conversationBackPath));
+    const headerAvatar = (
+      <Avatar
+        src={null}
+        name={conversationCaseTitle}
+        size="sm"
+        className="ring-1 ring-line-glass/10"
+        status={conversationHeaderPresence.status}
+      />
+    );
     return (
       <DetailHeader
         title={conversationCaseTitle}
         subtitle={conversationHeaderActiveLabel}
         showBack={showConversationBack}
         onBack={showConversationBack ? () => navigate(conversationBackPath) : undefined}
-        actions={conversationStrengthAction}
-        onInspector={() => {
+        leadingAction={headerAvatar}
+        actions={conversationHeaderActions}
+        titleBadge={conversationHeaderUnreadBadge}
+        secondaryRow={conversationHeaderSecondaryRow}
+        onInspector={hideInspectorChrome ? undefined : () => {
           if (typeof window === 'undefined') return;
           window.dispatchEvent(new CustomEvent('workspace:open-inspector'));
         }}
@@ -568,8 +730,9 @@ export function MainApp({
     );
   }, [
     activeConversationId, conversationBackPath, conversationsBasePath,
-    conversationCaseTitle, conversationHeaderActiveLabel, conversationStrengthAction,
-    layoutMode, navigate,
+    conversationCaseTitle, conversationHeaderActiveLabel, conversationHeaderActions,
+    conversationHeaderPresence, conversationHeaderSecondaryRow, conversationHeaderUnreadBadge,
+    hideInspectorChrome, layoutMode, navigate,
   ]);
   const showWorkspaceDetailBack = useMemo(
     () => shouldShowWorkspaceDetailBack(layoutMode),
@@ -718,6 +881,19 @@ export function MainApp({
       }}
       practiceDetails={practiceDetails}
       chatView={chatPanel}
+      fileUploadProps={{
+        previewFiles,
+        uploadingFiles,
+        isReadyToUpload,
+        handleFileSelect,
+        handleCameraCapture,
+        removePreviewFile,
+        clearPreviewFiles,
+        cancelUpload,
+        handleMediaCapture,
+        isRecording,
+        setIsRecording,
+      }}
       mattersView={
         isPracticeWorkspace
           ? (practiceMattersPath
@@ -985,13 +1161,19 @@ export function MainApp({
 
   return (
     <>
-      {!isWidget && <DragDropOverlay isVisible={isDragging} onClose={() => {}} />}
+      {!isWidget && <DragDropOverlay isVisible={isDraggingFiles} />}
       <IntakeProvider value={intakeProviderValue}>
-        <div className={rootClassName}>
-          <RoutePracticeProvider value={routePracticeContextValue}>
-            {workspacePage}
-          </RoutePracticeProvider>
-        </div>
+        <PresenceProvider
+          practiceId={effectivePracticeId ?? practiceId ?? null}
+          userId={session?.user?.id ?? null}
+          enabled={!isWidget && !isAnonymous}
+        >
+          <div className={rootClassName}>
+            <RoutePracticeProvider value={routePracticeContextValue}>
+              {workspacePage}
+            </RoutePracticeProvider>
+          </div>
+        </PresenceProvider>
       </IntakeProvider>
       {!isWidget && (
         <>

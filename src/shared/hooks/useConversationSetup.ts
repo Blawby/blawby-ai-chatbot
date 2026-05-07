@@ -28,7 +28,11 @@ export interface UseConversationSetupResult {
   conversationMode: ConversationMode | null;
   setConversationMode: (mode: ConversationMode | null) => void;
   isCreatingConversation: boolean;
-  createConversation: () => Promise<string | null>;
+  createConversation: (options?: {
+    allowPracticeWorkspace?: boolean;
+    additionalParticipantUserIds?: string[];
+    additionalMetadata?: Record<string, unknown>;
+  }) => Promise<string | null>;
   ensureConversation: () => Promise<string | null>;
   handleModeSelection: (mode: ConversationMode, source: 'intro_gate' | 'composer_footer', startConsultFlow: (id: string) => void) => Promise<void>;
   handleStartNewConversation: (mode: ConversationMode, startConsultFlow: (id: string) => void) => Promise<string>;
@@ -125,29 +129,43 @@ export function useConversationSetup({
     }
   }, [isPublicWorkspace]);
 
-  const createConversation = useCallback(async (): Promise<string | null> => {
-    if (isPracticeWorkspace) return null;
+  const createConversation = useCallback(async (options?: {
+    allowPracticeWorkspace?: boolean;
+    additionalParticipantUserIds?: string[];
+    additionalMetadata?: Record<string, unknown>;
+  }): Promise<string | null> => {
+    if (isPracticeWorkspace && !options?.allowPracticeWorkspace) return null;
     if (!practiceId || isCreatingRef.current) return null;
+
+    const extraParticipantIds = (options?.additionalParticipantUserIds ?? [])
+      .map((id) => (typeof id === 'string' ? id.trim() : ''))
+      .filter((id) => id.length > 0);
+    const extraMetadata = options?.additionalMetadata ?? {};
 
     try {
       isCreatingRef.current = true;
       setIsCreatingConversation(true);
-      
+
       // Create and track the creation promise
       const creationPromise = (async () => {
+        const participantUserIds = Array.from(new Set([
+          ...(currentUserId ? [currentUserId] : []),
+          ...extraParticipantIds,
+        ]));
+        const metadata: Record<string, unknown> = { ...extraMetadata, source: 'chat' };
         const params: Record<string, string> = { practiceId };
-        if (currentUserId) {
-          params.participantUserIds = JSON.stringify([currentUserId]);
+        if (participantUserIds.length > 0) {
+          params.participantUserIds = JSON.stringify(participantUserIds);
         }
-        params.metadata = JSON.stringify({ source: 'chat' });
+        params.metadata = JSON.stringify(metadata);
 
         let envelope: { success: boolean; error?: string; data?: { id: string } };
         try {
           const result = await apiClient.post<{ success: boolean; error?: string; data?: { id: string } }>(
             getConversationsEndpoint(),
             {
-              participantUserIds: currentUserId ? [currentUserId] : [],
-              metadata: { source: 'chat' },
+              participantUserIds,
+              metadata,
               practiceId,
             },
             { params },

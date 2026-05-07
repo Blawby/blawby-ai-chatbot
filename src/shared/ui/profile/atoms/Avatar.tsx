@@ -9,6 +9,7 @@ import { useState, useEffect } from 'preact/hooks';
 import { Icon } from '@/shared/ui/Icon';
 import { sanitizeUserImageUrl } from '@/shared/utils/urlValidation';
 
+
 interface AvatarProps {
   src?: string | null;
   name: string;
@@ -19,10 +20,12 @@ interface AvatarProps {
    *  rendering inside StackedAvatars to prevent backdrop-blur bleed-through.
    */
   bgClassName?: string;
-  status?: 'active' | 'inactive';
+  status?: 'active' | 'inactive' | 'offline';
+  /** Accessible label for status dot. Defaults to status value. */
+  statusLabel?: string;
 }
 
-export const Avatar = ({ src, name, size = 'md', className = '', bgClassName, status }: AvatarProps) => {
+export const Avatar = ({ src, name, size = 'md', className = '', bgClassName, status, statusLabel }: AvatarProps) => {
   const [hasImgError, setHasImgError] = useState(false);
 
   // Reset error state when src changes so new images can be attempted
@@ -73,7 +76,8 @@ export const Avatar = ({ src, name, size = 'md', className = '', bgClassName, st
 
   const statusClasses = {
     active: 'bg-emerald-500',
-    inactive: 'bg-amber-400'
+    inactive: 'bg-amber-400',
+    offline: 'bg-input-placeholder ring-1 ring-white/80'
   } as const;
 
   const statusSizeClasses = {
@@ -103,10 +107,13 @@ export const Avatar = ({ src, name, size = 'md', className = '', bgClassName, st
         )}
       </div>
       {status && (
-        <span
-          className={`absolute bottom-0 right-0 translate-x-1/4 translate-y-1/4 rounded-full ring-2 ring-accent-foreground ${statusClasses[status]} ${statusSizeClasses[size]}`}
-          aria-hidden="true"
-        />
+        <>
+          <span
+            className={`absolute bottom-0 right-0 translate-x-1/4 translate-y-1/4 rounded-full ${statusClasses[status]} ${statusSizeClasses[size]}`}
+            aria-hidden="true"
+          />
+          <span className="sr-only">{statusLabel || status}</span>
+        </>
       )}
     </div>
   );

@@ -182,7 +182,7 @@ const buildPracticeRail = (basePath: string): NavRailItem[] => [
   },
   {
     id: 'conversations',
-    label: 'Inbox',
+    label: 'Messages',
     icon: MessageSquare,
     href: `${basePath}/conversations`,
     matchHrefs: [`${basePath}/conversations`],
@@ -269,7 +269,7 @@ const buildClientRail = (basePath: string): NavRailItem[] => [
   },
   {
     id: 'conversations',
-    label: 'Inbox',
+    label: 'Messages',
     icon: MessageSquare,
     href: `${basePath}/conversations`,
     matchHrefs: [`${basePath}/conversations`],
@@ -298,9 +298,9 @@ const buildClientRail = (basePath: string): NavRailItem[] => [
 const buildConversationsSecondary = (basePath: string, workspace: 'practice' | 'client'): NavSection[] => {
   if (workspace === 'practice') {
     return [{
-      label: 'Inbox',
+      label: 'Messages',
       items: [
-        { id: 'your-inbox', label: 'Your Inbox', href: `${basePath}/conversations` },
+        { id: 'your-inbox', label: 'Your Messages', href: `${basePath}/conversations` },
         { id: 'assigned-to-me', label: 'Assigned to me', href: `${basePath}/conversations` },
         { id: 'mentions', label: 'Mentions', href: `${basePath}/conversations` },
         { id: 'all', label: 'All', href: `${basePath}/conversations` },
@@ -309,9 +309,9 @@ const buildConversationsSecondary = (basePath: string, workspace: 'practice' | '
     }];
   }
   return [{
-    label: 'Inbox',
+    label: 'Messages',
     items: [
-      { id: 'your-inbox', label: 'Your Inbox', href: `${basePath}/conversations` },
+      { id: 'your-inbox', label: 'Your Messages', href: `${basePath}/conversations` },
       { id: 'all', label: 'All', href: `${basePath}/conversations` },
     ],
   }];
@@ -573,7 +573,7 @@ function flattenSecondary(sections: NavSection[]): SidebarChild[] {
   };
   // Only render group headings when the secondary actually has multiple groups
   // (e.g. Settings: Personal/Account/Practice/Support). For single-group dropdowns
-  // the parent rail item already names them — duplicating "Inbox", "Stage", etc.
+  // the parent rail item already names them — duplicating "Messages", "Stage", etc.
   // above the items adds noise.
   const labeledSectionCount = sections.filter((s) => s.label).length;
   const showGroupLabels = labeledSectionCount > 1;

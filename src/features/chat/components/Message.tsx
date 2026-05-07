@@ -192,15 +192,22 @@ const Message: FunctionComponent<MessageProps> = memo(({
 		? formatRelativeTime(new Date(timestamp))
 		: null;
 
-	// Avatar size based on message size
-	const avatarSize = size === 'sm' ? 'sm' : 'lg';
+	// Pencil rmTOt uses a 28px avatar next to the bubble — `sm` (24px) is the
+	// closest token. `lg` (40px) is reserved for callers that explicitly opt
+	// into the larger size via `size="lg"`.
+	const avatarSize = size === 'lg' ? 'lg' : 'sm';
 	const quickReactions = ['👍', '👀', '😂', '❤️'];
 
 	const showActions = !hideMessageActions && Boolean(onReply || (onToggleReaction && features.enableMessageReactions));
 	const hasReactions = reactions.length > 0 && features.enableMessageReactions;
 	const hasReplyPreview = Boolean(replyPreview);
+	// Sent messages right-align with no avatar (Pencil LymwK); received messages
+	// keep avatar on the left with the bubble flowing to its right (rmTOt).
+	// `justify-start` is set explicitly for received so the row layout is robust
+	// against ancestors that flip flex direction or alignment.
 	const wrapperClassName = [
-		'relative flex items-start gap-3 px-4 py-3 group message-list-item',
+		'relative flex w-full items-start gap-3 px-4 py-3 group message-list-item',
+		isUser ? 'justify-end' : 'justify-start',
 		className
 	].filter(Boolean).join(' ');
 
@@ -210,8 +217,8 @@ const Message: FunctionComponent<MessageProps> = memo(({
 			data-message-id={_id}
 			className={wrapperClassName}
 		>
-			{/* Avatar */}
-			{messageAvatar && (
+			{/* Avatar — hidden for sent (user) messages to match Pencil LymwK. */}
+			{messageAvatar && !isUser && (
 				<MessageAvatar
 					src={messageAvatar.src}
 					name={messageAvatar.name}
@@ -279,7 +286,7 @@ const Message: FunctionComponent<MessageProps> = memo(({
 					</button>
 				)}
 				{showHeader && (
-					<div className="mt-1 flex min-w-0 items-baseline justify-between gap-3 text-left">
+					<div className="flex min-w-0 items-baseline gap-2 text-left">
 						{(authorName || messageAvatar?.name) && (
 							<span className={`min-w-0 truncate leading-none ${chatTypography.headerName}`}>
 								{authorName || messageAvatar?.name}
