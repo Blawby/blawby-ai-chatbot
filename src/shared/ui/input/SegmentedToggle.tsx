@@ -1,3 +1,4 @@
+import { useMemo, useRef } from 'preact/hooks';
 import { cn } from '@/shared/utils/cn';
 
 export interface SegmentedToggleOption<T extends string> {
@@ -26,10 +27,16 @@ export const SegmentedToggle = <T extends string>({
   const count = options.length;
   const safeCount = Math.max(1, count);
   const activeIndex = Math.max(0, options.findIndex((option) => option.value === value));
-  // Outer rail padding (`p-1` on .segmented-toggle = 0.25rem each side) and
-  // the gap between items must be subtracted from the track before splitting
-  // into per-item slots; otherwise the thumb drifts as items shrink for the gap.
-  const thumbInsetRem = 0.25;
+  // Outer rail padding and the gap between items must be subtracted from the track
+  // before splitting into per-item slots; otherwise the thumb drifts as items shrink.
+  // Read inset from CSS variable to support compact sizing (0.25rem fallback).
+  const rootRef = useRef<HTMLDivElement>(null);
+  const thumbInsetRem = useMemo(() => {
+    if (!rootRef.current) return 0.25;
+    const computed = getComputedStyle(rootRef.current).getPropertyValue('--segmented-toggle-inset');
+    const parsed = parseFloat(computed);
+    return isNaN(parsed) ? 0.25 : parsed;
+  }, []);
   const itemGapRem = 0.25;
   const thumbInset = `${thumbInsetRem}rem`;
   const trackWidth = `100% - ${thumbInsetRem * 2}rem - ${(safeCount - 1) * itemGapRem}rem`;
@@ -37,6 +44,7 @@ export const SegmentedToggle = <T extends string>({
 
   return (
       <div
+        ref={rootRef}
         className={cn(
         'segmented-toggle gap-1',
         (disabled || options.length === 0) && 'opacity-60',

@@ -152,7 +152,7 @@ export function useConversationSetup({
           ...(currentUserId ? [currentUserId] : []),
           ...extraParticipantIds,
         ]));
-        const metadata: Record<string, unknown> = { source: 'chat', ...extraMetadata };
+        const metadata: Record<string, unknown> = { ...extraMetadata, source: 'chat' };
         const params: Record<string, string> = { practiceId };
         if (participantUserIds.length > 0) {
           params.participantUserIds = JSON.stringify(participantUserIds);

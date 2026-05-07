@@ -20,7 +20,7 @@ const knownMissingConversationIds = new Set<string>();
 // found" in the body or fall through to the generic "HTTP 404" fallback.
 const isMissingConversationError = (error: unknown): boolean => {
   if (!(error instanceof Error)) return false;
-  return /not found/i.test(error.message) || /HTTP 404/i.test(error.message);
+  return error.message.includes('Conversation not found') || /HTTP 404/i.test(error.message);
 };
 
 type UseWorkspaceConversationsInput = {

@@ -91,8 +91,8 @@ export const PresenceProvider = ({ practiceId, userId, enabled = true, children 
         }
       });
       socket.addEventListener('close', () => {
-        wsRef.current = null;
         if (cancelledRef.current) return;
+        wsRef.current = null;
         scheduleReconnect();
       });
       socket.addEventListener('error', () => {
@@ -114,9 +114,11 @@ export const PresenceProvider = ({ practiceId, userId, enabled = true, children 
       reconnectTimerRef.current = null;
       const socket = wsRef.current;
       wsRef.current = null;
-      if (socket && socket.readyState === WebSocket.OPEN) {
+      if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) {
         try { socket.close(1000, 'unmount'); } catch { /* ignore */ }
       }
+      setOnlineUserIds(new Set());
+      setIsReady(false);
     };
   }, [enabled, practiceId, userId]);
 

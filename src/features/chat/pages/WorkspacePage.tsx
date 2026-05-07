@@ -12,7 +12,7 @@ import { WorkspaceSetupSection } from '@/features/chat/components/WorkspaceSetup
 import MessagesListPanel from '@/features/chat/components/MessagesListPanel';
 import ConversationContextPanel from '@/features/chat/components/ConversationContextPanel';
 import { type ComboboxOption } from '@/shared/ui/input/Combobox';
-import { deleteConversation, postConversationMessage, updateConversationTriage } from '@/shared/lib/conversationApi';
+import { deleteConversation, markAsRead, postConversationMessage, updateConversationTriage } from '@/shared/lib/conversationApi';
 import { AddContactDialog } from '@/shared/ui/contacts/AddContactDialog';
 import { Dialog } from '@/shared/ui/dialog/Dialog';
 import { useClientsData } from '@/shared/hooks/useClientsData';
@@ -246,9 +246,10 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     }
   }, [isDesktopSidebarCollapsed]);
   const [isInspectorOpen, setIsInspectorOpen] = useState(false);
-  const [isAddClientDialogOpen, setIsAddClientDialogOpen] = useState(false);
   const [conversationPendingDelete, setConversationPendingDelete] = useState<Conversation | null>(null);
+  const [optimisticallyReadConversationIds, setOptimisticallyReadConversationIds] = useState<Set<string>>(new Set());
   const [isDeletingConversation, setIsDeletingConversation] = useState(false);
+  const [isAddClientDialogOpen, setIsAddClientDialogOpen] = useState(false);
   // Draft conversation state. When non-null, the chat area renders
   // DraftConversationView and the messages list shows a synthetic "Draft"
   // entry pinned at the top. POST + assignment + first message are deferred
@@ -429,12 +430,30 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     // pinned "Draft" entry stays in the list.
     setDraftConversation(null);
     setPendingInviteOption(null);
+
+    // Mark conversation as read if it has unread messages
+    const conversation = resolvedConversations.find((c) => c.id === conversationId);
+    if (conversation && practiceId && Number(conversation.unread_count ?? 0) > 0) {
+      // Optimistically update UI immediately
+      setOptimisticallyReadConversationIds((prev) => new Set([...prev, conversationId]));
+      // Then call the backend
+      void markAsRead(conversationId, practiceId).catch((error) => {
+        console.warn('[WorkspacePage] Failed to mark conversation as read', error);
+        // Remove from optimistic set on failure
+        setOptimisticallyReadConversationIds((prev) => {
+          const next = new Set(prev);
+          next.delete(conversationId);
+          return next;
+        });
+      });
+    }
+
     if (onSelectConversationOverride) {
       onSelectConversationOverride(conversationId);
       return;
     }
     navigate(withWidgetQuery(`${conversationsPath}/${encodeURIComponent(conversationId)}`));
-  }, [conversationsPath, navigate, onSelectConversationOverride, withWidgetQuery]);
+  }, [conversationsPath, navigate, onSelectConversationOverride, withWidgetQuery, resolvedConversations, practiceId]);
 
 
   useWorkspaceAutoNavigation({
@@ -594,6 +613,16 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
 
   const showSidebarPreview = (previewStrongReady || (onboardingProgress?.completionScore ?? 0) >= 80) && setupSidebarView === 'preview';
 
+  // Apply optimistic read state to conversations for immediate UI feedback
+  const filteredConversationsWithOptimisticRead = useMemo(() => {
+    if (optimisticallyReadConversationIds.size === 0) return filteredConversations;
+    return filteredConversations.map((conversation) =>
+      optimisticallyReadConversationIds.has(conversation.id)
+        ? { ...conversation, unread_count: 0 }
+        : conversation
+    );
+  }, [filteredConversations, optimisticallyReadConversationIds]);
+
   useEffect(() => {
     if (previewStrongReady || (onboardingProgress?.completionScore ?? 0) >= 80) {
       setSetupSidebarView((prev) => (prev === 'info' || prev === 'preview' ? prev : 'preview'));
@@ -711,7 +740,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     if (sessionUserId) {
       const existing = resolvedConversations.find((conversation) => {
         const participants = Array.isArray(conversation.participants) ? conversation.participants : [];
-        return participants.includes(next.userId);
+        return participants.length === 2 && participants.includes(sessionUserId) && participants.includes(next.userId);
       });
       if (existing) {
         setDraftConversation(null);
@@ -765,6 +794,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
         } catch (error) {
           postFailed = true;
           console.warn('[WorkspacePage] Failed to send draft first message', error);
+          throw error;
         }
         if (sessionUserId) {
           try {
@@ -778,7 +808,9 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     if (newConversationId && postFailed) {
       showError('Conversation created, but the first message did not send', 'Try sending it again from the thread.');
     }
-    setDraftConversation(null);
+    if (newConversationId && !postFailed) {
+      setDraftConversation(null);
+    }
   };
 
   const draftView = draftConversation ? (
@@ -1177,7 +1209,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
 
   const listContent = (
     <MessagesListPanel
-      conversations={filteredConversations}
+      conversations={filteredConversationsWithOptimisticRead}
       previews={conversationPreviews}
       practiceName={practiceName}
       practiceLogo={practiceLogo}
@@ -1266,7 +1298,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     <div className="flex h-full min-h-0 flex-1 flex-col gap-2">
       <Panel className="list-panel-card-gradient min-h-0 flex-1 overflow-hidden">
         <MessagesListPanel
-          conversations={filteredConversations}
+          conversations={filteredConversationsWithOptimisticRead}
           previews={conversationPreviews}
           practiceName={practiceName}
           practiceLogo={practiceLogo}

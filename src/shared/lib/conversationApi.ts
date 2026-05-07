@@ -338,3 +338,19 @@ export const removeMessageReaction = async (
     throw toErrorMessage(error, 'Failed to remove reaction');
   }
 };
+
+export const markAsRead = async (
+  conversationId: string,
+  practiceId: string
+): Promise<{ markedAsRead: boolean; lastReadSeq: number }> => {
+  try {
+    const { data } = await apiClient.post<{ markedAsRead: boolean; lastReadSeq: number }>(
+      `/api/conversations/${encodeURIComponent(conversationId)}/read`,
+      {},
+      { params: { practiceId } },
+    );
+    return data;
+  } catch (error) {
+    throw toErrorMessage(error, 'Failed to mark conversation as read');
+  }
+};

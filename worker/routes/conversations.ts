@@ -287,7 +287,7 @@ export async function handleConversations(request: Request, env: Env): Promise<R
     const hasAttachments = Array.isArray(metadata?.attachments)
       && (metadata?.attachments as unknown[]).length > 0;
     if (!content && !hasAttachments) {
-      throw HttpErrors.badRequest('content is required');
+      throw HttpErrors.badRequest('content or valid attachments are required');
     }
 
     const storedMessage = await conversationService.sendMessage({
@@ -1085,6 +1085,33 @@ export async function handleConversations(request: Request, env: Env): Promise<R
     });
 
     return createJsonResponse({ logged: true });
+  }
+
+  // POST /api/conversations/:id/read - Mark conversation as read for the current user
+  if (segments.length === 4 && segments[3] === 'read' && request.method === 'POST') {
+    const requestWithContext = await withPracticeContext(request, env, {
+      requirePractice: true,
+      authContext
+    });
+    const conversationId = segments[2];
+    const practiceId = getPracticeId(requestWithContext);
+
+    await conversationService.validateParticipantAccess(conversationId, practiceId, userId, { previousAnonUserId: prevAnonId });
+
+    // Get the current latest_seq for the conversation to update read state
+    const conversation = await conversationService.getConversation(conversationId, practiceId);
+    const latestSeq = conversation.latest_seq ?? 0;
+
+    // Update or insert conversation_read_state
+    await env.DB.prepare(`
+      INSERT INTO conversation_read_state (conversation_id, user_id, last_read_seq, updated_at)
+      VALUES (?, ?, ?, datetime('now'))
+      ON CONFLICT(conversation_id, user_id) DO UPDATE SET
+        last_read_seq = excluded.last_read_seq,
+        updated_at = datetime('now')
+    `).bind(conversationId, userId, latestSeq).run();
+
+    return createJsonResponse({ markedAsRead: true, lastReadSeq: latestSeq });
   }
 
   // GET /api/conversations/:id/participants - Get participant profiles for a conversation

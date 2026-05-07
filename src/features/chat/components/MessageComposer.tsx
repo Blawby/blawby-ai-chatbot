@@ -388,7 +388,9 @@ const MessageComposer = ({
                 </div>
               )}
               {showScrollFade && (
-                <div className="pointer-events-none absolute left-12 right-20 top-2 h-4 bg-gradient-to-b from-surface-app-frame/60 dark:from-black/20 to-transparent z-10" />
+                <div
+                  className={`pointer-events-none absolute right-20 top-2 h-4 bg-gradient-to-b from-surface-app-frame/60 dark:from-black/20 to-transparent z-10 ${canShowAttachmentMenu ? 'left-12' : 'left-2'}`}
+                />
               )}
               <div className="relative flex-1 min-w-0 self-stretch flex items-center px-1">
                 <div 
