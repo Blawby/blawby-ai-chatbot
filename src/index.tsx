@@ -784,18 +784,20 @@ function PracticeAppRoute({
 
   return (
     <>
-      <MainApp
-        practiceId={resolvedPracticeId}
-        practiceConfig={practiceConfig}
-        isPracticeView={true}
-        workspace="practice"
-        routeConversationId={conversationId}
-        routeInvoiceId={invoiceId}
-        routeSettingsView={settingsView}
-        routeSettingsAppId={appId}
-        workspaceView={workspaceView}
-        practiceSlug={normalizedPracticeSlug || undefined}
-      />
+      <Suspense fallback={<LoadingScreen />}>
+        <MainApp
+          practiceId={resolvedPracticeId}
+          practiceConfig={practiceConfig}
+          isPracticeView={true}
+          workspace="practice"
+          routeConversationId={conversationId}
+          routeInvoiceId={invoiceId}
+          routeSettingsView={settingsView}
+          routeSettingsAppId={appId}
+          workspaceView={workspaceView}
+          practiceSlug={normalizedPracticeSlug || undefined}
+        />
+      </Suspense>
       {isMatterCreateRoute ? (
         <Suspense fallback={null}>
           <PracticeMatterCreatePage
@@ -923,18 +925,20 @@ function ClientPracticeRoute({
         practiceConfig={practiceConfig}
         currentUrl={currentUrl}
       />
-      <MainApp
-        practiceId={resolvedPracticeId}
-        practiceConfig={practiceConfig}
-        isPracticeView={true}
-        workspace="client"
-        clientPracticeSlug={slug || undefined}
-        routeConversationId={conversationId}
-        routeInvoiceId={invoiceId}
-        routeSettingsView={settingsView}
-        routeSettingsAppId={appId}
-        workspaceView={workspaceView}
-      />
+      <Suspense fallback={<LoadingScreen />}>
+        <MainApp
+          practiceId={resolvedPracticeId}
+          practiceConfig={practiceConfig}
+          isPracticeView={true}
+          workspace="client"
+          clientPracticeSlug={slug || undefined}
+          routeConversationId={conversationId}
+          routeInvoiceId={invoiceId}
+          routeSettingsView={settingsView}
+          routeSettingsAppId={appId}
+          workspaceView={workspaceView}
+        />
+      </Suspense>
     </>
   );
 }
