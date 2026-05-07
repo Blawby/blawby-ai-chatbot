@@ -26,15 +26,19 @@ export const SegmentedToggle = <T extends string>({
   const count = options.length;
   const safeCount = Math.max(1, count);
   const activeIndex = Math.max(0, options.findIndex((option) => option.value === value));
-  const itemWidth = 100 / safeCount;
+  // Outer rail padding (`p-1` on .segmented-toggle = 0.25rem each side) and
+  // the gap between items must be subtracted from the track before splitting
+  // into per-item slots; otherwise the thumb drifts as items shrink for the gap.
   const thumbInsetRem = 0.25;
+  const itemGapRem = 0.25;
   const thumbInset = `${thumbInsetRem}rem`;
-  const thumbTrackWidth = `100% - ${thumbInsetRem * 2}rem`;
+  const trackWidth = `100% - ${thumbInsetRem * 2}rem - ${(safeCount - 1) * itemGapRem}rem`;
+  const slotWidth = `((${trackWidth}) / ${safeCount})`;
 
   return (
       <div
         className={cn(
-        'segmented-toggle',
+        'segmented-toggle gap-1',
         (disabled || options.length === 0) && 'opacity-60',
         className
       )}
@@ -45,8 +49,8 @@ export const SegmentedToggle = <T extends string>({
         aria-hidden="true"
         className="segmented-toggle-thumb"
         style={{
-          left: `calc(${thumbInset} + ((${thumbTrackWidth}) / ${safeCount}) * ${activeIndex})`,
-          width: `calc((${thumbTrackWidth}) / ${safeCount})`
+          left: `calc(${thumbInset} + (${slotWidth} + ${itemGapRem}rem) * ${activeIndex})`,
+          width: `calc(${slotWidth})`
         }}
       />
       {options.map((option) => {
@@ -63,9 +67,8 @@ export const SegmentedToggle = <T extends string>({
                 onChange(option.value);
               }
             }}
-            style={{ width: `${itemWidth}%` }}
             className={cn(
-              'segmented-toggle-item whitespace-nowrap',
+              'segmented-toggle-item flex-1 min-w-0 truncate',
               isActive ? 'segmented-toggle-item-active' : 'segmented-toggle-item-inactive',
               (disabled || option.disabled) && 'cursor-not-allowed'
             )}

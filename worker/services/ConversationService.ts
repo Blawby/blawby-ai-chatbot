@@ -463,6 +463,39 @@ export class ConversationService {
     return await this.getConversation(conversationId, options.practiceId);
   }
 
+  /**
+   * Hard-delete a conversation and every row that references it. Confirms the
+   * row exists and belongs to the given practice before deleting (so a
+   * mistargeted call returns 404 instead of silently no-op'ing).
+   *
+   * Cascade: chat_message_reactions (via message_id) → chat_messages →
+   * session_audit_events → conversation_participants → conversation_read_state
+   * → conversations. files / contact_forms / matter_events keep their
+   * conversation_id reference set (they survive the conversation, since they
+   * may be linked to matters or other entities).
+   */
+  async deleteConversation(conversationId: string, practiceId: string): Promise<void> {
+    const existing = await this.env.DB.prepare(
+      'SELECT id FROM conversations WHERE id = ? AND practice_id = ?'
+    ).bind(conversationId, practiceId).first<{ id: string } | null>();
+
+    if (!existing) {
+      throw HttpErrors.notFound('Conversation not found');
+    }
+
+    await this.env.DB.batch([
+      this.env.DB.prepare(`
+        DELETE FROM chat_message_reactions
+        WHERE message_id IN (SELECT id FROM chat_messages WHERE conversation_id = ?)
+      `).bind(conversationId),
+      this.env.DB.prepare('DELETE FROM chat_messages WHERE conversation_id = ?').bind(conversationId),
+      this.env.DB.prepare('DELETE FROM session_audit_events WHERE conversation_id = ?').bind(conversationId),
+      this.env.DB.prepare('DELETE FROM conversation_participants WHERE conversation_id = ?').bind(conversationId),
+      this.env.DB.prepare('DELETE FROM conversation_read_state WHERE conversation_id = ?').bind(conversationId),
+      this.env.DB.prepare('DELETE FROM conversations WHERE id = ? AND practice_id = ?').bind(conversationId, practiceId),
+    ]);
+  }
+
   private mapRecordToConversation(record: Record<string, unknown> | null): Conversation {
     if (!record) {
       throw new Error('[ConversationService] Cannot map null record to conversation');
@@ -1567,6 +1600,16 @@ export class ConversationService {
   }): Promise<{ messageId: string; seq: number; serverTs: string }> {
     const stub = this.env.CHAT_ROOM.get(this.env.CHAT_ROOM.idFromName(options.conversationId));
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    // Pull attachments out of metadata so the ChatRoom DO sees them at the top
+    // level (matches the WS frame shape). Without this, file-only sends sent
+    // through the HTTP route fail validation because the DO checks
+    // `payload.attachments`, not `payload.metadata.attachments`.
+    const metadataObj = options.metadata && typeof options.metadata === 'object'
+      ? (options.metadata as Record<string, unknown>)
+      : null;
+    const metadataAttachments = metadataObj && Array.isArray(metadataObj.attachments)
+      ? metadataObj.attachments
+      : null;
     const payload: Record<string, unknown> = {
       conversation_id: options.conversationId,
       user_id: options.userId,
@@ -1575,6 +1618,9 @@ export class ConversationService {
       metadata: options.metadata ?? null,
       client_id: options.clientId
     };
+    if (metadataAttachments) {
+      payload.attachments = metadataAttachments;
+    }
     if (options.replyToMessageId) {
       payload.reply_to_message_id = options.replyToMessageId;
     }

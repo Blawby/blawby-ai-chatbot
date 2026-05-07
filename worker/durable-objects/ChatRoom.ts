@@ -367,8 +367,11 @@ export class ChatRoom {
       return;
     }
 
-    const content = this.readString(frame.data.content);
-    if (!content || content.length > MAX_CONTENT_LENGTH) {
+    // readString returns null when the field is missing or not a string;
+    // normalize to an empty string so the length check below is safe and the
+    // file-only path treats "no text" the same as "empty text".
+    const content = this.readString(frame.data.content) ?? '';
+    if (content.length > MAX_CONTENT_LENGTH) {
       this.rejectInvalidPayload(ws, frame.request_id, 'content invalid');
       return;
     }
@@ -380,6 +383,14 @@ export class ChatRoom {
     }
     if (attachments.length > MAX_ATTACHMENTS) {
       this.rejectInvalidPayload(ws, frame.request_id, 'attachments limit exceeded');
+      return;
+    }
+
+    // After attachments are validated: require non-empty content OR at least
+    // one attachment. File-only sends are valid (drop file, hit send without
+    // typing).
+    if (!content && attachments.length === 0) {
+      this.rejectInvalidPayload(ws, frame.request_id, 'content invalid');
       return;
     }
 
@@ -596,6 +607,10 @@ export class ChatRoom {
       return new Response('metadata invalid', { status: 400 });
     }
     const allowEmptyContent = (() => {
+      // File-only sends: when at least one attachment is present, the message
+      // can have empty content. Mirrors typical chat UX (drop a file, hit send
+      // without typing).
+      if (attachments.length > 0) return true;
       if (roleValue !== 'system') return false;
       if (!metadata || typeof metadata !== 'object') return false;
       const systemKey = (metadata as Record<string, unknown>).systemMessageKey;

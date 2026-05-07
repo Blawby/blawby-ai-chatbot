@@ -1,6 +1,6 @@
 import { FunctionComponent } from 'preact';
 import { useEffect, useRef, useCallback } from 'preact/hooks';
-import { CloudUpload } from 'lucide-preact';
+import { FileText, Image, MessageSquare } from 'lucide-preact';
 
 import { Icon } from '@/shared/ui/Icon';
 
@@ -9,6 +9,11 @@ interface DragDropOverlayProps {
   onClose?: () => void;
 }
 
+/**
+ * Page-wide drop overlay shown while files are being dragged onto the app.
+ * Light, semi-transparent background — no heavy modal — with a centered
+ * "Add anything" prompt that mirrors the reference design.
+ */
 const DragDropOverlay: FunctionComponent<DragDropOverlayProps> = ({ isVisible, onClose }) => {
   const overlayRef = useRef<HTMLDivElement>(null);
 
@@ -34,21 +39,38 @@ const DragDropOverlay: FunctionComponent<DragDropOverlayProps> = ({ isVisible, o
   if (!isVisible) return null;
 
   return (
-    <div 
+    <div
       ref={overlayRef}
       tabIndex={-1}
-      className="fixed inset-0 z-[9999] flex items-center justify-center bg-gradient-to-br from-surface-workspace/85 to-surface-workspace/95 dark:from-surface-app-frame/70 dark:to-surface-app-frame/80 backdrop-blur-sm" 
+      className="pointer-events-none fixed inset-0 z-[9999] flex items-center justify-center bg-surface-app-frame/40 backdrop-blur-[2px]"
       role="dialog"
-      aria-label="File upload"
+      aria-label="Drop files to add to the conversation"
       aria-modal="true"
     >
-      <div className="flex flex-col items-center justify-center gap-3 text-input-text text-lg sm:text-xl lg:text-2xl text-center p-6 sm:p-10 rounded-2xl bg-surface-overlay/80 shadow-2xl border border-line-default max-w-[90%] relative z-[10000]">
-        <Icon icon={CloudUpload} className="w-10 h-10 sm:w-14 sm:h-14 text-amber-500 mb-1" aria-hidden="true"  />
-        <h3 className="text-lg sm:text-2xl lg:text-3xl font-semibold m-0 text-input-text">Drop Files to Upload</h3>
-        <p className="text-xs sm:text-sm lg:text-base opacity-80 m-0 text-input-placeholder">We accept images, videos, and document files</p>
+      <div className="flex flex-col items-center gap-4 px-6 text-center">
+        {/* Icon stack — overlapping "talk + image + doc" tiles to mirror the
+            reference. Tilted at slight angles so they read as a sticker stack. */}
+        <div className="relative h-16 w-20">
+          <div className="absolute left-1 top-1 flex h-12 w-12 -rotate-12 items-center justify-center rounded-2xl bg-accent-500/90 shadow-lg ring-1 ring-line-glass/30">
+            <Icon icon={MessageSquare} className="h-6 w-6 text-white" aria-hidden="true" />
+          </div>
+          <div className="absolute right-0 top-0 flex h-12 w-12 rotate-6 items-center justify-center rounded-2xl bg-input-text/85 shadow-lg ring-1 ring-line-glass/30">
+            <Icon icon={FileText} className="h-6 w-6 text-surface-app-frame" aria-hidden="true" />
+          </div>
+          <div className="absolute bottom-0 left-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-accent-500 shadow-lg ring-1 ring-line-glass/30">
+            <Icon icon={Image} className="h-6 w-6 text-white" aria-hidden="true" />
+          </div>
+        </div>
+        <div>
+          <h3 className="m-0 text-2xl font-semibold text-input-text">Add anything</h3>
+          <p className="mt-1 text-sm text-input-placeholder">
+            Drop any file here to add it to the conversation
+          </p>
+        </div>
       </div>
     </div>
   );
 };
 
-export default DragDropOverlay; 
+export default DragDropOverlay;
+

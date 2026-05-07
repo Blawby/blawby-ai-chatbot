@@ -138,12 +138,30 @@ export const AppShell = ({
             // overflow-visible so the Sidebar's collapsed-state toggle button can stick
             // off the right edge. z-20 (vs z-10 on Main/List/Inspector) keeps the
             // overflow painted above neighboring grid items.
-            'relative z-20 row-start-2 min-h-0 overflow-visible hidden lg:block',
+            // On desktop the sidebar spans rows 1-2 so it sits flush against the
+            // header bar that lives in row 1 above listPanel/main/inspector.
+            'relative z-20 row-start-2 min-h-0 overflow-visible hidden lg:block lg:row-start-1 lg:row-span-2',
             sidebarClassName
           )}
         >
           {sidebar}
         </aside>
+      )}
+
+      {/* Header — on desktop sits in row 1 spanning listPanel/main/inspector
+          so it reads as "above the conversation list", not pushed to the right
+          of it. On mobile it lives in row 1 spanning the full width since
+          listPanel/inspector are drawers. */}
+      {hasHeader && (
+        <header
+          className={cn(
+            'relative z-10 col-span-full row-start-1',
+            hasSidebar ? 'lg:col-start-2 lg:col-end-[-1]' : 'lg:col-start-1 lg:col-end-[-1]',
+            headerClassName
+          )}
+        >
+          {header}
+        </header>
       )}
 
 
@@ -166,14 +184,6 @@ export const AppShell = ({
           mainClassName
         )}
       >
-        {/* Header is mounted once here. On mobile, sidebar/listPanel/inspector
-            are hidden, so this sits at the top of the viewport; on desktop it
-            sits inside main, right of the sidebar. */}
-        {hasHeader && (
-          <header className={cn('relative z-10', headerClassName)}>
-            {header}
-          </header>
-        )}
         {main}
       </main>
 

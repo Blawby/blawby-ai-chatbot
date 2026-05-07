@@ -14,7 +14,10 @@ import { ChatText } from '@/features/chat/components/ChatText';
 import {
   resolveConversationContactName,
   resolveConversationDisplayTitle,
+  resolveConversationPresence,
 } from '@/shared/utils/conversationDisplay';
+import { usePresenceContext } from '@/shared/contexts/PresenceContext';
+import { useSessionContext } from '@/shared/contexts/SessionContext';
 
 /**
  * Placeholder rows shaped like ConversationItem (avatar + title + time +
@@ -94,6 +97,22 @@ const ConversationItem = memo(({ conversation, preview, fallbackName, isActive, 
   const previewText = (preview?.content ?? conversation.last_message_content ?? '').trim();
   const isUnread = Number(conversation.unread_count ?? 0) > 0;
 
+  // Presence: prefer real online state from the practice's PresenceRoom (a
+  // contact-level "is at least one of their tabs connected right now" check).
+  // Fall back to the timestamp proxy on `last_message_at` for accounts that
+  // can't subscribe (e.g. offline contacts that have never reconnected) so
+  // the indicator stays consistent.
+  const { onlineUserIds } = usePresenceContext();
+  const { session } = useSessionContext();
+  const currentUserId = session?.user?.id ?? null;
+  const contactUserId = (Array.isArray(conversation.participants) ? conversation.participants : [])
+    .find((id) => typeof id === 'string' && id !== currentUserId) ?? null;
+  const isContactLive = contactUserId ? onlineUserIds.has(contactUserId) : false;
+  const presence = resolveConversationPresence(
+    conversation.last_message_at ?? conversation.updated_at ?? null,
+    isContactLive,
+  );
+
   return (
     <button
       onClick={() => onSelect(conversation.id)}
@@ -109,6 +128,7 @@ const ConversationItem = memo(({ conversation, preview, fallbackName, isActive, 
         name={avatarName}
         size="md"
         className="ring-1 ring-line-glass/10"
+        status={presence.status}
       />
       <div className="min-w-0 flex-1">
         <div className="flex items-start justify-between gap-3">
@@ -148,6 +168,15 @@ const ConversationItem = memo(({ conversation, preview, fallbackName, isActive, 
           </div>
         ) : null}
       </div>
+      {/* Unread indicator (Pencil vHO59) — small accent dot anchored to the right edge. */}
+      <span
+        aria-hidden={!isUnread}
+        aria-label={isUnread ? t('conversation.badge.unread', { defaultValue: 'Unread' }) : undefined}
+        className={cn(
+          'mt-2 h-2 w-2 flex-shrink-0 rounded-full transition-opacity',
+          isUnread ? 'bg-accent-500 opacity-100' : 'opacity-0'
+        )}
+      />
     </button>
   );
 });

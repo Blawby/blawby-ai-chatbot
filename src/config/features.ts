@@ -112,7 +112,7 @@ interface FeatureFlags {
 
 // Immutable base configuration
 const baseFeatureConfig: FeatureFlags = {
-    enableAudioRecording: false, // Set to false to hide voice recording
+    enableAudioRecording: true, // Voice memo button shown inside the composer pill
     enableVideoRecording: false, // Not implemented yet
     enableFileAttachments: true, // Enabled for authenticated (client/practice) workspaces only
     enableMessageFeedback: false, // Disable feedback and copy buttons on messages

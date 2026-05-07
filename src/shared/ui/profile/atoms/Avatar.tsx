@@ -19,7 +19,7 @@ interface AvatarProps {
    *  rendering inside StackedAvatars to prevent backdrop-blur bleed-through.
    */
   bgClassName?: string;
-  status?: 'active' | 'inactive';
+  status?: 'active' | 'inactive' | 'offline';
 }
 
 export const Avatar = ({ src, name, size = 'md', className = '', bgClassName, status }: AvatarProps) => {
@@ -73,7 +73,8 @@ export const Avatar = ({ src, name, size = 'md', className = '', bgClassName, st
 
   const statusClasses = {
     active: 'bg-emerald-500',
-    inactive: 'bg-amber-400'
+    inactive: 'bg-amber-400',
+    offline: 'bg-input-placeholder/60'
   } as const;
 
   const statusSizeClasses = {
@@ -104,7 +105,7 @@ export const Avatar = ({ src, name, size = 'md', className = '', bgClassName, st
       </div>
       {status && (
         <span
-          className={`absolute bottom-0 right-0 translate-x-1/4 translate-y-1/4 rounded-full ring-2 ring-accent-foreground ${statusClasses[status]} ${statusSizeClasses[size]}`}
+          className={`absolute bottom-0 right-0 translate-x-1/4 translate-y-1/4 rounded-full ${statusClasses[status]} ${statusSizeClasses[size]}`}
           aria-hidden="true"
         />
       )}

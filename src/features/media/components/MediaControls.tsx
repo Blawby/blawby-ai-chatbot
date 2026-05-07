@@ -150,9 +150,11 @@ const MediaControls: FunctionComponent<MediaControlsProps> = ({
 
 	return (
 		<div className="flex items-center gap-2" role="region" aria-label="Audio recording">
+			{/* Sized to match FileMenu's + trigger (icon-sm = 44×44, 20px icon)
+			    so the two pill-internal controls read as a matched pair. */}
 			<Button
 				variant="icon"
-				size="sm"
+				size="icon-sm"
 				onClick={() => {
 					if (!isRecording) {
 						startRecording();
@@ -163,9 +165,9 @@ const MediaControls: FunctionComponent<MediaControlsProps> = ({
 				aria-label="Record audio message"
 				aria-pressed={isRecording}
 				disabled={permissionDenied}
-				className="w-8 h-8 p-0 rounded-full"
+				className="shadow-lg border bg-surface-utility/10 border-line-glass/20 hover:bg-surface-utility/20 hover:border-line-glass/30 hover:scale-105 disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-0 focus-visible:ring-2 focus-visible:ring-line-glass/30 focus-visible:ring-offset-0 active:scale-100"
 			>
-				<Icon icon={Mic} className="w-4 h-4" aria-hidden="true"  />
+				<Icon icon={Mic} className="w-5 h-5" aria-hidden="true"  />
 			</Button>
 			{permissionDenied && (
 				<div className="sr-only" role="alert">

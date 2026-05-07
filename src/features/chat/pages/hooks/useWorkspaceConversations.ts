@@ -9,6 +9,20 @@ import {
 } from '@/shared/config/navConfig';
 import type { Conversation } from '@/shared/types/conversation';
 
+// Intake records can reference conversation_ids that no longer exist (orphaned
+// after a conversation was deleted). The list endpoint can't help us — those
+// rows aren't in it. Cache 404s for the session so we don't re-fetch known-dead
+// ids on every list refresh and pollute the worker error log.
+const knownMissingConversationIds = new Set<string>();
+
+// `getConversation` re-wraps HttpError into a plain Error before reaching the
+// caller, so we have to sniff the message. 404s from the worker carry "not
+// found" in the body or fall through to the generic "HTTP 404" fallback.
+const isMissingConversationError = (error: unknown): boolean => {
+  if (!(error instanceof Error)) return false;
+  return /not found/i.test(error.message) || /HTTP 404/i.test(error.message);
+};
+
 type UseWorkspaceConversationsInput = {
   practiceId: string;
   workspace: 'public' | 'practice' | 'client';
@@ -111,7 +125,11 @@ export function useWorkspaceConversations({
       ...resolvedConversations.map((conversation) => conversation.id),
       ...acceptedIntakeConversationsRef.current.map((conversation) => conversation.id),
     ]);
-    const missingConversationIds = acceptedIntakeConversationIds.filter((conversationId) => !knownConversationIds.has(conversationId));
+    const missingConversationIds = acceptedIntakeConversationIds.filter(
+      (conversationId) =>
+        !knownConversationIds.has(conversationId)
+        && !knownMissingConversationIds.has(conversationId),
+    );
     if (missingConversationIds.length === 0) {
       setAcceptedIntakeConversations((prev) => {
         const filtered = prev.filter((conversation) => acceptedIntakeConversationIds.includes(conversation.id));
@@ -136,9 +154,21 @@ export function useWorkspaceConversations({
         if (controller.signal.aborted) break;
         const chunk = missingConversationIds.slice(i, i + chunkSize);
         const results = await Promise.all(
-          chunk.map((conversationId) =>
-            getConversation(conversationId, practiceId, { signal: controller.signal }).catch(() => null)
-          )
+          chunk.map(async (conversationId) => {
+            try {
+              return await getConversation(conversationId, practiceId, { signal: controller.signal });
+            } catch (error) {
+              // Mark as known-missing on 404 only so subsequent list refreshes
+              // skip the lookup and don't 404-storm the worker error log.
+              // Conversations sometimes get deleted while the originating intake
+              // row sticks around. Network/server/abort errors must not poison
+              // the cache — those ids could come back on a later attempt.
+              if (!controller.signal.aborted && isMissingConversationError(error)) {
+                knownMissingConversationIds.add(conversationId);
+              }
+              return null;
+            }
+          })
         );
         loadedConversations.push(...results);
       }

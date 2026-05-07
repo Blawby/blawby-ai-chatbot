@@ -103,6 +103,20 @@ export const getConversation = async (
   }
 };
 
+export const deleteConversation = async (
+  conversationId: string,
+  practiceId: string
+): Promise<void> => {
+  try {
+    await apiClient.delete<{ success: boolean; data?: { deleted: boolean } }>(
+      `/api/conversations/${encodeURIComponent(conversationId)}`,
+      { params: { practiceId } },
+    );
+  } catch (error) {
+    throw toErrorMessage(error, 'Failed to delete conversation');
+  }
+};
+
 export const updateConversationTriage = async (
   conversationId: string,
   practiceId: string,

@@ -46,9 +46,17 @@ deleted_classes = ["NotificationHub"]
 name = "MATTER_PROGRESS"
 class_name = "MatterProgressRoom"
 
+[[durable_objects.bindings]]
+name = "PRESENCE_ROOM"
+class_name = "PresenceRoom"
+
 [[migrations]]
 tag = "v4"
 new_classes = ["MatterProgressRoom"]
+
+[[migrations]]
+tag = "v5"
+new_classes = ["PresenceRoom"]
 
 
 [env.dev]
@@ -82,6 +90,10 @@ class_name = "ChatRoom"
 name = "MATTER_PROGRESS"
 class_name = "MatterProgressRoom"
 
+[[env.dev.durable_objects.bindings]]
+name = "PRESENCE_ROOM"
+class_name = "PresenceRoom"
+
 [[env.dev.migrations]]
 tag = "v2"
 new_classes = ["ChatRoom"]
@@ -89,6 +101,10 @@ new_classes = ["ChatRoom"]
 [[env.dev.migrations]]
 tag = "v4"
 new_classes = ["MatterProgressRoom"]
+
+[[env.dev.migrations]]
+tag = "v5"
+new_classes = ["PresenceRoom"]
 
 [env.dev.vars]
 NODE_ENV = "development"
@@ -143,6 +159,10 @@ class_name = "ChatRoom"
 name = "MATTER_PROGRESS"
 class_name = "MatterProgressRoom"
 
+[[env.staging.durable_objects.bindings]]
+name = "PRESENCE_ROOM"
+class_name = "PresenceRoom"
+
 [[env.staging.migrations]]
 tag = "v6"
 new_classes = ["MatterDiffStore"]
@@ -150,6 +170,10 @@ new_classes = ["MatterDiffStore"]
 [[env.staging.migrations]]
 tag = "v7"
 deleted_classes = ["MatterDiffStore"]
+
+[[env.staging.migrations]]
+tag = "v8"
+new_classes = ["PresenceRoom"]
 
 [env.staging.vars]
 NODE_ENV = "staging"
@@ -192,6 +216,9 @@ deleted_classes = ["NotificationHub"]
 [[env.production.migrations]]
 tag = "v5"
 new_classes = ["MatterProgressRoom"]
+[[env.production.migrations]]
+tag = "v6"
+new_classes = ["PresenceRoom"]
 [[env.production.r2_buckets]]
 binding = "FILES_BUCKET"
 bucket_name = "blawby-ai-files"
@@ -214,6 +241,10 @@ class_name = "ChatRoom"
 [[env.production.durable_objects.bindings]]
 name = "MATTER_PROGRESS"
 class_name = "MatterProgressRoom"
+
+[[env.production.durable_objects.bindings]]
+name = "PRESENCE_ROOM"
+class_name = "PresenceRoom"
 
 [env.production.vars]
 NODE_ENV = "production"

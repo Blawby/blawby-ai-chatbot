@@ -310,8 +310,8 @@ const MessageComposer = ({
   const textareaClasses = "w-full min-h-8 py-2 m-0 text-sm sm:text-base leading-[1.45] text-input-text bg-transparent border-none resize-none outline-none overflow-hidden box-border placeholder:text-input-placeholder transition-all duration-200";
 
   return (
-    <div className="pl-4 pr-4 pb-2 bg-transparent rounded-none border-0 h-auto flex flex-col w-full">
-      <form 
+    <div className="px-4 pt-3 pb-3 bg-transparent rounded-none border-0 h-auto flex flex-col w-full">
+      <form
         className="w-full flex flex-col"
         aria-label="Message composition"
         onSubmit={(e) => {
@@ -371,22 +371,26 @@ const MessageComposer = ({
             </div>
           )}
 
-          <div className="message-composer-input-row">
-            {canShowAttachmentMenu && (
-              <div className="col-start-1 flex-shrink-0 self-end">
-                <FileMenu
-                  onFileSelect={handleFileSelect}
-                  onCameraCapture={handleCameraCapture}
-                  isReadyToUpload
-                />
-              </div>
-            )}
-
-            <div className={`col-start-2 min-w-0 relative flex flex-1 items-end gap-2 glass-input min-h-12 ${isInputExpanded ? 'rounded-2xl py-2 px-3.5' : 'rounded-full py-1 px-3'} ${isInputFocused ? 'ring-2 ring-accent-500/40 border-accent-500/40' : ''}`}>
-              {showScrollFade && (
-                <div className="pointer-events-none absolute left-3 right-12 top-2 h-4 bg-gradient-to-b from-surface-app-frame/60 dark:from-black/20 to-transparent z-10" />
+          {/* Pencil Q7ijvs — single rounded pill. + (FileMenu) sits at the
+              left edge inside the pill, then the textarea, then the voice-memo
+              mic, then the send button. The grid CSS class is intentionally
+              dropped here in favor of inline flex so the icons live inside the
+              pill rather than beside it. */}
+          <div className="w-full">
+            <div className={`min-w-0 relative flex w-full items-end gap-1 glass-input min-h-12 ${isInputExpanded ? 'rounded-2xl py-2 px-2' : 'rounded-full py-1 px-2'} ${isInputFocused ? 'ring-2 ring-accent-500/40 border-accent-500/40' : ''}`}>
+              {canShowAttachmentMenu && (
+                <div className="flex-shrink-0 self-end">
+                  <FileMenu
+                    onFileSelect={handleFileSelect}
+                    onCameraCapture={handleCameraCapture}
+                    isReadyToUpload
+                  />
+                </div>
               )}
-              <div className="relative flex-1 min-w-0 self-stretch flex items-center">
+              {showScrollFade && (
+                <div className="pointer-events-none absolute left-12 right-20 top-2 h-4 bg-gradient-to-b from-surface-app-frame/60 dark:from-black/20 to-transparent z-10" />
+              )}
+              <div className="relative flex-1 min-w-0 self-stretch flex items-center px-1">
                 <div 
                   ref={highlighterRef}
                   className={`${textareaClasses} pointer-events-none absolute inset-0 overflow-hidden whitespace-pre-wrap break-words border-none select-none`}
@@ -475,29 +479,30 @@ const MessageComposer = ({
                   </div>
                 </div>
               ) : null}
-              <Button
-                type="submit"
-                variant={inputValue.trim() || previewFiles.length > 0 ? 'primary' : 'secondary'}
-                size="sm"
-                disabled={sendDisabled}
-                aria-label={
-                  isSessionReady === false
-                    ? 'Send message (waiting for secure session)'
-                    : isSocketReady === false
-                      ? 'Send message (connecting to chat)'
-                      : (!inputValue.trim() && previewFiles.length === 0
-                        ? 'Send message (disabled)'
-                        : 'Send message')}
-                className={`w-8 h-8 p-0 rounded-full shrink-0 ${isInputExpanded ? 'self-end' : 'self-center'} transition ${isInputFocused && !sendDisabled ? 'ring-2 ring-accent-500/50 shadow-[0_0_0_2px_rgba(255,196,0,0.15)]' : ''}`}
-                icon={ArrowUp} iconClassName="w-3.5 h-3.5"
-                data-testid="message-send-button"
-              />
-            </div>
-
-            <div className="col-start-3 flex items-center gap-2 flex-shrink-0 self-end">
-              {features.enableAudioRecording && (
-                <MediaControls onMediaCapture={handleMediaCapture} onRecordingStateChange={setIsRecording} />
-              )}
+              {features.enableAudioRecording ? (
+                <div className="flex-shrink-0 self-end">
+                  <MediaControls onMediaCapture={handleMediaCapture} onRecordingStateChange={setIsRecording} />
+                </div>
+              ) : null}
+              {!isRecording ? (
+                <Button
+                  type="submit"
+                  variant={inputValue.trim() || previewFiles.length > 0 ? 'primary' : 'secondary'}
+                  size="sm"
+                  disabled={sendDisabled}
+                  aria-label={
+                    isSessionReady === false
+                      ? 'Send message (waiting for secure session)'
+                      : isSocketReady === false
+                        ? 'Send message (connecting to chat)'
+                        : (!inputValue.trim() && previewFiles.length === 0
+                          ? 'Send message (disabled)'
+                          : 'Send message')}
+                  className={`w-8 h-8 p-0 rounded-full shrink-0 ${isInputExpanded ? 'self-end' : 'self-center'} transition ${isInputFocused && !sendDisabled ? 'ring-2 ring-accent-500/50 shadow-[0_0_0_2px_rgba(255,196,0,0.15)]' : ''}`}
+                  icon={ArrowUp} iconClassName="w-3.5 h-3.5"
+                  data-testid="message-send-button"
+                />
+              ) : null}
             </div>
           </div>
 
