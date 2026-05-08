@@ -173,8 +173,6 @@ export const getWorkspaceDefaultSecondaryFilter = ({
   view,
   contactsRouteKind,
   reportSectionFromPath,
-  isIntakeTemplateRoute,
-  isIntakeResponsesRoute,
   navSecondary,
 }: {
   workspaceSection: WorkspaceSection;
@@ -182,8 +180,6 @@ export const getWorkspaceDefaultSecondaryFilter = ({
   view: WorkspaceView;
   contactsRouteKind: WorkspaceRouteState['contactsRouteKind'];
   reportSectionFromPath: string;
-  isIntakeTemplateRoute: boolean;
-  isIntakeResponsesRoute: boolean;
   navSecondary?: Array<{ items: Array<{ id: string }> }>;
 }) => {
   if (workspaceSection === 'conversations' && isPracticeWorkspace) {
@@ -217,8 +213,6 @@ export const getWorkspaceActiveSecondaryFilter = ({
   view,
   contactsRouteKind,
   reportSectionFromPath,
-  isIntakeTemplateRoute,
-  isIntakeResponsesRoute,
   secondaryFilterBySection,
   defaultSecondaryFilterId,
 }: {
@@ -227,13 +221,10 @@ export const getWorkspaceActiveSecondaryFilter = ({
   view: WorkspaceView;
   contactsRouteKind: WorkspaceRouteState['contactsRouteKind'];
   reportSectionFromPath: string;
-  isIntakeTemplateRoute: boolean;
-  isIntakeResponsesRoute: boolean;
   secondaryFilterBySection: Partial<Record<WorkspaceSection, string>>;
   defaultSecondaryFilterId: string | null;
 }) => {
   if (workspaceSection === 'settings') return null;
-  if (workspaceSection === 'forms') return null;
   if (workspaceSection === 'home' && isPracticeWorkspace) {
     if (view !== 'contacts') return 'overview';
     if (contactsRouteKind === 'archived') return 'contacts-archived';

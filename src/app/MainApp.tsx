@@ -83,6 +83,7 @@ export function MainApp({
   routeIntakeId: _routeIntakeId,
   routeSettingsView,
   routeSettingsAppId,
+  routeSettingsIntakeTemplateSlug,
   publicPracticeSlug,
   workspaceView,
   clientPracticeSlug,
@@ -99,6 +100,7 @@ export function MainApp({
   routeIntakeId?: string;
   routeSettingsView?: SettingsView;
   routeSettingsAppId?: string;
+  routeSettingsIntakeTemplateSlug?: string;
   publicPracticeSlug?: string;
   workspaceView?: WorkspaceView;
   clientPracticeSlug?: string;
@@ -868,6 +870,7 @@ export function MainApp({
       workspace={workspace}
       settingsView={routeSettingsView}
       settingsAppId={routeSettingsAppId}
+      settingsIntakeTemplateSlug={routeSettingsIntakeTemplateSlug}
       onStartNewConversation={handleStartNewConversation}
       activeConversationId={activeConversationId}
       intakeConversationState={intakeConversationState}

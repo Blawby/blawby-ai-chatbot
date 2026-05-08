@@ -18,6 +18,15 @@ type WidgetPreviewAppProps = {
   practiceConfig: UIPracticeConfig;
   scenario: WidgetPreviewScenario;
   previewConfig: WidgetPreviewConfig;
+  /**
+   * For the intake-template scenario, controls where the preview opens.
+   * 'home' (default) shows the WorkspaceHomeView; the user clicks through
+   * Request Consultation to reach the question flow. 'conversation' skips
+   * straight to the chat view with the intake questions visible — useful
+   * for editor previews where the practice owner wants to see how their
+   * questions render at a glance.
+   */
+  initialIntakeStep?: 'home' | 'conversation';
 };
 
 const noop = () => {};
@@ -35,6 +44,16 @@ const assistantMessage = (id: string, content: string, metadata?: Record<string,
   isUser: false,
 });
 
+const userMessage = (id: string, content: string): ChatMessageUI => ({
+  id,
+  role: 'user',
+  content,
+  timestamp: Date.now(),
+  reply_to_message_id: null,
+  metadata: { source: 'preview' },
+  isUser: true,
+});
+
 const getIntakePreviewQuestion = (field: NonNullable<WidgetPreviewConfig['intakeTemplate']>['fields'][number]) => {
   const explicitQuestion = field.previewQuestion?.trim();
   if (explicitQuestion) return explicitQuestion;
@@ -47,11 +66,57 @@ const getIntakePreviewQuestion = (field: NonNullable<WidgetPreviewConfig['intake
   return label ? `Can you tell me about ${label.toLowerCase()}?` : 'Add a question to preview this intake flow.';
 };
 
+const hashIndex = (seed: string, modulo: number): number => {
+  if (modulo <= 0) return 0;
+  let hash = 0;
+  for (let i = 0; i < seed.length; i++) hash = (hash + seed.charCodeAt(i)) % modulo;
+  return hash;
+};
+
+const MOCK_DATE_REPLIES = ['January 15, 2024', 'Last week', 'About a month ago', 'March 3, 2024', 'Two days ago'];
+const MOCK_NUMBER_REPLIES = ['5', '1000', '3', '2', 'About 10'];
+const MOCK_CITY_REPLIES = ['Los Angeles', 'New York', 'Chicago', 'Houston', 'Phoenix'];
+const MOCK_STATE_REPLIES = ['California', 'New York', 'Texas', 'Florida', 'Illinois'];
+const MOCK_TIME_REPLIES = ['Last week', 'About a month ago', 'Two days ago', 'Yesterday', 'In January'];
+const MOCK_COUNT_REPLIES = ['5', 'About 10', '2 or 3', 'Several', 'Around 7'];
+const MOCK_TEXT_REPLIES = [
+  'I need to think about that.',
+  'Let me describe what happened.',
+  'I remember some details.',
+  'It was quite recent.',
+  'I can provide more information.',
+];
+
+const generateMockReply = (
+  field: NonNullable<WidgetPreviewConfig['intakeTemplate']>['fields'][number],
+  prompt: string,
+): string => {
+  const seed = field.key;
+  const lowerPrompt = prompt.toLowerCase();
+
+  if (field.type === 'select' && field.options && field.options.length > 0) {
+    return field.options[hashIndex(seed, field.options.length)];
+  }
+  if (field.type === 'date') return MOCK_DATE_REPLIES[hashIndex(seed, MOCK_DATE_REPLIES.length)];
+  if (field.type === 'boolean') return hashIndex(seed, 2) === 0 ? 'Yes' : 'No';
+  if (field.type === 'number') return MOCK_NUMBER_REPLIES[hashIndex(seed, MOCK_NUMBER_REPLIES.length)];
+  if (lowerPrompt.includes('city')) return MOCK_CITY_REPLIES[hashIndex(seed, MOCK_CITY_REPLIES.length)];
+  if (lowerPrompt.includes('state')) return MOCK_STATE_REPLIES[hashIndex(seed, MOCK_STATE_REPLIES.length)];
+  if (lowerPrompt.includes('when') || lowerPrompt.includes('date') || lowerPrompt.includes('time')) {
+    return MOCK_TIME_REPLIES[hashIndex(seed, MOCK_TIME_REPLIES.length)];
+  }
+  if (lowerPrompt.includes('how many') || lowerPrompt.includes('how much')) {
+    return MOCK_COUNT_REPLIES[hashIndex(seed, MOCK_COUNT_REPLIES.length)];
+  }
+  return MOCK_TEXT_REPLIES[hashIndex(seed, MOCK_TEXT_REPLIES.length)];
+};
+
 export const WidgetPreviewApp: FunctionComponent<WidgetPreviewAppProps> = ({
   practiceId,
   practiceConfig,
   scenario,
   previewConfig,
+  initialIntakeStep = 'home',
 }) => {
   const practiceName = practiceConfig.name || 'Blawby Messenger';
   const practiceLogo = practiceConfig.profileImage ?? null;
@@ -59,10 +124,11 @@ export const WidgetPreviewApp: FunctionComponent<WidgetPreviewAppProps> = ({
   const legalDisclaimer = previewConfig.legalDisclaimer?.trim() || practiceConfig.legalDisclaimer?.trim() || '';
   const services = useMemo(() => previewConfig.services ?? [], [previewConfig.services]);
   const intakeTemplate = previewConfig.intakeTemplate ?? null;
-  const [intakePreviewView, setIntakePreviewView] = useState<'home' | 'chat'>('home');
+  const skipHome = initialIntakeStep === 'conversation';
+  const [intakePreviewView, setIntakePreviewView] = useState<'home' | 'chat'>(skipHome ? 'chat' : 'home');
   const [intakePreviewMode, setIntakePreviewMode] = useState<'consultation' | 'message'>('consultation');
   const [showIntakeDisclaimer, setShowIntakeDisclaimer] = useState(false);
-  const [intakePreviewStep, setIntakePreviewStep] = useState<'contact' | 'disclaimer' | 'conversation' | 'payment'>('contact');
+  const [intakePreviewStep, setIntakePreviewStep] = useState<'contact' | 'disclaimer' | 'conversation' | 'payment'>(skipHome ? 'conversation' : 'contact');
   const consultationFee = typeof previewConfig.consultationFee === 'number'
     ? previewConfig.consultationFee
     : typeof practiceConfig.consultationFee === 'number'
@@ -174,9 +240,13 @@ export const WidgetPreviewApp: FunctionComponent<WidgetPreviewAppProps> = ({
         return [assistantMessage('preview-intake-template-empty', 'Add questions to preview this intake flow.')];
       }
 
-      const questionMessages = orderedFields.map((field, index) => {
+      // Editor preview interleaves a deterministic mock client reply after
+      // each question so the practice owner sees a realistic back-and-forth.
+      // The regular intake-template flow (skipHome=false) keeps just the
+      // questions — actual clients type their own answers.
+      const questionMessages = orderedFields.flatMap((field, index) => {
         const question = getIntakePreviewQuestion(field);
-        return assistantMessage(
+        const questionMsg = assistantMessage(
           `preview-intake-template-question-${field.key}-${index}`,
           question,
           {
@@ -189,6 +259,12 @@ export const WidgetPreviewApp: FunctionComponent<WidgetPreviewAppProps> = ({
             },
           }
         );
+        if (!skipHome) return [questionMsg];
+        const reply = generateMockReply(field, question);
+        return [
+          questionMsg,
+          userMessage(`preview-intake-template-reply-${field.key}-${index}`, reply),
+        ];
       });
 
       if (intakePreviewStep === 'contact' || intakePreviewStep === 'disclaimer') {
@@ -263,6 +339,7 @@ export const WidgetPreviewApp: FunctionComponent<WidgetPreviewAppProps> = ({
     practiceName,
     scenario,
     services,
+    skipHome,
   ]);
 
   if (scenario === 'messenger-start' && legalDisclaimer) {
@@ -410,7 +487,7 @@ export const WidgetPreviewApp: FunctionComponent<WidgetPreviewAppProps> = ({
           hasMoreMessages={false}
           isLoadingMoreMessages={false}
           onLoadMoreMessages={noopAsync}
-          hideComposer={scenario === 'intake-template'}
+          hideComposer={scenario === 'intake-template' && !skipHome}
         />
       </div>
     )

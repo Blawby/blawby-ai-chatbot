@@ -432,6 +432,10 @@ function AppShell() {
           <Route path="/practice/:practiceSlug/settings/practice/team" component={PracticeAppRoute} workspaceView="settings" settingsView="practice-team" />
           <Route path="/practice/:practiceSlug/settings/apps" component={PracticeAppRoute} workspaceView="settings" settingsView="apps" />
           <Route path="/practice/:practiceSlug/settings/apps/:appId" component={PracticeAppRoute} workspaceView="settings" settingsView="app-detail" />
+          <Route path="/practice/:practiceSlug/settings/intake-forms" component={PracticeAppRoute} workspaceView="settings" settingsView="intake-forms" />
+          <Route path="/practice/:practiceSlug/settings/intake-forms/new" component={PracticeAppRoute} workspaceView="settings" settingsView="intake-forms-editor" />
+          <Route path="/practice/:practiceSlug/settings/intake-forms/:templateSlug" component={PracticeAppRoute} workspaceView="settings" settingsView="intake-forms-editor" />
+          <Route path="/practice/:practiceSlug/settings/intake-forms/:templateSlug/edit" component={PracticeAppRoute} workspaceView="settings" settingsView="intake-forms-editor" />
           <Route path="/practice/:practiceSlug/settings/security" component={PracticeAppRoute} workspaceView="settings" settingsView="security" />
           <Route path="/practice/:practiceSlug/settings/help" component={PracticeAppRoute} workspaceView="settings" settingsView="help" />
           <Route path="/p/:practiceSlug" component={({ practiceSlug }: { practiceSlug?: string }) => <PaymentResultPage practiceSlug={practiceSlug} />} />
@@ -623,6 +627,7 @@ function PracticeAppRoute({
   conversationId,
   invoiceId,
   appId,
+  templateSlug,
   workspaceView = 'home',
   settingsView = 'general',
   practiceSlug
@@ -630,8 +635,9 @@ function PracticeAppRoute({
   conversationId?: string;
   invoiceId?: string;
   appId?: string;
+  templateSlug?: string;
   workspaceView?: WorkspaceView;
-  settingsView?: 'general' | 'notifications' | 'account' | 'practice' | 'practice-payouts' | 'practice-team' | 'apps' | 'app-detail' | 'security' | 'help';
+  settingsView?: 'general' | 'notifications' | 'account' | 'practice' | 'practice-payouts' | 'practice-team' | 'apps' | 'app-detail' | 'intake-forms' | 'intake-forms-editor' | 'security' | 'help';
   practiceSlug?: string;
 }) {
   const location = useLocation();
@@ -794,6 +800,7 @@ function PracticeAppRoute({
           routeInvoiceId={invoiceId}
           routeSettingsView={settingsView}
           routeSettingsAppId={appId}
+          routeSettingsIntakeTemplateSlug={templateSlug}
           workspaceView={workspaceView}
           practiceSlug={normalizedPracticeSlug || undefined}
         />
@@ -831,7 +838,7 @@ function ClientPracticeRoute({
   invoiceId?: string;
   appId?: string;
   workspaceView?: 'home' | 'list' | 'conversation' | 'matters' | 'invoices' | 'invoiceDetail' | 'settings';
-  settingsView?: 'general' | 'notifications' | 'account' | 'practice' | 'practice-payouts' | 'practice-team' | 'apps' | 'app-detail' | 'security' | 'help';
+  settingsView?: 'general' | 'notifications' | 'account' | 'practice' | 'practice-payouts' | 'practice-team' | 'apps' | 'app-detail' | 'intake-forms' | 'intake-forms-editor' | 'security' | 'help';
 }) {
   const location = useLocation();
   const { session, isPending: sessionIsPending } = useSessionContext();
