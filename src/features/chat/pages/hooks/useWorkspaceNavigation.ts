@@ -110,9 +110,7 @@ export function useWorkspaceNavigation({
   }, [layoutMode, workspace]);
 
   const {
-    isIntakeTemplateRoute,
     isIntakeTemplateEditorRoute,
-    isIntakeResponsesRoute,
     selectedMatterIdFromPath,
     isMatterNonListRoute,
     selectedContactIdFromPath,
@@ -152,9 +150,7 @@ export function useWorkspaceNavigation({
     navigate(`${normalizedBase}/invoices/new?returnTo=${encodeURIComponent(returnTo)}`);
   }, [location.path, location.url, navigate, normalizedBase]);
 
-  const rawSection = getWorkspaceSection(view);
-  const workspaceSection: WorkspaceSection =
-    rawSection === 'intakes' && isIntakeTemplateRoute ? 'forms' : rawSection;
+  const workspaceSection: WorkspaceSection = getWorkspaceSection(view);
 
   const navConfig = useMemo(() => {
     const slug = (practiceSlug ?? '').trim();
@@ -181,10 +177,8 @@ export function useWorkspaceNavigation({
     view,
     contactsRouteKind,
     reportSectionFromPath,
-    isIntakeTemplateRoute,
-    isIntakeResponsesRoute,
     navSecondary: navConfig.secondary,
-  }), [workspaceSection, isPracticeWorkspace, view, contactsRouteKind, reportSectionFromPath, isIntakeTemplateRoute, isIntakeResponsesRoute, navConfig.secondary]);
+  }), [workspaceSection, isPracticeWorkspace, view, contactsRouteKind, reportSectionFromPath, navConfig.secondary]);
 
   const activeSecondaryFilter = useMemo(() => getWorkspaceActiveSecondaryFilter({
     workspaceSection,
@@ -192,11 +186,9 @@ export function useWorkspaceNavigation({
     view,
     contactsRouteKind,
     reportSectionFromPath,
-    isIntakeTemplateRoute,
-    isIntakeResponsesRoute,
     secondaryFilterBySection,
     defaultSecondaryFilterId,
-  }), [workspaceSection, isPracticeWorkspace, view, contactsRouteKind, reportSectionFromPath, isIntakeTemplateRoute, isIntakeResponsesRoute, secondaryFilterBySection, defaultSecondaryFilterId]);
+  }), [workspaceSection, isPracticeWorkspace, view, contactsRouteKind, reportSectionFromPath, secondaryFilterBySection, defaultSecondaryFilterId]);
 
   const handleSecondaryFilterSelect = useCallback((id: string) => {
     if (workspaceSection === 'settings') return;
@@ -242,9 +234,7 @@ export function useWorkspaceNavigation({
     normalizedBase,
     conversationsPath,
     withWidgetQuery,
-    isIntakeTemplateRoute,
     isIntakeTemplateEditorRoute,
-    isIntakeResponsesRoute,
     selectedMatterIdFromPath,
     isMatterNonListRoute,
     selectedContactIdFromPath,

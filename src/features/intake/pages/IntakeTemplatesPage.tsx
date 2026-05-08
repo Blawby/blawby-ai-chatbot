@@ -1,24 +1,31 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { JSX } from 'preact';
-import { MoreVertical, Info, Lock, SquarePen, Plus, Users, ArrowUpDown } from 'lucide-preact';
+import {
+  ArrowLeft,
+  ChevronDown,
+  CreditCard,
+  Eye,
+  FileText,
+  GripVertical,
+  Lock,
+  MessageSquare,
+  MoreVertical,
+  Plus,
+  Sparkles,
+  Trash2,
+  X,
+} from 'lucide-preact';
 
-import { Checkbox, Combobox, CurrencyInput, Input, Textarea } from '@/shared/ui/input';
-import type { ComboboxOption } from '@/shared/ui/input';
+import { CurrencyInput, Input, Switch, Textarea } from '@/shared/ui/input';
 import { Button } from '@/shared/ui/Button';
 import { EditorShell } from '@/shared/ui/layout';
 import { extractStripeStatusFromPayload } from '@/features/onboarding/utils';
 import type { StripeConnectStatus } from '@/features/onboarding/types';
 import { SettingsNotice } from '@/features/settings/components/SettingsNotice';
-import { SettingSection } from '@/features/settings/components/SettingSection';
-import ChatDockedAction from '@/features/chat/components/ChatDockedAction';
-import {
-  BuilderAssistantPreviewMessage,
-  BuilderWidgetComposerShell,
-  BuilderWidgetShell,
-} from '@/features/intake/components/BuilderWidgetPreview';
-import { ContactForm } from '@/features/intake/components/ContactForm';
+import { IntakeFlowPreview } from '@/features/intake/components/BuilderWidgetPreview';
 import { Dialog, DialogBody, DialogFooter } from '@/shared/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/shared/ui/dropdown';
+import { cn } from '@/shared/utils/cn';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { SkeletonLoader } from '@/shared/ui/layout';
 import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
@@ -51,7 +58,7 @@ type EditorState = {
   enrichmentFields: EditorField[];
 };
 
-type BuilderSelectionId = 'contact' | 'opening' | 'disclaimer' | 'payment' | `required:${string}` | `enrichment:${string}`;
+type BuilderSelectionId = 'none' | 'contact' | 'opening' | 'disclaimer' | 'payment' | `required:${string}` | `enrichment:${string}`;
 
 const SLUG_RE = /^[a-z0-9-]+$/;
 // Structurally locked: these fields cannot be removed, moved, or replaced —
@@ -240,23 +247,13 @@ function moveItem<T>(items: T[], fromIndex: number, toIndex: number): T[] {
   if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0 || fromIndex >= items.length) {
     return items;
   }
-
-  // Adjust insertion index when moving forward because removing the item
-  // shifts subsequent indices left by one. When moving from a lower index to
-  // a higher index we should insert at toIndex - 1 to achieve the expected
-  // visual placement.
-  const targetIndex = toIndex > fromIndex ? toIndex - 1 : toIndex;
-
   const next = [...items];
   const moved = next.splice(fromIndex, 1)[0];
   if (!moved) return items;
-  // Clamp insertion index to valid bounds
-  const insertAt = Math.max(0, Math.min(next.length, targetIndex));
+  const insertAt = Math.max(0, Math.min(next.length, toIndex));
   next.splice(insertAt, 0, moved);
   return next;
 }
-
-
 
 function useDragReorder<T>(items: T[], onReorder: (next: T[]) => void) {
   const dragIndexRef = useRef<number | null>(null);
@@ -318,10 +315,6 @@ function inferQuestionType(question: string, options?: string[]): IntakeFieldDef
   return 'text';
 }
 
-function hasSelectableAnswers(field: Pick<IntakeFieldDefinition, 'type' | 'options'>): boolean {
-  return field.type === 'select' || Boolean(field.options?.length);
-}
-
 function createBlankQuestion(existingKeys: Set<string>, phase: FieldPhase): EditorField {
   const key = generateFieldKey('Custom question', existingKeys);
   return {
@@ -357,64 +350,113 @@ function _StatPill({ label, value }: StatPillProps) {
   );
 }
 
-function QuestionDivider() {
-  const [showInfo, setShowInfo] = useState(false);
+// ---------------------------------------------------------------------------
+// Question Builder UI primitives (3-panel + mobile master-detail)
+// ---------------------------------------------------------------------------
 
+type BuilderSection = 'disclaimer' | 'intro' | 'contact' | 'required' | 'enrichment' | 'payment';
+
+function getSectionForSelection(id: BuilderSelectionId): BuilderSection {
+  if (id === 'disclaimer') return 'disclaimer';
+  if (id === 'opening') return 'intro';
+  if (id === 'contact') return 'contact';
+  if (id === 'payment') return 'payment';
+  if (id.startsWith('enrichment:')) return 'enrichment';
+  return 'required';
+}
+
+function useIsDesktop(breakpointPx = 768): boolean {
+  const [isDesktop, setIsDesktop] = useState(() => {
+    if (typeof window === 'undefined') return true;
+    return window.matchMedia(`(min-width: ${breakpointPx}px)`).matches;
+  });
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const mq = window.matchMedia(`(min-width: ${breakpointPx}px)`);
+    const handler = () => setIsDesktop(mq.matches);
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, [breakpointPx]);
+  return isDesktop;
+}
+
+function SectionHeaderLabel({ children }: { children: string }) {
   return (
-    <div className="relative flex items-center gap-3 py-4">
-      <span className="h-px flex-1 bg-line-utility/60 dark:bg-line-glass/20" aria-hidden="true" />
-      <div className="relative">
+    <p className="px-1 text-[11px] font-semibold uppercase tracking-wider text-input-placeholder">
+      {children}
+    </p>
+  );
+}
+
+type SectionBadge = { label: string; tone: 'optional' | 'required' };
+
+type SectionCardProps = {
+  number: number;
+  icon: JSX.Element;
+  title: string;
+  badge?: SectionBadge;
+  isActive: boolean;
+  isOpen: boolean;
+  onToggle: () => void;
+  onSelectHeader?: () => void;
+  children?: JSX.Element | JSX.Element[] | null;
+};
+
+function SectionCard({ number, icon, title, badge, isActive, isOpen, onToggle, onSelectHeader, children }: SectionCardProps) {
+  return (
+    <div
+      className={cn(
+        'rounded-xl border bg-surface-card transition-colors',
+        isActive ? 'border-line-utility border-l-[3px] border-l-accent-500' : 'border-line-utility',
+      )}
+    >
+      <div className="flex items-center gap-2 p-3.5">
         <button
           type="button"
-          onClick={() => setShowInfo((value) => !value)}
-          onMouseEnter={() => setShowInfo(true)}
-          onMouseLeave={() => setShowInfo(false)}
-          onFocus={() => setShowInfo(true)}
-          onBlur={() => setShowInfo(false)}
-          className="inline-flex items-center gap-2 text-xs text-input-placeholder transition-colors hover:text-input-text"
-          aria-expanded={showInfo}
-          aria-label="Explain AI-assisted follow-up"
+          onClick={() => {
+            onSelectHeader?.();
+            if (!isOpen) onToggle();
+          }}
+          className="flex min-w-0 flex-1 items-center gap-2 text-left"
         >
-          <Info className="h-4 w-4" aria-hidden="true" />
-          AI-assisted follow-up
+          <span className="font-mono text-xs text-input-placeholder">{number}.</span>
+          <span className="text-input-placeholder">{icon}</span>
+          <span className="truncate text-sm font-medium text-input-text">{title}</span>
         </button>
-        {showInfo ? (
-          <div className="absolute left-1/2 top-full z-20 mt-2 w-72 -translate-x-1/2 rounded-xl border border-line-glass/30 bg-elevation-3 p-3 text-left text-xs leading-relaxed text-input-text shadow-2xl">
-            Blawby AI can ask these follow-up questions after the client shares their basic information, so you can collect extra detail without making the first step feel heavy.
-          </div>
+        {badge ? (
+          <span
+            className={cn(
+              'rounded-full px-2 py-0.5 text-[11px] font-medium',
+              badge.tone === 'required'
+                ? 'bg-accent-500 text-[rgb(var(--accent-foreground))]'
+                : 'bg-surface-input text-input-placeholder',
+            )}
+          >
+            {badge.label}
+          </span>
         ) : null}
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-label={isOpen ? `Collapse ${title}` : `Expand ${title}`}
+          aria-expanded={isOpen}
+          className="inline-flex h-6 w-6 items-center justify-center rounded text-input-placeholder hover:text-input-text"
+        >
+          <ChevronDown className={cn('h-4 w-4 transition-transform', isOpen && 'rotate-180')} />
+        </button>
       </div>
-      <span className="h-px flex-1 bg-line-utility/60 dark:bg-line-glass/20" aria-hidden="true" />
+      {isOpen && children ? (
+        <div className="border-t border-line-utility/60 px-2.5 pb-2.5 pt-1.5">{children}</div>
+      ) : null}
     </div>
   );
 }
 
-type AddQuestionButtonProps = {
-  children: string;
-  disabled?: boolean;
-  onClick: () => void;
-};
-
-function AddQuestionButton({ children, disabled = false, onClick }: AddQuestionButtonProps) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-dashed border-line-utility/70 bg-transparent px-4 py-3 text-sm font-semibold text-input-placeholder transition-colors hover:border-line-utility hover:bg-surface-utility/50 hover:text-input-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/45 disabled:cursor-not-allowed disabled:opacity-50 dark:border-line-glass/35 dark:hover:border-line-glass/60 dark:hover:bg-surface-utility/40"
-    >
-      <Plus className="h-4 w-4" aria-hidden="true" />
-      {children}
-    </button>
-  );
-}
-
-type BuilderNavRowProps = {
-  index?: number;
+type QuestionRowProps = {
   label: string;
-  selected: boolean;
-  locked?: boolean;
-  icon?: JSX.Element;
+  isSelected: boolean;
+  isLocked?: boolean;
+  badgeLabel?: string;
   onSelect: () => void;
   onRemove?: () => void;
   onMoveUp?: () => void;
@@ -426,380 +468,122 @@ type BuilderNavRowProps = {
   };
 };
 
-function BuilderNavRow({
-  index,
-  label,
-  selected,
-  locked = false,
-  icon,
-  onSelect,
-  onRemove,
-  onMoveUp,
-  onMoveDown,
-  dragHandlers,
-}: BuilderNavRowProps) {
-  const canDrag = !locked && Boolean(dragHandlers);
-  const hasMenu = !locked && Boolean(onRemove || onMoveUp || onMoveDown);
+function QuestionRow({ label, isSelected, isLocked, badgeLabel, onSelect, onRemove, onMoveUp, onMoveDown, dragHandlers }: QuestionRowProps) {
+  const draggable = !isLocked && Boolean(dragHandlers);
   const displayLabel = label.trim() || 'Untitled question';
-  const iconWrapClassName = selected
-    ? 'bg-surface-workspace/70 text-accent-utility ring-1 ring-accent-500/25 dark:bg-surface-workspace/15 dark:text-accent-utility dark:ring-accent-500/20'
-    : 'bg-surface-utility/70 text-input-placeholder group-hover:bg-surface-utility group-hover:text-input-text dark:bg-surface-utility/45 dark:group-hover:bg-surface-utility/70';
-  const iconClassName = selected ? 'text-accent-utility' : 'text-input-placeholder';
+
+  const handleGripKey = (event: JSX.TargetedKeyboardEvent<HTMLButtonElement>) => {
+    if (event.key === 'ArrowUp' && onMoveUp) {
+      event.preventDefault();
+      onMoveUp();
+    } else if (event.key === 'ArrowDown' && onMoveDown) {
+      event.preventDefault();
+      onMoveDown();
+    }
+  };
 
   return (
     <div
-      className="group"
       role="listitem"
       aria-label={displayLabel}
-      draggable={canDrag}
-      aria-grabbed={canDrag ? 'false' : undefined}
+      aria-grabbed={draggable ? false : undefined}
+      className={cn(
+        'flex items-center gap-1 rounded-lg px-2 py-1.5 text-sm transition-colors',
+        isSelected ? 'bg-accent-500/10' : 'hover:bg-surface-input/60',
+      )}
+      draggable={draggable}
       onDragStart={dragHandlers?.onDragStart}
       onDrop={dragHandlers?.onDrop}
       onDragOver={dragHandlers?.onDragOver}
     >
-      <div
-        className={`relative flex items-center gap-1 rounded-2xl px-2 py-2 transition-all ${
-          selected
-            ? 'nav-item-active'
-            : 'nav-item-inactive'
-        }`}
-      >
-        {selected ? (
-          <span className="absolute left-0 top-2 bottom-2 w-0.5 rounded-full bg-accent-500" aria-hidden="true" />
-        ) : null}
+      {isLocked ? (
+        <Lock className="h-3.5 w-3.5 shrink-0 text-input-placeholder" aria-hidden="true" />
+      ) : (
         <button
           type="button"
-          onClick={onSelect}
-          className="flex min-w-0 flex-1 items-center gap-1 text-left focus-visible:outline-none"
+          onKeyDown={handleGripKey}
+          aria-label={`Reorder ${displayLabel} — Arrow Up or Down to move`}
+          className="inline-flex h-5 w-3.5 shrink-0 cursor-grab items-center justify-center rounded text-input-placeholder hover:text-input-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/45"
         >
-          {typeof index === 'number' ? (
-            <span className={`w-4 shrink-0 text-center font-mono text-[11px] ${selected ? 'text-accent-utility' : 'text-input-placeholder'}`}>
-              {String(index)}
-            </span>
-          ) : (
-            <span className="w-4 shrink-0" aria-hidden="true" />
-          )}
-          <span
-            className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-xl transition-colors ${iconWrapClassName}`}
-            aria-hidden="true"
-          >
-            {icon ? icon : locked ? (
-              <Lock className={`h-3.5 w-3.5 ${iconClassName}`} />
-            ) : canDrag ? (
-              <ArrowUpDown className={`h-3.5 w-3.5 ${iconClassName}`} />
-            ) : (
-              <SquarePen className={`h-3.5 w-3.5 ${iconClassName}`} />
-            )}
-          </span>
-          <span className="min-w-0 flex-1 pr-0.5">
-            <span className="block truncate text-sm font-medium leading-6">{displayLabel}</span>
-          </span>
+          <GripVertical className="h-3.5 w-3.5" aria-hidden="true" />
         </button>
-        {hasMenu ? (
-          <span className="shrink-0">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  type="button"
-                  onClick={(event) => event.stopPropagation()}
-                  aria-label={`Open actions for ${displayLabel}`}
-                  className={`flex h-8 w-8 items-center justify-center rounded-xl transition-colors ${
-                    selected
-                      ? 'bg-surface-workspace/70 text-accent-utility hover:bg-surface-workspace dark:bg-surface-workspace/15 dark:hover:bg-surface-workspace/25'
-                      : 'bg-surface-utility/14 text-input-text/80 hover:bg-surface-utility/22 hover:text-input-text'
-                  }`}
-                >
-                  <MoreVertical className="h-4 w-4" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="min-w-[140px]">
-                {onMoveUp ? (
-                  <DropdownMenuItem onSelect={onMoveUp}>
-                    Move up
-                  </DropdownMenuItem>
-                ) : null}
-                {onMoveDown ? (
-                  <DropdownMenuItem onSelect={onMoveDown}>
-                    Move down
-                  </DropdownMenuItem>
-                ) : null}
-                {onRemove ? (
-                  <DropdownMenuItem onSelect={onRemove}>
-                    Delete
-                  </DropdownMenuItem>
-                ) : null}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </span>
-        ) : null}
-      </div>
+      )}
+      <button
+        type="button"
+        onClick={onSelect}
+        className="min-w-0 flex-1 truncate text-left text-input-text focus-visible:outline-none"
+      >
+        {displayLabel}
+      </button>
+      {badgeLabel ? (
+        <span className="shrink-0 text-[11px] font-medium text-input-placeholder">{badgeLabel}</span>
+      ) : null}
+      <button
+        type="button"
+        onClick={onSelect}
+        className="shrink-0 text-[11px] font-medium text-accent-500 hover:underline"
+      >
+        Edit
+      </button>
+      {onRemove && !isLocked ? (
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            onRemove();
+          }}
+          aria-label={`Delete ${displayLabel}`}
+          className="shrink-0 rounded text-input-placeholder transition-colors hover:text-rose-500"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </button>
+      ) : null}
     </div>
   );
 }
 
-function WidgetComposerPreview() {
-  return <BuilderWidgetComposerShell />;
+function LockedFieldChip({ label }: { label: string }) {
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full border border-line-utility bg-surface-input px-2 py-0.5 text-[11px] font-medium text-input-placeholder">
+      <Lock className="h-3 w-3" />
+      {label}
+    </span>
+  );
 }
 
-function WidgetCanvasShell({
-  practiceName,
-  practiceLogo,
-  children,
-  docked,
-}: {
-  practiceName?: string | null;
-  practiceLogo?: string | null;
-  children?: JSX.Element | JSX.Element[] | null;
-  docked?: JSX.Element | null;
-}) {
+function AddInlineButton({ children, onClick, disabled = false }: { children: string; onClick: () => void; disabled?: boolean }) {
   return (
-    <BuilderWidgetShell
-      practiceName={practiceName}
-      practiceLogo={practiceLogo}
-      docked={docked}
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className="mt-1 flex w-full items-center justify-center gap-1 rounded-lg border border-dashed border-line-utility/70 px-2 py-1.5 text-xs font-medium text-input-placeholder transition-colors hover:border-line-utility hover:text-input-text disabled:cursor-not-allowed disabled:opacity-50"
     >
+      <Plus className="h-3.5 w-3.5" />
       {children}
-    </BuilderWidgetShell>
+    </button>
   );
 }
 
-function WidgetAssistantCanvasMessage({
-  practiceName,
-  practiceLogo,
-  value,
-  readOnly = false,
-  placeholder,
-  onChange,
-  onBlur,
-  bubbleClassName = '',
-}: {
-  practiceName?: string | null;
-  practiceLogo?: string | null;
-  value: string;
-  readOnly?: boolean;
-  placeholder: string;
-  onChange: (next: string) => void;
-  onBlur?: () => void;
-  bubbleClassName?: string;
-}) {
-  return (
-    <BuilderAssistantPreviewMessage
-      practiceName={practiceName}
-      practiceLogo={practiceLogo}
-      value={value}
-      readOnly={readOnly}
-      placeholder={placeholder}
-      onChange={onChange}
-      onBlur={onBlur}
-      bubbleClassName={bubbleClassName}
-    />
-  );
-}
-
-function BuilderQuestionCanvas({
-  field,
-  readOnly = false,
-  practiceName,
-  practiceLogo,
-  onLabelChange,
-  onLabelBlur,
-}: {
-  field: EditorField;
-  readOnly?: boolean;
-  practiceName?: string | null;
-  practiceLogo?: string | null;
-  onLabelChange: (next: string) => void;
-  onLabelBlur?: () => void;
-}) {
-  return (
-    <WidgetCanvasShell practiceName={practiceName} practiceLogo={practiceLogo}>
-      <div className="flex h-full flex-col">
-        <WidgetAssistantCanvasMessage
-          practiceName={practiceName}
-          practiceLogo={practiceLogo}
-          value={getFieldCanvasQuestion(field)}
-          readOnly={readOnly}
-          placeholder="Untitled question"
-          onChange={onLabelChange}
-          onBlur={onLabelBlur}
-          bubbleClassName="bg-transparent px-0 py-0"
-        />
-        <div className="flex-1" />
-        <WidgetComposerPreview />
-      </div>
-    </WidgetCanvasShell>
-  );
-}
-
-function BuilderOpeningCanvas({
-  value,
-  practiceName,
-  practiceLogo,
-  onChange,
-}: {
-  value: string;
-  practiceName?: string | null;
-  practiceLogo?: string | null;
-  onChange: (next: string) => void;
-}) {
-  return (
-    <WidgetCanvasShell practiceName={practiceName} practiceLogo={practiceLogo}>
-      <div className="flex h-full flex-col">
-        <WidgetAssistantCanvasMessage
-          practiceName={practiceName}
-          practiceLogo={practiceLogo}
-          value={value}
-          placeholder="Add an opening message"
-          onChange={onChange}
-          bubbleClassName="bg-transparent px-0 py-0"
-        />
-        <div className="flex-1" />
-        <WidgetComposerPreview />
-      </div>
-    </WidgetCanvasShell>
-  );
-}
-
-function BuilderDisclaimerCanvas({
-  value,
-  practiceName,
-  practiceLogo,
-  onChange,
-}: {
-  value: string;
-  practiceName?: string | null;
-  practiceLogo?: string | null;
-  onChange: (next: string) => void;
-}) {
-  return (
-    <WidgetCanvasShell
-      practiceName={practiceName}
-      practiceLogo={practiceLogo}
-      docked={(
-        <ChatDockedAction
-          isOpen
-          title="Legal disclaimer"
-          description="Clients review this after the contact step."
-          showCloseButton={false}
-        >
-          <textarea
-            value={value}
-            onInput={(event) => onChange((event.currentTarget as HTMLTextAreaElement).value)}
-            placeholder="Add a legal disclaimer"
-            rows={7}
-            className="w-full resize-none rounded-2xl border border-line-glass/25 bg-surface-card/70 px-4 py-3 text-sm leading-6 text-input-text outline-none placeholder:text-input-placeholder"
-          />
-          <Button type="button" className="mt-5 w-full" disabled>
-            Accept and continue
-          </Button>
-        </ChatDockedAction>
-      )}
-    />
-  );
-}
-
-function BuilderInspectorCheckboxRow({
+function ConfigField({
   label,
-  checked,
-  onChange,
-  disabled = false,
+  children,
+  charCount,
 }: {
   label: string;
-  checked: boolean;
-  onChange: (checked: boolean) => void;
-  disabled?: boolean;
+  children: JSX.Element | JSX.Element[];
+  charCount?: { value: string; max: number };
 }) {
   return (
-    <div className="pt-1">
-      <Checkbox
-        label={label}
-        checked={checked}
-        onChange={onChange}
-        disabled={disabled}
-      />
+    <div className="flex flex-col gap-1.5">
+      <span className="text-sm font-medium text-input-text">{label}</span>
+      {children}
+      {charCount ? (
+        <span className="self-end text-[11px] text-input-placeholder">
+          {charCount.value.length}/{charCount.max}
+        </span>
+      ) : null}
     </div>
-  );
-}
-
-function BuilderContactCanvas({
-  practiceName,
-  practiceLogo,
-}: {
-  practiceName?: string | null;
-  practiceLogo?: string | null;
-}) {
-  return (
-    <WidgetCanvasShell
-      practiceName={practiceName}
-      practiceLogo={practiceLogo}
-      docked={(
-        <ChatDockedAction
-          isOpen
-          title="Request Consultation"
-          description="Please provide your contact details to begin."
-          showCloseButton={false}
-        >
-          <ContactForm
-            onSubmit={async () => {}}
-            fields={['name', 'email', 'phone']}
-            required={['name', 'email', 'phone']}
-            initialValues={{
-              name: 'Jordan Client',
-              email: 'jordan@example.com',
-              phone: '(919) 555-0142',
-            }}
-            variant="plain"
-            showSubmitButton
-            submitFullWidth
-            submitLabel="Continue"
-          />
-        </ChatDockedAction>
-      )}
-    />
-  );
-}
-
-function BuilderPaymentCanvas({
-  amount,
-  currencyCode,
-  practiceName,
-  practiceLogo,
-  onAmountChange,
-}: {
-  amount: number | null;
-  currencyCode: string;
-  practiceName?: string | null;
-  practiceLogo?: string | null;
-  onAmountChange: (amount: number | null) => void;
-}) {
-  return (
-    <WidgetCanvasShell practiceName={practiceName} practiceLogo={practiceLogo}>
-      <WidgetAssistantCanvasMessage
-        practiceName={practiceName}
-        practiceLogo={practiceLogo}
-        value="Your consultation request is ready. Complete the consultation fee to send it to the practice."
-        readOnly
-        placeholder=""
-        onChange={() => {}}
-        bubbleClassName="bg-transparent px-0 py-0"
-      />
-      <div className="px-4 pb-4">
-        <div className="ml-12 rounded-3xl border border-line-glass/25 bg-surface-card/75 p-4 shadow-glass">
-          <CurrencyInput
-            label="Consultation fee"
-            value={amount ?? undefined}
-            onChange={(value) => onAmountChange(typeof value === 'number' && Number.isFinite(value) ? value : null)}
-            placeholder="150.00"
-            min={0.5}
-            step={0.01}
-            description={currencyCode}
-          />
-          <Button type="button" className="mt-4 w-full" disabled>
-            Pay consultation fee
-          </Button>
-        </div>
-      </div>
-    </WidgetCanvasShell>
   );
 }
 
@@ -992,7 +776,6 @@ function TemplateEditor({
   const [stripeStatus, setStripeStatus] = useState<StripeConnectStatus | null>(null);
   const [isStripeLoading, setIsStripeLoading] = useState(false);
   const [selectedItemId, setSelectedItemId] = useState<BuilderSelectionId>('contact');
-  const [replacementFieldKey, setReplacementFieldKey] = useState('');
 
   const applyEditorState = useCallback((updater: (prev: EditorState) => EditorState) => {
     setState(updater);
@@ -1003,9 +786,6 @@ function TemplateEditor({
   const hasChanges = draftSnapshot !== initialSnapshot;
   const practiceCanvasName = practicePreviewConfig.name?.trim() || 'Blawby Messenger';
   const practiceCanvasLogo = practicePreviewConfig.profileImage ?? null;
-  const staticFlowStepCount = 1;
-  const visibleRequiredFieldCount = staticFlowStepCount + state.requiredFields.length;
-  const paymentStepIndex = visibleRequiredFieldCount + state.enrichmentFields.length + 1;
   const hasStripeAccount = Boolean(stripeStatus?.stripe_account_id);
   const payoutsEnabled = stripeStatus?.payouts_enabled === true;
   const stripeStatusLabel = hasStripeAccount
@@ -1050,6 +830,21 @@ function TemplateEditor({
   const enrichmentDrag = useDragReorder(state.enrichmentFields, (next) => {
     applyEditorState((prev) => ({ ...prev, enrichmentFields: next }));
   });
+
+  const moveRequiredField = useCallback((fromIndex: number, toIndex: number) => {
+    applyEditorState((prev) => {
+      const locked = prev.requiredFields.filter((field) => LOCKED_REQUIRED_KEYS.has(field.key));
+      const movable = prev.requiredFields.filter((field) => !LOCKED_REQUIRED_KEYS.has(field.key));
+      return { ...prev, requiredFields: [...locked, ...moveItem(movable, fromIndex, toIndex)] };
+    });
+  }, [applyEditorState]);
+
+  const moveEnrichmentField = useCallback((fromIndex: number, toIndex: number) => {
+    applyEditorState((prev) => ({
+      ...prev,
+      enrichmentFields: moveItem(prev.enrichmentFields, fromIndex, toIndex),
+    }));
+  }, [applyEditorState]);
 
 
 
@@ -1134,36 +929,6 @@ function TemplateEditor({
     });
   };
 
-  const updateFieldOptions = (key: string, phase: FieldPhase, rawOptions: string) => {
-    updateField(key, phase, (field) => {
-      const options = rawOptions.split(',').map((option) => option.trim()).filter(Boolean);
-      return {
-        ...field,
-        options: options.length > 0 ? options : undefined,
-        type: inferQuestionType(field.isStandard ? getFieldCanvasQuestion(field) : field.label, options),
-      };
-    });
-  };
-
-  const setFieldMultipleChoice = (key: string, phase: FieldPhase, enabled: boolean) => {
-    updateField(key, phase, (field) => {
-      if (enabled) {
-        const options = field.options?.length ? field.options : ['Option 1', 'Option 2'];
-        return {
-          ...field,
-          type: 'select',
-          options,
-        };
-      }
-
-      return {
-        ...field,
-        options: undefined,
-        type: inferQuestionType(field.isStandard ? getFieldCanvasQuestion(field) : field.label, undefined),
-      };
-    });
-  };
-
   const changeFieldPhase = (key: string, fromPhase: FieldPhase, nextPhase: FieldPhase) => {
     if (fromPhase === nextPhase || LOCKED_REQUIRED_KEYS.has(key)) return;
 
@@ -1192,7 +957,6 @@ function TemplateEditor({
       };
     });
     setSelectedItemId(`${nextPhase}:${key}`);
-    setReplacementFieldKey('');
   };
 
   const removeField = (key: string, phase: FieldPhase) => {
@@ -1203,72 +967,6 @@ function TemplateEditor({
         : { ...prev, enrichmentFields: prev.enrichmentFields.filter((field) => field.key !== key) }
     ));
     setSelectedItemId('contact');
-    setReplacementFieldKey('');
-  };
-
-  const moveRequiredField = (fromIndex: number, toIndex: number) => {
-    applyEditorState((prev) => {
-      const locked = prev.requiredFields.filter((field) => LOCKED_REQUIRED_KEYS.has(field.key));
-      const movable = prev.requiredFields.filter((field) => !LOCKED_REQUIRED_KEYS.has(field.key));
-      return { ...prev, requiredFields: [...locked, ...moveItem(movable, fromIndex, toIndex)] };
-    });
-  };
-
-  const moveEnrichmentField = (fromIndex: number, toIndex: number) => {
-    applyEditorState((prev) => ({
-        ...prev,
-        enrichmentFields: moveItem(prev.enrichmentFields, fromIndex, toIndex),
-    }));
-  };
-
-  const replaceSelectedField = (nextField: IntakeFieldDefinition, phase: FieldPhase, currentKey: string) => {
-    const replacement: EditorField = {
-      ...nextField,
-      required: phase === 'required',
-      phase,
-      _id: nextField.key,
-    };
-
-    applyEditorState((prev) => {
-      const update = (fields: EditorField[]) => fields.map((field) => field.key === currentKey ? replacement : field);
-      return phase === 'required'
-        ? { ...prev, requiredFields: update(prev.requiredFields) }
-        : { ...prev, enrichmentFields: update(prev.enrichmentFields) };
-    });
-    setSelectedItemId(`${phase}:${nextField.key}`);
-    setReplacementFieldKey('');
-  };
-
-  const replaceSelectedWithCustomField = (label: string, phase: FieldPhase, currentKey: string) => {
-    const trimmedLabel = label.trim();
-    if (!trimmedLabel) return;
-
-    const existingKeys = new Set(
-      [...state.requiredFields, ...state.enrichmentFields]
-        .map((field) => field.key)
-        .filter((key) => key !== currentKey),
-    );
-    const replacementKey = generateFieldKey(trimmedLabel, existingKeys);
-    const replacement: EditorField = {
-      key: replacementKey,
-      label: trimmedLabel,
-      previewQuestion: getDefaultPreviewQuestion(trimmedLabel),
-      description: '',
-      type: inferQuestionType(trimmedLabel),
-      required: phase === 'required',
-      phase,
-      isStandard: false,
-      _id: replacementKey,
-    };
-
-    applyEditorState((prev) => {
-      const update = (fields: EditorField[]) => fields.map((field) => field.key === currentKey ? replacement : field);
-      return phase === 'required'
-        ? { ...prev, requiredFields: update(prev.requiredFields) }
-        : { ...prev, enrichmentFields: update(prev.enrichmentFields) };
-    });
-    setSelectedItemId(`${phase}:${replacementKey}`);
-    setReplacementFieldKey('');
   };
 
   const addBlankField = (phase: FieldPhase) => {
@@ -1280,7 +978,6 @@ function TemplateEditor({
         : { ...prev, enrichmentFields: [...prev.enrichmentFields, nextField] }
     ));
     setSelectedItemId(`${phase}:${nextField.key}`);
-    setReplacementFieldKey('');
   };
 
   const addPaymentStep = () => {
@@ -1360,6 +1057,20 @@ function TemplateEditor({
     }
   };
 
+  const isDesktop = useIsDesktop();
+  const [mobileView, setMobileView] = useState<'list' | 'config' | 'preview'>('list');
+  const [isPreviewInteractive, setIsPreviewInteractive] = useState(false);
+  const [openSections, setOpenSections] = useState<Record<BuilderSection, boolean>>({
+    disclaimer: false,
+    intro: false,
+    contact: true,
+    required: true,
+    enrichment: true,
+    payment: false,
+  });
+  const toggleSection = (key: BuilderSection) =>
+    setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }));
+
   const headerTitle = (
     <div className="min-w-0">
       <input
@@ -1371,16 +1082,14 @@ function TemplateEditor({
         className="w-full min-w-0 rounded-lg border border-transparent bg-transparent px-2 py-1 text-base font-semibold text-input-text outline-none transition-colors placeholder:text-input-placeholder hover:border-line-glass/40 focus:border-line-glass/60 focus:bg-surface-utility/10"
         aria-label="Form title"
       />
-      {slugError ? (
-        <p className="mt-1 text-xs text-rose-500">{slugError}</p>
-      ) : null}
+      {slugError ? <p className="mt-1 text-xs text-rose-500">{slugError}</p> : null}
     </div>
   );
 
   const effectiveSelectedItemId = useMemo(() => {
-    if (selectedItemId === 'payment') {
-      return state.paymentLinkEnabled ? selectedItemId : 'contact';
-    }
+    // Payment selection is preserved even when the step is disabled — the
+    // inspector renders an "Enable payment step" toggle the user clicks to
+    // turn it on.
     if (selectedItemId.startsWith('required:')) {
       const key = selectedItemId.slice('required:'.length);
       return state.requiredFields.some((field) => field.key === key) ? selectedItemId : 'contact';
@@ -1390,7 +1099,7 @@ function TemplateEditor({
       return state.enrichmentFields.some((field) => field.key === key) ? selectedItemId : 'contact';
     }
     return selectedItemId;
-  }, [selectedItemId, state.enrichmentFields, state.paymentLinkEnabled, state.requiredFields]);
+  }, [selectedItemId, state.enrichmentFields, state.requiredFields]);
 
   const selectedFieldContext = useMemo(() => {
     if (effectiveSelectedItemId.startsWith('required:')) {
@@ -1406,7 +1115,7 @@ function TemplateEditor({
     return null;
   }, [effectiveSelectedItemId, state.enrichmentFields, state.requiredFields]);
 
-  const selectBuilderItem = (nextSelection: BuilderSelectionId) => {
+  const selectBuilderItem = useCallback((nextSelection: BuilderSelectionId) => {
     if (
       selectedFieldContext
       && !selectedFieldContext.field.isStandard
@@ -1424,333 +1133,588 @@ function TemplateEditor({
     }
 
     setSelectedItemId(nextSelection);
-    setReplacementFieldKey('');
+  }, [applyEditorState, effectiveSelectedItemId, selectedFieldContext, showSuccess]);
+
+  const activeSection = getSectionForSelection(effectiveSelectedItemId);
+
+  const selectItem = useCallback((id: BuilderSelectionId) => {
+    selectBuilderItem(id);
+    if (!isDesktop) setMobileView('config');
+  }, [isDesktop, selectBuilderItem]);
+
+  const handlePreviewClick = () => {
+    if (!isDesktop) {
+      setMobileView('preview');
+      return;
+    }
+    setIsPreviewInteractive((value) => !value);
   };
 
-  const replacementOptions = useMemo<ComboboxOption[]>(() => {
-    if (!selectedFieldContext) return [];
-    return STANDARD_FIELD_DEFINITIONS
-      .filter((field) => !LOCKED_REQUIRED_KEYS.has(field.key))
-      .filter((field) => ![...state.requiredFields, ...state.enrichmentFields].some(
-        (item) => item.key === field.key && item.key !== selectedFieldContext.field.key,
-      ))
-      .map((field) => {
-        return {
-          value: field.key,
-          label: field.label,
-          description: field.description,
-        };
-      });
-  }, [selectedFieldContext, state.enrichmentFields, state.requiredFields]);
-
-  const builderSidebar = (
-    <div className="space-y-6 overflow-visible">
-      <div className="space-y-2">
-        <p className="px-2 text-xs font-semibold uppercase tracking-widest text-input-placeholder">Questions</p>
-
-        <BuilderNavRow
-          index={1}
-          label="Contact"
-          locked
-          icon={<Users className="h-4 w-4" />}
-          selected={effectiveSelectedItemId === 'contact'}
-          onSelect={() => selectBuilderItem('contact')}
+  const draftStatusLabel = hasChanges
+    ? 'Draft changes ready to publish'
+    : 'Published — no draft changes';
+  const headerActions = (
+    <div className="flex items-center gap-3">
+      <span className="hidden items-center gap-2 text-xs text-input-placeholder sm:flex">
+        <span
+          className={cn(
+            'inline-block h-1.5 w-1.5 rounded-full',
+            hasChanges ? 'bg-amber-500' : 'bg-emerald-500',
+          )}
+          aria-hidden="true"
         />
+        {draftStatusLabel}
+      </span>
+      <Button
+        type="button"
+        variant={isDesktop && isPreviewInteractive ? 'primary' : 'secondary'}
+        size="sm"
+        icon={Eye}
+        onClick={handlePreviewClick}
+        disabled={isSaving}
+        aria-pressed={isDesktop ? isPreviewInteractive : undefined}
+      >
+        {isDesktop && isPreviewInteractive ? 'Stop preview' : 'Preview'}
+      </Button>
+      <Button
+        type="button"
+        size="sm"
+        onClick={() => void handleSave()}
+        disabled={isSaving}
+      >
+        {isSaving ? 'Publishing...' : 'Save & Publish'}
+      </Button>
+    </div>
+  );
 
-        {lockedRequiredFields.map((field, index) => (
-          <BuilderNavRow
-            key={field.key}
-            index={staticFlowStepCount + index + 1}
-            label={field.label}
-            selected={effectiveSelectedItemId === `required:${field.key}`}
-            onSelect={() => selectBuilderItem(`required:${field.key}`)}
-          />
-        ))}
+  // ── Sidebar — accordion section cards ───────────────────────────────────
+  const formStructure = (
+    <div className="flex flex-col gap-3 overflow-visible">
+      <SectionHeaderLabel>FORM STRUCTURE</SectionHeaderLabel>
 
-        {movableRequiredFields.map((field, index) => (
-          <BuilderNavRow
-            key={field._id}
-            index={staticFlowStepCount + lockedRequiredFields.length + index + 1}
-            label={field.label}
-            selected={effectiveSelectedItemId === `required:${field.key}`}
-            onSelect={() => selectBuilderItem(`required:${field.key}`)}
-            onMoveUp={index > 0 ? () => moveRequiredField(index, index - 1) : undefined}
-            onMoveDown={index < movableRequiredFields.length - 1 ? () => moveRequiredField(index, index + 1) : undefined}
-            onRemove={() => removeField(field.key, 'required')}
-            dragHandlers={{
-              onDragStart: () => requiredDrag.handleDragStart(index),
-              onDrop: () => requiredDrag.handleDrop(index),
-              onDragOver: requiredDrag.handleDragOver,
+      <SectionCard
+        number={1}
+        icon={<FileText className="h-4 w-4" />}
+        title="Disclaimer text"
+        badge={{ label: 'Optional', tone: 'optional' }}
+        isActive={activeSection === 'disclaimer'}
+        isOpen={openSections.disclaimer}
+        onToggle={() => toggleSection('disclaimer')}
+        onSelectHeader={() => selectItem('disclaimer')}
+      />
+
+      <SectionCard
+        number={2}
+        icon={<MessageSquare className="h-4 w-4" />}
+        title="Intro text"
+        badge={{ label: 'Optional', tone: 'optional' }}
+        isActive={activeSection === 'intro'}
+        isOpen={openSections.intro}
+        onToggle={() => toggleSection('intro')}
+        onSelectHeader={() => selectItem('opening')}
+      />
+
+      <SectionCard
+        number={3}
+        icon={<Lock className="h-4 w-4" />}
+        title="Auto-collected contact info"
+        isActive={activeSection === 'contact'}
+        isOpen={openSections.contact}
+        onToggle={() => toggleSection('contact')}
+        onSelectHeader={() => selectItem('contact')}
+      >
+        <div className="flex flex-wrap gap-1.5 px-1 pb-1">
+          <LockedFieldChip label="Full name" />
+          <LockedFieldChip label="Email" />
+          <LockedFieldChip label="Phone" />
+        </div>
+      </SectionCard>
+
+      <SectionCard
+        number={4}
+        icon={<MessageSquare className="h-4 w-4" />}
+        title="Intake questions"
+        badge={{ label: 'Required', tone: 'required' }}
+        isActive={activeSection === 'required'}
+        isOpen={openSections.required}
+        onToggle={() => toggleSection('required')}
+      >
+        <div role="list" aria-label="Intake questions" className="flex flex-col gap-1">
+          {lockedRequiredFields.map((field) => (
+            <QuestionRow
+              key={field.key}
+              label={field.label}
+              isSelected={effectiveSelectedItemId === `required:${field.key}`}
+              isLocked
+              badgeLabel="Required"
+              onSelect={() => selectItem(`required:${field.key}`)}
+            />
+          ))}
+          {movableRequiredFields.map((field, index) => (
+            <QuestionRow
+              key={field._id}
+              label={field.label}
+              isSelected={effectiveSelectedItemId === `required:${field.key}`}
+              badgeLabel="Required"
+              onSelect={() => selectItem(`required:${field.key}`)}
+              onRemove={() => removeField(field.key, 'required')}
+              onMoveUp={index > 0 ? () => moveRequiredField(index, index - 1) : undefined}
+              onMoveDown={
+                index < movableRequiredFields.length - 1
+                  ? () => moveRequiredField(index, index + 1)
+                  : undefined
+              }
+              dragHandlers={{
+                onDragStart: () => requiredDrag.handleDragStart(index),
+                onDrop: () => requiredDrag.handleDrop(index),
+                onDragOver: requiredDrag.handleDragOver,
+              }}
+            />
+          ))}
+          <AddInlineButton
+            onClick={() => {
+              addBlankField('required');
+              if (!isDesktop) setMobileView('config');
             }}
-          />
-        ))}
-
-        <div className="relative overflow-visible pt-1">
-          <AddQuestionButton
-            onClick={() => addBlankField('required')}
             disabled={isSaving}
           >
-            Add core question
-          </AddQuestionButton>
+            Add question
+          </AddInlineButton>
         </div>
-      </div>
+      </SectionCard>
 
-      <div className="space-y-2">
-        <QuestionDivider />
-
-        {state.enrichmentFields.map((field, index) => (
-          <BuilderNavRow
-            key={field._id}
-            index={visibleRequiredFieldCount + index + 1}
-            label={field.label}
-            selected={effectiveSelectedItemId === `enrichment:${field.key}`}
-            onSelect={() => selectBuilderItem(`enrichment:${field.key}`)}
-            onMoveUp={index > 0 ? () => moveEnrichmentField(index, index - 1) : undefined}
-            onMoveDown={index < state.enrichmentFields.length - 1 ? () => moveEnrichmentField(index, index + 1) : undefined}
-            onRemove={() => removeField(field.key, 'enrichment')}
-            dragHandlers={{
-              onDragStart: () => enrichmentDrag.handleDragStart(index),
-              onDrop: () => enrichmentDrag.handleDrop(index),
-              onDragOver: enrichmentDrag.handleDragOver,
+      <SectionCard
+        number={5}
+        icon={<Sparkles className="h-4 w-4" />}
+        title="AI-assisted follow-up"
+        isActive={activeSection === 'enrichment'}
+        isOpen={openSections.enrichment}
+        onToggle={() => toggleSection('enrichment')}
+      >
+        <div role="list" aria-label="AI follow-up questions" className="flex flex-col gap-1">
+          {state.enrichmentFields.map((field, index) => (
+            <QuestionRow
+              key={field._id}
+              label={field.label}
+              isSelected={effectiveSelectedItemId === `enrichment:${field.key}`}
+              onSelect={() => selectItem(`enrichment:${field.key}`)}
+              onRemove={() => removeField(field.key, 'enrichment')}
+              onMoveUp={index > 0 ? () => moveEnrichmentField(index, index - 1) : undefined}
+              onMoveDown={
+                index < state.enrichmentFields.length - 1
+                  ? () => moveEnrichmentField(index, index + 1)
+                  : undefined
+              }
+              dragHandlers={{
+                onDragStart: () => enrichmentDrag.handleDragStart(index),
+                onDrop: () => enrichmentDrag.handleDrop(index),
+                onDragOver: enrichmentDrag.handleDragOver,
+              }}
+            />
+          ))}
+          <AddInlineButton
+            onClick={() => {
+              addBlankField('enrichment');
+              if (!isDesktop) setMobileView('config');
             }}
-          />
-        ))}
-
-        <div className="relative overflow-visible pt-1">
-          <AddQuestionButton
-            onClick={() => addBlankField('enrichment')}
             disabled={isSaving}
           >
             Add follow-up question
-          </AddQuestionButton>
+          </AddInlineButton>
         </div>
-      </div>
+      </SectionCard>
 
-      <div className="space-y-2 border-t border-line-glass/20 pt-4">
-        {state.paymentLinkEnabled ? (
-          <BuilderNavRow
-            index={paymentStepIndex}
-            label="Consultation fee"
-            selected={effectiveSelectedItemId === 'payment'}
-            onSelect={() => selectBuilderItem('payment')}
-            onRemove={removePaymentStep}
-          />
-        ) : (
-          <AddQuestionButton onClick={addPaymentStep} disabled={isSaving}>
-            Add payment step
-          </AddQuestionButton>
-        )}
-      </div>
-
-      <div className="space-y-2 border-t border-line-glass/20 pt-4">
-        <p className="px-2 text-xs font-semibold uppercase tracking-widest text-input-placeholder">Settings</p>
-        <BuilderNavRow
-          label="Legal disclaimer"
-          selected={effectiveSelectedItemId === 'disclaimer'}
-          onSelect={() => selectBuilderItem('disclaimer')}
-        />
-        <BuilderNavRow
-          label="Opening message"
-          selected={effectiveSelectedItemId === 'opening'}
-          onSelect={() => selectBuilderItem('opening')}
-        />
-      </div>
+      <SectionCard
+        number={6}
+        icon={<CreditCard className="h-4 w-4" />}
+        title="Payment step"
+        badge={{ label: 'Optional', tone: 'optional' }}
+        isActive={activeSection === 'payment'}
+        isOpen={openSections.payment}
+        onToggle={() => toggleSection('payment')}
+        onSelectHeader={() => selectItem('payment')}
+      />
     </div>
   );
 
-  const builderCanvas = selectedFieldContext ? (
-    <BuilderQuestionCanvas
-      field={selectedFieldContext.field}
-      readOnly={false}
-      practiceName={practiceCanvasName}
-      practiceLogo={practiceCanvasLogo}
-      onLabelChange={(label) => updateFieldLabel(selectedFieldContext.field.key, selectedFieldContext.phase, label)}
-      onLabelBlur={() => finalizeFieldLabel(selectedFieldContext.field.key, selectedFieldContext.phase)}
-    />
-  ) : effectiveSelectedItemId === 'payment' ? (
-    <BuilderPaymentCanvas
-      amount={state.consultationFee}
-      currencyCode={currencyCode}
-      practiceName={practiceCanvasName}
-      practiceLogo={practiceCanvasLogo}
-      onAmountChange={(value) => applyEditorState((prev) => ({ ...prev, consultationFee: value }))}
-    />
-  ) : effectiveSelectedItemId === 'opening' ? (
-    <BuilderOpeningCanvas
-      value={state.introMessage}
-      practiceName={practiceCanvasName}
-      practiceLogo={practiceCanvasLogo}
-      onChange={(value) => applyEditorState((prev) => ({ ...prev, introMessage: value }))}
-    />
-  ) : effectiveSelectedItemId === 'disclaimer' ? (
-    <BuilderDisclaimerCanvas
-      value={state.legalDisclaimer}
-      practiceName={practiceCanvasName}
-      practiceLogo={practiceCanvasLogo}
-      onChange={(value) => applyEditorState((prev) => ({ ...prev, legalDisclaimer: value }))}
-    />
-  ) : (
-    <BuilderContactCanvas practiceName={practiceCanvasName} practiceLogo={practiceCanvasLogo} />
+  // ── Center — live preview ───────────────────────────────────────────────
+  const livePreview = (
+    <div className="flex h-full flex-col items-center gap-4 py-4">
+      <SectionHeaderLabel>
+        {isPreviewInteractive ? 'PREVIEW MODE' : 'LIVE PREVIEW'}
+      </SectionHeaderLabel>
+      <IntakeFlowPreview
+        template={draftTemplate}
+        practiceName={practiceCanvasName}
+        practiceLogo={practiceCanvasLogo}
+        currencyCode={currencyCode}
+        interactive={isPreviewInteractive}
+      />
+      <p className="text-center text-xs text-input-placeholder">
+        {isPreviewInteractive
+          ? 'Try the form like a client would — answers are not saved.'
+          : 'Updates as you edit — this is exactly what clients will see.'}
+      </p>
+    </div>
   );
 
-  const inspectorContent = (
-    <div className="space-y-6">
-      {selectedFieldContext ? (
-        <SettingSection title="Question settings">
-          <div className="space-y-4">
-            {!LOCKED_REQUIRED_KEYS.has(selectedFieldContext.field.key) ? (
-              <Combobox
-                label="Change field"
-                value={replacementFieldKey}
-                onChange={(value) => {
-                  setReplacementFieldKey(value);
-                  const nextField = STANDARD_FIELD_DEFINITIONS.find((field) => field.key === value);
-                  if (nextField) {
-                    replaceSelectedField(nextField, selectedFieldContext.phase, selectedFieldContext.field.key);
-                    return;
-                  }
-                  replaceSelectedWithCustomField(value, selectedFieldContext.phase, selectedFieldContext.field.key);
-                }}
-                options={replacementOptions}
-                placeholder={selectedFieldContext.field.isStandard ? selectedFieldContext.field.label : 'Choose a standard field'}
-                allowCustomValues
-                addNewLabel="Create question"
-                hideCustomHint
-              />
-            ) : null}
+  // ── Inspector — per-selection config ─────────────────────────────────────
+  const closeInspector = () => {
+    if (isDesktop) {
+      // Clear selection so the inspector falls back to its empty state.
+      setSelectedItemId('none');
+    } else {
+      setMobileView('list');
+    }
+  };
 
-            <BuilderInspectorCheckboxRow
-              label="Required"
-              checked={selectedFieldContext.phase === 'required'}
-              onChange={(checked) => changeFieldPhase(
+  const renderConfigBody = (): JSX.Element => {
+    if (selectedFieldContext) {
+      const isLocked = LOCKED_REQUIRED_KEYS.has(selectedFieldContext.field.key);
+      const isStandard = selectedFieldContext.field.isStandard;
+      return (
+        <div className="flex flex-col gap-4 p-4">
+          <ConfigField label="Question label" charCount={{ value: selectedFieldContext.field.label, max: 120 }}>
+            <Input
+              type="text"
+              value={selectedFieldContext.field.label}
+              maxLength={120}
+              onChange={(value) => updateFieldLabel(
                 selectedFieldContext.field.key,
                 selectedFieldContext.phase,
-                checked ? 'required' : 'enrichment',
+                value,
               )}
-              disabled={LOCKED_REQUIRED_KEYS.has(selectedFieldContext.field.key)}
+              onBlur={() => finalizeFieldLabel(selectedFieldContext.field.key, selectedFieldContext.phase)}
+              placeholder="What is your legal situation?"
+              disabled={isSaving}
             />
-
-            {!LOCKED_REQUIRED_KEYS.has(selectedFieldContext.field.key) && !selectedFieldContext.field.isStandard ? (
-              <BuilderInspectorCheckboxRow
-                label="Multiple choice"
-                checked={hasSelectableAnswers(selectedFieldContext.field)}
-                onChange={(checked) => setFieldMultipleChoice(selectedFieldContext.field.key, selectedFieldContext.phase, checked)}
-              />
-            ) : null}
-
-            {!selectedFieldContext.field.isStandard && hasSelectableAnswers(selectedFieldContext.field) ? (
-              <Input
-                label="Answer options"
-                description="Comma-separated"
-                value={(selectedFieldContext.field.options ?? []).join(', ')}
-                onChange={(value) => updateFieldOptions(selectedFieldContext.field.key, selectedFieldContext.phase, value)}
-                placeholder="Option 1, Option 2"
-              />
-            ) : null}
-
-            <Textarea
-              label={selectedFieldContext.field.isStandard ? 'AI question phrasing' : 'AI instruction'}
-              description={selectedFieldContext.field.isStandard
-                ? 'How the AI asks this question. Leave blank to use the default.'
-                : 'How the AI should ask and handle this question.'}
+          </ConfigField>
+          <ConfigField label="Helper text" charCount={{ value: selectedFieldContext.field.promptHint ?? '', max: 120 }}>
+            <Input
+              type="text"
               value={selectedFieldContext.field.promptHint ?? ''}
-              onChange={(value) => updateFieldHint(selectedFieldContext.field.key, selectedFieldContext.phase, value)}
-              placeholder={selectedFieldContext.field.isStandard
-                ? `e.g. "Ask for the client's ${selectedFieldContext.field.label.toLowerCase()} in a warm, conversational tone."`
-                : 'Describe how the AI should ask and what counts as a valid answer.'}
-              rows={4}
-              resize="vertical"
+              maxLength={120}
+              onChange={(value) => updateFieldHint(
+                selectedFieldContext.field.key,
+                selectedFieldContext.phase,
+                value,
+              )}
+              placeholder="Describe how the AI should ask this question"
+              disabled={isSaving}
             />
-          </div>
-        </SettingSection>
-      ) : effectiveSelectedItemId === 'payment' ? (
-        <SettingSection title="Payment step">
-          <div className="space-y-4">
-            {isStripeLoading ? (
-              <SettingsNotice variant="info">
-                Checking your Stripe payout setup.
-              </SettingsNotice>
-            ) : !hasStripeAccount ? (
-              <SettingsNotice variant="warning">
-                Connect Stripe in payouts before publishing a payment step for this intake.
-              </SettingsNotice>
-            ) : (
-              <SettingsNotice variant={payoutsEnabled ? 'info' : 'warning'}>
-                Payments will be sent to Stripe account {maskStripeAccountId(stripeStatus?.stripe_account_id)} using {practiceBusinessEmail?.trim() || 'your practice email'}.
-              </SettingsNotice>
-            )}
-            <div className="space-y-3 rounded-2xl border border-line-glass/20 p-4">
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-sm font-medium text-input-text">Stripe account</span>
-                <span className="text-sm text-input-text">{maskStripeAccountId(stripeStatus?.stripe_account_id)}</span>
-              </div>
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-sm font-medium text-input-text">Business email</span>
-                <span className="text-sm text-input-text">{practiceBusinessEmail?.trim() || 'Not set'}</span>
-              </div>
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-sm font-medium text-input-text">Status</span>
-                <span className="text-sm text-input-text">{stripeStatusLabel}</span>
-              </div>
-            </div>
-            <Button
+          </ConfigField>
+          {!isStandard ? (
+            <ConfigField label="Placeholder" charCount={{ value: selectedFieldContext.field.previewQuestion ?? '', max: 120 }}>
+              <Input
+                type="text"
+                value={selectedFieldContext.field.previewQuestion ?? ''}
+                maxLength={120}
+                onChange={(value) => updateField(
+                  selectedFieldContext.field.key,
+                  selectedFieldContext.phase,
+                  (field) => ({ ...field, previewQuestion: value }),
+                )}
+                placeholder="e.g. Divorce, contract dispute..."
+                disabled={isSaving}
+              />
+            </ConfigField>
+          ) : null}
+          <ConfigField label="Answer type">
+            <button
               type="button"
-              variant="secondary"
-              size="sm"
-              onClick={() => navigate(`/practice/${encodeURIComponent(practiceSlug)}/settings/practice/payouts`)}
+              disabled
+              className="flex items-center justify-between rounded-lg border border-line-utility bg-surface-input px-3 py-2 text-left text-sm text-input-text"
             >
-              Manage payouts
-            </Button>
-          </div>
-        </SettingSection>
-      ) : effectiveSelectedItemId === 'opening' ? (
-        <SettingSection title="Opening message">
-          <div className="space-y-4">
-            <BuilderInspectorCheckboxRow
-              label="Include opening message"
-              checked={Boolean(state.introMessage.trim())}
-              onChange={(checked) => applyEditorState((prev) => ({
-                  ...prev,
-                  introMessage: checked
-                    ? (prev.introMessage.trim() || defaultIntroMessage || 'How can we help you today?')
-                    : '',
-              }))}
+              <span>Free text</span>
+              <ChevronDown className="h-4 w-4 text-input-placeholder" />
+            </button>
+          </ConfigField>
+          <Switch
+            label="Required"
+            description="Clients must answer this question"
+            value={selectedFieldContext.phase === 'required'}
+            onChange={(checked) => changeFieldPhase(
+              selectedFieldContext.field.key,
+              selectedFieldContext.phase,
+              checked ? 'required' : 'enrichment',
+            )}
+            disabled={isLocked || isSaving}
+          />
+          {!isLocked ? (
+            <>
+              <div className="h-px bg-line-utility" />
+              <Button
+                type="button"
+                variant="danger"
+                icon={Trash2}
+                onClick={() => removeField(selectedFieldContext.field.key, selectedFieldContext.phase)}
+                disabled={isSaving}
+                className="w-full justify-center"
+              >
+                Delete question
+              </Button>
+            </>
+          ) : null}
+        </div>
+      );
+    }
+
+    if (effectiveSelectedItemId === 'payment') {
+      return (
+        <div className="flex flex-col gap-4 p-4">
+          <Switch
+            label="Enable payment step"
+            value={state.paymentLinkEnabled}
+            onChange={(checked) => {
+              if (checked) addPaymentStep();
+              else removePaymentStep();
+            }}
+            disabled={isSaving}
+          />
+          {state.paymentLinkEnabled ? (
+            <>
+              {isStripeLoading ? (
+                <SettingsNotice variant="info">Checking your Stripe payout setup.</SettingsNotice>
+              ) : !hasStripeAccount ? (
+                <SettingsNotice variant="warning">
+                  Connect Stripe in payouts before publishing a payment step.
+                </SettingsNotice>
+              ) : (
+                <SettingsNotice variant={payoutsEnabled ? 'info' : 'warning'}>
+                  Payments will be sent to {maskStripeAccountId(stripeStatus?.stripe_account_id)} via {practiceBusinessEmail?.trim() || 'your practice email'} ({stripeStatusLabel}).
+                </SettingsNotice>
+              )}
+              <ConfigField label="Consultation fee">
+                <CurrencyInput
+                  value={state.consultationFee ?? undefined}
+                  onChange={(value) => applyEditorState((prev) => ({
+                    ...prev,
+                    consultationFee: typeof value === 'number' && Number.isFinite(value) ? value : null,
+                  }))}
+                  placeholder="150.00"
+                  min={0.5}
+                  step={0.01}
+                  description={currencyCode}
+                />
+              </ConfigField>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() => navigate(`/practice/${encodeURIComponent(practiceSlug)}/settings/practice/payouts`)}
+              >
+                Manage payouts
+              </Button>
+            </>
+          ) : null}
+        </div>
+      );
+    }
+
+    if (effectiveSelectedItemId === 'disclaimer') {
+      return (
+        <div className="flex flex-col gap-4 p-4">
+          <Switch
+            label="Include legal disclaimer"
+            description="Shown to clients before the intake conversation begins"
+            value={Boolean(state.legalDisclaimer.trim())}
+            onChange={(checked) => applyEditorState((prev) => ({
+              ...prev,
+              legalDisclaimer: checked
+                ? (prev.legalDisclaimer.trim() || defaultLegalDisclaimer || 'This chat does not create an attorney-client relationship.')
+                : '',
+            }))}
+            disabled={isSaving}
+          />
+          <ConfigField label="Disclaimer text">
+            <Textarea
+              value={state.legalDisclaimer}
+              onChange={(value) => applyEditorState((prev) => ({ ...prev, legalDisclaimer: value }))}
+              placeholder="By continuing, you acknowledge..."
+              rows={5}
+              maxLength={500}
+              showCharCount
               disabled={isSaving}
             />
-            <SettingsNotice variant="info">
-              This appears after the legal disclaimer when enabled and before the first intake question.
-            </SettingsNotice>
-          </div>
-        </SettingSection>
-      ) : effectiveSelectedItemId === 'disclaimer' ? (
-        <SettingSection title="Legal disclaimer">
-          <div className="space-y-4">
-            <BuilderInspectorCheckboxRow
-              label="Include legal disclaimer"
-              checked={Boolean(state.legalDisclaimer.trim())}
-              onChange={(checked) => applyEditorState((prev) => ({
-                  ...prev,
-                  legalDisclaimer: checked
-                    ? (prev.legalDisclaimer.trim() || defaultLegalDisclaimer || 'This chat does not create an attorney-client relationship.')
-                    : '',
-              }))}
+          </ConfigField>
+        </div>
+      );
+    }
+
+    if (effectiveSelectedItemId === 'opening') {
+      return (
+        <div className="flex flex-col gap-4 p-4">
+          <Switch
+            label="Include intro message"
+            description="Shown after the disclaimer, before the first question"
+            value={Boolean(state.introMessage.trim())}
+            onChange={(checked) => applyEditorState((prev) => ({
+              ...prev,
+              introMessage: checked
+                ? (prev.introMessage.trim() || defaultIntroMessage || 'How can we help you today?')
+                : '',
+            }))}
+            disabled={isSaving}
+          />
+          <ConfigField label="Intro text">
+            <Textarea
+              value={state.introMessage}
+              onChange={(value) => applyEditorState((prev) => ({ ...prev, introMessage: value }))}
+              placeholder="Welcome — tell us about your legal situation."
+              rows={4}
+              maxLength={300}
+              showCharCount
               disabled={isSaving}
             />
-            <SettingsNotice variant="info">
-              Clients review this after the contact step and before the opening message.
-            </SettingsNotice>
-          </div>
-        </SettingSection>
-      ) : (
-        <SettingSection title="Contact step">
+          </ConfigField>
+        </div>
+      );
+    }
+
+    if (effectiveSelectedItemId === 'contact') {
+      return (
+        <div className="flex flex-col gap-4 p-4">
           <SettingsNotice variant="info">
-            Name, email, and phone are collected together before the conversation starts.
+            Name, email, and phone are collected automatically before the conversation starts. These fields cannot be removed.
           </SettingsNotice>
-        </SettingSection>
-      )}
+        </div>
+      );
+    }
+
+    return (
+      <div className="flex flex-col gap-2 p-4 text-sm text-input-placeholder">
+        Select a section or question to configure.
+      </div>
+    );
+  };
+
+  const inspectorTitle: string = (() => {
+    if (selectedFieldContext) return 'Question Settings';
+    if (effectiveSelectedItemId === 'payment') return 'Payment step';
+    if (effectiveSelectedItemId === 'disclaimer') return 'Disclaimer';
+    if (effectiveSelectedItemId === 'opening') return 'Intro text';
+    if (effectiveSelectedItemId === 'contact') return 'Contact info';
+    return 'Settings';
+  })();
+
+  // Hide the close X when nothing is selected — the empty "Settings" state
+  // is itself the closed state, so there's nothing further to close.
+  const showCloseButton = effectiveSelectedItemId !== 'none';
+  const inspectorPanel = (
+    <div className="flex h-full flex-col">
+      <div className="flex items-center justify-between border-b border-line-utility px-4 py-3">
+        <p className="text-sm font-semibold text-input-text">{inspectorTitle}</p>
+        {showCloseButton ? (
+          <button
+            type="button"
+            onClick={closeInspector}
+            aria-label="Close panel"
+            className="inline-flex h-6 w-6 items-center justify-center rounded text-input-placeholder hover:text-input-text"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        ) : null}
+      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto">{renderConfigBody()}</div>
     </div>
   );
 
+  // ── Mobile master-detail ────────────────────────────────────────────────
+  if (!isDesktop) {
+    if (mobileView === 'config') {
+      const mobileTitle = selectedFieldContext
+        ? (selectedFieldContext.field.label.trim() || 'Untitled question')
+        : inspectorTitle;
+      return (
+        <div className="flex h-full flex-col">
+          <header className="flex items-center gap-2 border-b border-line-utility px-3 py-3">
+            <Button
+              type="button"
+              variant="icon"
+              size="icon-sm"
+              icon={ArrowLeft}
+              aria-label="Back to list"
+              onClick={() => setMobileView('list')}
+            />
+            <h1 className="flex-1 text-center text-sm font-semibold text-input-text">{mobileTitle}</h1>
+            <span className="w-8" aria-hidden="true" />
+          </header>
+          <div className="min-h-0 flex-1 overflow-y-auto">{renderConfigBody()}</div>
+        </div>
+      );
+    }
+
+    if (mobileView === 'preview') {
+      return (
+        <div className="flex h-full flex-col">
+          <header className="flex items-center gap-2 border-b border-line-utility px-3 py-3">
+            <Button
+              type="button"
+              variant="icon"
+              size="icon-sm"
+              icon={ArrowLeft}
+              aria-label="Back to list"
+              onClick={() => setMobileView('list')}
+            />
+            <h1 className="flex-1 text-center text-sm font-semibold text-input-text">Live preview</h1>
+            <span className="w-8" aria-hidden="true" />
+          </header>
+          <div className="flex min-h-0 flex-1 flex-col items-center gap-4 overflow-y-auto p-4">
+            <IntakeFlowPreview
+              template={draftTemplate}
+              practiceName={practiceCanvasName}
+              practiceLogo={practiceCanvasLogo}
+              currencyCode={currencyCode}
+              interactive
+            />
+            <p className="text-center text-xs text-input-placeholder">
+              Try the form like a client would — answers are not saved.
+            </p>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="flex h-full flex-col">
+        <header className="flex items-center gap-2 border-b border-line-utility px-3 py-3">
+          <Button
+            type="button"
+            variant="icon"
+            size="icon-sm"
+            icon={X}
+            aria-label="Close"
+            onClick={onCancel}
+          />
+          <h1 className="flex-1 text-center text-sm font-semibold text-input-text">Question Builder</h1>
+          <span className="w-8" aria-hidden="true" />
+        </header>
+        <div className="flex items-center justify-center gap-2 border-b border-line-utility px-3 py-2">
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            icon={Eye}
+            onClick={() => setMobileView('preview')}
+            disabled={isSaving}
+          >
+            Preview
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            onClick={() => void handleSave()}
+            disabled={isSaving}
+          >
+            {isSaving ? 'Publishing...' : 'Save & Publish'}
+          </Button>
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto p-3">{formStructure}</div>
+      </div>
+    );
+  }
+
+  // ── Desktop 3-panel layout ──────────────────────────────────────────────
   return (
     <EditorShell
       layout="builder"
@@ -1759,22 +1723,13 @@ function TemplateEditor({
       backVariant="close"
       onBack={onCancel}
       contentMaxWidth={null}
-      sidebar={builderSidebar}
-      inspector={inspectorContent}
-      sidebarClassName="bg-surface-navigation px-4 py-5 border-0"
-      inspectorClassName="bg-surface-utility px-5 py-5 border-0"
-      actions={
-        <div className="flex items-center gap-3">
-          <span className="hidden text-xs text-input-placeholder sm:inline">
-            {hasChanges ? 'Draft changes' : 'Published'}
-          </span>
-          <Button type="button" size="sm" onClick={() => void handleSave()} disabled={isSaving}>
-            {isSaving ? 'Publishing...' : 'Publish'}
-          </Button>
-        </div>
-      }
+      sidebar={formStructure}
+      inspector={inspectorPanel}
+      sidebarClassName="bg-surface-navigation px-3 py-4 border-0"
+      inspectorClassName="bg-surface-utility p-0 border-0"
+      actions={headerActions}
     >
-      {builderCanvas}
+      {livePreview}
     </EditorShell>
   );
 }

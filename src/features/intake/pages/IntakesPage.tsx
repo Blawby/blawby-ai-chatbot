@@ -19,7 +19,6 @@ import { EntityList } from '@/shared/ui/list/EntityList';
 import { usePaginatedList } from '@/shared/hooks/usePaginatedList';
 import { listIntakes, type IntakeListItem } from '../api/intakesApi';
 import IntakeDetailPage from './IntakeDetailPage';
-import IntakeTemplatesPage from './IntakeTemplatesPage';
 import { resolveIntakeTitle } from '@/features/intake/utils/intakeTitle';
 import { DEFAULT_INTAKE_TEMPLATE } from '@/shared/constants/intakeTemplates';
 import { SELECTED_ACCENT_SURFACE_CLASS } from '@/shared/ui/layout/selectionStyles';
@@ -114,24 +113,44 @@ export const IntakesPage: FunctionComponent<IntakesPageProps> = ({
   const pathSuffix = location.path.startsWith(basePath) ? location.path.slice(basePath.length) : '';
   const pathSegments = pathSuffix.replace(/^\/+/, '').split('/').filter(Boolean);
   const isResponsesRoute = pathSegments[0] === 'responses';
-  const isTemplateEditorRoute = !isResponsesRoute && (pathSegments[0] === 'new' || pathSegments[1] === 'edit');
   const safeDecode = (value: string | undefined | null): string | null => {
     if (typeof value !== 'string') return null;
     try { return decodeURIComponent(value); } catch { return value; }
   };
 
-  const routeTemplateSlug = !isResponsesRoute && pathSegments[0] && pathSegments[0] !== 'new'
-    ? safeDecode(pathSegments[0])
-    : null;
   const selectedIntakeId = isResponsesRoute && pathSegments[1]
     ? safeDecode(pathSegments[1])
     : null;
   const templateFilter = typeof location.query?.template === 'string' && location.query.template.trim()
     ? safeDecode(location.query.template)
     : null;
-  // Template slugs now open the builder directly; there is no intermediate
-  // template detail route between /intakes and /intakes/:slug/edit.
-  const templateRouteMode = isTemplateEditorRoute || routeTemplateSlug ? 'editor' : 'list';
+
+  // Template editing has moved to /settings/intake-forms. Map any legacy
+  // /intakes/* URL to its equivalent under the new settings path so deep links
+  // (bookmarks, old emails) keep working instead of silently flattening to
+  // responses. /intakes itself goes to the responses list (the rail target).
+  useEffect(() => {
+    if (isResponsesRoute) return;
+    const settingsBase = basePath.replace(/\/intakes$/, '/settings/intake-forms');
+    const first = pathSegments[0];
+    let target: string;
+    if (!first) {
+      target = `${basePath}/responses`;
+    } else if (first === 'new') {
+      target = `${settingsBase}/new`;
+    } else {
+      const slug = safeDecode(first);
+      const isEdit = pathSegments[1] === 'edit';
+      target = slug
+        ? `${settingsBase}/${encodeURIComponent(slug)}${isEdit ? '/edit' : ''}`
+        : `${basePath}/responses`;
+    }
+    location.route(target, true);
+    // safeDecode is defined inside this component but stable for the lifetime
+    // of a render — including pathSegments captures the exact URL we're
+    // redirecting from.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [basePath, isResponsesRoute, pathSegments[0], pathSegments[1]]);
 
   const paginationSessionIdRef = useRef(0);
   // Recompute a numeric session id when routing/filter inputs change so
@@ -272,15 +291,9 @@ export const IntakesPage: FunctionComponent<IntakesPageProps> = ({
   // ── Rendering ────────────────────────────────────────────────────────────
 
   if (!isResponsesRoute) {
-    return (
-      <IntakeTemplatesPage
-        basePath={basePath}
-        practiceId={practiceId}
-        routeTemplateSlug={routeTemplateSlug}
-        routeMode={templateRouteMode}
-        onBack={routeTemplateSlug ? () => location.route(basePath) : undefined}
-      />
-    );
+    // Effect above redirects to /responses. Show nothing during the brief tick
+    // before navigation lands.
+    return null;
   }
 
   if (selectedIntakeId && renderMode !== 'listOnly') {

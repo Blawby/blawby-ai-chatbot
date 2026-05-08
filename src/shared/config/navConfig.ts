@@ -68,7 +68,7 @@ export type NavCtx = {
   canAccessPractice: boolean;
 };
 
-export type WorkspaceSection = 'home' | 'conversations' | 'forms' | 'intakes' | 'engagements' | 'matters' | 'invoices' | 'reports' | 'settings' | 'coverage';
+export type WorkspaceSection = 'home' | 'conversations' | 'intakes' | 'engagements' | 'matters' | 'invoices' | 'reports' | 'settings' | 'coverage';
 
 
 
@@ -195,14 +195,6 @@ const buildPracticeRail = (basePath: string): NavRailItem[] => [
     href: `${basePath}/contacts`,
     matchHrefs: [`${basePath}/contacts`],
     prefetch: prefetchPracticeContactsChunk,
-  },
-  {
-    id: 'forms',
-    label: 'Forms',
-    icon: FileText,
-    href: `${basePath}/intakes`,
-    matchHrefs: [`${basePath}/intakes`],
-    prefetch: prefetchIntakesChunk,
   },
   {
     id: 'intakes',
@@ -428,6 +420,7 @@ const buildSettingsSecondary = (basePath: string, canAccessPractice: boolean): N
         { id: 'practice', label: 'Practice', href: `${basePath}/settings/practice`, icon: Building2 },
         { id: 'practice-payouts', label: 'Payouts', href: `${basePath}/settings/practice/payouts`, icon: CreditCard },
         { id: 'practice-team', label: 'Team', href: `${basePath}/settings/practice/team`, icon: Users },
+        { id: 'intake-forms', label: 'Intake Forms', href: `${basePath}/settings/intake-forms`, icon: FileText },
         { id: 'apps', label: 'Apps', href: `${basePath}/settings/apps`, icon: Puzzle },
       ],
     });
@@ -540,7 +533,6 @@ export type SidebarConfig = {
  */
 const RAIL_ID_TO_SECTION: Record<string, WorkspaceSection> = {
   conversations: 'conversations',
-  forms: 'forms',
   intakes: 'intakes',
   engagements: 'engagements',
   matters: 'matters',

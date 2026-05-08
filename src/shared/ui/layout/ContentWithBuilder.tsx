@@ -23,7 +23,7 @@ export function ContentWithBuilder({
   return (
     <div
       className={cn(
-        'grid min-h-0 flex-1 md:grid-cols-[220px_minmax(0,1fr)_280px] lg:grid-cols-[240px_minmax(0,1fr)_320px] xl:grid-cols-[240px_minmax(0,1fr)_340px]',
+        'grid min-h-0 flex-1 md:grid-cols-[340px_minmax(0,1fr)_380px]',
         className
       )}
     >

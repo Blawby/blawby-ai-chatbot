@@ -103,6 +103,7 @@ interface WorkspacePageProps {
   workspace?: 'public' | 'practice' | 'client';
   settingsView?: SettingsView;
   settingsAppId?: string;
+  settingsIntakeTemplateSlug?: string;
   routeInvoiceId?: string | null;
   onStartNewConversation: (
     mode: ConversationMode,
@@ -200,6 +201,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   workspace = 'public',
   settingsView = 'general',
   settingsAppId,
+  settingsIntakeTemplateSlug,
   routeInvoiceId: _,
   onStartNewConversation,
   activeConversationId = null,
@@ -1046,7 +1048,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   const SECTION_TITLES: Record<WorkspaceSection, string> = {
     home: 'Home',
     conversations: 'Messages',
-    forms: 'Forms',
     intakes: 'Intakes',
     engagements: 'Engagements',
     matters: 'Matters',
@@ -1276,6 +1277,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       practiceSlug={practiceSlug}
       view={settingsView}
       appId={settingsAppId}
+      intakeTemplateSlug={settingsIntakeTemplateSlug}
       apps={mockApps}
       className="h-full"
     />
