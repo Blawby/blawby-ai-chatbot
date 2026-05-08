@@ -29,7 +29,7 @@ export const IntakePreviewDialog = ({
   return (
     <Dialog
       isOpen={isOpen}
-      onClose={onCancel}
+      onClose={loading ? () => {} : onCancel}
       title="Preview Form"
       description="Review your intake form before publishing."
       contentClassName="max-w-4xl"
@@ -53,11 +53,7 @@ export const IntakePreviewDialog = ({
         </Button>
         <Button
           onClick={async () => {
-            try {
-              await onConfirm();
-            } catch (err) {
-              console.error('Failed to confirm intake preview:', err);
-            }
+            await onConfirm();
           }}
           disabled={loading}
         >
