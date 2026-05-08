@@ -131,7 +131,7 @@ function formatAmountCents(cents: number | null | undefined, currency = 'USD'): 
   try {
     return new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(cents / 100);
   } catch {
-    return `$${(cents / 100).toFixed(2)}`;
+    return `${currency}${(cents / 100).toFixed(2)}`;
   }
 }
 
@@ -332,6 +332,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
   });
 
   const isMountedRef = useRef(true);
+  const isLoadingMorePreviewRef = useRef(false);
   useEffect(() => {
     isMountedRef.current = true;
     return () => { isMountedRef.current = false; };
@@ -379,8 +380,9 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
     const conversationId = intake?.conversation_id;
     const targetPracticeId = intake?.organization_id;
     if (!conversationId || !targetPracticeId) return;
-    if (!previewCursor || !hasMorePreview || isLoadingMorePreview) return;
+    if (!previewCursor || !hasMorePreview || isLoadingMorePreviewRef.current) return;
 
+    isLoadingMorePreviewRef.current = true;
     setIsLoadingMorePreview(true);
     try {
       const page = await fetchConversationMessages(conversationId, targetPracticeId, {
@@ -400,9 +402,12 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
     } catch (err) {
       console.warn('[IntakeDetailPage] Failed to load older messages', err);
     } finally {
-      if (isMountedRef.current) setIsLoadingMorePreview(false);
+      if (isMountedRef.current) {
+        isLoadingMorePreviewRef.current = false;
+        setIsLoadingMorePreview(false);
+      }
     }
-  }, [intake?.conversation_id, intake?.organization_id, previewCursor, hasMorePreview, isLoadingMorePreview, mapMessage]);
+  }, [intake?.conversation_id, intake?.organization_id, previewCursor, hasMorePreview, mapMessage]);
 
   const [composerValue, setComposerValue] = useState('');
   const [composerSubmitting, setComposerSubmitting] = useState(false);

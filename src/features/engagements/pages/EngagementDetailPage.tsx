@@ -376,13 +376,17 @@ export const EngagementDetailPage: FunctionComponent<EngagementDetailPageProps> 
     if (!conversationId || !targetPracticeId) return;
     if (!previewCursor || !hasMorePreview || isLoadingMorePreview) return;
 
+    const controller = new AbortController();
     setIsLoadingMorePreview(true);
     try {
       const page = await fetchConversationMessages(conversationId, targetPracticeId, {
         limit: PREVIEW_PAGE_SIZE,
         cursor: previewCursor,
+        signal: controller.signal,
       });
-      if (!isMountedRef.current) return;
+      if (!isMountedRef.current || controller.signal.aborted) return;
+      if (engagement?.conversation_id !== conversationId) return;
+      
       setPreviewMessages((current) => {
         const existing = new Set(current.map((m) => m.id));
         const olderMapped = page.messages.map(mapMessage).filter((m) => !existing.has(m.id));
@@ -391,9 +395,12 @@ export const EngagementDetailPage: FunctionComponent<EngagementDetailPageProps> 
       setPreviewCursor(page.cursor);
       setHasMorePreview(page.hasMore);
     } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') return;
       console.warn('[EngagementDetailPage] Failed to load older messages', err);
     } finally {
-      if (isMountedRef.current) setIsLoadingMorePreview(false);
+      if (isMountedRef.current && engagement?.conversation_id === conversationId && !controller.signal.aborted) {
+        setIsLoadingMorePreview(false);
+      }
     }
   }, [engagement?.conversation_id, engagement?.organization_id, previewCursor, hasMorePreview, isLoadingMorePreview, mapMessage]);
 

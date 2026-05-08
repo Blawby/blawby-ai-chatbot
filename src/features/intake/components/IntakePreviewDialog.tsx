@@ -7,6 +7,7 @@ import { getPublicFormUrl } from '@/features/intake/components/EmbedCodeBlock';
 import type { IntakeTemplate } from '@/shared/types/intake';
 import type { WidgetPreviewConfig } from '@/shared/types/widgetPreview';
 import type { MinorAmount } from '@/shared/utils/money';
+import { isMinorAmount, asMinor } from '@/shared/utils/money';
 
 type IntakePreviewDialogProps = {
   isOpen: boolean;
@@ -39,8 +40,8 @@ export const IntakePreviewDialog = ({
     accentColor: practiceAccentColor,
     introMessage: template.introMessage ?? null,
     legalDisclaimer: template.legalDisclaimer ?? null,
-    consultationFee: typeof template.consultationFee === 'number'
-      ? (template.consultationFee as MinorAmount)
+    consultationFee: isMinorAmount(template.consultationFee)
+      ? asMinor(template.consultationFee)
       : null,
     paymentLinkEnabled: template.paymentLinkEnabled,
     currency: currencyCode,
@@ -87,7 +88,11 @@ export const IntakePreviewDialog = ({
         ) : null}
         <Button
           onClick={async () => {
-            await onConfirm();
+            try {
+              await onConfirm();
+            } catch (err) {
+              console.error('[IntakePreviewDialog] Failed to confirm:', err);
+            }
           }}
           disabled={loading}
         >

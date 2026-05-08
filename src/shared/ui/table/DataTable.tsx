@@ -134,7 +134,7 @@ const LoadMoreSentinel = ({
           onLoadMoreRef.current();
         }
       },
-      { rootMargin: `${threshold}px` },
+      { rootMargin: `0px 0px ${threshold}px 0px` },
     );
     observer.observe(sentinel);
     return () => observer.disconnect();
