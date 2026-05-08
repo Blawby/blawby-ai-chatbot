@@ -15,6 +15,7 @@ import { useNavigation } from '@/shared/utils/navigation';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { fetchConversationMessages } from '@/shared/lib/conversationApi';
+import type { ConversationMessage } from '@/shared/types/conversation';
 import { formatLongDate } from '@/shared/utils/dateFormatter';
 import VirtualMessageList from '@/features/chat/components/VirtualMessageList';
 import type { ChatMessageUI } from '../../../../worker/types';
@@ -305,6 +306,21 @@ export const EngagementDetailPage: FunctionComponent<EngagementDetailPageProps> 
   const [previewMessages, setPreviewMessages] = useState<ChatMessageUI[]>([]);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
+  const [previewCursor, setPreviewCursor] = useState<string | null>(null);
+  const [hasMorePreview, setHasMorePreview] = useState(false);
+  const [isLoadingMorePreview, setIsLoadingMorePreview] = useState(false);
+
+  const PREVIEW_PAGE_SIZE = 50;
+  const mapMessage = useCallback((m: ConversationMessage): ChatMessageUI => ({
+    id: m.id,
+    role: m.role,
+    content: m.content,
+    timestamp: new Date(m.created_at ?? m.server_ts).getTime(),
+    reply_to_message_id: m.reply_to_message_id ?? null,
+    metadata: m.metadata ?? undefined,
+    isUser: m.user_id === session?.user?.id,
+    seq: m.seq,
+  } satisfies ChatMessageUI), [session?.user?.id]);
   const [localStatus, setLocalStatus] = useState<string | null>(null);
   const isMountedRef = useRef(true);
 
@@ -313,33 +329,34 @@ export const EngagementDetailPage: FunctionComponent<EngagementDetailPageProps> 
     return () => { isMountedRef.current = false; };
   }, []);
 
-  // Load conversation preview
+  // Load the most-recent page of messages. Older pages are fetched on-demand
+  // via loadOlderMessages (scroll-up trigger inside VirtualMessageList).
   useEffect(() => {
     const conversationId = engagement?.conversation_id;
     const targetPracticeId = engagement?.organization_id;
     if (!conversationId || !targetPracticeId) {
       setPreviewMessages([]);
       setPreviewLoading(false);
+      setPreviewCursor(null);
+      setHasMorePreview(false);
       return;
     }
     const controller = new AbortController();
     setPreviewMessages([]);
     setPreviewLoading(true);
     setPreviewError(null);
+    setPreviewCursor(null);
+    setHasMorePreview(false);
 
-    fetchConversationMessages(conversationId, targetPracticeId, { limit: 100, signal: controller.signal })
-      .then((messages) => {
+    fetchConversationMessages(conversationId, targetPracticeId, {
+      limit: PREVIEW_PAGE_SIZE,
+      signal: controller.signal,
+    })
+      .then((page) => {
         if (!isMountedRef.current || controller.signal.aborted) return;
-        setPreviewMessages(messages.map((m) => ({
-          id: m.id,
-          role: m.role,
-          content: m.content,
-          timestamp: new Date(m.created_at ?? m.server_ts).getTime(),
-          reply_to_message_id: m.reply_to_message_id ?? null,
-          metadata: m.metadata ?? undefined,
-          isUser: m.user_id === session?.user?.id,
-          seq: m.seq,
-        } satisfies ChatMessageUI)));
+        setPreviewMessages(page.messages.map(mapMessage));
+        setPreviewCursor(page.cursor);
+        setHasMorePreview(page.hasMore);
       })
       .catch((err) => {
         if (!isMountedRef.current || controller.signal.aborted) return;
@@ -351,7 +368,41 @@ export const EngagementDetailPage: FunctionComponent<EngagementDetailPageProps> 
       });
 
     return () => controller.abort();
-  }, [engagement?.conversation_id, engagement?.organization_id, session?.user?.id]);
+  }, [engagement?.conversation_id, engagement?.organization_id, mapMessage]);
+
+  const loadOlderMessages = useCallback(async () => {
+    const conversationId = engagement?.conversation_id;
+    const targetPracticeId = engagement?.organization_id;
+    if (!conversationId || !targetPracticeId) return;
+    if (!previewCursor || !hasMorePreview || isLoadingMorePreview) return;
+
+    const controller = new AbortController();
+    setIsLoadingMorePreview(true);
+    try {
+      const page = await fetchConversationMessages(conversationId, targetPracticeId, {
+        limit: PREVIEW_PAGE_SIZE,
+        cursor: previewCursor,
+        signal: controller.signal,
+      });
+      if (!isMountedRef.current || controller.signal.aborted) return;
+      if (engagement?.conversation_id !== conversationId) return;
+      
+      setPreviewMessages((current) => {
+        const existing = new Set(current.map((m) => m.id));
+        const olderMapped = page.messages.map(mapMessage).filter((m) => !existing.has(m.id));
+        return [...olderMapped, ...current];
+      });
+      setPreviewCursor(page.cursor);
+      setHasMorePreview(page.hasMore);
+    } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') return;
+      console.warn('[EngagementDetailPage] Failed to load older messages', err);
+    } finally {
+      if (isMountedRef.current && engagement?.conversation_id === conversationId && !controller.signal.aborted) {
+        setIsLoadingMorePreview(false);
+      }
+    }
+  }, [engagement?.conversation_id, engagement?.organization_id, previewCursor, hasMorePreview, isLoadingMorePreview, mapMessage]);
 
   const closeDialog = useCallback(() => {
     if (isSubmitting) return;
@@ -578,6 +629,9 @@ export const EngagementDetailPage: FunctionComponent<EngagementDetailPageProps> 
                       practiceId: engagement.organization_id,
                     }}
                     practiceId={engagement.organization_id}
+                    hasMoreMessages={hasMorePreview}
+                    isLoadingMoreMessages={isLoadingMorePreview}
+                    onLoadMoreMessages={loadOlderMessages}
                   />
                 )}
               </div>

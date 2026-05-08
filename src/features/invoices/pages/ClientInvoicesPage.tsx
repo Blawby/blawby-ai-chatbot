@@ -52,7 +52,6 @@ export function ClientInvoicesPage({
     error,
     hasMore,
     loadMore,
-    loadMoreRef,
   } = usePaginatedList<InvoiceSummary>({
     fetchPage: async (page, signal) => {
       if (!practiceId || renderMode === 'detailOnly') {
@@ -116,6 +115,8 @@ export function ClientInvoicesPage({
           invoices={invoices}
           loading={isLoading}
           loadingMore={isLoadingMore}
+          hasMore={hasMore}
+          onLoadMore={loadMore}
           error={error}
           emptyMessage={hasFilters ? 'No invoices match these filters.' : undefined}
           onRowClick={handleRowClick}
@@ -123,7 +124,6 @@ export function ClientInvoicesPage({
           footer={(
             <div className="flex w-full items-center justify-between gap-4">
               <span>{invoices.length} item{invoices.length === 1 ? '' : 's'}</span>
-              {hasMore ? <div ref={loadMoreRef} className="h-6 w-6" /> : null}
             </div>
           )}
         />

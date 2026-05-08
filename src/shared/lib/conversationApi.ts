@@ -264,22 +264,37 @@ export const postConversationMessage = async (
   }
 };
 
+export interface ConversationMessagesPage {
+  messages: ConversationMessage[];
+  /** Whether older messages are available beyond this page. */
+  hasMore: boolean;
+  /** Cursor to pass on the next call to fetch older messages. Null when exhausted. */
+  cursor: string | null;
+}
+
 export const fetchConversationMessages = async (
   conversationId: string,
   practiceId: string,
   options: { limit?: number; cursor?: string; signal?: AbortSignal } = {}
-): Promise<ConversationMessage[]> => {
+): Promise<ConversationMessagesPage> => {
   const params: Record<string, string> = { practiceId };
   if (options.limit != null) params.limit = String(options.limit);
   if (options.cursor) params.cursor = options.cursor;
 
   try {
-    const { data } = await apiClient.get<{ success?: boolean; data?: { messages?: ConversationMessage[] } }>(
+    const { data } = await apiClient.get<{
+      success?: boolean;
+      data?: { messages?: ConversationMessage[]; hasMore?: boolean; cursor?: string | null };
+    }>(
       `/api/conversations/${encodeURIComponent(conversationId)}/messages`,
       { params, signal: options.signal },
     );
     if (!data?.success) throw new Error('Failed to fetch messages');
-    return data.data?.messages ?? [];
+    return {
+      messages: data.data?.messages ?? [],
+      hasMore: Boolean(data.data?.hasMore),
+      cursor: data.data?.cursor ?? null,
+    };
   } catch (error) {
     throw toErrorMessage(error, 'Failed to fetch messages');
   }

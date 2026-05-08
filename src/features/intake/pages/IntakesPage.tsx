@@ -1,39 +1,67 @@
-import { FunctionComponent } from 'preact';
-import { useCallback, useEffect, useState, useRef } from 'preact/hooks';
+import { FunctionComponent, type ComponentChildren } from 'preact';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { useLocation } from 'preact-iso';
-import { Inbox } from 'lucide-preact';
+import { Inbox, Search } from 'lucide-preact';
 
+import { Input } from '@/shared/ui/input';
+import { Tabs, type TabItem } from '@/shared/ui/tabs/Tabs';
+import { DataTable, type DataTableColumn, type DataTableRow } from '@/shared/ui/table/DataTable';
+import { WorkspacePlaceholderState } from '@/shared/ui/layout/WorkspacePlaceholderState';
+import { InfiniteScroll } from '@/shared/ui/layout/InfiniteScroll';
 import type { IconComponent } from '@/shared/ui/Icon';
+import { cn } from '@/shared/utils/cn';
+import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
+import { listIntakes, type IntakeListItem } from '../api/intakesApi';
+import { resolveIntakeTitle } from '@/features/intake/utils/intakeTitle';
+import IntakeDetailPage from './IntakeDetailPage';
 
 const InboxIcon: IconComponent = (props) => (
-  // Heroicons types are incompatible with our IconComponent; forced cast is required
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   <Inbox {...(props as any)} />
 );
-import { Panel } from '@/shared/ui/layout/Panel';
-import { WorkspacePlaceholderState } from '@/shared/ui/layout/WorkspacePlaceholderState';
-import { Avatar } from '@/shared/ui/profile';
-import { cn } from '@/shared/utils/cn';
-import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
-import { EntityList } from '@/shared/ui/list/EntityList';
-import { usePaginatedList } from '@/shared/hooks/usePaginatedList';
-import { listIntakes, type IntakeListItem } from '../api/intakesApi';
-import IntakeDetailPage from './IntakeDetailPage';
-import { resolveIntakeTitle } from '@/features/intake/utils/intakeTitle';
-import { DEFAULT_INTAKE_TEMPLATE } from '@/shared/constants/intakeTemplates';
-import { SELECTED_ACCENT_SURFACE_CLASS } from '@/shared/ui/layout/selectionStyles';
 
 const PAGE_SIZE = 20;
-// Limit additional backend pages fetched in client-side template filtering to avoid unbounded sequential fetches
-const MAX_ADDITIONAL_PAGES = 10;
-const normalizeTriageStatus = (value: unknown): string => (
-  typeof value === 'string' ? value.trim().toLowerCase() : ''
-);
 
-// Internal type that satisfies usePaginatedList's { id: string } constraint
-interface PaginatedIntake extends IntakeListItem {
-  id: string;
-}
+type TriageFilter = 'all' | 'pending_review' | 'accepted' | 'declined';
+
+const TRIAGE_FILTERS: ReadonlyArray<{ id: TriageFilter; label: string }> = [
+  { id: 'all', label: 'All' },
+  { id: 'pending_review', label: 'Pending' },
+  { id: 'accepted', label: 'Accepted' },
+  { id: 'declined', label: 'Declined' },
+];
+
+const normalizeFilter = (value: string | null | undefined): TriageFilter => {
+  if (value === 'pending_review' || value === 'accepted' || value === 'declined') return value;
+  return 'all';
+};
+
+const triageStatusVariant = (status: string | null | undefined): {
+  label: string;
+  className: string;
+} => {
+  switch (status) {
+    case 'accepted':
+      return { label: 'Accepted', className: 'text-success' };
+    case 'declined':
+    case 'rejected':
+      return { label: status === 'rejected' ? 'Rejected' : 'Declined', className: 'text-error' };
+    case 'spam':
+      return { label: 'Spam', className: 'text-input-placeholder' };
+    case 'pending_review':
+    default:
+      return { label: 'Pending Review', className: 'text-warning' };
+  }
+};
+
+const matchesSearch = (item: IntakeListItem, query: string): boolean => {
+  if (!query) return true;
+  const q = query.toLowerCase();
+  const name = (item.metadata?.name || '').toLowerCase();
+  const email = (item.metadata?.email || '').toLowerCase();
+  const subject = resolveIntakeTitle(item.metadata, '').toLowerCase();
+  return name.includes(q) || email.includes(q) || subject.includes(q);
+};
 
 type IntakesPageProps = {
   practiceId: string | null;
@@ -41,56 +69,7 @@ type IntakesPageProps = {
   conversationsBasePath?: string | null;
   practiceName: string;
   practiceLogo: string | null;
-  renderMode?: 'full' | 'listOnly' | 'detailOnly';
   activeTriageFilter?: string | null;
-  prefetchedItems?: IntakeListItem[];
-  prefetchedLoading?: boolean;
-  prefetchedError?: string | null;
-  onRefetchList?: (signal?: AbortSignal) => Promise<void>;
-};
-
-const IntakeListItemRow = ({
-  intake,
-  isSelected,
-}: {
-  intake: PaginatedIntake;
-  isSelected: boolean;
-}) => {
-  const name = intake.metadata?.name || 'Anonymous Lead';
-  const title = resolveIntakeTitle(intake.metadata, name);
-  const email = intake.metadata?.email || 'No email';
-  const timeLabel = formatRelativeTime(intake.created_at);
-  const status = intake.triage_status?.replace(/_/g, ' ') || 'pending';
-
-  return (
-    <div className={cn(
-      'w-full px-4 py-3.5 text-left flex items-center gap-3 transition-colors duration-150',
-      isSelected ? SELECTED_ACCENT_SURFACE_CLASS : 'hover:bg-surface-utility/40'
-    )}>
-      <Avatar
-        name={name}
-        size="sm"
-        className="bg-surface-utility/40 text-input-text ring-1 ring-line-glass/20"
-      />
-      <div className="min-w-0 flex-1">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0 flex-1">
-            <h2 className="min-w-0 truncate text-sm font-semibold leading-6 text-input-text">
-              {title}
-            </h2>
-            <div className="mt-1 flex items-center gap-2 text-xs text-input-placeholder">
-              <span className="truncate">{email}</span>
-              <span>•</span>
-              <span className="capitalize">{status}</span>
-            </div>
-          </div>
-          <div className="flex flex-col items-end gap-1">
-            <span className="text-xs text-input-placeholder">{timeLabel}</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
 };
 
 export const IntakesPage: FunctionComponent<IntakesPageProps> = ({
@@ -99,17 +78,10 @@ export const IntakesPage: FunctionComponent<IntakesPageProps> = ({
   conversationsBasePath,
   practiceName,
   practiceLogo,
-  renderMode = 'full',
   activeTriageFilter = 'all',
-  prefetchedItems = [],
-  prefetchedLoading = false,
-  prefetchedError = null,
-  onRefetchList,
 }) => {
   const location = useLocation();
-  const [refreshCounter, setRefreshCounter] = useState(0);
 
-  // ── Routing ──────────────────────────────────────────────────────────────
   const pathSuffix = location.path.startsWith(basePath) ? location.path.slice(basePath.length) : '';
   const pathSegments = pathSuffix.replace(/^\/+/, '').split('/').filter(Boolean);
   const isResponsesRoute = pathSegments[0] === 'responses';
@@ -117,186 +89,116 @@ export const IntakesPage: FunctionComponent<IntakesPageProps> = ({
     if (typeof value !== 'string') return null;
     try { return decodeURIComponent(value); } catch { return value; }
   };
+  const selectedIntakeId = isResponsesRoute && pathSegments[1] ? safeDecode(pathSegments[1]) : null;
 
-  const selectedIntakeId = isResponsesRoute && pathSegments[1]
-    ? safeDecode(pathSegments[1])
-    : null;
-  const templateFilter = typeof location.query?.template === 'string' && location.query.template.trim()
-    ? safeDecode(location.query.template)
-    : null;
-
-  // Template editing has moved to /settings/intake-forms. Map any legacy
-  // /intakes/* URL to its equivalent under the new settings path so deep links
-  // (bookmarks, old emails) keep working instead of silently flattening to
-  // responses. /intakes itself goes to the responses list (the rail target).
+  // Redirect any non-responses sub-route to /responses (greenfield: legacy
+  // /intakes/:slug paths now belong to /settings/intake-forms).
   useEffect(() => {
     if (isResponsesRoute) return;
-    const settingsBase = basePath.replace(/\/intakes$/, '/settings/intake-forms');
-    const first = pathSegments[0];
-    let target: string;
-    if (!first) {
-      target = `${basePath}/responses`;
-    } else if (first === 'new') {
-      target = `${settingsBase}/new`;
-    } else {
-      const slug = safeDecode(first);
-      const isEdit = pathSegments[1] === 'edit';
-      target = slug
-        ? `${settingsBase}/${encodeURIComponent(slug)}${isEdit ? '/edit' : ''}`
-        : `${basePath}/responses`;
-    }
-    location.route(target, true);
-    // safeDecode is defined inside this component but stable for the lifetime
-    // of a render — including pathSegments captures the exact URL we're
-    // redirecting from.
+    location.route(`${basePath}/responses`, true);
+    // pathSegments[0] captures the segment we redirect from.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [basePath, isResponsesRoute, pathSegments[0], pathSegments[1]]);
+  }, [basePath, isResponsesRoute, pathSegments[0]]);
 
-  const paginationSessionIdRef = useRef(0);
-  // Recompute a numeric session id when routing/filter inputs change so
-  // downstream hooks can reset their state. Use state so updates trigger
-  // a re-render (refs alone would not).
-  const [paginationSessionId, setPaginationSessionId] = useState(() => {
-    paginationSessionIdRef.current = 0;
-    return paginationSessionIdRef.current;
-  });
+  const desktopFilter: TriageFilter = normalizeFilter(activeTriageFilter ?? 'all');
+  const [mobileFilter, setMobileFilter] = useState<TriageFilter>(desktopFilter);
+  const [searchInput, setSearchInput] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Keep mobile tab in sync when desktop sidebar updates the activeTriageFilter prop.
   useEffect(() => {
-    paginationSessionIdRef.current++;
-    setPaginationSessionId(paginationSessionIdRef.current);
-  }, [practiceId, isResponsesRoute, activeTriageFilter, templateFilter, refreshCounter]);
+    setMobileFilter(desktopFilter);
+  }, [desktopFilter]);
 
-  const accumulatedFilteredRef = useRef<PaginatedIntake[]>([]);
-  const lastBackendPageRef = useRef(0);
-  const totalBackendPagesRef = useRef(1);
+  // Debounce search input → committed query.
+  useEffect(() => {
+    const timer = setTimeout(() => setSearchQuery(searchInput.trim()), 200);
+    return () => clearTimeout(timer);
+  }, [searchInput]);
 
-  const fetchIntakePage = useCallback(async (page: number, signal: AbortSignal) => {
-    const currentSessionId = paginationSessionId;
-    if (!practiceId || !isResponsesRoute) return { items: [], hasMore: false };
+  const [items, setItems] = useState<IntakeListItem[]>([]);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const requestSeqRef = useRef(0);
 
-    const validTriageFilters = ['pending_review', 'accepted', 'declined'] as const;
-    type ValidTriageFilter = typeof validTriageFilters[number];
-    const triageFilter: ValidTriageFilter | undefined =
-      validTriageFilters.includes(activeTriageFilter as ValidTriageFilter)
-        ? (activeTriageFilter as ValidTriageFilter)
-        : undefined;
-
-    // When page is 1, reset our local accumulator and backend progress.
-    if (page === 1) {
-      accumulatedFilteredRef.current = [];
-      lastBackendPageRef.current = 0;
-      totalBackendPagesRef.current = 1;
-    }
-
-    const itemsNeeded = page * PAGE_SIZE;
-
-    // Keep fetching backend pages until we have enough filtered items for the
-    // requested page or we've exhausted all backend results. Guard with
-    // MAX_ADDITIONAL_PAGES to avoid unbounded sequential fetches when
-    // client-side filtering (templateFilter) is enabled.
-    let pagesFetched = 0;
-    while (
-      accumulatedFilteredRef.current.length < itemsNeeded &&
-      lastBackendPageRef.current < totalBackendPagesRef.current
-    ) {
-      if (pagesFetched >= MAX_ADDITIONAL_PAGES) {
-        // stop fetching more pages to avoid long blocking loops; backend
-        // should handle templateFilter server-side (TODO: move filter to API)
-        break;
-      }
-      lastBackendPageRef.current++;
-      const limit = templateFilter || triageFilter ? 100 : PAGE_SIZE;
-      const result = await listIntakes(practiceId, {
-        page: lastBackendPageRef.current,
-        limit,
-        triage_status: triageFilter,
-      }, { signal });
-
-      if (currentSessionId !== paginationSessionIdRef.current) {
-        return { items: [], hasMore: false };
-      }
-
-      totalBackendPagesRef.current = result.total_pages;
-
-      pagesFetched++;
-      const triageFiltered = triageFilter
-        ? result.intakes.filter((item) => normalizeTriageStatus(item.triage_status) === triageFilter)
-        : result.intakes;
-      const filtered = templateFilter
-        ? triageFiltered.filter((item) => {
-          const metadata = item.metadata as Record<string, unknown> | null | undefined;
-          const directSlug = metadata?.intake_template_slug ?? metadata?.template_slug;
-          if (typeof directSlug === 'string' && directSlug.trim()) return directSlug.trim() === templateFilter;
-          const customFields = metadata?.custom_fields ?? metadata?.customFields;
-          if (customFields && typeof customFields === 'object' && !Array.isArray(customFields)) {
-            const storedSlug = (customFields as Record<string, unknown>)._intake_template_slug;
-            if (typeof storedSlug === 'string' && storedSlug.trim()) return storedSlug.trim() === templateFilter;
-          }
-          return templateFilter === DEFAULT_INTAKE_TEMPLATE.slug;
-        })
-        : triageFiltered;
-
-      accumulatedFilteredRef.current.push(
-        ...filtered.map(item => ({ ...item, id: item.uuid }))
+  const fetchPage = useCallback(async (targetPage: number, signal: AbortSignal): Promise<void> => {
+    if (!practiceId) return;
+    const localSeq = ++requestSeqRef.current;
+    const triageFilter = mobileFilter !== 'all' ? mobileFilter : undefined;
+    try {
+      const result = await listIntakes(
+        practiceId,
+        { page: targetPage, limit: PAGE_SIZE, triage_status: triageFilter },
+        { signal },
       );
-
-      // If we got fewer results than requested, we've hit the end of the backend.
-      if (result.intakes.length < limit) {
-        totalBackendPagesRef.current = lastBackendPageRef.current;
-        break;
-      }
+      if (signal.aborted || requestSeqRef.current !== localSeq) return;
+      setItems((prev) => (targetPage === 1 ? result.intakes : [...prev, ...result.intakes]));
+      setPage(targetPage);
+      setHasMore(targetPage < result.total_pages);
+      setError(null);
+    } catch (err) {
+      if (signal.aborted || requestSeqRef.current !== localSeq) return;
+      setError(err instanceof Error ? err.message : 'Failed to load intakes');
     }
+  }, [practiceId, mobileFilter]);
 
-    const start = (page - 1) * PAGE_SIZE;
-    const pageItems = accumulatedFilteredRef.current.slice(start, start + PAGE_SIZE);
+  // Reset & fetch when filter or practice changes.
+  useEffect(() => {
+    if (!practiceId || !isResponsesRoute) {
+      setItems([]);
+      setIsLoading(false);
+      return;
+    }
+    const controller = new AbortController();
+    const seq = ++requestSeqRef.current;
+    setIsLoading(true);
+    setItems([]);
+    setPage(1);
+    setHasMore(false);
+    fetchPage(1, controller.signal).finally(() => {
+      if (seq === requestSeqRef.current && !controller.signal.aborted) setIsLoading(false);
+    });
+    return () => controller.abort();
+  }, [practiceId, mobileFilter, isResponsesRoute, fetchPage]);
 
-    return {
-      items: pageItems,
-      // hasMore is true if we either already have more items cached or there are 
-      // more pages left in the backend.
-      hasMore: 
-        accumulatedFilteredRef.current.length > itemsNeeded || 
-        lastBackendPageRef.current < totalBackendPagesRef.current,
-    };
-  }, [paginationSessionId, practiceId, isResponsesRoute, activeTriageFilter, templateFilter]);
+  const loadMore = useCallback(() => {
+    if (!hasMore || isLoading || isLoadingMore) return;
+    const controller = new AbortController();
+    setIsLoadingMore(true);
+    void fetchPage(page + 1, controller.signal).finally(() => setIsLoadingMore(false));
+  }, [hasMore, isLoading, isLoadingMore, fetchPage, page]);
 
-  const {
-    items: intakes,
-    isLoading,
-    isLoadingMore,
-    error,
-    hasMore,
-    loadMore,
-  } = usePaginatedList<PaginatedIntake>({
-    fetchPage: fetchIntakePage,
-    deps: [paginationSessionId],
-  });
+  const filteredItems = useMemo(
+    () => items.filter((item) => matchesSearch(item, searchQuery)),
+    [items, searchQuery],
+  );
 
-  const handleSelectIntake = useCallback((intake: PaginatedIntake) => {
+  const handleSelectIntake = useCallback((intake: IntakeListItem) => {
     location.route(`${basePath}/responses/${encodeURIComponent(intake.uuid)}`);
   }, [basePath, location]);
 
   const handleBack = useCallback(() => {
-    const target = templateFilter
-      ? `${basePath}/responses?template=${encodeURIComponent(templateFilter)}`
-      : `${basePath}/responses`;
-    location.route(target);
-  }, [basePath, location, templateFilter]);
+    location.route(`${basePath}/responses`);
+  }, [basePath, location]);
 
   const handleTriageComplete = useCallback(() => {
-    setRefreshCounter(c => c + 1);
-    if (onRefetchList) void onRefetchList();
+    if (!practiceId || !isResponsesRoute) return;
+    const controller = new AbortController();
+    setIsLoading(true);
+    void fetchPage(1, controller.signal).finally(() => setIsLoading(false));
     handleBack();
-  }, [handleBack, onRefetchList]);
+  }, [practiceId, isResponsesRoute, fetchPage, handleBack]);
 
-  // ── Rendering ────────────────────────────────────────────────────────────
+  const handleMobileFilterChange = useCallback((id: string) => {
+    setMobileFilter(normalizeFilter(id));
+  }, []);
 
-  if (!isResponsesRoute) {
-    // Effect above redirects to /responses. Show nothing during the brief tick
-    // before navigation lands.
-    return null;
-  }
+  if (!isResponsesRoute) return null;
 
-  if (selectedIntakeId && renderMode !== 'listOnly') {
+  if (selectedIntakeId) {
     return (
       <IntakeDetailPage
         practiceId={practiceId}
@@ -310,51 +212,195 @@ export const IntakesPage: FunctionComponent<IntakesPageProps> = ({
     );
   }
 
-  if (renderMode === 'detailOnly') return null;
+  const headerCellClass = 'text-xs font-semibold uppercase tracking-wide text-input-placeholder';
+  const columns: DataTableColumn[] = [
+    {
+      id: 'subject',
+      label: 'Subject',
+      isPrimary: true,
+      headerClassName: headerCellClass,
+    },
+    {
+      id: 'contact',
+      label: 'Contact',
+      hideAt: 'sm',
+      headerClassName: headerCellClass,
+      mobileClassName: 'text-input-placeholder',
+    },
+    {
+      id: 'status',
+      label: 'Status',
+      headerClassName: headerCellClass,
+    },
+    {
+      id: 'date',
+      label: 'Date',
+      align: 'right',
+      hideAt: 'sm',
+      headerClassName: headerCellClass,
+    },
+  ];
 
-  const displayLoading = isLoading || prefetchedLoading;
-  const displayError = error || prefetchedError;
-  const localLoaded = !isLoading;
-  const displayItems = localLoaded ? intakes : prefetchedItems.map(item => ({ ...item, id: item.uuid }));
+  const rows: DataTableRow[] = filteredItems.map((item) => {
+    const triage = triageStatusVariant(item.triage_status);
+    const subject = resolveIntakeTitle(item.metadata, item.metadata?.name?.trim() || 'Anonymous Lead');
+    const contact = item.metadata?.email?.trim() || item.metadata?.name?.trim() || '—';
+    return {
+      id: item.uuid,
+      onClick: () => handleSelectIntake(item),
+      cells: {
+        subject: <span className="truncate font-medium text-input-text">{subject}</span>,
+        contact: <span className="truncate text-input-placeholder">{contact}</span>,
+        status: <span className={cn('font-medium', triage.className)}>{triage.label}</span>,
+        date: <span className="tabular-nums text-input-placeholder">{formatRelativeTime(item.created_at)}</span>,
+      },
+    };
+  });
 
-  if (renderMode === 'listOnly' && !displayLoading && !displayError && displayItems.length === 0) {
-    return null;
-  }
+  const showEmpty = !isLoading && !error && filteredItems.length === 0 && !hasMore;
+  const emptyMessage = searchQuery
+    ? `No responses match “${searchQuery}”.`
+    : mobileFilter === 'pending_review'
+      ? "You've caught up on all pending reviews! New consultation inquiries will appear here."
+      : mobileFilter === 'accepted'
+        ? 'No accepted responses yet.'
+        : mobileFilter === 'declined'
+          ? 'No declined responses.'
+          : 'No leads have come in yet. New consultation inquiries will appear here.';
+
+  const tabItems: TabItem[] = TRIAGE_FILTERS.map((f) => ({ id: f.id, label: f.label }));
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-2">
-      <Panel className="list-panel-card-gradient min-h-0 flex-1 overflow-hidden">
-        <EntityList
-          items={displayItems}
-          renderItem={(intake, isSelected) => (
-            <IntakeListItemRow
-              intake={intake}
-              isSelected={isSelected}
-            />
-          )}
-          onSelect={handleSelectIntake}
-          selectedId={selectedIntakeId ?? undefined}
-          isLoading={displayLoading}
-          isLoadingMore={isLoadingMore}
-          error={displayError}
-          onLoadMore={hasMore ? loadMore : undefined}
-          minMountSkeletonMs={250}
-          emptyState={
-            <WorkspacePlaceholderState
-              icon={InboxIcon}
-              title="No leads yet"
-              description={templateFilter
-                ? `No responses have been submitted for ?template=${templateFilter} yet.`
-                : activeTriageFilter === 'pending_review'
-                  ? "You've caught up on all pending reviews! New consultation inquiries will appear here."
-                  : "No leads match this filter."
-              }
-              className="p-8"
-            />
-          }
+    <div className="flex h-full flex-col min-h-0 bg-surface-workspace">
+      {/* Header (desktop only — mobile hides because the workspace shell already
+          renders its own mobile header with the section title). */}
+      <header className="hidden md:flex items-center justify-between gap-4 border-b border-card-border px-6 py-5">
+        <h1 className="text-xl font-semibold text-input-text">All Responses</h1>
+        <div className="w-72">
+          <Input
+            type="search"
+            placeholder="Search by name or email"
+            value={searchInput}
+            onChange={setSearchInput}
+            icon={Search}
+            iconClassName="h-4 w-4"
+          />
+        </div>
+      </header>
+
+      {/* Mobile filter tabs */}
+      <div className="md:hidden border-b border-card-border bg-surface-workspace">
+        <Tabs
+          items={tabItems}
+          activeId={mobileFilter}
+          onChange={handleMobileFilterChange}
+          className="px-2"
         />
-      </Panel>
+      </div>
+
+      {/* Mobile search */}
+      <div className="md:hidden px-4 py-3 border-b border-card-border">
+        <Input
+          type="search"
+          placeholder="Search responses…"
+          value={searchInput}
+          onChange={setSearchInput}
+          icon={Search}
+          iconClassName="h-4 w-4"
+        />
+      </div>
+
+      {/* List body */}
+      <div className="flex-1 min-h-0 overflow-y-auto">
+        {error ? (
+          <div className="p-6 text-sm text-error">{error}</div>
+        ) : showEmpty ? (
+          <WorkspacePlaceholderState
+            icon={InboxIcon}
+            title="No responses"
+            description={emptyMessage}
+            className="p-8"
+          />
+        ) : (
+          <>
+            {/* Desktop table */}
+            <div className="hidden md:block px-6 py-4">
+              <DataTable
+                columns={columns}
+                rows={rows}
+                loading={isLoading && rows.length === 0}
+                density="compact"
+                stickyHeader
+                rowClassName="transition-colors duration-150 hover:!bg-surface-card-hover"
+                hasMore={hasMore}
+                isLoadingMore={isLoadingMore}
+                onLoadMore={loadMore}
+              />
+            </div>
+
+            {/* Mobile cards */}
+            <div className="md:hidden">
+              {isLoading && rows.length === 0 ? (
+                <div className="flex flex-col gap-3 px-4 py-3">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <div key={`skeleton-${i}`} className="h-32 rounded-xl bg-surface-card animate-pulse" />
+                  ))}
+                </div>
+              ) : (
+                <InfiniteScroll
+                  className="gap-3 px-4 py-3"
+                  hasMore={hasMore}
+                  loading={isLoadingMore}
+                  onLoadMore={loadMore}
+                >
+                  {filteredItems.map((item) => (
+                    <IntakeMobileCard
+                      key={item.uuid}
+                      item={item}
+                      onClick={() => handleSelectIntake(item)}
+                    />
+                  ))}
+                </InfiniteScroll>
+              )}
+            </div>
+          </>
+        )}
+      </div>
     </div>
+  );
+};
+
+type IntakeMobileCardProps = {
+  item: IntakeListItem;
+  onClick: () => void;
+};
+
+const IntakeMobileCard: FunctionComponent<IntakeMobileCardProps> = ({ item, onClick }) => {
+  const triage = triageStatusVariant(item.triage_status);
+  const subject = resolveIntakeTitle(item.metadata, item.metadata?.name?.trim() || 'Anonymous Lead');
+  const email = item.metadata?.email?.trim() || '—';
+
+  const rows: ReadonlyArray<{ label: string; value: ComponentChildren }> = [
+    { label: 'Subject', value: <span className="font-medium text-input-text break-words">{subject}</span> },
+    { label: 'Email', value: <span className="text-input-placeholder break-all">{email}</span> },
+    { label: 'Status', value: <span className={cn('font-medium', triage.className)}>{triage.label}</span> },
+  ];
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="w-full rounded-xl border border-card-border bg-surface-card px-4 py-3 text-left transition-colors hover:bg-surface-card-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+    >
+      <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-2 text-sm">
+        {rows.map(({ label, value }) => (
+          <div key={label} className="contents">
+            <dt className="text-xs font-medium uppercase tracking-wide text-input-placeholder">{label}</dt>
+            <dd className="text-right">{value}</dd>
+          </div>
+        ))}
+      </dl>
+    </button>
   );
 };
 

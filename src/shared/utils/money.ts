@@ -10,6 +10,10 @@ export const asMinor = (amount: number): MinorAmount => amount as MinorAmount;
  */
 export const isFiniteNumber = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value);
 
+export const isMinorAmount = (value: unknown): value is MinorAmount => {
+  return typeof value === 'number' && Number.isFinite(value) && Number.isInteger(value);
+};
+
 const isDev =
   typeof import.meta !== 'undefined' &&
   typeof import.meta.env !== 'undefined' &&

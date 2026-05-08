@@ -1,6 +1,8 @@
 import type { ComponentChildren } from 'preact';
+import { useEffect, useRef } from 'preact/hooks';
 import { cn } from '@/shared/utils/cn';
 import { SkeletonLoader } from '@/shared/ui/layout/SkeletonLoader';
+import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
 
 export type DataTableColumn = {
   id: string;
@@ -41,6 +43,14 @@ interface DataTableProps {
    *  longer surfaced. Kept for prop-API back-compat at call sites. */
   loadingLabel?: string;
   density?: 'regular' | 'compact';
+  /** Fires when the sentinel row scrolls into view. Pair with `hasMore`. */
+  onLoadMore?: () => void;
+  /** Whether more pages exist. When false, the sentinel is not rendered. */
+  hasMore?: boolean;
+  /** Show a spinner row at the bottom while the next page is fetching. */
+  isLoadingMore?: boolean;
+  /** Distance (px) below the viewport at which to trigger onLoadMore. */
+  loadMoreThreshold?: number;
 }
 
 const ALIGN_CLASS: Record<NonNullable<DataTableColumn['align']>, string> = {
@@ -83,6 +93,68 @@ const resolveStackedHideAt = (columns: DataTableColumn[]) => {
   );
 };
 
+type LoadMoreSentinelProps = {
+  colSpan: number;
+  onLoadMore: () => void;
+  hasMore: boolean;
+  isLoadingMore: boolean;
+  threshold: number;
+};
+
+/**
+ * A `<tr>` placed at the bottom of `<tbody>` that observes its own
+ * intersection with the viewport and fires `onLoadMore` when visible.
+ * Lives inside the table to inherit the same scroll context as the rows.
+ */
+const LoadMoreSentinel = ({
+  colSpan,
+  onLoadMore,
+  hasMore,
+  isLoadingMore,
+  threshold,
+}: LoadMoreSentinelProps) => {
+  const sentinelRef = useRef<HTMLTableRowElement>(null);
+  const onLoadMoreRef = useRef(onLoadMore);
+
+  // Keep the latest callback in a ref so the observer effect can stay
+  // dependency-free (re-creating the observer on every render would race
+  // with the next page's data arriving).
+  useEffect(() => {
+    onLoadMoreRef.current = onLoadMore;
+  }, [onLoadMore]);
+
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel || !hasMore || isLoadingMore) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry?.isIntersecting) {
+          observer.disconnect();
+          onLoadMoreRef.current();
+        }
+      },
+      { rootMargin: `0px 0px ${threshold}px 0px` },
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [hasMore, isLoadingMore, threshold]);
+
+  return (
+    <tr ref={sentinelRef} aria-hidden="true">
+      <td colSpan={colSpan} className="p-0">
+        {isLoadingMore ? (
+          <div className="flex items-center justify-center py-4">
+            <LoadingSpinner size="sm" ariaLabel="Loading more results" />
+          </div>
+        ) : (
+          <div className="h-px" />
+        )}
+      </td>
+    </tr>
+  );
+};
+
 export const DataTable = ({
   columns,
   rows,
@@ -99,6 +171,10 @@ export const DataTable = ({
   loading = false,
   loadingLabel: _loadingLabel,
   density = 'regular',
+  onLoadMore,
+  hasMore = false,
+  isLoadingMore = false,
+  loadMoreThreshold = 200,
 }: DataTableProps) => {
   const primaryColumn = columns.find((column) => column.isPrimary) ?? columns[0];
   const mobileColumns = columns.filter((column) => column.id !== primaryColumn?.id && column.hideAt);
@@ -143,7 +219,11 @@ export const DataTable = ({
     );
   };
 
-  const renderDesktopTable = (tableWrapperClassName: string, rowsOverride?: DataTableRow[]) => (
+  const renderDesktopTable = (
+    tableWrapperClassName: string,
+    rowsOverride?: DataTableRow[],
+    options: { showSentinel?: boolean } = {},
+  ) => (
     <div className={tableWrapperClassName}>
       <table className={cn('min-w-full', tableClassName)}>
         {caption ? <caption className="sr-only">{caption}</caption> : null}
@@ -191,7 +271,7 @@ export const DataTable = ({
                 </tr>
               );
             }
-            return renderRows.map((row) => {
+            const mappedRows = renderRows.map((row) => {
               const isClickable = Boolean(row.onClick) && !row.isPlaceholder;
 
               return (
@@ -248,6 +328,22 @@ export const DataTable = ({
                 </tr>
               );
             });
+
+            if (!options.showSentinel || !onLoadMore || (!hasMore && !isLoadingMore)) {
+              return mappedRows;
+            }
+            return (
+              <>
+                {mappedRows}
+                <LoadMoreSentinel
+                  colSpan={columns.length}
+                  onLoadMore={onLoadMore}
+                  hasMore={hasMore}
+                  isLoadingMore={isLoadingMore}
+                  threshold={loadMoreThreshold}
+                />
+              </>
+            );
           })()}
         </tbody>
       </table>
@@ -314,7 +410,7 @@ export const DataTable = ({
       ) : errorState ? (
         <div>{errorState}</div>
       ) : (
-        renderDesktopTable('overflow-x-auto')
+        renderDesktopTable('overflow-x-auto', undefined, { showSentinel: true })
       )}
     </div>
   );
