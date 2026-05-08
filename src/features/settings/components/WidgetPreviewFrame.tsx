@@ -12,6 +12,8 @@ type WidgetPreviewFrameProps = {
   title?: string;
   showTitle?: boolean;
   viewportClassName?: string;
+  /** For 'intake-template' scenario, where to open. See WidgetPreviewApp. */
+  initialIntakeStep?: 'home' | 'conversation';
 };
 
 const buildPreviewPracticeConfig = (
@@ -50,6 +52,7 @@ export const WidgetPreviewFrame = ({
   title = 'Widget preview',
   showTitle = true,
   viewportClassName = 'h-[min(720px,calc(100svh-12rem))] min-h-[560px] max-h-[720px]',
+  initialIntakeStep,
 }: WidgetPreviewFrameProps) => {
   const practiceConfig = useMemo(
     () => buildPreviewPracticeConfig(practiceSlug, config),
@@ -73,6 +76,7 @@ export const WidgetPreviewFrame = ({
             practiceConfig={practiceConfig}
             scenario={scenario}
             previewConfig={config}
+            initialIntakeStep={initialIntakeStep}
           />
         </div>
       </div>

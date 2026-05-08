@@ -22,7 +22,9 @@ import { EditorShell } from '@/shared/ui/layout';
 import { extractStripeStatusFromPayload } from '@/features/onboarding/utils';
 import type { StripeConnectStatus } from '@/features/onboarding/types';
 import { SettingsNotice } from '@/features/settings/components/SettingsNotice';
-import { IntakeFlowPreview } from '@/features/intake/components/BuilderWidgetPreview';
+import { WidgetPreviewFrame } from '@/features/settings/components/WidgetPreviewFrame';
+import type { WidgetPreviewConfig } from '@/shared/types/widgetPreview';
+import type { MinorAmount } from '@/shared/utils/money';
 import { IntakePreviewDialog } from '@/features/intake/components/IntakePreviewDialog';
 import { Dialog, DialogBody, DialogFooter } from '@/shared/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/shared/ui/dropdown';
@@ -404,6 +406,7 @@ type SectionCardProps = {
 };
 
 function SectionCard({ number, icon, title, badge, isActive, isOpen, onToggle, onSelectHeader, children }: SectionCardProps) {
+  const hasBody = Boolean(children);
   return (
     <div
       className={cn(
@@ -416,7 +419,7 @@ function SectionCard({ number, icon, title, badge, isActive, isOpen, onToggle, o
           type="button"
           onClick={() => {
             onSelectHeader?.();
-            if (!isOpen) onToggle();
+            if (hasBody && !isOpen) onToggle();
           }}
           className="flex min-w-0 flex-1 items-center gap-2 text-left"
         >
@@ -436,17 +439,19 @@ function SectionCard({ number, icon, title, badge, isActive, isOpen, onToggle, o
             {badge.label}
           </span>
         ) : null}
-        <button
-          type="button"
-          onClick={onToggle}
-          aria-label={isOpen ? `Collapse ${title}` : `Expand ${title}`}
-          aria-expanded={isOpen}
-          className="inline-flex h-6 w-6 items-center justify-center rounded text-input-placeholder hover:text-input-text"
-        >
-          <ChevronDown className={cn('h-4 w-4 transition-transform', isOpen && 'rotate-180')} />
-        </button>
+        {hasBody ? (
+          <button
+            type="button"
+            onClick={onToggle}
+            aria-label={isOpen ? `Collapse ${title}` : `Expand ${title}`}
+            aria-expanded={isOpen}
+            className="inline-flex h-6 w-6 items-center justify-center rounded text-input-placeholder hover:text-input-text"
+          >
+            <ChevronDown className={cn('h-4 w-4 transition-transform', isOpen && 'rotate-180')} />
+          </button>
+        ) : null}
       </div>
-      {isOpen && children ? (
+      {hasBody && isOpen ? (
         <div className="border-t border-line-utility/60 px-2.5 pb-2.5 pt-1.5">{children}</div>
       ) : null}
     </div>
@@ -1076,7 +1081,6 @@ function TemplateEditor({
 
   const isDesktop = useIsDesktop();
   const [mobileView, setMobileView] = useState<'list' | 'config' | 'preview'>('list');
-  const [isPreviewInteractive, setIsPreviewInteractive] = useState(false);
   const [openSections, setOpenSections] = useState<Record<BuilderSection, boolean>>({
     disclaimer: false,
     intro: false,
@@ -1159,14 +1163,6 @@ function TemplateEditor({
     if (!isDesktop) setMobileView('config');
   }, [isDesktop, selectBuilderItem]);
 
-  const handlePreviewClick = () => {
-    if (!isDesktop) {
-      setMobileView('preview');
-      return;
-    }
-    setIsPreviewInteractive((value) => !value);
-  };
-
   const draftStatusLabel = hasChanges
     ? 'Draft changes ready to publish'
     : 'Published — no draft changes';
@@ -1182,17 +1178,18 @@ function TemplateEditor({
         />
         {draftStatusLabel}
       </span>
-      <Button
-        type="button"
-        variant={isDesktop && isPreviewInteractive ? 'primary' : 'secondary'}
-        size="sm"
-        icon={Eye}
-        onClick={handlePreviewClick}
-        disabled={isSaving}
-        aria-pressed={isDesktop ? isPreviewInteractive : undefined}
-      >
-        {isDesktop && isPreviewInteractive ? 'Stop preview' : 'Preview'}
-      </Button>
+      {!isDesktop ? (
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          icon={Eye}
+          onClick={() => setMobileView('preview')}
+          disabled={isSaving}
+        >
+          Preview
+        </Button>
+      ) : null}
       <Button
         type="button"
         size="sm"
@@ -1355,22 +1352,57 @@ function TemplateEditor({
   );
 
   // ── Center — live preview ───────────────────────────────────────────────
+  const previewConfig = useMemo<WidgetPreviewConfig>(() => ({
+    name: practiceCanvasName,
+    profileImage: practiceCanvasLogo,
+    accentColor: practicePreviewConfig.accentColor,
+    introMessage: draftTemplate.introMessage ?? null,
+    legalDisclaimer: draftTemplate.legalDisclaimer ?? null,
+    consultationFee: typeof draftTemplate.consultationFee === 'number'
+      ? (draftTemplate.consultationFee as MinorAmount)
+      : null,
+    paymentLinkEnabled: draftTemplate.paymentLinkEnabled,
+    currency: currencyCode,
+    intakeTemplate: draftTemplate,
+  }), [practiceCanvasName, practiceCanvasLogo, practicePreviewConfig.accentColor, draftTemplate, currencyCode]);
+
+  // Parent-overlay highlight: when the sidebar selection changes, briefly ring
+  // the preview frame as a visual ping. The real widget DOM isn't ours to
+  // traverse, so we acknowledge selection at the frame level rather than
+  // pinpointing a bubble.
+  const [showPreviewPing, setShowPreviewPing] = useState(false);
+  useEffect(() => {
+    if (effectiveSelectedItemId === 'none' || effectiveSelectedItemId === 'contact') {
+      setShowPreviewPing(false);
+      return;
+    }
+    setShowPreviewPing(true);
+    const id = setTimeout(() => setShowPreviewPing(false), 1500);
+    return () => clearTimeout(id);
+  }, [effectiveSelectedItemId]);
+
   const livePreview = (
     <div className="flex h-full flex-col items-center gap-4 py-4">
-      <SectionHeaderLabel>
-        {isPreviewInteractive ? 'PREVIEW MODE' : 'LIVE PREVIEW'}
-      </SectionHeaderLabel>
-      <IntakeFlowPreview
-        template={draftTemplate}
-        practiceName={practiceCanvasName}
-        practiceLogo={practiceCanvasLogo}
-        currencyCode={currencyCode}
-        interactive={isPreviewInteractive}
-      />
+      <SectionHeaderLabel>LIVE PREVIEW</SectionHeaderLabel>
+      <div className="relative mx-auto w-full max-w-[390px]">
+        <WidgetPreviewFrame
+          practiceSlug={practiceSlug}
+          scenario="intake-template"
+          config={previewConfig}
+          showTitle={false}
+          viewportClassName="h-[580px]"
+          initialIntakeStep="conversation"
+        />
+        <div
+          aria-hidden="true"
+          className={cn(
+            'pointer-events-none absolute inset-0 rounded-xl ring-2 ring-accent-500 transition-opacity duration-500',
+            showPreviewPing ? 'opacity-100' : 'opacity-0',
+          )}
+        />
+      </div>
       <p className="text-center text-xs text-input-placeholder">
-        {isPreviewInteractive
-          ? 'Try the form like a client would — answers are not saved.'
-          : 'Updates as you edit — this is exactly what clients will see.'}
+        Updates as you edit — this is exactly what clients will see.
       </p>
     </div>
   );
@@ -1589,11 +1621,12 @@ function TemplateEditor({
     }
 
     if (effectiveSelectedItemId === 'contact') {
+      // Contact info is synced from the practice profile — there is nothing
+      // editable here, so the inspector renders a compact, low-chrome state
+      // instead of a full settings panel.
       return (
-        <div className="flex flex-col gap-4 p-4">
-          <SettingsNotice variant="info">
-            Name, email, and phone are collected automatically before the conversation starts. These fields cannot be removed.
-          </SettingsNotice>
+        <div className="flex flex-col gap-2 p-4 text-sm text-input-placeholder">
+          Name, email, and phone are collected automatically before the conversation starts. These fields cannot be edited from the question builder.
         </div>
       );
     }
@@ -1614,9 +1647,10 @@ function TemplateEditor({
     return 'Settings';
   })();
 
-  // Hide the close X when nothing is selected — the empty "Settings" state
-  // is itself the closed state, so there's nothing further to close.
-  const showCloseButton = effectiveSelectedItemId !== 'none';
+  // Hide the close X when the inspector has no editable controls (none /
+  // contact) — those states are themselves "collapsed", so there's nothing
+  // meaningful to close back to.
+  const showCloseButton = effectiveSelectedItemId !== 'none' && effectiveSelectedItemId !== 'contact';
   const inspectorPanel = (
     <div className="flex h-full flex-col">
       <div className="flex items-center justify-between border-b border-line-utility px-4 py-3">
@@ -1677,12 +1711,13 @@ function TemplateEditor({
             <span className="w-8" aria-hidden="true" />
           </header>
           <div className="flex min-h-0 flex-1 flex-col items-center gap-4 overflow-y-auto p-4">
-            <IntakeFlowPreview
-              template={draftTemplate}
-              practiceName={practiceCanvasName}
-              practiceLogo={practiceCanvasLogo}
-              currencyCode={currencyCode}
-              interactive
+            <WidgetPreviewFrame
+              practiceSlug={practiceSlug}
+              scenario="intake-template"
+              config={previewConfig}
+              showTitle={false}
+              viewportClassName="h-[min(720px,calc(100svh-12rem))] min-h-[480px]"
+              initialIntakeStep="conversation"
             />
             <p className="text-center text-xs text-input-placeholder">
               Try the form like a client would — answers are not saved.
@@ -1750,9 +1785,10 @@ function TemplateEditor({
       <IntakePreviewDialog
         isOpen={showPreviewDialog}
         template={draftTemplate}
+        practiceSlug={practiceSlug}
         practiceName={practiceCanvasName}
         practiceLogo={practiceCanvasLogo}
-        practiceSubtitle={practicePreviewConfig.name ? undefined : 'We typically reply in a few minutes'}
+        practiceAccentColor={practicePreviewConfig.accentColor}
         currencyCode={currencyCode}
         onConfirm={handlePublishFromDialog}
         onCancel={() => setShowPreviewDialog(false)}
