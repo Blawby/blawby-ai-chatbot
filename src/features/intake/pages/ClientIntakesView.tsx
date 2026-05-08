@@ -69,6 +69,13 @@ const buildTimeline = (status: IntakeStatusResponse): ClientIntakeTimelineItem[]
       timestamp: 'Upcoming',
       state: 'upcoming',
     });
+  } else if (triageStatus === 'pending_review' || triageStatus === 'declined' || triageStatus === 'rejected') {
+    items.push({
+      id: 'status',
+      title: triageStatus === 'pending_review' ? 'Pending review' : triageStatus === 'declined' ? 'Declined' : 'Rejected',
+      timestamp: triageStatus === 'pending_review' ? 'Pending' : triageStatus === 'declined' ? 'Declined' : 'Rejected',
+      state: 'current',
+    });
   }
 
   return items;

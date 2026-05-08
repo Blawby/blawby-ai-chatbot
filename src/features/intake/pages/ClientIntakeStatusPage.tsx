@@ -85,7 +85,7 @@ const TimelineRow: FunctionComponent<{ item: ClientIntakeTimelineItem; isLast: b
   const textClass = item.state === 'upcoming' ? 'text-input-placeholder' : 'text-input-text';
 
   return (
-    <div className="flex gap-3">
+    <li className="flex gap-3">
       <div className="flex flex-col items-center">
         <span className={cn('mt-1.5 h-2.5 w-2.5 rounded-full', dotClass)} aria-hidden="true" />
         {!isLast ? <span className="mt-1 h-full w-px flex-1 bg-card-border" aria-hidden="true" /> : null}
@@ -94,7 +94,7 @@ const TimelineRow: FunctionComponent<{ item: ClientIntakeTimelineItem; isLast: b
         <p className={cn('text-sm font-medium', textClass)}>{item.title}</p>
         <p className="text-xs text-input-placeholder">{item.timestamp}</p>
       </div>
-    </div>
+    </li>
   );
 };
 

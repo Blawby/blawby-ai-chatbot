@@ -126,6 +126,7 @@ export const IntakesPage: FunctionComponent<IntakesPageProps> = ({
 
   const fetchPage = useCallback(async (targetPage: number, signal: AbortSignal): Promise<void> => {
     if (!practiceId) return;
+    const localSeq = ++requestSeqRef.current;
     const triageFilter = mobileFilter !== 'all' ? mobileFilter : undefined;
     try {
       const result = await listIntakes(
@@ -133,13 +134,13 @@ export const IntakesPage: FunctionComponent<IntakesPageProps> = ({
         { page: targetPage, limit: PAGE_SIZE, triage_status: triageFilter },
         { signal },
       );
-      if (signal.aborted) return;
+      if (signal.aborted || requestSeqRef.current !== localSeq) return;
       setItems((prev) => (targetPage === 1 ? result.intakes : [...prev, ...result.intakes]));
       setPage(targetPage);
       setHasMore(targetPage < result.total_pages);
       setError(null);
     } catch (err) {
-      if (signal.aborted) return;
+      if (signal.aborted || requestSeqRef.current !== localSeq) return;
       setError(err instanceof Error ? err.message : 'Failed to load intakes');
     }
   }, [practiceId, mobileFilter]);
@@ -256,9 +257,11 @@ export const IntakesPage: FunctionComponent<IntakesPageProps> = ({
     };
   });
 
-  const showEmpty = !isLoading && !error && filteredItems.length === 0;
+  const showEmpty = !isLoading && !error && filteredItems.length === 0 && !hasMore;
   const emptyMessage = searchQuery
-    ? `No responses match “${searchQuery}”.`
+    ? hasMore
+      ? `No matches in loaded items. Load more to search additional pages.`
+      : `No responses match “${searchQuery}”.`
     : mobileFilter === 'pending_review'
       ? "You've caught up on all pending reviews! New consultation inquiries will appear here."
       : mobileFilter === 'accepted'

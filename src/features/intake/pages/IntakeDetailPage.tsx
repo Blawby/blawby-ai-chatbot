@@ -869,6 +869,10 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
             hasMoreMessages={hasMorePreview}
             isLoadingMoreMessages={isLoadingMorePreview}
             onLoadMoreMessages={loadOlderMessages}
+            compactLayout={false}
+            bottomInsetPx={0}
+            hideMessageActions={false}
+            showSkeleton={false}
           />
         )}
       </div>
@@ -941,7 +945,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
     <>
       <Button
         variant="primary"
-        className="btn-primary btn-md w-full !bg-accent-success !text-white hover:!bg-accent-success/90"
+        className="btn-primary btn-md w-full !bg-accent-500 text-[rgb(var(--accent-foreground))]"
         disabled={isSubmitting}
         onClick={() => openTriageDialog('accepted')}
       >
@@ -950,11 +954,11 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
             <LoadingSpinner size="sm" className="mr-2" ariaLabel="Accepting consultation" />
             Accepting…
           </span>
-        ) : 'Approve consultation'}
+        ) : 'Accept'}
       </Button>
       <Button
-        variant="primary"
-        className="btn-primary btn-md w-full !bg-accent-error !text-white hover:!bg-accent-error/90"
+        variant="secondary"
+        className="btn-secondary btn-md w-full"
         disabled={isSubmitting}
         onClick={() => openTriageDialog('declined')}
       >
@@ -1043,7 +1047,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
       <Dialog
         isOpen={triageDialogAction !== null}
         onClose={closeTriageDialog}
-        title={triageDialogAction === 'accepted' ? 'Approve consultation' : 'Reject consultation'}
+        title={triageDialogAction === 'accepted' ? 'Accept' : 'Reject'}
         description={
           triageDialogAction === 'accepted'
             ? 'This will approve the lead and prepare for onboarding.'
@@ -1067,12 +1071,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
           <Button
             variant="primary"
             disabled={isSubmitting}
-            className={cn(
-              'btn-primary btn-md !text-white',
-              triageDialogAction === 'accepted'
-                ? '!bg-accent-success hover:!bg-accent-success/90'
-                : '!bg-accent-error hover:!bg-accent-error/90',
-            )}
+            className="btn-primary btn-md"
             onClick={() => {
               if (triageDialogAction) void runTriage(triageDialogAction, triageReason);
             }}
