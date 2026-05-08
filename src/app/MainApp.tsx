@@ -38,6 +38,7 @@ const ClientInvoicesPage = lazy(() => import('@/features/invoices/pages/ClientIn
 const ClientInvoiceDetailPage = lazy(() => import('@/features/invoices/pages/ClientInvoiceDetailPage').then(m => ({ default: m.ClientInvoiceDetailPage })));
 const PracticeReportsPage = lazy(() => import('@/features/reports/pages/PracticeReportsPage').then(m => ({ default: m.PracticeReportsPage })));
 const IntakesPage = lazy(() => import('@/features/intake/pages/IntakesPage').then(m => ({ default: m.IntakesPage })));
+const ClientIntakesView = lazy(() => import('@/features/intake/pages/ClientIntakesView').then(m => ({ default: m.ClientIntakesView })));
 const EngagementsPage = lazy(() => import('@/features/engagements/pages/EngagementsPage').then(m => ({ default: m.EngagementsPage })));
 import { useConversationSystemMessages } from '@/shared/hooks/useConversationSystemMessages';
 import { initializeAccentColor } from '@/shared/utils/accentColors';
@@ -80,7 +81,7 @@ export function MainApp({
   chatContent,
   routeConversationId,
   routeInvoiceId,
-  routeIntakeId: _routeIntakeId,
+  routeIntakeId,
   routeSettingsView,
   routeSettingsAppId,
   routeSettingsIntakeTemplateSlug,
@@ -213,6 +214,12 @@ export function MainApp({
     if (!slug) return null;
     return `/practice/${encodeURIComponent(slug)}/intakes`;
   }, [isPracticeWorkspace, resolvedPracticeSlug]);
+  const clientIntakesPath = useMemo(() => {
+    if (!isClientWorkspace) return null;
+    const slug = clientPracticeSlug ?? resolvedClientPracticeSlug;
+    if (!slug) return null;
+    return `/client/${encodeURIComponent(slug)}/intakes`;
+  }, [clientPracticeSlug, isClientWorkspace, resolvedClientPracticeSlug]);
 
   const practiceEngagementsPath = useMemo(() => {
     if (!isPracticeWorkspace) return null;
@@ -1090,7 +1097,16 @@ export function MainApp({
               />
             </LazyRouteBoundary>
           )
-          : undefined
+          : isClientWorkspace
+            ? () => (
+              <LazyRouteBoundary>
+                <ClientIntakesView
+                  basePath={clientIntakesPath ?? '/client/intakes'}
+                  practiceName={resolvedPracticeName}
+                />
+              </LazyRouteBoundary>
+            )
+            : undefined
       }
       engagementsView={
         isPracticeWorkspace

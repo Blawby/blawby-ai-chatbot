@@ -12,7 +12,6 @@ import {
 } from '@/features/invoices/config/invoiceCollection';
 import { DropdownMenuItem } from '@/shared/ui/dropdown';
 import { DataTable, type DataTableColumn, type DataTableRow } from '@/shared/ui/table';
-import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
 
 interface InvoicesTableProps {
   invoices: InvoiceSummary[];
@@ -27,6 +26,8 @@ interface InvoicesTableProps {
   onSyncInvoice?: (invoice: InvoiceSummary) => void;
   toolbar?: ComponentChildren;
   loadingMore?: boolean;
+  hasMore?: boolean;
+  onLoadMore?: () => void;
   visibleOptionalColumns?: InvoiceColumnKey[];
   footer?: ComponentChildren;
 }
@@ -62,6 +63,8 @@ export const InvoicesTable: FunctionComponent<InvoicesTableProps> = ({
   onSyncInvoice,
   toolbar,
   loadingMore = false,
+  hasMore = false,
+  onLoadMore,
   visibleOptionalColumns = [],
   footer,
 }) => {
@@ -285,12 +288,10 @@ export const InvoicesTable: FunctionComponent<InvoicesTableProps> = ({
         bodyClassName="bg-transparent"
         stickyHeader
         density="compact"
+        hasMore={hasMore}
+        isLoadingMore={loadingMore}
+        onLoadMore={onLoadMore}
       />
-      {loadingMore ? (
-        <div className="flex justify-center px-4 py-3">
-          <LoadingSpinner size="sm" ariaLabel="Loading more invoices" />
-        </div>
-      ) : null}
       {footer ? (
         <div className="border-t border-line-glass/30 px-4 py-3 text-sm text-input-placeholder">
           <div>{footer}</div>

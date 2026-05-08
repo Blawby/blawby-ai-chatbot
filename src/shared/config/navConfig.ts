@@ -268,6 +268,14 @@ const buildClientRail = (basePath: string): NavRailItem[] => [
     expandable: true,
   },
   {
+    id: 'intakes',
+    label: 'Intake Forms',
+    icon: Contact,
+    href: `${basePath}/intakes`,
+    matchHrefs: [`${basePath}/intakes`],
+    prefetch: prefetchIntakesChunk,
+  },
+  {
     id: 'invoices',
     label: 'Payments',
     icon: CreditCard,

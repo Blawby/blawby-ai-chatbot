@@ -1,46 +1,55 @@
-import { FunctionComponent } from 'preact';
-import { useLocation } from 'preact-iso';
+import { FunctionComponent, type ComponentChildren } from 'preact';
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
-import { useMessageHandling } from '@/shared/hooks/useMessageHandling';
-import { apiClient, isHttpError } from '@/shared/lib/apiClient';
-import { CheckCircle2, CheckCircle2 as CheckCircleIconSolid, User, Scale, Clock, AlertTriangle, CreditCard, MapPin, ClipboardCheck } from 'lucide-preact';
+import {
+  AlertTriangle,
+  CheckCircle2,
+  ClipboardList,
+  Clock,
+  CreditCard,
+  Mail,
+  MessageSquare,
+  Phone,
+  Scale,
+  Sparkles,
+} from 'lucide-preact';
 
-
-import { Icon } from '@/shared/ui/Icon';
 import { Button } from '@/shared/ui/Button';
-import { UserCard } from '@/shared/ui/profile';
-import { EditorShell, DetailHeader } from '@/shared/ui/layout';
-import { Page } from '@/shared/ui/layout/Page';
-import { MessageRowSkeleton, SkeletonLoader } from '@/shared/ui/layout';
+import { Icon } from '@/shared/ui/Icon';
+import { Avatar } from '@/shared/ui/profile';
+import { DetailHeader } from '@/shared/ui/layout/DetailHeader';
 import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
+import { MessageRowSkeleton, SkeletonLoader } from '@/shared/ui/layout';
 import { Dialog, DialogBody, DialogFooter } from '@/shared/ui/dialog';
 import { Textarea } from '@/shared/ui/input';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
-import {
-  updateIntakeTriageStatus,
-  type PracticeIntakeDetail,
-} from '@/features/intake/api/intakesApi';
-import { useIntakeDetail } from '@/features/intake/hooks/useIntakeDetail';
+import { apiClient, isHttpError } from '@/shared/lib/apiClient';
+import { cn } from '@/shared/utils/cn';
 import {
   fetchConversationMessages,
   postConversationMessage,
   postSystemMessage,
   updateConversationMetadata,
 } from '@/shared/lib/conversationApi';
+import type { ConversationMessage } from '@/shared/types/conversation';
+import { useMessageHandling } from '@/shared/hooks/useMessageHandling';
+import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
+import { applyConsultationPatchToMetadata } from '@/shared/utils/consultationState';
 import { formatLongDate } from '@/shared/utils/dateFormatter';
+import { resolvePracticeServiceLabel } from '@/features/matters/utils/matterUtils';
+import { resolveIntakeTitle } from '@/features/intake/utils/intakeTitle';
+import {
+  updateIntakeTriageStatus,
+  type PracticeIntakeDetail,
+} from '@/features/intake/api/intakesApi';
+import { useIntakeDetail } from '@/features/intake/hooks/useIntakeDetail';
+import { DEFAULT_INTAKE_TEMPLATE } from '@/shared/constants/intakeTemplates';
+import type { IntakeTemplate, IntakeFieldDefinition } from '@/shared/types/intake';
 import VirtualMessageList from '@/features/chat/components/VirtualMessageList';
 import MessageComposer from '@/features/chat/components/MessageComposer';
 import type { ChatMessageUI } from '../../../../worker/types';
-import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
-import { resolvePracticeServiceLabel } from '@/features/matters/utils/matterUtils';
-import { resolveIntakeTitle } from '@/features/intake/utils/intakeTitle';
-import { applyConsultationPatchToMetadata } from '@/shared/utils/consultationState';
-import { DEFAULT_INTAKE_TEMPLATE } from '@/shared/constants/intakeTemplates';
-import type { IntakeTemplate, IntakeFieldDefinition } from '@/shared/types/intake';
-import EmbedCodeBlock from '@/features/intake/components/EmbedCodeBlock';
 
-// ── Template helpers ──────────────────────────────────────────────────────────
+// ── Helpers ──────────────────────────────────────────────────────────────────
 
 function parseTemplatesFromPracticeDetails(details: unknown): IntakeTemplate[] {
   if (!details || typeof details !== 'object') return [];
@@ -75,20 +84,17 @@ function resolveActiveTemplate(
   return templates.find((t) => t.slug === slug) ?? null;
 }
 
-/** Get the value for a given intake field from conversation state. */
 function resolveFieldValue(
   field: IntakeFieldDefinition,
   intakeState: Record<string, unknown> | null,
   intake?: PracticeIntakeDetail | null,
 ): string | null {
-  // Helper to normalize boolean/string/null handling
   const normalize = (v: unknown): string | null => {
     if (v === null || v === undefined || v === '') return null;
     if (typeof v === 'boolean') return v ? 'Yes' : 'No';
     return String(v);
   };
 
-  // Check the provided intakeState first (conversation-submitted answers)
   if (intakeState) {
     if (field.isStandard) {
       const v = intakeState[field.key];
@@ -102,11 +108,10 @@ function resolveFieldValue(
     }
   }
 
-  // Fallback: inspect intake.metadata (template-submitted answers or stored metadata)
   if (intake && typeof intake === 'object') {
     const meta = (intake.metadata ?? {}) as Record<string, unknown>;
     if (field.isStandard) {
-      const v = meta[field.key] ?? meta[field.key as string];
+      const v = meta[field.key];
       const nv = normalize(v);
       if (nv !== null) return nv;
     }
@@ -121,74 +126,150 @@ function resolveFieldValue(
   return null;
 }
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
-
-// Stat cell for use inside CSS grids — no border treatment
-type StatCellProps = { label: string; value?: string | null; icon?: typeof User };
-const StatCell: FunctionComponent<StatCellProps> = ({ label, value, icon: IconComp }) => {
-  const resolvedValue = value && value.trim().length > 0 ? value : null;
-  return (
-    <div className="flex items-start gap-2.5">
-      {IconComp && (
-        <div className="mt-0.5 flex-shrink-0 text-input-placeholder">
-          <Icon icon={IconComp} className="w-4 h-4" />
-        </div>
-      )}
-      <div className="min-w-0">
-        <p className="text-xs font-medium uppercase tracking-wide text-input-placeholder mb-0.5">{label}</p>
-        <p className={`text-sm break-words ${resolvedValue ? 'text-input-text' : 'text-input-placeholder'}`}>
-          {resolvedValue ?? 'Not provided'}
-        </p>
-      </div>
-    </div>
-  );
-};
-
-type SummaryRowProps = { label: string; value?: string | number | null; icon: typeof User };
-const SummaryRow: FunctionComponent<SummaryRowProps> = ({ label, value, icon: IconComp }) => {
-  if (value === null || value === undefined || value === '') return null;
-  return (
-    <div className="grid grid-cols-[2rem_minmax(0,1fr)] gap-4 py-4 first:pt-0 last:pb-0">
-      <div className="pt-1 text-input-text">
-        <Icon icon={IconComp} className="h-4 w-4" />
-      </div>
-      <div className="min-w-0">
-        <dt className="mt-1 text-sm font-medium leading-tight text-input-placeholder">{label}</dt>
-        <dd className="break-words text-lg font-semibold leading-tight text-input-text">{value}</dd>
-      </div>
-    </div>
-  );
-};
-
-function formatAmount(amount?: number, currency?: string) {
-  if (typeof amount !== 'number' || !Number.isFinite(amount)) return null;
+function formatAmountCents(cents: number | null | undefined, currency = 'USD'): string | null {
+  if (typeof cents !== 'number' || !Number.isFinite(cents)) return null;
   try {
-    return new Intl.NumberFormat(undefined, {
-      style: 'currency',
-      currency: currency || 'USD',
-    }).format(amount / 100);
+    return new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(cents / 100);
   } catch {
-    return `${amount / 100} ${currency || 'USD'}`;
+    return `$${(cents / 100).toFixed(2)}`;
   }
 }
 
-function urgencyLabel(u?: string | null) {
+function urgencyLabel(u?: string | null): string | null {
   if (u === 'emergency') return 'Emergency';
   if (u === 'time_sensitive') return 'Time Sensitive';
   if (u === 'routine') return 'Routine';
-  return u ?? null;
+  return null;
 }
 
-function triageLabel(status?: string) {
-  if (status === 'pending_review') return 'Pending Review';
-  if (status === 'accepted') return 'Accepted';
-  if (status === 'declined') return 'Declined';
-  if (status === 'rejected') return 'Rejected';
-  if (status === 'spam') return 'Spam';
-  return status ?? 'Unknown';
+function triageLabel(status?: string | null): string {
+  switch (status) {
+    case 'accepted': return 'Accepted';
+    case 'declined': return 'Declined';
+    case 'rejected': return 'Rejected';
+    case 'spam': return 'Spam';
+    case 'pending_review':
+    default: return 'Pending Review';
+  }
 }
 
-// ── Main component ────────────────────────────────────────────────────────────
+function triageBadgeClass(status?: string | null): string {
+  switch (status) {
+    case 'accepted':
+      return 'bg-success/10 text-success ring-success/20';
+    case 'declined':
+    case 'rejected':
+      return 'bg-error/10 text-error ring-error/20';
+    case 'spam':
+      return 'bg-surface-utility/40 text-input-placeholder ring-line-subtle/30';
+    case 'pending_review':
+    default:
+      return 'bg-warning/10 text-warning ring-warning/20';
+  }
+}
+
+// ── Sub-components ───────────────────────────────────────────────────────────
+
+const SectionLabel: FunctionComponent<{ children: ComponentChildren; className?: string }> = ({ children, className }) => (
+  <h2 className={cn('text-[10px] font-semibold uppercase tracking-[1px] text-input-placeholder', className)}>
+    {children}
+  </h2>
+);
+
+const Card: FunctionComponent<{ children: ComponentChildren; className?: string }> = ({ children, className }) => (
+  <section
+    className={cn(
+      'rounded-xl border border-card-border bg-surface-card p-4 sm:p-6',
+      className,
+    )}
+  >
+    {children}
+  </section>
+);
+
+type DetailFieldProps = { label: string; value: ComponentChildren; emptyText?: string };
+const DetailField: FunctionComponent<DetailFieldProps> = ({ label, value, emptyText = 'Not provided' }) => {
+  const isEmpty = value === null || value === undefined || value === '';
+  return (
+    <div className="space-y-1">
+      <dt className="text-xs font-medium uppercase tracking-wide text-input-placeholder">{label}</dt>
+      <dd className={cn('text-sm break-words', isEmpty ? 'text-input-placeholder' : 'text-input-text')}>
+        {isEmpty ? emptyText : value}
+      </dd>
+    </div>
+  );
+};
+
+type InfoChipProps = { icon: typeof CheckCircle2; label: string; tone?: 'default' | 'warning' | 'success' | 'error' };
+const InfoChip: FunctionComponent<InfoChipProps> = ({ icon: IconComp, label, tone = 'default' }) => {
+  const toneClass = {
+    default: 'text-input-placeholder',
+    warning: 'text-warning',
+    success: 'text-success',
+    error: 'text-error',
+  }[tone];
+  return (
+    <span className={cn('inline-flex items-center gap-1.5 text-xs', toneClass)}>
+      <Icon icon={IconComp} className="h-3.5 w-3.5" />
+      <span>{label}</span>
+    </span>
+  );
+};
+
+// ── Skeleton ─────────────────────────────────────────────────────────────────
+
+const DetailSkeleton: FunctionComponent<{ onBack: () => void }> = ({ onBack }) => (
+  <div className="flex h-full flex-col min-h-0">
+    <DetailHeader title="Intake Details" showBack onBack={onBack} />
+    <div className="flex-1 min-h-0 overflow-y-auto">
+      <div className="grid h-full grid-cols-1 xl:grid-cols-[minmax(0,1fr)_280px]">
+        <div className="space-y-4 p-6">
+          <div className="rounded-xl border border-card-border bg-surface-card p-6 space-y-3">
+            <SkeletonLoader variant="text" width="w-32" height="h-3" />
+            <SkeletonLoader variant="title" width="w-3/4" height="h-7" />
+            <SkeletonLoader variant="text" width="w-48" height="h-3" />
+            <div className="space-y-2 pt-3">
+              <SkeletonLoader variant="text" width="w-full" height="h-3" />
+              <SkeletonLoader variant="text" width="w-11/12" height="h-3" />
+              <SkeletonLoader variant="text" width="w-5/6" height="h-3" />
+            </div>
+          </div>
+          <div className="rounded-xl border border-card-border bg-surface-card p-6 space-y-4">
+            <SkeletonLoader variant="text" width="w-32" height="h-3" />
+            <div className="grid grid-cols-2 gap-4">
+              {[0, 1, 2, 3].map((i) => (
+                <div key={i} className="space-y-1.5">
+                  <SkeletonLoader variant="text" width="w-20" height="h-3" />
+                  <SkeletonLoader variant="text" width={i % 2 === 0 ? 'w-32' : 'w-40'} height="h-3.5" />
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="rounded-xl border border-card-border bg-surface-card p-6 space-y-3">
+            <SkeletonLoader variant="text" width="w-32" height="h-3" />
+            <MessageRowSkeleton lineWidths={['w-40', 'w-56']} />
+            <MessageRowSkeleton lineWidths={['w-64', 'w-44']} />
+          </div>
+        </div>
+        <aside className="hidden xl:block space-y-4 border-l border-card-border bg-surface-panel p-6">
+          <SkeletonLoader variant="button" width="w-full" />
+          <SkeletonLoader variant="button" width="w-full" />
+          <div className="rounded-xl border border-card-border bg-surface-card p-4 space-y-3">
+            <div className="flex items-center gap-3">
+              <SkeletonLoader variant="avatar" />
+              <div className="flex-1 space-y-1.5">
+                <SkeletonLoader variant="text" width="w-32" height="h-3.5" />
+                <SkeletonLoader variant="text" width="w-24" height="h-3" />
+              </div>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </div>
+  </div>
+);
+
+// ── Main component ───────────────────────────────────────────────────────────
 
 type IntakeDetailPageProps = {
   practiceId: string | null;
@@ -208,7 +289,6 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
   onBack,
   onTriageComplete,
 }) => {
-  const { route } = useLocation();
   const { showSuccess, showError } = useToastContext();
   const { session } = useSessionContext();
 
@@ -219,14 +299,29 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
     refetch: refetchIntake,
   } = useIntakeDetail(practiceId, intakeId);
   const intake: PracticeIntakeDetail | null = intakeData ?? null;
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [localTriageStatus, setLocalTriageStatus] = useState<string | null>(null);
   const [triageDialogAction, setTriageDialogAction] = useState<'accepted' | 'declined' | null>(null);
   const [triageReason, setTriageReason] = useState('');
   const [previewMessages, setPreviewMessages] = useState<ChatMessageUI[]>([]);
   const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewCursor, setPreviewCursor] = useState<string | null>(null);
+  const [hasMorePreview, setHasMorePreview] = useState(false);
+  const [isLoadingMorePreview, setIsLoadingMorePreview] = useState(false);
 
-  // Use canonical conversation flow state
+  const PREVIEW_PAGE_SIZE = 50;
+  const mapMessage = useCallback((m: ConversationMessage): ChatMessageUI => ({
+    id: m.id,
+    role: m.role,
+    content: m.content,
+    timestamp: new Date(m.created_at).getTime(),
+    reply_to_message_id: m.reply_to_message_id ?? null,
+    metadata: m.metadata ?? undefined,
+    isUser: m.user_id === session?.user?.id,
+    seq: m.seq,
+  } satisfies ChatMessageUI), [session?.user?.id]);
+
   const {
     conversationMetadata,
     updateConversationMetadata: updateConversationMetadataPatch,
@@ -242,32 +337,32 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
     return () => { isMountedRef.current = false; };
   }, []);
 
-  // Restore initial previewMessages loading
+  // Load the most-recent page of messages when an intake conversation exists.
+  // Older pages are fetched on-demand via loadOlderMessages (scroll-up trigger).
   useEffect(() => {
     const conversationId = intake?.conversation_id;
     const targetPracticeId = intake?.organization_id;
     if (!conversationId || !targetPracticeId) {
       setPreviewMessages([]);
       setPreviewLoading(false);
+      setPreviewCursor(null);
+      setHasMorePreview(false);
       return;
     }
     const controller = new AbortController();
     setPreviewMessages([]);
     setPreviewLoading(true);
-    fetchConversationMessages(conversationId, targetPracticeId, { limit: 100, signal: controller.signal })
-      .then((messages) => {
+    setPreviewCursor(null);
+    setHasMorePreview(false);
+    fetchConversationMessages(conversationId, targetPracticeId, {
+      limit: PREVIEW_PAGE_SIZE,
+      signal: controller.signal,
+    })
+      .then((page) => {
         if (!isMountedRef.current || controller.signal.aborted) return;
-        const mappedMessages = messages.map((message) => ({
-          id: message.id,
-          role: message.role,
-          content: message.content,
-          timestamp: new Date(message.created_at).getTime(),
-          reply_to_message_id: message.reply_to_message_id ?? null,
-          metadata: message.metadata ?? undefined,
-          isUser: message.user_id === session?.user?.id,
-          seq: message.seq,
-        } satisfies ChatMessageUI));
-        setPreviewMessages(mappedMessages);
+        setPreviewMessages(page.messages.map(mapMessage));
+        setPreviewCursor(page.cursor);
+        setHasMorePreview(page.hasMore);
       })
       .catch((err) => {
         if (!isMountedRef.current || controller.signal.aborted) return;
@@ -275,12 +370,39 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
         setPreviewMessages([]);
       })
       .finally(() => {
-        if (isMountedRef.current && !controller.signal.aborted) {
-          setPreviewLoading(false);
-        }
+        if (isMountedRef.current && !controller.signal.aborted) setPreviewLoading(false);
       });
     return () => controller.abort();
-  }, [intake?.conversation_id, intake?.organization_id, session?.user?.id]);
+  }, [intake?.conversation_id, intake?.organization_id, mapMessage]);
+
+  const loadOlderMessages = useCallback(async () => {
+    const conversationId = intake?.conversation_id;
+    const targetPracticeId = intake?.organization_id;
+    if (!conversationId || !targetPracticeId) return;
+    if (!previewCursor || !hasMorePreview || isLoadingMorePreview) return;
+
+    setIsLoadingMorePreview(true);
+    try {
+      const page = await fetchConversationMessages(conversationId, targetPracticeId, {
+        limit: PREVIEW_PAGE_SIZE,
+        cursor: previewCursor,
+      });
+      if (!isMountedRef.current) return;
+      // Older messages are returned by the API; prepend them. De-dupe by id
+      // in case the cursor boundary overlaps.
+      setPreviewMessages((current) => {
+        const existing = new Set(current.map((m) => m.id));
+        const olderMapped = page.messages.map(mapMessage).filter((m) => !existing.has(m.id));
+        return [...olderMapped, ...current];
+      });
+      setPreviewCursor(page.cursor);
+      setHasMorePreview(page.hasMore);
+    } catch (err) {
+      console.warn('[IntakeDetailPage] Failed to load older messages', err);
+    } finally {
+      if (isMountedRef.current) setIsLoadingMorePreview(false);
+    }
+  }, [intake?.conversation_id, intake?.organization_id, previewCursor, hasMorePreview, isLoadingMorePreview, mapMessage]);
 
   const [composerValue, setComposerValue] = useState('');
   const [composerSubmitting, setComposerSubmitting] = useState(false);
@@ -319,20 +441,13 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
 
     setIsSubmitting(true);
     try {
-      const trimmedReason = typeof reason === 'string' && reason.trim().length > 0
-        ? reason.trim()
-        : undefined;
+      const trimmedReason = typeof reason === 'string' && reason.trim().length > 0 ? reason.trim() : undefined;
       let participantFailed = false;
-      const result = await updateIntakeTriageStatus(intakeId, {
-        status: action,
-        reason: trimmedReason,
-      });
+      const result = await updateIntakeTriageStatus(intakeId, { status: action, reason: trimmedReason });
 
-      const responseConversationId =
-        result?.conversation_id ?? result?.conversationId ?? intake.conversation_id;
+      const responseConversationId = result?.conversation_id ?? result?.conversationId ?? intake.conversation_id;
       const targetPracticeId = intake.organization_id;
 
-      // On accept: add practitioner as participant and post system message
       if (action === 'accepted' && session?.user?.id && responseConversationId && targetPracticeId) {
         try {
           await updateConversationMetadata(responseConversationId, targetPracticeId, {
@@ -342,8 +457,8 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
             intakeTriageStatus: 'accepted',
             mode: 'CONVERSATION',
           });
-        } catch (conversationErr) {
-          console.warn('[IntakeDetailPage] Failed to mark conversation active', conversationErr);
+        } catch (e) {
+          console.warn('[IntakeDetailPage] Failed to mark conversation active', e);
         }
 
         try {
@@ -352,11 +467,9 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
             { participantUserIds: [session.user.id] },
             { params: { practiceId: targetPracticeId } },
           );
-        } catch (participantErr) {
+        } catch (e) {
           participantFailed = true;
-          if (!isHttpError(participantErr)) {
-            console.warn('[IntakeDetailPage] Failed to add participant', participantErr);
-          }
+          if (!isHttpError(e)) console.warn('[IntakeDetailPage] Failed to add participant', e);
         }
 
         try {
@@ -371,8 +484,8 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
               triage_status: 'accepted',
             },
           });
-        } catch (msgErr) {
-          console.warn('[IntakeDetailPage] Failed to post join message', msgErr);
+        } catch (e) {
+          console.warn('[IntakeDetailPage] Failed to post join message', e);
         }
 
         if (trimmedReason) {
@@ -388,8 +501,8 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
                 source: 'intake-triage',
               },
             });
-          } catch (msgErr) {
-            console.warn('[IntakeDetailPage] Failed to post intake triage note', msgErr);
+          } catch (e) {
+            console.warn('[IntakeDetailPage] Failed to post intake triage note', e);
           }
         }
       }
@@ -406,8 +519,8 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
               triage_status: action,
             },
           });
-        } catch (msgErr) {
-          console.warn('[IntakeDetailPage] Failed to post decline message', msgErr);
+        } catch (e) {
+          console.warn('[IntakeDetailPage] Failed to post decline message', e);
         }
         if (trimmedReason) {
           try {
@@ -422,16 +535,14 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
                 source: 'intake-triage',
               },
             });
-          } catch (msgErr) {
-            console.warn('[IntakeDetailPage] Failed to post intake triage note (decline)', msgErr);
+          } catch (e) {
+            console.warn('[IntakeDetailPage] Failed to post intake triage note (decline)', e);
           }
         }
       }
 
       if (isMountedRef.current) {
         setLocalTriageStatus(action);
-        // Refresh from server in the background to pick up server-side state
-        // (conversation_id, etc.) without blocking the UI on the round-trip.
         void refetchIntake();
         setTriageDialogAction(null);
         setTriageReason('');
@@ -443,7 +554,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
               : (trimmedReason
                 ? 'The conversation is now active and your note was added.'
                 : 'The conversation is now active.'))
-            : 'Your response has been recorded.'
+            : 'Your response has been recorded.',
         );
         onTriageComplete?.();
       }
@@ -466,11 +577,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
     try {
       const message = await postConversationMessage(conversationId, targetPracticeId, {
         content,
-        metadata: {
-          source: 'intake-detail',
-          intakeUuid: intakeId,
-          senderType: 'team_member',
-        },
+        metadata: { source: 'intake-detail', intakeUuid: intakeId, senderType: 'team_member' },
       });
       setComposerValue('');
       if (composerTextareaRef.current) {
@@ -508,15 +615,14 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
     const nextMetadata = applyConsultationPatchToMetadata(
       conversationMetadata,
       { case: { ...(currentCase ?? {}), enrichmentMode: true } },
-      { mirrorLegacyFields: true }
+      { mirrorLegacyFields: true },
     );
 
-    // Use the first unanswered enrichment field from the active template
-    // to build a targeted question instead of hardcoded prompts.
     const templateFields = (activeTemplate?.fields ?? DEFAULT_INTAKE_TEMPLATE.fields)
       .filter((f) => f.phase === 'enrichment');
+    const intakeStateRecord = intakeConversationState as unknown as Record<string, unknown> | null;
     const nextMissingField = templateFields.find(
-      (f) => !resolveFieldValue(f, intakeConversationState as unknown as Record<string, unknown> | null, intake)
+      (f) => !resolveFieldValue(f, intakeStateRecord, intake),
     );
     const prompt = nextMissingField
       ? `I can gather a little more detail for the attorney. ${nextMissingField.previewQuestion ?? `Can you tell me about your ${nextMissingField.label.toLowerCase()}?`}`
@@ -568,106 +674,15 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
     updateConversationMetadataPatch,
   ]);
 
-  const [descriptionExpanded, setDescriptionExpanded] = useState(false);
-
-  if (isLoading) {
-    return (
-      <div className="flex h-full flex-col min-h-0">
-        <DetailHeader title="Consultation Request" showBack onBack={onBack} />
-        <div className="flex-1 min-h-0 overflow-y-auto p-6">
-          <div className="mx-auto grid w-full max-w-7xl grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
-            {/* Main column */}
-            <div className="min-w-0 space-y-6">
-              {/* Header card: title + posted-date + 9 summary rows */}
-              <section className="glass-card overflow-hidden p-6 sm:p-10">
-                <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_280px]">
-                  <div className="min-w-0 space-y-4">
-                    <SkeletonLoader variant="text" width="w-32" height="h-3" />
-                    <SkeletonLoader variant="title" width="w-3/4" height="h-9" />
-                    <SkeletonLoader variant="text" width="w-56" height="h-3" />
-                    <div className="space-y-2 pt-4">
-                      <SkeletonLoader variant="text" width="w-full" height="h-3" />
-                      <SkeletonLoader variant="text" width="w-11/12" height="h-3" />
-                      <SkeletonLoader variant="text" width="w-5/6" height="h-3" />
-                    </div>
-                  </div>
-                  <aside className="lg:border-l lg:border-line-glass/10 lg:pl-6 space-y-4">
-                    {[0, 1, 2, 3, 4].map((i) => (
-                      <div key={i} className="flex justify-between gap-4">
-                        <SkeletonLoader variant="text" width="w-24" height="h-3" />
-                        <SkeletonLoader variant="text" width="w-20" height="h-4" />
-                      </div>
-                    ))}
-                  </aside>
-                </div>
-              </section>
-
-              {/* Form details grid (3 columns × 2 rows of stat cells) */}
-              <section className="glass-card p-6 sm:p-8 space-y-6">
-                <SkeletonLoader variant="text" width="w-32" height="h-3" />
-                <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
-                  {[0, 1, 2, 3, 4, 5].map((i) => (
-                    <div key={i} className="space-y-1.5">
-                      <SkeletonLoader variant="text" width="w-20" height="h-3" />
-                      <SkeletonLoader variant="text" width={i % 2 === 0 ? 'w-32' : 'w-40'} height="h-3.5" />
-                    </div>
-                  ))}
-                </div>
-              </section>
-
-              {/* Conversation preview */}
-              <section className="glass-card flex min-h-[420px] flex-col overflow-hidden">
-                <header className="shrink-0 border-b border-line-glass/10 p-5 space-y-2">
-                  <SkeletonLoader variant="text" width="w-32" height="h-3" />
-                  <SkeletonLoader variant="text" width="w-64" height="h-3" />
-                </header>
-                <div className="space-y-3 px-4 py-4">
-                  <MessageRowSkeleton lineWidths={['w-40', 'w-56']} />
-                  <MessageRowSkeleton lineWidths={['w-64', 'w-44', 'w-52']} />
-                  <MessageRowSkeleton lineWidths={['w-36', 'w-48']} />
-                </div>
-              </section>
-            </div>
-
-            {/* Sidebar */}
-            <aside className="min-w-0 space-y-6 xl:sticky xl:top-6 xl:self-start">
-              <section className="glass-card p-5 sm:p-6 space-y-3">
-                <SkeletonLoader variant="button" width="w-full" />
-                <SkeletonLoader variant="button" width="w-full" />
-              </section>
-              <section className="glass-card space-y-6 p-5 sm:p-6">
-                <div className="flex items-center gap-3">
-                  <SkeletonLoader variant="avatar" />
-                  <div className="space-y-1.5 min-w-0 flex-1">
-                    <SkeletonLoader variant="text" width="w-32" height="h-3.5" />
-                    <SkeletonLoader variant="text" width="w-24" height="h-3" />
-                  </div>
-                </div>
-                <div className="space-y-3">
-                  {[0, 1, 2].map((i) => (
-                    <div key={i} className="space-y-1.5">
-                      <SkeletonLoader variant="text" width="w-16" height="h-3" />
-                      <SkeletonLoader variant="text" width={['w-40', 'w-32', 'w-44'][i]} height="h-3.5" />
-                    </div>
-                  ))}
-                </div>
-              </section>
-            </aside>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  if (isLoading) return <DetailSkeleton onBack={onBack} />;
 
   if (loadError || !intake) {
     return (
       <div className="flex h-full flex-col min-h-0">
-        <DetailHeader title="Consultation Request" showBack onBack={onBack} />
-        <Page>
-          <div className="glass-card p-6 text-sm text-rose-400">
-            {loadError ?? 'Intake not found.'}
-          </div>
-        </Page>
+        <DetailHeader title="Intake Details" showBack onBack={onBack} />
+        <div className="p-6 text-sm text-error">
+          {loadError ?? 'Intake not found.'}
+        </div>
       </div>
     );
   }
@@ -677,95 +692,167 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
   const email = typeof meta.email === 'string' ? meta.email : null;
   const phone = typeof meta.phone === 'string' ? meta.phone : null;
   const description = typeof meta.description === 'string' ? meta.description : null;
-  const practiceServiceUuid = typeof meta.practice_service_uuid === 'string' ? meta.practice_service_uuid : null;
-  const onBehalfOf = typeof meta.on_behalf_of === 'string' ? (meta.on_behalf_of.trim() || null) : null;
   const opposingParty = typeof meta.opposing_party === 'string' ? (meta.opposing_party.trim() || null) : null;
+  const onBehalfOf = typeof meta.on_behalf_of === 'string' ? (meta.on_behalf_of.trim() || null) : null;
+  const practiceServiceUuid = typeof meta.practice_service_uuid === 'string' ? meta.practice_service_uuid : null;
   const services = Array.isArray(practiceDetails?.services) ? practiceDetails.services : [];
-  const matchingService = services.find((service) => (
-    service
-      && typeof service === 'object'
-      && service.id === practiceServiceUuid
-      && typeof service.name === 'string'
-  ));
+  const matchingService = services.find((s) => s && typeof s === 'object' && s.id === practiceServiceUuid && typeof s.name === 'string');
   const matchingServiceName = typeof matchingService?.name === 'string' ? matchingService.name : undefined;
-  const practiceServiceName = practiceServiceUuid
-    ? resolvePracticeServiceLabel(practiceServiceUuid, matchingServiceName)
-    : null;
-  const address = meta.address && typeof meta.address === 'object' && !Array.isArray(meta.address)
-    ? meta.address as Record<string, unknown>
-    : null;
-  const city = typeof address?.city === 'string' ? address.city : null;
-  const state = typeof address?.state === 'string' ? address.state : null;
+  const practiceServiceName = practiceServiceUuid ? resolvePracticeServiceLabel(practiceServiceUuid, matchingServiceName) : null;
+
   const dateLabel = formatLongDate(intake.created_at);
   const caseStrength = typeof intake.case_strength === 'number' ? `${intake.case_strength}%` : null;
-  const feeAmount = formatAmount(intake.amount, intake.currency);
-  const householdSize = typeof intake.household_size === 'number' ? intake.household_size : (typeof meta.household_size === 'number' ? meta.household_size : null);
-  const income = typeof intake.income === 'number' ? formatAmount(intake.income, intake.currency) : (typeof meta.income === 'number' ? formatAmount(meta.income, intake.currency) : null);
-  const hasDocs = intake.has_documents === true || meta.has_documents === true ? 'Yes' : 'No';
-  const effectiveTriageStatus = localTriageStatus ?? intake.triage_status;
-  const isPendingReview = effectiveTriageStatus === 'pending_review' || !effectiveTriageStatus;
+  const feeAmount = formatAmountCents(intake.amount, intake.currency);
+  const householdSize = typeof intake.household_size === 'number'
+    ? intake.household_size
+    : (typeof meta.household_size === 'number' ? meta.household_size : null);
+  const income = typeof intake.income === 'number'
+    ? formatAmountCents(intake.income, intake.currency)
+    : (typeof meta.income === 'number' ? formatAmountCents(meta.income, intake.currency) : null);
+  const hasDocs = intake.has_documents === true || meta.has_documents === true;
+  const courtDate = intake.court_date ? (formatLongDate(intake.court_date) ?? intake.court_date) : null;
+  const urgencyLbl = urgencyLabel(intake.urgency);
+  const desiredOutcome = intake.desired_outcome ?? null;
+
+  const effectiveTriageStatus = localTriageStatus ?? intake.triage_status ?? 'pending_review';
+  const isPending = effectiveTriageStatus === 'pending_review' || !effectiveTriageStatus;
   const intakeTitle = resolveIntakeTitle(
     {
       ...meta,
       title: conversationMetadata?.title ?? meta.title,
       intake_title: conversationMetadata?.intake_title ?? meta.intake_title,
     },
-    name ? `${name} intake` : 'Untitled intake'
+    name ? `${name} intake` : 'Untitled intake',
   );
-  const locationLabel = [city, state].filter(Boolean).join(', ') || null;
-  const paymentLabel = feeAmount ? `${feeAmount} ${intake.stripe_charge_id ? 'paid' : 'consultation'}` : null;
   const canReplyInIntake = Boolean(intake.conversation_id && effectiveTriageStatus === 'accepted');
-  const templateName = activeTemplate?.name
-    ?? (() => {
-      // Fall back to the stored name from custom_fields if template not found in practice data
-      const cf = (meta.custom_fields ?? meta.customFields) as Record<string, unknown> | undefined;
-      const storedName = cf?._intake_template_name;
-      return typeof storedName === 'string' && storedName.trim() ? storedName.trim() : null;
-    })();
-
-  // Enrichment fields from the matched template (or fallback to defaults)
   const enrichmentFields: IntakeFieldDefinition[] = (
     activeTemplate?.fields ?? DEFAULT_INTAKE_TEMPLATE.fields
   ).filter((f) => f.phase === 'enrichment');
-
-  // Cast intakeConversationState to a plain record for resolveFieldValue
   const intakeStateRecord = intakeConversationState as unknown as Record<string, unknown> | null;
+  const unansweredEnrichment = enrichmentFields.filter((f) => !resolveFieldValue(f, intakeStateRecord, intake));
+  const showGatherDetails = unansweredEnrichment.length > 0 && Boolean(intake.conversation_id);
 
-  // hasMissingLegalDetails: true if any enrichment field is unanswered
-  const unansweredEnrichmentFields = enrichmentFields.filter(
-    (f) => !resolveFieldValue(f, intakeStateRecord, intake),
+  const customFields = (() => {
+    const cf = (meta.customFields ?? meta.custom_fields) as Record<string, unknown> | undefined;
+    if (!cf || typeof cf !== 'object') return [] as Array<{ key: string; value: string }>;
+    return Object.entries(cf)
+      .filter(([key]) => !key.startsWith('_'))
+      .map(([key, value]) => ({
+        key,
+        value: value === null || value === undefined ? '' : (typeof value === 'boolean' ? (value ? 'Yes' : 'No') : String(value)),
+      }))
+      .filter((entry) => entry.value.trim().length > 0);
+  })();
+
+  const statusBadge = (
+    <span
+      className={cn(
+        'inline-flex items-center gap-1.5 rounded-md px-3 py-1 text-xs font-medium ring-1 ring-inset',
+        triageBadgeClass(effectiveTriageStatus),
+      )}
+    >
+      {triageLabel(effectiveTriageStatus)}
+    </span>
   );
-  const hasMissingLegalDetails = unansweredEnrichmentFields.length > 0 && Boolean(intake.conversation_id);
 
-  const statusChipClass = (status: string) => {
-    if (status === 'accepted') return 'bg-emerald-500/10 text-emerald-500 ring-emerald-500/20';
-    if (status === 'declined' || status === 'rejected') return 'bg-rose-500/10 text-rose-500 ring-rose-500/20';
-    if (status === 'spam') return 'bg-gray-500/10 text-input-placeholder ring-gray-500/20';
-    return 'bg-accent/10 text-accent ring-accent/20';
-  };
-
-  const conversationSection = intake.conversation_id ? (
-    <section className="glass-card flex min-h-[620px] flex-col overflow-hidden">
-      <header className="shrink-0 border-b border-line-glass/10 p-5">
-        <h2 className="text-xs font-semibold uppercase tracking-widest text-input-placeholder">
-          Conversation
-        </h2>
-        <p className="mt-2 text-sm text-input-placeholder">
-          Continue the client thread from this intake.
+  const intakeDetailsCard = (
+    <Card>
+      <div className="space-y-2">
+        <SectionLabel>Intake Details</SectionLabel>
+        <h3 className="text-lg font-bold leading-tight text-input-text sm:text-xl">{intakeTitle}</h3>
+        <p className="text-xs text-input-placeholder">
+          Posted {dateLabel}{practiceServiceName ? ` · ${practiceServiceName}` : ''}
         </p>
-      </header>
+      </div>
+      {description ? (
+        <p className="mt-4 whitespace-pre-wrap text-sm leading-relaxed text-input-text/90">{description}</p>
+      ) : null}
+      <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2">
+        <InfoChip
+          icon={CheckCircle2}
+          label={triageLabel(effectiveTriageStatus)}
+          tone={effectiveTriageStatus === 'accepted' ? 'success' : effectiveTriageStatus === 'declined' || effectiveTriageStatus === 'rejected' ? 'error' : 'warning'}
+        />
+        {feeAmount ? <InfoChip icon={CreditCard} label={`${feeAmount}${intake.stripe_charge_id ? ' paid' : ' consultation'}`} /> : null}
+        {courtDate ? <InfoChip icon={Clock} label={courtDate} /> : null}
+        {caseStrength ? <InfoChip icon={Scale} label={`Case strength ${caseStrength}`} /> : null}
+        <InfoChip icon={ClipboardList} label={hasDocs ? 'Documents shared' : 'No documents'} />
+        {urgencyLbl ? (
+          <InfoChip
+            icon={AlertTriangle}
+            label={urgencyLbl}
+            tone={intake.urgency === 'emergency' ? 'error' : intake.urgency === 'time_sensitive' ? 'warning' : 'default'}
+          />
+        ) : null}
+      </div>
+    </Card>
+  );
+
+  const formDetailsCard = (
+    <Card>
+      <div className="mb-4 flex items-center gap-2">
+        <Icon icon={ClipboardList} className="h-4 w-4 text-input-placeholder" />
+        <h3 className="text-sm font-semibold text-input-text">Form Details</h3>
+      </div>
+      <dl className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
+        <DetailField label="Case Type" value={intakeTitle} />
+        <DetailField label="Urgency" value={urgencyLbl} />
+        <DetailField label="Court Date" value={courtDate} />
+        <DetailField label="Has Documents" value={hasDocs ? 'Yes' : 'No'} />
+        <DetailField label="Desired Outcome" value={desiredOutcome} />
+        <DetailField label="Opposing Party" value={opposingParty} />
+        <DetailField label="On Behalf Of" value={onBehalfOf} />
+        <DetailField label="Income" value={income} />
+        <DetailField label="Household Size" value={householdSize === null ? null : String(householdSize)} />
+        {customFields.map((cf) => (
+          <DetailField key={cf.key} label={cf.key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())} value={cf.value} />
+        ))}
+      </dl>
+    </Card>
+  );
+
+  const blawbyCard = showGatherDetails ? (
+    <Card>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-start gap-3">
+          <div className="rounded-lg bg-accent/10 p-2 text-accent">
+            <Icon icon={Sparkles} className="h-4 w-4" />
+          </div>
+          <p className="text-sm leading-relaxed text-input-text/90">
+            Blawby can ask the client for the missing legal details and add them to this thread.
+          </p>
+        </div>
+        <Button
+          type="button"
+          variant="primary"
+          size="sm"
+          onClick={() => void startGatherDetailsFlow()}
+          disabled={gatherDetailsSubmitting}
+          className="shrink-0"
+        >
+          {gatherDetailsSubmitting ? 'Starting…' : 'Use Blawby to gather details'}
+        </Button>
+      </div>
+    </Card>
+  ) : null;
+
+  const conversationCard = intake.conversation_id ? (
+    <Card className="flex min-h-[420px] flex-col p-0 overflow-hidden">
+      <div className="border-b border-card-border p-4 sm:px-6 sm:py-5">
+        <SectionLabel>Conversation</SectionLabel>
+        <p className="mt-1 text-xs text-input-placeholder">Continue the client thread from this intake.</p>
+      </div>
       <div className="min-h-0 flex-1 overflow-hidden bg-surface-overlay/20 touch-pan-y">
         {previewLoading && previewMessages.length === 0 ? (
-          <div className="flex h-full flex-col items-center justify-center p-6 text-center">
-            <div className="w-full space-y-3 px-4 py-4">
-              <MessageRowSkeleton lineWidths={['w-40', 'w-56']} />
-              <MessageRowSkeleton lineWidths={['w-64', 'w-44', 'w-52']} />
-              <MessageRowSkeleton lineWidths={['w-36', 'w-48']} />
-            </div>
+          <div className="space-y-3 px-4 py-4">
+            <MessageRowSkeleton lineWidths={['w-40', 'w-56']} />
+            <MessageRowSkeleton lineWidths={['w-64', 'w-44', 'w-52']} />
+            <MessageRowSkeleton lineWidths={['w-36', 'w-48']} />
           </div>
         ) : previewMessages.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center p-6 text-center">
-            <p className="text-sm text-input-placeholder">No conversation history found for this intake.</p>
+            <Icon icon={MessageSquare} className="mb-2 h-6 w-6 text-input-placeholder" />
+            <p className="text-sm text-input-placeholder">No conversation history yet.</p>
           </div>
         ) : (
           <VirtualMessageList
@@ -779,12 +866,14 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
               practiceId: intake.organization_id,
             }}
             practiceId={intake.organization_id}
+            hasMoreMessages={hasMorePreview}
+            isLoadingMoreMessages={isLoadingMorePreview}
+            onLoadMoreMessages={loadOlderMessages}
           />
         )}
       </div>
-
       {canReplyInIntake ? (
-        <div className="shrink-0 border-t border-line-glass/10 px-4 py-5">
+        <div className="border-t border-card-border px-4 py-4">
           <MessageComposer
             inputValue={composerValue}
             setInputValue={setComposerValue}
@@ -815,236 +904,140 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
           />
         </div>
       ) : null}
-    </section>
+    </Card>
   ) : null;
 
-  const intakeSidebar = (
-    <aside className="min-w-0 space-y-6 xl:sticky xl:top-6 xl:self-start">
-      {isPendingReview && (
-        <section className="glass-card p-5 sm:p-6">
-          <div className="space-y-3">
-            <Button
-              id="intake-accept-btn"
-              variant="primary"
-              className="w-full"
-              disabled={isSubmitting}
-              onClick={() => openTriageDialog('accepted')}
-            >
-              {isSubmitting ? (
-                <span className="inline-flex items-center">
-                  <LoadingSpinner size="sm" className="mr-2" ariaLabel="Accepting consultation" />
-                  Accepting...
-                </span>
-              ) : 'Approve consultation'}
-            </Button>
-            <Button
-              id="intake-reject-btn"
-              variant="secondary"
-              className="w-full"
-              disabled={isSubmitting}
-              onClick={() => openTriageDialog('declined')}
-            >
-              Reject
-            </Button>
+  const contactCard = (email || phone) ? (
+    <Card>
+      <SectionLabel className="mb-3">Contact Information</SectionLabel>
+      <dl className="space-y-3 text-sm">
+        {email ? (
+          <div className="flex items-start gap-3">
+            <Icon icon={Mail} className="mt-0.5 h-4 w-4 shrink-0 text-input-placeholder" />
+            <div className="min-w-0 flex-1">
+              <dt className="text-xs text-input-placeholder">Email</dt>
+              <dd className="truncate">
+                <a href={`mailto:${email}`} className="text-input-text hover:text-accent">{email}</a>
+              </dd>
+            </div>
           </div>
-        </section>
-      )}
+        ) : null}
+        {phone ? (
+          <div className="flex items-start gap-3">
+            <Icon icon={Phone} className="mt-0.5 h-4 w-4 shrink-0 text-input-placeholder" />
+            <div className="min-w-0 flex-1">
+              <dt className="text-xs text-input-placeholder">Phone</dt>
+              <dd>
+                <a href={`tel:${phone}`} className="text-input-text hover:text-accent">{phone}</a>
+              </dd>
+            </div>
+          </div>
+        ) : null}
+      </dl>
+    </Card>
+  ) : null;
 
-      <section className="glass-card space-y-6 p-5 sm:p-6">
-        <div>
-          <h3 className="mb-3 text-xs font-semibold uppercase tracking-widest text-input-placeholder">About</h3>
-          <div className="space-y-4">
-            {intake.payment_verified && (
-              <div className="flex items-center gap-2 text-xs font-bold text-emerald-600 dark:text-emerald-400">
-                <Icon icon={CheckCircle2} className="h-4 w-4" />
-                Payment method verified
-              </div>
-            )}
-            <UserCard
-              name={name == null ? '' : name}
-              secondary={null}
-              className="px-0 py-0"
-              size="md"
-            />
-          </div>
+  const triageActions = (
+    <>
+      <Button
+        variant="primary"
+        className="btn-primary btn-md w-full !bg-accent-success !text-white hover:!bg-accent-success/90"
+        disabled={isSubmitting}
+        onClick={() => openTriageDialog('accepted')}
+      >
+        {isSubmitting ? (
+          <span className="inline-flex items-center">
+            <LoadingSpinner size="sm" className="mr-2" ariaLabel="Accepting consultation" />
+            Accepting…
+          </span>
+        ) : 'Approve consultation'}
+      </Button>
+      <Button
+        variant="primary"
+        className="btn-primary btn-md w-full !bg-accent-error !text-white hover:!bg-accent-error/90"
+        disabled={isSubmitting}
+        onClick={() => openTriageDialog('declined')}
+      >
+        Reject
+      </Button>
+    </>
+  );
+
+  const aboutCard = (
+    <Card className="p-4">
+      <div className="flex items-center gap-3">
+        <Avatar
+          name={name ?? ''}
+          size="md"
+          className="bg-surface-utility/40 text-input-text ring-1 ring-line-glass/20"
+        />
+        <div className="min-w-0">
+          <p className="truncate text-sm font-semibold text-input-text">{name ?? 'Unnamed lead'}</p>
+          {intake.payment_verified ? (
+            <p className="mt-0.5 inline-flex items-center gap-1 text-xs text-success">
+              <Icon icon={CheckCircle2} className="h-3 w-3" />
+              Payment verified
+            </p>
+          ) : null}
         </div>
-
-        {(email || phone || locationLabel) && (
-          <div>
-            <h3 className="mb-3 text-xs font-semibold uppercase tracking-widest text-input-placeholder">Contact Information</h3>
-            <dl className="space-y-3 text-sm">
-              {email && (
-                <div className="flex flex-col">
-                  <dt className="mb-0.5 text-xs text-input-placeholder">Email</dt>
-                  <dd className="truncate font-medium text-input-text">{email}</dd>
-                </div>
-              )}
-              {phone && (
-                <div className="flex flex-col">
-                  <dt className="mb-0.5 text-xs text-input-placeholder">Phone</dt>
-                  <dd className="font-medium text-input-text">{phone}</dd>
-                </div>
-              )}
-              {locationLabel && (
-                <div className="flex flex-col">
-                  <dt className="mb-0.5 text-xs text-input-placeholder">Location</dt>
-                  <dd className="truncate font-medium capitalize text-input-text">{locationLabel}</dd>
-                </div>
-              )}
-            </dl>
-          </div>
-        )}
-      </section>
-    </aside>
+      </div>
+      {(email || phone) ? (
+        <dl className="mt-4 space-y-2 text-sm">
+          {email ? (
+            <div>
+              <dt className="text-xs text-input-placeholder">Email</dt>
+              <dd className="truncate">
+                <a href={`mailto:${email}`} className="text-input-text hover:text-accent">{email}</a>
+              </dd>
+            </div>
+          ) : null}
+          {phone ? (
+            <div>
+              <dt className="text-xs text-input-placeholder">Phone</dt>
+              <dd>
+                <a href={`tel:${phone}`} className="text-input-text hover:text-accent">{phone}</a>
+              </dd>
+            </div>
+          ) : null}
+        </dl>
+      ) : null}
+    </Card>
   );
 
   return (
-    <EditorShell
-      title={intake.client_name ?? name ?? 'Intake Details'}
-      subtitle={intake.practice_area ?? practiceServiceName ?? undefined}
-      showBack
-      onBack={onBack}
-      actions={
-        <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ring-1 ring-inset ${statusChipClass(effectiveTriageStatus || 'pending_review')}`}>
-            {triageLabel(effectiveTriageStatus || 'pending_review')}
-        </span>
-      }
-      contentMaxWidth={null}
-      contentClassName="px-4 py-6 sm:px-6 lg:px-8"
-    >
-      <div className="mx-auto grid w-full max-w-7xl grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
-        <div className="min-w-0 space-y-6">
-          {/* Main header card */}
-          <section className="glass-card overflow-hidden p-6 sm:p-10">
-          <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_280px]">
-            <header className="min-w-0">
-              <h2 className="mb-2 text-xs font-semibold uppercase tracking-widest text-input-placeholder">
-                Intake details
-              </h2>
-              <h1 className="break-words text-2xl font-bold leading-tight text-input-text sm:text-4xl">
-                {intakeTitle}
-              </h1>
-              <p className="mt-3 text-sm text-input-placeholder">
-                Posted {dateLabel}{practiceServiceName ? ` · ${practiceServiceName}` : ''}
-              </p>
+    <div className="flex h-full flex-col min-h-0 bg-surface-workspace">
+      <DetailHeader
+        title={name ?? intakeTitle}
+        showBack
+        onBack={onBack}
+        actions={statusBadge}
+      />
 
-              {description ? (
-                <div className="mt-8">
-                  <p className={`whitespace-pre-wrap text-base leading-relaxed text-input-text ${descriptionExpanded ? '' : 'line-clamp-6'}`}>
-                    {description}
-                  </p>
-                  {description.length > 350 ? (
-                    <Button
-                      variant="link"
-                      size="sm"
-                      type="button"
-                      onClick={() => setDescriptionExpanded(!descriptionExpanded)}
-                      className="mt-3 px-0"
-                    >
-                      {descriptionExpanded ? 'Show less' : 'Read more'}
-                    </Button>
-                  ) : null}
-                </div>
-              ) : (
-                <p className="mt-8 text-sm text-input-placeholder">No description yet.</p>
-              )}
-            </header>
-
-            <aside className="lg:border-l lg:border-line-glass/10 lg:pl-6">
-              <dl className="divide-y divide-line-glass/10 text-sm">
-                <SummaryRow label="Status" value={triageLabel(effectiveTriageStatus)} icon={CheckCircle2} />
-                <SummaryRow label="Consultation" value={paymentLabel} icon={CreditCard} />
-                <SummaryRow label="Location" value={locationLabel} icon={MapPin} />
-                <SummaryRow label="Urgency" value={intake.urgency ? urgencyLabel(intake.urgency) : null} icon={AlertTriangle} />
-                <SummaryRow label="Court date" value={intake.court_date ? (formatLongDate(intake.court_date) ?? intake.court_date) : null} icon={Clock} />
-                <SummaryRow label="Documents" value={hasDocs} icon={ClipboardCheck} />
-                <SummaryRow label="AI case strength" value={caseStrength} icon={Scale} />
-                <SummaryRow label="Household income" value={income} icon={CreditCard} />
-                <SummaryRow label="Household size" value={householdSize} icon={User} />
-              </dl>
-            </aside>
-          </div>
-        </section>
-
-        <section className="glass-card p-6 sm:p-8">
-          <div className="mb-6 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <h2 className="text-xs font-semibold uppercase tracking-widest text-input-placeholder">
-                Form details
-              </h2>
-              {templateName ? (
-                <span className="inline-flex items-center rounded-full bg-accent/10 px-2 py-0.5 text-xs font-medium text-accent ring-1 ring-inset ring-accent/20">
-                  {templateName}
-                </span>
-              ) : null}
-            </div>
-
-            {activeTemplate && (practiceDetails as { slug?: string })?.slug ? (
-              <Button
-                type="button"
-                variant="link"
-                size="sm"
-                onClick={() => {
-                  const slug = (practiceDetails as { slug?: string }).slug;
-                  if (typeof slug === 'string' && slug && activeTemplate?.slug) {
-                    route(`/practice/${encodeURIComponent(slug)}/intakes/${encodeURIComponent(activeTemplate.slug)}/edit`);
-                  }
-                }}
-                className="h-auto p-0 text-xs text-accent hover:text-accent-hover"
-              >
-                View form setup
-              </Button>
+      <div className="flex-1 min-h-0 overflow-y-auto">
+        <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_280px]">
+          {/* Main content */}
+          <div className="flex flex-col gap-4 p-4 sm:p-6">
+            {/* Mobile-only triage actions at top */}
+            {isPending ? (
+              <div className="flex flex-col gap-3 xl:hidden">
+                {triageActions}
+              </div>
             ) : null}
+
+            {intakeDetailsCard}
+            {formDetailsCard}
+            {/* Mobile-only contact info */}
+            <div className="xl:hidden">{contactCard}</div>
+            {blawbyCard}
+            {conversationCard}
           </div>
-          {activeTemplate && (practiceDetails as { slug?: string })?.slug && (
-            <div className="mt-4">
-              <EmbedCodeBlock
-                practiceSlug={((practiceDetails as { slug?: string }).slug || '') as string}
-                templateSlug={activeTemplate.slug}
-              />
-            </div>
-          )}
-          {enrichmentFields.length > 0 ? (
-            <dl className="grid grid-cols-1 gap-5 md:grid-cols-3">
-              {enrichmentFields.map((field) => (
-                <StatCell
-                  key={field.key}
-                  label={field.label}
-                  value={resolveFieldValue(field, intakeStateRecord, intake)}
-                  icon={ClipboardCheck}
-                />
-              ))}
-            </dl>
-          ) : (
-            <dl className="grid grid-cols-1 gap-5 md:grid-cols-3">
-              <StatCell label="On behalf of" value={onBehalfOf} icon={User} />
-              <StatCell label="Opposing party" value={opposingParty} icon={Scale} />
-              <StatCell label="Desired outcome" value={intake.desired_outcome} icon={CheckCircle2} />
-            </dl>
-          )}
-          {hasMissingLegalDetails ? (
-            <div className="mt-6 flex flex-col gap-3 border-t border-line-glass/10 pt-5 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-sm leading-relaxed text-input-placeholder">
-                Blawby can ask the client for the missing legal details and add them to this thread.
-              </p>
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                onClick={() => void startGatherDetailsFlow()}
-                disabled={gatherDetailsSubmitting}
-                className="shrink-0"
-              >
-                {gatherDetailsSubmitting ? 'Starting...' : 'Ask Blawby to gather details'}
-              </Button>
-            </div>
-          ) : null}
-        </section>
 
-          {conversationSection}
+          {/* Desktop right panel */}
+          <aside className="hidden xl:flex flex-col gap-4 border-l border-card-border bg-surface-panel p-6">
+            {isPending ? <div className="flex flex-col gap-3">{triageActions}</div> : null}
+            {aboutCard}
+          </aside>
         </div>
-
-        {intakeSidebar}
       </div>
 
       <Dialog
@@ -1053,8 +1046,8 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
         title={triageDialogAction === 'accepted' ? 'Approve consultation' : 'Reject consultation'}
         description={
           triageDialogAction === 'accepted'
-            ? "This will approve the lead and prepare for onboarding."
-            : "This will mark the intake as rejected."
+            ? 'This will approve the lead and prepare for onboarding.'
+            : 'This will mark the intake as rejected.'
         }
         disableBackdropClick={isSubmitting}
       >
@@ -1072,17 +1065,23 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
             Cancel
           </Button>
           <Button
-            variant={triageDialogAction === 'accepted' ? 'primary' : 'danger'}
+            variant="primary"
             disabled={isSubmitting}
+            className={cn(
+              'btn-primary btn-md !text-white',
+              triageDialogAction === 'accepted'
+                ? '!bg-accent-success hover:!bg-accent-success/90'
+                : '!bg-accent-error hover:!bg-accent-error/90',
+            )}
             onClick={() => {
               if (triageDialogAction) void runTriage(triageDialogAction, triageReason);
             }}
           >
-            {isSubmitting ? 'Updating...' : (triageDialogAction === 'accepted' ? 'Confirm approval' : 'Confirm')}
+            {isSubmitting ? 'Updating…' : (triageDialogAction === 'accepted' ? 'Confirm approval' : 'Confirm rejection')}
           </Button>
         </DialogFooter>
       </Dialog>
-    </EditorShell>
+    </div>
   );
 };
 

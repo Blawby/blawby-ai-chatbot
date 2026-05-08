@@ -389,6 +389,8 @@ function AppShell() {
           <Route path="/client/:practiceSlug/engagements/:engagementId/review" component={ClientEngagementReviewRoute} />
           <Route path="/client/:practiceSlug/invoices" component={ClientPracticeRoute} workspaceView="invoices" />
           <Route path="/client/:practiceSlug/invoices/:invoiceId" component={ClientPracticeRoute} workspaceView="invoiceDetail" />
+          <Route path="/client/:practiceSlug/intakes" component={ClientPracticeRoute} workspaceView="intakes" />
+          <Route path="/client/:practiceSlug/intakes/:intakeId" component={ClientPracticeRoute} workspaceView="intakeDetail" />
           <Route path="/client/:practiceSlug/settings" component={ClientPracticeRoute} workspaceView="settings" settingsView="general" />
           <Route path="/client/:practiceSlug/settings/general" component={ClientPracticeRoute} workspaceView="settings" settingsView="general" />
           <Route path="/client/:practiceSlug/settings/notifications" component={ClientPracticeRoute} workspaceView="settings" settingsView="notifications" />
@@ -829,6 +831,7 @@ function ClientPracticeRoute({
   practiceSlug,
   conversationId,
   invoiceId,
+  intakeId,
   appId,
   workspaceView = 'home',
   settingsView = 'general',
@@ -836,8 +839,9 @@ function ClientPracticeRoute({
   practiceSlug?: string;
   conversationId?: string;
   invoiceId?: string;
+  intakeId?: string;
   appId?: string;
-  workspaceView?: 'home' | 'list' | 'conversation' | 'matters' | 'invoices' | 'invoiceDetail' | 'settings';
+  workspaceView?: 'home' | 'list' | 'conversation' | 'matters' | 'invoices' | 'invoiceDetail' | 'intakes' | 'intakeDetail' | 'settings';
   settingsView?: 'general' | 'notifications' | 'account' | 'practice' | 'practice-payouts' | 'practice-team' | 'apps' | 'app-detail' | 'intake-forms' | 'intake-forms-editor' | 'security' | 'help';
 }) {
   const location = useLocation();
@@ -941,6 +945,7 @@ function ClientPracticeRoute({
           clientPracticeSlug={slug || undefined}
           routeConversationId={conversationId}
           routeInvoiceId={invoiceId}
+          routeIntakeId={intakeId}
           routeSettingsView={settingsView}
           routeSettingsAppId={appId}
           workspaceView={workspaceView}
