@@ -88,16 +88,23 @@ export const IntakePreviewDialog = ({
         ) : null}
         <Button
           onClick={async () => {
+            setPublishError(null);
+            setIsPublishing(true);
             try {
               await onConfirm();
+              setIsPublishing(false);
             } catch (err) {
-              console.error('[IntakePreviewDialog] Failed to confirm:', err);
+              setPublishError(err instanceof Error ? err.message : String(err));
+              setIsPublishing(false);
             }
           }}
-          disabled={loading}
+          disabled={loading || isPublishing}
         >
-          {loading ? 'Publishing...' : 'Publish'}
+          {isPublishing ? 'Publishing...' : 'Publish'}
         </Button>
+        {publishError && (
+          <div className="mt-2 text-error bg-error/10 rounded px-3 py-2 text-sm">{publishError}</div>
+        )}
       </DialogFooter>
     </Dialog>
   );

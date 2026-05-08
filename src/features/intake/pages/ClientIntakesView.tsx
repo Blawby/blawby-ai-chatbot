@@ -33,7 +33,7 @@ const mapStatusKind = (raw: string): { kind: ClientIntakeStatusKind; label: stri
 
 const buildTimeline = (status: IntakeStatusResponse): ClientIntakeTimelineItem[] => {
   const submittedAt = formatLongDate(status.metadata?.created_at as string | undefined ?? '') ?? 'Submitted';
-  const triageStatus = (status.metadata?.triage_status as string | undefined) ?? null;
+  const triageStatus = (status.metadata?.triage_status as string | undefined) ?? status.status ?? null;
   const scheduledAt = (status.metadata?.consultation_scheduled_at as string | undefined) ?? null;
 
   const items: ClientIntakeTimelineItem[] = [

@@ -259,9 +259,7 @@ export const IntakesPage: FunctionComponent<IntakesPageProps> = ({
 
   const showEmpty = !isLoading && !error && filteredItems.length === 0 && !hasMore;
   const emptyMessage = searchQuery
-    ? hasMore
-      ? `No matches in loaded items. Load more to search additional pages.`
-      : `No responses match “${searchQuery}”.`
+    ? `No responses match “${searchQuery}”.`
     : mobileFilter === 'pending_review'
       ? "You've caught up on all pending reviews! New consultation inquiries will appear here."
       : mobileFilter === 'accepted'
