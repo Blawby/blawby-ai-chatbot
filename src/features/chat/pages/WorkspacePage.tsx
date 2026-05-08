@@ -1552,15 +1552,18 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     }
   };
 
+  // Editor views should be full-page without the persistent app navigation sidebar
+  const isEditorView = (view === 'settings' && settingsView === 'intake-forms-editor') || view === 'invoiceEdit';
+  
   return (
     <>
       <AppShell
         className="bg-transparent h-dvh"
         accentBackdropVariant="none"
         header={shellHeader}
-        sidebar={sidebarNav}
+        sidebar={isEditorView ? undefined : sidebarNav}
         desktopSidebarCollapsed={isDesktopSidebarCollapsed}
-        mobileSidebar={mobileSidebarNav}
+        mobileSidebar={isEditorView ? undefined : mobileSidebarNav}
         listPanel={conversationListPanel ?? matterListPanel ?? contactsListPanel ?? invoicesListPanel}
         inspector={activeInspector ?? undefined}
         inspectorMobileOpen={detailInspectorOpen && isMobileLayout}

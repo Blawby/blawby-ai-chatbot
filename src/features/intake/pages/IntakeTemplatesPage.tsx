@@ -23,6 +23,7 @@ import { extractStripeStatusFromPayload } from '@/features/onboarding/utils';
 import type { StripeConnectStatus } from '@/features/onboarding/types';
 import { SettingsNotice } from '@/features/settings/components/SettingsNotice';
 import { IntakeFlowPreview } from '@/features/intake/components/BuilderWidgetPreview';
+import { IntakePreviewDialog } from '@/features/intake/components/IntakePreviewDialog';
 import { Dialog, DialogBody, DialogFooter } from '@/shared/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/shared/ui/dropdown';
 import { cn } from '@/shared/utils/cn';
@@ -773,6 +774,7 @@ function TemplateEditor({
   const [state, setState] = useState<EditorState>(initialState);
   const [slugError, setSlugError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [showPreviewDialog, setShowPreviewDialog] = useState(false);
   const [stripeStatus, setStripeStatus] = useState<StripeConnectStatus | null>(null);
   const [isStripeLoading, setIsStripeLoading] = useState(false);
   const [selectedItemId, setSelectedItemId] = useState<BuilderSelectionId>('contact');
@@ -1057,6 +1059,21 @@ function TemplateEditor({
     }
   };
 
+  const handlePreviewAndPublish = () => {
+    if (!validatePublish(state)) return;
+    setShowPreviewDialog(true);
+  };
+
+  const handlePublishFromDialog = async () => {
+    setIsSaving(true);
+    try {
+      await onSave(editorStateToTemplate(state));
+      setShowPreviewDialog(false);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const isDesktop = useIsDesktop();
   const [mobileView, setMobileView] = useState<'list' | 'config' | 'preview'>('list');
   const [isPreviewInteractive, setIsPreviewInteractive] = useState(false);
@@ -1179,10 +1196,10 @@ function TemplateEditor({
       <Button
         type="button"
         size="sm"
-        onClick={() => void handleSave()}
+        onClick={() => void handlePreviewAndPublish()}
         disabled={isSaving}
       >
-        {isSaving ? 'Publishing...' : 'Save & Publish'}
+        {isSaving ? 'Publishing...' : 'Preview and Publish'}
       </Button>
     </div>
   );
@@ -1703,10 +1720,10 @@ function TemplateEditor({
           <Button
             type="button"
             size="sm"
-            onClick={() => void handleSave()}
+            onClick={() => void handlePreviewAndPublish()}
             disabled={isSaving}
           >
-            {isSaving ? 'Publishing...' : 'Save & Publish'}
+            {isSaving ? 'Publishing...' : 'Preview and Publish'}
           </Button>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto p-3">{formStructure}</div>
@@ -1730,6 +1747,17 @@ function TemplateEditor({
       actions={headerActions}
     >
       {livePreview}
+      <IntakePreviewDialog
+        isOpen={showPreviewDialog}
+        template={draftTemplate}
+        practiceName={practiceCanvasName}
+        practiceLogo={practiceCanvasLogo}
+        practiceSubtitle={practicePreviewConfig.name ? undefined : 'We typically reply in a few minutes'}
+        currencyCode={currencyCode}
+        onConfirm={handlePublishFromDialog}
+        onCancel={() => setShowPreviewDialog(false)}
+        loading={isSaving}
+      />
     </EditorShell>
   );
 }

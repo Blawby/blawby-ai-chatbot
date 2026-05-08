@@ -127,6 +127,7 @@ function BuilderWidgetComposer({
             }
           }}
           className="flex-1 bg-transparent text-sm text-input-text outline-none placeholder:text-input-placeholder disabled:cursor-not-allowed"
+          aria-label={placeholder}
         />
         <button
           type="button"
@@ -352,7 +353,14 @@ type IntakeFlowPreviewProps = {
 
 type ScriptItem =
   | { kind: 'static'; id: string; variant: BubbleVariant; icon?: JSX.Element | null; text: string }
-  | { kind: 'question'; id: string; isEnrichment: boolean; prompt: string }
+  | { 
+      kind: 'question'; 
+      id: string; 
+      isEnrichment: boolean; 
+      prompt: string;
+      fieldType?: 'text' | 'select' | 'date' | 'boolean' | 'number';
+      fieldOptions?: string[];
+    }
   | { kind: 'payment'; id: string; fee: string }
   | { kind: 'client-reply'; id: string; text: string };
 
@@ -414,6 +422,8 @@ function buildScript(template: IntakeTemplate, currencyCode: string): ScriptItem
         id: `req-${field.key}`,
         isEnrichment: false,
         prompt: getQuestionPrompt(field),
+        fieldType: field.type,
+        fieldOptions: field.options,
       });
     }
   }
@@ -426,6 +436,8 @@ function buildScript(template: IntakeTemplate, currencyCode: string): ScriptItem
         id: `enr-${field.key}`,
         isEnrichment: true,
         prompt: getQuestionPrompt(field),
+        fieldType: field.type,
+        fieldOptions: field.options,
       });
     }
   }
@@ -448,7 +460,15 @@ function getItemSource(item: ScriptItem | undefined): 'org' | 'ai' | 'client' {
   return 'org';
 }
 
-const MOCK_CLIENT_REPLIES = [
+const MOCK_TEXT_REPLIES = [
+  'The incident happened last month.',
+  'I\'m not sure about the exact details.',
+  'It was around 3 PM if I remember correctly.',
+  'I think it was a Tuesday.',
+  'Let me think about that for a moment.',
+];
+
+const MOCK_GENERIC_REPLIES = [
   'Got it, thanks!',
   'Sure, that makes sense.',
   'OK, sounds good.',
@@ -458,8 +478,109 @@ const MOCK_CLIENT_REPLIES = [
 
 function pickMockReply(seed: string): string {
   let hash = 0;
-  for (let i = 0; i < seed.length; i++) hash = (hash + seed.charCodeAt(i)) % MOCK_CLIENT_REPLIES.length;
-  return MOCK_CLIENT_REPLIES[hash];
+  for (let i = 0; i < seed.length; i++) hash = (hash + seed.charCodeAt(i)) % MOCK_GENERIC_REPLIES.length;
+  return MOCK_GENERIC_REPLIES[hash];
+}
+
+function generateMockReply(
+  seed: string,
+  fieldType?: 'text' | 'select' | 'date' | 'boolean' | 'number',
+  fieldOptions?: string[],
+  prompt?: string
+): string {
+  const lowerPrompt = prompt?.toLowerCase() || '';
+
+  // Select field: return one of the options deterministically
+  if (fieldType === 'select' && fieldOptions && fieldOptions.length > 0) {
+    let hash = 0;
+    for (let i = 0; i < seed.length; i++) hash = (hash + seed.charCodeAt(i)) % fieldOptions.length;
+    return fieldOptions[hash];
+  }
+
+  // Date field: return realistic date strings
+  if (fieldType === 'date') {
+    const dateReplies = [
+      'January 15, 2024',
+      'Last week',
+      'About a month ago',
+      'March 3rd, 2024',
+      'Two days ago',
+    ];
+    let hash = 0;
+    for (let i = 0; i < seed.length; i++) hash = (hash + seed.charCodeAt(i)) % dateReplies.length;
+    return dateReplies[hash];
+  }
+
+  // Boolean field: return Yes or No
+  if (fieldType === 'boolean') {
+    let hash = 0;
+    for (let i = 0; i < seed.length; i++) hash = (hash + seed.charCodeAt(i)) % 2;
+    return hash === 0 ? 'Yes' : 'No';
+  }
+
+  // Number field: return realistic numbers
+  if (fieldType === 'number') {
+    const numberReplies = [
+      '5',
+      '1000',
+      '3 days',
+      '2',
+      'About 10',
+    ];
+    let hash = 0;
+    for (let i = 0; i < seed.length; i++) hash = (hash + seed.charCodeAt(i)) % numberReplies.length;
+    return numberReplies[hash];
+  }
+
+  // Text field: use pattern matching on prompt for contextual responses
+  if (fieldType === 'text') {
+    // City-related questions
+    if (lowerPrompt.includes('city')) {
+      const cityReplies = ['Los Angeles', 'New York', 'Chicago', 'Houston', 'Phoenix'];
+      let hash = 0;
+      for (let i = 0; i < seed.length; i++) hash = (hash + seed.charCodeAt(i)) % cityReplies.length;
+      return cityReplies[hash];
+    }
+    
+    // State-related questions
+    if (lowerPrompt.includes('state')) {
+      const stateReplies = ['California', 'New York', 'Texas', 'Florida', 'Illinois'];
+      let hash = 0;
+      for (let i = 0; i < seed.length; i++) hash = (hash + seed.charCodeAt(i)) % stateReplies.length;
+      return stateReplies[hash];
+    }
+    
+    // Date/time-related questions
+    if (lowerPrompt.includes('when') || lowerPrompt.includes('date') || lowerPrompt.includes('time')) {
+      const timeReplies = ['Last week', 'About a month ago', 'Two days ago', 'Yesterday', 'In January'];
+      let hash = 0;
+      for (let i = 0; i < seed.length; i++) hash = (hash + seed.charCodeAt(i)) % timeReplies.length;
+      return timeReplies[hash];
+    }
+    
+    // How many/much questions (even if text type)
+    if (lowerPrompt.includes('how many') || lowerPrompt.includes('how much')) {
+      const countReplies = ['5', 'About 10', '2 or 3', 'Several', 'Around 7'];
+      let hash = 0;
+      for (let i = 0; i < seed.length; i++) hash = (hash + seed.charCodeAt(i)) % countReplies.length;
+      return countReplies[hash];
+    }
+    
+    // Default text responses for other text fields
+    const textReplies = [
+      'I need to think about that.',
+      'Let me describe what happened.',
+      'I remember some details.',
+      'It was quite recent.',
+      'I can provide more information.',
+    ];
+    let hash = 0;
+    for (let i = 0; i < seed.length; i++) hash = (hash + seed.charCodeAt(i)) % textReplies.length;
+    return textReplies[hash];
+  }
+
+  // Default to empty string if field type is unknown (no fallback)
+  return '';
 }
 
 export function IntakeFlowPreview({
@@ -558,10 +679,10 @@ export function IntakeFlowPreview({
   // the user (org) sends; in non-interactive it fires automatically so the
   // demo proceeds without input.
   useEffect(() => {
+    if (interactive) return;
     if (delivered === 0) return;
     const last = script[delivered - 1];
     if (!last || last.kind !== 'question') return;
-    if (interactive && !answers[last.id]) return;
     if (mockReplies[last.id]) return;
 
     setPendingTyping('client');
@@ -570,13 +691,13 @@ export function IntakeFlowPreview({
       const t = Date.now();
       setMockReplies((prev) => ({
         ...prev,
-        [last.id]: { text: pickMockReply(last.id), deliveredAt: t },
+        [last.id]: { text: generateMockReply(last.id, last.fieldType, last.fieldOptions, last.prompt), deliveredAt: t },
       }));
       setReadStates((prev) => ({ ...prev, [mockId]: 'sent' }));
       setPendingTyping(null);
     }, 1200);
     return () => clearTimeout(timeoutId);
-  }, [interactive, delivered, script, answers, mockReplies]);
+  }, [interactive, delivered, script, mockReplies]);
 
   // Animate read receipts: ✓ (sent) → ✓✓ grey (delivered) → ✓✓ blue (read).
   // Runs in both modes so the non-interactive demo loop also animates.
