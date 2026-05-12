@@ -37,6 +37,12 @@ PRAGMA foreign_keys = ON;
 -- using the practice_id when needed.
 
 -- Conversations table
+-- lifecycle_status: visibility gate (separate from workflow `status`).
+--   'pending_visibility' (default) — row exists but is excluded from inbox lists.
+--   'visible' — flipped on once the backend reports an accepted intake
+--               referencing the conversation. Per-request membership of the
+--               viewer is checked separately in the route handler.
+--   'archived' — explicit terminal state for hidden rows.
 CREATE TABLE IF NOT EXISTS conversations (
   id TEXT PRIMARY KEY,
   practice_id TEXT NOT NULL,
@@ -46,6 +52,9 @@ CREATE TABLE IF NOT EXISTS conversations (
   participants JSON, -- Array of user IDs: ["userId1", "userId2"]
   user_info JSON,
   status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'active', 'submitted', 'closed', 'archived')),
+  lifecycle_status TEXT NOT NULL DEFAULT 'pending_visibility'
+    CHECK (lifecycle_status IN ('pending_visibility', 'visible', 'archived')),
+  intake_accepted_at DATETIME,
   assigned_to TEXT,
   priority TEXT DEFAULT 'normal' CHECK (priority IN ('low', 'normal', 'high', 'urgent')),
   tags TEXT, -- JSON array
@@ -222,6 +231,7 @@ CREATE INDEX IF NOT EXISTS idx_conversations_closed_at ON conversations(practice
 CREATE INDEX IF NOT EXISTS idx_conversations_assigned ON conversations(practice_id, assigned_to, status);
 CREATE INDEX IF NOT EXISTS idx_conversations_priority ON conversations(practice_id, priority, status);
 CREATE INDEX IF NOT EXISTS idx_conversations_last_message ON conversations(practice_id, last_message_at DESC);
+CREATE INDEX IF NOT EXISTS idx_conversations_lifecycle ON conversations(practice_id, lifecycle_status);
 
 -- Create indexes for chat_messages
 CREATE INDEX IF NOT EXISTS idx_chat_messages_conversation ON chat_messages(conversation_id, created_at);

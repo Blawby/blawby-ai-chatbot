@@ -11,6 +11,7 @@ import {
 } from '../../src/shared/utils/consultationState';
 
 export type ConversationStatus = 'active' | 'archived' | 'closed';
+export type ConversationLifecycleStatus = 'pending_visibility' | 'visible' | 'archived';
 
 export interface Conversation {
   id: string;
@@ -28,6 +29,11 @@ export interface Conversation {
   participants: string[]; // Array of user IDs
   user_info: Record<string, unknown> | null;
   status: 'active' | 'archived' | 'closed';
+  // Visibility gate. Conversation is excluded from inbox lists unless this is
+  // `'visible'`. Flipped when the backend reports an accepted intake for the
+  // conversation. See project_conversation_visibility memory.
+  lifecycle_status: ConversationLifecycleStatus;
+  intake_accepted_at?: string | null;
   assigned_to?: string | null; // User ID of assigned practice member
   priority?: 'low' | 'normal' | 'high' | 'urgent';
   tags?: string[]; // Array of tag strings
@@ -581,6 +587,13 @@ export class ConversationService {
       participants,
       user_info,
       status: getString(record.status) as Conversation['status'],
+      lifecycle_status: ((): ConversationLifecycleStatus => {
+        const raw = getString(record.lifecycle_status);
+        return raw === 'visible' || raw === 'archived' || raw === 'pending_visibility'
+          ? raw
+          : 'pending_visibility';
+      })(),
+      intake_accepted_at: getNullableString(record.intake_accepted_at),
       assigned_to: getNullableString(record.assigned_to),
       priority: (getString(record.priority) || 'normal') as Conversation['priority'],
       tags,
@@ -757,7 +770,15 @@ export class ConversationService {
   }
 
   /**
-   * List conversations with optional filters
+   * List conversations with optional filters.
+   *
+   * Visibility filter: a conversation row is only returned if its
+   * `lifecycle_status` is `'visible'` OR its id is in `acceptedConversationIds`
+   * (the per-practice set of conversation_ids whose intake the backend reports
+   * as accepted). Pass `null` to disable the filter entirely (only the worker
+   * itself should do that — e.g., debug routes).
+   *
+   * See: project_conversation_visibility memory; worker/utils/intakeVisibility.ts.
    */
   async getConversations(options: {
     practiceId: string;
@@ -767,6 +788,7 @@ export class ConversationService {
     status?: 'active' | 'archived' | 'closed';
     assignedTo?: 'none';
     limit?: number;
+    acceptedConversationIds?: Set<string> | null;
   }): Promise<Conversation[]> {
     const limit = Math.min(options.limit || 50, 100); // Max 100
     const includeReadState = Boolean(options.userId);
@@ -829,6 +851,24 @@ export class ConversationService {
       query += " AND (conversations.assigned_to IS NULL OR conversations.assigned_to = '')";
     }
 
+    // Visibility gate: only return rows that are already 'visible', or whose
+    // id appears in the per-request accepted-intake set the route handler
+    // fetched from the backend. `undefined` ⇒ unset by caller, treat as the
+    // empty set (lifecycle_status filter only). `null` ⇒ caller is opting out
+    // of the filter (debug paths).
+    if (options.acceptedConversationIds !== null) {
+      const acceptedIds = options.acceptedConversationIds
+        ? Array.from(options.acceptedConversationIds)
+        : [];
+      if (acceptedIds.length === 0) {
+        query += " AND conversations.lifecycle_status = 'visible'";
+      } else {
+        const placeholders = acceptedIds.map(() => '?').join(', ');
+        query += ` AND (conversations.lifecycle_status = 'visible' OR conversations.id IN (${placeholders}))`;
+        bindings.push(...acceptedIds);
+      }
+    }
+
     query += ' ORDER BY conversations.updated_at DESC LIMIT ?';
     bindings.push(limit);
 
@@ -845,13 +885,20 @@ export class ConversationService {
     status?: 'active' | 'archived' | 'closed';
     assignedTo?: 'none';
     limit?: number;
+    acceptedConversationIds?: Set<string> | null;
   }): Promise<Conversation[]> {
     const conversations = await this.getConversations(options);
     return conversations.filter((conversation) => Boolean(conversation.last_message_at || conversation.last_message_content));
   }
 
   /**
-   * List conversations for a user across all practices
+   * List conversations for a user across all practices.
+   *
+   * Cross-practice — the accepted-intake set is per-practice, so this route
+   * applies the strict filter only (`lifecycle_status='visible'`). Conversations
+   * with a recently-accepted intake that hasn't yet been materialized will not
+   * appear here until a per-practice list flips their lifecycle_status.
+   * Acceptable trade-off: the per-practice inbox is the primary read path.
    */
   async getConversationsForUser(options: {
     userId: string;
@@ -880,6 +927,7 @@ export class ConversationService {
         WHERE cp.conversation_id = conversations.id
           AND cp.user_id = ?
       )
+        AND conversations.lifecycle_status = 'visible'
     `;
     const bindings: unknown[] = [options.userId, options.userId];
 

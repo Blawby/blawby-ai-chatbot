@@ -307,19 +307,13 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     refreshConversations,
     resolvedConversations,
     resolvedConversationsLoading,
-    acceptedIntakeConversationsRef,
+    resolvedConversationsError,
     isInitialConversationCheckRef,
     activeConversationMissingNotification,
     setActiveConversationMissingNotification,
     allIntakes,
-    intakeTriageStatusLookup,
-    acceptedIntakeConversationIds,
-    acceptedIntakeConversationsLoading,
-    intakeLookupLoaded,
     filteredConversations,
     selectedConversation,
-    combinedResolvedConversationsLoading,
-    combinedResolvedConversationsError,
   } = useWorkspaceConversations({
     practiceId,
     workspace,
@@ -469,11 +463,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     filteredConversations,
     resolvedConversations,
     resolvedConversationsLoading,
-    intakeLookupLoaded,
-    acceptedIntakeConversationsLoading,
-    acceptedIntakeConversationIds,
-    acceptedIntakeConversationsRef,
-    intakeTriageStatusLookup,
     isInitialConversationCheckRef,
     navigationInitiatedRef,
     hasAutoNavigatedRef,
@@ -1218,8 +1207,8 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       previews={conversationPreviews}
       practiceName={practiceName}
       practiceLogo={practiceLogo}
-      isLoading={combinedResolvedConversationsLoading}
-      error={combinedResolvedConversationsError}
+      isLoading={resolvedConversationsLoading}
+      error={resolvedConversationsError}
       onSelectConversation={handleSelectConversation}
       onCompose={handleEnterDraftMode}
       draftEntry={draftConversation
@@ -1308,8 +1297,8 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
           previews={conversationPreviews}
           practiceName={practiceName}
           practiceLogo={practiceLogo}
-          isLoading={combinedResolvedConversationsLoading}
-          error={combinedResolvedConversationsError}
+          isLoading={resolvedConversationsLoading}
+          error={resolvedConversationsError}
           onSelectConversation={handleSelectConversation}
           onCompose={handleEnterDraftMode}
           draftEntry={draftConversation

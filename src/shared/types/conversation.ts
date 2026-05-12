@@ -12,6 +12,20 @@ export interface MessageReaction {
 export type ConversationStatus = 'active' | 'archived' | 'completed' | 'closed';
 
 /**
+ * Conversation visibility lifecycle (separate from workflow `status`).
+ *
+ * `pending_visibility` — row exists but is excluded from inbox lists.
+ * `visible` — flipped on once the backend reports an accepted intake. The
+ *             requester's own org membership is checked separately per-request.
+ * `archived` — explicit terminal state for hidden rows.
+ *
+ * The worker is the gatekeeper. The frontend should NOT re-filter on this —
+ * if a row was returned by the worker, it's already passed the visibility
+ * predicate for the current viewer.
+ */
+export type ConversationLifecycleStatus = 'pending_visibility' | 'visible' | 'archived';
+
+/**
  * Message role in conversation
  */
 export type MessageRole = 'user' | 'assistant' | 'system';
@@ -140,6 +154,10 @@ export interface Conversation {
   participants: string[]; // Array of user IDs
   user_info: ConversationMetadata | null;
   status: ConversationStatus;
+  // Visibility gate set by the worker. Rows returned by GET /api/conversations
+  // are already filtered; this field is exposed for diagnostics and ordering.
+  lifecycle_status?: ConversationLifecycleStatus;
+  intake_accepted_at?: string | null;
   // Triage fields (optional, practice workflows only)
   assigned_to?: string | null; // User ID of assigned practice member
   priority?: 'low' | 'normal' | 'high' | 'urgent';

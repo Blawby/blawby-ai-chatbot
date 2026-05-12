@@ -176,8 +176,15 @@ export const ClientIntakeStatusPage: FunctionComponent<ClientIntakeStatusPagePro
             </Card>
           ) : null}
 
-          {/* Files */}
-          <IntakeFilesPanel intakeUuid={intake.intakeUuid} canUpload canDelete={false} />
+          {/* Files — upload allowed only after the practice has accepted the
+              intake (status flips to 'scheduled' for the client). Anonymous /
+              still-in-review viewers see a read-only file list. See
+              project_conversation_visibility memory. */}
+          <IntakeFilesPanel
+            intakeUuid={intake.intakeUuid}
+            canUpload={intake.status === 'scheduled'}
+            canDelete={false}
+          />
 
           {/* Notes */}
           {intake.notes ? (
