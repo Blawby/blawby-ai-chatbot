@@ -458,9 +458,17 @@ export async function handleConversations(request: Request, env: Env): Promise<R
 
     // Check if anonymous user
     const isAnonymous = authContext.isAnonymous === true;
-    
+
     // Ensure creator is included in participants
     const participants = Array.from(new Set([userId, ...participantUserIds]));
+
+    // Staff-initiated conversations (new-conversation picker, team DMs) skip
+    // the intake-visibility gate — they're internal and should appear in the
+    // creator's inbox immediately. Anonymous widget chats keep the default
+    // 'pending_visibility' so they remain hidden until intake is accepted.
+    const staffInitiated = !isAnonymous
+      && practiceContext.isMember
+      && isStaffMemberRole(practiceContext.memberRole);
 
     const conversation = await conversationService.createConversation({
       practiceId,
@@ -469,7 +477,8 @@ export async function handleConversations(request: Request, env: Env): Promise<R
       matterId: body.matterId || null,
       participantUserIds: participants,
       metadata: body.metadata,
-      skipPracticeValidation: !practiceContext.isMember
+      skipPracticeValidation: !practiceContext.isMember,
+      lifecycleStatus: staffInitiated ? 'visible' : 'pending_visibility',
     }, request);
 
     return createJsonResponse(conversation);

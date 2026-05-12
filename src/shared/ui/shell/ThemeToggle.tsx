@@ -1,4 +1,3 @@
-import { useCallback } from 'preact/hooks';
 import { cn } from '@/shared/utils/cn';
 import { Moon, Sun } from 'lucide-preact';
 

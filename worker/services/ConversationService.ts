@@ -80,6 +80,13 @@ export interface CreateConversationOptions {
   participantUserIds: string[];
   metadata?: Record<string, unknown>;
   skipPracticeValidation?: boolean;
+  /**
+   * Initial lifecycle_status. Defaults to 'pending_visibility' so anonymous
+   * widget chats stay hidden until an intake is accepted. Staff-initiated
+   * chats (e.g. internal DMs, team→client conversations) should pass
+   * 'visible' so they appear in the creator's inbox immediately.
+   */
+  lifecycleStatus?: ConversationLifecycleStatus;
 }
 
 export interface GetMessagesOptions {
@@ -438,11 +445,14 @@ export class ConversationService {
     const participantsJson = JSON.stringify(participants);
     const userInfoJson = options.metadata ? JSON.stringify(options.metadata) : null;
 
+    const lifecycleStatus: ConversationLifecycleStatus =
+      options.lifecycleStatus ?? 'pending_visibility';
+
     const statements = [
       this.env.DB.prepare(`
         INSERT INTO conversations (
-          id, practice_id, user_id, is_anonymous, matter_id, participants, user_info, status, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, 'active', ?, ?)
+          id, practice_id, user_id, is_anonymous, matter_id, participants, user_info, status, lifecycle_status, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?)
       `).bind(
         conversationId,
         options.practiceId,
@@ -451,6 +461,7 @@ export class ConversationService {
         options.matterId || null,
         participantsJson,
         userInfoJson,
+        lifecycleStatus,
         now,
         now
       )
@@ -705,6 +716,9 @@ export class ConversationService {
         title: 'Blawby System',
         system_conversation: true
       },
+      // System assistant thread is internal; it should appear immediately in
+      // the creator's inbox rather than waiting on the intake gate.
+      lifecycleStatus: 'visible',
       skipPracticeValidation: options.skipPracticeValidation
     }, request);
   }

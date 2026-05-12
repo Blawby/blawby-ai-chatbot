@@ -648,7 +648,10 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
           source: 'intake-detail',
           intakeUuid: intakeId,
           senderType: 'team_member',
-          ...(attachments.length > 0 ? { files: attachments } : {}),
+          // Include both `attachments` (worker route validates this key for
+          // attachment-only sends) and `files` (legacy metadata key the
+          // message rendering layer reads).
+          ...(attachments.length > 0 ? { files: attachments, attachments } : {}),
         },
       });
       setComposerValue('');

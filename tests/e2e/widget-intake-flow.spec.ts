@@ -1670,6 +1670,13 @@ test.describe('Public widget intake flow', () => {
     let presignSeen = false;
 
     await anonPage.route(`**/api/practice-client-intakes/${fakeIntakeUuid}/files/presign`, async (route) => {
+      // Only the actual POST is the assertion target — CORS preflights and any
+      // unrelated GETs against the same path must fall through so they don't
+      // flip presignSeen prematurely.
+      if (route.request().method() !== 'POST') {
+        await route.fallback();
+        return;
+      }
       presignSeen = true;
       await route.fulfill({
         status: 200,

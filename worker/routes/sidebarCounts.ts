@@ -287,9 +287,16 @@ const fetchConversationCounts = async (
   // Same predicate as GET /api/conversations: a row is visible if its
   // lifecycle_status is already 'visible' OR it appears in the
   // accepted-intake set (the not-yet-materialized case).
+  // Then restrict to status='active' so archived/closed threads don't pad the
+  // active-inbox totals (and don't drive unread badges the user can't reach
+  // from the active inbox).
   const visible = rows.filter((row) => {
-    if (row.lifecycle_status === 'visible') return true;
-    return row.id ? acceptedIntakeConversationIds.has(row.id) : false;
+    const lifecycleVisible = row.lifecycle_status === 'visible'
+      || (row.id ? acceptedIntakeConversationIds.has(row.id) : false);
+    if (!lifecycleVisible) return false;
+    // Treat NULL/missing status as active for back-compat with rows written
+    // before the status column had a default applied.
+    return row.status == null || row.status === 'active';
   });
 
   const isAssignedToUser = (row: ConversationRow) =>
@@ -334,7 +341,7 @@ export async function handleSidebarCounts(request: Request, env: Env): Promise<R
   let practiceId = '';
   try {
     practiceId = decodeURIComponent(match[1] ?? '');
-  } catch (err) {
+  } catch {
     throw HttpErrors.badRequest('Invalid practice ID');
   }
   if (!practiceId) throw HttpErrors.badRequest('Practice ID required');

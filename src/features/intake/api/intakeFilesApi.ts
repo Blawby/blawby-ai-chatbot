@@ -180,6 +180,12 @@ export interface ConfirmIntakeUploadInput {
 export const confirmIntakeUpload = async (
   input: ConfirmIntakeUploadInput,
 ): Promise<IntakeFile> => {
+  if (!input.intakeUuid || !input.intakeUuid.trim()) {
+    throw new Error('Missing intakeUuid');
+  }
+  if (!input.uploadId || !input.uploadId.trim()) {
+    throw new Error('Missing uploadId');
+  }
   try {
     const { data } = await apiClient.post<unknown>(
       intakeFileConfirmPath(input.intakeUuid, input.uploadId),
@@ -205,6 +211,12 @@ export const deleteIntakeFile = async ({
   reason,
   signal,
 }: DeleteIntakeFileInput): Promise<void> => {
+  if (!intakeUuid || !intakeUuid.trim()) {
+    throw new Error('Missing intakeUuid');
+  }
+  if (!fileId || !fileId.trim()) {
+    throw new Error('Missing fileId');
+  }
   const trimmedReason = typeof reason === 'string' ? reason.trim() : '';
   if (!trimmedReason) {
     throw new Error('A reason is required to delete this file.');
