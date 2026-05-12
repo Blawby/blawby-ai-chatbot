@@ -363,8 +363,16 @@ function AppShell() {
       <UpdateAvailableToast />
       <Suspense fallback={<LoadingScreen />}>
         <Router>
-          <Route path="/auth" component={AuthPage} />
-          <Route path="/auth/accept-invitation" component={AcceptInvitationPage} />
+          <Route path="/auth" component={(props) => (
+            <Suspense fallback={<LoadingScreen />}>
+              <AuthPage {...props} />
+            </Suspense>
+          )} />
+          <Route path="/auth/accept-invitation" component={(props) => (
+            <Suspense fallback={<LoadingScreen />}>
+              <AcceptInvitationPage {...props} />
+            </Suspense>
+          )} />
           <Route path="/pricing" component={PricingPage} />
           <Route path="/onboarding" component={OnboardingPage} />
           <Route path="/debug/styles" component={DevDebugStylesRoute} />
