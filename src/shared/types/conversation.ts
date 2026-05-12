@@ -202,6 +202,8 @@ export interface ConversationMessageUI extends ConversationMessage {
     size: number;
     type: string;
     url: string;
+    uploadId?: string;
+    source?: 'worker' | 'intake';
   }>;
 }
 

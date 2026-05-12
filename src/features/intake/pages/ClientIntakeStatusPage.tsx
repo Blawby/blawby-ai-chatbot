@@ -2,6 +2,7 @@ import { FunctionComponent, type ComponentChildren } from 'preact';
 
 import { DetailHeader } from '@/shared/ui/layout/DetailHeader';
 import { cn } from '@/shared/utils/cn';
+import { IntakeFilesPanel } from '@/features/intake/components/IntakeFilesPanel';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -21,6 +22,7 @@ export type ClientIntakeResponse = {
 };
 
 export type ClientIntakeStatus = {
+  intakeUuid: string;
   templateName: string;
   submittedAt: string;
   status: ClientIntakeStatusKind;
@@ -173,6 +175,9 @@ export const ClientIntakeStatusPage: FunctionComponent<ClientIntakeStatusPagePro
               </dl>
             </Card>
           ) : null}
+
+          {/* Files */}
+          <IntakeFilesPanel intakeUuid={intake.intakeUuid} canUpload canDelete={false} />
 
           {/* Notes */}
           {intake.notes ? (

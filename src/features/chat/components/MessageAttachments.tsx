@@ -5,6 +5,11 @@ import LazyMedia from '@/features/media/components/LazyMedia';
 import { Fullscreen } from '@/shared/ui/dialog';
 import MediaContent from '@/features/media/components/MediaContent';
 import { getDocumentIcon, formatDocumentIconSize } from '@/features/chat/utils/fileUtils';
+import { uploadDownloadPath } from '@/config/urls';
+
+const resolveFileUrl = (file: FileAttachment): string => (
+  file.uploadId ? uploadDownloadPath(file.uploadId) : file.url
+);
 
 interface MessageAttachmentsProps {
 	files: FileAttachment[];
@@ -39,12 +44,13 @@ export const MessageAttachments: FunctionComponent<MessageAttachmentsProps> = ({
 	);
 
 	const handleImageClick = (file: FileAttachment) => {
+		const resolvedUrl = resolveFileUrl(file);
 		setSelectedMedia({
-			id: file.url,
+			id: resolvedUrl,
 			name: file.name,
 			size: file.size,
 			type: file.type,
-			url: file.url,
+			url: resolvedUrl,
 			timestamp: new Date(),
 			messageIndex: 0,
 			category: 'image' as const
@@ -54,7 +60,7 @@ export const MessageAttachments: FunctionComponent<MessageAttachmentsProps> = ({
 
 	const handleDocumentClick = (file: FileAttachment) => {
 		const link = globalThis.document.createElement('a');
-		link.href = file.url;
+		link.href = resolveFileUrl(file);
 		link.download = file.name;
 		link.click();
 	};
@@ -69,17 +75,20 @@ export const MessageAttachments: FunctionComponent<MessageAttachmentsProps> = ({
 	return (
 		<div className={className}>
 			{/* Images */}
-			{imageFiles.map((file, index) => (
-				<div key={file.url || index} className="message-media-container my-2">
-					<LazyMedia
-						src={file.url}
-						type={file.type}
-						alt={file.name}
-						className="max-w-[300px] max-h-[300px] w-auto h-auto block cursor-pointer rounded-xl"
-						onClick={() => handleImageClick(file)}
-					/>
-				</div>
-			))}
+			{imageFiles.map((file, index) => {
+				const src = resolveFileUrl(file);
+				return (
+					<div key={src || index} className="message-media-container my-2">
+						<LazyMedia
+							src={src}
+							type={file.type}
+							alt={file.name}
+							className="max-w-[300px] max-h-[300px] w-auto h-auto block cursor-pointer rounded-xl"
+							onClick={() => handleImageClick(file)}
+						/>
+					</div>
+				);
+			})}
 
 			{/* Documents */}
 			{documentFiles.map((file, index) => (
@@ -108,7 +117,7 @@ export const MessageAttachments: FunctionComponent<MessageAttachmentsProps> = ({
 			{audioFiles.map((file, index) => (
 				<div key={`audio-${index}`} className="my-2 rounded-xl overflow-hidden max-w-75 w-full">
 					<LazyMedia
-						src={file.url}
+						src={resolveFileUrl(file)}
 						type={file.type}
 						alt={file.name}
 						className="w-full h-auto block cursor-pointer"
@@ -120,7 +129,7 @@ export const MessageAttachments: FunctionComponent<MessageAttachmentsProps> = ({
 			{videoFiles.map((file, index) => (
 				<div key={`video-${index}`} className="my-2 rounded-xl overflow-hidden max-w-75 w-full">
 					<LazyMedia
-						src={file.url}
+						src={resolveFileUrl(file)}
 						type={file.type}
 						alt={file.name}
 						className="w-full h-auto block cursor-pointer"

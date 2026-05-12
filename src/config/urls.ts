@@ -74,6 +74,21 @@ export const clientIntakeInvite = (intakeId: string): string =>
 	`/api/practice-client-intakes/${encodeSegment(intakeId)}/invite`;
 
 
+export const intakeFilesPath = (intakeUuid: string): string =>
+	`/api/practice-client-intakes/${encodeSegment(intakeUuid)}/files`;
+
+export const intakeFilePresignPath = (intakeUuid: string): string =>
+	`${intakeFilesPath(intakeUuid)}/presign`;
+
+export const intakeFileConfirmPath = (intakeUuid: string, uploadId: string): string =>
+	`${intakeFilesPath(intakeUuid)}/${encodeSegment(uploadId)}/confirm`;
+
+export const intakeFileItemPath = (intakeUuid: string, fileId: string): string =>
+	`${intakeFilesPath(intakeUuid)}/${encodeSegment(fileId)}`;
+
+export const uploadDownloadPath = (uploadId: string): string =>
+	`/api/uploads/${encodeSegment(uploadId)}/download`;
+
 export const matterCollectionPath = (practiceId: string): string => `/api/matters/${encodeSegment(practiceId)}`;
 
 export const matterItemPath = (practiceId: string, matterId: string): string =>

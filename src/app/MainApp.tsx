@@ -436,6 +436,7 @@ export function MainApp({
     practiceId: effectivePracticeId ?? practiceId,
     conversationId: activeConversationId ?? undefined,
     enabled: features.enableFileAttachments && isAuthenticatedWorkspace,
+    intakeUuid: resolveConsultationState(conversationMetadata)?.submission?.intakeUuid ?? null,
   });
 
   // Page-level drop handler. Tracks real drag state via window listeners

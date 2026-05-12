@@ -116,6 +116,7 @@ const adaptStatus = (status: IntakeStatusResponse, templateName: string): Client
         : null;
 
   return {
+    intakeUuid: status.uuid,
     templateName,
     submittedAt: submittedLabel,
     status: kind,
