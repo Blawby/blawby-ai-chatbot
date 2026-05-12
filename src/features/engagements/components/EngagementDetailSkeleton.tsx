@@ -1,15 +1,8 @@
 import { SkeletonLoader } from '@/shared/ui/layout';
 
-/**
- * Skeleton matching `EngagementDetailPage` body: status chip + 4 SectionCard
- * placeholders (Scope / Fees / Conflict / Goals). The page-level
- * `DetailHeader` already renders during loading; this is just the body that
- * was previously a centered `LoadingBlock h-64`.
- */
-const SectionCardSkeleton = ({ rows = 3 }: { rows?: number }) => (
-  <section className="glass-card p-6 sm:p-8 space-y-4">
+const SectionCardSkeleton = ({ rows = 3, chips = 0 }: { rows?: number; chips?: number }) => (
+  <section className="glass-card p-5 sm:p-6 space-y-4">
     <header className="flex items-center gap-2">
-      <SkeletonLoader variant="chip" width="w-4" />
       <SkeletonLoader variant="text" width="w-32" height="h-3" />
     </header>
     <div className="space-y-2">
@@ -22,20 +15,42 @@ const SectionCardSkeleton = ({ rows = 3 }: { rows?: number }) => (
         />
       ))}
     </div>
+    {chips > 0 && (
+      <div className="flex flex-wrap gap-2">
+        {Array.from({ length: chips }, (_, i) => (
+          <SkeletonLoader key={i} variant="chip" width="w-20" />
+        ))}
+      </div>
+    )}
+  </section>
+);
+
+const ConversationCardCollapsedSkeleton = () => (
+  <section className="glass-card p-5 sm:p-6 flex items-center justify-between gap-3">
+    <div className="flex items-center gap-3 min-w-0">
+      <SkeletonLoader variant="text" width="w-24" height="h-3" />
+      <SkeletonLoader variant="text" width="w-16" height="h-3" />
+    </div>
+    <SkeletonLoader variant="chip" width="w-6" />
   </section>
 );
 
 export const EngagementDetailSkeleton = () => (
-  <div className="flex-1 min-h-0 p-6 space-y-6">
-    {/* Status chip + posted-on subtitle */}
-    <div className="flex flex-wrap items-center gap-3">
-      <SkeletonLoader variant="chip" width="w-28" />
-      <SkeletonLoader variant="text" width="w-44" height="h-3" />
+  <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_320px] gap-6 p-4 sm:p-6">
+    {/* Left column: 3 detail cards */}
+    <div className="flex flex-col gap-4">
+      <SectionCardSkeleton rows={4} />
+      <SectionCardSkeleton rows={2} chips={4} />
+      <SectionCardSkeleton rows={4} />
     </div>
 
-    <SectionCardSkeleton rows={3} />
-    <SectionCardSkeleton rows={4} />
-    <SectionCardSkeleton rows={2} />
-    <SectionCardSkeleton rows={3} />
+    {/* Right column: 5 narrower cards (Timeline / Risk / Source / Notes / Conversation collapsed) */}
+    <aside className="flex flex-col gap-4">
+      <SectionCardSkeleton rows={3} />
+      <SectionCardSkeleton rows={2} chips={2} />
+      <SectionCardSkeleton rows={3} />
+      <SectionCardSkeleton rows={3} />
+      <ConversationCardCollapsedSkeleton />
+    </aside>
   </div>
 );

@@ -1,162 +1,183 @@
 import { FunctionComponent, type ComponentChildren } from 'preact';
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
-import { Briefcase, CheckCircle2, MessagesSquare, AlertTriangle, Scale, User, DollarSign, Send, Clock, XCircle, ShieldAlert } from 'lucide-preact';
+import {
+  AlertTriangle,
+  CheckCircle2,
+  ChevronDown,
+  ChevronUp,
+  MessagesSquare,
+  Pencil,
+  Send,
+  X,
+  XCircle,
+} from 'lucide-preact';
 
-import { Icon } from '@/shared/ui/Icon';
 import { Button } from '@/shared/ui/Button';
-import { UserCard } from '@/shared/ui/profile';
-import { EditorShell, DetailHeader } from '@/shared/ui/layout';
-import { MessageRowSkeleton } from '@/shared/ui/layout';
-import { EngagementDetailSkeleton } from '@/features/engagements/components/EngagementDetailSkeleton';
+import { DetailHeader } from '@/shared/ui/layout';
 import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
 import { Dialog, DialogBody, DialogFooter } from '@/shared/ui/dialog';
-import { Textarea } from '@/shared/ui/input';
+import { Input, Textarea, Combobox, type ComboboxOption } from '@/shared/ui/input';
 import { useNavigation } from '@/shared/utils/navigation';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { fetchConversationMessages } from '@/shared/lib/conversationApi';
 import type { ConversationMessage } from '@/shared/types/conversation';
 import { formatLongDate } from '@/shared/utils/dateFormatter';
+import { formatCurrency } from '@/shared/utils/currencyFormatter';
+import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
+import { cn } from '@/shared/utils/cn';
 import VirtualMessageList from '@/features/chat/components/VirtualMessageList';
 import type { ChatMessageUI } from '../../../../worker/types';
+
+import { EngagementDetailSkeleton } from '../components/EngagementDetailSkeleton';
 import {
-  sendEngagementToClient,
   declineEngagement,
+  patchEngagementProposal,
+  sendEngagementToClient,
 } from '../api/engagementsApi';
-import type { EngagementDetail, ProposalData, ConflictStatus } from '../types/engagement';
+import type {
+  ConflictStatus,
+  EngagementDetail,
+  EngagementStatus,
+  ProposalData,
+  ProposalFees,
+} from '../types/engagement';
 import { useEngagementDetail } from '../hooks/useEngagementDetail';
 
-// ── Status display utilities ──────────────────────────────────────────────────
+// ── Status helpers ───────────────────────────────────────────────────────────
 
-const ENGAGEMENT_CHIP: Record<string, string> = {
-  draft:    'bg-amber-500/10 text-amber-700 ring-amber-500/20 dark:text-amber-300',
-  sent:     'bg-violet-500/10 text-violet-700 ring-violet-500/20 dark:text-violet-300',
-  accepted: 'bg-emerald-500/10 text-emerald-700 ring-emerald-500/20 dark:text-emerald-300',
-  declined: 'bg-rose-500/10 text-rose-700 ring-rose-500/20 dark:text-rose-300',
-};
-const NEUTRAL_CHIP = 'bg-surface-overlay/60 text-input-placeholder ring-line-glass/30';
-
-function statusChipClass(status?: string) {
-  return ENGAGEMENT_CHIP[status ?? ''] ?? NEUTRAL_CHIP;
-}
-
-function statusLabel(status?: string) {
-  if (status === 'draft') return 'Draft';
-  if (status === 'sent') return 'Sent to client';
-  if (status === 'accepted') return 'Client accepted';
-  if (status === 'declined') return 'Declined';
-  return status ?? 'Unknown';
-}
-
-// ── Conflict / jurisdiction indicators ────────────────────────────────────────
-
-const CONFLICT_CHIP: Record<ConflictStatus, string> = {
-  clear:             'bg-emerald-500/10 text-emerald-700 ring-emerald-500/20 dark:text-emerald-300',
-  review_required:   'bg-amber-500/10 text-amber-700 ring-amber-500/20 dark:text-amber-300',
-  conflicted:        'bg-rose-500/10 text-rose-700 ring-rose-500/20 dark:text-rose-300',
-  unknown:           'bg-surface-overlay/60 text-input-placeholder ring-line-glass/30',
-  insufficient_data: 'bg-surface-overlay/60 text-input-placeholder ring-line-glass/30',
+const STATUS_VARIANTS: Record<EngagementStatus, { label: string; className: string }> = {
+  draft:    { label: 'Draft',    className: 'bg-amber-500/10 text-amber-700 ring-amber-500/20 dark:text-amber-300' },
+  sent:     { label: 'Sent',     className: 'bg-surface-overlay/60 text-input-placeholder ring-line-glass/30' },
+  accepted: { label: 'Accepted', className: 'bg-emerald-500/10 text-emerald-700 ring-emerald-500/20 dark:text-emerald-300' },
+  declined: { label: 'Declined', className: 'bg-rose-500/10 text-rose-700 ring-rose-500/20 dark:text-rose-300' },
 };
 
-function conflictChipClass(status?: ConflictStatus) {
-  return CONFLICT_CHIP[status ?? 'unknown'] ?? CONFLICT_CHIP.unknown;
-}
-
-function conflictLabel(status?: ConflictStatus) {
-  if (status === 'clear') return 'Clear';
-  if (status === 'review_required') return 'Review Required';
-  if (status === 'conflicted') return 'Conflicted';
-  if (status === 'insufficient_data') return 'Insufficient Data';
-  return 'Unknown';
-}
-
-// ── Currency formatting ────────────────────────────────────────────────────────
-
-function formatMoney(amount?: number | null, currency = 'USD') {
-  if (typeof amount !== 'number' || !Number.isFinite(amount)) return null;
-  try {
-    return new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(amount / 100);
-  } catch {
-    return `${amount / 100} ${currency}`;
-  }
-}
-
-// ── Stat cell (used inside CSS grids) ─────────────────────────────────────────
-
-type StatCellProps = { label: string; value?: string | null; icon?: typeof User };
-const StatCell: FunctionComponent<StatCellProps> = ({ label, value, icon: IconComp }) => {
-  if (!value) return null;
+const StatusPill: FunctionComponent<{ status: EngagementStatus | string | undefined }> = ({ status }) => {
+  const variant = STATUS_VARIANTS[status as EngagementStatus] ?? STATUS_VARIANTS.draft;
   return (
-    <div className="flex items-start gap-2.5">
-      {IconComp && (
-        <div className="mt-0.5 flex-shrink-0 text-input-placeholder">
-          <Icon icon={IconComp} className="w-4 h-4" />
-        </div>
-      )}
-      <div className="min-w-0">
-        <p className="text-xs font-medium uppercase tracking-wide text-input-placeholder mb-0.5">{label}</p>
-        <p className="text-sm text-input-text break-words">{value}</p>
-      </div>
-    </div>
+    <span className={cn('inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset', variant.className)}>
+      {variant.label}
+    </span>
   );
 };
 
-// ── Section card ───────────────────────────────────────────────────────────────
+const CONFLICT_VARIANTS: Record<ConflictStatus, { label: string; className: string }> = {
+  clear:             { label: 'Clear',             className: 'bg-emerald-500/10 text-emerald-700 ring-emerald-500/20 dark:text-emerald-300' },
+  review_required:   { label: 'Review Required',   className: 'bg-amber-500/10 text-amber-700 ring-amber-500/20 dark:text-amber-300' },
+  conflicted:        { label: 'Conflicted',        className: 'bg-rose-500/10 text-rose-700 ring-rose-500/20 dark:text-rose-300' },
+  unknown:           { label: 'Unknown',           className: 'bg-surface-overlay/60 text-input-placeholder ring-line-glass/30' },
+  insufficient_data: { label: 'Insufficient Data', className: 'bg-surface-overlay/60 text-input-placeholder ring-line-glass/30' },
+};
 
-const SectionCard: FunctionComponent<{ title: string; icon?: typeof User; children: ComponentChildren }> = ({
-  title,
-  icon: IconComp,
-  children,
-}) => (
-  <section className="glass-card p-6 sm:p-8 space-y-4">
-    <header className="flex items-center gap-2">
-      {IconComp && <Icon icon={IconComp} className="w-4 h-4 text-input-placeholder" />}
+// ── Display helpers ──────────────────────────────────────────────────────────
+
+const formatFeeAmount = (amount: number | null | undefined): string | null => {
+  if (typeof amount !== 'number' || !Number.isFinite(amount)) return null;
+  return formatCurrency(amount);
+};
+
+const formatPercent = (value: number | null | undefined): string | null => {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return null;
+  return `${value}%`;
+};
+
+const billingTypeLabel = (type: string | null | undefined): string => {
+  if (!type) return '—';
+  const t = type.toLowerCase();
+  if (t === 'flat' || t === 'fixed' || t === 'flat_fee') return 'Flat Fee';
+  if (t === 'hourly') return 'Hourly';
+  if (t === 'contingency') return 'Contingency';
+  if (t === 'retainer') return 'Retainer';
+  return type;
+};
+
+const getMatterDisplay = (engagement: EngagementDetail): string => {
+  if (engagement.proposal_data?.client_summary?.matter_summary) {
+    return engagement.proposal_data.client_summary.matter_summary;
+  }
+  if (engagement.title) return engagement.title;
+  return '—';
+};
+
+// ── Section card primitive ──────────────────────────────────────────────────
+
+const SectionCard: FunctionComponent<{
+  title: string;
+  children: ComponentChildren;
+  className?: string;
+  action?: ComponentChildren;
+}> = ({ title, children, className, action }) => (
+  <section className={cn('glass-card p-5 sm:p-6 space-y-4', className)}>
+    <header className="flex items-center justify-between gap-2">
       <h3 className="text-xs font-semibold uppercase tracking-widest text-input-placeholder">{title}</h3>
+      {action}
     </header>
     {children}
   </section>
 );
 
-// ── Conflict / jurisdiction panel ──────────────────────────────────────────────
+const InfoRow: FunctionComponent<{
+  label: string;
+  value: ComponentChildren | null | undefined;
+  fallback?: string;
+}> = ({ label, value, fallback = 'Not specified' }) => (
+  <div className="grid grid-cols-[120px_minmax(0,1fr)] gap-3 text-sm">
+    <dt className="text-input-placeholder">{label}</dt>
+    <dd className="text-input-text break-words">{value || <span className="text-input-placeholder italic">{fallback}</span>}</dd>
+  </div>
+);
 
-const ConflictPanel: FunctionComponent<{ proposal: ProposalData | null | undefined }> = ({ proposal }) => {
-  if (!proposal?.risk_review) return null;
-  const { conflict_status, jurisdiction_status, open_questions, conflict_note } = proposal.risk_review;
+// ── View-mode left cards ─────────────────────────────────────────────────────
 
-  const jurisdictionChip =
-    jurisdiction_status === 'supported'
-      ? 'bg-emerald-500/10 text-emerald-700 ring-emerald-500/20 dark:text-emerald-300'
-      : jurisdiction_status === 'unsupported'
-        ? 'bg-amber-500/10 text-amber-700 ring-amber-500/20 dark:text-amber-300'
-        : 'bg-surface-overlay/60 text-input-placeholder ring-line-glass/30';
+const ClientSummaryCard: FunctionComponent<{ engagement: EngagementDetail }> = ({ engagement }) => {
+  const summary = engagement.proposal_data?.client_summary;
+  const matter = getMatterDisplay(engagement);
+  return (
+    <SectionCard title="Client summary">
+      <dl className="space-y-2.5">
+        <InfoRow label="Client name" value={summary?.client_name ?? engagement.client_name} />
+        <InfoRow label="Matter" value={matter} />
+        <InfoRow label="Location" value={summary?.location_summary} />
+        <InfoRow label="Goals" value={summary?.goals_summary} />
+      </dl>
+    </SectionCard>
+  );
+};
+
+const ScopeOfRepresentationCard: FunctionComponent<{ proposal: ProposalData | null }> = ({ proposal }) => {
+  const scope = proposal?.representation?.scope_summary;
+  const included = proposal?.representation?.included_services ?? [];
+  const excluded = proposal?.representation?.excluded_services ?? [];
 
   return (
-    <SectionCard title="Conflict & Jurisdiction" icon={ShieldAlert}>
-      <div className="flex flex-wrap gap-3">
-        <div>
-          <p className="text-xs text-input-placeholder mb-1">Conflict check</p>
-          <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ring-1 ring-inset ${conflictChipClass(conflict_status)}`}>
-            {conflictLabel(conflict_status)}
-          </span>
-        </div>
-        <div>
-          <p className="text-xs text-input-placeholder mb-1">Jurisdiction</p>
-          <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ring-1 ring-inset ${jurisdictionChip}`}>
-            {jurisdiction_status === 'supported' ? 'Supported' : jurisdiction_status === 'unsupported' ? 'Not Supported' : 'Unknown'}
-          </span>
-        </div>
-      </div>
-      {conflict_note && (
-        <p className="text-sm text-input-text">{conflict_note}</p>
+    <SectionCard title="Scope of representation">
+      {scope ? (
+        <p className="text-sm leading-relaxed text-input-text">{scope}</p>
+      ) : (
+        <p className="text-sm italic text-input-placeholder">Not yet drafted</p>
       )}
-      {open_questions && open_questions.length > 0 && (
-        <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-input-placeholder mb-2">Open Questions</p>
-          <ul className="space-y-1.5">
-            {open_questions.map((q, i) => (
+      {included.length > 0 && (
+        <div className="space-y-1.5">
+          <p className="text-xs font-medium uppercase tracking-wide text-input-placeholder">Included</p>
+          <ul className="space-y-1">
+            {included.map((service, i) => (
               <li key={i} className="flex items-start gap-2 text-sm text-input-text">
-                <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
-                {q}
+                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
+                <span>{service}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {excluded.length > 0 && (
+        <div className="space-y-1.5">
+          <p className="text-xs font-medium uppercase tracking-wide text-input-placeholder">Excluded</p>
+          <ul className="space-y-1">
+            {excluded.map((service, i) => (
+              <li key={i} className="flex items-start gap-2 text-sm text-input-text">
+                <XCircle className="mt-0.5 h-4 w-4 shrink-0 text-rose-500/70" />
+                <span>{service}</span>
               </li>
             ))}
           </ul>
@@ -166,72 +187,73 @@ const ConflictPanel: FunctionComponent<{ proposal: ProposalData | null | undefin
   );
 };
 
-// ── Scope card ─────────────────────────────────────────────────────────────────
-
-const ScopeCard: FunctionComponent<{ proposal: ProposalData | null | undefined }> = ({ proposal }) => {
-  if (!proposal?.representation?.scope_summary) return null;
-  const { scope_summary, included_services, excluded_services } = proposal.representation;
-
-  return (
-    <SectionCard title="Scope of Representation" icon={Briefcase}>
-      <p className="text-sm text-input-text leading-relaxed">{scope_summary}</p>
-      {included_services && included_services.length > 0 && (
-        <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-input-placeholder mb-2">Included</p>
-          <ul className="space-y-1">
-            {included_services.map((s, i) => (
-              <li key={i} className="flex items-center gap-2 text-sm text-input-text">
-                <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" />
-                {s}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-      {excluded_services && excluded_services.length > 0 && (
-        <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-input-placeholder mb-2">Excluded</p>
-          <ul className="space-y-1">
-            {excluded_services.map((s, i) => (
-              <li key={i} className="flex items-center gap-2 text-sm text-input-text">
-                <XCircle className="w-4 h-4 text-rose-500/70 flex-shrink-0" />
-                {s}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-    </SectionCard>
-  );
-};
-
-// ── Fees card ──────────────────────────────────────────────────────────────────
-
-const FeesCard: FunctionComponent<{ proposal: ProposalData | null | undefined }> = ({
-  proposal,
-}) => {
+const FeeStructureCard: FunctionComponent<{ proposal: ProposalData | null }> = ({ proposal }) => {
   const fees = proposal?.fees;
+  if (!fees) {
+    return (
+      <SectionCard title="Fee structure">
+        <p className="text-sm italic text-input-placeholder">Not yet drafted</p>
+      </SectionCard>
+    );
+  }
 
-  const rows: Array<{ label: string; value: string | null }> = [
-    { label: 'Billing type', value: fees?.billing_type ?? null },
-    { label: 'Attorney rate', value: fees?.hourly_rate_attorney != null ? formatMoney(fees.hourly_rate_attorney) : null },
-    { label: 'Admin rate', value: fees?.hourly_rate_admin != null ? formatMoney(fees.hourly_rate_admin) : null },
-    { label: 'Retainer', value: fees?.retainer_amount != null ? formatMoney(fees.retainer_amount) : null },
-    { label: 'Fixed fee', value: fees?.fixed_fee_amount != null ? formatMoney(fees.fixed_fee_amount) : null },
-    { label: 'Contingency', value: fees?.contingency_percentage != null ? `${fees.contingency_percentage}%` : null },
-    { label: 'Payment frequency', value: fees?.payment_frequency ?? null },
-    { label: 'Fee notes', value: fees?.fee_notes ?? null },
-  ].filter((row) => row.value !== null);
+  const cells: Array<{ label: string; value: string | null }> = [
+    { label: 'Billing type', value: billingTypeLabel(fees.billing_type) },
+    { label: 'Contingency rate', value: formatPercent(fees.contingency_percentage) },
+    { label: 'Retainer amount', value: formatFeeAmount(fees.retainer_amount) },
+    { label: 'Payment frequency', value: fees.payment_frequency ?? null },
+    { label: 'Flat fee', value: formatFeeAmount(fees.fixed_fee_amount) },
+    { label: 'Attorney rate', value: formatFeeAmount(fees.hourly_rate_attorney) },
+  ];
+  const visible = cells.filter((c) => c.value !== null && c.value !== '—');
 
-  if (rows.length === 0) return null;
+  if (visible.length === 0) {
+    return (
+      <SectionCard title="Fee structure">
+        <p className="text-sm italic text-input-placeholder">Not yet drafted</p>
+      </SectionCard>
+    );
+  }
 
   return (
-    <SectionCard title="Fee Terms" icon={DollarSign}>
-      <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4">
+    <SectionCard title="Fee structure">
+      <dl className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
+        {visible.map(({ label, value }) => (
+          <div key={label}>
+            <dt className="text-xs text-input-placeholder">{label}</dt>
+            <dd className="mt-0.5 text-sm font-medium text-input-text">{value}</dd>
+          </div>
+        ))}
+      </dl>
+      {fees.fee_notes && (
+        <p className="border-t border-line-glass/10 pt-3 text-sm text-input-text">{fees.fee_notes}</p>
+      )}
+    </SectionCard>
+  );
+};
+
+// ── View-mode right cards ────────────────────────────────────────────────────
+
+const TimelineCard: FunctionComponent<{ engagement: EngagementDetail }> = ({ engagement }) => {
+  const rows: Array<{ label: string; value: string | null }> = [
+    { label: 'Created', value: formatLongDate(engagement.created_at) ?? engagement.created_at },
+    { label: 'Sent', value: engagement.sent_at ? formatLongDate(engagement.sent_at) ?? engagement.sent_at : null },
+    {
+      label: 'Response',
+      value:
+        engagement.accepted_at ? `Accepted ${formatRelativeTime(engagement.accepted_at)}` :
+        engagement.declined_at ? `Declined ${formatRelativeTime(engagement.declined_at)}` :
+        null,
+    },
+  ];
+
+  return (
+    <SectionCard title="Timeline">
+      <dl className="space-y-2.5">
         {rows.map(({ label, value }) => (
-          <div key={label} className="flex flex-col">
-            <dt className="text-xs text-input-placeholder mb-0.5">{label}</dt>
-            <dd className="text-sm text-input-text font-medium capitalize">{value}</dd>
+          <div key={label} className="flex items-center justify-between gap-3 text-sm">
+            <dt className="text-input-placeholder">{label}</dt>
+            <dd className="text-right text-input-text">{value ?? <span className="italic text-input-placeholder">Pending</span>}</dd>
           </div>
         ))}
       </dl>
@@ -239,78 +261,116 @@ const FeesCard: FunctionComponent<{ proposal: ProposalData | null | undefined }>
   );
 };
 
-// ── Draft meta ─────────────────────────────────────────────────────────────────
+const RiskReviewCard: FunctionComponent<{ proposal: ProposalData | null }> = ({ proposal }) => {
+  const risk = proposal?.risk_review;
+  const conflict = CONFLICT_VARIANTS[(risk?.conflict_status ?? 'unknown') as ConflictStatus];
+  const jurisdictionLabel =
+    risk?.jurisdiction_status === 'supported' ? 'Supported' :
+    risk?.jurisdiction_status === 'unsupported' ? 'Unsupported' :
+    'Unknown';
+  const jurisdictionClass =
+    risk?.jurisdiction_status === 'supported' ? STATUS_VARIANTS.accepted.className :
+    risk?.jurisdiction_status === 'unsupported' ? STATUS_VARIANTS.draft.className :
+    STATUS_VARIANTS.sent.className;
 
-const DraftMetaBadge: FunctionComponent<{ proposal: ProposalData | null | undefined }> = ({ proposal }) => {
-  if (!proposal?.draft_meta) return null;
-  const { version, generated_at } = proposal.draft_meta;
   return (
-    <div className="flex items-center gap-2 text-xs text-input-placeholder">
-      <Clock className="w-3.5 h-3.5" />
-      <span>Draft v{version} · Generated {formatLongDate(generated_at) ?? generated_at}</span>
-    </div>
-  );
-};
-
-// ── Proposal goals section ─────────────────────────────────────────────────────
-
-const GoalsSection: FunctionComponent<{ proposal: ProposalData | null | undefined }> = ({ proposal }) => {
-  const goals = proposal?.client_summary?.goals_summary;
-  if (!goals) return null;
-  return (
-    <SectionCard title="Client Goals" icon={Scale}>
-      <p className="text-sm text-input-text leading-relaxed">{goals}</p>
+    <SectionCard title="Risk review">
+      <div className="flex flex-wrap gap-2">
+        <span className={cn('inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset', conflict.className)}>
+          {conflict.label}
+        </span>
+        <span className={cn('inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset', jurisdictionClass)}>
+          {jurisdictionLabel}
+        </span>
+      </div>
+      {risk?.conflict_note && <p className="text-sm text-input-text">{risk.conflict_note}</p>}
+      {risk?.open_questions && risk.open_questions.length > 0 && (
+        <ul className="space-y-1.5">
+          {risk.open_questions.map((q, i) => (
+            <li key={i} className="flex items-start gap-2 text-sm text-input-text">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
+              <span>{q}</span>
+            </li>
+          ))}
+        </ul>
+      )}
     </SectionCard>
   );
 };
 
-// ── Action dialogs ─────────────────────────────────────────────────────────────
+const SourceInformationCard: FunctionComponent<{ engagement: EngagementDetail }> = ({ engagement }) => {
+  const source = engagement.proposal_data?.source_snapshot;
+  const rows: Array<{ label: string; value: string | null }> = [
+    { label: 'Practice area', value: source?.practice_area ?? engagement.practice_area ?? null },
+    { label: 'Urgency', value: source?.urgency ?? engagement.urgency ?? null },
+    { label: 'Opposing party', value: source?.opposing_party ?? engagement.opposing_party ?? null },
+  ];
+  const visible = rows.filter((r) => r.value);
 
-type DialogAction = 'send' | 'decline' | null;
-
-// ── Main component ────────────────────────────────────────────────────────────
-
-type EngagementDetailPageProps = {
-  practiceId: string | null;
-  engagementId: string;
-  conversationsBasePath?: string | null;
-  practiceName: string;
-  practiceLogo: string | null;
-  onBack: () => void;
-  onActionComplete?: () => void;
+  return (
+    <SectionCard title="Source information">
+      {visible.length === 0 ? (
+        <p className="text-sm italic text-input-placeholder">No source context</p>
+      ) : (
+        <dl className="space-y-2.5">
+          {visible.map(({ label, value }) => (
+            <div key={label} className="flex items-start justify-between gap-3 text-sm">
+              <dt className="text-input-placeholder">{label}</dt>
+              <dd className="text-right text-input-text capitalize">{value}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+    </SectionCard>
+  );
 };
 
-export const EngagementDetailPage: FunctionComponent<EngagementDetailPageProps> = ({
-  practiceId,
-  engagementId,
-  conversationsBasePath,
+const EngagementNotesCard: FunctionComponent<{ engagement: EngagementDetail }> = ({ engagement }) => (
+  <SectionCard title="Engagement notes">
+    {engagement.engagement_notes ? (
+      <p className="text-sm leading-relaxed text-input-text whitespace-pre-wrap">{engagement.engagement_notes}</p>
+    ) : (
+      <p className="text-sm italic text-input-placeholder">No internal notes yet</p>
+    )}
+  </SectionCard>
+);
+
+// ── Conversation preview card (collapsible) ──────────────────────────────────
+
+interface ConversationPreviewCardProps {
+  engagement: EngagementDetail;
+  practiceName: string;
+  practiceLogo: string | null;
+  conversationsBasePath?: string | null;
+  isExpanded: boolean;
+  isMobile: boolean;
+  onToggle: () => void;
+}
+
+const ConversationPreviewCard: FunctionComponent<ConversationPreviewCardProps> = ({
+  engagement,
   practiceName,
   practiceLogo,
-  onBack,
-  onActionComplete,
+  conversationsBasePath,
+  isExpanded,
+  isMobile,
+  onToggle,
 }) => {
   const { navigate } = useNavigation();
-  const { showSuccess, showError } = useToastContext();
   const { session } = useSessionContext();
+  const [messages, setMessages] = useState<ChatMessageUI[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [cursor, setCursor] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const isMountedRef = useRef(true);
 
-  const {
-    data: engagementData,
-    isLoading,
-    error: loadError,
-    setData: setEngagementCache,
-  } = useEngagementDetail(practiceId, engagementId);
-  const engagement: EngagementDetail | null = engagementData ?? null;
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [dialogAction, setDialogAction] = useState<DialogAction>(null);
-  const [dialogNote, setDialogNote] = useState('');
-  const [previewMessages, setPreviewMessages] = useState<ChatMessageUI[]>([]);
-  const [previewLoading, setPreviewLoading] = useState(false);
-  const [previewError, setPreviewError] = useState<string | null>(null);
-  const [previewCursor, setPreviewCursor] = useState<string | null>(null);
-  const [hasMorePreview, setHasMorePreview] = useState(false);
-  const [isLoadingMorePreview, setIsLoadingMorePreview] = useState(false);
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => { isMountedRef.current = false; };
+  }, []);
 
-  const PREVIEW_PAGE_SIZE = 50;
   const mapMessage = useCallback((m: ConversationMessage): ChatMessageUI => ({
     id: m.id,
     role: m.role,
@@ -321,88 +381,581 @@ export const EngagementDetailPage: FunctionComponent<EngagementDetailPageProps> 
     isUser: m.user_id === session?.user?.id,
     seq: m.seq,
   } satisfies ChatMessageUI), [session?.user?.id]);
-  const [localStatus, setLocalStatus] = useState<string | null>(null);
-  const isMountedRef = useRef(true);
 
+  // Lazy-load first page on expand.
+  useEffect(() => {
+    if (!isExpanded) return;
+    if (messages.length > 0) return;
+    const conversationId = engagement.conversation_id;
+    const targetPracticeId = engagement.organization_id;
+    if (!conversationId || !targetPracticeId) return;
+
+    const controller = new AbortController();
+    setIsLoading(true);
+    setError(null);
+
+    fetchConversationMessages(conversationId, targetPracticeId, {
+      limit: 50,
+      signal: controller.signal,
+    })
+      .then((page) => {
+        if (!isMountedRef.current || controller.signal.aborted) return;
+        setMessages(page.messages.map(mapMessage));
+        setCursor(page.cursor);
+        setHasMore(page.hasMore);
+      })
+      .catch((err) => {
+        if (!isMountedRef.current || controller.signal.aborted) return;
+        setError(err instanceof Error ? err.message : 'Could not load messages');
+      })
+      .finally(() => {
+        if (isMountedRef.current && !controller.signal.aborted) setIsLoading(false);
+      });
+
+    return () => controller.abort();
+  }, [isExpanded, engagement.conversation_id, engagement.organization_id, mapMessage, messages.length]);
+
+  const loadOlder = useCallback(async () => {
+    if (!cursor || !hasMore || isLoadingMore) return;
+    const conversationId = engagement.conversation_id;
+    const targetPracticeId = engagement.organization_id;
+    if (!conversationId || !targetPracticeId) return;
+
+    const controller = new AbortController();
+    setIsLoadingMore(true);
+    try {
+      const page = await fetchConversationMessages(conversationId, targetPracticeId, {
+        limit: 50,
+        cursor,
+        signal: controller.signal,
+      });
+      if (!isMountedRef.current || controller.signal.aborted) return;
+      setMessages((current) => {
+        const seen = new Set(current.map((m) => m.id));
+        const older = page.messages.map(mapMessage).filter((m) => !seen.has(m.id));
+        return [...older, ...current];
+      });
+      setCursor(page.cursor);
+      setHasMore(page.hasMore);
+    } finally {
+      if (isMountedRef.current && !controller.signal.aborted) setIsLoadingMore(false);
+    }
+  }, [cursor, hasMore, isLoadingMore, engagement.conversation_id, engagement.organization_id, mapMessage]);
+
+  const lastActivity = engagement.updated_at ?? engagement.sent_at ?? engagement.created_at;
+  const conversationId = engagement.conversation_id;
+  const targetPracticeId = engagement.organization_id;
+
+  // Mobile expanded = full-screen overlay
+  if (isExpanded && isMobile) {
+    return (
+      <div className="fixed inset-0 z-40 flex flex-col bg-app-background">
+        <header className="flex items-center justify-between border-b border-card-border px-4 py-3">
+          <h2 className="text-base font-semibold text-input-text">Messages</h2>
+          <Button variant="ghost" icon={X} onClick={onToggle} aria-label="Close conversation" />
+        </header>
+        <div className="min-h-0 flex-1">
+          <ConversationContent
+            isLoading={isLoading}
+            error={error}
+            messages={messages}
+            engagement={engagement}
+            practiceName={practiceName}
+            practiceLogo={practiceLogo}
+            hasMore={hasMore}
+            isLoadingMore={isLoadingMore}
+            onLoadMore={loadOlder}
+          />
+        </div>
+        {conversationsBasePath && conversationId && (
+          <div className="border-t border-card-border p-3">
+            <Button
+              variant="secondary"
+              className="w-full"
+              onClick={() => navigate(`${conversationsBasePath}/${encodeURIComponent(conversationId)}`)}
+            >
+              Open full conversation
+            </Button>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <section className="glass-card overflow-hidden">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="flex w-full items-center justify-between gap-3 p-5 text-left transition-colors hover:bg-surface-card-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 sm:p-6"
+      >
+        <div className="flex min-w-0 items-center gap-3">
+          <MessagesSquare className="h-4 w-4 shrink-0 text-input-placeholder" />
+          <h3 className="text-xs font-semibold uppercase tracking-widest text-input-placeholder">Messages</h3>
+          {lastActivity && (
+            <span className="truncate text-xs text-input-placeholder">
+              · {formatRelativeTime(lastActivity)}
+            </span>
+          )}
+        </div>
+        {isExpanded ? <ChevronUp className="h-4 w-4 text-input-placeholder" /> : <ChevronDown className="h-4 w-4 text-input-placeholder" />}
+      </button>
+      {isExpanded && !isMobile && (
+        <div className="border-t border-line-glass/10">
+          <div className="h-[320px] bg-surface-overlay/20">
+            <ConversationContent
+              isLoading={isLoading}
+              error={error}
+              messages={messages}
+              engagement={engagement}
+              practiceName={practiceName}
+              practiceLogo={practiceLogo}
+              hasMore={hasMore}
+              isLoadingMore={isLoadingMore}
+              onLoadMore={loadOlder}
+            />
+          </div>
+          {conversationsBasePath && conversationId && targetPracticeId && (
+            <div className="border-t border-line-glass/10 p-3">
+              <Button
+                variant="secondary"
+                className="w-full"
+                onClick={() => navigate(`${conversationsBasePath}/${encodeURIComponent(conversationId)}`)}
+              >
+                Open full conversation
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
+    </section>
+  );
+};
+
+const ConversationContent: FunctionComponent<{
+  isLoading: boolean;
+  error: string | null;
+  messages: ChatMessageUI[];
+  engagement: EngagementDetail;
+  practiceName: string;
+  practiceLogo: string | null;
+  hasMore: boolean;
+  isLoadingMore: boolean;
+  onLoadMore: () => void;
+}> = ({ isLoading, error, messages, engagement, practiceName, practiceLogo, hasMore, isLoadingMore, onLoadMore }) => {
+  if (isLoading && messages.length === 0) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <LoadingSpinner size="sm" ariaLabel="Loading messages" />
+      </div>
+    );
+  }
+  if (error) {
+    return (
+      <div className="flex h-full items-center justify-center p-6 text-center">
+        <p className="text-sm text-rose-400">{error}</p>
+      </div>
+    );
+  }
+  if (!engagement.organization_id) return null;
+  return (
+    <VirtualMessageList
+      messages={messages}
+      conversationTitle={engagement.client_name ?? null}
+      viewerContext="practice"
+      practiceConfig={{
+        name: practiceName,
+        profileImage: practiceLogo,
+        practiceId: engagement.organization_id,
+      }}
+      practiceId={engagement.organization_id}
+      hasMoreMessages={hasMore}
+      isLoadingMoreMessages={isLoadingMore}
+      onLoadMoreMessages={onLoadMore}
+    />
+  );
+};
+
+// ── Edit form ────────────────────────────────────────────────────────────────
+
+type EditFormState = {
+  clientName: string;
+  matterSummary: string;
+  locationSummary: string;
+  scopeSummary: string;
+  includedServicesText: string;
+  billingType: string;
+  contingencyPercentage: string;
+  retainerAmount: string;
+  paymentFrequency: string;
+  engagementNotes: string;
+};
+
+const BILLING_TYPE_OPTIONS: ComboboxOption[] = [
+  { value: 'flat', label: 'Flat Fee' },
+  { value: 'hourly', label: 'Hourly' },
+  { value: 'contingency', label: 'Contingency' },
+  { value: 'retainer', label: 'Retainer' },
+];
+
+const PAYMENT_FREQUENCY_OPTIONS: ComboboxOption[] = [
+  { value: 'one_time', label: 'One time' },
+  { value: 'monthly', label: 'Monthly' },
+  { value: 'quarterly', label: 'Quarterly' },
+  { value: 'on_completion', label: 'On completion' },
+];
+
+const buildEditFormState = (engagement: EngagementDetail): EditFormState => {
+  const summary = engagement.proposal_data?.client_summary;
+  const rep = engagement.proposal_data?.representation;
+  const fees = engagement.proposal_data?.fees;
+  return {
+    clientName: summary?.client_name ?? engagement.client_name ?? '',
+    matterSummary: summary?.matter_summary ?? '',
+    locationSummary: summary?.location_summary ?? '',
+    scopeSummary: rep?.scope_summary ?? '',
+    includedServicesText: (rep?.included_services ?? []).join('\n'),
+    billingType: fees?.billing_type ?? '',
+    contingencyPercentage: fees?.contingency_percentage != null ? String(fees.contingency_percentage) : '',
+    retainerAmount: fees?.retainer_amount != null ? String(fees.retainer_amount) : '',
+    paymentFrequency: fees?.payment_frequency ?? '',
+    engagementNotes: engagement.engagement_notes ?? '',
+  };
+};
+
+const mergeEditFormIntoProposal = (engagement: EngagementDetail, form: EditFormState): ProposalData => {
+  const existing = engagement.proposal_data;
+  const baseProposal: ProposalData = existing ?? {
+    representation: { scope_summary: '' },
+    fees: {},
+    risk_review: { conflict_status: 'unknown', jurisdiction_status: 'unknown' },
+    client_summary: {},
+    draft_meta: { version: 1, generated_at: new Date().toISOString() },
+  };
+
+  const includedServices = form.includedServicesText
+    .split('\n')
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  const fees: ProposalFees = {
+    ...baseProposal.fees,
+    billing_type: form.billingType || baseProposal.fees.billing_type || null,
+    contingency_percentage: form.contingencyPercentage ? Number(form.contingencyPercentage) : null,
+    retainer_amount: form.retainerAmount ? Number(form.retainerAmount) : null,
+    payment_frequency: form.paymentFrequency || baseProposal.fees.payment_frequency || null,
+  };
+
+  return {
+    ...baseProposal,
+    representation: {
+      ...baseProposal.representation,
+      scope_summary: form.scopeSummary,
+      included_services: includedServices.length > 0 ? includedServices : baseProposal.representation.included_services,
+    },
+    fees,
+    client_summary: {
+      ...baseProposal.client_summary,
+      client_name: form.clientName || baseProposal.client_summary?.client_name || null,
+      matter_summary: form.matterSummary || baseProposal.client_summary?.matter_summary || null,
+      location_summary: form.locationSummary || baseProposal.client_summary?.location_summary || null,
+    },
+    draft_meta: {
+      ...baseProposal.draft_meta,
+      version: (baseProposal.draft_meta?.version ?? 0) + 1,
+      generated_at: new Date().toISOString(),
+    },
+  };
+};
+
+interface EditModeViewProps {
+  engagement: EngagementDetail;
+  saving: boolean;
+  saveError: string | null;
+  feesEditingDisabled: boolean;
+  onSaveDraft: (form: EditFormState) => Promise<void>;
+  onReviewAndSend: (form: EditFormState) => Promise<void>;
+  onCancel: () => void;
+}
+
+const EditModeView: FunctionComponent<EditModeViewProps> = ({
+  engagement,
+  saving,
+  saveError,
+  feesEditingDisabled,
+  onSaveDraft,
+  onReviewAndSend,
+  onCancel,
+}) => {
+  const [form, setForm] = useState<EditFormState>(() => buildEditFormState(engagement));
+
+  // Refresh form when engagement payload changes (e.g. after save -> re-enter edit).
+  // Intentionally narrow the deps to id + updated_at so transient state (localStatus,
+  // dialog flags) doesn't clobber unsaved user edits.
+  useEffect(() => {
+    setForm(buildEditFormState(engagement));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [engagement.id, engagement.updated_at]);
+
+  const update = useCallback(<K extends keyof EditFormState>(field: K, value: EditFormState[K]) => {
+    setForm((prev) => ({ ...prev, [field]: value }));
+  }, []);
+
+  return (
+    <div className="flex h-full min-h-0 flex-col">
+      <header className="flex items-center justify-between gap-3 border-b border-card-border bg-surface-workspace px-4 py-3 sm:px-6">
+        <Button variant="ghost" icon={X} onClick={onCancel} disabled={saving} aria-label="Cancel" />
+        <h1 className="text-base font-semibold text-input-text">Edit engagement</h1>
+        <div className="flex items-center gap-2">
+          <Button variant="secondary" onClick={() => onSaveDraft(form)} disabled={saving}>
+            {saving ? 'Saving…' : 'Save draft'}
+          </Button>
+          <Button variant="primary" icon={Send} iconPosition="right" onClick={() => onReviewAndSend(form)} disabled={saving}>
+            Review &amp; send
+          </Button>
+        </div>
+      </header>
+
+      <div className="flex-1 overflow-y-auto">
+        <form className="mx-auto max-w-3xl space-y-6 p-4 sm:p-6" onSubmit={(e) => e.preventDefault()}>
+          {saveError && (
+            <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-sm text-rose-300">
+              {saveError}
+            </div>
+          )}
+
+          <SectionCard title="Client information">
+            <div className="space-y-3">
+              <Input
+                label="Client name"
+                value={form.clientName}
+                onChange={(v) => update('clientName', v)}
+                disabled={saving}
+              />
+              <Input
+                label="Matter"
+                value={form.matterSummary}
+                onChange={(v) => update('matterSummary', v)}
+                disabled={saving}
+              />
+              <Input
+                label="Location"
+                value={form.locationSummary}
+                onChange={(v) => update('locationSummary', v)}
+                disabled={saving}
+              />
+            </div>
+          </SectionCard>
+
+          <SectionCard title="Scope of representation">
+            <div className="space-y-3">
+              <Textarea
+                label="Scope summary"
+                value={form.scopeSummary}
+                onChange={(v) => update('scopeSummary', v)}
+                rows={4}
+                disabled={saving}
+              />
+              <Textarea
+                label="Included services (one per line)"
+                value={form.includedServicesText}
+                onChange={(v) => update('includedServicesText', v)}
+                rows={4}
+                placeholder="Initial consultation&#10;Document preparation&#10;Court appearances"
+                disabled={saving}
+              />
+            </div>
+          </SectionCard>
+
+          <SectionCard title="Fee structure">
+            {feesEditingDisabled && (
+              <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-400">
+                Billing terms were captured when this engagement was sent. Edits here will not change what the client has already seen.
+              </div>
+            )}
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <Combobox
+                label="Billing type"
+                options={BILLING_TYPE_OPTIONS}
+                value={form.billingType}
+                onChange={(v) => update('billingType', v)}
+                disabled={saving || feesEditingDisabled}
+              />
+              <Combobox
+                label="Payment frequency"
+                options={PAYMENT_FREQUENCY_OPTIONS}
+                value={form.paymentFrequency}
+                onChange={(v) => update('paymentFrequency', v)}
+                disabled={saving || feesEditingDisabled}
+              />
+              <Input
+                label="Contingency rate (%)"
+                type="number"
+                value={form.contingencyPercentage}
+                onChange={(v) => update('contingencyPercentage', v)}
+                disabled={saving || feesEditingDisabled}
+              />
+              <Input
+                label="Retainer amount"
+                type="number"
+                value={form.retainerAmount}
+                onChange={(v) => update('retainerAmount', v)}
+                disabled={saving || feesEditingDisabled}
+              />
+            </div>
+          </SectionCard>
+
+          <SectionCard title="Engagement notes">
+            <Textarea
+              label="Internal notes"
+              value={form.engagementNotes}
+              onChange={(v) => update('engagementNotes', v)}
+              rows={4}
+              placeholder="Add internal notes for your team…"
+              disabled={saving}
+            />
+          </SectionCard>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+// ── Action dialogs ───────────────────────────────────────────────────────────
+
+type DialogAction = 'send' | 'decline' | null;
+
+// ── Mobile detection ─────────────────────────────────────────────────────────
+
+const useIsMobile = (): boolean => {
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches,
+  );
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const mql = window.matchMedia('(max-width: 767px)');
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mql.addEventListener('change', handler);
+    return () => mql.removeEventListener('change', handler);
+  }, []);
+  return isMobile;
+};
+
+// ── Main component ──────────────────────────────────────────────────────────
+
+type EngagementDetailPageProps = {
+  practiceId: string | null;
+  engagementId: string;
+  conversationsBasePath?: string | null;
+  practiceName: string;
+  practiceLogo: string | null;
+  onBack: () => void;
+  onActionComplete?: () => void;
+  mode?: 'view' | 'edit';
+  basePath?: string;
+};
+
+export const EngagementDetailPage: FunctionComponent<EngagementDetailPageProps> = ({
+  practiceId,
+  engagementId,
+  conversationsBasePath,
+  practiceName,
+  practiceLogo,
+  onBack,
+  onActionComplete,
+  mode = 'view',
+  basePath = '/practice/engagements',
+}) => {
+  const { navigate } = useNavigation();
+  const { showSuccess, showError } = useToastContext();
+  const isMobile = useIsMobile();
+
+  const {
+    data: engagementData,
+    isLoading,
+    error: loadError,
+    setData: setEngagementCache,
+  } = useEngagementDetail(practiceId, engagementId);
+  const engagement: EngagementDetail | null = engagementData ?? null;
+
+  const [localStatus, setLocalStatus] = useState<string | null>(null);
+  const [dialogAction, setDialogAction] = useState<DialogAction>(null);
+  const [dialogNote, setDialogNote] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isConversationExpanded, setIsConversationExpanded] = useState(false);
+
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const isMountedRef = useRef(true);
   useEffect(() => {
     isMountedRef.current = true;
     return () => { isMountedRef.current = false; };
   }, []);
 
-  // Load the most-recent page of messages. Older pages are fetched on-demand
-  // via loadOlderMessages (scroll-up trigger inside VirtualMessageList).
-  useEffect(() => {
-    const conversationId = engagement?.conversation_id;
-    const targetPracticeId = engagement?.organization_id;
-    if (!conversationId || !targetPracticeId) {
-      setPreviewMessages([]);
-      setPreviewLoading(false);
-      setPreviewCursor(null);
-      setHasMorePreview(false);
-      return;
+  const effectiveStatus = (localStatus ?? engagement?.status) as EngagementStatus | undefined;
+  const proposal = engagement?.proposal_data ?? null;
+  const isDraft = effectiveStatus === 'draft';
+  const isSent = effectiveStatus === 'sent';
+  const isAccepted = effectiveStatus === 'accepted';
+  const isDeclined = effectiveStatus === 'declined';
+  const feesEditingDisabled = !isDraft && effectiveStatus !== undefined;
+
+  const handleEnterEdit = useCallback(() => {
+    navigate(`${basePath}/${encodeURIComponent(engagementId)}/edit`);
+  }, [basePath, engagementId, navigate]);
+
+  const handleExitEdit = useCallback(() => {
+    navigate(`${basePath}/${encodeURIComponent(engagementId)}`);
+  }, [basePath, engagementId, navigate]);
+
+  const persistProposalChanges = useCallback(async (form: EditFormState): Promise<EngagementDetail | null> => {
+    if (!engagement || !practiceId) return null;
+    const merged = mergeEditFormIntoProposal(engagement, form);
+    const updated = await patchEngagementProposal(practiceId, engagement.id, merged);
+    if (isMountedRef.current) {
+      setEngagementCache(updated);
     }
-    const controller = new AbortController();
-    setPreviewMessages([]);
-    setPreviewLoading(true);
-    setPreviewError(null);
-    setPreviewCursor(null);
-    setHasMorePreview(false);
+    return updated;
+  }, [engagement, practiceId, setEngagementCache]);
 
-    fetchConversationMessages(conversationId, targetPracticeId, {
-      limit: PREVIEW_PAGE_SIZE,
-      signal: controller.signal,
-    })
-      .then((page) => {
-        if (!isMountedRef.current || controller.signal.aborted) return;
-        setPreviewMessages(page.messages.map(mapMessage));
-        setPreviewCursor(page.cursor);
-        setHasMorePreview(page.hasMore);
-      })
-      .catch((err) => {
-        if (!isMountedRef.current || controller.signal.aborted) return;
-        console.warn('[EngagementDetailPage] Failed to load conversation preview', err);
-        setPreviewError(err instanceof Error ? err.message : 'Could not load conversation preview');
-      })
-      .finally(() => {
-        if (isMountedRef.current && !controller.signal.aborted) setPreviewLoading(false);
-      });
-
-    return () => controller.abort();
-  }, [engagement?.conversation_id, engagement?.organization_id, mapMessage]);
-
-  const loadOlderMessages = useCallback(async () => {
-    const conversationId = engagement?.conversation_id;
-    const targetPracticeId = engagement?.organization_id;
-    if (!conversationId || !targetPracticeId) return;
-    if (!previewCursor || !hasMorePreview || isLoadingMorePreview) return;
-
-    const controller = new AbortController();
-    setIsLoadingMorePreview(true);
+  const handleSaveDraft = useCallback(async (form: EditFormState) => {
+    if (isSaving) return;
+    setIsSaving(true);
+    setSaveError(null);
     try {
-      const page = await fetchConversationMessages(conversationId, targetPracticeId, {
-        limit: PREVIEW_PAGE_SIZE,
-        cursor: previewCursor,
-        signal: controller.signal,
-      });
-      if (!isMountedRef.current || controller.signal.aborted) return;
-      if (engagement?.conversation_id !== conversationId) return;
-      
-      setPreviewMessages((current) => {
-        const existing = new Set(current.map((m) => m.id));
-        const olderMapped = page.messages.map(mapMessage).filter((m) => !existing.has(m.id));
-        return [...olderMapped, ...current];
-      });
-      setPreviewCursor(page.cursor);
-      setHasMorePreview(page.hasMore);
-    } catch (err) {
-      if (err instanceof Error && err.name === 'AbortError') return;
-      console.warn('[EngagementDetailPage] Failed to load older messages', err);
-    } finally {
-      if (isMountedRef.current && engagement?.conversation_id === conversationId && !controller.signal.aborted) {
-        setIsLoadingMorePreview(false);
+      await persistProposalChanges(form);
+      if (isMountedRef.current) {
+        showSuccess('Draft saved', 'Your engagement changes have been saved.');
+        handleExitEdit();
       }
+    } catch (err) {
+      if (isMountedRef.current) {
+        setSaveError(err instanceof Error ? err.message : 'Failed to save draft');
+      }
+    } finally {
+      if (isMountedRef.current) setIsSaving(false);
     }
-  }, [engagement?.conversation_id, engagement?.organization_id, previewCursor, hasMorePreview, isLoadingMorePreview, mapMessage]);
+  }, [isSaving, persistProposalChanges, showSuccess, handleExitEdit]);
+
+  const handleReviewAndSend = useCallback(async (form: EditFormState) => {
+    if (isSaving) return;
+    setIsSaving(true);
+    setSaveError(null);
+    try {
+      await persistProposalChanges(form);
+      if (isMountedRef.current) {
+        handleExitEdit();
+        setDialogAction('send');
+      }
+    } catch (err) {
+      if (isMountedRef.current) {
+        setSaveError(err instanceof Error ? err.message : 'Failed to save before sending');
+      }
+    } finally {
+      if (isMountedRef.current) setIsSaving(false);
+    }
+  }, [isSaving, persistProposalChanges, handleExitEdit]);
 
   const closeDialog = useCallback(() => {
     if (isSubmitting) return;
@@ -426,17 +979,17 @@ export const EngagementDetailPage: FunctionComponent<EngagementDetailPageProps> 
         setLocalStatus(updated.status);
         setDialogAction(null);
         setDialogNote('');
-        showSuccess('Sent to client', 'The engagement proposal has been sent to the client for review.');
+        showSuccess('Sent to client', 'The client has been notified.');
         onActionComplete?.();
       }
     } catch (err) {
       if (isMountedRef.current) {
-        showError('Failed to send', err instanceof Error ? err.message : 'Could not send proposal to client');
+        showError('Failed to send', err instanceof Error ? err.message : 'Could not send proposal');
       }
     } finally {
       if (isMountedRef.current) setIsSubmitting(false);
     }
-  }, [engagement, isSubmitting, onActionComplete, showError, showSuccess, dialogNote, setEngagementCache, practiceId]);
+  }, [engagement, isSubmitting, dialogNote, practiceId, onActionComplete, setEngagementCache, showSuccess, showError]);
 
   const runDecline = useCallback(async () => {
     if (isSubmitting || !engagement || !practiceId) return;
@@ -458,12 +1011,14 @@ export const EngagementDetailPage: FunctionComponent<EngagementDetailPageProps> 
     } finally {
       if (isMountedRef.current) setIsSubmitting(false);
     }
-  }, [engagement, isSubmitting, onActionComplete, showError, showSuccess, setEngagementCache, practiceId]);
+  }, [engagement, isSubmitting, practiceId, onActionComplete, setEngagementCache, showSuccess, showError]);
 
   const handleDialogConfirm = useCallback(async () => {
     if (dialogAction === 'send') await runSendToClient();
     else if (dialogAction === 'decline') await runDecline();
   }, [dialogAction, runSendToClient, runDecline]);
+
+  // ── Render ─────────────────────────────────────────────────────────────────
 
   if (isLoading) {
     return (
@@ -487,223 +1042,115 @@ export const EngagementDetailPage: FunctionComponent<EngagementDetailPageProps> 
     );
   }
 
-  const effectiveStatus = localStatus ?? engagement.status;
-  const proposal = engagement.proposal_data ?? null;
-  const isDraft = effectiveStatus === 'draft';
-  const isSent = effectiveStatus === 'sent';
-  const isAccepted = effectiveStatus === 'accepted';
+  if (mode === 'edit') {
+    return (
+      <EditModeView
+        engagement={engagement}
+        saving={isSaving}
+        saveError={saveError}
+        feesEditingDisabled={feesEditingDisabled}
+        onSaveDraft={handleSaveDraft}
+        onReviewAndSend={handleReviewAndSend}
+        onCancel={handleExitEdit}
+      />
+    );
+  }
+
+  const clientName = engagement.client_name || 'Unknown Client';
+  const matterLabel = getMatterDisplay(engagement);
+  const detailTitle = matterLabel !== '—' ? `${clientName} — ${matterLabel}` : clientName;
+
+  const headerActions = (
+    <div className="flex items-center gap-2">
+      {(isDraft || isSent) && (
+        <Button variant="secondary" icon={Pencil} onClick={handleEnterEdit}>
+          <span className="hidden sm:inline">Edit</span>
+        </Button>
+      )}
+      {isDraft && (
+        <Button variant="primary" icon={Send} onClick={() => openDialog('send')} disabled={isSubmitting}>
+          <span className="hidden sm:inline">Send to client</span>
+          <span className="sm:hidden">Send</span>
+        </Button>
+      )}
+      {isSent && (
+        <Button variant="secondary" onClick={() => openDialog('decline')} disabled={isSubmitting}>
+          <span className="hidden sm:inline">Mark declined</span>
+          <span className="sm:hidden">Decline</span>
+        </Button>
+      )}
+    </div>
+  );
+
+  const statusBanner = (() => {
+    if (isSent) {
+      return (
+        <div className="rounded-xl border border-line-glass/20 bg-surface-overlay/40 p-4 text-sm text-input-text">
+          <p className="font-medium">Awaiting client response</p>
+          <p className="mt-1 text-input-placeholder">The client received this engagement and will accept or decline online.</p>
+        </div>
+      );
+    }
+    if (isAccepted) {
+      return (
+        <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm text-emerald-700 dark:text-emerald-300">
+          <p className="font-medium">Engagement active</p>
+          <p className="mt-1 text-emerald-700/80 dark:text-emerald-200/80">The client has accepted this engagement.</p>
+        </div>
+      );
+    }
+    if (isDeclined) {
+      return (
+        <div className="rounded-xl border border-rose-500/20 bg-rose-500/10 p-4 text-sm text-rose-700 dark:text-rose-300">
+          <p className="font-medium">Declined</p>
+          <p className="mt-1 text-rose-700/80 dark:text-rose-200/80">This engagement was marked declined.</p>
+        </div>
+      );
+    }
+    return null;
+  })();
+
+  const showConversationCard = Boolean(engagement.conversation_id && engagement.organization_id);
 
   return (
-    <EditorShell
-      title="Engagement"
-      subtitle={engagement.client_name ?? undefined}
-      showBack
-      onBack={onBack}
-      actions={
-        <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ring-1 ring-inset ${statusChipClass(effectiveStatus)}`}>
-          {statusLabel(effectiveStatus)}
-        </span>
-      }
-      contentMaxWidth={null}
-      preview={
-        <div className="space-y-6">
-          {/* Action panel */}
-          <div className="px-1 space-y-3">
-            {isDraft && (
-              <>
-                <Button
-                  variant="primary"
-                  className="w-full"
-                  disabled={isSubmitting}
-                  onClick={() => openDialog('send')}
-                  aria-label={isSubmitting ? 'Sending' : undefined}
-                >
-                  {isSubmitting ? (
-                    <LoadingSpinner size="sm" ariaLabel="Sending" />
-                  ) : (
-                    <span className="inline-flex items-center gap-2">
-                      <Send className="w-4 h-4" />
-                      Send to Client
-                    </span>
-                  )}
-                </Button>
-                <p className="text-xs text-input-placeholder text-center leading-relaxed">
-                  Client will receive an email to review and accept the engagement.
-                </p>
-              </>
-            )}
+    <div className="flex h-full min-h-0 flex-col">
+      <DetailHeader
+        title={detailTitle}
+        showBack
+        onBack={onBack}
+        titleBadge={<StatusPill status={effectiveStatus} />}
+        actions={headerActions}
+      />
 
-            {isSent && (
-              <>
-                <div className="rounded-xl bg-violet-500/10 border border-violet-500/20 p-5 text-center">
-                  <p className="text-base font-bold text-violet-700 dark:text-violet-300">Sent to Client</p>
-                  <p className="text-xs text-input-placeholder mt-2">Awaiting client acceptance.</p>
-                </div>
-                <Button variant="secondary" className="w-full" disabled={isSubmitting} onClick={() => openDialog('decline')}>
-                  Mark Declined
-                </Button>
-              </>
-            )}
-
-            {isAccepted && (
-              <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/20 p-5 text-center">
-                <p className="text-base font-bold text-emerald-700 dark:text-emerald-300">Engagement Active</p>
-                <p className="text-xs text-input-placeholder mt-2">The client has accepted the engagement.</p>
-              </div>
-            )}
+      <div className="flex-1 overflow-y-auto">
+        <div className="grid grid-cols-1 gap-6 p-4 sm:p-6 xl:grid-cols-[minmax(0,1fr)_320px]">
+          {/* Left column */}
+          <div className="flex flex-col gap-4">
+            {statusBanner}
+            <ClientSummaryCard engagement={engagement} />
+            <ScopeOfRepresentationCard proposal={proposal} />
+            <FeeStructureCard proposal={proposal} />
           </div>
 
-          <div className="px-1 space-y-6">
-            <div>
-              <h3 className="text-xs font-semibold uppercase tracking-widest text-input-placeholder mb-3">Client</h3>
-              <UserCard
-                name={engagement.client_name ?? 'Unknown'}
-                secondary={null}
-                className="px-0 py-0"
-                size="md"
+          {/* Right column */}
+          <aside className="flex flex-col gap-4">
+            <TimelineCard engagement={engagement} />
+            <RiskReviewCard proposal={proposal} />
+            <SourceInformationCard engagement={engagement} />
+            <EngagementNotesCard engagement={engagement} />
+            {showConversationCard && (
+              <ConversationPreviewCard
+                engagement={engagement}
+                practiceName={practiceName}
+                practiceLogo={practiceLogo}
+                conversationsBasePath={conversationsBasePath}
+                isExpanded={isConversationExpanded}
+                isMobile={isMobile}
+                onToggle={() => setIsConversationExpanded((v) => !v)}
               />
-            </div>
-            {engagement.client_email && (
-              <div>
-                <h3 className="text-xs font-semibold uppercase tracking-widest text-input-placeholder mb-3">Contact</h3>
-                <dl className="space-y-2 text-sm">
-                  <div className="flex flex-col">
-                    <dt className="text-input-placeholder text-xs mb-0.5">Email</dt>
-                    <dd className="text-input-text font-medium truncate">{engagement.client_email}</dd>
-                  </div>
-                </dl>
-              </div>
             )}
-            
-            {proposal?.client_summary?.co_clients && proposal.client_summary.co_clients.length > 0 && (
-              <div>
-                <h3 className="text-xs font-semibold uppercase tracking-widest text-input-placeholder mb-2">Co-Clients</h3>
-                <ul className="space-y-1 text-sm text-input-text">
-                  {proposal.client_summary.co_clients.map((c, i) => <li key={i}>{c}</li>)}
-                </ul>
-              </div>
-            )}
-            {proposal?.client_summary?.non_clients && proposal.client_summary.non_clients.length > 0 && (
-              <div>
-                <h3 className="text-xs font-semibold uppercase tracking-widest text-input-placeholder mb-2">Not Represented</h3>
-                <ul className="space-y-1 text-sm text-rose-400">
-                  {proposal.client_summary.non_clients.map((c, i) => <li key={i}>{c}</li>)}
-                </ul>
-              </div>
-            )}
-          </div>
-
-          {/* Conversation preview */}
-          {engagement.conversation_id && engagement.organization_id && (
-            <section className="glass-card flex flex-col h-[600px] overflow-hidden mx-1">
-              <header className="p-4 border-b border-line-glass/10 flex items-center gap-3">
-                <Icon icon={MessagesSquare} className="w-5 h-5 text-input-placeholder" />
-                <h3 className="text-sm font-semibold text-input-text uppercase tracking-widest">
-                  Intake Conversation
-                </h3>
-              </header>
-              <div className="flex-1 min-h-0 overflow-hidden bg-surface-overlay/20 touch-pan-y">
-                {previewLoading && previewMessages.length === 0 ? (
-                  <div className="h-full flex items-center justify-center p-6">
-                    <div className="w-full space-y-3 px-4 py-4">
-                      <MessageRowSkeleton lineWidths={['w-40', 'w-56']} />
-                      <MessageRowSkeleton lineWidths={['w-64', 'w-44', 'w-52']} />
-                      <MessageRowSkeleton lineWidths={['w-36', 'w-48']} />
-                    </div>
-                  </div>
-                ) : previewError ? (
-                  <div className="h-full flex items-center justify-center p-6 text-center">
-                    <div className="space-y-4">
-                      <Icon icon={AlertTriangle} className="w-8 h-8 text-rose-400 mx-auto" />
-                      <p className="text-sm text-input-placeholder">{previewError}</p>
-                    </div>
-                  </div>
-                ) : (
-                  <VirtualMessageList
-                    messages={previewMessages}
-                    conversationTitle={engagement.client_name ?? null}
-                    viewerContext="practice"
-                    practiceConfig={{
-                      name: practiceName,
-                      profileImage: practiceLogo,
-                      practiceId: engagement.organization_id,
-                    }}
-                    practiceId={engagement.organization_id}
-                    hasMoreMessages={hasMorePreview}
-                    isLoadingMoreMessages={isLoadingMorePreview}
-                    onLoadMoreMessages={loadOlderMessages}
-                  />
-                )}
-              </div>
-              {conversationsBasePath && engagement.conversation_id && (
-                <div className="p-4 border-t border-line-glass/10">
-                  <Button
-                    variant="secondary"
-                    className="w-full"
-                    onClick={() => navigate(`${conversationsBasePath}/${encodeURIComponent(engagement.conversation_id)}`)}
-                  >
-                    Open full conversation
-                  </Button>
-                </div>
-              )}
-            </section>
-          )}
+          </aside>
         </div>
-      }
-    >
-      <div className="space-y-6">
-        {/* Main header card */}
-        <section className="glass-card p-6 sm:p-10">
-          <header className="mb-6">
-            <h2 className="text-xs font-semibold uppercase tracking-widest text-input-placeholder mb-2">
-              Engagement details
-            </h2>
-            <h1 className="text-2xl sm:text-3xl font-bold text-input-text mb-4">
-              {engagement.client_name ?? 'Unknown Client'}
-            </h1>
-            <div className="flex items-center flex-wrap gap-3">
-              {engagement.practice_area && (
-                <div className="bg-accent/10 border border-accent/20 text-[rgb(var(--accent-foreground))] px-2 py-0.5 rounded-md text-xs font-semibold">
-                  {engagement.practice_area}
-                </div>
-              )}
-              <span className="text-sm text-input-placeholder">
-                Created {formatLongDate(engagement.created_at)}
-              </span>
-            </div>
-            <div className="mt-4">
-              <DraftMetaBadge proposal={proposal} />
-            </div>
-          </header>
-
-          {engagement.description && (
-            <div className="pt-6 border-t border-line-glass/10">
-              <p className="text-xs font-medium uppercase tracking-wide text-input-placeholder mb-2">Description</p>
-              <p className="text-sm text-input-text leading-relaxed">{engagement.description}</p>
-            </div>
-          )}
-
-          <div className="pt-6 border-t border-line-glass/10 grid grid-cols-1 md:grid-cols-2 gap-6">
-            {engagement.urgency && (
-              <StatCell label="Urgency" value={engagement.urgency} icon={AlertTriangle} />
-            )}
-            {engagement.opposing_party && (
-              <StatCell label="Opposing party" value={engagement.opposing_party} icon={Scale} />
-            )}
-            {engagement.desired_outcome && (
-              <StatCell label="Desired outcome" value={engagement.desired_outcome} icon={CheckCircle2} />
-            )}
-            {engagement.case_strength != null && (
-              <StatCell label="AI case strength" value={`${engagement.case_strength}%`} icon={Scale} />
-            )}
-          </div>
-        </section>
-
-        {/* Detail cards */}
-        <ScopeCard proposal={proposal} />
-        <FeesCard proposal={proposal} />
-        <GoalsSection proposal={proposal} />
-        <ConflictPanel proposal={proposal} />
       </div>
 
       <Dialog
@@ -718,13 +1165,6 @@ export const EngagementDetailPage: FunctionComponent<EngagementDetailPageProps> 
         disableBackdropClick={isSubmitting}
       >
         <DialogBody className="space-y-4">
-          <div className="rounded-xl border border-line-glass/10 bg-surface-utility/40 p-4">
-            <p className="text-sm text-input-placeholder">
-              {dialogAction === 'send'
-                ? 'Once sent, the client can review the scope, fee terms, and accept online.'
-                : 'The engagement contract status will be changed to declined.'}
-            </p>
-          </div>
           {dialogAction === 'send' && (
             <Textarea
               label="Optional note to include"
@@ -748,11 +1188,11 @@ export const EngagementDetailPage: FunctionComponent<EngagementDetailPageProps> 
           >
             {isSubmitting
               ? (dialogAction === 'send' ? 'Sending…' : 'Declining…')
-              : (dialogAction === 'send' ? 'Confirm & send' : 'Mark declined')}
+              : (dialogAction === 'send' ? 'Confirm &amp; send' : 'Mark declined')}
           </Button>
         </DialogFooter>
       </Dialog>
-    </EditorShell>
+    </div>
   );
 };
 

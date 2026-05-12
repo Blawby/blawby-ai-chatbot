@@ -303,6 +303,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
     startConsultFlow: _startConsultFlow, updateConversationMetadata: _updateConversationMetadata, isConsultFlowActive: _isConsultFlowActive,
     ingestServerMessages, messagesReady, hasMoreMessages, isLoadingMoreMessages,
     loadMoreMessages, isSocketReady, applyIntakeFields,
+    typingUserIds, readReceiptsByUser, sendTypingState,
   } = messageHandling;
 
   const lastWipedPracticeIdRef = useRef<string | null>(null);
@@ -763,6 +764,10 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
                 onAuthPromptRequest={isAnonymous ? handlePaymentAuthRequest : undefined}
                 onAuthPromptClose={handleAuthPromptClose}
                 onAuthPromptSuccess={handleAuthPromptSuccess}
+                typingUserIds={typingUserIds}
+                readReceiptsByUser={readReceiptsByUser}
+                currentUserId={bootstrapSession?.user?.id ?? null}
+                sendTypingState={sendTypingState}
               />
 
               {isInspectorOpen && activeConversationId && (

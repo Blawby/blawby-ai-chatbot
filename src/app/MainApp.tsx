@@ -301,6 +301,7 @@ export function MainApp({
     startConsultFlow, updateConversationMetadata: _updateConversationMetadata,
     ingestServerMessages, messagesReady, hasMoreMessages, isLoadingMoreMessages,
     loadMoreMessages, isSocketReady, applyIntakeFields,
+    typingUserIds, readReceiptsByUser, sendTypingState,
   } = messageHandling;
 
   const conversationMode = conversationMetadata?.mode ?? null;
@@ -841,6 +842,11 @@ export function MainApp({
             onAuthPromptClose={handleAuthPromptClose}
             onAuthPromptSuccess={handleAuthPromptSuccess}
             mentionCandidates={mentionCandidates}
+            typingUserIds={typingUserIds}
+            readReceiptsByUser={readReceiptsByUser}
+            currentUserId={session?.user?.id ?? null}
+            sendTypingState={sendTypingState}
+            conversationId={liveConversationId ?? null}
           />
         </div>
       )}
@@ -1110,7 +1116,7 @@ export function MainApp({
       }
       engagementsView={
         isPracticeWorkspace
-          ? () => (
+          ? (activeFilter) => (
             <LazyRouteBoundary>
               <EngagementsPage
                 practiceId={effectivePracticeId ?? practiceId}
@@ -1118,6 +1124,7 @@ export function MainApp({
                 conversationsBasePath={conversationsBasePath}
                 practiceName={resolvedPracticeName}
                 practiceLogo={resolvedPracticeLogo}
+                activeStatusFilter={activeFilter}
               />
             </LazyRouteBoundary>
           )

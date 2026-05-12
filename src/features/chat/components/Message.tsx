@@ -9,6 +9,7 @@ import { MessageAvatar } from './MessageAvatar';
 import { MessageContent } from './MessageContent';
 import { MessageAttachments } from './MessageAttachments';
 import { MessageActions } from './MessageActions';
+import { MessageReadReceipts, type ReadReceiptReader } from './MessageReadReceipts';
 import ConversationEventRow from './ConversationEventRow';
 import type { ReplyTarget } from '@/features/chat/types';
 import { Undo2 } from 'lucide-preact';
@@ -116,6 +117,8 @@ interface MessageProps {
 	isLast?: boolean;
 	isSystemEvent?: boolean;
 	hideMessageActions?: boolean;
+	/** Other participants who have read this message (for own messages only). */
+	readReceipts?: readonly ReadReceiptReader[];
 	// Styling
 	className?: string;
 }
@@ -156,6 +159,7 @@ const Message: FunctionComponent<MessageProps> = memo(({
 	isLast,
 	isSystemEvent = false,
 	hideMessageActions = false,
+	readReceipts = [],
 }) => {
 	const handleReply = useCallback(() => {
 		if (!onReply) return;
@@ -253,7 +257,8 @@ const Message: FunctionComponent<MessageProps> = memo(({
 				</div>
 			)}
 			
-			{/* Message Bubble */}
+			{/* Message Bubble (+ optional read receipts stacked below for own messages) */}
+			<div className={`flex min-w-0 flex-col ${isUser ? 'items-end' : 'items-start'}`}>
 			<MessageBubble
 				isUser={isUser}
 				variant={variant}
@@ -361,6 +366,10 @@ const Message: FunctionComponent<MessageProps> = memo(({
 					</div>
 				)}
 			</MessageBubble>
+			{isUser && readReceipts.length > 0 && (
+				<MessageReadReceipts readers={readReceipts} />
+			)}
+			</div>
 		</div>
 	);
 });

@@ -513,6 +513,31 @@ export class ChatRoom {
       user_id: attachment.userId,
       is_typing: isTyping
     });
+
+    // Fan out to PresenceRoom so the conversation list (which doesn't subscribe
+    // to per-conversation WS) can render "typing…" badges.
+    void this.forwardTypingToPresence(conversationId, attachment.userId, isTyping);
+  }
+
+  private async forwardTypingToPresence(
+    conversationId: string,
+    userId: string,
+    isTyping: boolean
+  ): Promise<void> {
+    try {
+      const practiceId = await this.getPracticeId(conversationId);
+      if (!practiceId) return;
+      const id = this.env.PRESENCE_ROOM.idFromName(practiceId);
+      const stub = this.env.PRESENCE_ROOM.get(id);
+      await stub.fetch('https://presence/typing', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ conversationId, userId, isTyping })
+      });
+    } catch {
+      // Best-effort fan-out — failure to reach PresenceRoom must not break
+      // the per-conversation typing broadcast that already succeeded.
+    }
   }
 
   private async handleReadUpdate(

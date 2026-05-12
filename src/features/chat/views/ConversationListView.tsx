@@ -16,7 +16,7 @@ import {
   resolveConversationDisplayTitle,
   resolveConversationPresence,
 } from '@/shared/utils/conversationDisplay';
-import { usePresenceContext } from '@/shared/contexts/PresenceContext';
+import { usePresenceContext, useTypingInConversation } from '@/shared/contexts/PresenceContext';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 
 /**
@@ -86,9 +86,10 @@ interface ConversationItemProps {
   isActive: boolean;
   onSelect: (id: string) => void;
   presence: ReturnType<typeof resolveConversationPresence>;
+  currentUserId: string | null;
 }
 
-const ConversationItem = memo(({ conversation, preview, fallbackName, isActive, onSelect, presence }: ConversationItemProps) => {
+const ConversationItem = memo(({ conversation, preview, fallbackName, isActive, onSelect, presence, currentUserId }: ConversationItemProps) => {
   const { t } = useTranslation();
   const contactName = resolveConversationContactName(conversation);
   const fallbackTitle = resolveConversationDisplayTitle(conversation, fallbackName);
@@ -97,6 +98,8 @@ const ConversationItem = memo(({ conversation, preview, fallbackName, isActive, 
   const timeLabel = formatRelativeTime(conversation.updated_at);
   const previewText = (preview?.content ?? conversation.last_message_content ?? '').trim();
   const isUnread = Number(conversation.unread_count ?? 0) > 0;
+  const typingUserIds = useTypingInConversation(conversation.id, currentUserId);
+  const isTyping = typingUserIds.size > 0;
 
   return (
     <button
@@ -142,7 +145,12 @@ const ConversationItem = memo(({ conversation, preview, fallbackName, isActive, 
             )}
           </div>
         </div>
-        {previewText ? (
+        {isTyping ? (
+          <div className="mt-0.5 flex items-center gap-1.5 text-xs leading-5 text-accent-utility">
+            <span className="ai-thinking-indicator__dot" aria-hidden="true" />
+            <span className="italic">{t('workspace.conversationList.typing', { defaultValue: 'typing…' })}</span>
+          </div>
+        ) : previewText ? (
           <div className={cn(
             'mt-0.5 truncate text-xs leading-5',
             isUnread
@@ -252,6 +260,7 @@ const ConversationListView: FunctionComponent<ConversationListViewProps> = ({
                 isActive={activeConversationId === conversation.id}
                 onSelect={onSelectConversation}
                 presence={presence}
+                currentUserId={currentUserId}
               />
             </div>
           ))}

@@ -21,6 +21,9 @@ import { quickActionDebugLog, isQuickActionDebugEnabled } from '@/shared/utils/q
 import { createBuildBriefAction, createSubmitAction, hasTerminalChatAction, hasBuildBriefAction, normalizeChatActions } from '@/shared/utils/chatActions';
 import { STREAMING_BUBBLE_PREFIX } from '@/shared/hooks/useConversation';
 import { features } from '@/config/features';
+import { useConversationParticipants } from '@/shared/hooks/useConversationParticipants';
+import { HumanTypingIndicator, type TypingParticipant } from './HumanTypingIndicator';
+import type { ReadReceiptReader } from './MessageReadReceipts';
 
 export interface OnboardingActions {
     onSaveAll?: () => void | Promise<void>;
@@ -68,6 +71,14 @@ interface VirtualMessageListProps {
     onboardingActions?: OnboardingActions;
     bottomInsetPx?: number;
     hideMessageActions?: boolean;
+    /** UserIds (excluding self) currently typing in this conversation. */
+    typingUserIds?: readonly string[];
+    /** Per-user last read seq, used to derive per-message read receipts. */
+    readReceiptsByUser?: ReadonlyMap<string, number>;
+    /** Active conversation ID — required to resolve participants for receipts/typing. */
+    conversationId?: string | null;
+    /** Current user's id — used to filter own messages from typing/read displays. */
+    currentUserId?: string | null;
 }
 
 const BATCH_SIZE = 20;
@@ -100,6 +111,10 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
     onboardingActions,
     bottomInsetPx,
     hideMessageActions = false,
+    typingUserIds,
+    readReceiptsByUser,
+    conversationId,
+    currentUserId,
 }) => {
     useEffect(() => {
         if (DEBUG_PAGINATION) {
@@ -112,6 +127,39 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
     const intakeContext = useIntakeContext();
     const intakeStatus = intakeContext.intakeStatus;
     const intakeConversationState = intakeContext.intakeConversationState;
+
+    const participantsByUserId = useConversationParticipants(practiceId, conversationId);
+
+    const typingParticipants = useMemo<readonly TypingParticipant[]>(() => {
+        if (!typingUserIds || typingUserIds.length === 0) return [];
+        return typingUserIds
+            .filter((uid) => uid && uid !== currentUserId)
+            .map((uid): TypingParticipant => {
+                const p = participantsByUserId.get(uid);
+                return {
+                    userId: uid,
+                    name: p?.name ?? 'Someone',
+                    image: p?.image ?? null,
+                };
+            });
+    }, [typingUserIds, currentUserId, participantsByUserId]);
+
+    const resolveReaders = useCallback((messageSeq: number | undefined): readonly ReadReceiptReader[] => {
+        if (!readReceiptsByUser || readReceiptsByUser.size === 0 || !Number.isFinite(messageSeq) || messageSeq === undefined) {
+            return [];
+        }
+        const readers: ReadReceiptReader[] = [];
+        for (const [userId, lastSeq] of readReceiptsByUser) {
+            if (userId === currentUserId) continue;
+            if (lastSeq < messageSeq) continue;
+            const p = participantsByUserId.get(userId);
+            // Skip readers we can't resolve — rendering "Someone" avatars looks
+            // worse than just dropping them. Counts collapse naturally.
+            if (!p?.name) continue;
+            readers.push({ id: userId, name: p.name, image: p.image ?? null });
+        }
+        return readers;
+    }, [readReceiptsByUser, currentUserId, participantsByUserId]);
     const dedupedMessages = useMemo(() => {
         const seenPaymentConfirm = new Set<string>();
         return messages.filter((message) => {
@@ -751,6 +799,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                         : (message.id ? `message-${message.id}` : fallbackIndexKey);
                     const isSystemEvent = message.role === 'system' && message.metadata?.source !== 'ai';
 
+                    const readers = message.isUser ? resolveReaders(message.seq) : [];
                     return (
                             <Message
                                 key={renderKey}
@@ -787,9 +836,13 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                                 isLast={isLast && !isStreamingMessage}
                                 isSystemEvent={isSystemEvent}
                                 hideMessageActions={hideMessageActions}
+                                readReceipts={readers}
                             />
                         );
                     })}
+                {typingParticipants.length > 0 && (
+                    <HumanTypingIndicator participants={typingParticipants} />
+                )}
             </ErrorBoundary>
         </div>
         {showScrollToBottom && (

@@ -84,7 +84,9 @@ export interface ProposalData {
 
 export interface EngagementListItem {
   id: string;
-  matter_id: string;
+  // Matter is created server-side on client acceptance; null on draft/sent.
+  matter_id: string | null;
+  intake_id: string;
   matter_number?: string | null;
   title?: string | null;
   status: EngagementStatus;

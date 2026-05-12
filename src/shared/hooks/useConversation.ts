@@ -162,6 +162,8 @@ export const useConversation = ({
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [isLoadingMoreMessages, setIsLoadingMoreMessages] = useState(false);
   const [messagesReady, setMessagesReady] = useState(false);
+  const [typingUserIds, setTypingUserIds] = useState<readonly string[]>([]);
+  const [readReceiptsByUser, setReadReceiptsByUser] = useState<ReadonlyMap<string, number>>(new Map());
 
   // ── stable refs ───────────────────────────────────────────────────────────
   const isDisposedRef = useRef(false);
@@ -204,6 +206,9 @@ export const useConversation = ({
   const reactionLoadedRef = useRef(new Set<string>());
   const quickActionMessageDebugRef = useRef(new Map<string, string>());
   const sendReadUpdateRef = useRef<(seq: number) => void>(() => {});
+  // Per-user expiry timers so a typer who never sends typing.stop (network blip
+  // or tab close) is cleared from the indicator after a grace period.
+  const typingExpiryTimersRef = useRef(new Map<string, ReturnType<typeof setTimeout>>());
 
   // Consult abort ref
   const consultFlowAbortRef = useRef<AbortController | null>(null);
@@ -770,6 +775,38 @@ export const useConversation = ({
     transportErrorRef.current?.(error);
   }, []);
 
+  const TYPING_EXPIRY_MS = 6_000;
+  const stableOnTyping = useCallback((userId: string, isTyping: boolean) => {
+    if (!userId || userId === currentUserId) return;
+    const timers = typingExpiryTimersRef.current;
+    const existing = timers.get(userId);
+    if (existing) {
+      clearTimeout(existing);
+      timers.delete(userId);
+    }
+    if (isTyping) {
+      const timer = setTimeout(() => {
+        timers.delete(userId);
+        setTypingUserIds((prev) => prev.includes(userId) ? prev.filter((id) => id !== userId) : prev);
+      }, TYPING_EXPIRY_MS);
+      timers.set(userId, timer);
+      setTypingUserIds((prev) => prev.includes(userId) ? prev : [...prev, userId]);
+    } else {
+      setTypingUserIds((prev) => prev.includes(userId) ? prev.filter((id) => id !== userId) : prev);
+    }
+  }, [currentUserId]);
+
+  const stableOnRead = useCallback((userId: string, lastReadSeq: number) => {
+    if (!userId || userId === currentUserId || !Number.isFinite(lastReadSeq)) return;
+    setReadReceiptsByUser((prev) => {
+      const previous = prev.get(userId) ?? -1;
+      if (lastReadSeq <= previous) return prev;
+      const next = new Map(prev);
+      next.set(userId, lastReadSeq);
+      return next;
+    });
+  }, [currentUserId]);
+
   const transport = useConversationTransport({
     enabled,
     sessionReady,
@@ -780,6 +817,8 @@ export const useConversation = ({
     onReactionUpdate: stableOnReactionUpdate,
     onGap: stableOnGap,
     onResumeOk: stableOnResumeOk,
+    onTyping: stableOnTyping,
+    onRead: stableOnRead,
     lastSeqRef,
     lastReadSeqRef,
     pendingAckRef,
@@ -807,6 +846,19 @@ export const useConversation = ({
   }, [isSocketReadyRef, sendFrame, socketConversationIdRef]);
   sendReadUpdateRef.current = sendReadUpdate;
 
+  const sendTypingState = useCallback((isTyping: boolean) => {
+    const activeConversationId = socketConversationIdRef.current;
+    if (!activeConversationId || !isSocketReadyRef.current) return;
+    try {
+      sendFrame({
+        type: isTyping ? 'typing.start' : 'typing.stop',
+        data: { conversation_id: activeConversationId },
+      });
+    } catch (error) {
+      if (import.meta.env.DEV) console.warn('[useConversation] Failed to send typing state', error);
+    }
+  }, [isSocketReadyRef, sendFrame, socketConversationIdRef]);
+
   const flushPendingAcks = useCallback((error: Error) => {
     for (const pending of pendingAckRef.current.values()) {
       clearTimeout(pending.timer);
@@ -825,6 +877,10 @@ export const useConversation = ({
     reactionLoadedRef.current.clear();
     reactionFetchRef.current.clear();
     pendingStreamMessageIdRef.current = null;
+    for (const timer of typingExpiryTimersRef.current.values()) clearTimeout(timer);
+    typingExpiryTimersRef.current.clear();
+    setTypingUserIds([]);
+    setReadReceiptsByUser(new Map());
   }, [flushPendingAcks]);
 
   // ── message fetch & pagination ─────────────────────────────────────────────
@@ -1089,10 +1145,13 @@ export const useConversation = ({
 
   // Disposal
   useEffect(() => {
+    const typingTimers = typingExpiryTimersRef.current;
     return () => {
       isDisposedRef.current = true;
       consultFlowAbortRef.current?.abort();
       closeChatSocket();
+      for (const timer of typingTimers.values()) clearTimeout(timer);
+      typingTimers.clear();
     };
   }, [closeChatSocket]);
 
@@ -1108,6 +1167,8 @@ export const useConversation = ({
     isLoadingMoreMessages,
     messagesReady,
     isSocketReady,
+    typingUserIds,
+    readReceiptsByUser,
 
     // Actions
     applyServerMessages,
@@ -1128,6 +1189,7 @@ export const useConversation = ({
     // Low-level — needed by useChatComposer
     sendFrame,
     sendReadUpdate,
+    sendTypingState,
     waitForSocketReady,
     isSocketReadyRef,
     socketConversationIdRef,
@@ -1151,6 +1213,8 @@ export const useConversation = ({
     isLoadingMoreMessages,
     messagesReady,
     isSocketReady,
+    typingUserIds,
+    readReceiptsByUser,
     applyServerMessages,
     ingestServerMessages,
     loadMoreMessages,
@@ -1167,6 +1231,7 @@ export const useConversation = ({
     fetchConversationMetadata,
     sendFrame,
     sendReadUpdate,
+    sendTypingState,
     waitForSocketReady,
     isSocketReadyRef,
     socketConversationIdRef,

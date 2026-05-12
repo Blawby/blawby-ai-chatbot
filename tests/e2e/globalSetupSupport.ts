@@ -316,7 +316,14 @@ const createAnonymousState = async (options: {
     while (Date.now() < retryDeadline) {
       try {
         await page.evaluate(async () => {
-          const response = await fetch('/api/auth/sign-in/anonymous', { method: 'POST', credentials: 'include' })
+          // Better Auth's anonymous endpoint rejects requests without a JSON body
+          // (400 INVALID_REQUEST). Send an empty body so the endpoint accepts it.
+          const response = await fetch('/api/auth/sign-in/anonymous', {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: '{}'
+          })
             .catch((e) => { throw new Error(`Anonymous sign-in fetch network error: ${e.message}`); });
 
           if (!response.ok) {

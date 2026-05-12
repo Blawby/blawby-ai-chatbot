@@ -363,8 +363,16 @@ function AppShell() {
       <UpdateAvailableToast />
       <Suspense fallback={<LoadingScreen />}>
         <Router>
-          <Route path="/auth" component={AuthPage} />
-          <Route path="/auth/accept-invitation" component={AcceptInvitationPage} />
+          <Route path="/auth" component={(props) => (
+            <Suspense fallback={<LoadingScreen />}>
+              <AuthPage {...props} />
+            </Suspense>
+          )} />
+          <Route path="/auth/accept-invitation" component={(props) => (
+            <Suspense fallback={<LoadingScreen />}>
+              <AcceptInvitationPage {...props} />
+            </Suspense>
+          )} />
           <Route path="/pricing" component={PricingPage} />
           <Route path="/onboarding" component={OnboardingPage} />
           <Route path="/debug/styles" component={DevDebugStylesRoute} />
@@ -753,7 +761,15 @@ function PracticeAppRoute({
   if (!resolvedPracticeId) return <LoadingScreen />;
 
   if (workspaceView === 'home') {
-    return <PracticeHomePage />;
+    // PracticeHomePage is lazy(); wrap in Suspense so its first-load suspension
+    // is caught locally (matches the pattern used by the other workspace routes
+    // below). Without this, the suspension bubbles all the way to App's outer
+    // Suspense and that boundary fails to render its fallback cleanly.
+    return (
+      <Suspense fallback={<LoadingScreen />}>
+        <PracticeHomePage />
+      </Suspense>
+    );
   }
 
   if (isContactCreateRoute) {

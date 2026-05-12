@@ -1040,7 +1040,12 @@ export const PracticeMattersPage = ({
     setEngagementCreating(true);
     setEngagementError(null);
     try {
-      const created = await createEngagementContract(activePracticeId, { matter_id: selectedMatterId });
+      // TODO(#555): legacy matter-detail create-engagement flow. Under the new contract,
+      // engagements are created from intakes (matter_id is set server-side on acceptance).
+      // This call will fail at runtime if reached, since selectedMatterId is a matter UUID,
+      // not an intake UUID. Per #555 memory, matters always have engagements — this path is
+      // expected to be unreachable in practice and will be removed in a follow-up.
+      const created = await createEngagementContract(activePracticeId, { intake_id: selectedMatterId });
       setEngagement(created);
       setEngagementRetryCount((count) => count + 1);
       showSuccess('Engagement created', 'The engagement agreement is ready to review.');
