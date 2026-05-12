@@ -80,54 +80,10 @@ export const resolveConversationIntakeUuid = (value: ConversationLike): string |
   return consultationUuid || null;
 };
 
-const normalizeTriageStatus = (value: unknown): string | null => {
-  const normalized = trimString(value).toLowerCase();
-  return normalized || null;
-};
-
-const resolveMetadataTriageStatus = (metadata: ConversationMetadata | null): string | null => {
-  if (!metadata) return null;
-  return normalizeTriageStatus(metadata.triageStatus)
-    ?? normalizeTriageStatus(metadata.triage_status)
-    ?? normalizeTriageStatus(metadata.intakeTriageStatus)
-    ?? normalizeTriageStatus(metadata.intake_triage_status);
-};
-
-const isVisibleTriageStatus = (status: string | null): boolean | null => {
-  if (!status) return null;
-  return status === 'accepted';
-};
-
-export const shouldShowConversationInPracticeInbox = (
-  conversation: Conversation,
-  intakeTriageStatus?: string | null,
-  options: { intakeLookupLoaded?: boolean; requireAcceptedIntakeRecord?: boolean } = {}
-): boolean => {
-  const authoritativeVisibility = isVisibleTriageStatus(normalizeTriageStatus(intakeTriageStatus));
-  if (authoritativeVisibility !== null) return authoritativeVisibility;
-
-  if (options.requireAcceptedIntakeRecord) {
-    if (conversation.matter_id) return true;
-    if (conversation.lead?.matter_id) return true;
-    // Staff-initiated conversations have no intake/matter yet but have been
-    // claimed via assignment. Treat assignment as acceptance so the thread
-    // appears in the inbox immediately after the picker creates it.
-    if (typeof conversation.assigned_to === 'string' && conversation.assigned_to.trim().length > 0) return true;
-    return false;
-  }
-
-  const metadata = getMetadata(conversation);
-  const consultation = resolveConsultationState(metadata);
-  const metadataVisibility = isVisibleTriageStatus(resolveMetadataTriageStatus(metadata));
-  if (metadataVisibility !== null) return metadataVisibility;
-
-  if (!consultation) return true;
-  if (conversation.matter_id) return true;
-  if (conversation.lead?.matter_id) return true;
-  if (options.intakeLookupLoaded) return false;
-
-  return true;
-};
+// shouldShowConversationInPracticeInbox + its supporting predicates removed:
+// visibility filtering moved to the worker (see worker/utils/intakeVisibility
+// + GET /api/conversations). The frontend is now a thin renderer — if the
+// worker returned a row, it's visible. See project_conversation_visibility memory.
 
 // Presence threshold: a conversation is "active" if its last activity was
 // within this window. Otherwise it's treated as offline. We don't have a real

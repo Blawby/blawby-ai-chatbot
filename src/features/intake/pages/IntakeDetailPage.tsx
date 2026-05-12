@@ -43,11 +43,16 @@ import {
   type PracticeIntakeDetail,
 } from '@/features/intake/api/intakesApi';
 import { useIntakeDetail } from '@/features/intake/hooks/useIntakeDetail';
+import { useIntakeFiles } from '@/features/intake/hooks/useIntakeFiles';
+import { IntakeFilesPanel } from '@/features/intake/components/IntakeFilesPanel';
+import { uploadIntakeFile } from '@/features/intake/api/intakeFilesApi';
+import { uploadDownloadPath } from '@/config/urls';
 import { DEFAULT_INTAKE_TEMPLATE } from '@/shared/constants/intakeTemplates';
 import type { IntakeTemplate, IntakeFieldDefinition } from '@/shared/types/intake';
 import VirtualMessageList from '@/features/chat/components/VirtualMessageList';
 import MessageComposer from '@/features/chat/components/MessageComposer';
-import type { ChatMessageUI } from '../../../../worker/types';
+import type { ChatMessageUI, FileAttachment } from '../../../../worker/types';
+import type { UploadingFile } from '@/shared/types/upload';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -414,6 +419,61 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
   const [gatherDetailsSubmitting, setGatherDetailsSubmitting] = useState(false);
   const composerTextareaRef = useRef<HTMLTextAreaElement>(null);
 
+  // Composer file state for the staff reply. Kept in page state so the
+  // composer's preview and uploading lists can drive the submission payload.
+  const [composerPreviewFiles, setComposerPreviewFiles] = useState<FileAttachment[]>([]);
+  const [composerUploadingFiles, setComposerUploadingFiles] = useState<UploadingFile[]>([]);
+
+  // Lift intake-files state to the page so the chip count and the panel
+  // share a single fetch. Composer uploads call uploadFile from the same
+  // hook so the panel and chip update in real time without a refetch.
+  const {
+    files: intakeFiles,
+    uploadFile: panelUploadFile,
+  } = useIntakeFiles(intake?.uuid ?? null);
+
+  const composerUploadId = useRef(0);
+  const handleComposerFileSelect = useCallback(async (selected: File[]): Promise<FileAttachment[]> => {
+    if (!intake?.uuid || selected.length === 0) return [];
+    const uploaded: FileAttachment[] = [];
+    for (const file of selected) {
+      const id = `composer-upload-${composerUploadId.current++}`;
+      setComposerUploadingFiles((prev) => [...prev, { id, file, status: 'uploading', progress: 0 }]);
+      try {
+        const result = await panelUploadFile(file);
+        const attachment: FileAttachment = {
+          id: result.id,
+          name: result.fileName,
+          size: result.fileSize,
+          type: result.mimeType ?? file.type ?? 'application/octet-stream',
+          url: uploadDownloadPath(result.uploadId),
+          storageKey: result.storageKey ?? undefined,
+          uploadId: result.uploadId,
+          source: 'intake',
+        };
+        setComposerPreviewFiles((prev) => [...prev, attachment]);
+        uploaded.push(attachment);
+      } catch (error) {
+        showError('Upload failed', error instanceof Error ? error.message : 'Failed to upload file.');
+      } finally {
+        setComposerUploadingFiles((prev) => prev.filter((entry) => entry.id !== id));
+      }
+    }
+    return uploaded;
+  }, [intake?.uuid, panelUploadFile, showError]);
+
+  const handleComposerCameraCapture = useCallback(async (file: File): Promise<void> => {
+    await handleComposerFileSelect([file]);
+  }, [handleComposerFileSelect]);
+
+  const removeComposerPreviewFile = useCallback((index: number) => {
+    setComposerPreviewFiles((prev) => prev.filter((_, i) => i !== index));
+  }, []);
+
+  const cancelComposerUpload = useCallback((id: string) => {
+    setComposerUploadingFiles((prev) => prev.filter((entry) => entry.id !== id));
+  }, []);
+
   const {
     details: practiceDetails,
     hasDetails: hasPracticeDetails,
@@ -576,15 +636,26 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
     const conversationId = intake?.conversation_id;
     const targetPracticeId = intake?.organization_id;
     const content = composerValue.trim();
-    if (!conversationId || !targetPracticeId || !content || composerSubmitting) return;
+    const attachments = composerPreviewFiles;
+    if (!conversationId || !targetPracticeId || composerSubmitting) return;
+    if (!content && attachments.length === 0) return;
 
     setComposerSubmitting(true);
     try {
       const message = await postConversationMessage(conversationId, targetPracticeId, {
         content,
-        metadata: { source: 'intake-detail', intakeUuid: intakeId, senderType: 'team_member' },
+        metadata: {
+          source: 'intake-detail',
+          intakeUuid: intakeId,
+          senderType: 'team_member',
+          // Include both `attachments` (worker route validates this key for
+          // attachment-only sends) and `files` (legacy metadata key the
+          // message rendering layer reads).
+          ...(attachments.length > 0 ? { files: attachments, attachments } : {}),
+        },
       });
       setComposerValue('');
+      setComposerPreviewFiles([]);
       if (composerTextareaRef.current) {
         composerTextareaRef.current.value = '';
         composerTextareaRef.current.style.height = '32px';
@@ -599,6 +670,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
             timestamp: new Date(message.created_at).getTime(),
             reply_to_message_id: message.reply_to_message_id ?? null,
             metadata: message.metadata ?? undefined,
+            files: attachments.length > 0 ? attachments : undefined,
             isUser: true,
             seq: message.seq,
           } satisfies ChatMessageUI,
@@ -609,7 +681,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
     } finally {
       if (isMountedRef.current) setComposerSubmitting(false);
     }
-  }, [composerSubmitting, composerValue, intake?.conversation_id, intake?.organization_id, intakeId, showError]);
+  }, [composerPreviewFiles, composerSubmitting, composerValue, intake?.conversation_id, intake?.organization_id, intakeId, showError]);
 
   const startGatherDetailsFlow = useCallback(async () => {
     const conversationId = intake?.conversation_id;
@@ -714,7 +786,11 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
   const income = typeof intake.income === 'number'
     ? formatAmountCents(intake.income, intake.currency)
     : (typeof meta.income === 'number' ? formatAmountCents(meta.income, intake.currency) : null);
-  const hasDocs = intake.has_documents === true || meta.has_documents === true;
+  const documentCount = intakeFiles.length;
+  const hasDocs = documentCount > 0 || intake.has_documents === true || meta.has_documents === true;
+  const documentsLabel = documentCount > 0
+    ? `${documentCount} document${documentCount === 1 ? '' : 's'} shared`
+    : hasDocs ? 'Documents shared' : 'No documents';
   const courtDate = intake.court_date ? (formatLongDate(intake.court_date) ?? intake.court_date) : null;
   const urgencyLbl = urgencyLabel(intake.urgency);
   const desiredOutcome = intake.desired_outcome ?? null;
@@ -781,7 +857,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
         {feeAmount ? <InfoChip icon={CreditCard} label={`${feeAmount}${intake.stripe_charge_id ? ' paid' : ' consultation'}`} /> : null}
         {courtDate ? <InfoChip icon={Clock} label={courtDate} /> : null}
         {caseStrength ? <InfoChip icon={Scale} label={`Case strength ${caseStrength}`} /> : null}
-        <InfoChip icon={ClipboardList} label={hasDocs ? 'Documents shared' : 'No documents'} />
+        <InfoChip icon={ClipboardList} label={documentsLabel} />
         {urgencyLbl ? (
           <InfoChip
             icon={AlertTriangle}
@@ -886,12 +962,12 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
           <MessageComposer
             inputValue={composerValue}
             setInputValue={setComposerValue}
-            previewFiles={[]}
-            uploadingFiles={[]}
-            removePreviewFile={() => undefined}
-            handleFileSelect={async () => undefined}
-            handleCameraCapture={async () => undefined}
-            cancelUpload={() => undefined}
+            previewFiles={composerPreviewFiles}
+            uploadingFiles={composerUploadingFiles}
+            removePreviewFile={removeComposerPreviewFile}
+            handleFileSelect={handleComposerFileSelect}
+            handleCameraCapture={handleComposerCameraCapture}
+            cancelUpload={cancelComposerUpload}
             isRecording={false}
             handleMediaCapture={() => undefined}
             setIsRecording={() => undefined}
@@ -904,11 +980,11 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
               }
             }}
             textareaRef={composerTextareaRef}
-            isReadyToUpload={false}
+            isReadyToUpload={Boolean(intake.uuid)}
             isSessionReady={!composerSubmitting}
             isSocketReady={!composerSubmitting}
             disabled={composerSubmitting}
-            hideAttachmentControls
+            hideAttachmentControls={false}
             mentionCandidates={[]}
           />
         </div>
@@ -1035,6 +1111,12 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
 
             {intakeDetailsCard}
             {formDetailsCard}
+            <IntakeFilesPanel
+              intakeUuid={intake.uuid}
+              canUpload
+              canDelete
+              files={intakeFiles}
+            />
             {/* Mobile-only contact info */}
             <div className="xl:hidden">{contactCard}</div>
             {blawbyCard}

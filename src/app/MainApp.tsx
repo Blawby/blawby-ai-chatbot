@@ -436,6 +436,7 @@ export function MainApp({
     practiceId: effectivePracticeId ?? practiceId,
     conversationId: activeConversationId ?? undefined,
     enabled: features.enableFileAttachments && isAuthenticatedWorkspace,
+    intakeUuid: resolveConsultationState(conversationMetadata)?.submission?.intakeUuid ?? null,
   });
 
   // Page-level drop handler. Tracks real drag state via window listeners
@@ -485,7 +486,9 @@ export function MainApp({
       window.removeEventListener('dragleave', onDragLeave);
       window.removeEventListener('drop', onDrop);
     };
-  }, [features.enableFileAttachments, isAuthenticatedWorkspace, isWidget, handleFileSelect]);
+    // `features` is a static module-scope config, not reactive state — the
+    // early-return on line 448 reads it directly, so it doesn't belong in deps.
+  }, [isAuthenticatedWorkspace, isWidget, handleFileSelect]);
 
   // ── welcome modals ─────────────────────────────────────────────────────────
   const { shouldShow: shouldShowWelcome, markAsShown: markWelcomeAsShown } = useWelcomeDialog({ enabled: workspace !== 'public' });

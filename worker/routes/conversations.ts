@@ -12,6 +12,7 @@ import { Logger } from '../utils/logger.js';
 import { SessionAuditService } from '../services/SessionAuditService.js';
 import { listConversationParticipantRecords, validateMentionTargets, type MentionSenderType } from '../services/ConversationParticipantService.js';
 import { handleSubmitIntake } from './submitIntake.js';
+import { getAcceptedIntakeConversationIds, materializeAcceptedConversations } from '../utils/intakeVisibility.js';
 
 const SYSTEM_MESSAGE_ALLOWLIST = new Set([
   'system-intro',
@@ -457,9 +458,17 @@ export async function handleConversations(request: Request, env: Env): Promise<R
 
     // Check if anonymous user
     const isAnonymous = authContext.isAnonymous === true;
-    
+
     // Ensure creator is included in participants
     const participants = Array.from(new Set([userId, ...participantUserIds]));
+
+    // Staff-initiated conversations (new-conversation picker, team DMs) skip
+    // the intake-visibility gate — they're internal and should appear in the
+    // creator's inbox immediately. Anonymous widget chats keep the default
+    // 'pending_visibility' so they remain hidden until intake is accepted.
+    const staffInitiated = !isAnonymous
+      && practiceContext.isMember
+      && isStaffMemberRole(practiceContext.memberRole);
 
     const conversation = await conversationService.createConversation({
       practiceId,
@@ -468,7 +477,8 @@ export async function handleConversations(request: Request, env: Env): Promise<R
       matterId: body.matterId || null,
       participantUserIds: participants,
       metadata: body.metadata,
-      skipPracticeValidation: !practiceContext.isMember
+      skipPracticeValidation: !practiceContext.isMember,
+      lifecycleStatus: staffInitiated ? 'visible' : 'pending_visibility',
     }, request);
 
     return createJsonResponse(conversation);
@@ -536,11 +546,15 @@ export async function handleConversations(request: Request, env: Env): Promise<R
         if (Number.isNaN(limit) || limit < 1) {
           throw HttpErrors.badRequest('limit must be a positive integer');
         }
+        // Anonymous widget users see their own pre-intake working set — they
+        // can't have an accepted intake yet, so applying the visibility filter
+        // would return nothing. Pass `null` to disable the filter.
         const conversations = await conversationService.getConversations({
           practiceId,
           userId,
           status: status || undefined,
-          limit
+          limit,
+          acceptedConversationIds: null
         });
         return createJsonResponse({ conversations });
       }
@@ -561,32 +575,55 @@ export async function handleConversations(request: Request, env: Env): Promise<R
       const status = url.searchParams.get('status') as ConversationStatus | 'all' | null;
       const assignedTo = url.searchParams.get('assignedTo');
       const limit = parseInt(url.searchParams.get('limit') || '50', 10);
+      // Practice members see all visible conversations in their practice. The
+      // accepted-intake set comes from the backend; lifecycle_status='visible'
+      // is the steady-state filter once rows are materialized.
+      const acceptedConversationIds = await getAcceptedIntakeConversationIds(env, practiceId, request);
+      if (acceptedConversationIds && acceptedConversationIds.size > 0) {
+        await materializeAcceptedConversations(env, practiceId, acceptedConversationIds);
+      }
       const conversations = await conversationService.getConversations({
         practiceId,
         userId,
         bypassParticipantFilter: true,
         status: (status && status !== 'all') ? status as ConversationStatus : undefined,
         assignedTo: assignedTo === 'none' ? 'none' : undefined,
-        limit
+        limit,
+        acceptedConversationIds
       });
       return createJsonResponse({ conversations });
     }
-    
-    // Signed-in client: Return list of their conversations with this practice
+
+    // Signed-in non-staff (clients, or signed-in users with no practice
+    // context). Requester membership is the second half of the visibility
+    // invariant — until they've accepted the better-auth invite for this
+    // practice, they shouldn't see anything from it.
+    if (!practiceContext.isMember) {
+      return createJsonResponse({ conversations: [] });
+    }
+
+    // Signed-in client who has joined the practice's org. Apply the same
+    // visibility filter as the practice path; participant filter remains
+    // (so they see only conversations they're in).
     const matterId = url.searchParams.get('matterId');
     const status = url.searchParams.get('status') as ConversationStatus | null;
     const assignedTo = url.searchParams.get('assignedTo');
     const limit = parseInt(url.searchParams.get('limit') || '50', 10);
-    
+
+    const acceptedConversationIds = await getAcceptedIntakeConversationIds(env, practiceId, request);
+    if (acceptedConversationIds && acceptedConversationIds.size > 0) {
+      await materializeAcceptedConversations(env, practiceId, acceptedConversationIds);
+    }
     const conversations = await conversationService.getConversations({
       practiceId,
       matterId: matterId || null,
       userId, // Filter to conversations where user is a participant
       status: status || undefined,
       assignedTo: assignedTo === 'none' ? 'none' : undefined,
-      limit
+      limit,
+      acceptedConversationIds
     });
-    
+
     return createJsonResponse({ conversations }); // Array wrapped in object
   }
 

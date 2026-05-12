@@ -1,5 +1,5 @@
 import type { JSX } from 'preact';
-import { useCallback, useRef, useState } from 'preact/hooks';
+import { useCallback, useState } from 'preact/hooks';
 import { forwardRef } from 'preact/compat';
 import { cn } from '@/shared/utils/cn';
 

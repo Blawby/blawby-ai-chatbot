@@ -4,6 +4,7 @@ import { getAttachedAuthContext } from '../middleware/compose.js';
 import { edgeCache } from '../utils/edgeCache.js';
 import { policyTtlMs } from '../utils/cachePolicy.js';
 import { Logger } from '../utils/logger.js';
+import { getAcceptedIntakeConversationIds, materializeAcceptedConversations, buildForwardHeaders } from '../utils/intakeVisibility.js';
 import type { BackendSidebarCounts } from '../types/wire/sidebarCounts.js';
 
 /**
@@ -236,47 +237,12 @@ const fetchFilesCount = async (
   }
 };
 
-/**
- * Fetch every accepted-triage intake's `conversation_id` from the backend.
- * Mirrors `useWorkspaceConversations` on the frontend: the practice inbox
- * shows a conversation only when (a) it has a matter linked, or (b) there is
- * an accepted intake referencing it. Without this set, the badge over-counts
- * raw conversations the user wouldn't actually see when they click Inbox.
- */
-const fetchAcceptedIntakeConversationIds = async (
-  backendUrl: string,
-  practiceId: string,
-  headers: Record<string, string>,
-): Promise<Set<string>> => {
-  const ids = new Set<string>();
-  for (let page = 1; page <= MAX_LIST_PAGES; page += 1) {
-    try {
-      const url = `${backendUrl}/api/practice-client-intakes/${encodeURIComponent(practiceId)}?page=${page}&limit=${MAX_LIST_PAGE_SIZE}&status=accepted`;
-      const resp = await fetch(url, { headers });
-      if (!resp.ok) break;
-      const json = await resp.json();
-      const items = extractListArray(json, ['intakes', 'items']);
-      for (const item of items) {
-        const cid = typeof item.conversation_id === 'string' ? item.conversation_id.trim() : '';
-        if (cid) ids.add(cid);
-      }
-      if (items.length < MAX_LIST_PAGE_SIZE) break;
-    } catch (error) {
-      Logger.warn('sidebar-counts: accepted intakes fetch failed', {
-        page,
-        error: error instanceof Error ? error.message : String(error),
-      });
-      break;
-    }
-  }
-  return ids;
-};
-
 type ConversationRow = {
   id: string;
   matter_id: string | null;
   assigned_to: string | null;
   status: string | null;
+  lifecycle_status: string | null;
   tags: string | null;
   latest_seq: number | null;
   last_read_seq: number | null;
@@ -290,7 +256,7 @@ const fetchConversationCounts = async (
 ): Promise<BackendSidebarCounts['conversations']> => {
   // Pull the rows we need once, bucket in JS. Cheaper than 5+ COUNT queries
   // each repeating the same JOINs, and lets us apply the same visibility
-  // filter the frontend uses (matter_id != null OR has accepted intake).
+  // filter the conversations route enforces in SQL.
   let rows: ConversationRow[];
   try {
     const result = await env.DB.prepare(
@@ -299,6 +265,7 @@ const fetchConversationCounts = async (
          c.matter_id,
          c.assigned_to,
          c.status,
+         c.lifecycle_status,
          c.tags,
          c.latest_seq,
          COALESCE(r.last_read_seq, 0) AS last_read_seq
@@ -317,14 +284,19 @@ const fetchConversationCounts = async (
     });
     return undefined;
   }
-  // Same predicate as shouldShowConversationInPracticeInbox with
-  // requireAcceptedIntakeRecord: status must be active or have an intake
-  // record, AND must have a matter_id or an accepted intake link.
+  // Same predicate as GET /api/conversations: a row is visible if its
+  // lifecycle_status is already 'visible' OR it appears in the
+  // accepted-intake set (the not-yet-materialized case).
+  // Then restrict to status='active' so archived/closed threads don't pad the
+  // active-inbox totals (and don't drive unread badges the user can't reach
+  // from the active inbox).
   const visible = rows.filter((row) => {
-    const hasIntake = row.id ? acceptedIntakeConversationIds.has(row.id) : false;
-    const isActive = row.status === 'active' || hasIntake;
-    if (!isActive) return false;
-    return Boolean(row.matter_id) || hasIntake;
+    const lifecycleVisible = row.lifecycle_status === 'visible'
+      || (row.id ? acceptedIntakeConversationIds.has(row.id) : false);
+    if (!lifecycleVisible) return false;
+    // Treat NULL/missing status as active for back-compat with rows written
+    // before the status column had a default applied.
+    return row.status == null || row.status === 'active';
   });
 
   const isAssignedToUser = (row: ConversationRow) =>
@@ -369,7 +341,7 @@ export async function handleSidebarCounts(request: Request, env: Env): Promise<R
   let practiceId = '';
   try {
     practiceId = decodeURIComponent(match[1] ?? '');
-  } catch (err) {
+  } catch {
     throw HttpErrors.badRequest('Invalid practice ID');
   }
   if (!practiceId) throw HttpErrors.badRequest('Practice ID required');
@@ -384,11 +356,7 @@ export async function handleSidebarCounts(request: Request, env: Env): Promise<R
 
   if (!env.BACKEND_API_URL) throw HttpErrors.internalServerError('BACKEND_API_URL not configured');
 
-  const forwardHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
-  const cookie = request.headers.get('Cookie');
-  if (cookie) forwardHeaders['Cookie'] = cookie;
-  const authorization = request.headers.get('Authorization');
-  if (authorization) forwardHeaders['Authorization'] = authorization;
+  const forwardHeaders = buildForwardHeaders(request);
 
   const cacheKey = `sidebar:counts:${practiceId}:${userId}`;
 
@@ -397,15 +365,26 @@ export async function handleSidebarCounts(request: Request, env: Env): Promise<R
     async () => {
       // Conversations need accepted-intake conversation_ids first to apply
       // the same visibility filter the practice inbox uses; everything else
-      // runs in parallel.
+      // runs in parallel. The accepted-intake lookup is shared with
+      // GET /api/conversations via worker/utils/intakeVisibility.ts, so the
+      // badge count and the inbox list use exactly the same set.
       const [intakes, acceptedIntakeIds, matters, invoices, files] = await Promise.all([
         fetchIntakeCounts(env.BACKEND_API_URL, practiceId, forwardHeaders),
-        fetchAcceptedIntakeConversationIds(env.BACKEND_API_URL, practiceId, forwardHeaders),
+        getAcceptedIntakeConversationIds(env, practiceId, request),
         fetchMattersCounts(env.BACKEND_API_URL, practiceId, forwardHeaders),
         fetchInvoicesCounts(env.BACKEND_API_URL, practiceId, forwardHeaders),
         fetchFilesCount(env, practiceId),
       ]);
-      const conversations = await fetchConversationCounts(env, practiceId, userId, acceptedIntakeIds);
+      const acceptedIdsSet = acceptedIntakeIds ?? new Set<string>();
+      if (acceptedIdsSet.size > 0) {
+        await materializeAcceptedConversations(env, practiceId, acceptedIdsSet);
+      }
+      const conversations = await fetchConversationCounts(
+        env,
+        practiceId,
+        userId,
+        acceptedIdsSet,
+      );
       return { intakes, conversations, matters, invoices, files };
     },
     { ttlMs: policyTtlMs(cacheKey) },

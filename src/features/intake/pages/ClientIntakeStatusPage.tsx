@@ -2,6 +2,7 @@ import { FunctionComponent, type ComponentChildren } from 'preact';
 
 import { DetailHeader } from '@/shared/ui/layout/DetailHeader';
 import { cn } from '@/shared/utils/cn';
+import { IntakeFilesPanel } from '@/features/intake/components/IntakeFilesPanel';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -21,6 +22,7 @@ export type ClientIntakeResponse = {
 };
 
 export type ClientIntakeStatus = {
+  intakeUuid: string;
   templateName: string;
   submittedAt: string;
   status: ClientIntakeStatusKind;
@@ -173,6 +175,16 @@ export const ClientIntakeStatusPage: FunctionComponent<ClientIntakeStatusPagePro
               </dl>
             </Card>
           ) : null}
+
+          {/* Files — upload allowed only after the practice has accepted the
+              intake (status flips to 'scheduled' for the client). Anonymous /
+              still-in-review viewers see a read-only file list. See
+              project_conversation_visibility memory. */}
+          <IntakeFilesPanel
+            intakeUuid={intake.intakeUuid}
+            canUpload={intake.status === 'scheduled'}
+            canDelete={false}
+          />
 
           {/* Notes */}
           {intake.notes ? (

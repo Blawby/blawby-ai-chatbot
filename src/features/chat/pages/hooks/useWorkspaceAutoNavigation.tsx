@@ -4,10 +4,6 @@ import type { LayoutMode } from '@/app/MainApp';
 
 type MutableRef<T> = { current: T };
 
-interface IntakeTriageLookup {
-  byConversationId: { has: (key: string) => boolean };
-}
-
 export interface UseWorkspaceAutoNavigationOptions {
   view: string;
   workspaceSection: string | null;
@@ -20,11 +16,6 @@ export interface UseWorkspaceAutoNavigationOptions {
   filteredConversations: Conversation[];
   resolvedConversations: Conversation[];
   resolvedConversationsLoading: boolean;
-  intakeLookupLoaded: boolean;
-  acceptedIntakeConversationsLoading: boolean;
-  acceptedIntakeConversationIds: string[];
-  acceptedIntakeConversationsRef: MutableRef<Conversation[]>;
-  intakeTriageStatusLookup: IntakeTriageLookup;
   isInitialConversationCheckRef: MutableRef<boolean>;
   navigationInitiatedRef: MutableRef<boolean>;
   hasAutoNavigatedRef: MutableRef<boolean>;
@@ -52,11 +43,6 @@ export function useWorkspaceAutoNavigation(
     filteredConversations,
     resolvedConversations,
     resolvedConversationsLoading,
-    intakeLookupLoaded,
-    acceptedIntakeConversationsLoading,
-    acceptedIntakeConversationIds,
-    acceptedIntakeConversationsRef,
-    intakeTriageStatusLookup,
     isInitialConversationCheckRef,
     navigationInitiatedRef,
     hasAutoNavigatedRef,
@@ -84,11 +70,16 @@ export function useWorkspaceAutoNavigation(
   }, [view, workspaceSection, activeConversationId, isInitialConversationCheckRef]);
 
   // Practice workspace: if the active conversation isn't in the filtered list,
-  // either notify or fall back to the first available conversation.
+  // either notify (it exists but the view-filter hides it) or fall back to the
+  // first available conversation (it's gone / never visible to this viewer).
+  //
+  // Visibility filtering is now the worker's job (GET /api/conversations only
+  // returns visible rows), so "not in resolvedConversations" is authoritative —
+  // we no longer reconcile against an intake-acceptance side channel here.
   useEffect(() => {
     if (!isPracticeWorkspace || workspaceSection !== 'conversations' || view !== 'conversation') return;
     if (!isInitialConversationCheckRef.current) return;
-    if (!activeConversationId || resolvedConversationsLoading || !intakeLookupLoaded || acceptedIntakeConversationsLoading) return;
+    if (!activeConversationId || resolvedConversationsLoading) return;
 
     if (filteredConversations.some((c) => c.id === activeConversationId)) {
       isInitialConversationCheckRef.current = false;
@@ -96,12 +87,10 @@ export function useWorkspaceAutoNavigation(
     }
 
     const existsInResolved = resolvedConversations.some((c) => c.id === activeConversationId);
-    const existsInAcceptedIntakes = intakeTriageStatusLookup.byConversationId.has(activeConversationId)
-      || acceptedIntakeConversationIds.includes(activeConversationId)
-      || acceptedIntakeConversationsRef.current.some((c) => c.id === activeConversationId);
-
-    if (existsInResolved || existsInAcceptedIntakes || resolvedConversationsLoading || !intakeLookupLoaded) {
-      setActiveConversationMissingNotification('The selected conversation is currently hidden by filters or still loading.');
+    if (existsInResolved) {
+      // Worker returned this row but the view filter (your-inbox / mentions /
+      // etc.) excludes it. Notify the user instead of redirecting.
+      setActiveConversationMissingNotification('The selected conversation is currently hidden by filters.');
       isInitialConversationCheckRef.current = false;
       return;
     }
@@ -116,14 +105,9 @@ export function useWorkspaceAutoNavigation(
     isInitialConversationCheckRef.current = false;
   }, [
     activeConversationId,
-    acceptedIntakeConversationIds,
-    acceptedIntakeConversationsLoading,
-    acceptedIntakeConversationsRef,
     conversationsPath,
     filteredConversations,
     handleSelectConversation,
-    intakeTriageStatusLookup.byConversationId,
-    intakeLookupLoaded,
     isInitialConversationCheckRef,
     isPracticeWorkspace,
     navigate,

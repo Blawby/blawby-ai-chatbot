@@ -109,7 +109,10 @@ export function parseAuthSessionPayload(
   previousAnonUserId?: string | null;
 } {
   if (!rawResponse || typeof rawResponse !== 'object') {
-    console.error('[Auth] Invalid session payload from Better Auth API:', rawResponse);
+    // Better Auth returns `200 OK` with a `null` body for unauthenticated
+    // requests. That's a routine state on optional-auth routes (the caller
+    // simply isn't signed in), not an error worth surfacing — just throw the
+    // 401 so the optionalAuth wrapper can map it to "no auth context".
     throw HttpErrors.unauthorized('Invalid session data - empty response');
   }
 

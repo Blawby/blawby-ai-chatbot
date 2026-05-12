@@ -1,4 +1,4 @@
-import type { ComponentChildren, JSX } from 'preact';
+import type { ComponentChildren } from 'preact';
 import { useCallback, useEffect, useId, useRef, useState } from 'preact/hooks';
 import { cn } from '@/shared/utils/cn';
 
