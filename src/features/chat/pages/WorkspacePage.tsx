@@ -142,7 +142,7 @@ interface WorkspacePageProps {
   invoicesListContent?: ComponentChildren | ((statusFilter: string[]) => ComponentChildren);
   reportsView?: ComponentChildren | ((title: string) => ComponentChildren);
   intakesView?: ComponentChildren | ((activeFilter: string | null) => ComponentChildren);
-  engagementsView?: ComponentChildren | (() => ComponentChildren);
+  engagementsView?: ComponentChildren | ((activeFilter: string | null) => ComponentChildren);
   primaryCreateAction?: WorkspacePrimaryCreateAction | null;
   mockConversations?: Conversation[] | null;
   mockConversationPreviews?: Record<string, {
@@ -1246,7 +1246,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     </div>
   );
   const intakesContent = resolveViewContent(intakesView, [activeSecondaryFilter] as const);
-  const engagementsContent = resolveViewContent(engagementsView, [] as const);
+  const engagementsContent = resolveViewContent(engagementsView, [activeSecondaryFilter] as const);
   const contactsContent = resolveViewContent(
     contactsView,
     [contactsStatusFilter, workspacePrefetchData, toggleDetailInspector, detailInspectorOpen, desktopCreate] as const,

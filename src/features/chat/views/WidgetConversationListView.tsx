@@ -14,6 +14,8 @@ import {
   resolveConversationContactName,
   resolveConversationDisplayTitle,
 } from '@/shared/utils/conversationDisplay';
+import { usePresenceContext } from '@/shared/contexts/PresenceContext';
+import { useSessionContext } from '@/shared/contexts/SessionContext';
 
 const WidgetConversationListSkeleton = ({ rows = 6 }: { rows?: number }) => (
   <div className="divide-y divide-line-glass/[0.04] pt-1">
@@ -96,6 +98,9 @@ const WidgetConversationListView: FunctionComponent<WidgetConversationListViewPr
         ? t('workspace.conversationList.error', { defaultValue: 'Failed to load conversations.' })
         : null;
   const fallbackName = typeof practiceName === 'string' ? practiceName.trim() : '';
+  const { typingByConversation } = usePresenceContext();
+  const { session } = useSessionContext();
+  const currentUserId = session?.user?.id ?? null;
   const sorted = conversations
     .filter((conversation) => conversation.user_info?.mode !== 'PRACTICE_ONBOARDING')
     .sort((a, b) => {
@@ -141,6 +146,8 @@ const WidgetConversationListView: FunctionComponent<WidgetConversationListViewPr
               const unreadCount = Math.max(0, Number(conversation.unread_count ?? 0));
               const isUnread = unreadCount > 0;
               const isActive = activeConversationId === conversation.id;
+              const typers = typingByConversation.get(conversation.id);
+              const isTyping = Boolean(typers && (currentUserId ? Array.from(typers).some((u) => u !== currentUserId) : typers.size > 0));
 
               return (
                 <button
@@ -187,12 +194,19 @@ const WidgetConversationListView: FunctionComponent<WidgetConversationListViewPr
                         )}
                       </div>
                     </div>
-                    <div className={cn(
-                      'truncate text-sm',
-                      isUnread ? 'font-semibold text-input-text' : 'text-input-placeholder'
-                    )}>
-                      <ChatText text={previewText} className="truncate" />
-                    </div>
+                    {isTyping ? (
+                      <div className="flex items-center gap-1.5 text-sm italic text-accent-utility">
+                        <span className="ai-thinking-indicator__dot" aria-hidden="true" />
+                        <span>{t('workspace.conversationList.typing', { defaultValue: 'typing…' })}</span>
+                      </div>
+                    ) : (
+                      <div className={cn(
+                        'truncate text-sm',
+                        isUnread ? 'font-semibold text-input-text' : 'text-input-placeholder'
+                      )}>
+                        <ChatText text={previewText} className="truncate" />
+                      </div>
+                    )}
                   </div>
                 </button>
               );

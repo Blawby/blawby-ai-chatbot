@@ -28,6 +28,8 @@ export interface UseConversationTransportOptions {
   onReactionUpdate: (data: Record<string, unknown>) => void;
   onGap: (fromSeq: number, latestSeq: number) => void;
   onResumeOk: (latestSeq: number) => void;
+  onTyping?: (userId: string, isTyping: boolean) => void;
+  onRead?: (userId: string, lastReadSeq: number) => void;
   lastSeqRef: MutableRefObject<number>;
   lastReadSeqRef: MutableRefObject<number>;
   pendingAckRef: PendingAckMap;
@@ -54,6 +56,8 @@ export const useConversationTransport = ({
   onReactionUpdate,
   onGap,
   onResumeOk,
+  onTyping,
+  onRead,
   lastSeqRef,
   lastReadSeqRef,
   pendingAckRef,
@@ -77,6 +81,8 @@ export const useConversationTransport = ({
   const onReactionUpdateRef = useRef(onReactionUpdate);
   const onGapRef = useRef(onGap);
   const onResumeOkRef = useRef(onResumeOk);
+  const onTypingRef = useRef(onTyping);
+  const onReadRef = useRef(onRead);
   const onErrorRef = useRef(onError);
   const sessionReadyRef = useRef(sessionReady);
   const practiceIdRef = useRef(practiceId);
@@ -86,6 +92,8 @@ export const useConversationTransport = ({
   onReactionUpdateRef.current = onReactionUpdate;
   onGapRef.current = onGap;
   onResumeOkRef.current = onResumeOk;
+  onTypingRef.current = onTyping;
+  onReadRef.current = onRead;
   onErrorRef.current = onError;
 
   useEffect(() => {
@@ -266,6 +274,19 @@ export const useConversationTransport = ({
         case 'reaction.update':
           onReactionUpdateRef.current(frame.data);
           return;
+        case 'typing': {
+          const userId = typeof frame.data.user_id === 'string' ? frame.data.user_id : null;
+          if (!userId) return;
+          onTypingRef.current?.(userId, Boolean(frame.data.is_typing));
+          return;
+        }
+        case 'read': {
+          const userId = typeof frame.data.user_id === 'string' ? frame.data.user_id : null;
+          const seq = Number(frame.data.last_read_seq);
+          if (!userId || !Number.isFinite(seq)) return;
+          onReadRef.current?.(userId, seq);
+          return;
+        }
         case 'membership.changed':
           if (practiceIdRef.current) {
             invalidateParticipants(practiceIdRef.current, targetConversationId);

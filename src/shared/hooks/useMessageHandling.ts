@@ -40,6 +40,12 @@ export interface UseMessageHandlingResult {
   hasMoreMessages: boolean;
   isLoadingMoreMessages: boolean;
   isSocketReady: boolean;
+  /** Other participants currently typing in this conversation. */
+  typingUserIds: readonly string[];
+  /** Per-user last_read_seq received from the server. */
+  readReceiptsByUser: ReadonlyMap<string, number>;
+  /** Send typing.start (true) or typing.stop (false) on the active WS. */
+  sendTypingState: (isTyping: boolean) => void;
   loadMoreMessages: () => Promise<void>;
   startConsultFlow: (id: string) => void;
   clearMessages: () => void;
@@ -75,6 +81,9 @@ const DISABLED_MESSAGE_HANDLING_RESULT: UseMessageHandlingResult = {
   hasMoreMessages: false,
   isLoadingMoreMessages: false,
   isSocketReady: false,
+  typingUserIds: [],
+  readReceiptsByUser: new Map(),
+  sendTypingState: () => {},
   loadMoreMessages: async () => {},
   startConsultFlow: () => {},
   clearMessages: () => {},
@@ -296,6 +305,9 @@ export const useMessageHandling = (options: UseMessageHandlingOptions) => {
       hasMoreMessages: conversation.hasMoreMessages,
       isLoadingMoreMessages: conversation.isLoadingMoreMessages,
       isSocketReady: conversation.isSocketReady,
+      typingUserIds: conversation.typingUserIds,
+      readReceiptsByUser: conversation.readReceiptsByUser,
+      sendTypingState: conversation.sendTypingState,
       loadMoreMessages: conversation.loadMoreMessages,
       startConsultFlow: conversation.startConsultFlow,
       clearMessages: conversation.clearMessages,

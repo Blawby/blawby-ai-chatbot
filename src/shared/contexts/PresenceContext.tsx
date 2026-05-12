@@ -1,16 +1,19 @@
 import { createContext } from 'preact';
-import { useContext, useEffect, useMemo, useRef, useState } from 'preact/hooks';
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { ComponentChildren } from 'preact';
 
 interface PresenceContextValue {
   /** Set of userIds currently online for the active practice. */
   onlineUserIds: ReadonlySet<string>;
+  /** Per-conversation set of userIds currently typing (server-broadcast). */
+  typingByConversation: ReadonlyMap<string, ReadonlySet<string>>;
   /** True once the WebSocket has received its first snapshot. */
   isReady: boolean;
 }
 
 const EmptyPresenceContext: PresenceContextValue = {
   onlineUserIds: new Set<string>(),
+  typingByConversation: new Map<string, ReadonlySet<string>>(),
   isReady: false,
 };
 
@@ -28,6 +31,28 @@ export const useIsUserOnline = (userId: string | null | undefined): boolean => {
   return onlineUserIds.has(userId);
 };
 
+/**
+ * Returns the set of userIds typing in the given conversation, excluding the
+ * supplied selfUserId. Backed by the practice-wide presence WS, so works for
+ * conversation list rows that aren't actively subscribed to per-conversation WS.
+ */
+export const useTypingInConversation = (
+  conversationId: string | null | undefined,
+  selfUserId: string | null | undefined,
+): ReadonlySet<string> => {
+  const { typingByConversation } = usePresenceContext();
+  if (!conversationId) return EMPTY_TYPING_SET;
+  const typers = typingByConversation.get(conversationId);
+  if (!typers || typers.size === 0) return EMPTY_TYPING_SET;
+  if (!selfUserId || !typers.has(selfUserId)) return typers;
+  const next = new Set(typers);
+  next.delete(selfUserId);
+  return next;
+};
+
+const EMPTY_TYPING_SET: ReadonlySet<string> = new Set();
+const TYPING_EXPIRY_MS = 6_000;
+
 interface PresenceProviderProps {
   practiceId: string | null | undefined;
   /** Authenticated userId. When null/empty, the provider is dormant
@@ -44,11 +69,50 @@ interface PresenceProviderProps {
  */
 export const PresenceProvider = ({ practiceId, userId, enabled = true, children }: PresenceProviderProps): JSX.Element => {
   const [onlineUserIds, setOnlineUserIds] = useState<ReadonlySet<string>>(new Set());
+  const [typingByConversation, setTypingByConversation] = useState<ReadonlyMap<string, ReadonlySet<string>>>(new Map());
   const [isReady, setIsReady] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectAttemptsRef = useRef(0);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cancelledRef = useRef(false);
+  // (conversationId, userId) → expiry timer. Cleared on typing.stop or after
+  // TYPING_EXPIRY_MS so the indicator never sticks on dropped connections.
+  const typingTimersRef = useRef(new Map<string, ReturnType<typeof setTimeout>>());
+
+  const applyTypingState = useCallback((conversationId: string, typingUserId: string, isTyping: boolean) => {
+    const key = `${conversationId}::${typingUserId}`;
+    const timers = typingTimersRef.current;
+    const existing = timers.get(key);
+    if (existing) {
+      clearTimeout(existing);
+      timers.delete(key);
+    }
+    setTypingByConversation((prev) => {
+      const current = prev.get(conversationId);
+      const has = current?.has(typingUserId) ?? false;
+      if (isTyping) {
+        if (has) return prev;
+        const nextSet = new Set(current ?? []);
+        nextSet.add(typingUserId);
+        const next = new Map(prev);
+        next.set(conversationId, nextSet);
+        return next;
+      }
+      if (!has || !current) return prev;
+      const nextSet = new Set(current);
+      nextSet.delete(typingUserId);
+      const next = new Map(prev);
+      if (nextSet.size === 0) next.delete(conversationId);
+      else next.set(conversationId, nextSet);
+      return next;
+    });
+    if (isTyping) {
+      timers.set(key, setTimeout(() => {
+        timers.delete(key);
+        applyTypingState(conversationId, typingUserId, false);
+      }, TYPING_EXPIRY_MS));
+    }
+  }, []);
 
 
   useEffect(() => {
@@ -82,11 +146,24 @@ export const PresenceProvider = ({ practiceId, userId, enabled = true, children 
       });
       socket.addEventListener('message', (event) => {
         try {
-          const parsed = JSON.parse(event.data) as { type?: string; online?: unknown };
+          const parsed = JSON.parse(event.data) as {
+            type?: string;
+            online?: unknown;
+            conversation_id?: unknown;
+            user_id?: unknown;
+            is_typing?: unknown;
+          };
           if (parsed?.type === 'presence' && Array.isArray(parsed.online)) {
             const next = new Set(parsed.online.filter((id): id is string => typeof id === 'string' && id.length > 0));
             setOnlineUserIds(next);
             setIsReady(true);
+            return;
+          }
+          if (parsed?.type === 'typing'
+            && typeof parsed.conversation_id === 'string'
+            && typeof parsed.user_id === 'string'
+          ) {
+            applyTypingState(parsed.conversation_id, parsed.user_id, Boolean(parsed.is_typing));
           }
         } catch {
           // Ignore malformed frames — server should never send them.
@@ -110,6 +187,7 @@ export const PresenceProvider = ({ practiceId, userId, enabled = true, children 
     };
 
     connect();
+    const typingTimers = typingTimersRef.current;
     return () => {
       cancelledRef.current = true;
       if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
@@ -119,12 +197,18 @@ export const PresenceProvider = ({ practiceId, userId, enabled = true, children 
       if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) {
         try { socket.close(1000, 'unmount'); } catch { /* ignore */ }
       }
+      for (const timer of typingTimers.values()) clearTimeout(timer);
+      typingTimers.clear();
       setOnlineUserIds(new Set());
+      setTypingByConversation(new Map());
       setIsReady(false);
     };
-  }, [enabled, practiceId, userId]);
+  }, [enabled, practiceId, userId, applyTypingState]);
 
-  const value = useMemo<PresenceContextValue>(() => ({ onlineUserIds, isReady }), [onlineUserIds, isReady]);
+  const value = useMemo<PresenceContextValue>(
+    () => ({ onlineUserIds, typingByConversation, isReady }),
+    [onlineUserIds, typingByConversation, isReady],
+  );
 
   return <PresenceContext.Provider value={value}>{children}</PresenceContext.Provider>;
 };

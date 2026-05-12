@@ -91,6 +91,14 @@ export interface ChatContainerProps {
     name: string;
     email?: string;
   }>;
+  /** UserIds (excluding self) currently typing in this conversation. */
+  typingUserIds?: readonly string[];
+  /** Per-user last_read_seq for resolving per-message read receipts. */
+  readReceiptsByUser?: ReadonlyMap<string, number>;
+  /** Current user id (filters self out of typing/read displays). */
+  currentUserId?: string | null;
+  /** Send typing.start (true) / typing.stop (false) on the active WS. */
+  sendTypingState?: (isTyping: boolean) => void;
 }
 
 const ChatContainer: FunctionComponent<ChatContainerProps> = ({
@@ -141,6 +149,10 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   hideMessageActions = false,
   onboardingActions,
   mentionCandidates = [],
+  typingUserIds,
+  readReceiptsByUser,
+  currentUserId,
+  sendTypingState,
 }) => {
   const intakeContext = useIntakeContext();
   const [inputValue, setInputValue] = useState('');
@@ -265,6 +277,54 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     }
     prevShouldShowSlimFormRef.current = shouldShowSlimForm;
   }, [shouldShowSlimForm]);
+
+  // Emit typing.start while the user is actively editing the composer; auto-stop
+  // after a short idle so the indicator never sticks if input is left non-empty.
+  // Reset on conversation change so we don't emit typing for the previous chat.
+  const typingActiveRef = useRef(false);
+  const typingIdleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (!sendTypingState) return;
+    if (typingIdleTimerRef.current) {
+      clearTimeout(typingIdleTimerRef.current);
+      typingIdleTimerRef.current = null;
+    }
+    const trimmed = inputValue.trim();
+    if (trimmed.length === 0) {
+      if (typingActiveRef.current) {
+        typingActiveRef.current = false;
+        sendTypingState(false);
+      }
+      return;
+    }
+    if (!typingActiveRef.current) {
+      typingActiveRef.current = true;
+      sendTypingState(true);
+    }
+    typingIdleTimerRef.current = setTimeout(() => {
+      typingActiveRef.current = false;
+      sendTypingState(false);
+    }, 3_000);
+    return () => {
+      if (typingIdleTimerRef.current) {
+        clearTimeout(typingIdleTimerRef.current);
+        typingIdleTimerRef.current = null;
+      }
+    };
+  }, [inputValue, sendTypingState, conversationId]);
+
+  useEffect(() => {
+    return () => {
+      if (typingIdleTimerRef.current) {
+        clearTimeout(typingIdleTimerRef.current);
+        typingIdleTimerRef.current = null;
+      }
+      if (typingActiveRef.current) {
+        typingActiveRef.current = false;
+        sendTypingState?.(false);
+      }
+    };
+  }, [sendTypingState]);
 
 
   const handleSubmit = (mentionedUserIds?: string[]) => {
@@ -481,6 +541,10 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
                 onboardingActions={onboardingActions}
                 bottomInsetPx={composerInsetPx}
                 hideMessageActions={hideMessageActions}
+                typingUserIds={typingUserIds}
+                readReceiptsByUser={readReceiptsByUser}
+                conversationId={conversationId}
+                currentUserId={currentUserId}
               />
             </div>
 

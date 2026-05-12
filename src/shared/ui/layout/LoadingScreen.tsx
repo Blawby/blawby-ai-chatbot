@@ -26,7 +26,10 @@ export const LoadingScreen = ({
   className,
   minDurationMs = 0,
 }: LoadingScreenProps) => {
-  const { t } = useTranslation('common');
+  // useSuspense:false keeps this hook safe to use inside a <Suspense fallback={...}>.
+  // Without it, a hook that suspends inside the fallback prevents preact from
+  // rendering the fallback at all, producing a blank screen on first lazy-route load.
+  const { t } = useTranslation('common', { useSuspense: false });
   const resolvedLabel = label ?? t('app.loading');
   const [visible, setVisible] = useState(minDurationMs <= 0);
 

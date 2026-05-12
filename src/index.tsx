@@ -753,7 +753,15 @@ function PracticeAppRoute({
   if (!resolvedPracticeId) return <LoadingScreen />;
 
   if (workspaceView === 'home') {
-    return <PracticeHomePage />;
+    // PracticeHomePage is lazy(); wrap in Suspense so its first-load suspension
+    // is caught locally (matches the pattern used by the other workspace routes
+    // below). Without this, the suspension bubbles all the way to App's outer
+    // Suspense and that boundary fails to render its fallback cleanly.
+    return (
+      <Suspense fallback={<LoadingScreen />}>
+        <PracticeHomePage />
+      </Suspense>
+    );
   }
 
   if (isContactCreateRoute) {

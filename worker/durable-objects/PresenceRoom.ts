@@ -40,12 +40,16 @@ export class PresenceRoom {
   async fetch(request: Request): Promise<Response> {
     const upgradeHeader = request.headers.get('Upgrade');
     if (upgradeHeader?.toLowerCase() !== 'websocket') {
-      // Internal HTTP path: return current snapshot for debugging / fallback.
       const url = new URL(request.url);
       if (url.pathname.endsWith('/snapshot') && request.method === 'GET') {
         return new Response(JSON.stringify({ online: this.collectOnlineUserIds() }), {
           headers: { 'Content-Type': 'application/json' },
         });
+      }
+      // Internal fan-out from ChatRoom — relays per-conversation typing events
+      // so connected clients can render "typing…" in the conversation list.
+      if (url.pathname.endsWith('/typing') && request.method === 'POST') {
+        return this.handleTypingFanout(request);
       }
       return new Response('expected websocket upgrade', { status: 426 });
     }
@@ -88,6 +92,31 @@ export class PresenceRoom {
 
   webSocketError(ws: WebSocket): void {
     this.broadcastSnapshot(ws);
+  }
+
+  private async handleTypingFanout(request: Request): Promise<Response> {
+    let payload: { conversationId?: unknown; userId?: unknown; isTyping?: unknown };
+    try {
+      payload = await request.json() as typeof payload;
+    } catch {
+      return new Response('invalid json', { status: 400 });
+    }
+    const conversationId = typeof payload.conversationId === 'string' ? payload.conversationId : '';
+    const userId = typeof payload.userId === 'string' ? payload.userId : '';
+    const isTyping = Boolean(payload.isTyping);
+    if (!conversationId || !userId) {
+      return new Response('conversationId and userId required', { status: 400 });
+    }
+    const frame = JSON.stringify({
+      type: 'typing',
+      conversation_id: conversationId,
+      user_id: userId,
+      is_typing: isTyping
+    });
+    for (const ws of this.state.getWebSockets()) {
+      this.sendFrameTo(ws, frame);
+    }
+    return new Response(null, { status: 204 });
   }
 
   private collectOnlineUserIds(exclude?: WebSocket): string[] {

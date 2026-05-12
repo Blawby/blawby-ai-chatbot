@@ -33,7 +33,7 @@ type EngagementContractListPayload = {
 };
 
 type CreateEngagementContractPayload = {
-  matter_id: string;
+  intake_id: string;
   contract_body?: string;
   engagement_notes?: string;
   proposal_data?: ProposalData;
@@ -101,7 +101,8 @@ const normalizeEngagementContract = (raw: unknown): EngagementDetail => {
   return {
     ...(data as unknown as EngagementDetail),
     id: requireString(data, 'id'),
-    matter_id: requireString(data, 'matter_id'),
+    matter_id: optionalString(data.matter_id),
+    intake_id: requireString(data, 'intake_id'),
     organization_id: requireString(data, 'organization_id'),
     status: data.status as EngagementStatus,
     proposal_data: proposalData,
@@ -191,7 +192,7 @@ export async function createEngagementContract(
   options: { signal?: AbortSignal } = {}
 ): Promise<EngagementDetail> {
   if (!practiceId) throw new Error('practiceId is required');
-  if (!payload.matter_id) throw new Error('matter_id is required');
+  if (!payload.intake_id) throw new Error('intake_id is required');
 
   let raw: unknown;
   try {

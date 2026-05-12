@@ -469,7 +469,7 @@ const buildSecondary = (basePath: string, section: WorkspaceSection, workspace: 
     case 'home':
       return buildHomeSecondary(basePath, workspace);
     case 'engagements':
-      return undefined;
+      return buildMattersSecondary(basePath, workspace);
     default:
       return undefined;
   }
