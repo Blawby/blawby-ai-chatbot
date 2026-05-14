@@ -67,7 +67,7 @@ interface PresenceProviderProps {
  * exposes the most recent presence snapshot via PresenceContext. Reconnects
  * with exponential backoff if the socket drops.
  */
-export const PresenceProvider = ({ practiceId, userId, enabled = true, children }: PresenceProviderProps): JSX.Element => {
+export const PresenceProvider = ({ practiceId, userId, enabled = true, children }: PresenceProviderProps) => {
   const [onlineUserIds, setOnlineUserIds] = useState<ReadonlySet<string>>(new Set());
   const [typingByConversation, setTypingByConversation] = useState<ReadonlyMap<string, ReadonlySet<string>>>(new Map());
   const [isReady, setIsReady] = useState(false);

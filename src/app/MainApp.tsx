@@ -40,6 +40,8 @@ const PracticeReportsPage = lazy(() => import('@/features/reports/pages/Practice
 const IntakesPage = lazy(() => import('@/features/intake/pages/IntakesPage').then(m => ({ default: m.IntakesPage })));
 const ClientIntakesView = lazy(() => import('@/features/intake/pages/ClientIntakesView').then(m => ({ default: m.ClientIntakesView })));
 const EngagementsPage = lazy(() => import('@/features/engagements/pages/EngagementsPage').then(m => ({ default: m.EngagementsPage })));
+const PracticeFilesPage = lazy(() => import('@/features/files/pages/PracticeFilesPage').then(m => ({ default: m.PracticeFilesPage })));
+const ClientFilesPage = lazy(() => import('@/features/files/pages/ClientFilesPage').then(m => ({ default: m.ClientFilesPage })));
 import { useConversationSystemMessages } from '@/shared/hooks/useConversationSystemMessages';
 import { initializeAccentColor } from '@/shared/utils/accentColors';
 import { useMentionCandidates } from '@/shared/hooks/useMentionCandidates';
@@ -636,13 +638,13 @@ export function MainApp({
   // sources used by ConversationContextPanel — keep both surfaces aligned so a
   // value visible in the right panel is also visible up here.
   const conversationHeaderEmail = useMemo(() => {
-    const intake = (intakeConversationState ?? null) as Record<string, unknown> | null;
+    const intake = (intakeConversationState ?? null) as unknown as Record<string, unknown> | null;
     if (typeof intake?.email === 'string' && intake.email.trim()) return intake.email.trim();
     if (typeof slimContactDraft?.email === 'string' && slimContactDraft.email.trim()) return slimContactDraft.email.trim();
     return '';
   }, [intakeConversationState, slimContactDraft]);
   const conversationHeaderPhone = useMemo(() => {
-    const intake = (intakeConversationState ?? null) as Record<string, unknown> | null;
+    const intake = (intakeConversationState ?? null) as unknown as Record<string, unknown> | null;
     if (typeof intake?.phone === 'string' && intake.phone.trim()) return intake.phone.trim();
     if (typeof slimContactDraft?.phone === 'string' && slimContactDraft.phone.trim()) return slimContactDraft.phone.trim();
     return '';
@@ -1132,6 +1134,24 @@ export function MainApp({
             </LazyRouteBoundary>
           )
           : undefined
+      }
+      filesView={
+        isPracticeWorkspace && resolvedPracticeSlug ? (
+          <LazyRouteBoundary>
+            <PracticeFilesPage
+              practiceId={effectivePracticeId ?? practiceId}
+              practiceSlug={resolvedPracticeSlug}
+            />
+          </LazyRouteBoundary>
+        ) : isClientWorkspace && (clientPracticeSlug ?? resolvedClientPracticeSlug) ? (
+          <LazyRouteBoundary>
+            <ClientFilesPage
+              practiceId={effectivePracticeId ?? practiceId}
+              practiceSlug={(clientPracticeSlug ?? resolvedClientPracticeSlug) as string}
+              userId={session?.user?.id ?? null}
+            />
+          </LazyRouteBoundary>
+        ) : undefined
       }
       primaryCreateAction={
         resolvedWorkspaceView === 'matters' && isPracticeWorkspace && practiceMattersPath

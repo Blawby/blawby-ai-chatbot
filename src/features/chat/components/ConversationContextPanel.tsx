@@ -143,8 +143,8 @@ const ConversationContextPanel: FunctionComponent<ConversationContextPanelProps>
   }, [conversation, practiceName]);
 
   const metadata = conversation?.user_info ?? null;
-  const intakeState = (metadata?.intakeConversationState ?? null) as Record<string, unknown> | null;
-  const slimDraft = (metadata?.intakeSlimContactDraft ?? null) as Record<string, unknown> | null;
+  const intakeState = (metadata?.intakeConversationState ?? null) as unknown as Record<string, unknown> | null;
+  const slimDraft = (metadata?.intakeSlimContactDraft ?? null) as unknown as Record<string, unknown> | null;
 
   const email = useMemo(() => {
     if (typeof intakeState?.email === 'string' && intakeState.email.trim()) return intakeState.email;
@@ -168,7 +168,9 @@ const ConversationContextPanel: FunctionComponent<ConversationContextPanelProps>
 
   const matterTitle = matter?.title ?? '';
   const matterStatus = matter?.status ?? '';
-  const matterPracticeArea = formatPracticeArea(matter?.practice_area ?? null);
+  const matterPracticeArea = formatPracticeArea(
+    typeof matter?.practice_area === 'string' ? matter.practice_area : null
+  );
 
   const activity = useMemo(() => buildActivityEntries(conversation), [conversation]);
 

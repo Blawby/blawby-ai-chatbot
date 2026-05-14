@@ -1,17 +1,23 @@
 /**
  * FileCard - Molecule Component
- * 
+ *
  * Complete file card that combines icon, info, and remove button.
  * This is the main building block for file display.
+ *
+ * Variants:
+ *   'inline' (default) — compact form used by the chat composer / queue rows.
+ *   'tile' — larger card surface for grid views (Files page, matter Files tab).
  */
 
 import { FileIconWithStatus } from './FileIconWithStatus';
 import { FileInfo } from './FileInfo';
 import { RemoveButton } from '../atoms/RemoveButton';
-import { isImageFile } from '@/shared/utils/fileTypeUtils';
+import { isImageFile, getFileTypeConfig } from '@/shared/utils/fileTypeUtils';
+import { Icon } from '@/shared/ui/Icon';
 import { cn } from '@/shared/utils/cn';
 
 export type FileCardStatus = 'uploading' | 'completed' | 'processing' | 'analyzing' | 'preview' | 'none';
+export type FileCardVariant = 'inline' | 'tile';
 
 interface FileCardProps {
   fileName: string;
@@ -23,6 +29,13 @@ interface FileCardProps {
   showRemoveButton?: boolean;
   size?: 'sm' | 'md' | 'lg';
   className?: string;
+  variant?: FileCardVariant;
+  /** Tile-only: optional caption beneath the file name (e.g. matter title). */
+  associationLabel?: string;
+  /** Tile-only: small trailing label (e.g. "2 days ago"). */
+  timestampLabel?: string;
+  /** Tile-only: click anywhere on the tile (preview, open details). */
+  onClick?: () => void;
 }
 
 export const FileCard = ({
@@ -34,15 +47,70 @@ export const FileCard = ({
   onRemove,
   showRemoveButton = false,
   size = 'md',
-  className
+  className,
+  variant = 'inline',
+  associationLabel,
+  timestampLabel,
+  onClick,
 }: FileCardProps) => {
   const isImage = isImageFile(mimeType);
-  
+
   // Map FileCardStatus to StatusOverlay status
   const overlayStatus = status === 'preview' ? 'none' : status;
-  
+
   // Show remove button for preview status or when explicitly requested
   const shouldShowRemove = showRemoveButton || status === 'preview';
+
+  if (variant === 'tile') {
+    const fileType = getFileTypeConfig(fileName, mimeType);
+    return (
+      <div
+        className={cn(
+          'group relative flex flex-col overflow-hidden rounded-2xl border border-line-glass/30 bg-surface-card text-left transition-all',
+          onClick ? 'cursor-pointer hover:border-line-glass/60 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-accent-500' : '',
+          className
+        )}
+        role={onClick ? 'button' : undefined}
+        tabIndex={onClick ? 0 : undefined}
+        onClick={onClick}
+        onKeyDown={onClick ? (event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            onClick();
+          }
+        } : undefined}
+      >
+        <div className="relative flex aspect-[4/3] w-full items-center justify-center overflow-hidden bg-surface-panel">
+          {isImage && imageUrl ? (
+            <img
+              src={imageUrl}
+              alt={fileName}
+              className="h-full w-full object-cover"
+              loading="lazy"
+            />
+          ) : (
+            <div className={cn('flex h-14 w-14 items-center justify-center rounded-2xl', fileType.color)}>
+              <Icon icon={fileType.icon} className="h-7 w-7 text-input-text" />
+            </div>
+          )}
+          {shouldShowRemove && onRemove ? (
+            <div className="absolute right-2 top-2 z-10">
+              <RemoveButton onClick={onRemove} size="sm" />
+            </div>
+          ) : null}
+        </div>
+        <div className="flex flex-col gap-0.5 p-3">
+          <p className="truncate text-sm font-medium text-input-text" title={fileName}>{fileName}</p>
+          {associationLabel ? (
+            <p className="truncate text-xs text-input-placeholder" title={associationLabel}>{associationLabel}</p>
+          ) : null}
+          {timestampLabel ? (
+            <p className="text-[11px] uppercase tracking-wide text-input-placeholder">{timestampLabel}</p>
+          ) : null}
+        </div>
+      </div>
+    );
+  }
 
   // For images, use a special layout without padding - match file card height
   if (isImage) {
@@ -62,7 +130,7 @@ export const FileCard = ({
           imageUrl={imageUrl}
           size={size}
         />
-        
+
         {/* Remove button - positioned as overlay on top-right */}
         {shouldShowRemove && onRemove && (
           <div className="absolute top-1 right-1 z-50">
@@ -90,14 +158,14 @@ export const FileCard = ({
           size={size}
         />
       </div>
-      
+
       {/* File info - only show for non-images */}
       <FileInfo
         fileName={fileName}
         mimeType={mimeType}
         showType={!isImage}
       />
-      
+
       {/* Remove button - positioned as overlay on top-right of entire file card */}
       {shouldShowRemove && onRemove && (
         <div className="absolute top-1 right-1 z-50">
