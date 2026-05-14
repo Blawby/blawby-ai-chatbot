@@ -67,7 +67,7 @@ export function Tooltip({
           role="tooltip"
           className={cn(
             'absolute z-[500] px-2.5 py-1.5 text-xs font-medium rounded-lg whitespace-nowrap pointer-events-none',
-            'bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900',
+            'bg-input-text text-surface-card',
             'shadow-lg animate-in fade-in-0 zoom-in-95 duration-150',
             sideClasses[side],
             className,

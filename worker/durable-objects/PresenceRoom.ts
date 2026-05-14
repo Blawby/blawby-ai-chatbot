@@ -1,4 +1,4 @@
-/* global WebSocketPair, WebSocket */
+/* global WebSocketPair */
 /**
  * PresenceRoom — practice-scoped presence tracker.
  *
@@ -21,7 +21,7 @@
  * `state.acceptWebSocket(ws, [userId])` tags so the user mapping survives DO
  * eviction across cold starts.
  */
-import type { DurableObjectState } from '@cloudflare/workers-types';
+import type { DurableObjectState, WebSocket as CFWebSocket } from '@cloudflare/workers-types';
 import type { Env } from '../types.js';
 
 interface IdentifyFrame { type: 'identify'; userId: string }
@@ -70,7 +70,7 @@ export class PresenceRoom {
     return new Response(null, { status: 101, webSocket: client });
   }
 
-  webSocketMessage(ws: WebSocket, raw: string | ArrayBuffer): void {
+  webSocketMessage(ws: CFWebSocket, raw: string | ArrayBuffer): void {
     if (typeof raw !== 'string') return;
     let parsed: ClientFrame | null = null;
     try { parsed = JSON.parse(raw) as ClientFrame; } catch { return; }
@@ -83,14 +83,14 @@ export class PresenceRoom {
     // query string and stored as a tag during accept. Reserved for future use.
   }
 
-  webSocketClose(ws: WebSocket, _code: number, _reason: string, _wasClean: boolean): void {
+  webSocketClose(ws: CFWebSocket, _code: number, _reason: string, _wasClean: boolean): void {
     // The closing socket may still appear in state.getWebSockets() while the
     // close is being processed; pass it through so collectOnlineUserIds can
     // exclude it and remote tabs see the user drop offline immediately.
     this.broadcastSnapshot(ws);
   }
 
-  webSocketError(ws: WebSocket): void {
+  webSocketError(ws: CFWebSocket): void {
     this.broadcastSnapshot(ws);
   }
 
@@ -119,7 +119,7 @@ export class PresenceRoom {
     return new Response(null, { status: 204 });
   }
 
-  private collectOnlineUserIds(exclude?: WebSocket): string[] {
+  private collectOnlineUserIds(exclude?: CFWebSocket): string[] {
     const ids = new Set<string>();
     for (const ws of this.state.getWebSockets()) {
       if (exclude && ws === exclude) continue;
@@ -130,11 +130,11 @@ export class PresenceRoom {
     return Array.from(ids);
   }
 
-  private buildSnapshotFrame(exclude?: WebSocket): string {
+  private buildSnapshotFrame(exclude?: CFWebSocket): string {
     return JSON.stringify({ type: 'presence', online: this.collectOnlineUserIds(exclude) });
   }
 
-  private broadcastSnapshot(exclude?: WebSocket): void {
+  private broadcastSnapshot(exclude?: CFWebSocket): void {
     const payload = this.buildSnapshotFrame(exclude);
     for (const ws of this.state.getWebSockets()) {
       if (exclude && ws === exclude) continue;
@@ -142,7 +142,7 @@ export class PresenceRoom {
     }
   }
 
-  private sendFrameTo(ws: WebSocket, payload: string): void {
+  private sendFrameTo(ws: CFWebSocket, payload: string): void {
     try {
       ws.send(payload);
     } catch {

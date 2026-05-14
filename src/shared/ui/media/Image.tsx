@@ -42,7 +42,7 @@ export function Image({
   return (
     <div
       className={cn(
-        'relative overflow-hidden bg-black/3 dark:bg-white/3 rounded-xl',
+        'relative overflow-hidden bg-surface-utility/5 rounded-xl',
         containerClassName,
       )}
       style={{ aspectRatio, width, height }}
@@ -56,7 +56,7 @@ export function Image({
         />
       )}
       {status === 'loading' && !blurPlaceholder && (
-        <div className="absolute inset-0 animate-pulse bg-black/5 dark:bg-white/5" />
+        <div className="absolute inset-0 animate-pulse bg-surface-utility/10" />
       )}
       {status === 'error' ? (
         <div className="absolute inset-0 flex items-center justify-center text-input-placeholder/50">

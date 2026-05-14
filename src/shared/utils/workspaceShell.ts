@@ -10,6 +10,7 @@ export type WorkspaceView =
   | 'engagements'
   | 'matters'
   | 'contacts'
+  | 'files'
   | 'invoices'
   | 'invoiceCreate'
   | 'invoiceEdit'

@@ -143,6 +143,7 @@ interface WorkspacePageProps {
   reportsView?: ComponentChildren | ((title: string) => ComponentChildren);
   intakesView?: ComponentChildren | ((activeFilter: string | null) => ComponentChildren);
   engagementsView?: ComponentChildren | ((activeFilter: string | null) => ComponentChildren);
+  filesView?: ComponentChildren;
   primaryCreateAction?: WorkspacePrimaryCreateAction | null;
   mockConversations?: Conversation[] | null;
   mockConversationPreviews?: Record<string, {
@@ -216,6 +217,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   intakesView,
   engagementsView,
   reportsView,
+  filesView,
   primaryCreateAction = null,
   mockConversations = null,
   mockConversationPreviews = null,
@@ -1040,6 +1042,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     intakes: 'Intakes',
     engagements: 'Engagements',
     matters: 'Matters',
+    files: 'Files',
     invoices: 'Payments',
     reports: 'Reports',
     settings: 'Settings',
@@ -1260,6 +1263,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   );
   const reportsTitle = WORKSPACE_REPORT_SECTION_TITLES[activeSecondaryFilter ?? 'all-reports'] ?? WORKSPACE_REPORT_SECTION_TITLES['all-reports'];
   const reportsContent = resolveViewContent(reportsView, [reportsTitle] as const);
+  const filesContent = resolveViewContent(filesView, [] as const);
   const settingsContent = practiceSlug ? (
     <SettingsContent
       workspace={workspace === 'practice' ? 'practice' : 'client'}
@@ -1337,6 +1341,8 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
         return null;
       case 'engagements':
         return 'Engagements';
+      case 'files':
+        return 'Files';
       case 'settings':
         return 'Settings';
       case 'coverage':
@@ -1397,6 +1403,8 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
         return invoicesContent;
       case 'reports':
         return reportsContent;
+      case 'files':
+        return filesContent;
       case 'settings':
         return settingsContent;
       case 'coverage':

@@ -6,11 +6,23 @@ import { Button } from '@/shared/ui/Button';
 import { Icon } from '@/shared/ui/Icon';
 import { Dialog, DialogBody, DialogFooter } from '@/shared/ui/dialog';
 import { Textarea } from '@/shared/ui/input';
-import { UploadSurface, type UploadSurfaceItem } from '@/shared/ui/upload/organisms/UploadSurface';
+import { UploadDropzone } from '@/shared/ui/upload/organisms/UploadDropzone';
+import { UploadQueueRow } from '@/shared/ui/upload/molecules/UploadQueueRow';
 import { useToastContext } from '@/shared/contexts/ToastContext';
+import { WorkspacePlaceholderState } from '@/shared/ui/layout/WorkspacePlaceholderState';
 import { uploadDownloadPath } from '@/config/urls';
-import { useIntakeFiles, type UploadingIntakeFile } from '@/features/intake/hooks/useIntakeFiles';
+import { useIntakeFiles } from '@/features/intake/hooks/useIntakeFiles';
 import type { IntakeFile } from '@/features/intake/api/intakeFilesApi';
+
+import { FilesGrid } from '@/features/files/components/FilesGrid';
+import { FilesList } from '@/features/files/components/FilesList';
+import { FilesViewToggle, type FilesViewMode } from '@/features/files/components/FilesViewToggle';
+import { FileDetailDrawer } from '@/features/files/components/FileDetailDrawer';
+import {
+  DROPZONE_INSTRUCTION_TEXT,
+  DROPZONE_VALIDATION_TEXT,
+} from '@/features/files/constants';
+import type { OrgFile } from '@/features/files/utils/fileCategory';
 
 interface IntakeFilesPanelProps {
   intakeUuid: string;
@@ -20,45 +32,26 @@ interface IntakeFilesPanelProps {
   className?: string;
 }
 
-const fileItemFromIntakeFile = (
-  file: IntakeFile,
-  onOpen: () => void,
-  onDownload: () => void,
-  onRemove?: () => void,
-): UploadSurfaceItem => ({
-  id: file.id,
+const intakeFileToOrgFile = (file: IntakeFile): OrgFile => ({
+  id: `intake:${file.intakeUuid}:${file.id}`,
   fileName: file.fileName,
-  mimeType: file.mimeType ?? 'application/octet-stream',
+  mimeType: file.mimeType || 'application/octet-stream',
   fileSize: file.fileSize,
-  status: 'ready',
-  onOpen,
-  onDownload,
-  onRemove,
+  publicUrl: file.publicUrl ?? uploadDownloadPath(file.uploadId),
+  uploadId: file.uploadId,
+  createdAt: file.createdAt ?? null,
+  matterId: null,
+  matterTitle: null,
+  intakeUuid: file.intakeUuid,
+  intakeTitle: null,
+  status: file.status === 'verified'
+    ? 'completed'
+    : file.status === 'pending'
+      ? 'processing'
+      : file.status === 'rejected'
+        ? 'failed'
+        : 'none',
 });
-
-const fileItemFromUploading = (entry: UploadingIntakeFile): UploadSurfaceItem => ({
-  id: entry.id,
-  fileName: entry.file.name,
-  mimeType: entry.file.type || 'application/octet-stream',
-  fileSize: entry.file.size,
-  status: 'uploading',
-  progress: entry.progress,
-});
-
-const openInBrowser = (uploadId: string): void => {
-  if (typeof window === 'undefined') return;
-  const path = uploadDownloadPath(uploadId);
-  window.open(path, '_blank', 'noopener,noreferrer');
-};
-
-const downloadAsAnchor = (uploadId: string, fileName: string): void => {
-  if (typeof document === 'undefined') return;
-  const link = document.createElement('a');
-  link.href = uploadDownloadPath(uploadId);
-  link.download = fileName;
-  link.rel = 'noopener noreferrer';
-  link.click();
-};
 
 export const IntakeFilesPanel: FunctionComponent<IntakeFilesPanelProps> = ({
   intakeUuid,
@@ -80,22 +73,20 @@ export const IntakeFilesPanel: FunctionComponent<IntakeFilesPanelProps> = ({
   const [pendingDelete, setPendingDelete] = useState<IntakeFile | null>(null);
   const [deleteReason, setDeleteReason] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
+  const [detailFile, setDetailFile] = useState<OrgFile | null>(null);
+  const [viewMode, setViewMode] = useState<FilesViewMode>('grid');
 
   const handleFilesSelected = async (selected: File[]) => {
     if (!canUpload) return;
     for (const file of selected) {
       try {
         await uploadFile(file);
+        showSuccess('File uploaded', file.name);
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Failed to upload file.';
         showError('Upload failed', message);
       }
     }
-  };
-
-  const openDeleteDialog = (file: IntakeFile) => {
-    setPendingDelete(file);
-    setDeleteReason('');
   };
 
   const closeDeleteDialog = () => {
@@ -125,67 +116,90 @@ export const IntakeFilesPanel: FunctionComponent<IntakeFilesPanelProps> = ({
     }
   };
 
-  const items: UploadSurfaceItem[] = useMemo(() => {
-    const uploadingItems = uploadingFiles.map(fileItemFromUploading);
-    const readyItems = files.map((file) =>
-      fileItemFromIntakeFile(
-        file,
-        () => openInBrowser(file.uploadId),
-        () => downloadAsAnchor(file.uploadId, file.fileName),
-        canDelete ? () => openDeleteDialog(file) : undefined,
-      ),
-    );
-    return [...uploadingItems, ...readyItems];
-  }, [files, uploadingFiles, canDelete]);
+  const orgFiles = useMemo(() => files.map(intakeFileToOrgFile), [files]);
+
+  const emptyState = (
+    <WorkspacePlaceholderState
+      icon={FileText}
+      title="No files uploaded yet"
+      description={canUpload
+        ? 'Drag and drop files into the area above to attach them to this intake.'
+        : 'No files have been attached to this intake.'}
+    />
+  );
 
   return (
     <section
       className={`rounded-xl border border-card-border bg-surface-card p-4 sm:p-6 ${className ?? ''}`}
     >
-      <div className="mb-4 flex items-center gap-2">
-        <Icon icon={FileText} className="h-4 w-4 text-input-placeholder" />
-        <h3 className="text-sm font-semibold text-input-text">Files</h3>
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-2">
+          <Icon icon={FileText} className="h-4 w-4 text-input-placeholder" />
+          <h3 className="text-sm font-semibold text-input-text">Files</h3>
+        </div>
+        <FilesViewToggle value={viewMode} onChange={setViewMode} />
       </div>
+
       {canUpload ? (
-        <UploadSurface
+        <UploadDropzone
           onFilesSelected={(selected) => void handleFilesSelected(selected)}
-          items={items}
-          dropzoneInstructionText="Drag & drop or choose file to upload"
-          dropzoneValidationText="Max 50 MB per file"
-          dropzoneDisabled={false}
-          emptyStateLabel={items.length === 0 ? 'No files uploaded yet' : null}
+          instructionText={DROPZONE_INSTRUCTION_TEXT}
+          validationText={DROPZONE_VALIDATION_TEXT}
+          className="mb-4"
         />
-      ) : items.length === 0 ? (
-        <p className="text-sm text-input-placeholder">No files uploaded yet.</p>
-      ) : (
-        <div className="space-y-2">
-          {items.map((item) => (
-            <div
-              key={item.id}
-              className="flex items-center justify-between gap-3 rounded-xl border border-line-glass/15 bg-surface-utility/35 px-3 py-2"
-            >
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium text-input-text">{item.fileName}</p>
-                <p className="text-xs text-input-placeholder">
-                  {(item.fileSize / 1024).toFixed(1)} KB
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                {item.onOpen ? (
-                  <Button variant="ghost" size="sm" onClick={item.onOpen}>
-                    Open
-                  </Button>
-                ) : null}
-                {item.onDownload ? (
-                  <Button variant="ghost" size="sm" onClick={item.onDownload}>
-                    Download
-                  </Button>
-                ) : null}
-              </div>
-            </div>
+      ) : null}
+
+      {uploadingFiles.length > 0 ? (
+        <div className="mb-4 space-y-2">
+          {uploadingFiles.map((entry) => (
+            <UploadQueueRow
+              key={entry.id}
+              fileName={entry.file.name}
+              mimeType={entry.file.type || 'application/octet-stream'}
+              fileSize={entry.file.size}
+              status="uploading"
+              progress={entry.progress}
+            />
           ))}
         </div>
+      ) : null}
+
+      {viewMode === 'list' ? (
+        <FilesList
+          files={orgFiles}
+          isLoading={false}
+          emptyState={emptyState}
+          onFileClick={(file) => setDetailFile(file)}
+        />
+      ) : (
+        <FilesGrid
+          files={orgFiles}
+          isLoading={false}
+          emptyState={emptyState}
+          onFileClick={(file) => setDetailFile(file)}
+        />
       )}
+
+      {canDelete && orgFiles.length > 0 ? (
+        <div className="mt-4 space-y-2 text-xs">
+          {files.map((file) => (
+            <button
+              key={`delete-${file.id}`}
+              type="button"
+              className="text-input-placeholder hover:text-red-500"
+              onClick={() => setPendingDelete(file)}
+            >
+              Delete {file.fileName}
+            </button>
+          ))}
+        </div>
+      ) : null}
+
+      <FileDetailDrawer
+        file={detailFile}
+        isOpen={detailFile !== null}
+        onClose={() => setDetailFile(null)}
+      />
 
       <Dialog
         isOpen={pendingDelete !== null}

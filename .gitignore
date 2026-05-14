@@ -101,5 +101,8 @@ BILLING_PLAN.md
 # Pencil design files (local working files)
 blawby ui.pen
 
-# Agent skill content (committed snapshot only; ignore local changes)
-.agents/
+# Agent local working files; committed snapshots under .agents/ are allowed.
+.agents/local-*
+.agents/*.tmp
+.agents/**/*.tmp
+.agents/**/.cache/

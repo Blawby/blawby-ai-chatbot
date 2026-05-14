@@ -399,6 +399,7 @@ function AppShell() {
           <Route path="/client/:practiceSlug/invoices/:invoiceId" component={ClientPracticeRoute} workspaceView="invoiceDetail" />
           <Route path="/client/:practiceSlug/intakes" component={ClientPracticeRoute} workspaceView="intakes" />
           <Route path="/client/:practiceSlug/intakes/:intakeId" component={ClientPracticeRoute} workspaceView="intakeDetail" />
+          <Route path="/client/:practiceSlug/files" component={ClientPracticeRoute} workspaceView="files" />
           <Route path="/client/:practiceSlug/settings" component={ClientPracticeRoute} workspaceView="settings" settingsView="general" />
           <Route path="/client/:practiceSlug/settings/general" component={ClientPracticeRoute} workspaceView="settings" settingsView="general" />
           <Route path="/client/:practiceSlug/settings/notifications" component={ClientPracticeRoute} workspaceView="settings" settingsView="notifications" />
@@ -426,6 +427,7 @@ function AppShell() {
           <Route path="/practice/:practiceSlug/intakes/:templateSlug" component={PracticeAppRoute} workspaceView="intakes" />
           <Route path="/practice/:practiceSlug/engagements" component={PracticeAppRoute} workspaceView="engagements" />
           <Route path="/practice/:practiceSlug/engagements/:engagementId" component={PracticeAppRoute} workspaceView="engagements" />
+          <Route path="/practice/:practiceSlug/files" component={PracticeAppRoute} workspaceView="files" />
           <Route path="/practice/:practiceSlug/reports" component={PracticeAppRoute} workspaceView="reports" />
           <Route path="/practice/:practiceSlug/reports/*" component={PracticeAppRoute} workspaceView="reports" />
           <Route path="/practice/:practiceSlug/invoices" component={PracticeAppRoute} workspaceView="invoices" />
@@ -857,7 +859,7 @@ function ClientPracticeRoute({
   invoiceId?: string;
   intakeId?: string;
   appId?: string;
-  workspaceView?: 'home' | 'list' | 'conversation' | 'matters' | 'invoices' | 'invoiceDetail' | 'intakes' | 'intakeDetail' | 'settings';
+  workspaceView?: 'home' | 'list' | 'conversation' | 'matters' | 'invoices' | 'invoiceDetail' | 'intakes' | 'intakeDetail' | 'files' | 'settings';
   settingsView?: 'general' | 'notifications' | 'account' | 'practice' | 'practice-payouts' | 'practice-team' | 'apps' | 'app-detail' | 'intake-forms' | 'intake-forms-editor' | 'security' | 'help';
 }) {
   const location = useLocation();

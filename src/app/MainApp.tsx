@@ -40,10 +40,12 @@ const PracticeReportsPage = lazy(() => import('@/features/reports/pages/Practice
 const IntakesPage = lazy(() => import('@/features/intake/pages/IntakesPage').then(m => ({ default: m.IntakesPage })));
 const ClientIntakesView = lazy(() => import('@/features/intake/pages/ClientIntakesView').then(m => ({ default: m.ClientIntakesView })));
 const EngagementsPage = lazy(() => import('@/features/engagements/pages/EngagementsPage').then(m => ({ default: m.EngagementsPage })));
+const PracticeFilesPage = lazy(() => import('@/features/files/pages/PracticeFilesPage').then(m => ({ default: m.PracticeFilesPage })));
+const ClientFilesPage = lazy(() => import('@/features/files/pages/ClientFilesPage').then(m => ({ default: m.ClientFilesPage })));
 import { useConversationSystemMessages } from '@/shared/hooks/useConversationSystemMessages';
 import { initializeAccentColor } from '@/shared/utils/accentColors';
 import { useMentionCandidates } from '@/shared/hooks/useMentionCandidates';
-import { isIntakeReadyForSubmission, resolveConsultationState } from '@/shared/utils/consultationState';
+import { resolveConsultationState } from '@/shared/utils/consultationState';
 import type { SettingsView } from '@/features/settings/pages/SettingsContent';
 import { Button } from '@/shared/ui/Button';
 import { Icon } from '@/shared/ui/Icon';
@@ -55,7 +57,6 @@ import {
 } from '@/shared/utils/conversationDisplay';
 import { DetailHeader } from '@/shared/ui/layout/DetailHeader';
 import { LazyRouteBoundary } from '@/shared/ui/layout/LazyRouteBoundary';
-import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
 import { features } from '@/config/features';
 
 // ─── types ────────────────────────────────────────────────────────────────────
@@ -81,7 +82,7 @@ export function MainApp({
   chatContent,
   routeConversationId,
   routeInvoiceId,
-  routeIntakeId,
+  routeIntakeId: _routeIntakeId,
   routeSettingsView,
   routeSettingsAppId,
   routeSettingsIntakeTemplateSlug,
@@ -573,26 +574,6 @@ export function MainApp({
     conversationContactName?.trim() || 'Conversation'
   ), [conversationContactName]);
 
-  const isConsultConversation = useMemo(
-    () => conversationMode === 'REQUEST_CONSULTATION'
-      || Boolean(resolveConsultationState(conversationMetadata))
-      || Boolean(
-        slimContactDraft?.name
-        || slimContactDraft?.email
-        || slimContactDraft?.phone
-        || intakeStatus?.intakeUuid
-        || intakeStatus?.step !== 'contact_form_slim'
-        || intakeConversationState?.ctaShown
-        || isIntakeReadyForSubmission(intakeConversationState)
-        || intakeConversationState?.description
-        || intakeConversationState?.opposingParty
-        || intakeConversationState?.city
-        || intakeConversationState?.state
-        || intakeConversationState?.desiredOutcome
-      ),
-    [conversationMetadata, conversationMode, intakeConversationState, intakeStatus, slimContactDraft]
-  );
-
   // On desktop practice/client surfaces the inspector panel is open by default,
   // so the 3-dot inspector toggle in the conversation header would be redundant
   // chrome. Mobile keeps it (the inspector is a drawer there) and the public
@@ -636,13 +617,13 @@ export function MainApp({
   // sources used by ConversationContextPanel — keep both surfaces aligned so a
   // value visible in the right panel is also visible up here.
   const conversationHeaderEmail = useMemo(() => {
-    const intake = (intakeConversationState ?? null) as Record<string, unknown> | null;
+    const intake = (intakeConversationState ?? null) as unknown as Record<string, unknown> | null;
     if (typeof intake?.email === 'string' && intake.email.trim()) return intake.email.trim();
     if (typeof slimContactDraft?.email === 'string' && slimContactDraft.email.trim()) return slimContactDraft.email.trim();
     return '';
   }, [intakeConversationState, slimContactDraft]);
   const conversationHeaderPhone = useMemo(() => {
-    const intake = (intakeConversationState ?? null) as Record<string, unknown> | null;
+    const intake = (intakeConversationState ?? null) as unknown as Record<string, unknown> | null;
     if (typeof intake?.phone === 'string' && intake.phone.trim()) return intake.phone.trim();
     if (typeof slimContactDraft?.phone === 'string' && slimContactDraft.phone.trim()) return slimContactDraft.phone.trim();
     return '';
@@ -1132,6 +1113,24 @@ export function MainApp({
             </LazyRouteBoundary>
           )
           : undefined
+      }
+      filesView={
+        isPracticeWorkspace && resolvedPracticeSlug ? (
+          <LazyRouteBoundary>
+            <PracticeFilesPage
+              practiceId={effectivePracticeId ?? practiceId}
+              practiceSlug={resolvedPracticeSlug}
+            />
+          </LazyRouteBoundary>
+        ) : isClientWorkspace && (clientPracticeSlug ?? resolvedClientPracticeSlug) ? (
+          <LazyRouteBoundary>
+            <ClientFilesPage
+              practiceId={effectivePracticeId ?? practiceId}
+              practiceSlug={(clientPracticeSlug ?? resolvedClientPracticeSlug) as string}
+              userId={session?.user?.id ?? null}
+            />
+          </LazyRouteBoundary>
+        ) : undefined
       }
       primaryCreateAction={
         resolvedWorkspaceView === 'matters' && isPracticeWorkspace && practiceMattersPath

@@ -773,7 +773,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
               {isInspectorOpen && activeConversationId && (
                 <aside className="hidden w-80 shrink-0 lg:block lg:w-96 glass-panel overflow-visible shadow-glass ring-1 ring-line-glass/20">
                   <div className="h-full overflow-y-auto">
-                    <InspectorPanel 
+                    <InspectorPanel
                       entityType="conversation"
                       entityId={activeConversationId}
                       practiceId={practiceId}
@@ -783,7 +783,6 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
                       onClose={() => setIsInspectorOpen(false)}
                       intakeConversationState={intakeConversationState}
                       intakeStatus={intakeStatus}
-                      intake={activeIntake}
                       onIntakeFieldsChange={(patch, options) => {
                         // Remove all null values for IntakeFieldsPayload compatibility
                         const payload: Record<string, unknown> = {};
@@ -793,7 +792,6 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
                         return applyIntakeFields(payload, options);
                       }}
                       practiceDetails={cachedPracticeDetails}
-                      intakeSlimContactDraft={slimContactDraft}
                     />
                   </div>
                 </aside>
@@ -805,7 +803,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
                 isOpen={true}
                 onClose={() => setIsInspectorOpen(false)}
               >
-                <InspectorPanel 
+                <InspectorPanel
                   entityType="conversation"
                   entityId={activeConversationId}
                   practiceId={practiceId}
@@ -815,7 +813,6 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
                   onClose={() => setIsInspectorOpen(false)}
                   intakeConversationState={intakeConversationState}
                   intakeStatus={intakeStatus}
-                  intake={activeIntake}
                   onIntakeFieldsChange={(patch, options) => {
                     const payload: Record<string, unknown> = {};
                     Object.entries(patch).forEach(([key, value]) => {
@@ -824,7 +821,6 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
                     return applyIntakeFields(payload, options);
                   }}
                   practiceDetails={cachedPracticeDetails}
-                  intakeSlimContactDraft={slimContactDraft}
                 />
               </MobileInspectorOverlay>
             )}

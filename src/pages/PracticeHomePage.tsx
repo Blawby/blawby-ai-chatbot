@@ -173,19 +173,18 @@ const PracticeHomePage = () => {
         >
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2.5">
-              <Rocket className="h-5 w-5 text-[#A8DADC]" aria-hidden="true" />
+              <Rocket className="h-5 w-5 text-accent-300" aria-hidden="true" />
               <h2 className="text-base font-bold text-heading">Get started with your practice</h2>
             </div>
             <span className="text-sm font-medium text-secondary">
               {completeCount} of {SETUP_STEPS.length} complete
             </span>
           </div>
-          <div className="mt-4 h-1.5 w-full overflow-hidden rounded-full bg-white/10">
+          <div className="mt-4 h-1.5 w-full overflow-hidden rounded-full bg-surface-utility/10">
             <div
-              className="h-full rounded-full transition-[width]"
+              className="h-full rounded-full bg-accent-500 transition-[width]"
               style={{
                 width: `${progressPct}%`,
-                background: 'linear-gradient(90deg, #6366F1 0%, #818CF8 100%)',
               }}
             />
           </div>
@@ -193,15 +192,15 @@ const PracticeHomePage = () => {
             {SETUP_STEPS.map((step, idx) => (
               <div
                 key={step.id}
-                className="flex flex-col gap-2.5 rounded-xl border border-white/10 bg-white/5 p-4"
+                className="flex flex-col gap-2.5 rounded-xl border border-line-glass/20 bg-surface-utility/5 p-4"
               >
                 <div className="flex items-center gap-2.5">
                   {step.complete ? (
-                    <span className="flex h-[22px] w-[22px] items-center justify-center rounded-full bg-emerald-500 text-white">
+                    <span className="flex h-[22px] w-[22px] items-center justify-center rounded-full bg-accent-500 text-[rgb(var(--accent-foreground))]">
                       <Check className="h-3.5 w-3.5" strokeWidth={3} aria-hidden="true" />
                     </span>
                   ) : (
-                    <span className="flex h-[22px] w-[22px] items-center justify-center rounded-full border border-white/25 text-[10px] font-bold text-heading">
+                    <span className="flex h-[22px] w-[22px] items-center justify-center rounded-full border border-line-glass/30 text-[10px] font-bold text-heading">
                       {idx + 1}
                     </span>
                   )}

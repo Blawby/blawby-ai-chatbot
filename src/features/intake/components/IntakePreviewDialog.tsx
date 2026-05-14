@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'preact/hooks';
 import { ExternalLink } from 'lucide-preact';
 
 import { Dialog, DialogBody, DialogFooter } from '@/shared/ui/dialog';
@@ -6,7 +7,6 @@ import { WidgetPreviewFrame } from '@/features/settings/components/WidgetPreview
 import { getPublicFormUrl } from '@/features/intake/components/EmbedCodeBlock';
 import type { IntakeTemplate } from '@/shared/types/intake';
 import type { WidgetPreviewConfig } from '@/shared/types/widgetPreview';
-import type { MinorAmount } from '@/shared/utils/money';
 import { isMinorAmount, asMinor } from '@/shared/utils/money';
 
 type IntakePreviewDialogProps = {
@@ -34,6 +34,16 @@ export const IntakePreviewDialog = ({
   onCancel,
   loading = false,
 }: IntakePreviewDialogProps) => {
+  const [isPublishing, setIsPublishing] = useState(false);
+  const [publishError, setPublishError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setIsPublishing(false);
+      setPublishError(null);
+    }
+  }, [isOpen]);
+
   const previewConfig: WidgetPreviewConfig = {
     name: practiceName ?? undefined,
     profileImage: practiceLogo ?? null,

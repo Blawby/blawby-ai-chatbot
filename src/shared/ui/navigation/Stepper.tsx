@@ -49,7 +49,7 @@ export function Stepper({
                 <div
                   className={cn(
                     orientation === 'horizontal' ? 'flex-1 h-0.5' : 'w-0.5 h-6',
-                    status === 'upcoming' ? 'bg-black/8 dark:bg-white/8' : 'bg-accent-500',
+                    status === 'upcoming' ? 'bg-surface-utility/10' : 'bg-accent-500',
                     'transition-colors',
                   )}
                 />
@@ -63,7 +63,7 @@ export function Stepper({
                   'w-8 h-8 text-xs font-medium',
                   status === 'completed' && 'bg-accent-500 text-[rgb(var(--accent-foreground))]',
                   status === 'active' && 'bg-accent-500/15 text-accent-600 dark:text-accent-400 ring-2 ring-accent-500/30',
-                  status === 'upcoming' && 'bg-black/5 dark:bg-white/8 text-input-placeholder',
+                  status === 'upcoming' && 'bg-surface-utility/10 text-input-placeholder',
                 )}
               >
                 {status === 'completed' ? (
@@ -77,7 +77,7 @@ export function Stepper({
                 <div
                   className={cn(
                     'flex-1 h-0.5',
-                    i < currentStep ? 'bg-accent-500' : 'bg-black/8 dark:bg-white/8',
+                    i < currentStep ? 'bg-accent-500' : 'bg-surface-utility/10',
                     'transition-colors',
                   )}
                 />

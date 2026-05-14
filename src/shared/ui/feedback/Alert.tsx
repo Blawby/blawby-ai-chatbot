@@ -88,7 +88,7 @@ export function Alert({
           type="button"
           onClick={handleDismiss}
           aria-label="Dismiss alert"
-          className="shrink-0 p-1 rounded-lg text-input-placeholder hover:text-input-text hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
+          className="shrink-0 p-1 rounded-lg text-input-placeholder hover:text-input-text hover:bg-surface-utility/10 transition-colors"
         >
           <X size={14} />
         </button>

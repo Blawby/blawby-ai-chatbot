@@ -35,6 +35,7 @@ describe('ConversationService.addParticipants', () => {
       participants: ['owner'],
       user_info: null,
       status: 'active' as const,
+      lifecycle_status: 'visible' as const,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
@@ -75,6 +76,7 @@ describe('ConversationService.addParticipants', () => {
       participants: ['owner', 'user-2'],
       user_info: null,
       status: 'active' as const,
+      lifecycle_status: 'visible' as const,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };

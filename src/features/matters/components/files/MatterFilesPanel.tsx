@@ -1,15 +1,30 @@
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
-import { UploadSurface, type UploadSurfaceItem } from '@/shared/ui/upload/organisms/UploadSurface';
+import { Folder } from 'lucide-preact';
+
+import { UploadDropzone } from '@/shared/ui/upload/organisms/UploadDropzone';
+import { UploadQueueRow } from '@/shared/ui/upload/molecules/UploadQueueRow';
 import { useToastContext } from '@/shared/contexts/ToastContext';
-import { ListRowSkeleton } from '@/shared/ui/layout';
+import { WorkspacePlaceholderState } from '@/shared/ui/layout/WorkspacePlaceholderState';
 import {
   listMatterUploads,
   uploadFileViaBackend,
   type BackendUploadRecord,
 } from '@/shared/lib/uploadsApi';
+import { uploadDownloadPath } from '@/config/urls';
+
+import { FilesGrid } from '@/features/files/components/FilesGrid';
+import { FilesList } from '@/features/files/components/FilesList';
+import { FilesViewToggle, type FilesViewMode } from '@/features/files/components/FilesViewToggle';
+import { FileDetailDrawer } from '@/features/files/components/FileDetailDrawer';
+import {
+  DROPZONE_INSTRUCTION_TEXT,
+  DROPZONE_VALIDATION_TEXT,
+} from '@/features/files/constants';
+import type { OrgFile } from '@/features/files/utils/fileCategory';
 
 interface MatterFilesPanelProps {
   matterId: string;
+  matterTitle?: string | null;
   isPrivilegedUploads?: boolean;
 }
 
@@ -25,43 +40,30 @@ const makeUploadId = (): string => (
     : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
 );
 
-const triggerDownload = (url: string, name: string) => {
-  const link = document.createElement('a');
-  link.href = url;
-  try {
-    if (new URL(url).origin !== window.location.origin) {
-      link.target = '_blank';
-      link.rel = 'noopener noreferrer';
-    } else {
-      link.download = name;
-    }
-  } catch {
-    link.download = name;
-  }
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-};
+const recordToOrgFile = (record: BackendUploadRecord, matterId: string, matterTitle: string | null): OrgFile => ({
+  id: `matter:${matterId}:${record.id}`,
+  fileName: record.file_name,
+  mimeType: record.mime_type || 'application/octet-stream',
+  fileSize: typeof record.file_size === 'number' ? record.file_size : 0,
+  publicUrl: record.public_url ?? uploadDownloadPath(record.id),
+  uploadId: record.id,
+  createdAt: record.created_at ?? null,
+  matterId,
+  matterTitle,
+  intakeUuid: null,
+  intakeTitle: null,
+});
 
-const openFile = (url: string) => {
-  window.open(url, '_blank', 'noopener,noreferrer');
-};
-
-export function MatterFilesPanel({ matterId, isPrivilegedUploads = true }: MatterFilesPanelProps) {
+export function MatterFilesPanel({ matterId, matterTitle = null, isPrivilegedUploads = true }: MatterFilesPanelProps) {
   const [uploads, setUploads] = useState<BackendUploadRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [uploadingFiles, setUploadingFiles] = useState<UploadingPanelFile[]>([]);
-  const [isDraggingFiles, setIsDraggingFiles] = useState(false);
+  const [detailFile, setDetailFile] = useState<OrgFile | null>(null);
+  const [viewMode, setViewMode] = useState<FilesViewMode>('grid');
   const abortRef = useRef<AbortController | null>(null);
-  const dragDepthRef = useRef(0);
   const { showSuccess, showError } = useToastContext();
   const isUploading = uploadingFiles.length > 0;
-
-  const hasDraggedFiles = (event: DragEvent) => {
-    const types = event.dataTransfer?.types;
-    return Boolean(types && Array.from(types).includes('Files'));
-  };
 
   const fetchUploads = useCallback(() => {
     abortRef.current?.abort();
@@ -123,108 +125,73 @@ export function MatterFilesPanel({ matterId, isPrivilegedUploads = true }: Matte
     return () => { abortRef.current?.abort(); };
   }, [fetchUploads]);
 
-  useEffect(() => {
-    const onDragEnter = (event: DragEvent) => {
-      if (!hasDraggedFiles(event)) return;
-      event.preventDefault();
-      dragDepthRef.current += 1;
-      setIsDraggingFiles(true);
-    };
+  const orgFiles = uploads.map((record) => recordToOrgFile(record, matterId, matterTitle));
 
-    const onDragOver = (event: DragEvent) => {
-      if (!hasDraggedFiles(event)) return;
-      event.preventDefault();
-      if (event.dataTransfer) {
-        event.dataTransfer.dropEffect = 'copy';
-      }
-      setIsDraggingFiles(true);
-    };
+  const handleFileClick = (file: OrgFile) => {
+    setDetailFile(file);
+  };
 
-    const onDragLeave = (event: DragEvent) => {
-      if (!hasDraggedFiles(event)) return;
-      event.preventDefault();
-      dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
-      if (dragDepthRef.current === 0) {
-        setIsDraggingFiles(false);
-      }
-    };
-
-    const onDrop = (event: DragEvent) => {
-      if (!hasDraggedFiles(event)) return;
-      event.preventDefault();
-      dragDepthRef.current = 0;
-      setIsDraggingFiles(false);
-      const droppedFiles = event.dataTransfer?.files ? Array.from(event.dataTransfer.files) : [];
-      if (droppedFiles.length > 0) {
-        void handleUploadBatch(droppedFiles);
-      }
-    };
-
-    window.addEventListener('dragenter', onDragEnter);
-    window.addEventListener('dragover', onDragOver);
-    window.addEventListener('dragleave', onDragLeave);
-    window.addEventListener('drop', onDrop);
-
-    return () => {
-      window.removeEventListener('dragenter', onDragEnter);
-      window.removeEventListener('dragover', onDragOver);
-      window.removeEventListener('dragleave', onDragLeave);
-      window.removeEventListener('drop', onDrop);
-    };
-  }, [handleUploadBatch]);
-
-  const surfaceItems: UploadSurfaceItem[] = [
-    ...uploadingFiles.map((item) => ({
-      id: item.id,
-      fileName: item.file.name,
-      mimeType: item.file.type || 'application/octet-stream',
-      fileSize: item.file.size,
-      status: 'uploading' as const,
-      progress: item.progress,
-    })),
-    ...uploads.map((upload) => ({
-      id: upload.id,
-      fileName: upload.file_name,
-      mimeType: upload.mime_type || 'application/octet-stream',
-      fileSize: upload.file_size,
-      status: 'ready' as const,
-      onOpen: upload.public_url ? () => openFile(upload.public_url as string) : undefined,
-      onDownload: upload.public_url ? () => triggerDownload(upload.public_url as string, upload.file_name) : undefined,
-    })),
-  ];
-
-  if (loading && surfaceItems.length === 0) {
-    return <ListRowSkeleton rows={4} className="divide-y divide-line-default" />;
-  }
-
-  if (error && surfaceItems.length === 0) {
-    return (
-      <div className="rounded-xl border border-red-500/25 bg-red-500/10 px-3 py-2 text-sm text-red-200">
-        {error}
-      </div>
-    );
-  }
+  const emptyState = (
+    <WorkspacePlaceholderState
+      icon={Folder}
+      title="No files yet"
+      description="Drag and drop files into the area above to upload them to this matter."
+    />
+  );
 
   return (
-    <div className="relative">
-      <UploadSurface
+    <div className="space-y-4">
+      <UploadDropzone
         onFilesSelected={(files) => { void handleUploadBatch(files); }}
-        items={surfaceItems}
-        dropzoneInstructionText="Drag & drop or choose file to upload"
-        dropzoneValidationText="Supported: images, PDF, docs, audio, video - Max 50 MB"
-        dropzoneDisabled={isUploading}
-        emptyStateLabel={null}
+        instructionText={DROPZONE_INSTRUCTION_TEXT}
+        validationText={DROPZONE_VALIDATION_TEXT}
+        disabled={isUploading}
       />
 
-      {error ? (
-        <div className="mt-3 rounded-xl border border-red-500/25 bg-red-500/10 px-3 py-2 text-xs text-red-200">
-          {error}
+      {uploadingFiles.length > 0 ? (
+        <div className="space-y-2">
+          {uploadingFiles.map((entry) => (
+            <UploadQueueRow
+              key={entry.id}
+              fileName={entry.file.name}
+              mimeType={entry.file.type || 'application/octet-stream'}
+              fileSize={entry.file.size}
+              status="uploading"
+              progress={entry.progress}
+            />
+          ))}
         </div>
       ) : null}
 
-      {isDraggingFiles ? (
-        <div className="pointer-events-none absolute inset-0 z-20 rounded-2xl border-2 border-dashed border-accent-500 bg-accent-500/10" />
+      {error ? (
+        <div className="status-error rounded-xl px-3 py-2 text-sm">{error}</div>
       ) : null}
+
+      <div className="flex justify-end">
+        <FilesViewToggle value={viewMode} onChange={setViewMode} />
+      </div>
+
+      {viewMode === 'list' ? (
+        <FilesList
+          files={orgFiles}
+          isLoading={loading && orgFiles.length === 0}
+          emptyState={emptyState}
+          onFileClick={handleFileClick}
+        />
+      ) : (
+        <FilesGrid
+          files={orgFiles}
+          isLoading={loading && orgFiles.length === 0}
+          emptyState={emptyState}
+          onFileClick={handleFileClick}
+        />
+      )}
+
+      <FileDetailDrawer
+        file={detailFile}
+        isOpen={detailFile !== null}
+        onClose={() => setDetailFile(null)}
+      />
     </div>
   );
 }

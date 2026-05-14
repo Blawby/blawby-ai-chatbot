@@ -26,6 +26,7 @@ import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { CONTACT_RELATIONSHIP_STATUS_LABELS } from '@/shared/domain/contacts';
 import type { Address } from '@/shared/types/address';
 import type { IntakeConversationState, DerivedIntakeStatus } from '@/shared/types/intake';
+import type { PracticeIntakeDetail } from '@/features/intake/api/intakesApi';
 import { resolveStrengthTier, resolveStrengthLabel, resolveStrengthStyle, resolveStrengthDescription } from '@/shared/utils/intakeStrength';
 import type { PracticeSetupStatus } from '@/features/practice-setup/utils/status';
 import type { BusinessOnboardingStatus } from '@/shared/hooks/usePracticeManagement';
@@ -154,6 +155,7 @@ export const InspectorPanel = ({
   practiceLogo,
   intakeConversationState,
   intakeStatus,
+  intake,
   onIntakeFieldsChange,
   practiceDetails: propPracticeDetails,
   conversationMode,

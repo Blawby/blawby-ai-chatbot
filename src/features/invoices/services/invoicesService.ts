@@ -119,7 +119,7 @@ export const getInvoice = async (
     // The detail endpoint returns a single invoice object (not wrapped in an array)
     const rawInvoice = extractInvoiceRecord(data);
     if (!rawInvoice) {
-      return null;
+      throw new Error('Invalid invoice detail response: expected an invoice payload.');
     }
     const invoice = normalizeInvoice(rawInvoice as BackendInvoice);
     return normalizeInvoiceDetail(invoice, rawInvoice);
@@ -167,38 +167,49 @@ export const getClientInvoice = async (
   options: FetchOptions = {}
 ): Promise<InvoiceDetail | null> => {
   if (!practiceId || !invoiceId) return null;
-  const response = await apiClient.get(urls.clientInvoice(practiceId, invoiceId), {
-    signal: options.signal,
-  });
-  const data = response.data;
-  const invoiceRecord = extractInvoicesArray(data)[0];
-  if (!invoiceRecord) return null;
-
-  const invoice = normalizeInvoice(invoiceRecord);
-  const rawInvoice = extractInvoiceRecord(data);
-
-  let refundRequestSupported = true;
-  let refundRequestError: string | null = null;
-  let refundRequests: Array<Record<string, unknown>> = [];
   try {
-    const allRefundRequests = await listClientRefundRequests(practiceId, options);
-    refundRequests = allRefundRequests.filter((request) => {
-      const requestInvoiceId = asString(request.invoice_id ?? request.invoiceId);
-      return requestInvoiceId === invoiceId;
+    const response = await apiClient.get(urls.clientInvoice(practiceId, invoiceId), {
+      signal: options.signal,
     });
+    const data = response.data;
+    const invoiceRecord = extractInvoicesArray(data)[0];
+    if (!invoiceRecord) {
+      throw new Error('Invalid client invoice detail response: expected an invoice payload.');
+    }
+
+    const invoice = normalizeInvoice(invoiceRecord);
+    const rawInvoice = extractInvoiceRecord(data);
+    if (!rawInvoice) {
+      throw new Error('Invalid client invoice detail response: expected an invoice payload.');
+    }
+
+    let refundRequestSupported = true;
+    let refundRequestError: string | null = null;
+    let refundRequests: Array<Record<string, unknown>> = [];
+    try {
+      const allRefundRequests = await listClientRefundRequests(practiceId, options);
+      refundRequests = allRefundRequests.filter((request) => {
+        const requestInvoiceId = asString(request.invoice_id ?? request.invoiceId);
+        return requestInvoiceId === invoiceId;
+      });
+    } catch (error) {
+      const status = getErrorStatus(error);
+
+      if (status === 405 || status === 501) {
+        refundRequestSupported = false;
+      } else if (status === 404) {
+        refundRequestError = 'Refund request endpoint route mismatch (404).';
+      } else {
+        throw error;
+      }
+    }
+
+    return normalizeInvoiceDetail(invoice, rawInvoice, { refundRequests, refundRequestSupported, refundRequestError });
   } catch (error) {
     const status = getErrorStatus(error);
-
-    if (status === 405 || status === 501) {
-      refundRequestSupported = false;
-    } else if (status === 404) {
-      refundRequestError = 'Refund request endpoint route mismatch (404).';
-    } else {
-      throw error;
-    }
+    if (status === 404) return null;
+    throw error;
   }
-
-  return normalizeInvoiceDetail(invoice, rawInvoice, { refundRequests, refundRequestSupported, refundRequestError });
 };
 
 export const createInvoice = async (

@@ -1054,16 +1054,6 @@ function TemplateEditor({
     return true;
   };
 
-  const handleSave = async () => {
-    if (!validatePublish(state)) return;
-    setIsSaving(true);
-    try {
-      await onSave(editorStateToTemplate(state));
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
   const handlePreviewAndPublish = () => {
     if (!validatePublish(state)) return;
     setShowPreviewDialog(true);

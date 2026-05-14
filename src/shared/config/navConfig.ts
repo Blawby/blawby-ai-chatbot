@@ -61,6 +61,12 @@ const prefetchReportsChunk = prefetchLazyChunk(
 const prefetchPracticeContactsChunk = prefetchLazyChunk(
   () => import('@/features/clients/pages/PracticeContactsPage')
 );
+const prefetchPracticeFilesChunk = prefetchLazyChunk(
+  () => import('@/features/files/pages/PracticeFilesPage')
+);
+const prefetchClientFilesChunk = prefetchLazyChunk(
+  () => import('@/features/files/pages/ClientFilesPage')
+);
 
 export type NavCtx = {
   practiceSlug: string;
@@ -68,7 +74,7 @@ export type NavCtx = {
   canAccessPractice: boolean;
 };
 
-export type WorkspaceSection = 'home' | 'conversations' | 'intakes' | 'engagements' | 'matters' | 'invoices' | 'reports' | 'settings' | 'coverage';
+export type WorkspaceSection = 'home' | 'conversations' | 'intakes' | 'engagements' | 'matters' | 'files' | 'invoices' | 'reports' | 'settings' | 'coverage';
 
 
 
@@ -211,6 +217,7 @@ const buildPracticeRail = (basePath: string): NavRailItem[] => [
     icon: Folder,
     href: `${basePath}/files`,
     matchHrefs: [`${basePath}/files`],
+    prefetch: prefetchPracticeFilesChunk,
   },
   {
     id: 'invoices',
@@ -274,6 +281,14 @@ const buildClientRail = (basePath: string): NavRailItem[] => [
     href: `${basePath}/intakes`,
     matchHrefs: [`${basePath}/intakes`],
     prefetch: prefetchIntakesChunk,
+  },
+  {
+    id: 'files',
+    label: 'Files',
+    icon: Folder,
+    href: `${basePath}/files`,
+    matchHrefs: [`${basePath}/files`],
+    prefetch: prefetchClientFilesChunk,
   },
   {
     id: 'invoices',
@@ -544,6 +559,7 @@ const RAIL_ID_TO_SECTION: Record<string, WorkspaceSection> = {
   intakes: 'intakes',
   engagements: 'engagements',
   matters: 'matters',
+  files: 'files',
   invoices: 'invoices',
   reports: 'reports',
   settings: 'settings',

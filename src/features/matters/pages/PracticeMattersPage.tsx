@@ -38,7 +38,6 @@ import { asMajor, getMajorAmountValue, safeDivide, safeMultiply, type MajorAmoun
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import { cn } from '@/shared/utils/cn';
 import {
-  createMatter,
   deleteMatter,
   getMatter,
   getMatterActivity,
@@ -70,11 +69,10 @@ import type { Invoice, InvoiceLineItem } from '@/features/matters/types/billing.
 import { createPendingInvoiceDraftContext } from '@/features/invoices/utils/invoiceDraftContext';
 import { getPracticeIntake } from '@/features/intake/api/intakesApi';
 import { resolveIntakeTitle } from '@/features/intake/utils/intakeTitle';
-import { apiClient, isHttpError, listUserDetails, type UserDetailRecord } from '@/shared/lib/apiClient';
+import { listUserDetails, type UserDetailRecord } from '@/shared/lib/apiClient';
 import { getConversation } from '@/shared/lib/conversationApi';
 import {
   buildActivityTimelineItem,
-  buildCreatePayload,
   buildFormStateFromDetail,
   buildNoteTimelineItem,
   buildUpdatePayload,
@@ -414,7 +412,7 @@ export const PracticeMattersPage = ({
   // ── Person / service / assignee options ───────────────────────────────────
   const [clientOptions, setClientOptions] = useState<MatterOption[]>([]);
   const [isClientListTruncated, setIsClientListTruncated] = useState(false);
-  const [servicesLoading, setServicesLoading] = useState(false);
+  const [_servicesLoading, setServicesLoading] = useState(false);
   // Tracks whether the clients fetch (used to resolve `client_id` → display
   // name in the matters list) is still in flight. Without this, the matters
   // API returns first and rows render with `Person 5da12e3f` placeholder
@@ -439,15 +437,14 @@ export const PracticeMattersPage = ({
   const [matterCloseOpen, setMatterCloseOpen] = useState(false);
   const [_quickTimeEntryKey, _setQuickTimeEntryKey] = useState(0);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [convertInitialValues, setConvertInitialValues] = useState<Partial<MatterFormState> | undefined>(undefined);
-  const [convertLoading, setConvertLoading] = useState(false);
-  const [convertError, setConvertError] = useState<string | null>(null);
+  const [_convertInitialValues, setConvertInitialValues] = useState<Partial<MatterFormState> | undefined>(undefined);
+  const [_convertLoading, setConvertLoading] = useState(false);
+  const [_convertError, setConvertError] = useState<string | null>(null);
 
   // ── Refs ──────────────────────────────────────────────────────────────────
   const isMounted = useRef(true);
   const practiceDetailsRequestedRef = useRef<string | null>(null);
   const refreshRequestIdRef = useRef(0);
-  const createdMatterIdRef = useRef<string | null>(null);
 
   const {
     invoices,
@@ -1563,11 +1560,6 @@ export const PracticeMattersPage = ({
     });
   }, [navigateToInvoiceCreate, selectedMatterDetail]);
 
-  const handleOpenSettlementModal = useCallback(() => {
-    setSettlementDraft(selectedMatterDetail?.settlementAmount);
-    setIsSettlementModalOpen(true);
-  }, [selectedMatterDetail?.settlementAmount]);
-
   const handleSaveSettlementAndPrepareInvoice = useCallback(async () => {
     if (!activePracticeId || !selectedMatterId || settlementDraft === undefined || !selectedMatterDetail) return;
     try {
@@ -1977,7 +1969,6 @@ export const PracticeMattersPage = ({
                   value={matterDeleteConfirmInput}
                   onChange={(value) => setMatterDeleteConfirmInput(value)}
                   placeholder={selectedMatterDetail.title}
-                  autoFocus
                 />
               </div>
             </DialogBody>
