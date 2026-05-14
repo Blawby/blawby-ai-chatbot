@@ -63,23 +63,13 @@ export const FileCard = ({
 
   if (variant === 'tile') {
     const fileType = getFileTypeConfig(fileName, mimeType);
-    return (
-      <div
-        className={cn(
-          'group relative flex flex-col overflow-hidden rounded-2xl border border-line-glass/30 bg-surface-card text-left transition-all',
-          onClick ? 'cursor-pointer hover:border-line-glass/60 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-accent-500' : '',
-          className
-        )}
-        role={onClick ? 'button' : undefined}
-        tabIndex={onClick ? 0 : undefined}
-        onClick={onClick}
-        onKeyDown={onClick ? (event) => {
-          if (event.key === 'Enter' || event.key === ' ') {
-            event.preventDefault();
-            onClick();
-          }
-        } : undefined}
-      >
+    const tileClassName = cn(
+      'group relative flex w-full flex-col overflow-hidden rounded-2xl border border-line-glass/30 bg-surface-card text-left transition-all',
+      onClick ? 'cursor-pointer hover:border-line-glass/60 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-accent-500' : '',
+      className
+    );
+    const renderTileContent = (includeRemove: boolean) => (
+      <>
         <div className="relative flex aspect-[4/3] w-full items-center justify-center overflow-hidden bg-surface-panel">
           {isImage && imageUrl ? (
             <img
@@ -93,7 +83,7 @@ export const FileCard = ({
               <Icon icon={fileType.icon} className="h-7 w-7 text-input-text" />
             </div>
           )}
-          {shouldShowRemove && onRemove ? (
+          {includeRemove && shouldShowRemove && onRemove ? (
             <div className="absolute right-2 top-2 z-10">
               <RemoveButton onClick={onRemove} size="sm" />
             </div>
@@ -108,6 +98,31 @@ export const FileCard = ({
             <p className="text-[11px] uppercase tracking-wide text-input-placeholder">{timestampLabel}</p>
           ) : null}
         </div>
+      </>
+    );
+
+    if (onClick) {
+      return (
+        <div className="relative">
+          <button
+            type="button"
+            className={tileClassName}
+            onClick={onClick}
+          >
+            {renderTileContent(false)}
+          </button>
+          {shouldShowRemove && onRemove ? (
+            <div className="absolute right-2 top-2 z-10">
+              <RemoveButton onClick={onRemove} size="sm" />
+            </div>
+          ) : null}
+        </div>
+      );
+    }
+
+    return (
+      <div className={tileClassName}>
+        {renderTileContent(true)}
       </div>
     );
   }

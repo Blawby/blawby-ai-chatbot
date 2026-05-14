@@ -2,9 +2,9 @@ import { useMemo } from 'preact/hooks';
 
 import { useQuery } from '@/shared/hooks/useQuery';
 import { policyTtl } from '@/shared/lib/cachePolicy';
-import { listMatters, type BackendMatter } from '@/features/matters/services/mattersApi';
-import { listIntakes, type IntakeListItem } from '@/features/intake/api/intakesApi';
-import { ORG_FILES_FAN_OUT_LIMIT } from '@/features/files/constants';
+import type { BackendMatter } from '@/features/matters/services/mattersApi';
+import type { IntakeListItem } from '@/features/intake/api/intakesApi';
+import { listAllFileIntakes, listAllFileMatters } from '@/features/files/hooks/pagination';
 
 export interface UseUploadDestinationsOptions {
   practiceId: string | null | undefined;
@@ -35,8 +35,8 @@ const fetchDestinations = async (
   signal?: AbortSignal,
 ): Promise<{ matters: BackendMatter[]; intakes: IntakeListItem[] }> => {
   const [mattersResult, intakesResult] = await Promise.allSettled([
-    listMatters(practiceId, { page: 1, limit: ORG_FILES_FAN_OUT_LIMIT, signal }),
-    listIntakes(practiceId, { page: 1, limit: ORG_FILES_FAN_OUT_LIMIT }, { signal }),
+    listAllFileMatters(practiceId, signal),
+    listAllFileIntakes(practiceId, signal),
   ]);
   // If both calls fail, surface an error rather than caching an empty
   // success — otherwise the dropdown silently looks empty for 30s after a
@@ -49,7 +49,7 @@ const fetchDestinations = async (
   }
   return {
     matters: mattersResult.status === 'fulfilled' ? mattersResult.value : [],
-    intakes: intakesResult.status === 'fulfilled' ? intakesResult.value.intakes : [],
+    intakes: intakesResult.status === 'fulfilled' ? intakesResult.value : [],
   };
 };
 

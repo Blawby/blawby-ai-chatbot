@@ -35,7 +35,7 @@ export const FolderTile = ({ folder, active = false, onClick, className }: Folde
       className,
     )}
   >
-    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent-500/10 text-accent-utility">
+    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent-500/10 text-[rgb(var(--accent-foreground))]">
       <Icon icon={folderIcon(folder.kind)} className="h-5 w-5" />
     </div>
     <div className="min-w-0 flex-1">

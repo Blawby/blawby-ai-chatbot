@@ -15,6 +15,8 @@ import { useIntakeFiles } from '@/features/intake/hooks/useIntakeFiles';
 import type { IntakeFile } from '@/features/intake/api/intakeFilesApi';
 
 import { FilesGrid } from '@/features/files/components/FilesGrid';
+import { FilesList } from '@/features/files/components/FilesList';
+import { FilesViewToggle, type FilesViewMode } from '@/features/files/components/FilesViewToggle';
 import { FileDetailDrawer } from '@/features/files/components/FileDetailDrawer';
 import {
   DROPZONE_INSTRUCTION_TEXT,
@@ -65,6 +67,7 @@ export const IntakeFilesPanel: FunctionComponent<IntakeFilesPanelProps> = ({
   const [deleteReason, setDeleteReason] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
   const [detailFile, setDetailFile] = useState<OrgFile | null>(null);
+  const [viewMode, setViewMode] = useState<FilesViewMode>('grid');
 
   const handleFilesSelected = async (selected: File[]) => {
     if (!canUpload) return;
@@ -122,9 +125,12 @@ export const IntakeFilesPanel: FunctionComponent<IntakeFilesPanelProps> = ({
     <section
       className={`rounded-xl border border-card-border bg-surface-card p-4 sm:p-6 ${className ?? ''}`}
     >
-      <div className="mb-4 flex items-center gap-2">
-        <Icon icon={FileText} className="h-4 w-4 text-input-placeholder" />
-        <h3 className="text-sm font-semibold text-input-text">Files</h3>
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-2">
+          <Icon icon={FileText} className="h-4 w-4 text-input-placeholder" />
+          <h3 className="text-sm font-semibold text-input-text">Files</h3>
+        </div>
+        <FilesViewToggle value={viewMode} onChange={setViewMode} />
       </div>
 
       {canUpload ? (
@@ -151,12 +157,21 @@ export const IntakeFilesPanel: FunctionComponent<IntakeFilesPanelProps> = ({
         </div>
       ) : null}
 
-      <FilesGrid
-        files={orgFiles}
-        isLoading={false}
-        emptyState={emptyState}
-        onFileClick={(file) => setDetailFile(file)}
-      />
+      {viewMode === 'list' ? (
+        <FilesList
+          files={orgFiles}
+          isLoading={false}
+          emptyState={emptyState}
+          onFileClick={(file) => setDetailFile(file)}
+        />
+      ) : (
+        <FilesGrid
+          files={orgFiles}
+          isLoading={false}
+          emptyState={emptyState}
+          onFileClick={(file) => setDetailFile(file)}
+        />
+      )}
 
       {canDelete && orgFiles.length > 0 ? (
         <div className="mt-4 space-y-2 text-xs">

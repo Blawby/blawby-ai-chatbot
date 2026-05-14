@@ -2,10 +2,10 @@ import { useMemo } from 'preact/hooks';
 
 import { useQuery } from '@/shared/hooks/useQuery';
 import { policyTtl } from '@/shared/lib/cachePolicy';
-import { listMatters, type BackendMatter } from '@/features/matters/services/mattersApi';
-import { listIntakes, type IntakeListItem } from '@/features/intake/api/intakesApi';
+import type { BackendMatter } from '@/features/matters/services/mattersApi';
+import type { IntakeListItem } from '@/features/intake/api/intakesApi';
 import { resolveIntakeTitle } from '@/features/intake/utils/intakeTitle';
-import { ORG_FILES_FAN_OUT_LIMIT } from '@/features/files/constants';
+import { listAllFileIntakes, listAllFileMatters } from '@/features/files/hooks/pagination';
 
 export type OrgFilesScope = 'practice' | 'client';
 
@@ -49,12 +49,9 @@ const fetchListings = async (
   practiceId: string,
   signal?: AbortSignal,
 ): Promise<{ matters: BackendMatter[]; intakes: IntakeListItem[] }> => {
-  // Mirrors the Contacts/Matters pattern: fetch the two list endpoints in
-  // parallel and stop. No per-row fan-out — that's what was triggering the
-  // worker rate limiter on every Files-page render.
   const [mattersResult, intakesResult] = await Promise.allSettled([
-    listMatters(practiceId, { page: 1, limit: ORG_FILES_FAN_OUT_LIMIT, signal }),
-    listIntakes(practiceId, { page: 1, limit: ORG_FILES_FAN_OUT_LIMIT }, { signal }),
+    listAllFileMatters(practiceId, signal),
+    listAllFileIntakes(practiceId, signal),
   ]);
   if (mattersResult.status === 'rejected' && intakesResult.status === 'rejected') {
     const reason = mattersResult.reason ?? intakesResult.reason;
@@ -64,7 +61,7 @@ const fetchListings = async (
   }
   return {
     matters: mattersResult.status === 'fulfilled' ? mattersResult.value : [],
-    intakes: intakesResult.status === 'fulfilled' ? intakesResult.value.intakes : [],
+    intakes: intakesResult.status === 'fulfilled' ? intakesResult.value : [],
   };
 };
 

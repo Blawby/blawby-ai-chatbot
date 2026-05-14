@@ -127,6 +127,9 @@ export const InvoiceBuilderSurface = forwardRef<InvoiceFormHandle, InvoiceBuilde
   // into the local invoiceDetail state. Local state (rather than reading the
   // hook directly) lets the form's edit-then-save flow keep transient changes.
   useEffect(() => {
+    if (shouldFetchInvoice && fetchedInvoice === undefined && invoiceFetchLoading) {
+      return;
+    }
     const resolvedInvoice = initialInvoice ?? fetchedInvoice ?? null;
     if (shouldFetchInvoice && fetchedInvoice === null && !invoiceFetchLoading) {
       // Hook returned null definitively (not just still-loading) — treat as 404.

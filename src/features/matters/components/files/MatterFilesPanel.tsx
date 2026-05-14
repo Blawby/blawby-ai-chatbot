@@ -13,6 +13,8 @@ import {
 import { uploadDownloadPath } from '@/config/urls';
 
 import { FilesGrid } from '@/features/files/components/FilesGrid';
+import { FilesList } from '@/features/files/components/FilesList';
+import { FilesViewToggle, type FilesViewMode } from '@/features/files/components/FilesViewToggle';
 import { FileDetailDrawer } from '@/features/files/components/FileDetailDrawer';
 import {
   DROPZONE_INSTRUCTION_TEXT,
@@ -58,6 +60,7 @@ export function MatterFilesPanel({ matterId, matterTitle = null, isPrivilegedUpl
   const [error, setError] = useState<string | null>(null);
   const [uploadingFiles, setUploadingFiles] = useState<UploadingPanelFile[]>([]);
   const [detailFile, setDetailFile] = useState<OrgFile | null>(null);
+  const [viewMode, setViewMode] = useState<FilesViewMode>('grid');
   const abortRef = useRef<AbortController | null>(null);
   const { showSuccess, showError } = useToastContext();
   const isUploading = uploadingFiles.length > 0;
@@ -164,12 +167,25 @@ export function MatterFilesPanel({ matterId, matterTitle = null, isPrivilegedUpl
         <div className="status-error rounded-xl px-3 py-2 text-sm">{error}</div>
       ) : null}
 
-      <FilesGrid
-        files={orgFiles}
-        isLoading={loading && orgFiles.length === 0}
-        emptyState={emptyState}
-        onFileClick={handleFileClick}
-      />
+      <div className="flex justify-end">
+        <FilesViewToggle value={viewMode} onChange={setViewMode} />
+      </div>
+
+      {viewMode === 'list' ? (
+        <FilesList
+          files={orgFiles}
+          isLoading={loading && orgFiles.length === 0}
+          emptyState={emptyState}
+          onFileClick={handleFileClick}
+        />
+      ) : (
+        <FilesGrid
+          files={orgFiles}
+          isLoading={loading && orgFiles.length === 0}
+          emptyState={emptyState}
+          onFileClick={handleFileClick}
+        />
+      )}
 
       <FileDetailDrawer
         file={detailFile}
