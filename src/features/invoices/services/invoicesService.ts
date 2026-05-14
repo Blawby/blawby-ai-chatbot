@@ -179,6 +179,9 @@ export const getClientInvoice = async (
 
     const invoice = normalizeInvoice(invoiceRecord);
     const rawInvoice = extractInvoiceRecord(data);
+    if (!rawInvoice) {
+      throw new Error('Invalid client invoice detail response: expected an invoice payload.');
+    }
 
     let refundRequestSupported = true;
     let refundRequestError: string | null = null;

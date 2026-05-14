@@ -15,8 +15,9 @@ import { RemoveButton } from '../atoms/RemoveButton';
 import { isImageFile, getFileTypeConfig } from '@/shared/utils/fileTypeUtils';
 import { Icon } from '@/shared/ui/Icon';
 import { cn } from '@/shared/utils/cn';
+import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
 
-export type FileCardStatus = 'uploading' | 'completed' | 'processing' | 'analyzing' | 'preview' | 'none';
+export type FileCardStatus = 'uploading' | 'completed' | 'processing' | 'analyzing' | 'failed' | 'preview' | 'none';
 export type FileCardVariant = 'inline' | 'tile';
 
 interface FileCardProps {
@@ -42,7 +43,7 @@ export const FileCard = ({
   fileName,
   mimeType,
   status,
-  progress = 0,
+  progress,
   imageUrl,
   onRemove,
   showRemoveButton = false,
@@ -54,9 +55,10 @@ export const FileCard = ({
   onClick,
 }: FileCardProps) => {
   const isImage = isImageFile(mimeType);
+  const resolvedProgress = progress ?? 0;
 
   // Map FileCardStatus to StatusOverlay status
-  const overlayStatus = status === 'preview' ? 'none' : status;
+  const overlayStatus = status === 'preview' || status === 'failed' ? 'none' : status;
 
   // Show remove button for preview status or when explicitly requested
   const shouldShowRemove = showRemoveButton || status === 'preview';
@@ -68,7 +70,28 @@ export const FileCard = ({
       onClick ? 'cursor-pointer hover:border-line-glass/60 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-accent-500' : '',
       className
     );
-    const renderTileContent = (includeRemove: boolean) => (
+    const shouldShowTileStatus = status === 'uploading'
+      || progress !== undefined
+      || status === 'processing'
+      || status === 'analyzing'
+      || status === 'failed';
+    const tileStatusLabel = status === 'analyzing'
+      ? 'Analyzing'
+      : status === 'processing'
+        ? 'Processing'
+        : status === 'failed'
+          ? 'Failed'
+          : status === 'uploading'
+          ? `Uploading ${Math.round(resolvedProgress)}%`
+          : progress !== undefined
+            ? `${Math.round(resolvedProgress)}%`
+            : null;
+    const tileRemoveButton = shouldShowRemove && onRemove ? (
+      <div className="absolute right-2 top-2 z-10">
+        <RemoveButton onClick={onRemove} size="sm" />
+      </div>
+    ) : null;
+    const renderTileContent = () => (
       <>
         <div className="relative flex aspect-[4/3] w-full items-center justify-center overflow-hidden bg-surface-panel">
           {isImage && imageUrl ? (
@@ -83,9 +106,22 @@ export const FileCard = ({
               <Icon icon={fileType.icon} className="h-7 w-7 text-input-text" />
             </div>
           )}
-          {includeRemove && shouldShowRemove && onRemove ? (
-            <div className="absolute right-2 top-2 z-10">
-              <RemoveButton onClick={onRemove} size="sm" />
+          {shouldShowTileStatus ? (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-input-text/45 px-4 text-center text-surface-card backdrop-blur-[1px] dark:bg-surface-app-frame/75">
+              {status === 'uploading' || status === 'processing' || status === 'analyzing' ? (
+                <LoadingSpinner size="sm" ariaLabel={tileStatusLabel ?? 'File status'} />
+              ) : null}
+              {tileStatusLabel ? (
+                <span className="text-xs font-semibold">{tileStatusLabel}</span>
+              ) : null}
+              {status === 'uploading' || progress !== undefined ? (
+                <div className="h-1.5 w-full max-w-32 overflow-hidden rounded-full bg-surface-card/30">
+                  <div
+                    className="h-full rounded-full bg-accent-500"
+                    style={{ width: `${Math.min(100, Math.max(0, resolvedProgress))}%` }}
+                  />
+                </div>
+              ) : null}
             </div>
           ) : null}
         </div>
@@ -108,21 +144,19 @@ export const FileCard = ({
             type="button"
             className={tileClassName}
             onClick={onClick}
+            aria-label={`Open ${fileName}`}
           >
-            {renderTileContent(false)}
+            {renderTileContent()}
           </button>
-          {shouldShowRemove && onRemove ? (
-            <div className="absolute right-2 top-2 z-10">
-              <RemoveButton onClick={onRemove} size="sm" />
-            </div>
-          ) : null}
+          {tileRemoveButton}
         </div>
       );
     }
 
     return (
       <div className={tileClassName}>
-        {renderTileContent(true)}
+        {renderTileContent()}
+        {tileRemoveButton}
       </div>
     );
   }
@@ -141,7 +175,7 @@ export const FileCard = ({
           fileName={fileName}
           mimeType={mimeType}
           status={overlayStatus}
-          progress={progress}
+          progress={resolvedProgress}
           imageUrl={imageUrl}
           size={size}
         />
@@ -168,7 +202,7 @@ export const FileCard = ({
           fileName={fileName}
           mimeType={mimeType}
           status={overlayStatus}
-          progress={progress}
+          progress={resolvedProgress}
           imageUrl={imageUrl}
           size={size}
         />

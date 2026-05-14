@@ -88,11 +88,15 @@ export const useOrgFolders = ({
   return useMemo(() => {
     const matters = data?.matters ?? [];
     const intakes = data?.intakes ?? [];
-    const filteredMatters = scope === 'client' && userId
-      ? matters.filter((matter) => matterMatchesViewer(matter, userId))
+    const filteredMatters = scope === 'client'
+      ? userId
+        ? matters.filter((matter) => matterMatchesViewer(matter, userId))
+        : []
       : matters;
-    const filteredIntakes = scope === 'client' && userId
-      ? intakes.filter((intake) => intakeMatchesViewer(intake, userId))
+    const filteredIntakes = scope === 'client'
+      ? userId
+        ? intakes.filter((intake) => intakeMatchesViewer(intake, userId))
+        : []
       : intakes;
 
     const matterFolders: OrgFolder[] = filteredMatters.map((matter) => ({

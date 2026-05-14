@@ -66,7 +66,7 @@ export function Drawer({
     >
       <div
         role="presentation"
-        className="absolute inset-0 bg-input-text/40 backdrop-blur-sm"
+        className="absolute inset-0 bg-input-text/40 backdrop-blur-sm dark:bg-surface-app-frame/70"
         onClick={onClose}
       />
       <div

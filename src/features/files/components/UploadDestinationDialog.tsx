@@ -108,7 +108,7 @@ export const UploadDestinationDialog = ({
 
   const handleFilesSelected = async (files: File[]) => {
     if (!destination || files.length === 0) return;
-    for (const file of files) {
+    const uploadResults = await Promise.all(files.map(async (file) => {
       const uploadId = makeId();
       setUploadingFiles((prev) => [...prev, { id: uploadId, file, progress: 0 }]);
       try {
@@ -140,13 +140,17 @@ export const UploadDestinationDialog = ({
           });
         }
         showSuccess('File uploaded', file.name);
-        onUploaded();
+        return true;
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Upload failed.';
         showError('Upload failed', message);
+        return false;
       } finally {
         setUploadingFiles((prev) => prev.filter((entry) => entry.id !== uploadId));
       }
+    }));
+    if (uploadResults.some(Boolean)) {
+      onUploaded();
     }
   };
 

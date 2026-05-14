@@ -44,6 +44,13 @@ const intakeFileToOrgFile = (file: IntakeFile): OrgFile => ({
   matterTitle: null,
   intakeUuid: file.intakeUuid,
   intakeTitle: null,
+  status: file.status === 'verified'
+    ? 'completed'
+    : file.status === 'pending'
+      ? 'processing'
+      : file.status === 'rejected'
+        ? 'failed'
+        : 'none',
 });
 
 export const IntakeFilesPanel: FunctionComponent<IntakeFilesPanelProps> = ({

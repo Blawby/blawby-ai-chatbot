@@ -17,7 +17,8 @@ interface FileDetailDrawerProps {
 }
 
 const formatBytes = (bytes: number): string => {
-  if (!Number.isFinite(bytes) || bytes <= 0) return '—';
+  if (!Number.isFinite(bytes) || bytes < 0) return '—';
+  if (bytes === 0) return '0 B';
   const units = ['B', 'KB', 'MB', 'GB'];
   let value = bytes;
   let i = 0;
@@ -71,29 +72,33 @@ const FileDetailContent = ({ file }: { file: OrgFile }) => {
 };
 
 const Actions = ({ file, onClose }: { file: OrgFile; onClose: () => void }) => {
-  if (!file.publicUrl) return null;
+  const publicUrl = file.publicUrl;
   return (
     <div className="flex flex-wrap gap-2">
-      <Button
-        variant="secondary"
-        size="sm"
-        icon={ExternalLink}
-        onClick={() => {
-          openFile(file.publicUrl as string);
-        }}
-      >
-        Open
-      </Button>
-      <Button
-        variant="primary"
-        size="sm"
-        icon={Download}
-        onClick={() => {
-          triggerDownload(file.publicUrl as string, file.fileName);
-        }}
-      >
-        Download
-      </Button>
+      {publicUrl ? (
+        <>
+          <Button
+            variant="secondary"
+            size="sm"
+            icon={ExternalLink}
+            onClick={() => {
+              openFile(publicUrl);
+            }}
+          >
+            Open
+          </Button>
+          <Button
+            variant="primary"
+            size="sm"
+            icon={Download}
+            onClick={() => {
+              triggerDownload(publicUrl, file.fileName);
+            }}
+          >
+            Download
+          </Button>
+        </>
+      ) : null}
       <Button variant="ghost" size="sm" onClick={onClose}>Close</Button>
     </div>
   );

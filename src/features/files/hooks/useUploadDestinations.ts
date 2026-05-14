@@ -53,12 +53,20 @@ const fetchDestinations = async (
   };
 };
 
+const getPracticeCacheKey = (practiceId: string | null | undefined): string => {
+  if (practiceId) return practiceId;
+  if (practiceId === null) return 'no-practice:null';
+  if (typeof practiceId === 'undefined') return 'no-practice:undefined';
+  return 'no-practice:empty';
+};
+
 export const useUploadDestinations = ({
   practiceId,
   clientUserId = null,
   enabled = true,
 }: UseUploadDestinationsOptions): UploadDestinationsResult => {
-  const cacheKey = `intake:upload-destinations:${practiceId ?? ''}`;
+  const practiceKey = getPracticeCacheKey(practiceId);
+  const cacheKey = `intake:upload-destinations:${practiceKey}`;
   const { data, isLoading, error, refetch } = useQuery<{ matters: BackendMatter[]; intakes: IntakeListItem[] }>({
     key: cacheKey,
     enabled: enabled && Boolean(practiceId),

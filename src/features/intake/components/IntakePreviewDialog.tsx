@@ -1,4 +1,4 @@
-import { useState } from 'preact/hooks';
+import { useEffect, useState } from 'preact/hooks';
 import { ExternalLink } from 'lucide-preact';
 
 import { Dialog, DialogBody, DialogFooter } from '@/shared/ui/dialog';
@@ -36,6 +36,13 @@ export const IntakePreviewDialog = ({
 }: IntakePreviewDialogProps) => {
   const [isPublishing, setIsPublishing] = useState(false);
   const [publishError, setPublishError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setIsPublishing(false);
+      setPublishError(null);
+    }
+  }, [isOpen]);
 
   const previewConfig: WidgetPreviewConfig = {
     name: practiceName ?? undefined,

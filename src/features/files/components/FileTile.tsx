@@ -16,7 +16,7 @@ export const FileTile = ({ file, onClick }: FileTileProps) => {
       variant="tile"
       fileName={file.fileName}
       mimeType={file.mimeType}
-      status="completed"
+      status={file.status ?? 'completed'}
       imageUrl={file.publicUrl ?? undefined}
       associationLabel={associationLabel}
       timestampLabel={timestamp}
