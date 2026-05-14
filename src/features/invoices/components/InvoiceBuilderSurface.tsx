@@ -113,6 +113,7 @@ export const InvoiceBuilderSurface = forwardRef<InvoiceFormHandle, InvoiceBuilde
 
   useImperativeHandle(ref, () => ({
     requestSend: () => formRef.current?.requestSend(),
+    getDraftStatus: () => formRef.current?.getDraftStatus?.() ?? { lastSavedAt: null, isSaving: false },
   }), []);
 
   useEffect(() => {

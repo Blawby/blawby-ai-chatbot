@@ -48,10 +48,13 @@ type InvoiceFormProps = {
   practiceEmail?: string | null;
   /** Practice billing increment in minutes (e.g. 6 for 0.1h steps) */
   billingIncrementMinutes?: number | null;
+  /** Callback when the active preview tab changes (so parent header can read it) */
+  onPreviewTabChange?: (tab: InvoicePreviewTab) => void;
 };
 
 export type InvoiceFormHandle = {
   requestSend: () => void;
+  getDraftStatus: () => { lastSavedAt: Date | null; isSaving: boolean };
 };
 
 type InvoiceUpdatePayload = {
@@ -62,11 +65,12 @@ type InvoiceUpdatePayload = {
   line_items: InvoiceLineItem[];
 };
 
-type InvoicePreviewTab = 'pdf' | 'email';
+type InvoicePreviewTab = 'pdf' | 'email' | 'payment';
 
 const INVOICE_PREVIEW_TABS = [
   { id: 'pdf', label: 'PDF' },
   { id: 'email', label: 'Email' },
+  { id: 'payment', label: 'Payment page' },
 ];
 
 const InvoiceEmailPlaceholder = () => (
@@ -74,6 +78,15 @@ const InvoiceEmailPlaceholder = () => (
     <p className="font-semibold text-input-text">Email preview</p>
     <p className="mt-2 text-input-placeholder">
       Coming soon. This will preview the message your client receives with the invoice payment call to action.
+    </p>
+  </div>
+);
+
+const InvoicePaymentPlaceholder = () => (
+  <div className="rounded-xl border border-line-glass/40 bg-surface-card p-5 text-sm shadow-glass">
+    <p className="font-semibold text-input-text">Payment page preview</p>
+    <p className="mt-2 text-input-placeholder">
+      Coming soon. This will mirror the Stripe-hosted payment page your client sees.
     </p>
   </div>
 );
@@ -125,6 +138,7 @@ export const InvoiceForm = forwardRef<InvoiceFormHandle, InvoiceFormProps>(({
   practiceLogoUrl = null,
   practiceEmail = null,
   billingIncrementMinutes = null,
+  onPreviewTabChange,
 }, ref) => {
   const { showError } = useToastContext();
   const location = useLocation();
@@ -356,7 +370,8 @@ export const InvoiceForm = forwardRef<InvoiceFormHandle, InvoiceFormProps>(({
 
   useImperativeHandle(ref, () => ({
     requestSend: openSendDialog,
-  }), [openSendDialog]);
+    getDraftStatus: () => ({ lastSavedAt, isSaving }),
+  }), [openSendDialog, lastSavedAt, isSaving]);
 
   // Notify global shell about draft saves so the global header can show the timestamp
   useEffect(() => {
@@ -395,7 +410,11 @@ export const InvoiceForm = forwardRef<InvoiceFormHandle, InvoiceFormProps>(({
               <Tabs
                 items={INVOICE_PREVIEW_TABS}
                 activeId={activePreviewTab}
-                onChange={(id) => setActivePreviewTab(id as InvoicePreviewTab)}
+                onChange={(id) => {
+                  const nextTab = id as InvoicePreviewTab;
+                  setActivePreviewTab(nextTab);
+                  onPreviewTabChange?.(nextTab);
+                }}
               />
             </div>
             {activePreviewTab === 'pdf' ? (
@@ -413,8 +432,10 @@ export const InvoiceForm = forwardRef<InvoiceFormHandle, InvoiceFormProps>(({
                 billingIncrementMinutes={billingIncrementMinutes}
                 notes={notes || null}
               />
-            ) : (
+            ) : activePreviewTab === 'email' ? (
               <InvoiceEmailPlaceholder />
+            ) : (
+              <InvoicePaymentPlaceholder />
             )}
           </>
         ) : null }
@@ -424,6 +445,13 @@ export const InvoiceForm = forwardRef<InvoiceFormHandle, InvoiceFormProps>(({
             <h3 className="text-sm font-semibold text-input-text">Email delivery</h3>
             <p className="text-sm text-input-placeholder">
               Email copy controls will live here. For now, use the PDF tab to edit invoice details.
+            </p>
+          </section>
+        ) : activePreviewTab === 'payment' ? (
+          <section className="space-y-3">
+            <h3 className="text-sm font-semibold text-input-text">Payment page</h3>
+            <p className="text-sm text-input-placeholder">
+              Stripe-hosted payment page customization is coming soon.
             </p>
           </section>
         ) : (

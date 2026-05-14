@@ -49,6 +49,8 @@ export default defineConfig({
             'src/utils/__tests__/deepEqual.test.ts',
             'src/utils/__tests__/errorHandler.test.ts',
             'src/__tests__/i18n.test.ts',
+            'src/features/invoices/utils/__tests__/**/*.test.{ts,tsx}',
+            'src/features/invoices/services/__tests__/**/*.test.{ts,tsx}',
           ],
           exclude: [
             'node_modules/**',
@@ -77,6 +79,7 @@ export default defineConfig({
             'src/__tests__/RTLSupport.test.tsx',
             'src/components/settings/**/__tests__/**/*.{test,spec}.{js,ts,jsx,tsx}',
             'src/shared/ui/**/__tests__/**/*.{test,spec}.{js,ts,jsx,tsx}',
+            'src/features/invoices/components/**/__tests__/**/*.{test,spec}.{js,ts,jsx,tsx}',
             'tests/component/**/*.{test,spec}.{js,ts,jsx,tsx}',
           ],
           exclude: [

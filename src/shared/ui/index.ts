@@ -53,6 +53,7 @@ export * from './cards';
 export { Divider } from './Divider';
 export { Stack } from './Stack';
 export { ButtonGroup } from './ButtonGroup';
+export { Kbd } from './Kbd';
 export type { DividerProps } from './Divider';
 export type { StackProps } from './Stack';
 export type { ButtonGroupProps } from './ButtonGroup';

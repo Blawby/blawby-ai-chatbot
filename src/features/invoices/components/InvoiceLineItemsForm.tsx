@@ -2,107 +2,16 @@ import { useState } from 'preact/hooks';
 import { Trash2, SquarePen, Plus } from 'lucide-preact';
 
 import { Button } from '@/shared/ui/Button';
-import { CurrencyInput, Input } from '@/shared/ui/input';
-import { Dialog, DialogBody, DialogFooter } from '@/shared/ui/dialog';
-import { asMajor, safeMultiply, getMajorAmountValue } from '@/shared/utils/money';
+import { asMajor } from '@/shared/utils/money';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import type { InvoiceLineItem } from '@/features/matters/types/billing.types';
+import { LineItemEditorDialog } from '@/features/invoices/components/LineItemEditorDialog';
 
 type InvoiceLineItemsFormProps = {
   lineItems: InvoiceLineItem[];
   onChange: (lineItems: InvoiceLineItem[]) => void;
   billingIncrementMinutes?: number | null;
   readOnly?: boolean;
-};
-
-const newLineItem = (): InvoiceLineItem => ({
-  id: crypto.randomUUID(),
-  type: 'service',
-  description: '',
-  quantity: 1,
-  unit_price: asMajor(0),
-  line_total: asMajor(0)
-});
-
-interface LineItemDialogProps {
-  isOpen: boolean;
-  item: InvoiceLineItem | null;
-  onSave: (item: InvoiceLineItem) => void;
-  onClose: () => void;
-  billingIncrementMinutes?: number | null;
-}
-
-const LineItemDialog = ({ isOpen, item, onSave, onClose, billingIncrementMinutes }: LineItemDialogProps) => {
-  const step = (billingIncrementMinutes && billingIncrementMinutes > 0) ? billingIncrementMinutes / 60 : 0.1;
-  const [formData, setFormData] = useState<InvoiceLineItem>(() => item || newLineItem());
-
-  const handleSave = () => {
-    if (!formData.description.trim()) return;
-    onSave(formData);
-    onClose();
-  };
-
-  const updateField = (patch: Partial<InvoiceLineItem>) => {
-    setFormData(prev => {
-      const next = { ...prev, ...patch };
-      const qty = Number(next.quantity || 0);
-      return { ...next, line_total: safeMultiply(next.unit_price, qty) };
-    });
-  };
-
-  return (
-    <Dialog
-      isOpen={isOpen}
-      onClose={onClose}
-      title={item ? 'Edit Line Item' : 'Add Line Item'}
-      contentClassName="max-w-xl"
-    >
-      <DialogBody className="space-y-4">
-        <Input
-          label="Description"
-          placeholder="e.g. Professional Services"
-          value={formData.description}
-          onChange={(val) => updateField({ description: val })}
-        />
-        
-        <div className="grid grid-cols-2 gap-4">
-          <Input
-            type="number"
-            label="Quantity"
-            min={step}
-            step={step}
-            value={String(formData.quantity ?? 1)}
-            onChange={(val) => {
-              const parsed = Number(val);
-              updateField({
-                quantity: Number.isFinite(parsed) && parsed > 0 ? parsed : 1
-              });
-            }}
-          />
-          <CurrencyInput
-            label="Unit price"
-            value={getMajorAmountValue(formData.unit_price)}
-            onChange={(val) => updateField({ unit_price: asMajor(val ?? 0) })}
-          />
-        </div>
-
-        <div className="pt-2 border-t border-line-glass/20 flex items-center justify-between">
-          <span className="text-sm text-input-placeholder">Total Amount</span>
-          <span className="text-lg font-bold text-input-text">
-            {formatCurrency(formData.line_total ?? asMajor(0))}
-          </span>
-        </div>
-      </DialogBody>
-      <DialogFooter>
-        <Button variant="secondary" onClick={onClose}>
-          Cancel
-        </Button>
-        <Button onClick={handleSave} disabled={!formData.description.trim()}>
-          Save Item
-        </Button>
-      </DialogFooter>
-    </Dialog>
-  );
 };
 
 export const InvoiceLineItemsForm = ({ lineItems, onChange, billingIncrementMinutes, readOnly = false }: InvoiceLineItemsFormProps) => {
@@ -231,21 +140,20 @@ export const InvoiceLineItemsForm = ({ lineItems, onChange, billingIncrementMinu
         </div>
       )}
 
-      {/* Logic for Dialogs */}
       {!readOnly ? (
         <>
-          <LineItemDialog 
+          <LineItemEditorDialog
             key={`add-${isAddMode}`}
-            isOpen={isAddMode} 
+            isOpen={isAddMode}
             item={null}
             onSave={handleSaveItem}
             onClose={() => setIsAddMode(false)}
             billingIncrementMinutes={billingIncrementMinutes}
           />
 
-          <LineItemDialog 
+          <LineItemEditorDialog
             key={editingItem?.item?.id ?? 'none'}
-            isOpen={!!editingItem} 
+            isOpen={!!editingItem}
             item={editingItem?.item || null}
             onSave={handleSaveItem}
             onClose={() => setEditingItem(null)}

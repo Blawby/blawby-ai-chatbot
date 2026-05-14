@@ -1,10 +1,12 @@
-import { useCallback, useMemo } from 'preact/hooks';
+import { useCallback, useMemo, useRef } from 'preact/hooks';
 import { useLocation } from 'preact-iso';
 import { EditorShell } from '@/shared/ui/layout';
 import { useNavigation } from '@/shared/utils/navigation';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { InvoiceBuilderSurface } from '@/features/invoices/components/InvoiceBuilderSurface';
+import type { InvoiceFormHandle } from '@/features/invoices/components/InvoiceForm';
+import { InvoiceEditHeaderActions } from '@/features/invoices/components/edit/InvoiceEditHeaderActions';
 import { getValidatedInternalReturnPath } from '@/shared/utils/workspace';
 
 export function PracticeInvoiceEditPage({
@@ -23,6 +25,7 @@ export function PracticeInvoiceEditPage({
     practiceSlug: practiceSlug ?? undefined,
     fetchPracticeDetails: true,
   });
+  const formRef = useRef<InvoiceFormHandle | null>(null);
 
   const invoicesPath = useMemo(() => {
     if (!practiceSlug) return null;
@@ -69,9 +72,11 @@ export function PracticeInvoiceEditPage({
       backVariant="close"
       onBack={handleBackToList}
       contentMaxWidth={null}
+      actions={<InvoiceEditHeaderActions formRef={formRef} />}
     >
       <div className="mx-auto flex min-h-0 w-full max-w-7xl flex-col gap-4 px-4 py-6 sm:px-6 lg:px-8">
         <InvoiceBuilderSurface
+          ref={formRef}
           mode="edit"
           practiceId={practiceId}
           existingInvoiceId={invoiceId}

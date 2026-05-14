@@ -253,3 +253,74 @@ export const createRefundRequest = async (
 ): Promise<void> => {
   await createRefundRequestApi(practiceId, invoiceId, payload, options);
 };
+
+const extractRefundRequestsArray = (payload: unknown): Array<Record<string, unknown>> => {
+  if (!payload || typeof payload !== 'object') return [];
+  const record = payload as Record<string, unknown>;
+  for (const key of ['refund_requests', 'refundRequests', 'requests', 'items']) {
+    const value = record[key];
+    if (Array.isArray(value)) {
+      return value.filter((entry): entry is Record<string, unknown> => Boolean(entry && typeof entry === 'object'));
+    }
+  }
+  if (Array.isArray(payload)) {
+    return (payload as unknown[]).filter((entry): entry is Record<string, unknown> => Boolean(entry && typeof entry === 'object'));
+  }
+  if ('data' in record) return extractRefundRequestsArray(record.data);
+  return [];
+};
+
+export const createPracticeRefundRequest = async (
+  practiceId: string,
+  invoiceId: string,
+  payload: RefundRequestPayload,
+  options: FetchOptions = {}
+): Promise<Record<string, unknown>> => {
+  const response = await apiClient.post(
+    urls.invoiceRefundRequests(practiceId, invoiceId),
+    payload,
+    { signal: options.signal }
+  );
+  return (response.data ?? {}) as Record<string, unknown>;
+};
+
+export const listPracticeRefundRequests = async (
+  practiceId: string,
+  options: FetchOptions = {}
+): Promise<Array<Record<string, unknown>>> => {
+  if (!practiceId) return [];
+  const response = await apiClient.get(urls.practiceRefundRequests(practiceId), { signal: options.signal });
+  return extractRefundRequestsArray(response.data);
+};
+
+export type RefundRequestDecision = {
+  decision: 'approve' | 'decline';
+  note?: string;
+};
+
+export const reviewPracticeRefundRequest = async (
+  practiceId: string,
+  refundRequestId: string,
+  decision: RefundRequestDecision,
+  options: FetchOptions = {}
+): Promise<Record<string, unknown>> => {
+  const response = await apiClient.patch(
+    urls.practiceRefundRequest(practiceId, refundRequestId),
+    decision,
+    { signal: options.signal }
+  );
+  return (response.data ?? {}) as Record<string, unknown>;
+};
+
+export const executePracticeRefund = async (
+  practiceId: string,
+  refundRequestId: string,
+  options: FetchOptions = {}
+): Promise<Record<string, unknown>> => {
+  const response = await apiClient.post(
+    urls.practiceRefundRequestExecute(practiceId, refundRequestId),
+    {},
+    { signal: options.signal }
+  );
+  return (response.data ?? {}) as Record<string, unknown>;
+};
