@@ -46,10 +46,10 @@ export function ContentWithPreview({
   return (
     <div
       className={cn(
-        'grid min-h-0 flex-1 gap-8 lg:gap-10',
+        'grid min-h-0 flex-1 gap-4 lg:gap-6',
         previewVariant === 'widget'
           ? 'lg:grid-cols-[minmax(0,1fr)_440px] xl:grid-cols-[minmax(0,1fr)_460px]'
-          : 'lg:grid-cols-[minmax(0,1fr)_520px]',
+          : 'lg:grid-cols-[minmax(0,1fr)_560px]',
         className
       )}
     >
@@ -58,14 +58,13 @@ export function ContentWithPreview({
       </div>
       <div
         className={cn(
-          // Use the shared glass-panel visual treatment but remove rounded corners
-          // so the preview content can fill the full panel area while keeping
-          // the backdrop / glass appearance present.
-          'glass-panel rounded-none p-0 min-h-0 overflow-y-auto border-t border-line-glass/30 lg:border-l lg:border-t-0',
+          'bg-surface-panel min-h-0 overflow-y-auto border-l border-line-glass/40',
           previewClassName
         )}
       >
-        {preview}
+        <div className="p-4 lg:p-6">
+          {preview}
+        </div>
       </div>
     </div>
   );

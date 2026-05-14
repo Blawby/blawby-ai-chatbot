@@ -73,37 +73,28 @@ function ActiveMemberRoleBridge({
 }) {
   useEffect(() => {
     let mounted = true;
-    
     onChange({ role: null, loading: true, resolved: false });
-    
+
     authClient.organization.getActiveMemberRole()
       .then((res) => {
         if (!mounted) return;
         const activeRoleData = res?.data;
-        const resolvedActiveMemberRole = typeof activeRoleData === 'string'
+        const role = typeof activeRoleData === 'string'
           ? activeRoleData
           : activeRoleData && typeof activeRoleData === 'object' && typeof activeRoleData.role === 'string'
             ? activeRoleData.role
             : null;
-            
-        onChange({
-          role: resolvedActiveMemberRole,
-          loading: false,
-          resolved: true,
-          error: res?.error,
-        });
+        onChange({ role, loading: false, resolved: true, error: res?.error });
       })
       .catch((err) => {
         if (!mounted) return;
-        onChange({
-          role: null,
-          loading: false,
-          resolved: true,
-          error: err,
-        });
+        onChange({ role: null, loading: false, resolved: true, error: err });
       });
-      
-    return () => { mounted = false; };
+
+    return () => {
+      mounted = false;
+      onChange({ role: null, loading: false, resolved: false });
+    };
   }, [onChange, activePracticeId]);
 
   return null;
@@ -147,23 +138,6 @@ export function SessionProvider({ children }: { children: ComponentChildren }) {
       previousSessionKeyRef.current = sessionKey;
     }
   }, [sessionKey]);
-
-  useEffect(() => {
-    if (shouldResolveActiveMemberRole) {
-      setActiveMemberRoleState((current) => (
-        current.loading && !current.resolved
-          ? current
-          : {
-              role: current.role,
-              loading: true,
-              resolved: false,
-            }
-      ));
-      return;
-    }
-
-    setActiveMemberRoleState({ role: null, loading: false, resolved: false });
-  }, [shouldResolveActiveMemberRole, sessionActivePracticeId, currentUserId1]);
 
   const effectiveActiveMemberRoleLoading = shouldResolveActiveMemberRole
     && (!activeMemberRoleState.resolved || activeMemberRoleState.loading);

@@ -12,6 +12,15 @@ type SendInvoiceDialogProps = {
   onConfirm: () => Promise<void> | void;
   onCancel: () => void;
   loading?: boolean;
+  /**
+   * 'create' (default): used inside the invoice editor, where the parent first
+   * persists/updates the draft before sending. 'detail' is used from the detail
+   * page where the invoice already exists; the dialog just confirms the send
+   * action with the existing line items + recipient.
+   */
+  mode?: 'create' | 'detail';
+  /** Recipient email shown in detail mode to confirm where the invoice will go */
+  recipientEmail?: string | null;
   /** When provided, an embedded InvoicePreview is shown inside the dialog body */
   lineItems?: InvoiceLineItem[];
   dueDate?: string;
@@ -34,6 +43,8 @@ export const SendInvoiceDialog = ({
   onConfirm,
   onCancel,
   loading = false,
+  mode = 'create',
+  recipientEmail,
   lineItems,
   dueDate,
   previewTitle,
@@ -48,13 +59,17 @@ export const SendInvoiceDialog = ({
   previewNotes,
 }: SendInvoiceDialogProps) => {
   const hasPreview = Array.isArray(lineItems) && lineItems.length > 0;
+  const detailMode = mode === 'detail';
+  const resolvedRecipientEmail = recipientEmail ?? clientEmail ?? null;
 
   return (
     <Dialog
       isOpen={isOpen}
       onClose={onCancel}
-      title="Send Invoice"
-      description="Review the final amount before sending the invoice to your client."
+      title={detailMode ? 'Send invoice to client' : 'Send Invoice'}
+      description={detailMode
+        ? 'Confirm the invoice and recipient before sending.'
+        : 'Review the final amount before sending the invoice to your client.'}
       contentClassName={hasPreview ? 'max-w-3xl' : 'max-w-xl'}
       disableBackdropClick={loading}
     >
@@ -71,9 +86,15 @@ export const SendInvoiceDialog = ({
           <p className="mt-1 text-base font-semibold text-input-text">
             Total due: {formatCurrency(totalAmount)}
           </p>
-          <p className="mt-2 text-xs text-input-placeholder">
-            You can update invoices until they are paid. The client will receive a receipt after payment.
-          </p>
+          {detailMode && resolvedRecipientEmail ? (
+            <p className="mt-2 text-xs text-input-placeholder">
+              Will be sent to <span className="text-input-text">{resolvedRecipientEmail}</span>.
+            </p>
+          ) : (
+            <p className="mt-2 text-xs text-input-placeholder">
+              You can update invoices until they are paid. The client will receive a receipt after payment.
+            </p>
+          )}
         </div>
 
         {/* Embedded invoice preview — visual confirmation before send */}
@@ -99,7 +120,7 @@ export const SendInvoiceDialog = ({
       </DialogBody>
       <DialogFooter>
         <Button variant="secondary" onClick={onCancel} disabled={loading}>
-          Continue Editing
+          {detailMode ? 'Cancel' : 'Continue Editing'}
         </Button>
         <Button
           onClick={() => {

@@ -18,6 +18,7 @@ export type UsePaginatedListResult<T extends { id: string }> = {
   hasMore: boolean;
   loadMore: () => void;
   loadMoreRef: { current: HTMLDivElement | null };
+  refetch: () => void;
 };
 
 export function usePaginatedList<T extends { id: string }>(
@@ -103,6 +104,16 @@ export function usePaginatedList<T extends { id: string }>(
     setPage((prev) => prev + 1);
   }, [hasMore, isLoading, isLoadingMore]);
 
+  const refetch = useCallback(() => {
+    setResetCounter((c) => c + 1);
+    setPage(1);
+    setItems([]);
+    setHasMore(true);
+    setError(null);
+    setIsLoading(true);
+    setIsLoadingMore(false);
+  }, []);
+
   return {
     items,
     isLoading,
@@ -111,5 +122,6 @@ export function usePaginatedList<T extends { id: string }>(
     hasMore,
     loadMore,
     loadMoreRef,
+    refetch,
   };
 }

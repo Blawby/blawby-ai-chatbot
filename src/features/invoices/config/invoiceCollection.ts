@@ -61,15 +61,19 @@ export interface InvoiceFilterFieldDefinition {
   group: InvoiceFilterGroupId;
 }
 
-export const DEFAULT_INVOICE_COLUMNS: InvoiceColumnKey[] = [
-  'total',
-  'status',
-  'invoiceNumber',
-  'clientName',
-  'clientEmail',
-  'dueDate',
-  'createdAt',
+export const DEFAULT_INVOICE_COLUMN_DEFS: InvoiceColumnDefinition[] = [
+  { key: 'total', label: 'Total' },
+  { key: 'status', label: 'Status' },
+  { key: 'invoiceNumber', label: 'Invoice number' },
+  { key: 'clientName', label: 'Customer name' },
+  { key: 'clientEmail', label: 'Customer email' },
+  { key: 'dueDate', label: 'Due' },
+  { key: 'createdAt', label: 'Created' },
 ];
+
+export const DEFAULT_INVOICE_COLUMNS: InvoiceColumnKey[] = DEFAULT_INVOICE_COLUMN_DEFS.map(
+  (column) => column.key,
+);
 
 export const CLIENT_SAFE_INVOICE_COLUMNS: InvoiceColumnDefinition[] = [
   { key: 'paidAt', label: 'Paid at' },

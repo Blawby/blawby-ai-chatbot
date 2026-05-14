@@ -2,11 +2,10 @@ import { useState } from 'preact/hooks';
 import { Trash2, SquarePen, Plus } from 'lucide-preact';
 
 import { Button } from '@/shared/ui/Button';
-import { CurrencyInput, Input } from '@/shared/ui/input';
-import { Dialog, DialogBody, DialogFooter } from '@/shared/ui/dialog';
-import { asMajor, safeMultiply, getMajorAmountValue } from '@/shared/utils/money';
+import { asMajor } from '@/shared/utils/money';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import type { InvoiceLineItem } from '@/features/matters/types/billing.types';
+import { LineItemEditorDialog } from '@/features/invoices/components/LineItemEditorDialog';
 
 type InvoiceLineItemsFormProps = {
   lineItems: InvoiceLineItem[];
@@ -15,94 +14,10 @@ type InvoiceLineItemsFormProps = {
   readOnly?: boolean;
 };
 
-const newLineItem = (): InvoiceLineItem => ({
-  id: crypto.randomUUID(),
-  type: 'service',
-  description: '',
-  quantity: 1,
-  unit_price: asMajor(0),
-  line_total: asMajor(0)
-});
-
-interface LineItemDialogProps {
-  isOpen: boolean;
-  item: InvoiceLineItem | null;
-  onSave: (item: InvoiceLineItem) => void;
-  onClose: () => void;
-  billingIncrementMinutes?: number | null;
-}
-
-const LineItemDialog = ({ isOpen, item, onSave, onClose, billingIncrementMinutes }: LineItemDialogProps) => {
-  const step = (billingIncrementMinutes && billingIncrementMinutes > 0) ? billingIncrementMinutes / 60 : 0.1;
-  const [formData, setFormData] = useState<InvoiceLineItem>(() => item || newLineItem());
-
-  const handleSave = () => {
-    if (!formData.description.trim()) return;
-    onSave(formData);
-    onClose();
-  };
-
-  const updateField = (patch: Partial<InvoiceLineItem>) => {
-    setFormData(prev => {
-      const next = { ...prev, ...patch };
-      const qty = Number(next.quantity || 0);
-      return { ...next, line_total: safeMultiply(next.unit_price, qty) };
-    });
-  };
-
-  return (
-    <Dialog
-      isOpen={isOpen}
-      onClose={onClose}
-      title={item ? 'Edit Line Item' : 'Add Line Item'}
-      contentClassName="max-w-xl"
-    >
-      <DialogBody className="space-y-4">
-        <Input
-          label="Description"
-          placeholder="e.g. Professional Services"
-          value={formData.description}
-          onChange={(val) => updateField({ description: val })}
-        />
-        
-        <div className="grid grid-cols-2 gap-4">
-          <Input
-            type="number"
-            label="Quantity"
-            min={step}
-            step={step}
-            value={String(formData.quantity ?? 1)}
-            onChange={(val) => {
-              const parsed = Number(val);
-              updateField({
-                quantity: Number.isFinite(parsed) && parsed > 0 ? parsed : 1
-              });
-            }}
-          />
-          <CurrencyInput
-            label="Unit price"
-            value={getMajorAmountValue(formData.unit_price)}
-            onChange={(val) => updateField({ unit_price: asMajor(val ?? 0) })}
-          />
-        </div>
-
-        <div className="pt-2 border-t border-line-glass/20 flex items-center justify-between">
-          <span className="text-sm text-input-placeholder">Total Amount</span>
-          <span className="text-lg font-bold text-input-text">
-            {formatCurrency(formData.line_total ?? asMajor(0))}
-          </span>
-        </div>
-      </DialogBody>
-      <DialogFooter>
-        <Button variant="secondary" onClick={onClose}>
-          Cancel
-        </Button>
-        <Button onClick={handleSave} disabled={!formData.description.trim()}>
-          Save Item
-        </Button>
-      </DialogFooter>
-    </Dialog>
-  );
+const formatQuantity = (raw: number | null | undefined, billingIncrementMinutes?: number | null): string => {
+  const qty = Number(raw ?? 1);
+  if (Number.isInteger(qty)) return String(qty);
+  return qty.toFixed(billingIncrementMinutes ? 2 : 1);
 };
 
 export const InvoiceLineItemsForm = ({ lineItems, onChange, billingIncrementMinutes, readOnly = false }: InvoiceLineItemsFormProps) => {
@@ -130,15 +45,13 @@ export const InvoiceLineItemsForm = ({ lineItems, onChange, billingIncrementMinu
   };
 
   return (
-    <section className="space-y-4">
+    <section className="space-y-3">
       <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-sm font-semibold text-input-text">Line items</h3>
-        </div>
+        <h3 className="text-sm font-semibold text-input-text">Line items</h3>
         {!readOnly ? (
-          <Button 
-            size="xs" 
-            variant="secondary" 
+          <Button
+            size="xs"
+            variant="ghost"
             onClick={() => setIsAddMode(true)}
             icon={Plus}
             iconClassName="h-3.5 w-3.5 mr-1"
@@ -152,9 +65,9 @@ export const InvoiceLineItemsForm = ({ lineItems, onChange, billingIncrementMinu
         <div className="rounded-xl border border-dashed border-line-glass/30 p-8 text-center bg-surface-utility/20">
            <p className="text-sm text-input-placeholder">No line items added yet.</p>
            {!readOnly ? (
-             <Button 
-              size="sm" 
-              variant="ghost" 
+             <Button
+              size="sm"
+              variant="ghost"
               onClick={() => setIsAddMode(true)}
               className="mt-2"
             >
@@ -163,89 +76,67 @@ export const InvoiceLineItemsForm = ({ lineItems, onChange, billingIncrementMinu
            ) : null}
         </div>
       ) : (
-        <div className="overflow-hidden rounded-xl border border-line-glass/30 bg-surface-utility/20">
-          <table className="min-w-full divide-y divide-line-glass/30 text-sm">
-            <thead>
-              <tr className="text-left text-xs uppercase tracking-wider text-input-placeholder bg-surface-utility/40">
-                <th className="px-5 py-3 font-medium">Description</th>
-                <th className="px-5 py-3 w-20 text-right font-medium">Qty</th>
-                <th className="px-5 py-3 w-28 text-right font-medium">Unit Price</th>
-                <th className="px-5 py-3 w-32 text-right font-medium">Amount</th>
-                {!readOnly ? <th className="px-5 py-3 w-28 text-right font-medium">Actions</th> : null}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line-glass/20">
-              {lineItems.map((item, index) => {
-                const itemTotal = item.line_total ?? asMajor(0);
-                const qtyFormatted = Number(item.quantity ?? 1).toFixed(billingIncrementMinutes ? 2 : 1);
-                
-                return (
-                  <tr key={item.id} className="group hover:bg-surface-utility/60 transition-colors">
-                    <td className="px-5 py-4">
-                      <span className="font-medium text-input-text leading-tight block">
-                        {item.description || (<i>No description</i>)}
-                      </span>
-                    </td>
-                    <td className="px-5 py-4 text-right">
-                      <span className="text-input-placeholder">
-                        {qtyFormatted}
-                      </span>
-                    </td>
-                    <td className="px-5 py-4 text-right">
-                      <span className="text-input-placeholder">
-                        {formatCurrency(item.unit_price)}
-                      </span>
-                    </td>
-                    <td className="px-5 py-4 text-right">
-                      <span className="text-sm font-semibold text-input-text transition-colors group-hover:text-accent-400">
-                        {formatCurrency(itemTotal)}
-                      </span>
-                    </td>
-                    {!readOnly ? (
-                      <td className="px-5 py-4 text-right">
-                        <div className="flex justify-end gap-1">
-                          <Button
-                            size="icon-xs"
-                            variant="ghost"
-                            onClick={() => setEditingItem({ item, index })}
-                            icon={SquarePen} 
-                            iconClassName="h-4 w-4 text-input-placeholder hover:text-accent-400"
-                            title="Edit item"
-                          />
-                          <Button
-                            size="icon-xs"
-                            variant="ghost"
-                            onClick={() => removeItem(index)}
-                            icon={Trash2} 
-                            iconClassName="h-4 w-4 text-input-placeholder hover:text-accent-error-light"
-                            title="Delete item"
-                          />
-                        </div>
-                      </td>
-                    ) : null}
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        <ul className="divide-y divide-line-glass/30 border-y border-line-glass/30">
+          {lineItems.map((item, index) => {
+            const itemTotal = item.line_total ?? asMajor(0);
+            const qtyFormatted = formatQuantity(item.quantity, billingIncrementMinutes);
+
+            return (
+              <li
+                key={item.id}
+                className="group flex items-center gap-3 py-3"
+              >
+                <div className="min-w-0 flex-1 text-sm text-input-text">
+                  <span className="break-words">
+                    {item.description || <i className="text-input-placeholder">No description</i>}
+                  </span>
+                  <span className="text-input-placeholder"> × {qtyFormatted}</span>
+                </div>
+                <span className="shrink-0 text-sm tabular-nums text-input-text">
+                  {formatCurrency(itemTotal)}
+                </span>
+                {!readOnly ? (
+                  <div className="flex shrink-0 items-center gap-0.5">
+                    <Button
+                      size="icon-xs"
+                      variant="ghost"
+                      onClick={() => setEditingItem({ item, index })}
+                      icon={SquarePen}
+                      iconClassName="h-4 w-4 text-input-placeholder hover:text-accent-foreground"
+                      aria-label="Edit item"
+                      title="Edit item"
+                    />
+                    <Button
+                      size="icon-xs"
+                      variant="ghost"
+                      onClick={() => removeItem(index)}
+                      icon={Trash2}
+                      iconClassName="h-4 w-4 text-input-placeholder hover:text-accent-error-light"
+                      aria-label="Delete item"
+                      title="Delete item"
+                    />
+                  </div>
+                ) : null}
+              </li>
+            );
+          })}
+        </ul>
       )}
 
-      {/* Logic for Dialogs */}
       {!readOnly ? (
         <>
-          <LineItemDialog 
+          <LineItemEditorDialog
             key={`add-${isAddMode}`}
-            isOpen={isAddMode} 
+            isOpen={isAddMode}
             item={null}
             onSave={handleSaveItem}
             onClose={() => setIsAddMode(false)}
             billingIncrementMinutes={billingIncrementMinutes}
           />
 
-          <LineItemDialog 
+          <LineItemEditorDialog
             key={editingItem?.item?.id ?? 'none'}
-            isOpen={!!editingItem} 
+            isOpen={!!editingItem}
             item={editingItem?.item || null}
             onSave={handleSaveItem}
             onClose={() => setEditingItem(null)}

@@ -109,23 +109,12 @@ export function getClient(): AuthClientType {
   return getAuthClient();
 }
 
-// Export the auth client getter.
-//
-// Better Auth already returns a dynamic proxy. Wrapping that proxy again
-// makes harmless property reads look like route traversals, which can turn
-// accidental lookups into requests such as /api/auth/fetch-options/... .
-// We keep the export as a thin pass-through and explicitly block the
-// non-public fetchOptions property so it fails locally instead of being
-// interpreted as an auth route.
+// Lazily forwards to the cached auth client so module-level imports don't
+// trigger client creation during SSR/build before window is available.
 export const authClient = new Proxy({} as AuthClientType, {
   get(_target, prop) {
-    if (prop === 'fetchOptions') {
-      return undefined;
-    }
-
-    const client = getAuthClient();
-    return (client as Record<PropertyKey, unknown>)[prop];
-  }
+    return (getAuthClient() as Record<PropertyKey, unknown>)[prop];
+  },
 }) as AuthClientType;
 
 export const signOut = (...args: Parameters<AuthClientType['signOut']>) => getAuthClient().signOut(...args);
@@ -148,13 +137,6 @@ export const useSession = () => {
 // Helper to normalize/unpack SDK envelopes or raw backend session shapes.
 function unwrapSessionData(d: unknown): AuthSessionPayload | null {
   const toCanonical = (record: Record<string, unknown>): AuthSessionPayload | null => {
-    if (!('session' in record) || !('user' in record)) {
-      return null;
-    }
-    // Better Auth may return explicit nulls for unauthenticated state.
-    if (record.session === null && record.user === null) {
-      return null;
-    }
     if (!record.session || !record.user || typeof record.session !== 'object' || typeof record.user !== 'object') {
       return null;
     }
@@ -162,73 +144,33 @@ function unwrapSessionData(d: unknown): AuthSessionPayload | null {
     const sessionRecord = record.session as BetterAuthRawSessionRecord;
     const userRecord = record.user as BetterAuthRawSessionUser;
 
+    // session: Better Auth org plugin sets activeOrganizationId (camelCase)
     const normalizedSession: Record<string, unknown> = {};
-    if (typeof sessionRecord.active_organization_id === 'string') {
-      normalizedSession.active_organization_id = sessionRecord.active_organization_id;
-    } else if (typeof sessionRecord.activeOrganizationId === 'string') {
-      normalizedSession.active_organization_id = sessionRecord.activeOrganizationId;
-    }
+    const activeOrgId = sessionRecord.activeOrganizationId ?? sessionRecord.active_organization_id;
+    if (typeof activeOrgId === 'string') normalizedSession.active_organization_id = activeOrgId;
 
+    // user: standard Better Auth fields are camelCase; custom backend fields are snake_case
     const normalizedUser: Record<string, unknown> = {};
     if (typeof userRecord.id === 'string') normalizedUser.id = userRecord.id;
     if (typeof userRecord.email === 'string') normalizedUser.email = userRecord.email;
     if (typeof userRecord.name === 'string') normalizedUser.name = userRecord.name;
-    // Map anonymity flags explicitly
-    if (typeof userRecord.is_anonymous === 'boolean') normalizedUser.is_anonymous = userRecord.is_anonymous;
-    else if (typeof userRecord.isAnonymous === 'boolean') normalizedUser.is_anonymous = userRecord.isAnonymous;
-    // Onboarding, workspace, practice/organization ids
+    // is_anonymous: Better Auth anonymous plugin uses isAnonymous (camelCase)
+    normalizedUser.is_anonymous = userRecord.is_anonymous === true || userRecord.isAnonymous === true;
+    // emailVerified: standard Better Auth camelCase field
+    normalizedUser.email_verified = userRecord.emailVerified === true || userRecord.email_verified === true;
+    // Custom backend fields (snake_case)
     if (typeof userRecord.onboarding_complete === 'boolean') normalizedUser.onboarding_complete = userRecord.onboarding_complete;
-    else if (typeof userRecord.onboardingComplete === 'boolean') normalizedUser.onboarding_complete = userRecord.onboardingComplete;
     if (typeof userRecord.primary_workspace === 'string') normalizedUser.primary_workspace = userRecord.primary_workspace;
-    else if (typeof userRecord.primaryWorkspace === 'string') normalizedUser.primary_workspace = userRecord.primaryWorkspace;
     if (typeof userRecord.practice_id === 'string') normalizedUser.practice_id = userRecord.practice_id;
-    else if (typeof userRecord.practiceId === 'string') normalizedUser.practice_id = userRecord.practiceId;
     if (typeof userRecord.active_practice_id === 'string') normalizedUser.active_practice_id = userRecord.active_practice_id;
-    else if (typeof userRecord.activePracticeId === 'string') normalizedUser.active_practice_id = userRecord.activePracticeId;
     if (typeof userRecord.active_organization_id === 'string') normalizedUser.active_organization_id = userRecord.active_organization_id;
-    else if (typeof userRecord.activeOrganizationId === 'string') normalizedUser.active_organization_id = userRecord.activeOrganizationId;
     if (typeof userRecord.stripe_customer_id === 'string') normalizedUser.stripe_customer_id = userRecord.stripe_customer_id;
-    else if (typeof userRecord.stripeCustomerId === 'string') normalizedUser.stripe_customer_id = userRecord.stripeCustomerId;
-    if (typeof userRecord.email_verified === 'boolean') normalizedUser.email_verified = userRecord.email_verified;
-    else if (typeof userRecord.emailVerified === 'boolean') normalizedUser.email_verified = userRecord.emailVerified;
     if (typeof userRecord.last_login_method === 'string') normalizedUser.last_login_method = userRecord.last_login_method;
-    else if (typeof userRecord.lastLoginMethod === 'string') normalizedUser.last_login_method = userRecord.lastLoginMethod;
 
-    // Runtime validation: ensure required fields exist and timestamps are converted
-    try {
-      // Basic required fields (id, email) - throws if missing
-      validateRequiredFields(normalizedUser);
-    } catch (err) {
-      console.warn('[authClient] Invalid session user; rejecting session payload', {
-        id: normalizedUser.id ?? 'no-id',
-        hasEmail: typeof normalizedUser.email === 'string',
-        error: err instanceof Error ? err.message : String(err),
-      });
-      return null;
-    }
+    validateRequiredFields(normalizedUser);
 
-    // Ensure name exists (must be a string)
-    if (typeof normalizedUser.name !== 'string' || normalizedUser.name.trim() === '') {
-      console.warn('[authClient] Session user missing `name` field; rejecting session payload', {
-        id: normalizedUser.id ?? 'no-id',
-        namePresent: typeof normalizedUser.name === 'string',
-      });
-      return null;
-    }
-
-    // Ensure is_anonymous exists and is boolean (default false)
-    if (typeof normalizedUser.is_anonymous !== 'boolean') {
-      normalizedUser.is_anonymous = Boolean((userRecord as Record<string, unknown>).is_anonymous ?? (userRecord as Record<string, unknown>).isAnonymous ?? false);
-    }
-
-    // Convert timestamps to Date|null
-    try {
-      normalizedUser.created_at = safeConvertToDate((userRecord as Record<string, unknown>).created_at ?? (userRecord as Record<string, unknown>).createdAt ?? null);
-      normalizedUser.updated_at = safeConvertToDate((userRecord as Record<string, unknown>).updated_at ?? (userRecord as Record<string, unknown>).updatedAt ?? null);
-    } catch (_) {
-      normalizedUser.created_at = null;
-      normalizedUser.updated_at = null;
-    }
+    normalizedUser.created_at = safeConvertToDate((userRecord as Record<string, unknown>).created_at ?? null);
+    normalizedUser.updated_at = safeConvertToDate((userRecord as Record<string, unknown>).updated_at ?? null);
 
     return {
       session: normalizedSession,
@@ -237,15 +179,12 @@ function unwrapSessionData(d: unknown): AuthSessionPayload | null {
   };
 
   if (d === null || d === undefined) return null;
-  if (typeof d === 'object' && d !== null) {
-    const asRecord = d as Record<string, unknown>;
-    if ('data' in asRecord && typeof asRecord.data === 'object' && asRecord.data !== null) {
-      const inner = asRecord.data as Record<string, unknown>;
-      return toCanonical(inner);
-    }
-    return toCanonical(asRecord);
+  if (typeof d !== 'object') return null;
+  const asRecord = d as Record<string, unknown>;
+  if ('data' in asRecord && typeof asRecord.data === 'object' && asRecord.data !== null) {
+    return toCanonical(asRecord.data as Record<string, unknown>);
   }
-  return null;
+  return toCanonical(asRecord);
 }
 
 export const useActiveMemberRole = () => {

@@ -248,6 +248,18 @@ export const InvoicesTable: FunctionComponent<InvoicesTableProps> = ({
                       Open hosted invoice
                     </DropdownMenuItem>
                   ) : null}
+                  {hostedInvoiceUrl ? (
+                    <DropdownMenuItem
+                      onSelect={() => window.open(`${hostedInvoiceUrl}/pdf`, '_blank', 'noopener,noreferrer')}
+                    >
+                      Download PDF
+                    </DropdownMenuItem>
+                  ) : null}
+                  {hostedInvoiceUrl ? (
+                    <DropdownMenuItem onSelect={() => void copyText('Invoice link', hostedInvoiceUrl)}>
+                      Copy invoice link
+                    </DropdownMenuItem>
+                  ) : null}
                   {invoice.id ? (
                     <DropdownMenuItem onSelect={() => void copyText('Invoice ID', invoice.id)}>
                       Copy invoice ID

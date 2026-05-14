@@ -16,7 +16,7 @@ export interface SidebarProfileMenuProps {
    *  so labels don't truncate inside the 64px rail. */
   collapsed?: boolean;
   onAccount?: () => void;
-  onPayments?: () => void;
+  onInvoices?: () => void;
   onSignOut?: () => void;
   className?: string;
 }
@@ -25,7 +25,7 @@ export const SidebarProfileMenu: FunctionComponent<SidebarProfileMenuProps> = ({
   user,
   collapsed = false,
   onAccount,
-  onPayments,
+  onInvoices,
   onSignOut,
   className,
 }) => {
@@ -111,7 +111,7 @@ export const SidebarProfileMenu: FunctionComponent<SidebarProfileMenuProps> = ({
           </div>
           <Separator />
           <ProfileMenuItem icon={CircleUser} label="Account" onClick={() => select(onAccount)} />
-          <ProfileMenuItem icon={Wallet} label="Payments" onClick={() => select(onPayments)} />
+          <ProfileMenuItem icon={Wallet} label="Invoices" onClick={() => select(onInvoices)} />
           <Separator />
           <ProfileMenuItem
             icon={LogOut}

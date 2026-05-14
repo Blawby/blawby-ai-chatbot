@@ -17,7 +17,6 @@ import { SendInvoiceDialog } from '@/features/invoices/components/SendInvoiceDia
 import type { InvoicePageMode } from '@/features/invoices/utils/invoicePageConfig';
 import { buildDefaultDueDate, detectDefaultInvoiceType } from '@/features/invoices/utils/invoiceDefaults';
 import { ContentWithPreview } from '@/shared/ui/layout';
-import { Tabs } from '@/shared/ui/tabs';
 
 type InvoiceFormProps = {
   mode?: InvoicePageMode;
@@ -52,6 +51,7 @@ type InvoiceFormProps = {
 
 export type InvoiceFormHandle = {
   requestSend: () => void;
+  getDraftStatus: () => { lastSavedAt: Date | null; isSaving: boolean };
 };
 
 type InvoiceUpdatePayload = {
@@ -62,21 +62,6 @@ type InvoiceUpdatePayload = {
   line_items: InvoiceLineItem[];
 };
 
-type InvoicePreviewTab = 'pdf' | 'email';
-
-const INVOICE_PREVIEW_TABS = [
-  { id: 'pdf', label: 'PDF' },
-  { id: 'email', label: 'Email' },
-];
-
-const InvoiceEmailPlaceholder = () => (
-  <div className="rounded-xl border border-line-glass/40 bg-surface-card p-5 text-sm shadow-glass">
-    <p className="font-semibold text-input-text">Email preview</p>
-    <p className="mt-2 text-input-placeholder">
-      Coming soon. This will preview the message your client receives with the invoice payment call to action.
-    </p>
-  </div>
-);
 
 
 
@@ -159,7 +144,6 @@ export const InvoiceForm = forwardRef<InvoiceFormHandle, InvoiceFormProps>(({
   );
   const [sendError, setSendError] = useState<string | null>(null);
   const invoiceType: Invoice['invoice_type'] = defaultInvoiceType;
-  const [activePreviewTab, setActivePreviewTab] = useState<InvoicePreviewTab>('pdf');
   const isMatterScoped = Boolean(matter);
   const resolvedClientOptions = clientOptions;
   const resolvedMatterId = isMatterScoped ? matter?.id ?? '' : matterId;
@@ -356,7 +340,8 @@ export const InvoiceForm = forwardRef<InvoiceFormHandle, InvoiceFormProps>(({
 
   useImperativeHandle(ref, () => ({
     requestSend: openSendDialog,
-  }), [openSendDialog]);
+    getDraftStatus: () => ({ lastSavedAt, isSaving }),
+  }), [openSendDialog, lastSavedAt, isSaving]);
 
   // Notify global shell about draft saves so the global header can show the timestamp
   useEffect(() => {
@@ -390,44 +375,23 @@ export const InvoiceForm = forwardRef<InvoiceFormHandle, InvoiceFormProps>(({
         contentClassName="space-y-5"
         /* Let the parent shell/header render the page-level header. */
         preview={ showPreview ? (
-          <>
-            <div className="mb-3">
-              <Tabs
-                items={INVOICE_PREVIEW_TABS}
-                activeId={activePreviewTab}
-                onChange={(id) => setActivePreviewTab(id as InvoicePreviewTab)}
-              />
-            </div>
-            {activePreviewTab === 'pdf' ? (
-              <InvoicePreview
-                title={previewTitle}
-                referenceLabel={previewReferenceLabel}
-                lineItems={lineItems}
-                issueDate={previewIssueDate}
-                dueDate={dueDate}
-                practiceName={practiceName}
-                practiceLogoUrl={practiceLogoUrl}
-                practiceEmail={practiceEmail}
-                clientName={resolvedClientLabel || null}
-                clientEmail={resolvedClientEmail}
-                billingIncrementMinutes={billingIncrementMinutes}
-                notes={notes || null}
-              />
-            ) : (
-              <InvoiceEmailPlaceholder />
-            )}
-          </>
+          <InvoicePreview
+            title={previewTitle}
+            referenceLabel={previewReferenceLabel}
+            lineItems={lineItems}
+            issueDate={previewIssueDate}
+            dueDate={dueDate}
+            practiceName={practiceName}
+            practiceLogoUrl={practiceLogoUrl}
+            practiceEmail={practiceEmail}
+            clientName={resolvedClientLabel || null}
+            clientEmail={resolvedClientEmail}
+            billingIncrementMinutes={billingIncrementMinutes}
+            notes={notes || null}
+          />
         ) : null }
       >
-        {activePreviewTab === 'email' ? (
-          <section className="space-y-3">
-            <h3 className="text-sm font-semibold text-input-text">Email delivery</h3>
-            <p className="text-sm text-input-placeholder">
-              Email copy controls will live here. For now, use the PDF tab to edit invoice details.
-            </p>
-          </section>
-        ) : (
-          <>
+        <>
             {!resolvedReadOnly && !isValidConnectedAccount ? (
               <div className="status-warning rounded-xl px-4 py-3 text-sm">
                 Complete Stripe onboarding to enable invoicing.
@@ -555,7 +519,6 @@ export const InvoiceForm = forwardRef<InvoiceFormHandle, InvoiceFormProps>(({
               </div>
             ) : null}
           </>
-        )}
       </ContentWithPreview>
 
       {!resolvedReadOnly ? (

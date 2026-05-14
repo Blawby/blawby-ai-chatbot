@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'preact/hooks';
+import { useCallback, useMemo, useRef } from 'preact/hooks';
 import { useLocation } from 'preact-iso';
 import { EditorShell } from '@/shared/ui/layout';
 import { useNavigation } from '@/shared/utils/navigation';
@@ -6,6 +6,8 @@ import { useToastContext } from '@/shared/contexts/ToastContext';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { updateMatterMilestone } from '@/features/matters/services/mattersApi';
 import { InvoiceBuilderSurface } from '@/features/invoices/components/InvoiceBuilderSurface';
+import type { InvoiceFormHandle } from '@/features/invoices/components/InvoiceForm';
+import { InvoiceEditHeaderActions } from '@/features/invoices/components/edit/InvoiceEditHeaderActions';
 import {
   clearPendingInvoiceDraftContext,
   readPendingInvoiceDraftContext,
@@ -26,6 +28,7 @@ export function PracticeInvoiceCreatePage({
     practiceSlug: practiceSlug ?? undefined,
     fetchPracticeDetails: true,
   });
+  const formRef = useRef<InvoiceFormHandle | null>(null);
 
   const draftId = useMemo(() => {
     const value = location.query?.draft;
@@ -107,6 +110,7 @@ export function PracticeInvoiceCreatePage({
       backVariant="close"
       onBack={handleBackToInvoices}
       contentMaxWidth={null}
+      actions={<InvoiceEditHeaderActions formRef={formRef} />}
     >
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
         {draftId && !draftContext ? (
@@ -116,6 +120,7 @@ export function PracticeInvoiceCreatePage({
         ) : null}
         {canRenderBuilder ? (
           <InvoiceBuilderSurface
+            ref={formRef}
             mode="create"
             practiceId={practiceId}
             initialDraftContext={draftContext}

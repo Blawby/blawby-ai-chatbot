@@ -5,9 +5,10 @@ import { listClientInvoices } from '@/features/invoices/services/invoicesService
 import type { InvoiceSummary } from '@/features/invoices/types';
 import { InvoiceStatusBadge } from '@/features/invoices/components/InvoiceStatusBadge';
 import { InvoicesTable } from '@/features/invoices/components/InvoicesTable';
-import { InvoiceColumnsMenu } from '@/features/invoices/components/InvoiceColumnsMenu';
+import { ColumnEditor, type ColumnEditorOption } from '@/shared/ui/table';
 import {
   CLIENT_SAFE_INVOICE_COLUMNS,
+  DEFAULT_INVOICE_COLUMN_DEFS,
   type InvoiceColumnKey,
 } from '@/features/invoices/config/invoiceCollection';
 import { Panel } from '@/shared/ui/layout/Panel';
@@ -19,6 +20,11 @@ import { formatLongDate } from '@/shared/utils/dateFormatter';
 import { cn } from '@/shared/utils/cn';
 
 const PAGE_SIZE = 10;
+
+const CLIENT_COLUMN_OPTIONS: ColumnEditorOption[] = [
+  ...DEFAULT_INVOICE_COLUMN_DEFS.map((column) => ({ ...column, fixed: true })),
+  ...CLIENT_SAFE_INVOICE_COLUMNS,
+];
 
 const InvoicesEmptyState = ({ hasFilters }: { hasFilters: boolean }) => (
   <WorkspacePlaceholderState
@@ -103,10 +109,10 @@ export function ClientInvoicesPage({
               <h1 className="text-3xl font-semibold tracking-tight text-input-text">Invoices</h1>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <InvoiceColumnsMenu
-                visibleColumns={visibleOptionalColumns}
-                columns={CLIENT_SAFE_INVOICE_COLUMNS}
-                onChange={setVisibleOptionalColumns}
+              <ColumnEditor
+                options={CLIENT_COLUMN_OPTIONS}
+                visible={visibleOptionalColumns}
+                onChange={(next) => setVisibleOptionalColumns(next as InvoiceColumnKey[])}
               />
             </div>
           </div>

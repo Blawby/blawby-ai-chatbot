@@ -27,8 +27,7 @@ import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
 import type { ConversationMode } from '@/shared/types/conversation';
 import { lazy } from 'preact/compat';
-import { Send, Plus, Mail, Phone, Briefcase } from 'lucide-preact';
-import { INVOICE_CREATE_SEND_EVENT } from '@/features/invoices/utils/invoicePageConfig';
+import { Plus, Mail, Phone, Briefcase } from 'lucide-preact';
 const PracticeMattersPage = lazy(() => import('@/features/matters/pages/PracticeMattersPage').then(m => ({ default: m.PracticeMattersPage })));
 const PracticeContactsPage = lazy(() => import('@/features/clients/pages/PracticeContactsPage').then(m => ({ default: m.PracticeContactsPage })));
 const ClientMattersPage = lazy(() => import('@/features/matters/pages/ClientMattersPage').then(m => ({ default: m.ClientMattersPage })));
@@ -1139,12 +1138,6 @@ export function MainApp({
               onClick: () => navigate(`${practiceMattersPath}/new?returnTo=${encodeURIComponent(returnToPath)}`),
               icon: Plus,
             }
-          : (resolvedWorkspaceView === 'invoiceCreate' || resolvedWorkspaceView === 'invoiceEdit') && isPracticeWorkspace
-            ? {
-                label: 'Review Invoice',
-                onClick: () => window.dispatchEvent(new CustomEvent(INVOICE_CREATE_SEND_EVENT)),
-                icon: Send,
-              }
           : resolvedWorkspaceView === 'invoices' && isPracticeWorkspace && practiceInvoicesPath
             ? {
                 label: 'New Invoice',
