@@ -111,14 +111,14 @@ export default [
       // TypeScript rules
       ...typescript.configs.recommended.rules,
       'no-undef': 'off', // Let TypeScript compiler handle DOM/ambient types
-      '@typescript-eslint/no-unused-vars': ['warn', { 
+      '@typescript-eslint/no-unused-vars': ['error', { 
         argsIgnorePattern: '^_', 
         varsIgnorePattern: '^_', 
         caughtErrorsIgnorePattern: '^_',
         ignoreRestSiblings: true 
       }],
       '@typescript-eslint/no-explicit-any': 'error', // Enforce no explicit any
-      '@typescript-eslint/no-non-null-assertion': 'warn', // TODO: consider stricter null safety later
+      '@typescript-eslint/no-non-null-assertion': 'error',
 
       // React/JSX + hooks + a11y
       ...react.configs.recommended.rules,
@@ -128,8 +128,8 @@ export default [
       'jsx-a11y/click-events-have-key-events': 'error',
       'jsx-a11y/no-static-element-interactions': 'error',
       'jsx-a11y/media-has-caption': 'error',
-      'jsx-a11y/no-autofocus': 'warn',
-      'jsx-a11y/role-supports-aria-props': 'warn',
+      'jsx-a11y/no-autofocus': 'error',
+      'jsx-a11y/role-supports-aria-props': 'error',
       'jsx-a11y/no-noninteractive-element-to-interactive-role': 'error',
       'react/jsx-uses-react': 'off',
       'react/react-in-jsx-scope': 'off',
@@ -137,8 +137,8 @@ export default [
       'react/jsx-key': 'error',
       'react/jsx-no-duplicate-props': 'error',
       'react/jsx-no-undef': 'error',
-      'react/no-unknown-property': 'warn', // Allow class instead of className in some cases
-      'react/self-closing-comp': 'warn',
+      'react/no-unknown-property': 'error',
+      'react/self-closing-comp': 'error',
       'react-hooks/rules-of-hooks': 'error', // Keep this as error for safety
       'react-hooks/exhaustive-deps': 'error',
 
@@ -154,7 +154,7 @@ export default [
       // Custom loading consistency rule
       'custom/loading-consistency': 'error',
       'custom/no-inline-context-value': 'error',
-      'custom/no-hardcoded-colors': 'warn',
+      'custom/no-hardcoded-colors': 'error',
 
       // Import guardrails: ban barrel import, namespace imports of icon/motion libs,
       // and the deleted/migrated ad-hoc store modules.
@@ -274,7 +274,7 @@ export default [
     plugins: { '@typescript-eslint': typescript },
     rules: {
       ...typescript.configs.recommended.rules,
-      '@typescript-eslint/no-unused-vars': ['warn', { 
+      '@typescript-eslint/no-unused-vars': ['error', { 
         argsIgnorePattern: '^_', 
         varsIgnorePattern: '^_', 
         caughtErrorsIgnorePattern: '^_',
@@ -330,7 +330,7 @@ export default [
     plugins: { '@typescript-eslint': typescript },
     rules: {
       ...typescript.configs.recommended.rules,
-      '@typescript-eslint/no-unused-vars': ['warn', { 
+      '@typescript-eslint/no-unused-vars': ['error', { 
         argsIgnorePattern: '^_', 
         varsIgnorePattern: '^_', 
         caughtErrorsIgnorePattern: '^_',
@@ -361,7 +361,7 @@ export default [
     plugins: { '@typescript-eslint': typescript },
     rules: {
       ...typescript.configs.recommended.rules,
-      '@typescript-eslint/no-unused-vars': ['warn', { 
+      '@typescript-eslint/no-unused-vars': ['error', { 
         argsIgnorePattern: '^_', 
         varsIgnorePattern: '^_', 
         caughtErrorsIgnorePattern: '^_',
@@ -429,7 +429,7 @@ export default [
     },
     rules: {
       ...typescript.configs.recommended.rules,
-      '@typescript-eslint/no-unused-vars': ['warn', { 
+      '@typescript-eslint/no-unused-vars': ['error', { 
         argsIgnorePattern: '^_', 
         varsIgnorePattern: '^_', 
         caughtErrorsIgnorePattern: '^_',
@@ -520,7 +520,7 @@ export default [
     },
     rules: {
       ...typescript.configs.recommended.rules,
-      '@typescript-eslint/no-unused-vars': ['warn', { 
+      '@typescript-eslint/no-unused-vars': ['error', { 
         argsIgnorePattern: '^_', 
         varsIgnorePattern: '^_', 
         caughtErrorsIgnorePattern: '^_',
@@ -578,7 +578,7 @@ export default [
     },
     rules: {
       ...typescript.configs.recommended.rules,
-      '@typescript-eslint/no-unused-vars': ['warn', { 
+      '@typescript-eslint/no-unused-vars': ['error', { 
         argsIgnorePattern: '^_', 
         varsIgnorePattern: '^_', 
         caughtErrorsIgnorePattern: '^_',
