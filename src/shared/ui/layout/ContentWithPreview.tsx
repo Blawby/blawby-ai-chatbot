@@ -58,8 +58,7 @@ export function ContentWithPreview({
       </div>
       <div
         className={cn(
-          // Preview panel with subtle background and proper padding
-          'bg-slate-50 min-h-0 overflow-y-auto border-l border-line-glass/40',
+          'bg-surface-panel min-h-0 overflow-y-auto border-l border-line-glass/40',
           previewClassName
         )}
       >

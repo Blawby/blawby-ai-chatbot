@@ -100,7 +100,7 @@ export const usePracticeInvoiceDetailController = ({
   }, [isMutating, practiceId, detail.id, refetch, showError, showSuccess]);
 
   const handleVoidConfirm = useCallback(
-    async (_reason: string) => {
+    async () => {
       if (voidLoading) return;
       setVoidLoading(true);
       setIsMutating(true);

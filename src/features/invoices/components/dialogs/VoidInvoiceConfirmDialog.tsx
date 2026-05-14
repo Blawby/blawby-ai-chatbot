@@ -1,14 +1,12 @@
-import { useState } from 'preact/hooks';
 import { AlertTriangle } from 'lucide-preact';
 import { Dialog, DialogBody, DialogFooter } from '@/shared/ui/dialog';
 import { Button } from '@/shared/ui/Button';
-import { Textarea } from '@/shared/ui/input';
 
 interface VoidInvoiceConfirmDialogProps {
   isOpen: boolean;
   invoiceNumber?: string | null;
   loading?: boolean;
-  onConfirm: (reason: string) => void | Promise<void>;
+  onConfirm: () => void | Promise<void>;
   onCancel: () => void;
 }
 
@@ -19,23 +17,15 @@ export const VoidInvoiceConfirmDialog = ({
   onConfirm,
   onCancel,
 }: VoidInvoiceConfirmDialogProps) => {
-  const [reason, setReason] = useState('');
-
-  const handleClose = () => {
-    setReason('');
-    onCancel();
-  };
-
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     if (loading) return;
-    setReason('');
-    void onConfirm(reason.trim());
+    await onConfirm();
   };
 
   return (
     <Dialog
       isOpen={isOpen}
-      onClose={handleClose}
+      onClose={onCancel}
       title={
         <span className="flex items-center gap-2 text-accent-error-light">
           <AlertTriangle className="h-5 w-5" aria-hidden="true" />
@@ -50,21 +40,13 @@ export const VoidInvoiceConfirmDialog = ({
       contentClassName="max-w-lg"
       disableBackdropClick={loading}
     >
-      <DialogBody className="space-y-4">
+      <DialogBody>
         <p className="text-sm text-input-placeholder">
-          You can optionally record an internal reason. This stays inside your practice.
+          Once voided, the invoice cannot be sent or paid. You can still view it in the invoice list.
         </p>
-        <Textarea
-          label="Reason (optional)"
-          value={reason}
-          onChange={setReason}
-          rows={3}
-          placeholder="e.g. Issued in error"
-          disabled={loading}
-        />
       </DialogBody>
       <DialogFooter>
-        <Button variant="secondary" onClick={handleClose} disabled={loading}>
+        <Button variant="secondary" onClick={onCancel} disabled={loading}>
           Cancel
         </Button>
         <Button variant="danger" onClick={handleConfirm} disabled={loading}>

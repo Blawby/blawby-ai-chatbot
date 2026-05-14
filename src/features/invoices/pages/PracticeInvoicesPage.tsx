@@ -7,7 +7,7 @@ import {
   syncInvoice,
   voidInvoice,
 } from '@/features/invoices/services/invoicesService';
-import type { InvoiceSummary } from '@/features/invoices/types';
+import type { InvoiceFilterRule, InvoiceSummary } from '@/features/invoices/types';
 import { InvoiceStatusBadge } from '@/features/invoices/components/InvoiceStatusBadge';
 import { InvoicesTable } from '@/features/invoices/components/InvoicesTable';
 import {
@@ -55,16 +55,44 @@ const InvoicesEmptyState = ({
   />
 );
 
-const applyClientFilters = (items: InvoiceSummary[], filters: InvoiceListFilterState): InvoiceSummary[] => {
-  return items.filter((item) => {
-    if (filters.createdFrom && new Date(item.createdAt) < new Date(filters.createdFrom)) return false;
-    if (filters.createdTo && new Date(item.createdAt) > new Date(`${filters.createdTo}T23:59:59.999Z`)) return false;
-    if (filters.dueFrom && (!item.dueDate || new Date(item.dueDate) < new Date(filters.dueFrom))) return false;
-    if (filters.dueTo && (!item.dueDate || new Date(item.dueDate) > new Date(`${filters.dueTo}T23:59:59.999Z`))) return false;
-    if (filters.totalMin !== undefined && item.total < filters.totalMin) return false;
-    if (filters.totalMax !== undefined && item.total > filters.totalMax) return false;
-    return true;
-  });
+// `between` is inclusive on both ends; sentinel bounds turn half-open chip
+// ranges into closed ones so `applyInvoiceFilterRule` matches the same items
+// the old client-side filter did (e.g. totalMin without totalMax keeps items
+// >= totalMin).
+const DATE_RULE_MIN = '0000-01-01';
+const DATE_RULE_MAX = '9999-12-31';
+const TOTAL_RULE_MAX = String(Number.MAX_SAFE_INTEGER);
+
+const buildChipFilterRules = (filters: InvoiceListFilterState): InvoiceFilterRule[] => {
+  const rules: InvoiceFilterRule[] = [];
+  if (filters.createdFrom || filters.createdTo) {
+    rules.push({
+      id: 'chip-createdAt',
+      field: 'createdAt',
+      operator: 'between',
+      value: filters.createdFrom ?? DATE_RULE_MIN,
+      valueTo: filters.createdTo ?? DATE_RULE_MAX,
+    });
+  }
+  if (filters.dueFrom || filters.dueTo) {
+    rules.push({
+      id: 'chip-dueDate',
+      field: 'dueDate',
+      operator: 'between',
+      value: filters.dueFrom ?? DATE_RULE_MIN,
+      valueTo: filters.dueTo ?? DATE_RULE_MAX,
+    });
+  }
+  if (filters.totalMin !== undefined || filters.totalMax !== undefined) {
+    rules.push({
+      id: 'chip-total',
+      field: 'total',
+      operator: 'between',
+      value: filters.totalMin !== undefined ? String(filters.totalMin) : '0',
+      valueTo: filters.totalMax !== undefined ? String(filters.totalMax) : TOTAL_RULE_MAX,
+    });
+  }
+  return rules;
 };
 
 export function PracticeInvoicesPage({
@@ -105,8 +133,10 @@ export function PracticeInvoicesPage({
     return result.length === 0 ? null : result;
   }, [activeTab, chipFilters.statuses, statusFilter]);
 
+  const chipFilterRules = useMemo(() => buildChipFilterRules(chipFilters), [chipFilters]);
+
   const {
-    items: rawInvoices,
+    items: invoices,
     isLoading,
     isLoadingMore,
     error,
@@ -121,7 +151,7 @@ export function PracticeInvoicesPage({
       const result = await listInvoices(
         practiceId,
         {
-          rules: [],
+          rules: chipFilterRules,
           page,
           pageSize: PAGE_SIZE,
         },
@@ -134,10 +164,9 @@ export function PracticeInvoicesPage({
       practiceId,
       renderMode,
       JSON.stringify(effectiveStatusFilter),
+      JSON.stringify(chipFilterRules),
     ],
   });
-
-  const invoices = useMemo(() => applyClientFilters(rawInvoices, chipFilters), [rawInvoices, chipFilters]);
 
   const handleRowClick = useCallback((invoice: InvoiceSummary) => {
     if (!practiceSlug) {
@@ -258,7 +287,7 @@ export function PracticeInvoicesPage({
           isOpen={pendingVoidInvoice !== null}
           invoiceNumber={pendingVoidInvoice?.invoiceNumber}
           loading={isVoidLoading}
-          onConfirm={() => void handleVoidConfirm()}
+          onConfirm={handleVoidConfirm}
           onCancel={() => setPendingVoidInvoice(null)}
         />
       </div>
