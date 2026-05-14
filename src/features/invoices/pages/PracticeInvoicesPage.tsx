@@ -59,8 +59,8 @@ const applyClientFilters = (items: InvoiceSummary[], filters: InvoiceListFilterS
   return items.filter((item) => {
     if (filters.createdFrom && new Date(item.createdAt) < new Date(filters.createdFrom)) return false;
     if (filters.createdTo && new Date(item.createdAt) > new Date(`${filters.createdTo}T23:59:59.999Z`)) return false;
-    if (filters.dueFrom && item.dueDate && new Date(item.dueDate) < new Date(filters.dueFrom)) return false;
-    if (filters.dueTo && item.dueDate && new Date(item.dueDate) > new Date(`${filters.dueTo}T23:59:59.999Z`)) return false;
+    if (filters.dueFrom && (!item.dueDate || new Date(item.dueDate) < new Date(filters.dueFrom))) return false;
+    if (filters.dueTo && (!item.dueDate || new Date(item.dueDate) > new Date(`${filters.dueTo}T23:59:59.999Z`))) return false;
     if (filters.totalMin !== undefined && item.total < filters.totalMin) return false;
     if (filters.totalMax !== undefined && item.total > filters.totalMax) return false;
     return true;
@@ -90,18 +90,19 @@ export function PracticeInvoicesPage({
 
   const aggregates = useInvoiceListAggregates(practiceId);
 
-  const effectiveStatusFilter = useMemo(() => {
+  const effectiveStatusFilter = useMemo((): string[] | null => {
     const tabStatuses = INVOICE_TAB_STATUS_MAP[activeTab];
     const fromTab = tabStatuses.length > 0 ? tabStatuses : null;
     const fromChip = chipFilters.statuses.length > 0 ? chipFilters.statuses : null;
     const incoming = statusFilter.length > 0 ? statusFilter : null;
     const candidates = [incoming, fromTab, fromChip].filter((value): value is string[] => value !== null);
     if (candidates.length === 0) return STABLE_EMPTY_ARRAY;
-    return candidates.reduce<string[]>((acc, current) => {
+    const result = candidates.reduce<string[]>((acc, current) => {
       if (acc.length === 0) return current;
       const allowed = new Set(current);
       return acc.filter((value) => allowed.has(value));
     }, []);
+    return result.length === 0 ? null : result;
   }, [activeTab, chipFilters.statuses, statusFilter]);
 
   const {
@@ -114,7 +115,7 @@ export function PracticeInvoicesPage({
     refetch,
   } = usePaginatedList<InvoiceSummary>({
     fetchPage: async (page, signal) => {
-      if (!practiceId || renderMode === 'detailOnly') {
+      if (!practiceId || renderMode === 'detailOnly' || effectiveStatusFilter === null) {
         return { items: [], hasMore: false };
       }
       const result = await listInvoices(
@@ -204,7 +205,7 @@ export function PracticeInvoicesPage({
     return null;
   }
 
-  const hasFilters = effectiveStatusFilter.length > 0
+  const hasFilters = effectiveStatusFilter === null || effectiveStatusFilter.length > 0
     || chipFilters.createdFrom !== undefined
     || chipFilters.createdTo !== undefined
     || chipFilters.dueFrom !== undefined

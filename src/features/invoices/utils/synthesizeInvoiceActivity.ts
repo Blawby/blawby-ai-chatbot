@@ -127,8 +127,9 @@ export const synthesizeInvoiceActivity = (
   }
 
   return items.sort((a, b) => {
-    const aTime = a.dateTime ? new Date(a.dateTime).getTime() : 0;
-    const bTime = b.dateTime ? new Date(b.dateTime).getTime() : 0;
+    if (!a.dateTime || !b.dateTime) return 0;
+    const aTime = new Date(a.dateTime).getTime();
+    const bTime = new Date(b.dateTime).getTime();
     if (Number.isNaN(aTime) || Number.isNaN(bTime)) return 0;
     return aTime - bTime;
   });

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'preact/hooks';
+import { useState } from 'preact/hooks';
 import { AlertTriangle } from 'lucide-preact';
 import { Dialog, DialogBody, DialogFooter } from '@/shared/ui/dialog';
 import { Button } from '@/shared/ui/Button';
@@ -21,19 +21,21 @@ export const VoidInvoiceConfirmDialog = ({
 }: VoidInvoiceConfirmDialogProps) => {
   const [reason, setReason] = useState('');
 
-  useEffect(() => {
-    if (!isOpen) setReason('');
-  }, [isOpen]);
+  const handleClose = () => {
+    setReason('');
+    onCancel();
+  };
 
   const handleConfirm = () => {
     if (loading) return;
+    setReason('');
     void onConfirm(reason.trim());
   };
 
   return (
     <Dialog
       isOpen={isOpen}
-      onClose={onCancel}
+      onClose={handleClose}
       title={
         <span className="flex items-center gap-2 text-accent-error-light">
           <AlertTriangle className="h-5 w-5" aria-hidden="true" />
@@ -62,7 +64,7 @@ export const VoidInvoiceConfirmDialog = ({
         />
       </DialogBody>
       <DialogFooter>
-        <Button variant="secondary" onClick={onCancel} disabled={loading}>
+        <Button variant="secondary" onClick={handleClose} disabled={loading}>
           Cancel
         </Button>
         <Button variant="danger" onClick={handleConfirm} disabled={loading}>

@@ -221,7 +221,7 @@ const buildPracticeRail = (basePath: string): NavRailItem[] => [
   },
   {
     id: 'invoices',
-    label: 'Payments',
+    label: 'Invoices',
     icon: CreditCard,
     href: `${basePath}/invoices`,
     matchHrefs: [`${basePath}/invoices`],
@@ -292,7 +292,7 @@ const buildClientRail = (basePath: string): NavRailItem[] => [
   },
   {
     id: 'invoices',
-    label: 'Payments',
+    label: 'Invoices',
     icon: CreditCard,
     href: `${basePath}/invoices`,
     matchHrefs: [`${basePath}/invoices`],

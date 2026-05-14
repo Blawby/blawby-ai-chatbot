@@ -1043,7 +1043,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     engagements: 'Engagements',
     matters: 'Matters',
     files: 'Files',
-    invoices: 'Payments',
+    invoices: 'Invoices',
     reports: 'Reports',
     settings: 'Settings',
     coverage: 'Coverage',
@@ -1078,7 +1078,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
 
   // Sidebar counts come from the /api/practice/:id/sidebar/counts worker
   // endpoint (Pencil GtRGH badges). All sections — matters, intakes, inbox,
-  // payments, files — are computed server-side; the active workspaceSection
+  // invoices, files — are computed server-side; the active workspaceSection
   // determines which sub-counts (active/closed/pending/etc.) get written into
   // the map for the visible expanded rail item.
   const { counts: sidebarCounts } = useSidebarCounts(

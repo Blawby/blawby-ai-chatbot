@@ -65,12 +65,11 @@ type InvoiceUpdatePayload = {
   line_items: InvoiceLineItem[];
 };
 
-type InvoicePreviewTab = 'pdf' | 'email' | 'payment';
+type InvoicePreviewTab = 'pdf' | 'email';
 
 const INVOICE_PREVIEW_TABS = [
   { id: 'pdf', label: 'PDF' },
   { id: 'email', label: 'Email' },
-  { id: 'payment', label: 'Payment page' },
 ];
 
 const InvoiceEmailPlaceholder = () => (
@@ -78,15 +77,6 @@ const InvoiceEmailPlaceholder = () => (
     <p className="font-semibold text-input-text">Email preview</p>
     <p className="mt-2 text-input-placeholder">
       Coming soon. This will preview the message your client receives with the invoice payment call to action.
-    </p>
-  </div>
-);
-
-const InvoicePaymentPlaceholder = () => (
-  <div className="rounded-xl border border-line-glass/40 bg-surface-card p-5 text-sm shadow-glass">
-    <p className="font-semibold text-input-text">Payment page preview</p>
-    <p className="mt-2 text-input-placeholder">
-      Coming soon. This will mirror the Stripe-hosted payment page your client sees.
     </p>
   </div>
 );
@@ -434,9 +424,7 @@ export const InvoiceForm = forwardRef<InvoiceFormHandle, InvoiceFormProps>(({
               />
             ) : activePreviewTab === 'email' ? (
               <InvoiceEmailPlaceholder />
-            ) : (
-              <InvoicePaymentPlaceholder />
-            )}
+            ) : null}
           </>
         ) : null }
       >
@@ -445,13 +433,6 @@ export const InvoiceForm = forwardRef<InvoiceFormHandle, InvoiceFormProps>(({
             <h3 className="text-sm font-semibold text-input-text">Email delivery</h3>
             <p className="text-sm text-input-placeholder">
               Email copy controls will live here. For now, use the PDF tab to edit invoice details.
-            </p>
-          </section>
-        ) : activePreviewTab === 'payment' ? (
-          <section className="space-y-3">
-            <h3 className="text-sm font-semibold text-input-text">Payment page</h3>
-            <p className="text-sm text-input-placeholder">
-              Stripe-hosted payment page customization is coming soon.
             </p>
           </section>
         ) : (

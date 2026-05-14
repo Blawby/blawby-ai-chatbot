@@ -138,7 +138,7 @@ const PracticeHomePage = () => {
   );
 
   const handleNewInvoice = () => {
-    if (practiceBasePath) navigate(`${practiceBasePath}/payments`);
+    if (practiceBasePath) navigate(`${practiceBasePath}/invoices`);
   };
   const handleAddClient = () => {
     if (practiceBasePath) navigate(`${practiceBasePath}/contacts`);

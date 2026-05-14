@@ -224,6 +224,7 @@ export const usePracticeInvoiceDetailController = ({
       />
 
       <RefundRequestReviewDialog
+        key={reviewRequest?.id ?? 'closed'}
         isOpen={reviewRequest !== null}
         practiceId={practiceId}
         request={reviewRequest}

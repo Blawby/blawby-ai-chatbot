@@ -64,7 +64,7 @@ const Chip = ({
     onClick={onClick}
     className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs transition-colors ${
       active
-        ? 'border-accent-foreground/50 bg-accent-foreground/10 text-input-text'
+        ? 'border-accent-foreground/50 bg-accent-foreground/10 text-[rgb(var(--accent-foreground))]'
         : 'border-line-glass/30 bg-surface-utility/30 text-input-placeholder hover:text-input-text'
     }`}
   >
@@ -190,7 +190,7 @@ export const InvoiceFilterChips = ({
             value={dateOpen === 'created' ? draftFilters.createdFrom ?? '' : draftFilters.dueFrom ?? ''}
             onChange={(value) => setDraftFilters((prev) => ({
               ...prev,
-              ...(dateOpen === 'created' ? { createdFrom: value } : { dueFrom: value }),
+              ...(dateOpen === 'created' ? { createdFrom: value === '' ? undefined : value } : { dueFrom: value === '' ? undefined : value }),
             }))}
           />
           <Input
@@ -199,7 +199,7 @@ export const InvoiceFilterChips = ({
             value={dateOpen === 'created' ? draftFilters.createdTo ?? '' : draftFilters.dueTo ?? ''}
             onChange={(value) => setDraftFilters((prev) => ({
               ...prev,
-              ...(dateOpen === 'created' ? { createdTo: value } : { dueTo: value }),
+              ...(dateOpen === 'created' ? { createdTo: value === '' ? undefined : value } : { dueTo: value === '' ? undefined : value }),
             }))}
           />
         </DialogBody>

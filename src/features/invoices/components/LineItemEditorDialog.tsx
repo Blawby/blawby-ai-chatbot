@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'preact/hooks';
 import { Button } from '@/shared/ui/Button';
-import { CurrencyInput, Checkbox, Input } from '@/shared/ui/input';
+import { CurrencyInput, Input } from '@/shared/ui/input';
 import { Dialog, DialogBody, DialogFooter } from '@/shared/ui/dialog';
 import { Kbd } from '@/shared/ui/Kbd';
 import { asMajor, safeMultiply, getMajorAmountValue } from '@/shared/utils/money';
@@ -35,16 +35,6 @@ export const LineItemEditorDialog = ({
     ? billingIncrementMinutes / 60
     : 0.1;
   const [formData, setFormData] = useState<InvoiceLineItem>(() => item ?? newLineItem());
-  const [addToCatalog, setAddToCatalog] = useState(false);
-  const [optionsOpen, setOptionsOpen] = useState(false);
-
-  useEffect(() => {
-    if (isOpen) {
-      setFormData(item ?? newLineItem());
-      setAddToCatalog(false);
-      setOptionsOpen(false);
-    }
-  }, [isOpen, item]);
 
   const updateField = useCallback((patch: Partial<InvoiceLineItem>) => {
     setFormData((prev) => {
@@ -63,12 +53,10 @@ export const LineItemEditorDialog = ({
   }, [canSave, formData, onSave, onClose]);
 
   const handleSaveAndAddAnother = useCallback(() => {
-    if (!canSave) return;
+    if (item !== null || !canSave) return;
     onSave(formData);
     setFormData(newLineItem());
-    setAddToCatalog(false);
-    setOptionsOpen(false);
-  }, [canSave, formData, onSave]);
+  }, [item, canSave, formData, onSave]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -121,39 +109,16 @@ export const LineItemEditorDialog = ({
             {formatCurrency(formData.line_total ?? asMajor(0))}
           </span>
         </div>
-
-        <Checkbox
-          checked={addToCatalog}
-          onChange={(value) => setAddToCatalog(Boolean(value))}
-          label="Add item to product catalog"
-          description="Reuse this item on future invoices (coming soon)."
-          disabled
-        />
-
-        <div className="rounded-xl border border-line-glass/20">
-          <button
-            type="button"
-            className="flex w-full items-center justify-between px-3 py-2 text-sm text-input-text"
-            aria-expanded={optionsOpen}
-            onClick={() => setOptionsOpen((open) => !open)}
-          >
-            <span>Item options</span>
-            <span className="text-xs text-input-placeholder">{optionsOpen ? 'Hide' : 'Show'}</span>
-          </button>
-          {optionsOpen ? (
-            <div className="border-t border-line-glass/20 px-3 py-3 text-xs text-input-placeholder">
-              Per-line tax and discount overrides are coming soon.
-            </div>
-          ) : null}
-        </div>
       </DialogBody>
       <DialogFooter>
         <Button variant="secondary" onClick={onClose}>
           Cancel
         </Button>
-        <Button variant="ghost" onClick={handleSaveAndAddAnother} disabled={!canSave}>
-          Save and add another
-        </Button>
+        {item === null ? (
+          <Button variant="ghost" onClick={handleSaveAndAddAnother} disabled={!canSave}>
+            Save and add another
+          </Button>
+        ) : null}
         <Button onClick={handleSave} disabled={!canSave}>
           <span className="inline-flex items-center gap-2">
             Save

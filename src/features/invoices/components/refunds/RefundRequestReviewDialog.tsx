@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'preact/hooks';
+import { useState } from 'preact/hooks';
 import { Dialog, DialogBody, DialogFooter } from '@/shared/ui/dialog';
 import { Button } from '@/shared/ui/Button';
 import { Textarea } from '@/shared/ui/input';
@@ -34,15 +34,6 @@ export const RefundRequestReviewDialog = ({
   const [declineMode, setDeclineMode] = useState(false);
   const [note, setNote] = useState('');
   const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    if (isOpen) {
-      setStage('review');
-      setDeclineMode(false);
-      setNote('');
-      setLoading(false);
-    }
-  }, [isOpen, request?.id]);
 
   if (!request) return null;
 
