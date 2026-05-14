@@ -1,34 +1,58 @@
 import { Panel } from '@/shared/ui/layout/Panel';
-import { DetailRow } from '@/shared/ui/detail/DetailRow';
-import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import type { InvoiceDetail } from '@/features/invoices/types';
 
 interface InvoiceSummaryPanelProps {
   detail: InvoiceDetail;
 }
 
-export const InvoiceSummaryPanel = ({ detail }: InvoiceSummaryPanelProps) => {
-  const billedTo = [detail.clientName, detail.clientEmail].filter(Boolean).join(' • ') || null;
+const SummaryField = ({
+  label,
+  value,
+  emptyText = '—',
+  multiline = false,
+}: {
+  label: string;
+  value: string | null | undefined;
+  emptyText?: string;
+  multiline?: boolean;
+}) => {
+  const hasValue = Boolean(value && value.trim().length > 0);
+  return (
+    <div>
+      <p className="text-xs font-medium text-input-placeholder">{label}</p>
+      <p
+        className={`mt-1 text-sm ${hasValue ? 'text-input-text' : 'text-input-placeholder'} ${multiline ? 'whitespace-pre-line' : ''}`}
+      >
+        {hasValue ? value : emptyText}
+      </p>
+    </div>
+  );
+};
 
+export const InvoiceSummaryPanel = ({ detail }: InvoiceSummaryPanelProps) => {
   return (
     <Panel className="rounded-2xl p-5">
-      <div className="mb-3">
+      <div className="mb-4">
         <h3 className="text-sm font-semibold text-input-text">Summary</h3>
       </div>
-      <div className="space-y-2.5">
-        <DetailRow label="Billed to" value={billedTo} emptyText="No contact" />
-        <DetailRow label="Invoice number" value={detail.invoiceNumber} />
-        <DetailRow label="Amount due" value={formatCurrency(detail.amountDue)} />
-        <DetailRow label="Amount paid" value={formatCurrency(detail.amountPaid)} />
-        <DetailRow label="Subtotal" value={formatCurrency(detail.subtotal ?? 0)} />
-        {(detail.discountAmount ?? 0) > 0 ? (
-          <DetailRow label="Discount" value={`-${formatCurrency(detail.discountAmount ?? 0)}`} />
+      <div className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
+        <div className="space-y-1">
+          <p className="text-xs font-medium text-input-placeholder">Billed to</p>
+          {detail.clientName ? (
+            <p className="text-sm text-input-text">{detail.clientName}</p>
+          ) : (
+            <p className="text-sm text-input-placeholder">No contact</p>
+          )}
+          {detail.clientEmail ? (
+            <p className="text-sm text-input-placeholder">{detail.clientEmail}</p>
+          ) : null}
+        </div>
+        <SummaryField label="Invoice number" value={detail.invoiceNumber} />
+        {detail.notes && detail.notes.trim().length > 0 ? (
+          <div className="sm:col-span-2">
+            <SummaryField label="Notes to client" value={detail.notes} multiline />
+          </div>
         ) : null}
-        {(detail.taxAmount ?? 0) > 0 ? (
-          <DetailRow label="Tax" value={formatCurrency(detail.taxAmount ?? 0)} />
-        ) : null}
-        <DetailRow label="Total" value={formatCurrency(detail.total)} />
-        <DetailRow label="Memo" value={detail.memo} emptyText="No memo" />
       </div>
     </Panel>
   );

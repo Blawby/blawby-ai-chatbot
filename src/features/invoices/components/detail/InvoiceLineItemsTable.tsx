@@ -8,9 +8,10 @@ interface InvoiceLineItemsTableProps {
 }
 
 export const InvoiceLineItemsTable = ({ detail }: InvoiceLineItemsTableProps) => {
-  const { lineItems, subtotal, taxAmount, discountAmount, total } = detail;
+  const { lineItems, subtotal, taxAmount, discountAmount, total, amountPaid, amountDue } = detail;
   const showDiscount = (discountAmount ?? 0) > 0;
   const showTax = (taxAmount ?? 0) > 0;
+  const showPaymentBreakdown = amountPaid > 0;
 
   return (
     <Panel className="overflow-hidden rounded-2xl">
@@ -71,6 +72,22 @@ export const InvoiceLineItemsTable = ({ detail }: InvoiceLineItemsTableProps) =>
                   {formatCurrency(total)}
                 </td>
               </tr>
+              {showPaymentBreakdown ? (
+                <>
+                  <tr>
+                    <td colSpan={3} className="px-5 py-2 text-right text-input-placeholder">Amount paid</td>
+                    <td className="px-5 py-2 text-right text-input-text tabular-nums">
+                      -{formatCurrency(amountPaid)}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td colSpan={3} className="px-5 py-2 text-right text-input-placeholder">Amount remaining</td>
+                    <td className="px-5 py-2 text-right text-input-text tabular-nums">
+                      {formatCurrency(amountDue)}
+                    </td>
+                  </tr>
+                </>
+              ) : null}
             </tfoot>
           </table>
         </div>

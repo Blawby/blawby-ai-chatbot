@@ -3,14 +3,20 @@ import { useCallback } from 'preact/hooks';
 import { EditorShell } from '@/shared/ui/layout';
 import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
 import { InvoiceDetailSkeleton } from '@/features/invoices/components/InvoiceDetailSkeleton';
-import { formatLongDate } from '@/shared/utils/dateFormatter';
+import { InvoiceStatusBadge } from '@/features/invoices/components/InvoiceStatusBadge';
+import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import { useNavigation } from '@/shared/utils/navigation';
 import type { InvoiceDetail } from '@/features/invoices/types';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { useInvoiceDetail } from '@/features/invoices/hooks/useInvoiceDetail';
 import { usePracticeInvoiceDetailController } from '@/features/invoices/components/detail/PracticeInvoiceDetailView';
 
-const renderEventDate = (value: string | null): string => (value ? formatLongDate(value) : '—');
+const buildHeaderSubtitle = (detail: InvoiceDetail): string => {
+  const parts: string[] = [];
+  if (detail.clientName) parts.push(`Billed to ${detail.clientName}`);
+  parts.push(formatCurrency(detail.total));
+  return parts.join(' · ');
+};
 
 export function PracticeInvoiceDetailPage({
   practiceId,
@@ -126,10 +132,11 @@ function PracticeInvoiceDetailShell({
       title={(
         <span className="inline-flex items-center gap-2">
           {detail.invoiceNumber}
+          <InvoiceStatusBadge status={detail.status} />
           {loading ? <LoadingSpinner size="sm" ariaLabel="Refreshing invoice" announce={false} /> : null}
         </span>
       )}
-      subtitle={`Issued ${renderEventDate(detail.issueDate)} • Due ${renderEventDate(detail.dueDate)}`}
+      subtitle={buildHeaderSubtitle(detail)}
       showBack={showBack}
       onBack={onBack}
       leadingAction={leadingAction}
