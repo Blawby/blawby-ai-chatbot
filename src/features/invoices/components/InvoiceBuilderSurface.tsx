@@ -8,7 +8,6 @@ import type { InvoiceFormHandle } from '@/features/invoices/components/InvoiceFo
 import { useInvoiceDetail } from '@/features/invoices/hooks/useInvoiceDetail';
 import type { InvoiceDetail } from '@/features/invoices/types';
 import type { PendingInvoiceDraftContext } from '@/features/invoices/utils/invoiceDraftContext';
-import { INVOICE_CREATE_SEND_EVENT } from '@/features/invoices/utils/invoicePageConfig';
 import { Panel } from '@/shared/ui/layout/Panel';
 import { LoadingBlock } from '@/shared/ui/layout/LoadingBlock';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
@@ -102,54 +101,19 @@ export const InvoiceBuilderSurface = forwardRef<InvoiceFormHandle, InvoiceBuilde
   );
 
   const [matters, setMatters] = useState<BackendMatter[]>([]);
-  const [invoiceDetail, setInvoiceDetail] = useState<InvoiceDetail | null>(initialInvoice);
   const [connectedAccountId, setConnectedAccountId] = useState<string | null>(initialInvoice?.sourceInvoice.connected_account_id ?? null);
   // Drives the orchestration loader (matters + onboarding). Combined with the
   // useInvoiceDetail hook's loading state to surface a single loading flag.
   const [orchestrationLoading, setOrchestrationLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const loading = orchestrationLoading || (shouldFetchInvoice && invoiceFetchLoading);
+  const awaitingInvoiceDetail = shouldFetchInvoice && fetchedInvoice === undefined && !invoiceFetchError;
   const formRef = useRef<InvoiceFormHandle | null>(null);
 
   useImperativeHandle(ref, () => ({
     requestSend: () => formRef.current?.requestSend(),
     getDraftStatus: () => formRef.current?.getDraftStatus?.() ?? { lastSavedAt: null, isSaving: false },
   }), []);
-
-  useEffect(() => {
-    const handleSendRequest = () => {
-      formRef.current?.requestSend();
-    };
-    window.addEventListener(INVOICE_CREATE_SEND_EVENT, handleSendRequest);
-    return () => window.removeEventListener(INVOICE_CREATE_SEND_EVENT, handleSendRequest);
-  }, []);
-
-  // Sync the invoice detail (initialInvoice prop OR useInvoiceDetail-fetched)
-  // into the local invoiceDetail state. Local state (rather than reading the
-  // hook directly) lets the form's edit-then-save flow keep transient changes.
-  useEffect(() => {
-    if (shouldFetchInvoice && fetchedInvoice === undefined && invoiceFetchLoading) {
-      return;
-    }
-    const resolvedInvoice = initialInvoice ?? fetchedInvoice ?? null;
-    if (shouldFetchInvoice && fetchedInvoice === null && !invoiceFetchLoading) {
-      // Hook returned null definitively (not just still-loading) — treat as 404.
-      setInvoiceDetail(null);
-      setLoadError('Invoice not found.');
-      return;
-    }
-    setInvoiceDetail(resolvedInvoice);
-    setConnectedAccountId(
-      resolvedInvoice?.sourceInvoice.connected_account_id
-        ?? (mode === 'create' ? null : resolvedInvoice?.connectedAccountId ?? null)
-    );
-  }, [fetchedInvoice, initialInvoice, invoiceFetchLoading, mode, shouldFetchInvoice]);
-
-  useEffect(() => {
-    if (invoiceFetchError) {
-      setLoadError(invoiceFetchError);
-    }
-  }, [invoiceFetchError]);
 
   // Matters + onboarding orchestration. Stays inline (Promise.all coordination
   // + paginated tail loader). Could be split into two useQuery hooks in a
@@ -159,7 +123,7 @@ export const InvoiceBuilderSurface = forwardRef<InvoiceFormHandle, InvoiceBuilde
 
     const controller = new AbortController();
     setOrchestrationLoading(true);
-    setLoadError((current) => current === 'Invoice not found.' ? current : null);
+    setLoadError(null);
 
     void (async () => {
       try {
@@ -215,7 +179,7 @@ export const InvoiceBuilderSurface = forwardRef<InvoiceFormHandle, InvoiceBuilde
     }));
   }, [matters]);
 
-  const resolvedInvoice = mode === 'edit' ? invoiceDetail : null;
+  const resolvedInvoice = mode === 'edit' ? (initialInvoice ?? fetchedInvoice ?? null) : null;
   const resolvedConnectedAccountId = mode === 'edit'
     ? resolvedInvoice?.sourceInvoice.connected_account_id ?? connectedAccountId
     : connectedAccountId;
@@ -223,29 +187,29 @@ export const InvoiceBuilderSurface = forwardRef<InvoiceFormHandle, InvoiceBuilde
   const resolvedPracticeLogoUrl = practiceLogoUrl ?? undefined;
   const resolvedPracticeBillingIncrementMinutes = billingIncrementMinutes ?? undefined;
 
-  const displayError = loadError ?? clientsData.error;
-  const shouldShowLoading = loading || clientsData.isLoading;
+  const displayErrorMessage = invoiceFetchError ?? (typeof loadError === 'string' ? loadError : String(clientsData.error ?? ''));
+  const shouldShowLoading = loading || clientsData.isLoading || awaitingInvoiceDetail;
 
   if (!practiceId) {
     return <div className="p-6 text-sm text-red-300">Practice context is missing from this route.</div>;
   }
 
-  if (mode === 'edit' && !resolvedInvoice && !loading && !loadError) {
+  if (mode === 'edit' && !resolvedInvoice && !shouldShowLoading && !displayErrorMessage) {
     return <div className="p-6 text-sm text-input-placeholder">Invoice not found</div>;
   }
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-6">
-      {displayError ? (
+      {displayErrorMessage ? (
         <div className="rounded-xl border border-accent-error/30 bg-accent-error/10 px-4 py-3 text-sm text-accent-error-foreground">
-          {displayError}
+          {displayErrorMessage}
         </div>
       ) : null}
       {shouldShowLoading ? (
         <Panel className="p-6">
           <LoadingBlock />
         </Panel>
-      ) : mode === 'edit' && !resolvedInvoice ? null : (
+      ) : (
         <InvoiceForm
           ref={formRef}
           mode={mode}

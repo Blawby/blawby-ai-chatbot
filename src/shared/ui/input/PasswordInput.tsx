@@ -26,6 +26,7 @@ export interface PasswordInputProps {
   errorKey?: string;
   namespace?: string;
   id?: string;
+  autoComplete?: string;
   'data-testid'?: string;
 }
 
@@ -50,6 +51,7 @@ export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(({
   errorKey: _errorKey,
   namespace: _namespace = 'common',
   id,
+  autoComplete,
   'data-testid': dataTestId
 }, ref) => {
   const [showPassword, setShowPassword] = useState(false);
@@ -169,6 +171,7 @@ export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(({
           maxLength={maxLength}
           aria-required={required}
           aria-invalid={Boolean(displayError)}
+          autoComplete={autoComplete}
           aria-describedby={ariaDescribedBy}
           className={inputClasses}
           data-testid={dataTestId}

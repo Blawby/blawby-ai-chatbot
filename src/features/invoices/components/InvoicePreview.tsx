@@ -46,7 +46,7 @@ const LogoAvatar = ({ src, name }: { src: string | null; name: string }) => {
         width: 56,
         height: 56,
         borderRadius: '50%',
-        background: '#1a1a2e',
+        background: '#f1f5f9',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -62,7 +62,7 @@ const LogoAvatar = ({ src, name }: { src: string | null; name: string }) => {
           style={{ width: '100%', height: '100%', objectFit: 'cover' }}
         />
       ) : (
-        <span style={{ fontSize: 18, fontWeight: 700, color: '#ffffff', letterSpacing: '-0.02em' }}>
+        <span style={{ fontSize: 18, fontWeight: 700, color: '#475569', letterSpacing: '-0.02em' }}>
           {initials}
         </span>
       )}
@@ -71,14 +71,14 @@ const LogoAvatar = ({ src, name }: { src: string | null; name: string }) => {
 };
 
 const MetaRow = ({ label, value }: { label: string; value: string }) => (
-  <div style={{ display: 'flex', gap: '1rem', fontSize: 13, lineHeight: '1.6' }}>
-    <span style={{ color: '#6b7280', minWidth: 100 }}>{label}</span>
-    <span style={{ color: '#111827', fontWeight: 500 }}>{value}</span>
+  <div style={{ display: 'flex', gap: '0.75rem', fontSize: 13, lineHeight: '1.5' }}>
+    <span style={{ color: '#64748b', minWidth: 100, fontWeight: 500 }}>{label}</span>
+    <span style={{ color: '#0f172a', fontWeight: 600 }}>{value}</span>
   </div>
 );
 
 const HR = () => (
-  <div style={{ borderTop: '1px solid #e5e7eb', margin: '1.25rem 0' }} />
+  <div style={{ borderTop: '1px solid #e2e8f0', margin: '1rem 0' }} />
 );
 
 export const InvoicePreview = ({
@@ -118,7 +118,7 @@ export const InvoicePreview = ({
   const root: preact.JSX.CSSProperties = {
     fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif',
     background: '#ffffff',
-    color: '#111827',
+    color: '#0f172a',
     fontSize: 13,
     lineHeight: '1.5',
   };
@@ -128,14 +128,14 @@ export const InvoicePreview = ({
         {/* Render centered "paper" inside the preview panel. The panel keeps its
           background; the invoice itself is presented as a white sheet centered
           with a subtle shadow and spacing to emulate Stripe's preview look. */}
-        <div className="w-full max-w-[760px] h-[min(720px,calc(100svh-12rem))] min-h-[560px] max-h-[720px] bg-white shadow-md" style={{ ...root }}>
+        <div className="w-full max-w-[760px] h-[min(720px,calc(100svh-12rem))] min-h-[560px] max-h-[720px] bg-white rounded-lg shadow-lg border border-slate-200" style={{ ...root }}>
         <div className="relative flex h-full flex-col overflow-hidden">
           {/* ── Scrollable body ── */}
           <div className="flex-1 overflow-y-auto" style={{ padding: '2rem 2rem 3rem' }}>
 
           {/* ── Header: "Invoice" title + logo ── */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.25rem' }}>
-            <h1 style={{ fontSize: 26, fontWeight: 700, color: '#111827', margin: 0, letterSpacing: '-0.02em' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.5rem' }}>
+            <h1 style={{ fontSize: 28, fontWeight: 700, color: '#0f172a', margin: 0, letterSpacing: '-0.02em' }}>
               Invoice
             </h1>
             {(logoUrl || practiceName) && (
@@ -144,7 +144,7 @@ export const InvoicePreview = ({
           </div>
 
           {/* ── Invoice meta (number, dates) ── */}
-          <div style={{ marginBottom: '0.25rem' }}>
+          <div style={{ marginBottom: '0.75rem' }}>
             {invoiceNumber && <MetaRow label="Invoice number" value={invoiceNumber} />}
             <MetaRow label="Date of issue" value={issueDateFormatted ?? '—'} />
             {dueDateFormatted && <MetaRow label="Date due" value={dueDateFormatted} />}
@@ -155,16 +155,16 @@ export const InvoicePreview = ({
           {/* ── From / Bill to ── */}
           {hasBillingBlock && (
             <>
-              <div style={{ display: 'flex', gap: '3rem', marginBottom: '0.25rem' }}>
+              <div style={{ display: 'flex', gap: '2rem', marginBottom: '0.75rem' }}>
                 {(practiceName || practiceEmail) && (
                   <div style={{ flex: 1 }}>
                     {practiceName && (
-                      <p style={{ fontSize: 13, fontWeight: 700, color: '#111827', margin: '0 0 2px' }}>
+                      <p style={{ fontSize: 13, fontWeight: 600, color: '#0f172a', margin: '0 0 4px' }}>
                         {practiceName}
                       </p>
                     )}
                     {practiceEmail && (
-                      <p style={{ fontSize: 13, color: '#6b7280', margin: 0 }}>
+                      <p style={{ fontSize: 13, color: '#64748b', margin: 0 }}>
                         {practiceEmail}
                       </p>
                     )}
@@ -172,16 +172,16 @@ export const InvoicePreview = ({
                 )}
                 {(clientName || clientEmail) && (
                   <div style={{ flex: 1 }}>
-                    <p style={{ fontSize: 13, fontWeight: 700, color: '#111827', margin: '0 0 2px' }}>
+                    <p style={{ fontSize: 13, fontWeight: 600, color: '#0f172a', margin: '0 0 4px' }}>
                       Bill to
                     </p>
                     {clientName && (
-                      <p style={{ fontSize: 13, color: '#111827', margin: '0 0 2px' }}>
+                      <p style={{ fontSize: 13, color: '#0f172a', margin: '0 0 4px' }}>
                         {clientName}
                       </p>
                     )}
                     {clientEmail && (
-                      <p style={{ fontSize: 13, color: '#6b7280', margin: 0 }}>
+                      <p style={{ fontSize: 13, color: '#64748b', margin: 0 }}>
                         {clientEmail}
                       </p>
                     )}
@@ -194,23 +194,23 @@ export const InvoicePreview = ({
 
           {/* ── Amount hero ── */}
           <div style={{ marginBottom: '1.5rem' }}>
-            <p style={{ fontSize: 22, fontWeight: 700, color: '#111827', margin: '0 0 6px', letterSpacing: '-0.02em' }}>
+            <p style={{ fontSize: 24, fontWeight: 700, color: '#0f172a', margin: '0 0 8px', letterSpacing: '-0.02em' }}>
               {totalFormatted} USD{dueDateFormatted ? ` due ${dueDateFormatted}` : ''}
             </p>
             {(title || referenceLabel) && (
-              <p style={{ fontSize: 12, color: '#6b7280', margin: '0 0 8px' }}>
+              <p style={{ fontSize: 12, color: '#64748b', margin: '0 0 8px' }}>
                 {[title, referenceLabel].filter(Boolean).join(' · ')}
               </p>
             )}
             {/* Pay online — visual only until invoice is sent */}
             <span
               className="text-accent-500"
-              style={{ fontSize: 13, cursor: 'default', display: 'inline-block', marginBottom: notes ? '0.75rem' : 0 }}
+              style={{ fontSize: 13, fontWeight: 500, cursor: 'default', display: 'inline-block', marginBottom: notes ? '0.75rem' : 0 }}
             >
               Pay online
             </span>
             {notes && (
-              <p style={{ fontSize: 13, color: '#374151', margin: '0.5rem 0 0', whiteSpace: 'pre-wrap' }}>
+              <p style={{ fontSize: 13, color: '#475569', margin: '0.5rem 0 0', whiteSpace: 'pre-wrap' }}>
                 {notes}
               </p>
             )}
@@ -219,17 +219,17 @@ export const InvoicePreview = ({
           {/* ── Line items ── */}
           <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '1rem' }}>
             <thead>
-              <tr style={{ borderBottom: '1px solid #e5e7eb' }}>
-                <th style={{ textAlign: 'left', padding: '0.5rem 0.75rem 0.5rem 0', fontSize: 12, fontWeight: 500, color: '#6b7280' }}>
+              <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
+                <th style={{ textAlign: 'left', padding: '0.75rem 0.75rem 0.75rem 0', fontSize: 12, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                   Description
                 </th>
-                <th style={{ textAlign: 'right', padding: '0.5rem 0.75rem', fontSize: 12, fontWeight: 500, color: '#6b7280', width: 48 }}>
+                <th style={{ textAlign: 'right', padding: '0.75rem 0.75rem', fontSize: 12, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', width: 48 }}>
                   Qty
                 </th>
-                <th style={{ textAlign: 'right', padding: '0.5rem 0.75rem', fontSize: 12, fontWeight: 500, color: '#6b7280', width: 88 }}>
+                <th style={{ textAlign: 'right', padding: '0.75rem 0.75rem', fontSize: 12, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', width: 88 }}>
                   Unit price
                 </th>
-                <th style={{ textAlign: 'right', padding: '0.5rem 0 0.5rem 0.75rem', fontSize: 12, fontWeight: 500, color: '#6b7280', width: 88 }}>
+                <th style={{ textAlign: 'right', padding: '0.75rem 0 0.75rem 0.75rem', fontSize: 12, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', width: 88 }}>
                   Amount
                 </th>
               </tr>
@@ -237,25 +237,25 @@ export const InvoicePreview = ({
             <tbody>
               {lineItems.length === 0 ? (
                 <tr>
-                  <td colSpan={4} style={{ padding: '1.25rem 0', fontSize: 13, color: '#9ca3af', textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>
+                  <td colSpan={4} style={{ padding: '1.5rem 0', fontSize: 13, color: '#64748b', textAlign: 'center', borderBottom: '1px solid #f1f5f9' }}>
                     No line items added yet
                   </td>
                 </tr>
               ) : (
                 lineItems.map((item, index) => (
-                  <tr key={item.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
-                    <td style={{ padding: '0.6rem 0.75rem 0.6rem 0', fontSize: 13, color: '#111827', verticalAlign: 'top' }}>
+                  <tr key={item.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                    <td style={{ padding: '0.75rem 0.75rem 0.75rem 0', fontSize: 13, color: '#0f172a', verticalAlign: 'top' }}>
                       {item.description || `Line item ${index + 1}`}
                     </td>
-                    <td style={{ padding: '0.6rem 0.75rem', textAlign: 'right', fontSize: 13, color: '#111827', verticalAlign: 'top' }}>
+                    <td style={{ padding: '0.75rem 0.75rem', textAlign: 'right', fontSize: 13, color: '#0f172a', verticalAlign: 'top' }}>
                       {Number(item.quantity || 0).toFixed(
                         billingIncrementMinutes && billingIncrementMinutes > 0 ? 2 : 1
                       )}
                     </td>
-                    <td style={{ padding: '0.6rem 0.75rem', textAlign: 'right', fontSize: 13, color: '#111827', verticalAlign: 'top' }}>
+                    <td style={{ padding: '0.75rem 0.75rem', textAlign: 'right', fontSize: 13, color: '#0f172a', verticalAlign: 'top' }}>
                       {formatCurrency(getMajorAmountValue(item.unit_price))}
                     </td>
-                    <td style={{ padding: '0.6rem 0 0.6rem 0.75rem', textAlign: 'right', fontSize: 13, color: '#111827', verticalAlign: 'top' }}>
+                    <td style={{ padding: '0.75rem 0 0.75rem 0.75rem', textAlign: 'right', fontSize: 13, color: '#0f172a', verticalAlign: 'top' }}>
                       {formatCurrency(getMajorAmountValue(item.line_total))}
                     </td>
                   </tr>
@@ -269,26 +269,26 @@ export const InvoicePreview = ({
             <table style={{ borderCollapse: 'collapse', minWidth: 240 }}>
               <tbody>
                 <tr>
-                  <td style={{ padding: '0.35rem 1.5rem 0.35rem 0', fontSize: 13, color: '#6b7280', borderBottom: '1px solid #e5e7eb' }}>
+                  <td style={{ padding: '0.5rem 1.5rem 0.5rem 0', fontSize: 13, color: '#64748b', borderBottom: '1px solid #e2e8f0' }}>
                     Subtotal
                   </td>
-                  <td style={{ padding: '0.35rem 0', textAlign: 'right', fontSize: 13, color: '#111827', borderBottom: '1px solid #e5e7eb' }}>
+                  <td style={{ padding: '0.5rem 0', textAlign: 'right', fontSize: 13, color: '#0f172a', borderBottom: '1px solid #e2e8f0' }}>
                     {totalFormatted}
                   </td>
                 </tr>
                 <tr>
-                  <td style={{ padding: '0.35rem 1.5rem 0.35rem 0', fontSize: 13, color: '#6b7280', borderBottom: '1px solid #e5e7eb' }}>
+                  <td style={{ padding: '0.5rem 1.5rem 0.5rem 0', fontSize: 13, color: '#64748b', borderBottom: '1px solid #e2e8f0' }}>
                     Total
                   </td>
-                  <td style={{ padding: '0.35rem 0', textAlign: 'right', fontSize: 13, color: '#111827', borderBottom: '1px solid #e5e7eb' }}>
+                  <td style={{ padding: '0.5rem 0', textAlign: 'right', fontSize: 13, color: '#0f172a', borderBottom: '1px solid #e2e8f0' }}>
                     {totalFormatted}
                   </td>
                 </tr>
                 <tr>
-                  <td style={{ padding: '0.5rem 1.5rem 0 0', fontSize: 13, fontWeight: 700, color: '#111827' }}>
+                  <td style={{ padding: '0.75rem 1.5rem 0 0', fontSize: 13, fontWeight: 700, color: '#0f172a' }}>
                     Amount due
                   </td>
-                  <td style={{ padding: '0.5rem 0 0', textAlign: 'right', fontSize: 13, fontWeight: 700, color: '#111827' }}>
+                  <td style={{ padding: '0.75rem 0 0', textAlign: 'right', fontSize: 13, fontWeight: 700, color: '#0f172a' }}>
                     {totalFormatted} USD
                   </td>
                 </tr>
@@ -304,21 +304,21 @@ export const InvoicePreview = ({
             bottom: 0,
             left: 0,
             right: 0,
-            borderTop: '1px solid #e5e7eb',
-            padding: '0.6rem 2rem',
+            borderTop: '1px solid #e2e8f0',
+            padding: '0.75rem 2rem',
             background: '#ffffff',
             display: 'flex',
             alignItems: 'center',
-            gap: '0.4rem',
+            gap: '0.5rem',
           }}
         >
-          <span style={{ fontSize: 11, color: '#6b7280' }}>
+          <span style={{ fontSize: 11, color: '#64748b', fontWeight: 500 }}>
             {invoiceNumber ?? 'DRAFT'}
           </span>
           {dueDateFormatted && (
             <>
-              <span style={{ fontSize: 11, color: '#d1d5db' }}>·</span>
-              <span style={{ fontSize: 11, color: '#6b7280' }}>
+              <span style={{ fontSize: 11, color: '#cbd5e1' }}>·</span>
+              <span style={{ fontSize: 11, color: '#64748b', fontWeight: 500 }}>
                 {totalFormatted} USD due {dueDateFormatted}
               </span>
             </>

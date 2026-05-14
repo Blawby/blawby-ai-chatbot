@@ -1,7 +1,5 @@
 export type InvoicePageMode = 'create' | 'edit' | 'readOnly';
 
-export const INVOICE_CREATE_SEND_EVENT = 'blawby:invoice-create-send';
-
 const VOIDABLE_STATUSES = new Set(['draft', 'sent', 'pending', 'open', 'overdue']);
 const NON_REFUNDABLE_STATUSES = new Set(['draft', 'void', 'cancelled']);
 

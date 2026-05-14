@@ -365,6 +365,7 @@ const AuthForm = ({
                   <FormControl>
                     <PasswordInput
                       id="password-field"
+                      autoComplete={resolvedMode === 'signup' ? 'new-password' : 'current-password'}
                       label={t(resolvedMode === 'signup' ? 'signup.password' : 'signin.password')}
                       required
                       value={formData.password}
@@ -390,6 +391,7 @@ const AuthForm = ({
                     <FormControl>
                       <PasswordInput
                         id="confirm-password-field"
+                        autoComplete="new-password"
                         label={t('signup.confirmPassword')}
                         required={resolvedMode === 'signup'}
                         value={formData.confirmPassword}
