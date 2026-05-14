@@ -45,7 +45,6 @@ import {
   type ContactRelationshipStatus,
 } from '@/shared/domain/contacts';
 import { getPracticeRoleLabel, normalizePracticeRole } from '@/shared/utils/practiceRoles';
-import { AddContactDialog } from '@/shared/ui/contacts/AddContactDialog';
 
 const STATUS_LABELS = CONTACT_RELATIONSHIP_STATUS_LABELS;
 

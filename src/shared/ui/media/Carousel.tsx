@@ -93,7 +93,7 @@ export function Carousel({
                 'w-1.5 h-1.5 rounded-full transition-all',
                 i === current
                   ? 'bg-accent-500 w-4'
-                  : 'bg-black/15 dark:bg-white/15',
+                  : 'bg-surface-utility/15',
               )}
             />
           ))}

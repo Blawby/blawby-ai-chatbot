@@ -66,7 +66,7 @@ export function ContextMenu({ children, items, className }: ContextMenuProps) {
                 }}
                 className={cn(
                   'flex w-full items-center gap-2.5 px-3 py-1.5 text-sm text-left transition-colors',
-                  'hover:bg-black/5 dark:hover:bg-white/8',
+                  'hover:bg-surface-utility/10',
                   'disabled:opacity-45 disabled:cursor-not-allowed',
                   item.destructive && 'text-red-500',
                   !item.destructive && 'text-input-text',

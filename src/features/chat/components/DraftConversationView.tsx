@@ -122,7 +122,6 @@ export const DraftConversationView: FunctionComponent<DraftConversationViewProps
       fileUploadProps?.clearPreviewFiles();
     } catch (err) {
       // Optionally show user feedback or log
-      // eslint-disable-next-line no-console
       console.error('Failed to send first message', err);
       // Optionally: show error to user here
     } finally {

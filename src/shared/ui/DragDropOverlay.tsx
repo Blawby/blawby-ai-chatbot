@@ -53,13 +53,13 @@ const DragDropOverlay: FunctionComponent<DragDropOverlayProps> = ({ isVisible, o
             reference. Tilted at slight angles so they read as a sticker stack. */}
         <div className="relative h-16 w-20">
           <div className="absolute left-1 top-1 flex h-12 w-12 -rotate-12 items-center justify-center rounded-2xl bg-accent-500/90 shadow-lg ring-1 ring-line-glass/30">
-            <Icon icon={MessageSquare} className="h-6 w-6 text-white" aria-hidden="true" />
+            <Icon icon={MessageSquare} className="h-6 w-6 text-[rgb(var(--accent-foreground))]" aria-hidden="true" />
           </div>
           <div className="absolute right-0 top-0 flex h-12 w-12 rotate-6 items-center justify-center rounded-2xl bg-input-text/85 shadow-lg ring-1 ring-line-glass/30">
             <Icon icon={FileText} className="h-6 w-6 text-surface-app-frame" aria-hidden="true" />
           </div>
           <div className="absolute bottom-0 left-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-accent-500 shadow-lg ring-1 ring-line-glass/30">
-            <Icon icon={Image} className="h-6 w-6 text-white" aria-hidden="true" />
+            <Icon icon={Image} className="h-6 w-6 text-[rgb(var(--accent-foreground))]" aria-hidden="true" />
           </div>
         </div>
         <div>
@@ -74,4 +74,3 @@ const DragDropOverlay: FunctionComponent<DragDropOverlayProps> = ({ isVisible, o
 };
 
 export default DragDropOverlay;
-

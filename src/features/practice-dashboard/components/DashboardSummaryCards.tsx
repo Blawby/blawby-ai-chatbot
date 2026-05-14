@@ -54,7 +54,7 @@ export const DashboardSummaryCards = ({ stats, loading = false }: DashboardSumma
         </div>
         <div className="flex items-start justify-end">
           {stat.changeLabel ? (
-            <span className={`mt-1 rounded-md bg-white/10 px-2 py-1 text-xs font-semibold ${changeToneClass[stat.changeTone ?? 'neutral']}`}>
+            <span className={`mt-1 rounded-md bg-surface-utility/10 px-2 py-1 text-xs font-semibold ${changeToneClass[stat.changeTone ?? 'neutral']}`}>
               {stat.changeLabel}
             </span>
           ) : null}

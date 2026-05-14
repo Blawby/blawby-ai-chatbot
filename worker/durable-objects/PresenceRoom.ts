@@ -1,4 +1,4 @@
-/* global WebSocketPair, WebSocket */
+/* global WebSocketPair */
 /**
  * PresenceRoom — practice-scoped presence tracker.
  *

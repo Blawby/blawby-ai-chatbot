@@ -45,7 +45,7 @@ const ClientFilesPage = lazy(() => import('@/features/files/pages/ClientFilesPag
 import { useConversationSystemMessages } from '@/shared/hooks/useConversationSystemMessages';
 import { initializeAccentColor } from '@/shared/utils/accentColors';
 import { useMentionCandidates } from '@/shared/hooks/useMentionCandidates';
-import { isIntakeReadyForSubmission, resolveConsultationState } from '@/shared/utils/consultationState';
+import { resolveConsultationState } from '@/shared/utils/consultationState';
 import type { SettingsView } from '@/features/settings/pages/SettingsContent';
 import { Button } from '@/shared/ui/Button';
 import { Icon } from '@/shared/ui/Icon';
@@ -57,7 +57,6 @@ import {
 } from '@/shared/utils/conversationDisplay';
 import { DetailHeader } from '@/shared/ui/layout/DetailHeader';
 import { LazyRouteBoundary } from '@/shared/ui/layout/LazyRouteBoundary';
-import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
 import { features } from '@/config/features';
 
 // ─── types ────────────────────────────────────────────────────────────────────
@@ -83,7 +82,7 @@ export function MainApp({
   chatContent,
   routeConversationId,
   routeInvoiceId,
-  routeIntakeId,
+  routeIntakeId: _routeIntakeId,
   routeSettingsView,
   routeSettingsAppId,
   routeSettingsIntakeTemplateSlug,
@@ -574,26 +573,6 @@ export function MainApp({
   const conversationCaseTitle = useMemo(() => (
     conversationContactName?.trim() || 'Conversation'
   ), [conversationContactName]);
-
-  const isConsultConversation = useMemo(
-    () => conversationMode === 'REQUEST_CONSULTATION'
-      || Boolean(resolveConsultationState(conversationMetadata))
-      || Boolean(
-        slimContactDraft?.name
-        || slimContactDraft?.email
-        || slimContactDraft?.phone
-        || intakeStatus?.intakeUuid
-        || intakeStatus?.step !== 'contact_form_slim'
-        || intakeConversationState?.ctaShown
-        || isIntakeReadyForSubmission(intakeConversationState)
-        || intakeConversationState?.description
-        || intakeConversationState?.opposingParty
-        || intakeConversationState?.city
-        || intakeConversationState?.state
-        || intakeConversationState?.desiredOutcome
-      ),
-    [conversationMetadata, conversationMode, intakeConversationState, intakeStatus, slimContactDraft]
-  );
 
   // On desktop practice/client surfaces the inspector panel is open by default,
   // so the 3-dot inspector toggle in the conversation header would be redundant

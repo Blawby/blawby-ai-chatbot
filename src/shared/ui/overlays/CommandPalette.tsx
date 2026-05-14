@@ -77,8 +77,12 @@ export function CommandPalette({
     const map = new Map<string, CommandItem[]>();
     for (const item of filtered) {
       const group = item.group ?? '';
-      if (!map.has(group)) map.set(group, []);
-      map.get(group)!.push(item);
+      const groupItems = map.get(group);
+      if (groupItems) {
+        groupItems.push(item);
+      } else {
+        map.set(group, [item]);
+      }
     }
     return map;
   }, [filtered]);
@@ -110,7 +114,7 @@ export function CommandPalette({
     <div className="fixed inset-0 z-[300] flex items-start justify-center pt-[20vh]">
       <div
         role="presentation"
-        className="absolute inset-0 bg-black/30 dark:bg-black/50 backdrop-blur-sm"
+        className="absolute inset-0 bg-input-text/30 backdrop-blur-sm"
         onClick={() => setOpen(false)}
       />
       <div
@@ -133,7 +137,7 @@ export function CommandPalette({
             className="flex-1 bg-transparent py-3.5 text-sm text-input-text placeholder:text-input-placeholder/80 outline-none"
             aria-label="Command search"
           />
-          <kbd className="shrink-0 text-[10px] text-input-placeholder bg-black/5 dark:bg-white/8 px-1.5 py-0.5 rounded">
+          <kbd className="shrink-0 text-[10px] text-input-placeholder bg-surface-utility/10 px-1.5 py-0.5 rounded">
             ESC
           </kbd>
         </div>
@@ -161,14 +165,14 @@ export function CommandPalette({
                     className={cn(
                       'flex w-full items-center gap-3 px-4 py-2 text-sm text-left transition-colors',
                       idx === activeIndex
-                        ? 'bg-accent-500/10 text-accent-600 dark:text-accent-400'
-                        : 'text-input-text hover:bg-black/5 dark:hover:bg-white/5',
+                        ? 'bg-accent-500/10 text-[rgb(var(--accent-foreground))]'
+                        : 'text-input-text hover:bg-surface-utility/10',
                     )}
                   >
                     {item.icon && <span className="shrink-0 w-4">{item.icon}</span>}
                     <span className="flex-1 truncate">{item.label}</span>
                     {item.shortcut && (
-                      <kbd className="text-[10px] text-input-placeholder bg-black/5 dark:bg-white/8 px-1.5 py-0.5 rounded">
+                      <kbd className="text-[10px] text-input-placeholder bg-surface-utility/10 px-1.5 py-0.5 rounded">
                         {item.shortcut}
                       </kbd>
                     )}

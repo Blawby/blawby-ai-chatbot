@@ -45,7 +45,6 @@ import {
 import { useIntakeDetail } from '@/features/intake/hooks/useIntakeDetail';
 import { useIntakeFiles } from '@/features/intake/hooks/useIntakeFiles';
 import { IntakeFilesPanel } from '@/features/intake/components/IntakeFilesPanel';
-import { uploadIntakeFile } from '@/features/intake/api/intakeFilesApi';
 import { uploadDownloadPath } from '@/config/urls';
 import { DEFAULT_INTAKE_TEMPLATE } from '@/shared/constants/intakeTemplates';
 import type { IntakeTemplate, IntakeFieldDefinition } from '@/shared/types/intake';

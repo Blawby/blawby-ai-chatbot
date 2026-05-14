@@ -31,14 +31,13 @@ const formatBytes = (bytes: number): string => {
 const FileDetailContent = ({ file }: { file: OrgFile }) => {
   const fileType = getFileTypeConfig(file.fileName, file.mimeType);
   const association = folderForFile(file);
-  const url = file.publicUrl;
-  const isImage = isImageFile(file.mimeType) && url;
+  const imageUrl = isImageFile(file.mimeType) ? file.publicUrl : null;
 
   return (
     <div className="space-y-5">
       <div className="flex aspect-[4/3] w-full items-center justify-center overflow-hidden rounded-2xl bg-surface-panel">
-        {isImage ? (
-          <img src={url!} alt={file.fileName} className="h-full w-full object-contain" />
+        {imageUrl ? (
+          <img src={imageUrl} alt={file.fileName} className="h-full w-full object-contain" />
         ) : (
           <div className={`flex h-20 w-20 items-center justify-center rounded-2xl ${fileType.color}`}>
             <Icon icon={fileType.icon} className="h-10 w-10 text-input-text" />
