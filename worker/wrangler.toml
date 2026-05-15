@@ -30,6 +30,27 @@ max_batch_timeout = 30
 max_retries = 3
 dead_letter_queue = "notification-events-dlq"
 
+[[queues.producers]]
+queue = "search-index-events"
+binding = "SEARCH_INDEX_EVENTS"
+
+[[queues.consumers]]
+queue = "search-index-events"
+max_batch_size = 25
+max_batch_timeout = 5
+max_retries = 5
+dead_letter_queue = "search-index-events-dlq"
+
+[[vectorize]]
+binding = "SEARCH_VECTORS"
+index_name = "blawby-search-vectors"
+
+[ai]
+binding = "AI"
+
+[triggers]
+crons = ["30 3 * * *"]
+
 [[durable_objects.bindings]]
 name = "CHAT_ROOM"
 class_name = "ChatRoom"
@@ -82,6 +103,27 @@ max_batch_timeout = 30
 max_retries = 3
 dead_letter_queue = "notification-events-dev-dlq"
 
+[[env.dev.queues.producers]]
+queue = "search-index-events-dev"
+binding = "SEARCH_INDEX_EVENTS"
+
+[[env.dev.queues.consumers]]
+queue = "search-index-events-dev"
+max_batch_size = 25
+max_batch_timeout = 5
+max_retries = 5
+dead_letter_queue = "search-index-events-dev-dlq"
+
+[[env.dev.vectorize]]
+binding = "SEARCH_VECTORS"
+index_name = "blawby-search-vectors-dev"
+
+[env.dev.ai]
+binding = "AI"
+
+[env.dev.triggers]
+crons = ["30 3 * * *"]
+
 [[env.dev.durable_objects.bindings]]
 name = "CHAT_ROOM"
 class_name = "ChatRoom"
@@ -127,6 +169,8 @@ ADOBE_SCOPE = "openid,AdobeID,DCAPI"
 ANALYSIS_TIMEOUT_MS = "60000"
 RATE_LIMIT_REQUESTS_PER_MINUTE = "60"
 RATE_LIMIT_BURST_SIZE = "10"
+SEARCH_SEMANTIC_ENABLED = "true"
+SEARCH_INDEX_CONCURRENCY = "8"
 
 [env.staging]
 name = "blawby-ai-chatbot-staging"
@@ -150,6 +194,27 @@ max_batch_size = 10
 max_batch_timeout = 30
 max_retries = 3
 dead_letter_queue = "notification-events-staging-dlq"
+
+[[env.staging.queues.producers]]
+queue = "search-index-events-staging"
+binding = "SEARCH_INDEX_EVENTS"
+
+[[env.staging.queues.consumers]]
+queue = "search-index-events-staging"
+max_batch_size = 25
+max_batch_timeout = 5
+max_retries = 5
+dead_letter_queue = "search-index-events-staging-dlq"
+
+[[env.staging.vectorize]]
+binding = "SEARCH_VECTORS"
+index_name = "blawby-search-vectors-staging"
+
+[env.staging.ai]
+binding = "AI"
+
+[env.staging.triggers]
+crons = ["30 3 * * *"]
 
 [[env.staging.durable_objects.bindings]]
 name = "CHAT_ROOM"
@@ -197,6 +262,8 @@ ADOBE_SCOPE = "openid,AdobeID,DCAPI"
 ANALYSIS_TIMEOUT_MS = "60000"
 RATE_LIMIT_REQUESTS_PER_MINUTE = "60"
 RATE_LIMIT_BURST_SIZE = "10"
+SEARCH_SEMANTIC_ENABLED = "true"
+SEARCH_INDEX_CONCURRENCY = "8"
 
 [[env.staging.routes]]
 pattern = "ai-staging.blawby.com/api/*"
@@ -234,6 +301,27 @@ max_batch_timeout = 30
 max_retries = 3
 dead_letter_queue = "notification-events-dlq"
 
+[[env.production.queues.producers]]
+queue = "search-index-events"
+binding = "SEARCH_INDEX_EVENTS"
+
+[[env.production.queues.consumers]]
+queue = "search-index-events"
+max_batch_size = 25
+max_batch_timeout = 5
+max_retries = 5
+dead_letter_queue = "search-index-events-dlq"
+
+[[env.production.vectorize]]
+binding = "SEARCH_VECTORS"
+index_name = "blawby-search-vectors"
+
+[env.production.ai]
+binding = "AI"
+
+[env.production.triggers]
+crons = ["30 3 * * *"]
+
 [[env.production.durable_objects.bindings]]
 name = "CHAT_ROOM"
 class_name = "ChatRoom"
@@ -267,6 +355,8 @@ ADOBE_SCOPE = "openid,AdobeID,DCAPI"
 ANALYSIS_TIMEOUT_MS = "60000"
 RATE_LIMIT_REQUESTS_PER_MINUTE = "60"
 RATE_LIMIT_BURST_SIZE = "10"
+SEARCH_SEMANTIC_ENABLED = "true"
+SEARCH_INDEX_CONCURRENCY = "8"
 
 [[env.production.routes]]
 pattern = "ai.blawby.com/api/*"
