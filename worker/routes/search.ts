@@ -33,10 +33,13 @@ const SCOPE_TO_ENTITY: Record<SearchScope, SearchEntityType[]> = {
   notes: ['note'],
 };
 
-const SUCCESS = (data: unknown, init?: ResponseInit): Response =>
+const SUCCESS = (
+  data: unknown,
+  init?: { status?: number; headers?: Record<string, string> },
+): Response =>
   new Response(JSON.stringify({ success: true, data }), {
     status: init?.status ?? 200,
-    headers: { 'Content-Type': 'application/json', ...(init?.headers as Record<string, string> ?? {}) },
+    headers: { 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
   });
 
 const EMPTY_ENVELOPE = (semanticEnabled: boolean): SearchEnvelope => ({
@@ -218,7 +221,7 @@ async function handleSearchQuery(
 
 function buildFtsQuery(terms: string): string {
   const cleaned = terms
-    .replace(/[\"]/g, '')
+    .replace(/["]/g, '')
     .split(/\s+/)
     .filter((t) => t.length > 0);
   if (cleaned.length === 0) return '';

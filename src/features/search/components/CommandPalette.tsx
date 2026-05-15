@@ -1,4 +1,5 @@
-import { useMemo, useState, useEffect, useRef } from 'preact/hooks';
+import { useMemo, useState, useEffect, useRef, useCallback } from 'preact/hooks';
+import { Dialog } from '@/shared/ui/dialog';
 import { useNavigation } from '@/shared/utils/navigation';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { useGlobalSearch } from '../hooks/useGlobalSearch';
@@ -69,18 +70,6 @@ export function CommandPalette({
     return () => window.clearTimeout(timer);
   }, [open]);
 
-  useEffect(() => {
-    if (!open) return;
-    const handler = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        onClose();
-      }
-    };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [open, onClose]);
-
   const parsed = useMemo(() => parseQuery(query), [query]);
 
   const flatItems = useMemo(() => {
@@ -101,6 +90,27 @@ export function CommandPalette({
     setActiveIndex(0);
   }, [query]);
 
+  const selectResult = useCallback(
+    (item: SearchResultItem, rank: number): void => {
+      if (envelope?.queryLogId && practiceId) {
+        void recordSearchClick(
+          practiceId,
+          envelope.queryLogId,
+          item.entityType,
+          item.entityId,
+          rank,
+        ).catch(() => {
+          /* fire and forget */
+        });
+      }
+      pushRecent(query);
+      const path = buildEntityPath(item, practiceSlug, workspace);
+      if (path) navigate(path);
+      onClose();
+    },
+    [envelope, practiceId, practiceSlug, workspace, query, pushRecent, navigate, onClose],
+  );
+
   useEffect(() => {
     if (!open) return;
     const handler = (event: KeyboardEvent) => {
@@ -119,85 +129,53 @@ export function CommandPalette({
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [open, flatItems, activeIndex]);
-
-  function selectResult(item: SearchResultItem, rank: number): void {
-    if (envelope?.queryLogId && practiceId) {
-      void recordSearchClick(
-        practiceId,
-        envelope.queryLogId,
-        item.entityType,
-        item.entityId,
-        rank,
-      ).catch(() => {
-        /* fire and forget */
-      });
-    }
-    pushRecent(query);
-    const path = buildEntityPath(item, practiceSlug, workspace);
-    if (path) navigate(path);
-    onClose();
-  }
-
-  if (!open) return null;
+  }, [open, flatItems, activeIndex, selectResult]);
 
   return (
-    <div
-      className="fixed inset-0 z-[100] flex items-start justify-center pt-[15vh] px-4"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Global search"
-      onClick={onClose}
+    <Dialog
+      isOpen={open}
+      onClose={onClose}
+      ariaLabelledBy="command-palette-title"
+      showCloseButton={false}
+      contentClassName="!p-0 !max-w-2xl !top-[15vh] !translate-y-0"
     >
-      <div
-        className="absolute inset-0 bg-neutral-950/60"
-        aria-hidden="true"
-      />
-      <div
-        className={cn(
-          'relative w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden',
-          'bg-white dark:bg-neutral-900',
-          'border border-neutral-200 dark:border-neutral-800',
-        )}
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="flex items-center gap-2 px-4 border-b border-neutral-200 dark:border-neutral-800">
-          <Search size={18} className="text-neutral-500" aria-hidden="true" />
-          {parsed.scopes.length > 0 ? (
-            <ScopePills scopes={parsed.scopes} />
-          ) : null}
-          <input
-            ref={inputRef}
-            type="text"
-            value={query}
-            onInput={(event) => setQuery((event.target as HTMLInputElement).value)}
-            placeholder="Search clients, matters, invoices, files…"
-            className="flex-1 bg-transparent py-3 outline-none text-base placeholder:text-neutral-500"
-            aria-label="Search query"
-          />
-        </div>
-        <div className="max-h-[60vh] overflow-y-auto py-2">
-          {error ? (
-            <EmptyState message={error} />
-          ) : loading && !envelope ? (
-            <EmptyState message="Searching…" />
-          ) : envelope && envelope.groups.length === 0 && query.trim().length > 0 ? (
-            <EmptyState message={`No results for "${query.trim()}"`} />
-          ) : envelope ? (
-            <ResultGroups
-              envelope={envelope}
-              activeIndex={activeIndex}
-              onSelect={selectResult}
-            />
-          ) : recents.length > 0 ? (
-            <RecentsList recents={recents} onPick={(q) => setQuery(q)} />
-          ) : (
-            <EmptyState message="Start typing to search" />
-          )}
-        </div>
-        <Footer />
+      <div id="command-palette-title" className="sr-only">
+        Global search
       </div>
-    </div>
+      <div className="flex items-center gap-2 px-4 border-b border-line-utility">
+        <Search size={18} className="text-input-text/60" aria-hidden="true" />
+        {parsed.scopes.length > 0 ? <ScopePills scopes={parsed.scopes} /> : null}
+        <input
+          ref={inputRef}
+          type="text"
+          value={query}
+          onInput={(event) => setQuery((event.target as HTMLInputElement).value)}
+          placeholder="Search clients, matters, invoices, files…"
+          className="flex-1 bg-transparent py-3 outline-none text-base text-input-text placeholder:text-input-text/40"
+          aria-label="Search query"
+        />
+      </div>
+      <div className="max-h-[60vh] overflow-y-auto py-2">
+        {error ? (
+          <EmptyState message={error} />
+        ) : loading && !envelope ? (
+          <EmptyState message="Searching…" />
+        ) : envelope && envelope.groups.length === 0 && query.trim().length > 0 ? (
+          <EmptyState message={`No results for "${query.trim()}"`} />
+        ) : envelope ? (
+          <ResultGroups
+            envelope={envelope}
+            activeIndex={activeIndex}
+            onSelect={selectResult}
+          />
+        ) : recents.length > 0 ? (
+          <RecentsList recents={recents} onPick={(q) => setQuery(q)} />
+        ) : (
+          <EmptyState message="Start typing to search" />
+        )}
+      </div>
+      <Footer />
+    </Dialog>
   );
 }
 
@@ -207,7 +185,7 @@ function ScopePills({ scopes }: { scopes: SearchScope[] }) {
       {scopes.map((scope) => (
         <span
           key={scope}
-          className="text-xs font-medium px-2 py-1 rounded-md bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300"
+          className="text-xs font-medium px-2 py-1 rounded-md bg-surface-card-hover text-input-text"
         >
           in:{scope}
         </span>
@@ -230,7 +208,7 @@ function ResultGroups({
     <div className="flex flex-col">
       {envelope.groups.map((group) => (
         <div key={group.id} className="px-2 pb-2">
-          <div className="px-3 pt-3 pb-1 text-[11px] uppercase tracking-wider text-neutral-500 font-medium">
+          <div className="px-3 pt-3 pb-1 text-[11px] uppercase tracking-wider text-input-text/50 font-medium">
             {group.label}
           </div>
           {group.items.map((item) => {
@@ -243,34 +221,30 @@ function ResultGroups({
                 key={`${item.entityType}:${item.entityId}`}
                 type="button"
                 onClick={() => onSelect(item, itemRank)}
-                onMouseEnter={() => {
-                  /* no-op for now; activeIndex is keyboard-driven */
-                }}
                 className={cn(
-                  'w-full flex items-start gap-3 px-3 py-2 rounded-lg text-left',
-                  'transition-colors',
+                  'w-full flex items-start gap-3 px-3 py-2 rounded-lg text-left transition-colors',
                   active
-                    ? 'bg-neutral-100 dark:bg-neutral-800'
-                    : 'hover:bg-neutral-50 dark:hover:bg-neutral-800/50',
+                    ? 'bg-surface-card-hover'
+                    : 'hover:bg-surface-card-hover/60',
                   item.archived ? 'opacity-60' : '',
                 )}
               >
-                <Icon size={16} className="mt-0.5 shrink-0 text-neutral-500" aria-hidden="true" />
+                <Icon size={16} className="mt-0.5 shrink-0 text-input-text/60" aria-hidden="true" />
                 <div className="min-w-0 flex-1">
-                  <div className="text-sm font-medium truncate">
+                  <div className="text-sm font-medium truncate text-input-text">
                     {item.title}
                     {item.archived ? (
-                      <span className="ml-2 text-[10px] uppercase text-neutral-500">
+                      <span className="ml-2 text-[10px] uppercase text-input-text/50">
                         archived
                       </span>
                     ) : null}
                   </div>
                   {item.subtitle ? (
-                    <div className="text-xs text-neutral-500 truncate">{item.subtitle}</div>
+                    <div className="text-xs text-input-text/60 truncate">{item.subtitle}</div>
                   ) : null}
                   {item.snippet ? (
                     <div
-                      className="text-xs text-neutral-600 dark:text-neutral-400 mt-0.5"
+                      className="text-xs text-input-text/70 mt-0.5"
                       dangerouslySetInnerHTML={{ __html: item.snippet }}
                     />
                   ) : null}
@@ -293,7 +267,7 @@ function RecentsList({
 }) {
   return (
     <div className="px-2 pb-2">
-      <div className="px-3 pt-3 pb-1 text-[11px] uppercase tracking-wider text-neutral-500 font-medium">
+      <div className="px-3 pt-3 pb-1 text-[11px] uppercase tracking-wider text-input-text/50 font-medium">
         Recent searches
       </div>
       {recents.map((q) => (
@@ -301,10 +275,10 @@ function RecentsList({
           key={q}
           type="button"
           onClick={() => onPick(q)}
-          className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left hover:bg-neutral-50 dark:hover:bg-neutral-800/50"
+          className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left hover:bg-surface-card-hover/60"
         >
-          <Search size={14} className="text-neutral-400" aria-hidden="true" />
-          <span className="text-sm">{q}</span>
+          <Search size={14} className="text-input-text/40" aria-hidden="true" />
+          <span className="text-sm text-input-text">{q}</span>
         </button>
       ))}
     </div>
@@ -313,15 +287,13 @@ function RecentsList({
 
 function EmptyState({ message }: { message: string }) {
   return (
-    <div className="px-6 py-10 text-center text-sm text-neutral-500">
-      {message}
-    </div>
+    <div className="px-6 py-10 text-center text-sm text-input-text/60">{message}</div>
   );
 }
 
 function Footer() {
   return (
-    <div className="flex items-center justify-between gap-3 px-4 py-2.5 border-t border-neutral-200 dark:border-neutral-800 text-[11px] text-neutral-500">
+    <div className="flex items-center justify-between gap-3 px-4 py-2.5 border-t border-line-utility text-[11px] text-input-text/60">
       <div className="flex gap-3">
         <span>↑↓ navigate</span>
         <span>↵ open</span>

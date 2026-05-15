@@ -4,6 +4,11 @@ import { SearchIndexService } from '../services/SearchIndexService.js';
 import { SearchVectorService } from '../services/SearchVectorService.js';
 import { Logger } from '../utils/logger.js';
 
+type QueueMessage<T> = {
+  body: T;
+  ack(): void;
+};
+
 export async function handleSearchIndexQueue(
   batch: MessageBatch<SearchIndexEvent>,
   env: Env,
@@ -49,9 +54,9 @@ function eventKey(event: SearchIndexEvent): string {
 }
 
 function groupByEntity(
-  messages: readonly Message<SearchIndexEvent>[],
-): Array<{ key: string; messages: Array<Message<SearchIndexEvent>> }> {
-  const map = new Map<string, Array<Message<SearchIndexEvent>>>();
+  messages: readonly QueueMessage<SearchIndexEvent>[],
+): Array<{ key: string; messages: Array<QueueMessage<SearchIndexEvent>> }> {
+  const map = new Map<string, Array<QueueMessage<SearchIndexEvent>>>();
   for (const msg of messages) {
     const k = eventKey(msg.body);
     const list = map.get(k);
@@ -62,8 +67,8 @@ function groupByEntity(
 }
 
 function pickLatest(
-  msgs: Array<Message<SearchIndexEvent>>,
-): Message<SearchIndexEvent> {
+  msgs: Array<QueueMessage<SearchIndexEvent>>,
+): QueueMessage<SearchIndexEvent> {
   return msgs.reduce((acc, m) => (m.body.version > acc.body.version ? m : acc));
 }
 
