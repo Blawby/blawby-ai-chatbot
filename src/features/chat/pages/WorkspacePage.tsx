@@ -41,6 +41,7 @@ import { useWorkspaceAutoNavigation } from './hooks/useWorkspaceAutoNavigation';
 import { useRecentMessage } from './hooks/useRecentMessage';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { useSessionContext, useMemberRoleContext } from '@/shared/contexts/SessionContext';
+import { useCommandPalette } from '@/features/search/contexts/CommandPaletteContext';
 import { normalizePracticeRole } from '@/shared/utils/practiceRoles';
 import {
   getWorkspaceActiveHref,
@@ -229,6 +230,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
 }) => {
   const location = useLocation();
   const { navigate } = useNavigation();
+  const { open: openCommandPalette } = useCommandPalette();
   const [previewTab, setPreviewTab] = useState<PreviewTab>('home');
   const [setupSidebarView, setSetupSidebarView] = useState<'info' | 'preview'>('info');
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
@@ -1067,12 +1069,9 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       title={headerTitle}
       breadcrumb={headerBreadcrumb}
       onMenuClick={() => setIsMobileNavOpen(true)}
-      onSearchClick={() => {
-        // TODO: open global search modal; mobile icon-button placeholder.
-      }}
-      onSearchChange={() => {
-        // TODO: wire to global search; desktop input is a placeholder for now.
-      }}
+      onSearchClick={() => openCommandPalette()}
+      onSearchFocus={() => openCommandPalette()}
+      onSearchChange={(value) => openCommandPalette(value)}
     />
   ) : undefined;
 

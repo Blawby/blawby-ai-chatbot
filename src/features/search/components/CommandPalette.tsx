@@ -32,6 +32,7 @@ type CommandPaletteProps = {
   practiceId: string | null;
   practiceSlug: string | null;
   workspace: 'practice' | 'client' | 'public';
+  initialQuery?: string;
 };
 
 const ENTITY_ICON: Record<SearchEntityType, typeof Users> = {
@@ -51,8 +52,9 @@ export function CommandPalette({
   practiceId,
   practiceSlug,
   workspace,
+  initialQuery = '',
 }: CommandPaletteProps) {
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState(initialQuery);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const { session } = useSessionContext();
   const { navigate } = useNavigation();
@@ -66,9 +68,10 @@ export function CommandPalette({
       setQuery('');
       return;
     }
+    setQuery(initialQuery);
     const timer = window.setTimeout(() => inputRef.current?.focus(), 30);
     return () => window.clearTimeout(timer);
-  }, [open]);
+  }, [open, initialQuery]);
 
   const parsed = useMemo(() => parseQuery(query), [query]);
 

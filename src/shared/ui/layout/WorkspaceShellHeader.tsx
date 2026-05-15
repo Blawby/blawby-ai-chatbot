@@ -29,6 +29,9 @@ export interface WorkspaceShellHeaderProps {
   /** Fires on every keystroke in the desktop search input (placeholder for the
    *  real search experience). Leave undefined to ignore input. */
   onSearchChange?: (value: string) => void;
+  /** Fires when the desktop search input gains focus — typically used to
+   *  hand off to a command palette overlay. */
+  onSearchFocus?: () => void;
   /** Shortcut hint shown in the desktop search badge. */
   searchShortcut?: string;
   /** Right-side slot for desktop, e.g. notification bell + extras. */
@@ -54,6 +57,7 @@ export const WorkspaceShellHeader: FunctionComponent<WorkspaceShellHeaderProps> 
   breadcrumb,
   onMenuClick,
   onSearchClick,
+  onSearchFocus,
   showDesktopSearch = true,
   searchPlaceholder = 'Search...',
   onSearchChange,
@@ -101,6 +105,7 @@ export const WorkspaceShellHeader: FunctionComponent<WorkspaceShellHeaderProps> 
               <input
                 type="text"
                 placeholder={searchPlaceholder}
+                onFocus={onSearchFocus}
                 onInput={onSearchChange ? (e) => onSearchChange((e.currentTarget as HTMLInputElement).value) : undefined}
                 className="min-w-0 flex-1 bg-transparent text-xs text-[rgb(var(--sidebar-text))] outline-none placeholder:text-[rgb(var(--sidebar-text-secondary))]"
               />
