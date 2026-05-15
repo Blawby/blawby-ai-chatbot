@@ -1,5 +1,7 @@
 import { apiClient } from '@/shared/lib/apiClient';
 import { urls } from '@/config/urls';
+import { queryCache } from '@/shared/lib/queryCache';
+import { policyTtl } from '@/shared/lib/cachePolicy';
 import {
   createInvoice as createMatterInvoice,
   listInvoices as listMatterInvoices,
@@ -83,24 +85,65 @@ const paginate = (items: InvoiceSummary[], page: number, pageSize: number): Invo
 };
 
 
+/**
+ * Cache key for the full normalized practice-invoice list. The list endpoint
+ * does not paginate server-side in this app — the backend returns every
+ * invoice for the practice, and we filter/paginate client-side. Coalescing
+ * the underlying fetch means useInvoiceListAggregates and usePaginatedList
+ * share one /api/invoices/:practiceId request instead of issuing two.
+ */
+const practiceInvoiceSummariesCacheKey = (practiceId: string) =>
+  `invoice:practice:summaries:${practiceId}`;
+
+const fetchPracticeInvoiceSummaries = async (
+  practiceId: string,
+  options: FetchOptions = {}
+): Promise<InvoiceSummary[]> => {
+  const cacheKey = practiceInvoiceSummariesCacheKey(practiceId);
+  return queryCache.coalesceGet<InvoiceSummary[]>(
+    cacheKey,
+    async (signal) => {
+      const merged: FetchOptions = {
+        ...options,
+        signal: signal ?? options.signal,
+      };
+      const invoices = await listMatterInvoices(practiceId, undefined, merged);
+      return invoices
+        .map(normalizeInvoiceSummary)
+        .sort((a, b) => {
+          const timea = new Date(a.updatedAt).getTime();
+          const timeb = new Date(b.updatedAt).getTime();
+          return (Number.isNaN(timeb) ? 0 : timeb) - (Number.isNaN(timea) ? 0 : timea);
+        });
+    },
+    { ttl: policyTtl(cacheKey), swr: true, signal: options.signal }
+  );
+};
+
 export const listInvoices = async (
   practiceId: string,
   filters: InvoiceListFilters,
   options: FetchOptions = {}
 ): Promise<InvoiceListResult> => {
-  const invoices = await listMatterInvoices(practiceId, undefined, options);
-  const summaries = invoices
-    .map(normalizeInvoiceSummary)
-    .sort((a, b) => {
-      const timea = new Date(a.updatedAt).getTime();
-      const timeb = new Date(b.updatedAt).getTime();
-      return (Number.isNaN(timeb) ? 0 : timeb) - (Number.isNaN(timea) ? 0 : timea);
-    });
+  const summaries = await fetchPracticeInvoiceSummaries(practiceId, options);
   return paginate(
     filterInvoiceSummaries(summaries, filters, options.statusFilter, 'practice'),
     filters.page ?? 1,
     filters.pageSize ?? FALLBACK_PAGE_SIZE
   );
+};
+
+/**
+ * Returns the full normalized invoice list for a practice. The result is
+ * served from the same cache that backs listInvoices, so aggregate computation
+ * and paginated rendering share a single backend fetch per practice per TTL
+ * window.
+ */
+export const listAllPracticeInvoiceSummaries = async (
+  practiceId: string,
+  options: FetchOptions = {}
+): Promise<InvoiceSummary[]> => {
+  return fetchPracticeInvoiceSummaries(practiceId, options);
 };
 
 export const getInvoice = async (

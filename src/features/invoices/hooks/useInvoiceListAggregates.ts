@@ -1,5 +1,7 @@
-import { useEffect, useState } from 'preact/hooks';
-import { listInvoices } from '@/features/invoices/services/invoicesService';
+import { useMemo } from 'preact/hooks';
+import { listAllPracticeInvoiceSummaries } from '@/features/invoices/services/invoicesService';
+import { useQuery } from '@/shared/hooks/useQuery';
+import { policyTtl } from '@/shared/lib/cachePolicy';
 import type { InvoiceSummary } from '@/features/invoices/types';
 
 export interface InvoiceListAggregates {
@@ -82,37 +84,33 @@ const EMPTY_AGGREGATES: Omit<InvoiceListAggregates, 'loading' | 'error'> = {
 };
 
 /**
- * Fetches up to 1000 invoices on mount and computes KPI stats + tab counts client-side.
- * Scales to ~1000 invoices; a backend aggregate endpoint should replace this for larger
- * practices.
+ * Compute KPI/tab counts from the practice's invoice list.
+ *
+ * Reads the cached `invoice:practice:summaries:${practiceId}` entry that
+ * `listInvoices` populates, so the aggregate hook and the paginated list
+ * page share one backend fetch instead of issuing two parallel requests
+ * for the same data on every list-page mount.
  */
 export const useInvoiceListAggregates = (practiceId: string | null): InvoiceListAggregates => {
-  const [aggregates, setAggregates] = useState(EMPTY_AGGREGATES);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const cacheKey = practiceId
+    ? `invoice:practice:summaries:${practiceId}`
+    : 'invoice:practice:summaries:none';
 
-  useEffect(() => {
-    if (!practiceId) {
-      setAggregates(EMPTY_AGGREGATES);
-      return;
-    }
-    const controller = new AbortController();
-    setLoading(true);
-    setError(null);
-    listInvoices(practiceId, { rules: [], page: 1, pageSize: 1000 }, { signal: controller.signal })
-      .then((result) => {
-        setAggregates(aggregate(result.items));
-      })
-      .catch((err) => {
-        if (err instanceof Error && err.name === 'AbortError') return;
-        setError(err instanceof Error ? err.message : 'Failed to load invoice totals');
-      })
-      .finally(() => {
-        setLoading(false);
-      });
+  const { data, error, isLoading } = useQuery<InvoiceSummary[]>({
+    key: cacheKey,
+    fetcher: (signal) => listAllPracticeInvoiceSummaries(practiceId ?? '', { signal }),
+    ttl: policyTtl(cacheKey),
+    enabled: Boolean(practiceId),
+  });
 
-    return () => controller.abort();
-  }, [practiceId]);
+  const aggregates = useMemo(
+    () => (data ? aggregate(data) : EMPTY_AGGREGATES),
+    [data]
+  );
 
-  return { ...aggregates, loading, error };
+  return {
+    ...aggregates,
+    loading: isLoading,
+    error: error ?? null,
+  };
 };
