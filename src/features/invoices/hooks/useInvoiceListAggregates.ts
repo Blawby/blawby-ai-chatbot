@@ -1,5 +1,8 @@
 import { useMemo } from 'preact/hooks';
-import { listAllPracticeInvoiceSummaries } from '@/features/invoices/services/invoicesService';
+import {
+  listAllPracticeInvoiceSummaries,
+  practiceInvoiceSummariesCacheKey,
+} from '@/features/invoices/services/invoicesService';
 import { useQuery } from '@/shared/hooks/useQuery';
 import { policyTtl } from '@/shared/lib/cachePolicy';
 import type { InvoiceSummary } from '@/features/invoices/types';
@@ -92,9 +95,7 @@ const EMPTY_AGGREGATES: Omit<InvoiceListAggregates, 'loading' | 'error'> = {
  * for the same data on every list-page mount.
  */
 export const useInvoiceListAggregates = (practiceId: string | null): InvoiceListAggregates => {
-  const cacheKey = practiceId
-    ? `invoice:practice:summaries:${practiceId}`
-    : 'invoice:practice:summaries:none';
+  const cacheKey = practiceInvoiceSummariesCacheKey(practiceId ?? 'none');
 
   const { data, error, isLoading } = useQuery<InvoiceSummary[]>({
     key: cacheKey,

@@ -200,9 +200,10 @@ export function useWorkspaceData({
   // is itself cached under invoice:practice:exists:* so toggling tabs doesn't
   // refire the request once the answer is known.
   const [hasDesktopInvoiceListItems, setHasDesktopInvoiceListItems] = useState<boolean | null>(null);
-  const statusFilterKey = invoicesStatusFilter.length > 0
-    ? [...invoicesStatusFilter].sort().join(',')
-    : 'all';
+  const statusFilterKey = useMemo(
+    () => (invoicesStatusFilter.length > 0 ? [...invoicesStatusFilter].sort().join(',') : 'all'),
+    [invoicesStatusFilter]
+  );
 
   useEffect(() => {
     if (layoutMode !== 'desktop' || view !== 'invoices') {

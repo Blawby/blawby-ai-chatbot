@@ -92,8 +92,8 @@ const paginate = (items: InvoiceSummary[], page: number, pageSize: number): Invo
  * the underlying fetch means useInvoiceListAggregates and usePaginatedList
  * share one /api/invoices/:practiceId request instead of issuing two.
  */
-const practiceInvoiceSummariesCacheKey = (practiceId: string) =>
-  `invoice:practice:summaries:${practiceId}`;
+export const practiceInvoiceSummariesCacheKey = (practiceId: string) =>
+  `invoice:practice:summaries:${practiceId || 'none'}`;
 
 const fetchPracticeInvoiceSummaries = async (
   practiceId: string,
