@@ -6,7 +6,8 @@ export type SearchEntityType =
   | 'file'
   | 'file_chunk'
   | 'intake'
-  | 'note';
+  | 'note'
+  | 'report';
 
 export type SearchOp = 'upsert' | 'delete' | 'cascade_delete' | 'backfill';
 
@@ -91,9 +92,10 @@ export const SEARCH_ENTITY_LABELS: Record<SearchEntityType, string> = {
   client: 'Clients',
   matter: 'Matters',
   invoice: 'Invoices',
-  conversation: 'Conversations',
+  conversation: 'Messages',
   file: 'Files',
   file_chunk: 'Files',
   intake: 'Intakes',
   note: 'Notes',
+  report: 'Reports',
 };

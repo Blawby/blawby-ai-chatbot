@@ -6,7 +6,8 @@ export type SearchEntityType =
   | 'file'
   | 'file_chunk'
   | 'intake'
-  | 'note';
+  | 'note'
+  | 'report';
 
 export type SearchResultItem = {
   entityType: SearchEntityType;

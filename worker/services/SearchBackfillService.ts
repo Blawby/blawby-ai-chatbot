@@ -76,6 +76,8 @@ const ENTITY_ENDPOINTS: readonly ListEndpoint[] = [
           : []),
   },
 ];
+// Conversations are worker-owned (D1, not the Railway backend), so they're
+// walked via direct DB read in `walkConversationsFromD1` instead of HTTP.
 
 const PAGE_SIZE = 100;
 const MAX_PAGES_PER_TYPE = 10;
@@ -130,6 +132,18 @@ export class SearchBackfillService {
         errors.push(`${endpoint.type}: ${msg}`);
         Logger.warn('backfill walk failed', { type: endpoint.type, error: msg });
       }
+    }
+
+    // Worker-owned conversations: read directly from D1 instead of HTTP.
+    try {
+      counts.conversation = await this.walkConversationsFromD1(
+        practiceId,
+        indexService,
+      );
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      errors.push(`conversation: ${msg}`);
+      Logger.warn('conversation backfill failed', { error: msg });
     }
 
     if (this.env.CHAT_SESSIONS) {
@@ -204,6 +218,80 @@ export class SearchBackfillService {
       }
 
       if (items.length < PAGE_SIZE) return indexed;
+    }
+    return indexed;
+  }
+
+  /**
+   * Walk worker-owned conversations directly from D1. Skips the HTTP/auth
+   * round-trip the backend-proxied entities use. Only visible conversations
+   * are indexed (lifecycle_status='visible' per the visibility invariant).
+   */
+  private async walkConversationsFromD1(
+    practiceId: string,
+    indexService: SearchIndexService,
+  ): Promise<number> {
+    type Row = {
+      id: string;
+      practice_id: string;
+      matter_id: string | null;
+      user_info: string | null;
+      status: string;
+      lifecycle_status: string;
+      last_message_content: string | null;
+      last_message_at: string | null;
+    };
+    const rows = await this.env.DB.prepare(
+      `SELECT id, practice_id, matter_id, user_info, status,
+              lifecycle_status, last_message_content, last_message_at
+         FROM conversations
+        WHERE practice_id = ?
+          AND lifecycle_status = 'visible'
+          AND status != 'archived'
+        ORDER BY last_message_at DESC NULLS LAST
+        LIMIT ?`,
+    )
+      .bind(practiceId, PAGE_SIZE * MAX_PAGES_PER_TYPE)
+      .all<Row>();
+
+    let indexed = 0;
+    for (const row of rows.results ?? []) {
+      // Reconstruct the API-shape so normalizeForIndex's normalizeConversation
+      // can handle it identically to a proxied response.
+      let userInfo: unknown = null;
+      if (row.user_info) {
+        try {
+          userInfo = JSON.parse(row.user_info);
+        } catch {
+          userInfo = null;
+        }
+      }
+      const apiShape = {
+        id: row.id,
+        practice_id: row.practice_id,
+        matter_id: row.matter_id,
+        user_info: userInfo,
+        status: row.status,
+        lifecycle_status: row.lifecycle_status,
+        last_message_content: row.last_message_content,
+        last_message_at: row.last_message_at,
+      };
+      const normalized = normalizeForIndex('/api/conversations', apiShape, practiceId);
+      if (!normalized) continue;
+      try {
+        await indexService.upsert(
+          normalized.entityType,
+          normalized.entityId,
+          normalized.practiceId,
+          normalized.payload,
+        );
+        indexed += 1;
+      } catch (error) {
+        Logger.warn('conversation upsert failed', {
+          id: row.id,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
     }
     return indexed;
   }

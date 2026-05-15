@@ -23,6 +23,7 @@ const ENTITY_PATH_RULES: Array<{
   { match: /^\/api\/practice-client-intakes(?:\/|$)/, entityType: 'intake' },
   { match: /^\/api\/uploads(?:\/|\?|$)/, entityType: 'file' },
   { match: /^\/api\/files(?:\/|\?|$)/, entityType: 'file' },
+  { match: /^\/api\/conversations(?:\/|\?|$)/, entityType: 'conversation' },
 ];
 
 export function isSearchablePath(pathname: string): boolean {
@@ -99,6 +100,13 @@ export function normalizeForIndex(
         entityId,
         practiceId,
         payload: normalizeFile(root),
+      };
+    case 'conversation':
+      return {
+        entityType,
+        entityId,
+        practiceId,
+        payload: normalizeConversation(root),
       };
     default:
       return null;
@@ -296,6 +304,56 @@ function normalizeFile(root: AnyRecord): SearchIndexPayload {
 
 function isRecord(v: unknown): v is AnyRecord {
   return v !== null && typeof v === 'object' && !Array.isArray(v);
+}
+
+function normalizeConversation(root: AnyRecord): SearchIndexPayload {
+  // Conversations come back from /api/conversations shaped like:
+  //   { id, practice_id, matter_id, user_id, participants[],
+  //     user_info: { title, contactDetails: { name, email } },
+  //     status, lifecycle_status, last_message_content, last_message_at,
+  //     unread_count, created_at, updated_at }
+  // Title = the user-facing conversation title (often the first user
+  // message). Body = the latest message preview so substring searches
+  // for content inside conversations work.
+  const userInfo = isRecord(root.user_info) ? (root.user_info as AnyRecord) : {};
+  const contactDetails = isRecord(userInfo.contactDetails)
+    ? (userInfo.contactDetails as AnyRecord)
+    : {};
+
+  const conversationTitle =
+    readString(userInfo, 'title') ??
+    readString(root, 'title') ??
+    readString(contactDetails, 'name') ??
+    'Conversation';
+
+  const contactName = readString(contactDetails, 'name');
+  const lastMessage = readString(root, 'last_message_content');
+  const status = readString(root, 'status') ?? 'active';
+  const lifecycleStatus = readString(root, 'lifecycle_status');
+  const matterId = readString(root, 'matter_id');
+  const unreadRaw = root.unread_count;
+  const unread =
+    typeof unreadRaw === 'number' && Number.isFinite(unreadRaw) ? unreadRaw : 0;
+
+  const subtitleBits = [
+    contactName,
+    matterId ? 'linked to matter' : null,
+    unread > 0 ? `${unread} unread` : null,
+    status !== 'active' ? status : null,
+  ].filter((s): s is string => Boolean(s));
+
+  return {
+    title: conversationTitle,
+    subtitle: `Message · ${subtitleBits.join(' · ') || 'active'}`,
+    body: lastMessage ?? '',
+    matterId: matterId ?? undefined,
+    metadata: {
+      status,
+      lifecycleStatus,
+      archived:
+        lifecycleStatus === 'archived' || status === 'closed' || status === 'archived',
+    },
+  };
 }
 
 function unwrap(body: unknown): AnyRecord | null {

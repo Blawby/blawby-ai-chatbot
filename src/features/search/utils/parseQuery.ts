@@ -6,6 +6,7 @@ export const SEARCH_SCOPES = [
   'files',
   'intakes',
   'notes',
+  'reports',
 ] as const;
 
 export type SearchScope = (typeof SEARCH_SCOPES)[number];

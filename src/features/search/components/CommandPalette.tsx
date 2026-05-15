@@ -25,6 +25,7 @@ import {
   ClipboardList,
   StickyNote,
   Search,
+  BarChart3,
 } from 'lucide-preact';
 
 type CommandPaletteProps = {
@@ -45,6 +46,7 @@ const ENTITY_ICON: Record<SearchEntityType, typeof Users> = {
   file_chunk: FileIcon,
   intake: ClipboardList,
   note: StickyNote,
+  report: BarChart3,
 };
 
 export function CommandPalette({
@@ -399,6 +401,8 @@ function buildEntityPath(
     case 'file':
     case 'file_chunk':
       return `${root}/${slug}/files`;
+    case 'report':
+      return `${root}/${slug}/reports/${encodeURIComponent(item.entityId)}`;
     default:
       return null;
   }

@@ -12,6 +12,7 @@ import {
   SearchBackfillService,
   makeBackfillCookieKey,
 } from '../services/SearchBackfillService.js';
+import { matchReports } from '../utils/reportsCatalog.js';
 import {
   parseQuery,
   type SearchScope,
@@ -35,6 +36,7 @@ const SCOPE_TO_ENTITY: Record<SearchScope, SearchEntityType[]> = {
   files: ['file', 'file_chunk'],
   intakes: ['intake'],
   notes: ['note'],
+  reports: ['report'],
 };
 
 const SUCCESS = (
@@ -223,7 +225,42 @@ async function handleSearchQuery(
 
   const filteredByStatusFilter = applyStatusFilter(merged, parsedQ.filters);
 
-  const grouped = groupByEntity(filteredByStatusFilter, groupLimit);
+  // Reports are navigational entries (no D1 backing) — match against a
+  // static catalog and merge into the result stream as entityType='report'
+  // items. Honor the in:reports scope: if the user explicitly scoped away
+  // from reports, skip the merge; if they scoped TO reports, only show
+  // reports.
+  const allowReports =
+    requestedScopes.length === 0 || requestedScopes.includes('reports');
+  const onlyReports =
+    requestedScopes.length > 0 && requestedScopes.every((s) => s === 'reports');
+  let withReports = filteredByStatusFilter;
+  if (allowReports) {
+    const reportMatches = matchReports(terms, groupLimit);
+    if (reportMatches.length > 0) {
+      const reportItems: SearchResultItem[] = reportMatches.map((r) => ({
+        entityType: 'report' as SearchEntityType,
+        entityId: r.id,
+        title: r.title,
+        subtitle: r.subtitle,
+        // Use a relative score so reports interleave with other groups
+        // when ungrouped; groupByEntity buckets them anyway so this only
+        // affects within-Reports ordering.
+        score: r.score,
+        metadata: {},
+      }));
+      withReports = onlyReports
+        ? reportItems
+        : [...filteredByStatusFilter, ...reportItems];
+    } else if (onlyReports) {
+      withReports = [];
+    }
+  } else {
+    // Scope explicitly excludes reports: nothing to add.
+    withReports = filteredByStatusFilter;
+  }
+
+  const grouped = groupByEntity(withReports, groupLimit);
 
   const envelope: SearchEnvelope = {
     groups: grouped,
@@ -549,7 +586,11 @@ function buildFtsQuery(terms: string): string {
     if (safe) tokens.push(expandWithSynonyms(safe));
   }
 
-  return tokens.join(' ');
+  // Use explicit AND between tokens. FTS5 normally allows implicit AND on
+  // whitespace, but it errors on `term* (alt OR alt)` — needs the keyword.
+  // Explicit AND is always safe and produces identical results for bare-term
+  // sequences too.
+  return tokens.join(' AND ');
 }
 
 /**
@@ -735,6 +776,7 @@ function groupByEntity(items: SearchResultItem[], limit: number): SearchGroup[] 
     'file',
     'intake',
     'note',
+    'report',
   ];
   const buckets = new Map<SearchEntityType, SearchResultItem[]>();
   for (const item of items) {
