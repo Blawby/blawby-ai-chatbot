@@ -69,9 +69,17 @@ export type SearchGroup = {
   tookMs?: number;
 };
 
+export type SearchDidYouMean = {
+  title: string | null;
+  entityType: SearchEntityType;
+  entityId: string;
+  score: number;
+};
+
 export type SearchEnvelope = {
   groups: SearchGroup[];
   queryLogId?: string;
+  didYouMean?: SearchDidYouMean;
   debug?: {
     semanticEnabled: boolean;
     ftsTookMs: number;

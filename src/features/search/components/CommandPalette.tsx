@@ -4,6 +4,7 @@ import { useNavigation } from '@/shared/utils/navigation';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { useGlobalSearch } from '../hooks/useGlobalSearch';
 import { useSearchRecents } from '../hooks/useSearchRecents';
+import { useSearchSuggestions } from '../hooks/useSearchSuggestions';
 import { recordSearchClick } from '../services/searchApi';
 import {
   parseQuery,
@@ -62,6 +63,7 @@ export function CommandPalette({
   const { recents, push: pushRecent } = useSearchRecents(practiceId, userId);
 
   const { envelope, loading, error } = useGlobalSearch(practiceId, query);
+  const suggestions = useSearchSuggestions(practiceId, query);
 
   useEffect(() => {
     if (!open) {
@@ -159,12 +161,26 @@ export function CommandPalette({
         />
       </div>
       <div className="max-h-[60vh] overflow-y-auto py-2">
+        {suggestions.length > 0 ? (
+          <SuggestionsList
+            suggestions={suggestions}
+            onPick={(s) => setQuery(s)}
+          />
+        ) : null}
         {error ? (
           <EmptyState message={error} />
         ) : loading && !envelope ? (
           <EmptyState message="Searching…" />
         ) : envelope && envelope.groups.length === 0 && query.trim().length > 0 ? (
-          <EmptyState message={`No results for "${query.trim()}"`} />
+          <>
+            <EmptyState message={`No results for "${query.trim()}"`} />
+            {envelope.didYouMean?.title ? (
+              <DidYouMean
+                title={envelope.didYouMean.title}
+                onPick={() => envelope.didYouMean && setQuery(envelope.didYouMean.title ?? '')}
+              />
+            ) : null}
+          </>
         ) : envelope ? (
           <ResultGroups
             envelope={envelope}
@@ -257,6 +273,60 @@ function ResultGroups({
           })}
         </div>
       ))}
+    </div>
+  );
+}
+
+function SuggestionsList({
+  suggestions,
+  onPick,
+}: {
+  suggestions: Array<{ query: string; source: 'user' | 'practice' }>;
+  onPick: (query: string) => void;
+}) {
+  return (
+    <div className="px-2 pb-2">
+      <div className="px-3 pt-3 pb-1 text-[11px] uppercase tracking-wider text-input-text/50 font-medium">
+        Suggestions
+      </div>
+      {suggestions.map((s) => (
+        <button
+          key={`${s.source}:${s.query}`}
+          type="button"
+          onClick={() => onPick(s.query)}
+          className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left hover:bg-surface-card-hover/60"
+        >
+          <Search size={14} className="text-input-text/40" aria-hidden="true" />
+          <span className="text-sm text-input-text flex-1">{s.query}</span>
+          <span className="text-[10px] uppercase text-input-text/40">
+            {s.source === 'user' ? 'recent' : 'popular'}
+          </span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function DidYouMean({
+  title,
+  onPick,
+}: {
+  title: string;
+  onPick: () => void;
+}) {
+  return (
+    <div className="px-6 pb-4 text-center">
+      <div className="text-sm text-input-text/70">
+        Did you mean{' '}
+        <button
+          type="button"
+          onClick={onPick}
+          className="text-input-text underline hover:no-underline"
+        >
+          {title}
+        </button>
+        ?
+      </div>
     </div>
   );
 }

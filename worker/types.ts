@@ -210,6 +210,8 @@ export interface Env {
   };
   SEARCH_SEMANTIC_ENABLED?: string;
   SEARCH_INDEX_CONCURRENCY?: string;
+  SEARCH_RERANK_ENABLED?: string;
+  SEARCH_LLM_REWRITE_ENABLED?: string;
 }
 
 // HTTP Error class for centralized error handling
