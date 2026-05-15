@@ -62,6 +62,19 @@ const ENTITY_ENDPOINTS: readonly ListEndpoint[] = [
           ? ((body as { data: unknown[] }).data as Array<Record<string, unknown>>)
           : []),
   },
+  {
+    type: 'file',
+    pathPrefix: '/api/uploads',
+    // Uploads use query-param scoping not path-based: /api/uploads?practice_id=…
+    buildUrl: (base, pid, page, size) =>
+      `${base}/api/uploads?practice_id=${enc(pid)}&page=${page}&limit=${size}`,
+    extractItems: (body) =>
+      (Array.isArray((body as { uploads?: unknown[] })?.uploads)
+        ? ((body as { uploads: unknown[] }).uploads as Array<Record<string, unknown>>)
+        : Array.isArray((body as { data?: unknown[] })?.data)
+          ? ((body as { data: unknown[] }).data as Array<Record<string, unknown>>)
+          : []),
+  },
 ];
 
 const PAGE_SIZE = 100;

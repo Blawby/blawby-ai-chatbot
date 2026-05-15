@@ -21,6 +21,8 @@ const ENTITY_PATH_RULES: Array<{
   { match: /^\/api\/matters(?:\/|$)/, entityType: 'matter' },
   { match: /^\/api\/invoices(?:\/|$)/, entityType: 'invoice' },
   { match: /^\/api\/practice-client-intakes(?:\/|$)/, entityType: 'intake' },
+  { match: /^\/api\/uploads(?:\/|\?|$)/, entityType: 'file' },
+  { match: /^\/api\/files(?:\/|\?|$)/, entityType: 'file' },
 ];
 
 export function isSearchablePath(pathname: string): boolean {
@@ -48,7 +50,10 @@ export function normalizeForIndex(
   const root = unwrap(body);
   if (!root) return null;
 
-  const entityId = readString(root, 'id') ?? extractIdFromPath(pathname);
+  const entityId =
+    readString(root, 'id') ??
+    readString(root, 'uuid') ?? // some endpoints (intakes) expose uuid only
+    extractIdFromPath(pathname);
   if (!entityId) return null;
 
   const practiceId =
@@ -87,6 +92,13 @@ export function normalizeForIndex(
         entityId,
         practiceId,
         payload: normalizeIntake(root),
+      };
+    case 'file':
+      return {
+        entityType,
+        entityId,
+        practiceId,
+        payload: normalizeFile(root),
       };
     default:
       return null;
@@ -176,23 +188,114 @@ function normalizeInvoice(root: AnyRecord): SearchIndexPayload {
 }
 
 function normalizeIntake(root: AnyRecord): SearchIndexPayload {
-  const title =
+  // Intakes on staging-api look like:
+  //   { uuid, organization_id, status, triage_status, triage_reason,
+  //     metadata: { name, email, phone, on_behalf_of, opposing_party,
+  //                 description }, created_at, ... }
+  // No `title` field — we synthesize one from the contact name + a
+  // short suffix so users can search by the person they took an intake
+  // from. Body packs everything searchable.
+  const metadata = isRecord(root.metadata) ? (root.metadata as AnyRecord) : {};
+
+  const intakeName =
+    readString(metadata, 'name') ??
+    readString(root, 'client_name') ??
     readString(root, 'title') ??
     readString(root, 'form_title') ??
-    readString(root, 'matter_type') ??
-    'Intake';
+    readString(root, 'matter_type');
+
+  const description =
+    readString(metadata, 'description') ??
+    readString(root, 'triage_reason') ??
+    '';
+
+  const opposingParty = readString(metadata, 'opposing_party');
+  const email = readString(metadata, 'email');
+  const phone = readString(metadata, 'phone');
+
+  const title = intakeName ?? 'Intake';
+  const triageStatus = readString(root, 'triage_status');
   const status = readString(root, 'status') ?? 'pending';
-  const clientName = readString(root, 'client_name');
+  const subtitleStatus = triageStatus
+    ? `${status} · ${triageStatus}`
+    : status;
+
+  const bodyParts = [
+    description,
+    opposingParty ? `opposing: ${opposingParty}` : null,
+    email,
+    phone,
+  ]
+    .filter((s): s is string => Boolean(s));
+
   return {
     title,
-    subtitle: `Intake · ${[status, clientName].filter(Boolean).join(' · ')}`,
-    body: clientName ?? '',
+    subtitle: `Intake · ${subtitleStatus}`,
+    body: bodyParts.join(' '),
     clientId:
       readString(root, 'client_id') ??
       readString(root, 'clientId') ??
       undefined,
-    metadata: { status },
+    metadata: {
+      status,
+      triageStatus,
+      archived: triageStatus === 'declined' || status === 'archived',
+    },
   };
+}
+
+function normalizeFile(root: AnyRecord): SearchIndexPayload {
+  // Uploads/files on staging-api are typically shaped like:
+  //   { id, organization_id, scope_type, scope_id, file_name, mime_type,
+  //     size, storage_key, status, created_at, ... }
+  // Title is the filename; subtitle conveys type/size/scope; body holds
+  // anything else searchable (description if present, scope label).
+  const fileName =
+    readString(root, 'file_name') ??
+    readString(root, 'filename') ??
+    readString(root, 'name') ??
+    readString(root, 'original_name') ??
+    'File';
+
+  const mimeType =
+    readString(root, 'mime_type') ?? readString(root, 'mimeType');
+  const sizeNumber = readNumber(root, 'size') ?? readNumber(root, 'file_size');
+  const sizeLabel = sizeNumber !== null ? `${Math.round(sizeNumber / 1024)} KB` : '';
+  const scopeType = readString(root, 'scope_type');
+  const scopeLabel = scopeType ? `linked to ${scopeType}` : '';
+  const status = readString(root, 'status') ?? 'active';
+  const description = readString(root, 'description') ?? '';
+
+  const subtitle = `File · ${[mimeType, sizeLabel, scopeLabel]
+    .filter(Boolean)
+    .join(' · ')}`;
+
+  return {
+    title: fileName,
+    subtitle,
+    body: description,
+    fileId:
+      readString(root, 'id') ?? readString(root, 'uuid') ?? undefined,
+    clientId:
+      scopeType === 'client'
+        ? readString(root, 'scope_id') ?? undefined
+        : undefined,
+    matterId:
+      scopeType === 'matter'
+        ? readString(root, 'scope_id') ?? undefined
+        : undefined,
+    metadata: {
+      status,
+      mimeType,
+      scopeType,
+      scopeId: readString(root, 'scope_id') ?? null,
+      archived: status === 'deleted' || Boolean(readString(root, 'deleted_at')),
+    },
+  };
+}
+
+function isRecord(v: unknown): v is AnyRecord {
+  return v !== null && typeof v === 'object' && !Array.isArray(v);
 }
 
 function unwrap(body: unknown): AnyRecord | null {
