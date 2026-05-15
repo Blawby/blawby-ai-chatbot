@@ -10,6 +10,7 @@ import { NextStepsCard, type NextStepsItem } from '@/shared/ui/cards/NextStepsCa
 import { ClientSidebar } from '@/shared/ui/nav/ClientSidebar';
 import { WorkspaceShellHeader } from '@/shared/ui/layout/WorkspaceShellHeader';
 import { AppShell } from '@/shared/ui/layout/AppShell';
+import { useCommandPalette } from '@/features/search/contexts/CommandPaletteContext';
 
 const ClientHomePage = () => {
   const { session } = useSessionContext();
@@ -91,11 +92,15 @@ const ClientHomePage = () => {
       />
     ) : null;
 
+  const { open: openCommandPalette } = useCommandPalette();
   const header = (
     <WorkspaceShellHeader
       orgInitial={orgInitial}
       title="Home"
       onMenuClick={() => setMobileSidebarOpen(true)}
+      onSearchClick={() => openCommandPalette()}
+      onSearchFocus={() => openCommandPalette()}
+      onSearchChange={(value) => openCommandPalette(value)}
     />
   );
 

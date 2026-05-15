@@ -12,6 +12,7 @@ import { StatusBadge, type StatusVariant } from '@/shared/ui/badges/StatusBadge'
 import { PracticeSidebar } from '@/shared/ui/nav/PracticeSidebar';
 import { WorkspaceShellHeader } from '@/shared/ui/layout/WorkspaceShellHeader';
 import { AppShell } from '@/shared/ui/layout/AppShell';
+import { useCommandPalette } from '@/features/search/contexts/CommandPaletteContext';
 
 type CashflowRange = '7d' | '30d' | 'all';
 
@@ -129,11 +130,15 @@ const PracticeHomePage = () => {
       />
     ) : null;
 
+  const { open: openCommandPalette } = useCommandPalette();
   const header = (
     <WorkspaceShellHeader
       orgInitial={orgInitial}
       title="Home"
       onMenuClick={() => setMobileSidebarOpen(true)}
+      onSearchClick={() => openCommandPalette()}
+      onSearchFocus={() => openCommandPalette()}
+      onSearchChange={(value) => openCommandPalette(value)}
     />
   );
 
