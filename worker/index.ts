@@ -21,6 +21,7 @@ import {
   handleMetricsVitals,
 } from './routes';
 import { handleConversations } from './routes/conversations.js';
+import { handleGlobalSearch } from './routes/search.js';
 import { handlePresence } from './routes/presence.js';
 import { handleAiChat } from './routes/aiChat.js';
 import { handleAiIntent } from './routes/aiIntent.js';
@@ -191,6 +192,11 @@ export const routes: RouteEntry[] = [
   },
   {
     mode: 'owned',
+    match: prefix('/api/search/'),
+    handler: (req, env, ctx) => handleGlobalSearch(req, env, ctx),
+  },
+  {
+    mode: 'owned',
     match: prefix('/api/ai/chat'),
     handler: withAuth(handleAiChat, { required: true }),
   },
@@ -313,7 +319,20 @@ export async function scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionC
       console.error('Scheduled cleanup failed:', error);
     });
 
-  ctx.waitUntil(cleanupPromise);
+  const searchPurgeCutoff = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
+  const searchPurgePromise = env.DB.prepare(
+    `DELETE FROM search_query_log WHERE created_at < ?`,
+  )
+    .bind(searchPurgeCutoff)
+    .run()
+    .then((res) => {
+      console.log(`search_query_log purge: removed ${res.meta?.changes ?? 0} rows older than ${searchPurgeCutoff}`);
+    })
+    .catch((error) => {
+      console.error('search_query_log purge failed:', error);
+    });
+
+  ctx.waitUntil(Promise.all([cleanupPromise, searchPurgePromise]));
 }
 
 export { ChatRoom } from './durable-objects/ChatRoom';

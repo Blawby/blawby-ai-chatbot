@@ -10,7 +10,8 @@
 		"src/vite-env.d.ts",
 		"src/shared",
 		"src/config",
-		"src/types"
+		"src/types",
+		"src/features/search/utils"
 	],
 	"exclude": [
 		"src/**/__tests__/**",
