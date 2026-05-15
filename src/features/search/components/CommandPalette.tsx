@@ -397,7 +397,16 @@ function buildEntityPath(
     case 'conversation':
       return `${root}/${slug}/conversations/${encodeURIComponent(item.entityId)}`;
     case 'intake':
-      return `${root}/${slug}/intakes/${encodeURIComponent(item.entityId)}`;
+      // Practice and client workspaces use different intake-detail URLs:
+      //   practice: /practice/:slug/intakes/responses/:intakeId  (the
+      //             response-detail route; the plain :intakeId slot is
+      //             reserved for template editing — using it sends the
+      //             user to a broken template page).
+      //   client:   /client/:slug/intakes/:intakeId               (no
+      //             template editing exists for clients).
+      return workspace === 'practice'
+        ? `${root}/${slug}/intakes/responses/${encodeURIComponent(item.entityId)}`
+        : `${root}/${slug}/intakes/${encodeURIComponent(item.entityId)}`;
     case 'file':
     case 'file_chunk':
       return `${root}/${slug}/files`;
