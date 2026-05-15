@@ -1,5 +1,7 @@
 import { useMemo, useState, useEffect } from 'preact/hooks';
 import { isAbortError } from '@/shared/lib/apiClient';
+import { queryCache } from '@/shared/lib/queryCache';
+import { policyTtl } from '@/shared/lib/cachePolicy';
 import { useMattersData } from '@/shared/hooks/useMattersData';
 import { useClientsData } from '@/shared/hooks/useClientsData';
 import { formatLongDate } from '@/shared/utils/dateFormatter';
@@ -192,7 +194,15 @@ export function useWorkspaceData({
     };
   }, [contactsData?.items, selectedMatter]);
 
+  // Desktop "does the practice have invoices?" gate. Used to hide the empty
+  // list panel before the user has any invoices. Shares the cached invoice
+  // list with useInvoiceListAggregates / usePaginatedList (practice path) and
+  // is itself cached under invoice:practice:exists:* so toggling tabs doesn't
+  // refire the request once the answer is known.
   const [hasDesktopInvoiceListItems, setHasDesktopInvoiceListItems] = useState<boolean | null>(null);
+  const statusFilterKey = invoicesStatusFilter.length > 0
+    ? [...invoicesStatusFilter].sort().join(',')
+    : 'all';
 
   useEffect(() => {
     if (layoutMode !== 'desktop' || view !== 'invoices') {
@@ -204,24 +214,34 @@ export function useWorkspaceData({
       return;
     }
 
+    const audience = isPracticeWorkspace ? 'practice' : 'client';
+    const existsCacheKey = `invoice:${audience}:exists:${practiceId}:${statusFilterKey}`;
+
     const controller = new AbortController();
 
     void (async () => {
       try {
-        const result = isPracticeWorkspace
-          ? await listInvoices(
-              practiceId,
-              { rules: [], page: 1, pageSize: 1 },
-              { signal: controller.signal, statusFilter: invoicesStatusFilter }
-            )
-          : await listClientInvoices(
-              practiceId,
-              { rules: [], page: 1, pageSize: 1 },
-              { signal: controller.signal, statusFilter: invoicesStatusFilter }
-            );
+        const hasItems = await queryCache.coalesceGet<boolean>(
+          existsCacheKey,
+          async (signal) => {
+            const result = isPracticeWorkspace
+              ? await listInvoices(
+                  practiceId,
+                  { rules: [], page: 1, pageSize: 1 },
+                  { signal: signal ?? controller.signal, statusFilter: invoicesStatusFilter }
+                )
+              : await listClientInvoices(
+                  practiceId,
+                  { rules: [], page: 1, pageSize: 1 },
+                  { signal: signal ?? controller.signal, statusFilter: invoicesStatusFilter }
+                );
+            return result.total > 0;
+          },
+          { ttl: policyTtl(existsCacheKey), swr: true, signal: controller.signal }
+        );
 
         if (!controller.signal.aborted) {
-          setHasDesktopInvoiceListItems(result.total > 0);
+          setHasDesktopInvoiceListItems(hasItems);
         }
       } catch (error) {
         if (isAbortError(error)) {
@@ -234,7 +254,7 @@ export function useWorkspaceData({
     })();
 
     return () => controller.abort();
-  }, [invoicesStatusFilter, isClientWorkspace, isPracticeWorkspace, layoutMode, practiceId, view]);
+  }, [invoicesStatusFilter, isClientWorkspace, isPracticeWorkspace, layoutMode, practiceId, statusFilterKey, view]);
 
   return {
     mattersStatusFilter,

@@ -278,10 +278,36 @@ const affectsSidebarCounts = (url: string): boolean => {
   return SIDEBAR_COUNT_PATH_PREFIXES.some((p) => path.startsWith(p));
 };
 
+/**
+ * Extract the practice id from a URL path. Most of the mutation endpoints
+ * shaped like `/api/<resource>/:practiceId[/...]` carry the practice id as the
+ * third path segment. Returns null when the segment doesn't look like a
+ * UUID-style identifier (e.g. literal sub-resources like `/api/uploads`),
+ * in which case the caller falls back to the broad prefix invalidation.
+ */
+const extractPracticeIdFromPath = (path: string): string | null => {
+  const segments = path.split('/').filter(Boolean);
+  if (segments.length < 3 || segments[0] !== 'api') return null;
+  const candidate = segments[2];
+  if (!candidate) return null;
+  if (!/^[0-9a-fA-F-]{8,}$/.test(candidate)) return null;
+  return candidate;
+};
+
 const invalidateSidebarCountsIfRelevant = (url: string): void => {
-  if (affectsSidebarCounts(url)) {
-    queryCache.invalidate('sidebar:counts:', /* prefix */ true);
+  if (!affectsSidebarCounts(url)) return;
+  const path = url.startsWith('http') ? new URL(url).pathname : url.split('?')[0];
+  const practiceId = extractPracticeIdFromPath(path);
+  if (practiceId) {
+    // Targeted invalidation: only the practice that was actually mutated.
+    // Keeps cached counts intact for the user's other practices.
+    queryCache.invalidate(`sidebar:counts:${practiceId}`, /* prefix */ true);
+    return;
   }
+  // Fallback: endpoints that don't carry a practice id (or don't follow the
+  // /api/<resource>/<practiceId> shape) still need a broad invalidation so we
+  // don't silently leave the badge stale.
+  queryCache.invalidate('sidebar:counts:', /* prefix */ true);
 };
 
 export type UploadProgress = { loaded: number; total: number; percent: number };

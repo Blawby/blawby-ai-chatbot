@@ -9,6 +9,7 @@ import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
 import { usePracticeTeam } from '@/shared/hooks/usePracticeTeam';
 import { useClientsData } from '@/shared/hooks/useClientsData';
+import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { getPracticeIntake } from '@/features/intake/api/intakesApi';
 import { getConversation } from '@/shared/lib/conversationApi';
 import {
@@ -45,20 +46,29 @@ export function PracticeMatterCreatePage({
 }: PracticeMatterCreatePageProps) {
   const location = useLocation();
   const { navigate } = useNavigation();
+  const { session } = useSessionContext();
+  const sessionUserId = session?.user?.id ?? null;
+  // `fetchPracticeDetails: true` makes usePracticeManagement populate the
+  // practiceDetailsStore for us; usePracticeDetails below is a pure store read
+  // (no extra network call) that surfaces `details.services` for the practice
+  // areas dropdown.
   const { currentPractice } = usePracticeManagement({
     practiceSlug: practiceSlug ?? undefined,
     fetchPracticeDetails: true,
   });
 
-  const { details: practiceDetails, hasDetails, fetchDetails } = usePracticeDetails(
+  const { details: practiceDetails } = usePracticeDetails(
     currentPractice?.id,
     currentPractice?.slug,
     false
   );
-  const { members: teamMembers } = usePracticeTeam(practiceId ?? '', null, {
+  const { members: teamMembers } = usePracticeTeam(practiceId ?? '', sessionUserId, {
     enabled: Boolean(practiceId),
   });
-  const clients = useClientsData(practiceId ?? '', null, null, {
+  // sessionUserId is part of useClientsData's cache key — pass the same value
+  // the workspace shell passes so this page hits the shared cache instead of
+  // firing a duplicate "anonymous"-keyed request on mount.
+  const clients = useClientsData(practiceId ?? '', null, sessionUserId, {
     enabled: Boolean(practiceId),
   });
 
@@ -83,11 +93,6 @@ export function PracticeMatterCreatePage({
   // MatterFormInner calls onClose() right after awaiting onSubmit(), before
   // React commits a state update.
   const createdMatterIdRef = useRef<string | null>(null);
-
-  useEffect(() => {
-    if (!currentPractice?.id || hasDetails) return;
-    void fetchDetails();
-  }, [currentPractice?.id, fetchDetails, hasDetails]);
 
   useEffect(() => {
     if (!convertIntakeUuid || !practiceId) {

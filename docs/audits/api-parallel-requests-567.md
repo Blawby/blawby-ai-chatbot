@@ -52,7 +52,7 @@ Status legend: **Fixed** in this PR · **Deferred** with follow-up note ·
 | 5  | `src/features/chat/pages/hooks/useWorkspaceSetup.ts` | `usePracticeManagement` + `usePracticeDetails` re-invoked inside the setup hook while `WorkspacePage`/`MainApp` already had them | Med | Fixed (C-5 — cache-keyed coalescing already de-dups the network call, so this is logical-not-network duplication; we keep the setup hook owning its own consumer slice rather than rewiring props since the queryCache already coalesces fetches at the apiClient layer) |
 | 6  | `src/features/chat/pages/hooks/useWorkspaceConversations.ts` | `useConversations` + `useIntakesData` fire in parallel on `view='home'` | Med | Accepted — intakes panel is above the fold on the home view; deferring would delay LCP for the visible card |
 | 7  | `src/features/chat/pages/hooks/useWorkspaceData.ts` | Desktop `pageSize=1` invoice "does the list exist?" probe | Low | Fixed (C-7 — short-TTL cached probe) |
-| 8  | `src/shared/lib/apiClient.ts` (`SIDEBAR_COUNT_PATH_PREFIXES`) | Any mutation against the broad list invalidates the entire `sidebar:counts:` prefix | Low | Fixed (C-8 — per-category map; fallback retained) |
+| 8  | `src/shared/lib/apiClient.ts` (`SIDEBAR_COUNT_PATH_PREFIXES`) | Any mutation against the broad list invalidates the entire `sidebar:counts:` prefix | Low | Fixed (C-8 — per-practice extraction; falls back to broad invalidation when the URL doesn't carry a practice id) |
 | 9  | `WorkspacePage.tsx` compose/draft mode (`composeTeamData` + `composePracticeInvitations`) | Two parallel calls when entering draft mode | Low | Fixed — gated behind `composePickerEnabled` already; we additionally narrow `composeTeamData` to share the same gate as the picker (no behavior change) |
 | 10 | `src/features/chat/pages/hooks/useWorkspaceSetup.ts` | Onboarding conversation create retries every 500ms forever on `SessionNotReadyError`; refreshes conversations after each failed create | Low | Fixed (C-10 — capped exponential backoff, only refresh on success) |
 | 11 | `src/features/chat/components/VirtualMessageList.tsx:131` (`useConversationParticipants`) | Per-conversation, but cached via the `practice:participants:` prefix (TTL 5min) | Info | Accepted |
@@ -112,10 +112,13 @@ Status legend: **Fixed** in this PR · **Deferred** with follow-up note ·
   `invoice:practice:exists:${practiceId}` key (30s) so repeated tab toggles
   don't refire the `pageSize=1` request.
 
-- **C-8** — Sidebar-count invalidation is now keyed per category. A mutation
-  to `/api/matters` invalidates only `sidebar:counts:matters:`; the broad
-  `sidebar:counts:` invalidation is retained as a fallback for endpoints not
-  in the per-category map.
+- **C-8** — Sidebar-count invalidation now targets the practice that was
+  actually mutated. The frontend stores counts under
+  `sidebar:counts:${practiceId}`, so a mutation against
+  `/api/matters/:practiceId/...` invalidates only that practice's entry and
+  leaves cached counts for the user's other practices intact. Endpoints
+  whose path doesn't carry a practice id (e.g. `/api/uploads`) fall back to
+  the broad prefix invalidation.
 
 - **C-10** — Onboarding conversation create retries are capped at 5 attempts
   with exponential backoff (500 / 1000 / 2000 / 4000 / 8000 ms). The
