@@ -62,13 +62,70 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 
 ## 5. Local Browser Verification
 
-For this app, verify browser/auth/signup flows with:
+For this app, verify browser/auth/signup flows through `https://local.blawby.com`, not raw Vite or Wrangler localhost URLs. The local host matters because auth cookies, Worker proxying, and app routing depend on the same origin/path shape used in real deployments.
+
+Recommended local layout for contributors:
+
+```text
+your-workspace/
+  blawby-ai-chatbot/
+  blawby-backend/
+```
+
+Start the backend API from the backend repo:
 
 ```bash
+cd ../blawby-backend
+pnpm install
+pnpm run dev
+```
+
+Start the frontend, Worker, and tunnel from this repo:
+
+```bash
+npm install
 npm run dev:full
 ```
 
-Then open `local.blawby.com`. Do not use raw Vite or Wrangler localhost URLs for these flows, because the app relies on the local host/proxy/cookie path through the Worker to the backend.
+Then open:
+
+```text
+https://local.blawby.com
+```
+
+The frontend `.env` and `worker/.dev.vars` should point backend URLs at `http://127.0.0.1:3000` when using the local backend. If intentionally testing against staging, point those backend URLs at staging, but still drive the app through `https://local.blawby.com`.
+
+If a Worker feature adds a D1 table, apply the migration locally before browser testing:
+
+```bash
+npx wrangler d1 execute DB --local --config worker/wrangler.toml --env dev --file worker/migrations/<migration-file>.sql
+```
+
+If a feature adds a new Worker-owned `/api/*` prefix, add it to `workerEndpoints` in `vite.config.ts`; otherwise Vite may proxy that path to the backend fallback and produce misleading local 404s.
+
+## 6. Browser-Agent And Playwright
+
+Use browser-agent for exploratory smoke tests:
+
+```bash
+npx agent-browser open https://local.blawby.com/auth
+npx agent-browser wait --load networkidle
+npx agent-browser snapshot -i
+npx agent-browser fill @e1 "user@example.com"
+npx agent-browser fill @e2 "password"
+npx agent-browser click @e3
+```
+
+After navigation, modal open/close, or dynamic content updates, run `npx agent-browser snapshot -i` again before using element refs. Refs like `@e1` are only valid for the latest snapshot.
+
+Use Playwright for repeatable test suites:
+
+```bash
+npm run test:e2e
+npm run test:e2e:auth
+```
+
+Playwright auth setup reads E2E credentials from environment variables or `tests/e2e/fixtures/e2e-credentials.json`. Keep docs and tests path-agnostic: do not use machine-specific absolute paths for this repo or the backend repo.
 
 ---
 
