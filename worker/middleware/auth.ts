@@ -39,21 +39,12 @@ type CachedSession = {
   staleExpiresAt: number;
 };
 
-type CachedMembership = {
-  role: string;
-  expiresAt: number;
-};
-
 const SESSION_CACHE_TTL_MS = 30 * 1000;
 const SESSION_STALE_TTL_MS = 5 * 60 * 1000;
 const SESSION_CACHE_MAX_ENTRIES = 200;
 const sessionCache = new Map<string, CachedSession>();
 const sessionValidationInflight = new Map<string, Promise<{ user: AuthenticatedUser; session: { id: string; expiresAt: Date } }>>();
 const SESSION_COOKIE_NAMES = ['__Secure-better-auth.session_token', 'better-auth.session_token'];
-const MEMBERSHIP_CACHE_TTL_MS = 30 * 1000;
-const MEMBERSHIP_CACHE_MAX_ENTRIES = 500;
-const membershipCache = new Map<string, CachedMembership>();
-const membershipValidationInflight = new Map<string, Promise<string>>();
 
 const getSessionCacheKey = (cookieHeader: string): string => {
   const cookies = cookieHeader.split(';');
@@ -71,9 +62,6 @@ const getSessionCacheKey = (cookieHeader: string): string => {
   return cookieHeader;
 };
 
-const getMembershipCacheKey = (practiceId: string, userId: string): string =>
-  `${practiceId}:${userId}`;
-
 const pruneSessionCache = (): void => {
   if (sessionCache.size <= SESSION_CACHE_MAX_ENTRIES) return;
   const now = Date.now();
@@ -85,24 +73,6 @@ const pruneSessionCache = (): void => {
     const firstKey = sessionCache.keys().next().value as string | undefined;
     if (!firstKey) break;
     sessionCache.delete(firstKey);
-  }
-};
-
-const pruneMembershipCache = (): void => {
-  if (membershipCache.size <= MEMBERSHIP_CACHE_MAX_ENTRIES) return;
-  const now = Date.now();
-  for (const [key, entry] of membershipCache) {
-    if (entry.expiresAt <= now) {
-      membershipCache.delete(key);
-    }
-    if (membershipCache.size <= MEMBERSHIP_CACHE_MAX_ENTRIES) {
-      return;
-    }
-  }
-  while (membershipCache.size > MEMBERSHIP_CACHE_MAX_ENTRIES) {
-    const firstKey = membershipCache.keys().next().value as string | undefined;
-    if (!firstKey) break;
-    membershipCache.delete(firstKey);
   }
 };
 
@@ -388,102 +358,6 @@ export async function requireAuth(
   };
 }
 
-async function fetchMemberRoleFromRemote(
-  cookie: string,
-  env: Env,
-  practiceId: string,
-  userId: string,
-  userEmail: string
-): Promise<string> {
-  const cacheKey = getMembershipCacheKey(practiceId, userId);
-  const cached = membershipCache.get(cacheKey);
-  if (cached && cached.expiresAt > Date.now()) {
-    return cached.role;
-  }
-  if (cached) {
-    membershipCache.delete(cacheKey);
-  }
-
-  const inflight = membershipValidationInflight.get(cacheKey);
-  if (inflight) {
-    return inflight;
-  }
-
-  const validationPromise = (async () => {
-    try {
-      if (!cookie || !cookie.trim()) {
-        throw HttpErrors.unauthorized('Authentication required');
-      }
-      const baseUrl = resolveBackendApiUrl(env, 'active member role verification');
-      const params = new URLSearchParams({ organizationId: practiceId });
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), AUTH_TIMEOUT_MS);
-      let response: Response;
-      try {
-        response = await fetch(
-          `${baseUrl}/api/auth/organization/get-active-member-role?${params.toString()}`,
-          {
-            method: 'GET',
-            headers: {
-              Cookie: cookie,
-              'Content-Type': 'application/json',
-            },
-            signal: controller.signal,
-          }
-        );
-      } catch (error) {
-        if (error instanceof Error && error.name === 'AbortError') {
-          throw HttpErrors.gatewayTimeout('Membership role verification timed out');
-        }
-        throw error;
-      } finally {
-        clearTimeout(timeoutId);
-      }
-
-      const payload = await response.json().catch(() => null) as { role?: string | null; message?: string | null } | null;
-
-      Logger.warn('[Auth] Active member role lookup', {
-        practiceId,
-        userId,
-        userEmailPresent: Boolean(userEmail),
-        status: response.status,
-        role: typeof payload?.role === 'string' ? payload.role : null,
-        message: typeof payload?.message === 'string' ? payload.message : null,
-      });
-
-      if (response.status === 401) {
-        throw HttpErrors.unauthorized('Session expired or unauthorized');
-      }
-      if (response.status === 403) {
-        throw HttpErrors.forbidden('User is not a member of this practice');
-      }
-      if (response.status === 404) {
-        throw HttpErrors.notFound('Practice not found');
-      }
-      if (!response.ok) {
-        throw HttpErrors.badGateway(`Failed to verify membership role (status ${response.status})`);
-      }
-
-      if (!payload?.role || typeof payload.role !== 'string') {
-        throw HttpErrors.forbidden('User membership is missing role information');
-      }
-
-      membershipCache.set(cacheKey, {
-        role: payload.role,
-        expiresAt: Date.now() + MEMBERSHIP_CACHE_TTL_MS
-      });
-      pruneMembershipCache();
-
-      return payload.role;
-    } finally {
-      membershipValidationInflight.delete(cacheKey);
-    }
-  })();
-
-  membershipValidationInflight.set(cacheKey, validationPromise);
-  return validationPromise;
-}
-
 export async function requirePracticeMember(
   request: Request,
   env: Env,
@@ -494,9 +368,15 @@ export async function requirePracticeMember(
   return requirePracticeMemberWithAuthContext(authContext, env, practiceId, minimumRole);
 }
 
+// Trust the session claim. Better Auth's standard pattern is that the client
+// calls `authClient.organization.setActive(orgId)` before any per-org request,
+// which writes activeOrganizationId + activeMembershipRole onto the session.
+// We refuse requests whose URL practiceId doesn't match the active org rather
+// than secretly fetching the role from the backend on every protected write —
+// callers must setActive first.
 async function requirePracticeMemberWithAuthContext(
   authContext: AuthContext,
-  env: Env,
+  _env: Env,
   practiceId: string,
   minimumRole?: "owner" | "admin" | "attorney" | "paralegal"
 ): Promise<AuthContext & { memberRole: string }> {
@@ -507,7 +387,6 @@ async function requirePracticeMemberWithAuthContext(
     'owner': 4
   };
 
-  // 1. Validate practiceId
   if (!practiceId || typeof practiceId !== 'string' || practiceId.trim() === '') {
     throw HttpErrors.badRequest("Invalid or missing practiceId");
   }
@@ -516,39 +395,31 @@ async function requirePracticeMemberWithAuthContext(
   const activeOrganizationId = authContext.activeOrganizationId?.trim() ?? null;
   const claimedRole = authContext.activeMembershipRole?.trim().toLowerCase() ?? null;
 
-  // 2. Prefer Better Auth routing/session claims for the active org when available.
-  // This avoids re-deriving same-org membership from the remote practice payload for
-  // every protected write and keeps auth aligned with the current session context.
-  let userRole: string | null = null;
-  if (activeOrganizationId && activeOrganizationId === normalizedPracticeId && claimedRole) {
-    userRole = claimedRole;
-  }
-
-  if (!userRole) {
-    userRole = await fetchMemberRoleFromRemote(
-      authContext.cookie,
-      env,
-      normalizedPracticeId,
-      authContext.user.id,
-      authContext.user.email ?? ''
+  if (!activeOrganizationId || activeOrganizationId !== normalizedPracticeId) {
+    throw HttpErrors.forbidden(
+      'Active organization does not match request practice. Call authClient.organization.setActive() before requesting per-practice resources.',
     );
   }
 
+  if (!claimedRole) {
+    throw HttpErrors.forbidden('Session is missing an active membership role; sign in again.');
+  }
+
   if (minimumRole) {
-    const userRoleLevel = roleHierarchy[userRole];
+    const userRoleLevel = roleHierarchy[claimedRole];
     const requiredRoleLevel = roleHierarchy[minimumRole];
     if (userRoleLevel === undefined) {
-      throw HttpErrors.forbidden(`Invalid user role: ${userRole}`);
+      throw HttpErrors.forbidden(`Invalid user role: ${claimedRole}`);
     }
     if (requiredRoleLevel === undefined) {
       throw HttpErrors.internalServerError(`Invalid configured minimum role: ${minimumRole}`);
     }
     if (userRoleLevel < requiredRoleLevel) {
-      throw HttpErrors.forbidden(`Insufficient permissions. Required: ${minimumRole}, has: ${userRole}`);
+      throw HttpErrors.forbidden(`Insufficient permissions. Required: ${minimumRole}, has: ${claimedRole}`);
     }
   }
 
-  return { ...authContext, memberRole: userRole };
+  return { ...authContext, memberRole: claimedRole };
 }
 
 export async function optionalAuth(
