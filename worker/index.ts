@@ -30,11 +30,14 @@ import { handleSearch } from './routes/handleSearch.js';
 import { handleStatus } from './routes/status.js';
 import { handleAutocompleteWithCORS } from './routes/api/geo/autocomplete.js';
 import { Env } from './types';
+import type { NotificationQueueMessage } from './types';
 import { handleError } from './errorHandler';
 import { withCORS, getCorsConfig } from './middleware/cors';
 import { edgeCache } from './utils/edgeCache.js';
 import type { ScheduledEvent } from '@cloudflare/workers-types';
 import { handleNotificationQueue } from './queues/notificationProcessor.js';
+import { handleSearchIndexQueue } from './queues/searchIndexConsumer.js';
+import type { SearchIndexEvent } from './types/search.js';
 
 function validateRequest(request: Request): boolean {
   const contentLength = request.headers.get('content-length');
@@ -287,9 +290,16 @@ async function handleRequestInternal(request: Request, env: Env, ctx: ExecutionC
 
 export const handleRequest = withCORS(handleRequestInternal, getCorsConfig);
 
+async function handleQueue(batch: MessageBatch<unknown>, env: Env): Promise<void> {
+  if (batch.queue.startsWith('search-index-events')) {
+    return handleSearchIndexQueue(batch as MessageBatch<SearchIndexEvent>, env);
+  }
+  return handleNotificationQueue(batch as MessageBatch<NotificationQueueMessage>, env);
+}
+
 export default {
   fetch: handleRequest,
-  queue: handleNotificationQueue
+  queue: handleQueue
 };
 
 export async function scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {

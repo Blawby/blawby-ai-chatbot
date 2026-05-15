@@ -183,6 +183,12 @@ export interface Env {
   GEOAPIFY_MIN_CHARS?: string;
   DEBUG_GEO?: string;
 
+  // Global search (issue #571)
+  SEARCH_INDEX_EVENTS?: Queue<import('./types/search.js').SearchIndexEvent>;
+  SEARCH_VECTORS?: VectorizeIndex;
+  AI?: Ai;
+  SEARCH_SEMANTIC_ENABLED?: string;
+  SEARCH_INDEX_CONCURRENCY?: string;
 }
 
 // HTTP Error class for centralized error handling
