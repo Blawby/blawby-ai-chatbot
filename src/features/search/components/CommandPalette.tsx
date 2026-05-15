@@ -93,9 +93,14 @@ export function CommandPalette({
   }, [envelope]);
 
   const [activeIndex, setActiveIndex] = useState(0);
-  useEffect(() => {
+
+  // Pair query updates with an activeIndex reset at the call site rather
+  // than via a derived-state useEffect — the effect form re-fired on every
+  // query change including programmatic resets, racing with selectResult.
+  const setQueryAndReset = useCallback((next: string) => {
+    setQuery(next);
     setActiveIndex(0);
-  }, [query]);
+  }, []);
 
   const selectResult = useCallback(
     (item: SearchResultItem, rank: number): void => {
@@ -156,7 +161,7 @@ export function CommandPalette({
           ref={inputRef}
           type="text"
           value={query}
-          onInput={(event) => setQuery((event.target as HTMLInputElement).value)}
+          onInput={(event) => setQueryAndReset((event.target as HTMLInputElement).value)}
           placeholder="Search clients, matters, invoices, files…"
           className="flex-1 bg-transparent py-3 outline-none text-base text-input-text placeholder:text-input-text/40"
           aria-label="Search query"
@@ -166,7 +171,7 @@ export function CommandPalette({
         {suggestions.length > 0 ? (
           <SuggestionsList
             suggestions={suggestions}
-            onPick={(s) => setQuery(s)}
+            onPick={(s) => setQueryAndReset(s)}
           />
         ) : null}
         {error ? (
@@ -179,7 +184,7 @@ export function CommandPalette({
             {envelope.didYouMean?.title ? (
               <DidYouMean
                 title={envelope.didYouMean.title}
-                onPick={() => envelope.didYouMean && setQuery(envelope.didYouMean.title ?? '')}
+                onPick={() => envelope.didYouMean && setQueryAndReset(envelope.didYouMean.title ?? '')}
               />
             ) : null}
           </>
@@ -190,7 +195,7 @@ export function CommandPalette({
             onSelect={selectResult}
           />
         ) : recents.length > 0 ? (
-          <RecentsList recents={recents} onPick={(q) => setQuery(q)} />
+          <RecentsList recents={recents} onPick={(q) => setQueryAndReset(q)} />
         ) : (
           <EmptyState message="Start typing to search" />
         )}

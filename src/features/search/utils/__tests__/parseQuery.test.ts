@@ -105,6 +105,7 @@ describe('parseQuery', () => {
         'files',
         'intakes',
         'notes',
+        'reports',
       ]);
     });
 

@@ -100,23 +100,31 @@ export async function handleGlobalSearch(
       return await handlePins(request, env, practiceId, parsed.rest, method);
     }
 
-    if (action === 'click' && method === 'POST') {
+    // For the remaining actions, recognize the action first and 405 if the
+    // method doesn't match — that's a more useful signal than 'not found'
+    // (which obscures whether the route exists at all).
+    if (action === 'click') {
+      if (method !== 'POST') throw HttpErrors.methodNotAllowed();
       return await handleClick(request, env, practiceId);
     }
 
-    if (action === 'reindex' && method === 'POST') {
+    if (action === 'reindex') {
+      if (method !== 'POST') throw HttpErrors.methodNotAllowed();
       return await handleReindex(request, env, practiceId);
     }
 
-    if (action === 'index-stats' && method === 'GET') {
+    if (action === 'index-stats') {
+      if (method !== 'GET') throw HttpErrors.methodNotAllowed();
       return await handleIndexStats(request, env, practiceId);
     }
 
-    if (action === 'analytics' && method === 'GET') {
+    if (action === 'analytics') {
+      if (method !== 'GET') throw HttpErrors.methodNotAllowed();
       return await handleAnalytics(request, env, practiceId);
     }
 
-    if (action === 'suggest' && method === 'GET') {
+    if (action === 'suggest') {
+      if (method !== 'GET') throw HttpErrors.methodNotAllowed();
       return await handleSuggest(request, env, practiceId, url);
     }
 
@@ -178,6 +186,12 @@ async function handleSearchQuery(
   const indexService = new SearchIndexService(env);
   const vectorService = new SearchVectorService(env);
 
+  // FTS5 and Vectorize run in parallel and we RRF-merge the results.
+  // Catching here is INTENTIONAL graceful-degradation, not a bug-hider:
+  // if Vectorize is down (Cloudflare incident / quota), FTS5 still
+  // returns keyword hits; if FTS5 fails (malformed query, table missing),
+  // semantic still works. The Logger.warn + structured context is the
+  // visibility signal — surface in dashboards/alerts.
   const ftsStart = Date.now();
   const ftsItemsPromise = indexService
     .query({
@@ -187,14 +201,22 @@ async function handleSearchQuery(
       limit: groupLimit * 8,
     } satisfies SearchIndexQueryOptions)
     .catch((error) => {
-      Logger.warn('FTS query failed', { error: String(error) });
+      Logger.warn('search.fts.failed', {
+        practiceId,
+        ftsQuery,
+        error: error instanceof Error ? error.message : String(error),
+      });
       return [];
     });
 
   const vectorStart = Date.now();
   const vectorMatchesPromise = semanticEnabled && vectorService.isEnabled()
     ? vectorService.query(terms, practiceId, { topK: groupLimit * 4 }).catch((error) => {
-        Logger.warn('Vectorize query failed', { error: String(error) });
+        Logger.warn('search.vector.failed', {
+          practiceId,
+          terms,
+          error: error instanceof Error ? error.message : String(error),
+        });
         return [];
       })
     : Promise.resolve([]);
@@ -423,9 +445,14 @@ async function maybeRerank(
 
 // === Tier 3a: LLM query rewriting ================================
 
+const VALID_SCOPES = new Set<SearchScope>([
+  'clients', 'matters', 'invoices', 'conversations', 'files', 'intakes', 'notes', 'reports',
+]);
+const VALID_FILTER_KEYS = new Set<string>(['status', 'archived', 'assignee']);
+
 type LlmRewriteOutput = {
   terms: string;
-  scopes?: Array<'clients' | 'matters' | 'invoices' | 'conversations' | 'files' | 'intakes' | 'notes'>;
+  scopes?: SearchScope[];
   filters?: Record<string, string>;
 };
 
@@ -457,9 +484,26 @@ async function maybeLlmRewrite(env: Env, rawQuery: string): Promise<LlmRewriteOu
     const jsonStart = text.indexOf('{');
     const jsonEnd = text.lastIndexOf('}');
     if (jsonStart < 0 || jsonEnd <= jsonStart) return null;
-    const parsed = JSON.parse(text.slice(jsonStart, jsonEnd + 1)) as LlmRewriteOutput;
-    if (typeof parsed.terms !== 'string') return null;
-    return parsed;
+    const raw = JSON.parse(text.slice(jsonStart, jsonEnd + 1)) as Partial<LlmRewriteOutput>;
+    if (typeof raw.terms !== 'string') return null;
+    // The LLM is untrusted output — validate scopes against the whitelist
+    // and filters against the documented key set before letting them flow
+    // into downstream query construction.
+    const scopes = Array.isArray(raw.scopes)
+      ? raw.scopes.filter(
+          (s): s is SearchScope =>
+            typeof s === 'string' && VALID_SCOPES.has(s as SearchScope),
+        )
+      : undefined;
+    const filters =
+      raw.filters && typeof raw.filters === 'object'
+        ? Object.fromEntries(
+            Object.entries(raw.filters).filter(
+              ([k, v]) => VALID_FILTER_KEYS.has(k) && typeof v === 'string',
+            ),
+          )
+        : undefined;
+    return { terms: raw.terms, scopes, filters };
   } catch (error) {
     Logger.debug('LLM rewrite failed/skipped', { error: String(error) });
     return null;

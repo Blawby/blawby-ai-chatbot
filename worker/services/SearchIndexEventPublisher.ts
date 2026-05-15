@@ -5,6 +5,7 @@ import type {
   SearchIndexPayload,
 } from '../types/search.js';
 import { Logger } from '../utils/logger.js';
+import { SearchVectorService } from './SearchVectorService.js';
 
 export class SearchIndexEventPublisher {
   constructor(private env: Env) {}
@@ -84,17 +85,16 @@ export class SearchIndexEventPublisher {
     const { fileId, practiceId, fileName, extractedText, clientId, matterId } = params;
     if (!extractedText || extractedText.trim().length === 0) return 0;
 
-    const chunkSize = params.chunkSize ?? 1000;
-    const overlap = params.overlap ?? 400;
-    const chunks: string[] = [];
-    let start = 0;
-    while (start < extractedText.length) {
-      const end = Math.min(start + chunkSize, extractedText.length);
-      chunks.push(extractedText.slice(start, end));
-      if (end === extractedText.length) break;
-      start = end - overlap;
-      if (start < 0) start = 0;
-    }
+    // Delegate to SearchVectorService.chunkText so the chunking math lives
+    // in one place — same code path the consumer uses when it re-chunks
+    // for the Vectorize side, so both indexes stay in sync on chunk
+    // boundaries.
+    const vectorService = new SearchVectorService(this.env);
+    const chunks = vectorService.chunkText(
+      extractedText,
+      params.chunkSize,
+      params.overlap,
+    );
 
     const version = Date.now();
     let published = 0;

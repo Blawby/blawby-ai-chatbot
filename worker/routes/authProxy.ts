@@ -233,19 +233,28 @@ async function dispatchSearchIndexEvent(
     });
   }
 
+  const headerPracticeId = readPracticeIdFromHeaders(request);
+
   if (op === 'delete') {
     const entityId = pathname.split('/').filter(Boolean).pop();
-    const practiceId = readPracticeIdFromHeaders(request);
-    if (entityId && practiceId) {
-      const entityType = entityTypeForDelete(pathname);
-      if (entityType) {
-        const enqueue = publisher.publishCascadeDelete(entityType, entityId, practiceId);
-        if (ctx) ctx.waitUntil(enqueue);
-        else await enqueue;
-      }
+    const entityType = entityTypeForDelete(pathname);
+    if (entityType && entityId && headerPracticeId) {
+      const enqueue = publisher.publishCascadeDelete(entityType, entityId, headerPracticeId);
+      if (ctx) ctx.waitUntil(enqueue);
+      else await enqueue;
+    } else if (entityType && entityId && !headerPracticeId) {
+      // We CAN'T enqueue a cascade-delete without a practice id (the worker
+      // never persists practice scoping per entity outside the index). Log
+      // the miss so it's not silently dropped; don't throw — the upstream
+      // delete succeeded and the client deserves the 2xx.
+      Logger.warn('search-index: delete skipped, missing x-practice-id header', {
+        pathname,
+        entityType,
+        entityId,
+      });
     }
   } else if (parsedBody) {
-    const normalized = normalizeForIndex(pathname, parsedBody, readPracticeIdFromHeaders(request));
+    const normalized = normalizeForIndex(pathname, parsedBody, headerPracticeId);
     if (normalized) {
       const enqueue = publisher.publishUpsert(
         normalized.entityType,
@@ -255,6 +264,14 @@ async function dispatchSearchIndexEvent(
       );
       if (ctx) ctx.waitUntil(enqueue);
       else await enqueue;
+    } else if (!headerPracticeId) {
+      // The normalizer falls through to header.practiceId only when the
+      // response body lacks practice_id/organization_id. If we reach here
+      // with no header value either, the upsert was definitely silently
+      // dropped — surface it.
+      Logger.warn('search-index: upsert skipped, no practice id in body or x-practice-id header', {
+        pathname,
+      });
     }
   }
 
@@ -281,5 +298,9 @@ function entityTypeForDelete(pathname: string): import('../types/search.js').Sea
   if (pathname.startsWith('/api/matters')) return 'matter';
   if (pathname.startsWith('/api/invoices')) return 'invoice';
   if (pathname.startsWith('/api/practice-client-intakes')) return 'intake';
+  // Conversations are worker-owned today so the proxy hook doesn't fire on
+  // their DELETEs, but symmetry with the upsert path keeps this future-proof.
+  if (pathname.startsWith('/api/conversations')) return 'conversation';
+  if (pathname.startsWith('/api/uploads')) return 'file';
   return null;
 }

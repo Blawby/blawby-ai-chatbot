@@ -379,9 +379,48 @@ function readNumber(obj: AnyRecord, key: string): number | null {
   return typeof val === 'number' && Number.isFinite(val) ? val : null;
 }
 
+// Path segments that are NEVER ids — collection names, sub-resource verbs,
+// pagination cursors. Stops the fallback from picking up
+// e.g. /api/clients (no id, last segment is the collection name).
+const RESERVED_PATH_SEGMENTS = new Set<string>([
+  'api',
+  'clients',
+  'matters',
+  'invoices',
+  'uploads',
+  'files',
+  'conversations',
+  'practice-client-intakes',
+  'intakes',
+  'notes',
+  'reports',
+  'pins',
+  'click',
+  'reindex',
+  'index-stats',
+  'analytics',
+  'suggest',
+  'new',
+  'responses',
+  'edit',
+]);
+
+// Recognized id shapes:
+//   - UUIDv4-ish: 8-4-4-4-12 hex chars (with dashes)
+//   - ULID: 26 Crockford-base32 chars
+//   - opaque alphanumeric ids: at least 12 chars, mix of letters+digits
+// Plain words like "clients" or "active" fail all three.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const ULID_RE = /^[0-9A-HJKMNP-TV-Z]{26}$/;
+const OPAQUE_ID_RE = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z0-9_-]{12,}$/;
+
 function extractIdFromPath(pathname: string): string | null {
   const parts = pathname.split('/').filter(Boolean);
   const last = parts[parts.length - 1];
   if (!last) return null;
-  return /^[a-zA-Z0-9_-]{4,}$/.test(last) ? last : null;
+  if (RESERVED_PATH_SEGMENTS.has(last.toLowerCase())) return null;
+  if (UUID_RE.test(last) || ULID_RE.test(last) || OPAQUE_ID_RE.test(last)) {
+    return last;
+  }
+  return null;
 }
