@@ -165,6 +165,13 @@ export interface Conversation {
   internal_notes?: string | null; // Internal notes for practice members
   last_message_at?: string | null; // ISO timestamp of last message
   last_message_content?: string | null; // Content of last message for preview
+  /**
+   * Populated only when the conversation list endpoint is called with
+   * `?include=latest_message`. Lets inbox/preview consumers read the latest
+   * non-system message off the list response instead of issuing a separate
+   * `GET /api/conversations/:id/messages?source=preview` per row.
+   */
+  latest_message?: { content: string; role: MessageRole; created_at: string } | null;
   unread_count?: number | null;
   latest_seq?: number;
   first_response_at?: string | null; // ISO timestamp of first practice member response

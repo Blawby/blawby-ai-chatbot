@@ -414,15 +414,8 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   }, [practiceId, setup]);
 
   const { conversationPreviews } = useConversationPreviews({
-    practiceId,
-    view,
-    workspace,
     filteredConversations,
-    isSessionPending,
-    isAnonymous,
-    sessionUserId,
     mockConversationPreviews,
-    mockConversations,
   });
 
   const handleSelectConversation = useCallback((conversationId: string) => {

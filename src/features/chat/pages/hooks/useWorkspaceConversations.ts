@@ -60,7 +60,11 @@ export function useWorkspaceConversations({
     allowAnonymous: workspace === 'public',
     preferOrgScopedPracticeList: false,
     assignedTo: conversationAssignedToFilter,
-    limit: 100
+    limit: 100,
+    // Preview surfaces (inbox row, widget conversation list) read latest_message
+    // off the list response; without this they'd refire one /messages?source=preview
+    // request per conversation on mount.
+    includeLatestMessage: true,
   });
   const resolvedConversations = mockConversations ?? conversations;
   const resolvedConversationsLoading = mockConversations ? false : isConversationsLoading;
