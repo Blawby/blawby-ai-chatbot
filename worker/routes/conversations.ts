@@ -486,6 +486,16 @@ export async function handleConversations(request: Request, env: Env): Promise<R
 
   // GET /api/conversations - Smart endpoint that detects user type
   if (segments.length === 2 && request.method === 'GET') {
+    // CSV-style `?include=a,b` to opt into denormalized payload extras. Today
+    // only `latest_message` is supported; absent ⇒ unchanged response shape.
+    const includeTokens = new Set(
+      (url.searchParams.get('include') || '')
+        .split(',')
+        .map((token) => token.trim().toLowerCase())
+        .filter((token) => token.length > 0)
+    );
+    const includeLatestMessage = includeTokens.has('latest_message');
+
     if (wantsAllScope) {
       if (authContext.isAnonymous) {
         throw HttpErrors.unauthorized('Sign in is required to list conversations');
@@ -499,7 +509,8 @@ export async function handleConversations(request: Request, env: Env): Promise<R
         userId,
         status: status || undefined,
         limit,
-        offset
+        offset,
+        includeLatestMessage
       });
 
       const practiceIds = Array.from(new Set(conversations.map((conversation) => conversation.practice_id)));
@@ -554,7 +565,8 @@ export async function handleConversations(request: Request, env: Env): Promise<R
           userId,
           status: status || undefined,
           limit,
-          acceptedConversationIds: null
+          acceptedConversationIds: null,
+          includeLatestMessage
         });
         return createJsonResponse({ conversations });
       }
@@ -589,7 +601,8 @@ export async function handleConversations(request: Request, env: Env): Promise<R
         status: (status && status !== 'all') ? status as ConversationStatus : undefined,
         assignedTo: assignedTo === 'none' ? 'none' : undefined,
         limit,
-        acceptedConversationIds
+        acceptedConversationIds,
+        includeLatestMessage
       });
       return createJsonResponse({ conversations });
     }
@@ -621,7 +634,8 @@ export async function handleConversations(request: Request, env: Env): Promise<R
       status: status || undefined,
       assignedTo: assignedTo === 'none' ? 'none' : undefined,
       limit,
-      acceptedConversationIds
+      acceptedConversationIds,
+      includeLatestMessage
     });
 
     return createJsonResponse({ conversations }); // Array wrapped in object

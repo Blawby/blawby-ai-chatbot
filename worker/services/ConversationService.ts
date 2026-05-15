@@ -40,6 +40,11 @@ export interface Conversation {
   internal_notes?: string | null; // Internal notes for practice members
   last_message_at?: string | null; // Timestamp of last message
   last_message_content?: string | null; // Content of last message for preview
+  // Populated only when the caller passes `?include=latest_message` on the
+  // list endpoint. List consumers (inbox previews, widget conversation
+  // selector) read this instead of issuing one /messages?source=preview
+  // request per conversation.
+  latest_message?: { content: string; role: 'user' | 'assistant' | 'system'; created_at: string } | null;
   unread_count?: number | null;
   latest_seq?: number;
   first_response_at?: string | null; // Timestamp of first practice member response
@@ -611,6 +616,20 @@ export class ConversationService {
       internal_notes: getNullableString(record.internal_notes),
       last_message_at: getNullableString(record.last_message_at),
       last_message_content: getNullableString(record.last_message_content),
+      // The latest_msg_* columns only appear on rows produced by the
+      // `?include=latest_message` JOIN. Absent ⇒ leave the field undefined so
+      // callers can tell "not requested" apart from "no message yet".
+      latest_message: (() => {
+        if (!('latest_msg_content' in record)) return undefined;
+        const content = getNullableString(record.latest_msg_content);
+        if (!content) return null;
+        const roleRaw = getNullableString(record.latest_msg_role);
+        const role = roleRaw === 'user' || roleRaw === 'assistant' || roleRaw === 'system'
+          ? roleRaw
+          : 'assistant';
+        const created_at = getNullableString(record.latest_msg_created_at) ?? '';
+        return { content, role, created_at };
+      })(),
       first_response_at: getNullableString(record.first_response_at),
       closed_at: getNullableString(record.closed_at),
       unread_count: typeof record.unread_count === 'number' ? record.unread_count : null,
@@ -803,27 +822,58 @@ export class ConversationService {
     assignedTo?: 'none';
     limit?: number;
     acceptedConversationIds?: Set<string> | null;
+    /**
+     * When true, the SELECT joins a window-function subquery that pulls the
+     * latest non-system message per conversation in a single SQL round-trip.
+     * Each returned row gains latest_msg_content / latest_msg_role /
+     * latest_msg_created_at, which mapRecordToConversation surfaces as the
+     * `latest_message` field. Off by default — list consumers that need
+     * preview text opt in (it's an extra subquery on every row).
+     */
+    includeLatestMessage?: boolean;
   }): Promise<Conversation[]> {
     const limit = Math.min(options.limit || 50, 100); // Max 100
     const includeReadState = Boolean(options.userId);
+    const latestMessageJoin = options.includeLatestMessage
+      ? `
+      LEFT JOIN (
+        SELECT conversation_id, content, role, created_at
+        FROM (
+          SELECT conversation_id, content, role, created_at,
+                 ROW_NUMBER() OVER (PARTITION BY conversation_id ORDER BY seq DESC) AS rn
+          FROM chat_messages
+          WHERE role <> 'system' AND TRIM(COALESCE(content, '')) <> ''
+        ) sub
+        WHERE rn = 1
+      ) latest_msg ON latest_msg.conversation_id = conversations.id
+    `
+      : '';
+    const latestMessageCols = options.includeLatestMessage
+      ? `,
+        latest_msg.content AS latest_msg_content,
+        latest_msg.role AS latest_msg_role,
+        latest_msg.created_at AS latest_msg_created_at`
+      : '';
     let query = includeReadState
       ? `
-      SELECT 
+      SELECT
         conversations.*,
         CASE
           WHEN conversations.latest_seq > COALESCE(conversation_read_state.last_read_seq, 0)
             THEN conversations.latest_seq - COALESCE(conversation_read_state.last_read_seq, 0)
           ELSE 0
-        END AS unread_count
+        END AS unread_count${latestMessageCols}
       FROM conversations
       LEFT JOIN conversation_read_state
         ON conversation_read_state.conversation_id = conversations.id
        AND conversation_read_state.user_id = ?
+      ${latestMessageJoin}
       WHERE conversations.practice_id = ?
     `
       : `
-      SELECT conversations.*
+      SELECT conversations.*${latestMessageCols}
       FROM conversations
+      ${latestMessageJoin}
       WHERE conversations.practice_id = ?
     `;
     const bindings: unknown[] = includeReadState
@@ -919,9 +969,30 @@ export class ConversationService {
     status?: 'active' | 'archived' | 'closed';
     limit?: number;
     offset?: number;
+    includeLatestMessage?: boolean;
   }): Promise<Conversation[]> {
     const limit = Math.min(options.limit || 50, 100);
     const offset = Math.max(options.offset || 0, 0);
+    const latestMessageJoin = options.includeLatestMessage
+      ? `
+      LEFT JOIN (
+        SELECT conversation_id, content, role, created_at
+        FROM (
+          SELECT conversation_id, content, role, created_at,
+                 ROW_NUMBER() OVER (PARTITION BY conversation_id ORDER BY seq DESC) AS rn
+          FROM chat_messages
+          WHERE role <> 'system' AND TRIM(COALESCE(content, '')) <> ''
+        ) sub
+        WHERE rn = 1
+      ) latest_msg ON latest_msg.conversation_id = conversations.id
+    `
+      : '';
+    const latestMessageCols = options.includeLatestMessage
+      ? `,
+        latest_msg.content AS latest_msg_content,
+        latest_msg.role AS latest_msg_role,
+        latest_msg.created_at AS latest_msg_created_at`
+      : '';
     let query = `
       SELECT
         conversations.*,
@@ -930,11 +1001,12 @@ export class ConversationService {
           WHEN conversations.latest_seq > COALESCE(conversation_read_state.last_read_seq, 0)
             THEN conversations.latest_seq - COALESCE(conversation_read_state.last_read_seq, 0)
           ELSE 0
-        END AS unread_count
+        END AS unread_count${latestMessageCols}
       FROM conversations
       LEFT JOIN conversation_read_state
         ON conversation_read_state.conversation_id = conversations.id
        AND conversation_read_state.user_id = ?
+      ${latestMessageJoin}
       WHERE EXISTS (
         SELECT 1
         FROM conversation_participants cp
