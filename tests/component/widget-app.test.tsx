@@ -110,7 +110,7 @@ vi.mock('@/shared/hooks/useConversationSystemMessages', () => ({
 }));
 
 vi.mock('@/shared/lib/conversationApi', () => ({
-  fetchLatestConversationMessage: vi.fn(),
+  createConversation: vi.fn(),
 }));
 
 vi.mock('@/shared/utils/widgetEvents', () => ({

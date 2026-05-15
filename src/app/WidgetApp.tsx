@@ -14,7 +14,7 @@ import { useConversations } from '@/shared/hooks/useConversations';
 import { useMessageHandling } from '@/shared/hooks/useMessageHandling';
 import { useConversationSystemMessages } from '@/shared/hooks/useConversationSystemMessages';
 import { ChatActionCard } from '@/features/chat/components/ChatActionCard';
-import { createConversation, fetchLatestConversationMessage } from '@/shared/lib/conversationApi';
+import { createConversation } from '@/shared/lib/conversationApi';
 import { postToParentFrame, resolveAllowedParentOrigins } from '@/shared/utils/widgetEvents';
 import { setupGlobalKeyboardListeners } from '@/shared/utils/keyboard';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
@@ -162,103 +162,52 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
   const practiceDetailsMap = useStore(practiceDetailsStore);
   const cachedPracticeDetails = practiceDetailsMap[practiceId] || practiceDetails;
 
-  // Fetch conversations to show "Recent Message" on home page and for the list view
+  // Fetch conversations to show "Recent Message" on home page and for the list view.
+  // include=latest_message hands us the preview text on the list response so we
+  // don't fan out per-conversation /messages?source=preview calls.
   const { conversations, isLoading: isConversationsLoading } = useConversations({
     practiceId,
     list: true,
     enabled: Boolean(practiceId),
     allowAnonymous: true,
     status: 'active',
+    includeLatestMessage: true,
   });
 
   const latestConversation = useMemo(() => {
     if (!conversations) return null;
     // Pick the first conversation that actually has a message (not an empty prewarmed draft)
-    return conversations.find(c => Boolean(c.last_message_at || c.last_message_content)) || null;
+    return conversations.find(c => Boolean(c.last_message_at || c.last_message_content || c.latest_message?.content)) || null;
   }, [conversations]);
-
-  const [conversationPreviews, setConversationPreviews] = useState<Record<string, {
-    content: string;
-    role: string;
-    createdAt: string;
-  }>>({});
-  const fetchedPreviewIds = useRef<Set<string>>(new Set());
-  const previewFailureCounts = useRef<Record<string, number>>({});
-  const MAX_PREVIEW_ATTEMPTS = 2;
 
   const recentMessage = useMemo(() => {
     if (!latestConversation) return null;
     const conversationLabel = resolveConversationDisplayTitle(latestConversation, practiceConfig.name || 'Assistant');
-    const latestPreview = conversationPreviews[latestConversation.id];
+    const previewContent = latestConversation.latest_message?.content
+      ?? latestConversation.last_message_content
+      ?? latestConversation.user_info?.title
+      ?? 'Click to continue your conversation';
     return {
-      preview: latestPreview?.content || latestConversation.last_message_content || latestConversation.user_info?.title || 'Click to continue your conversation',
+      preview: previewContent,
       timestampLabel: formatRelativeTime(latestConversation.updated_at),
       senderLabel: conversationLabel,
       avatarSrc: practiceConfig.profileImage,
       conversationId: latestConversation.id
     };
-  }, [latestConversation, practiceConfig.name, practiceConfig.profileImage, conversationPreviews]);
+  }, [latestConversation, practiceConfig.name, practiceConfig.profileImage]);
 
-  useEffect(() => {
-    fetchedPreviewIds.current = new Set();
-    previewFailureCounts.current = {};
-    setConversationPreviews({});
-  }, [practiceId]);
-
-  useEffect(() => {
-    if (!practiceId || conversations.length === 0 || view === 'chat') return;
-    let isMounted = true;
-
-    const loadPreviews = async () => {
-      const updates: Record<string, { content: string; role: string; createdAt: string }> = {};
-      const toFetch = conversations.slice(0, 10).filter(
-        (conversation) => !fetchedPreviewIds.current.has(conversation.id)
-      );
-
-      await Promise.all(toFetch.map(async (conversation) => {
-        const message = await fetchLatestConversationMessage(conversation.id, practiceId).catch(() => null);
-        if (message?.content) {
-          fetchedPreviewIds.current.add(conversation.id);
-          updates[conversation.id] = {
-            content: message.content,
-            role: message.role,
-            createdAt: message.created_at,
-          };
-          return;
-        }
-
-        const currentFailures = previewFailureCounts.current[conversation.id] ?? 0;
-        const nextFailures = currentFailures + 1;
-        previewFailureCounts.current[conversation.id] = nextFailures;
-        if (nextFailures >= MAX_PREVIEW_ATTEMPTS) {
-          fetchedPreviewIds.current.add(conversation.id);
-        }
-      }));
-
-      if (isMounted && Object.keys(updates).length > 0) {
-        setConversationPreviews((prev) => ({ ...prev, ...updates }));
-      }
-    };
-
-    void loadPreviews();
-    return () => {
-      isMounted = false;
-    };
-  }, [conversations, practiceId, view]);
-
-  // Previews for ConversationListView
+  // Previews for ConversationListView — read latest_message off each row.
   const previews = useMemo(() => {
     const map: Record<string, { content: string; role: string; createdAt: string }> = {};
     conversations.forEach(c => {
-      const preview = conversationPreviews[c.id];
       map[c.id] = {
-        content: preview?.content || c.last_message_content || c.user_info?.title || 'No messages yet',
-        role: preview?.role || 'assistant',
-        createdAt: c.updated_at
+        content: c.latest_message?.content || c.last_message_content || c.user_info?.title || 'No messages yet',
+        role: c.latest_message?.role || 'assistant',
+        createdAt: c.latest_message?.created_at || c.updated_at,
       };
     });
     return map;
-  }, [conversations, conversationPreviews]);
+  }, [conversations]);
 
   const { t } = useTranslation('common');
 

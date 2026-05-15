@@ -17,6 +17,13 @@ interface UseConversationsOptions {
   enabled?: boolean;
   allowAnonymous?: boolean;
   preferOrgScopedPracticeList?: boolean;
+  /**
+   * When true, attach `?include=latest_message` to the list request so each
+   * conversation arrives with a denormalized `latest_message` field. Inbox
+   * preview surfaces should opt in; chat-detail / single-conversation paths
+   * do not need it.
+   */
+  includeLatestMessage?: boolean;
   onError?: (error: string) => void;
 }
 
@@ -58,6 +65,7 @@ export function useConversations({
   enabled = true,
   allowAnonymous = false,
   preferOrgScopedPracticeList = false,
+  includeLatestMessage = false,
   onError,
 }: UseConversationsOptions = {}): UseConversationsReturn {
   const { activePracticeId, session, isPending: sessionIsPending } = useSessionContext();
@@ -134,6 +142,7 @@ export function useConversations({
       if (limit) params.limit = limit.toString();
       if (offset !== undefined && offset !== null) params.offset = offset.toString();
       if (list) params.list = 'true';
+      if (includeLatestMessage) params.include = 'latest_message';
 
       const endpoint = scope === 'practice' && preferOrgScopedPracticeList
         ? getPracticeConversationsEndpoint()
@@ -187,7 +196,7 @@ export function useConversations({
         setIsLoading(false);
       }
     }
-  }, [practiceId, matterId, status, assignedTo, scope, limit, offset, list, enabled, sessionPracticeId, sessionReady, preferOrgScopedPracticeList]);
+  }, [practiceId, matterId, status, assignedTo, scope, limit, offset, list, enabled, sessionPracticeId, sessionReady, preferOrgScopedPracticeList, includeLatestMessage]);
 
   // Refresh conversations
   const refresh = useCallback(async () => {
@@ -310,8 +319,8 @@ export function useConversations({
     return () => {
       controller.abort();
     };
-   
-  }, [practiceId, sessionPracticeId, matterId, status, assignedTo, scope, enabled, sessionReady, list, preferOrgScopedPracticeList, limit, offset]);
+
+  }, [practiceId, sessionPracticeId, matterId, status, assignedTo, scope, enabled, sessionReady, list, preferOrgScopedPracticeList, limit, offset, includeLatestMessage]);
 
   return {
     conversations,
