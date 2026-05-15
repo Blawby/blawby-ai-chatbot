@@ -7,14 +7,61 @@ import type { SearchEntityType } from '../types/search.js';
 
 type ListEndpoint = {
   type: SearchEntityType;
-  path: string;
+  /** The /api/<entity> prefix used to look up the normalizer + display the type. */
+  pathPrefix: string;
+  /** Build the actual list URL for the (practice, page) tuple. Different
+   *  backend endpoints use different pagination styles (page+limit, limit+offset). */
+  buildUrl: (baseUrl: string, practiceId: string, page: number, pageSize: number) => string;
+  /** Extract the array of entity records from the response body. Different
+   *  endpoints wrap results under different keys (`matters`, `data`, `intakes`). */
+  extractItems: (body: unknown) => Array<Record<string, unknown>>;
 };
 
+const enc = encodeURIComponent;
+
 const ENTITY_ENDPOINTS: readonly ListEndpoint[] = [
-  { type: 'client', path: '/api/clients' },
-  { type: 'matter', path: '/api/matters' },
-  { type: 'invoice', path: '/api/invoices' },
-  { type: 'intake', path: '/api/practice-client-intakes' },
+  {
+    type: 'matter',
+    pathPrefix: '/api/matters',
+    buildUrl: (base, pid, page, size) =>
+      `${base}/api/matters/${enc(pid)}?page=${page}&limit=${size}`,
+    extractItems: (body) =>
+      (Array.isArray((body as { matters?: unknown[] })?.matters)
+        ? ((body as { matters: unknown[] }).matters as Array<Record<string, unknown>>)
+        : []),
+  },
+  {
+    type: 'client',
+    pathPrefix: '/api/clients',
+    buildUrl: (base, pid, page, size) =>
+      `${base}/api/clients/${enc(pid)}?limit=${size}&offset=${(page - 1) * size}`,
+    extractItems: (body) =>
+      (Array.isArray((body as { data?: unknown[] })?.data)
+        ? ((body as { data: unknown[] }).data as Array<Record<string, unknown>>)
+        : []),
+  },
+  {
+    type: 'invoice',
+    pathPrefix: '/api/invoices',
+    buildUrl: (base, pid, page, size) =>
+      `${base}/api/invoices/${enc(pid)}?limit=${size}&offset=${(page - 1) * size}`,
+    extractItems: (body) =>
+      (Array.isArray((body as { data?: unknown[] })?.data)
+        ? ((body as { data: unknown[] }).data as Array<Record<string, unknown>>)
+        : []),
+  },
+  {
+    type: 'intake',
+    pathPrefix: '/api/practice-client-intakes',
+    buildUrl: (base, pid, page, size) =>
+      `${base}/api/practice-client-intakes/${enc(pid)}?limit=${size}&offset=${(page - 1) * size}`,
+    extractItems: (body) =>
+      (Array.isArray((body as { intakes?: unknown[] })?.intakes)
+        ? ((body as { intakes: unknown[] }).intakes as Array<Record<string, unknown>>)
+        : Array.isArray((body as { data?: unknown[] })?.data)
+          ? ((body as { data: unknown[] }).data as Array<Record<string, unknown>>)
+          : []),
+  },
 ];
 
 const PAGE_SIZE = 100;
@@ -90,7 +137,7 @@ export class SearchBackfillService {
   ): Promise<number> {
     let indexed = 0;
     for (let page = 1; page <= MAX_PAGES_PER_TYPE; page += 1) {
-      const url = `${baseUrl}${endpoint.path}?practice_id=${encodeURIComponent(practiceId)}&page=${page}&per_page=${PAGE_SIZE}`;
+      const url = endpoint.buildUrl(baseUrl, practiceId, page, PAGE_SIZE);
       const response = await fetch(url, {
         headers: { Cookie: cookie, Accept: 'application/json' },
       });
@@ -98,16 +145,17 @@ export class SearchBackfillService {
         Logger.warn('backfill page fetch failed', {
           type: endpoint.type,
           page,
+          url,
           status: response.status,
         });
         return indexed;
       }
       const payload = (await response.json().catch(() => null)) as unknown;
-      const items = extractItemsArray(payload);
+      const items = endpoint.extractItems(payload);
       if (items.length === 0) return indexed;
 
       for (const item of items) {
-        const normalized = normalizeForIndex(endpoint.path, item, practiceId);
+        const normalized = normalizeForIndex(endpoint.pathPrefix, item, practiceId);
         if (!normalized) continue;
         try {
           await indexService.upsert(
@@ -152,13 +200,3 @@ export function makeBackfillCookieKey(practiceId: string): string {
   return `${COOKIE_KV_PREFIX}${practiceId}:${crypto.randomUUID()}`;
 }
 
-function extractItemsArray(payload: unknown): Array<Record<string, unknown>> {
-  if (!payload || typeof payload !== 'object') return [];
-  const obj = payload as Record<string, unknown>;
-  for (const key of ['data', 'items', 'results', 'matters', 'clients', 'invoices', 'intakes']) {
-    const value = obj[key];
-    if (Array.isArray(value)) return value as Array<Record<string, unknown>>;
-  }
-  if (Array.isArray(payload)) return payload as Array<Record<string, unknown>>;
-  return [];
-}

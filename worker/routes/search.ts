@@ -153,7 +153,9 @@ async function handleSearchQuery(
   if (llmRewritten?.filters) {
     Object.assign(parsedQ.filters, llmRewritten.filters);
   }
-  applyLegalSynonyms(parsedQ);
+  // Synonym expansion now happens INSIDE buildFtsQuery (per-term OR
+  // alternation). The old applyLegalSynonyms() concatenated synonyms onto
+  // parsed.terms, which FTS5 then treated as AND — breaking the base query.
 
   const requestedScopes = parsedQ.scopes;
   const limitParam = Number(url.searchParams.get('limit') ?? DEFAULT_GROUP_LIMIT);
@@ -290,9 +292,10 @@ async function handleSuggest(
   }
 
   // Two pools:
-  //   1. User's own recent successful queries
-  //   2. Practice-wide popular successful queries
-  // Dedup, prefer user history first, cap at 8.
+  //   1. User's own MOST recent successful query (capped at 1 — keeps the
+  //      dropdown tight; users felt the previous 8-recent cap was noisy).
+  //   2. Practice-wide popular successful queries (fills the rest).
+  // Dedup, prefer user history first.
   const userRows = await env.DB.prepare(
     `SELECT DISTINCT query
        FROM search_query_log
@@ -301,7 +304,7 @@ async function handleSuggest(
         AND result_count > 0
         AND lower(query) LIKE ?
       ORDER BY created_at DESC
-      LIMIT 8`,
+      LIMIT 1`,
   )
     .bind(practiceId, auth.user.id, `${prefix}%`)
     .all<{ query: string }>();
@@ -485,18 +488,6 @@ const LEGAL_SYNONYMS: Record<string, string[]> = {
   pi: ['personal injury'],
 };
 
-function applyLegalSynonyms(parsed: { terms: string }): void {
-  if (!parsed.terms) return;
-  const tokens = parsed.terms.split(/\s+/).filter(Boolean);
-  const expanded = new Set<string>(tokens.map((t) => t.toLowerCase()));
-  for (const tok of tokens) {
-    const synonyms = LEGAL_SYNONYMS[tok.toLowerCase()];
-    if (synonyms) {
-      for (const s of synonyms) expanded.add(s.toLowerCase());
-    }
-  }
-  parsed.terms = Array.from(expanded).join(' ');
-}
 
 /**
  * FTS5 query builder.
@@ -550,15 +541,36 @@ function buildFtsQuery(terms: string): string {
       const value = raw.slice(colonIdx + 1);
       if (FTS_FIELDS.has(field)) {
         const safe = escapeFtsTerm(value);
-        if (safe) tokens.push(`{${field}:${safe}*}`);
+        if (safe) tokens.push(`{${field}:${expandWithSynonyms(safe)}}`);
         continue;
       }
     }
     const safe = escapeFtsTerm(raw);
-    if (safe) tokens.push(`${safe}*`);
+    if (safe) tokens.push(expandWithSynonyms(safe));
   }
 
   return tokens.join(' ');
+}
+
+/**
+ * Expand a bare term with legal-domain synonyms as an FTS5 OR alternation.
+ *   "matter" -> "(matter* OR case*)"
+ *   "depo"   -> "(depo* OR deposition*)"
+ *   "foo"    -> "foo*"
+ * Synonyms are alternatives — must NOT be AND'd in with the original term
+ * (a previous version concatenated them onto parsed.terms which made FTS5
+ * require ALL synonyms together, effectively breaking the base query).
+ */
+function expandWithSynonyms(safeTerm: string): string {
+  const lower = safeTerm.toLowerCase();
+  const synonyms = LEGAL_SYNONYMS[lower];
+  if (!synonyms || synonyms.length === 0) return `${safeTerm}*`;
+  const cleaned = synonyms
+    .map((s) => escapeFtsTerm(s))
+    .filter((s) => s.length > 0)
+    .map((s) => `${s}*`);
+  if (cleaned.length === 0) return `${safeTerm}*`;
+  return `(${[`${safeTerm}*`, ...cleaned].join(' OR ')})`;
 }
 
 function escapeFtsTerm(t: string): string {
