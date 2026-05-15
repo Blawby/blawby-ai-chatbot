@@ -67,6 +67,7 @@ const workerEndpoints = [
 	'onboarding',
 	'practice',
 	'preferences',
+	'reports',
 	'subscriptions',
 	'subscription',
 	'matters',
