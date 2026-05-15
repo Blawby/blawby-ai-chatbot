@@ -42,12 +42,14 @@ export const ReportPageShell: FunctionComponent<ReportPageShellProps> = ({ defin
     hourlyRate: filters.hourlyRate,
   }), [filters.period, filters.start, filters.end, filters.hourlyRate]);
 
-  const { data, loading, error, refetch } = useReportData(practiceId, definition.id, queryParams);
+  const { data, loading, error, refetch } = useReportData(
+    practiceId,
+    definition.id,
+    queryParams,
+    { enabled: definition.phase !== 3 }
+  );
 
-  if (definition.phase === 3 && (!data || error)) {
-    return <BackendUnavailableState definition={definition} />;
-  }
-  if (error?.code === 'BACKEND_NOT_AVAILABLE') {
+  if (definition.phase === 3 || error?.code === 'BACKEND_NOT_AVAILABLE') {
     return <BackendUnavailableState definition={definition} />;
   }
 

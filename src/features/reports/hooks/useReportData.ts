@@ -29,10 +29,12 @@ const errorCodeFromHttp = (status: number, body: unknown): ReportErrorCode => {
 export const useReportData = <TRow = unknown, TMeta extends Record<string, unknown> = Record<string, unknown>>(
   practiceId: string,
   reportType: string,
-  params: ReportQueryParams = {}
+  params: ReportQueryParams = {},
+  options: { enabled?: boolean } = {}
 ): UseReportDataResult<TRow, TMeta> => {
+  const enabled = options.enabled ?? true;
   const [data, setData] = useState<ReportEnvelope<TRow, TMeta> | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(enabled);
   const [error, setError] = useState<ReportError | null>(null);
   const [tick, setTick] = useState(0);
   const abortRef = useRef<AbortController | null>(null);
@@ -48,7 +50,10 @@ export const useReportData = <TRow = unknown, TMeta extends Record<string, unkno
   });
 
   useEffect(() => {
-    if (!practiceId || !reportType) return undefined;
+    if (!enabled || !practiceId || !reportType) {
+      setLoading(false);
+      return undefined;
+    }
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
@@ -75,7 +80,7 @@ export const useReportData = <TRow = unknown, TMeta extends Record<string, unkno
 
     return () => controller.abort();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [practiceId, reportType, paramKey, tick]);
+  }, [enabled, practiceId, reportType, paramKey, tick]);
 
   return { data, loading, error, refetch };
 };
