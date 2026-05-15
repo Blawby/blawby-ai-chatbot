@@ -22,6 +22,11 @@ import { SettingsNavIcon } from '@/shared/ui/nav/SettingsNavIcon';
 import { CONTACTS_DIRECTORY_LABEL } from '@/shared/domain/contacts';
 import type { PracticeRole } from '@/shared/utils/practiceRoles';
 import { getPreferencesCategory } from '@/shared/lib/preferencesApi';
+import {
+  REPORT_DEFINITIONS,
+  ALL_REPORTS_HUB_ID,
+  DELIVERIES_SECTION_ID,
+} from '@/features/reports/config/reportCollection';
 
 /**
  * Prefetch helpers for nav items. Fired on hover/focus so the route's code
@@ -105,6 +110,9 @@ export type SecondaryNavItem = {
   variant?: 'default' | 'danger';
   isAction?: boolean;
   icon?: ComponentType<unknown>;
+  /** Renders a small muted "Coming soon" pill next to the label. Used for
+   *  report entries that depend on a backend endpoint not yet shipped. */
+  comingSoon?: boolean;
   /** Fired on hover/focus — preload data for this sub-page. Idempotent. */
   prefetch?: () => void;
 };
@@ -381,13 +389,18 @@ const buildHomeSecondary = (basePath: string, workspace: 'practice' | 'client'):
 
 const buildReportsSecondary = (basePath: string, workspace: 'practice' | 'client'): NavSection[] | undefined => {
   if (workspace !== 'practice') return undefined;
+  const reportItems: SecondaryNavItem[] = REPORT_DEFINITIONS.map((def) => ({
+    id: def.id,
+    label: def.title,
+    href: `${basePath}/reports/${def.id}`,
+    comingSoon: def.phase === 3,
+  }));
   return [{
     label: 'Reports',
     items: [
-      { id: 'all-reports', label: 'All reports', href: `${basePath}/reports` },
-      { id: 'payroll-matter-activity', label: 'Payroll & Matter Activity', href: `${basePath}/reports/payroll-matter-activity` },
-      { id: 'trust-reconciliation', label: 'Trust Reconciliation', href: `${basePath}/reports/trust-reconciliation` },
-      { id: 'stale-matters', label: 'Stale Matters', href: `${basePath}/reports/stale-matters` },
+      { id: ALL_REPORTS_HUB_ID, label: 'All reports', href: `${basePath}/reports` },
+      ...reportItems,
+      { id: DELIVERIES_SECTION_ID, label: 'Deliveries', href: `${basePath}/reports/deliveries` },
     ],
   }];
 };
@@ -535,6 +548,8 @@ export type SidebarChild = {
   icon?: ComponentType<unknown>;
   /** Renders this child as a group heading + separator instead of a button. */
   isGroupLabel?: boolean;
+  /** Renders a small muted pill next to the label. */
+  comingSoon?: boolean;
 };
 
 export type SidebarItem = NavRailItem & {
@@ -583,6 +598,7 @@ function flattenSecondary(sections: NavSection[]): SidebarChild[] {
         variant: item.variant,
         isAction: item.isAction,
         icon: item.icon,
+        comingSoon: item.comingSoon,
       });
       if (item.children?.length) visit(item.children);
     }

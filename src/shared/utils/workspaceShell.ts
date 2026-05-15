@@ -1,4 +1,5 @@
 import type { WorkspaceSection } from '@/shared/config/navConfig';
+import { buildReportSectionTitles } from '@/features/reports/config/reportCollection';
 
 export type WorkspaceView =
   | 'home'
@@ -30,12 +31,7 @@ type WorkspaceRouteState = {
   reportSectionFromPath: string;
 };
 
-const REPORT_SECTION_TITLES: Record<string, string> = {
-  'all-reports': 'All reports',
-  'payroll-matter-activity': 'Payroll & Matter Activity',
-  'trust-reconciliation': 'Trust Reconciliation',
-  'stale-matters': 'Stale Matters',
-};
+const REPORT_SECTION_TITLES: Record<string, string> = buildReportSectionTitles();
 
 const REPORT_SECTION_IDS = new Set(Object.keys(REPORT_SECTION_TITLES));
 

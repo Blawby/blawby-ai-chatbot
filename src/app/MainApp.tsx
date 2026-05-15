@@ -1065,9 +1065,15 @@ export function MainApp({
       }
       reportsView={
         isPracticeWorkspace
-          ? (reportTitle) => (
+          ? (reportTitle, reportType, deliveryId) => (
             <LazyRouteBoundary>
-              <PracticeReportsPage title={reportTitle} />
+              <PracticeReportsPage
+                title={reportTitle}
+                reportType={reportType}
+                deliveryId={deliveryId}
+                practiceId={effectivePracticeId ?? practiceId}
+                practiceSlug={resolvedPracticeSlug ?? practiceSlug ?? null}
+              />
             </LazyRouteBoundary>
           )
           : undefined
