@@ -44,6 +44,12 @@ let isGloballyFetching = false;
 // the caller is re-rendered (e.g. during onboarding). Cleared on cache reset.
 let practicesFetchForbidden = false;
 
+const getActiveOrganizationId = (session: ReturnType<typeof useSessionContext>['session']): string | null => {
+  const sessionRecord = session?.session as Record<string, unknown> | undefined;
+  const value = sessionRecord?.active_organization_id;
+  return typeof value === 'string' && value.trim().length > 0 ? value : null;
+};
+
 // Broadcast loading state to all active hook instances so that when any
 // instance starts a fetch, ALL instances immediately see loading=true.
 const loadingSubscribers = new Set<(v: boolean) => void>();
@@ -653,17 +659,31 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
     let currentFetchPromise: Promise<SharedPracticeSnapshot> | null = null;
     setGlobalLoading(true);
     try {
+      const userId = sessionRef.current?.user?.id ?? null;
+      if (!userId || isAnonymous) {
+        setPractices([]);
+        setCurrentPractice(null);
+        setGlobalLoading(false);
+        practicesFetchedRef.current = false;
+        resetSharedPracticeCache();
+        resetPracticeDetailsStore();
+        clearPublicPracticeDetailsCache();
+        return;
+      }
+
+      if (!getActiveOrganizationId(sessionRef.current)) {
+        setPractices([]);
+        setCurrentPractice(null);
+        setGlobalLoading(false);
+        practicesFetchedRef.current = false;
+        return;
+      }
 
       // A previous fetch was rejected with 403 — the user had no org at that time.
       // If the user has since gained an org (e.g. subscribed after onboarding), clear
       // the flag so the new fetch can proceed. Otherwise bail out to avoid hammering.
-    if (practicesFetchForbidden) {
-        const session = sessionRef.current;
-        const sessionRecord = session?.session as Record<string, unknown> | undefined;
-        const hasOrg =
-          typeof sessionRecord?.active_organization_id === 'string' &&
-          sessionRecord.active_organization_id.length > 0;
-        if (!hasOrg) {
+      if (practicesFetchForbidden) {
+        if (!getActiveOrganizationId(sessionRef.current)) {
           setGlobalLoading(false);
           return;
         }
@@ -706,18 +726,6 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
 
       if (practicesFetchedRef.current && sessionRef.current?.user && (!fetchPracticeDetails || sharedPracticeIncludesDetails) && !slugChanged) {
         if (!fetchOnboardingStatus) return;
-      }
-
-      const userId = sessionRef.current?.user?.id ?? null;
-      if (!userId || isAnonymous) {
-        setPractices([]);
-        setCurrentPractice(null);
-        setGlobalLoading(false);
-        practicesFetchedRef.current = false;
-        resetSharedPracticeCache();
-        resetPracticeDetailsStore();
-        clearPublicPracticeDetailsCache();
-        return;
       }
 
       if (sharedPracticeUserId && sharedPracticeUserId !== userId) {

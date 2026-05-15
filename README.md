@@ -37,6 +37,8 @@ A legal intake chatbot built with Cloudflare Workers AI, featuring intelligent c
    ```bash
    # Option 1: Start both frontend and worker (recommended)
    npm run dev:full
+   # Browser verification URL: local.blawby.com
+   # Auth/signup flows must use this host so requests go through the Worker proxy.
    
    # Option 2: Start worker only
    npm run dev:worker
@@ -140,6 +142,7 @@ Create a `.env` file in the project root for frontend environment variables:
 - `VITE_WORKER_API_URL` - Base URL for the Cloudflare Worker API (no `/api` suffix)
   - Example: `http://localhost:8787` for local development
   - Optional: defaults to localhost in dev and same-origin in prod
+  - Browser auth/signup verification should still run via `npm run dev:full` and `local.blawby.com` so requests proxy through the Worker like the deployed app.
 - `VITE_ONESIGNAL_APP_ID` - OneSignal app id for the web SDK (required if using push notifications)
 
 **For Production (Cloudflare Pages):**

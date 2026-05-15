@@ -60,6 +60,16 @@ For multi-step tasks, state a brief plan:
 
 Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
 
+## 5. Local Browser Verification
+
+For this app, verify browser/auth/signup flows with:
+
+```bash
+npm run dev:full
+```
+
+Then open `local.blawby.com`. Do not use raw Vite or Wrangler localhost URLs for these flows, because the app relies on the local host/proxy/cookie path through the Worker to the backend.
+
 ---
 
 **These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.

@@ -110,6 +110,13 @@ const resolveAuthenticatedHomePath = ({
   return getWorkspaceHomePath(defaultWorkspace, fallbackSlug);
 };
 
+const getSessionActiveOrganizationId = (
+  session: { session?: Record<string, unknown> } | null | undefined
+): string | null => {
+  const value = session?.session?.active_organization_id;
+  return typeof value === 'string' && value.trim().length > 0 ? value : null;
+};
+
 const DevDebugStylesRoute = () => {
   if (!import.meta.env.DEV) return <App404 />;
   return <DebugStylesPage />;
@@ -223,14 +230,25 @@ function AppShell() {
     Boolean(session?.user) &&
     !session?.user?.is_anonymous &&
     session?.user?.onboarding_complete !== true;
+  const completedOnboarding =
+    Boolean(session?.user) &&
+    !session?.user?.is_anonymous &&
+    session?.user?.onboarding_complete === true;
+  const activeOrganizationId = getSessionActiveOrganizationId(session);
+  const isPublicRoute = location.path.startsWith('/public/');
+  const isAuthRoute = location.path.startsWith('/auth');
+  const isPricingRoute = location.path.startsWith('/pricing');
+  const isClientRoute = location.path.startsWith('/client/');
+  const isSubscriptionSuccessReturn = location.query.subscription === 'success';
   const shouldFetchWorkspacePractices =
-    !location.path.startsWith('/public/') &&
-    !location.path.startsWith('/auth') &&
-    !location.path.startsWith('/pricing') &&
-    // Pre-subscription users on the onboarding flow have no org yet — fetching
-    // practices would produce a guaranteed 403. AppShell redirects back here
-    // until `onboarding_complete` is true, so this guard is safe.
-    !(location.path.startsWith('/onboarding') && onboardingIncomplete);
+    !isPublicRoute &&
+    !isAuthRoute &&
+    !isPricingRoute &&
+    // First-run practice users do not have an organization until checkout
+    // calls /api/auth/subscription/upgrade. Avoid org-gated practice/list
+    // until onboarding is done; client routes still need their invite org data.
+    (!onboardingIncomplete || isClientRoute) &&
+    (!completedOnboarding || Boolean(activeOrganizationId) || isClientRoute);
   const { defaultWorkspace, currentPractice, practices, hasPracticeMembership } = useWorkspaceResolver({
     autoFetchPractices: shouldFetchWorkspacePractices
   });
@@ -253,13 +271,14 @@ function AppShell() {
   }, [currentPractice?.accentColor, currentPractice?.slug]);
 
   const authenticatedHomePath = useMemo(() => {
+    if (completedOnboarding && !activeOrganizationId) return null;
     const fallbackSlug = currentPractice?.slug ?? practices[0]?.slug ?? null;
     return resolveAuthenticatedHomePath({
       defaultWorkspace,
       fallbackSlug,
       hasPracticeMembership,
     });
-  }, [currentPractice?.slug, defaultWorkspace, hasPracticeMembership, practices]);
+  }, [activeOrganizationId, completedOnboarding, currentPractice?.slug, defaultWorkspace, hasPracticeMembership, practices]);
 
   useEffect(() => {
     if (sessionPending) return;
@@ -328,6 +347,14 @@ function AppShell() {
       !user?.is_anonymous &&
       user?.onboarding_complete !== true &&
       !bypassOnboardingForRoute;
+    const needsFirstSubscription =
+      Boolean(user) &&
+      !user?.is_anonymous &&
+      user?.onboarding_complete === true &&
+      !activeOrganizationId &&
+      !bypassOnboardingForRoute &&
+      !isPricingRoute &&
+      !isSubscriptionSuccessReturn;
 
     if (requiresOnboarding) {
       if (!location.path.startsWith('/onboarding') && !location.path.startsWith('/auth')) {
@@ -343,6 +370,11 @@ function AppShell() {
       return;
     }
 
+    if (needsFirstSubscription) {
+      navigate('/pricing', true);
+      return;
+    }
+
     if (!requiresOnboarding && location.path.startsWith('/onboarding')) {
       if (!authenticatedHomePath) {
         return;
@@ -350,7 +382,10 @@ function AppShell() {
       navigate(authenticatedHomePath, true);
     }
   }, [
+    activeOrganizationId,
     authenticatedHomePath,
+    isPricingRoute,
+    isSubscriptionSuccessReturn,
     location.path,
     location.url,
     navigate,
@@ -373,8 +408,16 @@ function AppShell() {
               <AcceptInvitationPage {...props} />
             </Suspense>
           )} />
-          <Route path="/pricing" component={PricingPage} />
-          <Route path="/onboarding" component={OnboardingPage} />
+          <Route path="/pricing" component={(props) => (
+            <Suspense fallback={<LoadingScreen />}>
+              <PricingPage {...props} />
+            </Suspense>
+          )} />
+          <Route path="/onboarding" component={(props) => (
+            <Suspense fallback={<LoadingScreen />}>
+              <OnboardingPage {...props} />
+            </Suspense>
+          )} />
           <Route path="/debug/styles" component={DevDebugStylesRoute} />
           <Route path="/debug/dialogs" component={DevDebugDialogsRoute} />
           <Route path="/debug/dialogs/:previewId" component={DevDebugDialogPreviewRoute} />
@@ -527,26 +570,41 @@ function RootRoute() {
   const location = useLocation();
   const { session, isPending } = useSessionContext();
   const { refetch: refetchPractices } = usePracticeManagement({ autoFetchPractices: false });
+  const activeOrganizationId = getSessionActiveOrganizationId(session);
+  const completedOnboarding = Boolean(
+    session?.user &&
+    !session.user.is_anonymous &&
+    session.user.onboarding_complete === true
+  );
+  const shouldFetchRootPractices = Boolean(completedOnboarding && activeOrganizationId);
   const {
     defaultWorkspace,
     practicesLoading,
     currentPractice,
     practices,
     hasPracticeMembership,
-  } = useWorkspaceResolver();
+  } = useWorkspaceResolver({
+    autoFetchPractices: shouldFetchRootPractices,
+  });
   const { navigate } = useNavigation();
   const isMountedRef = useRef(true);
   const subscriptionSyncHandledRef = useRef(false);
   const [subscriptionSyncPending, setSubscriptionSyncPending] = useState(false);
   const isSubscriptionSuccessReturn = location.query.subscription === 'success';
+  const needsFirstSubscription = Boolean(
+    completedOnboarding &&
+    !activeOrganizationId &&
+    !isSubscriptionSuccessReturn
+  );
   const authenticatedHomePath = useMemo(() => {
+    if (!shouldFetchRootPractices) return null;
     const fallbackSlug = currentPractice?.slug ?? practices[0]?.slug ?? null;
     return resolveAuthenticatedHomePath({
       defaultWorkspace,
       fallbackSlug,
       hasPracticeMembership,
     });
-  }, [currentPractice?.slug, defaultWorkspace, hasPracticeMembership, practices]);
+  }, [currentPractice?.slug, defaultWorkspace, hasPracticeMembership, practices, shouldFetchRootPractices]);
 
   useEffect(() => {
     return () => {
@@ -589,7 +647,7 @@ function RootRoute() {
 
   useEffect(() => {
     if (subscriptionSyncPending) return;
-    if (isPending || practicesLoading) return;
+    if (isPending || (shouldFetchRootPractices && practicesLoading)) return;
 
     if (!session?.user) {
       navigate('/auth', true);
@@ -600,16 +658,23 @@ function RootRoute() {
       return;
     }
 
+    if (needsFirstSubscription) {
+      navigate('/pricing', true);
+      return;
+    }
+
     if (isMountedRef.current && authenticatedHomePath) {
       navigate(authenticatedHomePath, true);
     }
   }, [
     authenticatedHomePath,
+    needsFirstSubscription,
     subscriptionSyncPending,
     practicesLoading,
     isPending,
     navigate,
     session?.user,
+    shouldFetchRootPractices,
   ]);
 
   if (
@@ -619,6 +684,7 @@ function RootRoute() {
     session?.user &&
     !session.user.is_anonymous &&
     session.user.onboarding_complete === true &&
+    shouldFetchRootPractices &&
     !authenticatedHomePath
   ) {
     return renderWorkspaceFailureState(

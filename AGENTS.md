@@ -7,6 +7,7 @@ Worker API (Cloudflare Workers): Handles edge-local features and proxying:
 - **Media & Files**: R2 storage proxying, PDF extraction, and document analysis.
 - **Proxying & Bridges**: Routes like auth, subscriptions, core practice management, and intakes are proxied to the remote backend (see `worker/index.ts` and `worker/routes/authProxy.ts`).
 *Always check `worker/index.ts` and `worker/routes/*.ts` to confirm if a route is handled locally or proxied.*
+Local browser verification: start the app with `npm run dev:full` and open `local.blawby.com`. Do not verify auth/signup flows on the raw Vite or Wrangler localhost URLs, because those bypass the same host/proxy/cookie path the app depends on.
 Remote backend API (staging/production): Use `https://staging-api.blawby.com/llms.txt` for the schema and source of truth.
 - Handles core relational data: Auth, full practice management, client-intakes (management/status), matters, subscriptions/payments, user preferences, and user details.
 *If an endpoint's logic is not explicitly defined in the worker's source code, it's a remote backend concern. Check `llms.txt` for the remote API contract.*
