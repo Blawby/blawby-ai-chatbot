@@ -38,14 +38,6 @@ const VALID_REPORT_TYPES = new Set<string>([
   'task-productivity',
 ]);
 
-const PHASE_3_REPORTS = new Set<string>([
-  'trust-ledger',
-  'wip',
-  'originating-attorney',
-  'matters-by-attorney',
-  'task-productivity',
-]);
-
 const VALID_PERIODS = new Set(['month', 'quarter', 'year']);
 
 interface ReportEnvelope<T> {
@@ -163,6 +155,66 @@ const UTILIZATION_CSV_COLUMNS: CsvColumn<{
   { key: 'utilizationPercent', header: 'Utilization (%)' },
 ];
 
+const TRUST_LEDGER_CSV_COLUMNS: CsvColumn<{
+  occurredAt: string;
+  clientName: string | null;
+  description: string | null;
+  type: string | null;
+  amountCents: number;
+  balanceCents: number;
+}>[] = [
+  { key: 'occurredAt', header: 'Date' },
+  { key: 'clientName', header: 'Client' },
+  { key: 'type', header: 'Type' },
+  { key: 'description', header: 'Description' },
+  { key: 'amountCents', header: 'Amount (USD)', format: (v) => (Number(v) / 100).toFixed(2) },
+  { key: 'balanceCents', header: 'Balance (USD)', format: (v) => (Number(v) / 100).toFixed(2) },
+];
+
+const WIP_CSV_COLUMNS: CsvColumn<{
+  matterTitle: string;
+  unbilledHours: number;
+  unbilledAmountCents: number;
+}>[] = [
+  { key: 'matterTitle', header: 'Matter' },
+  { key: 'unbilledHours', header: 'Unbilled hours' },
+  { key: 'unbilledAmountCents', header: 'Unbilled amount (USD)', format: (v) => (Number(v) / 100).toFixed(2) },
+];
+
+const ORIGINATING_ATTORNEY_CSV_COLUMNS: CsvColumn<{
+  attorneyName: string;
+  matterCount: number;
+  revenueCents: number;
+}>[] = [
+  { key: 'attorneyName', header: 'Attorney' },
+  { key: 'matterCount', header: 'Matters' },
+  { key: 'revenueCents', header: 'Revenue (USD)', format: (v) => (Number(v) / 100).toFixed(2) },
+];
+
+const MATTERS_BY_ATTORNEY_CSV_COLUMNS: CsvColumn<{
+  attorneyName: string;
+  matterCount: number;
+  openCount: number;
+  closedCount: number;
+}>[] = [
+  { key: 'attorneyName', header: 'Attorney' },
+  { key: 'matterCount', header: 'Matters' },
+  { key: 'openCount', header: 'Open' },
+  { key: 'closedCount', header: 'Closed' },
+];
+
+const TASK_PRODUCTIVITY_CSV_COLUMNS: CsvColumn<{
+  assigneeName: string;
+  completed: number;
+  pending: number;
+  avgCycleDays: number;
+}>[] = [
+  { key: 'assigneeName', header: 'Assignee' },
+  { key: 'completed', header: 'Completed' },
+  { key: 'pending', header: 'Pending' },
+  { key: 'avgCycleDays', header: 'Avg cycle (days)' },
+];
+
 // ─── per-report handlers ─────────────────────────────────────────────────
 
 const runReport = async (
@@ -238,8 +290,68 @@ const runReport = async (
       filters: { start: range.startIso, end: range.endIso },
     };
   }
-  if (PHASE_3_REPORTS.has(reportType)) {
-    await service.forwardPhase3(reportType);
+  if (reportType === 'trust-ledger') {
+    const range = parseRange(url, 'month');
+    const result = await service.trustLedger(practiceId, headers, { range });
+    return {
+      rows: result.rows as unknown as Record<string, unknown>[],
+      meta: {
+        totalCreditsCents: result.totalCreditsCents,
+        totalDebitsCents: result.totalDebitsCents,
+        endingBalanceCents: result.endingBalanceCents,
+        transactionCount: result.transactionCount,
+      },
+      filters: { start: range.startIso, end: range.endIso },
+    };
+  }
+  if (reportType === 'wip') {
+    const result = await service.wip(practiceId, headers);
+    return {
+      rows: result.rows as unknown as Record<string, unknown>[],
+      meta: {
+        totalUnbilledHours: result.totalUnbilledHours,
+        totalUnbilledAmountCents: result.totalUnbilledAmountCents,
+        matterCount: result.matterCount,
+      },
+      filters: {},
+    };
+  }
+  if (reportType === 'originating-attorney') {
+    const range = parseRange(url, 'month');
+    const result = await service.originatingAttorney(practiceId, headers, request, { range });
+    return {
+      rows: result.rows as unknown as Record<string, unknown>[],
+      meta: {
+        totalRevenueCents: result.totalRevenueCents,
+        totalMatterCount: result.totalMatterCount,
+      },
+      filters: { start: range.startIso, end: range.endIso },
+    };
+  }
+  if (reportType === 'matters-by-attorney') {
+    const result = await service.mattersByAttorney(practiceId, headers, request);
+    return {
+      rows: result.rows as unknown as Record<string, unknown>[],
+      meta: {
+        totalMatterCount: result.totalMatterCount,
+        totalOpenCount: result.totalOpenCount,
+        totalClosedCount: result.totalClosedCount,
+      },
+      filters: {},
+    };
+  }
+  if (reportType === 'task-productivity') {
+    const range = parseRange(url, 'month');
+    const result = await service.taskProductivity(practiceId, headers, request, { range });
+    return {
+      rows: result.rows as unknown as Record<string, unknown>[],
+      meta: {
+        totalCompleted: result.totalCompleted,
+        totalPending: result.totalPending,
+        averageCycleDays: result.averageCycleDays,
+      },
+      filters: { start: range.startIso, end: range.endIso },
+    };
   }
   throw HttpErrors.notFound(`Unknown report type: ${reportType}`);
 };
@@ -266,6 +378,11 @@ const csvColumnsFor = (reportType: string): CsvColumn<Record<string, unknown>>[]
     case 'aging': return AGING_CSV_COLUMNS as unknown as CsvColumn<Record<string, unknown>>[];
     case 'profitability': return PROFITABILITY_CSV_COLUMNS as unknown as CsvColumn<Record<string, unknown>>[];
     case 'utilization': return UTILIZATION_CSV_COLUMNS as unknown as CsvColumn<Record<string, unknown>>[];
+    case 'trust-ledger': return TRUST_LEDGER_CSV_COLUMNS as unknown as CsvColumn<Record<string, unknown>>[];
+    case 'wip': return WIP_CSV_COLUMNS as unknown as CsvColumn<Record<string, unknown>>[];
+    case 'originating-attorney': return ORIGINATING_ATTORNEY_CSV_COLUMNS as unknown as CsvColumn<Record<string, unknown>>[];
+    case 'matters-by-attorney': return MATTERS_BY_ATTORNEY_CSV_COLUMNS as unknown as CsvColumn<Record<string, unknown>>[];
+    case 'task-productivity': return TASK_PRODUCTIVITY_CSV_COLUMNS as unknown as CsvColumn<Record<string, unknown>>[];
     default: return null;
   }
 };
@@ -413,9 +530,6 @@ const handleSendNow = async (
   };
   if (!body.reportType || !VALID_REPORT_TYPES.has(body.reportType)) {
     throw HttpErrors.badRequest('Invalid reportType');
-  }
-  if (PHASE_3_REPORTS.has(body.reportType)) {
-    throw new BackendUnavailableError(body.reportType);
   }
   const columns = csvColumnsFor(body.reportType);
   if (!columns) {

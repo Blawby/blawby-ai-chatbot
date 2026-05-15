@@ -170,7 +170,7 @@ export const REPORT_DEFINITIONS: ReportDefinition[] = [
     title: 'Trust Ledger',
     description: 'Trust account transactions and balances.',
     icon: 'wallet',
-    phase: 3,
+    phase: 2,
     filters: [DATE_RANGE_FILTER],
     columns: [
       { key: 'occurredAt', label: 'Date', kind: 'date', isPrimary: true },
@@ -179,18 +179,28 @@ export const REPORT_DEFINITIONS: ReportDefinition[] = [
       { key: 'amountCents', label: 'Amount', kind: 'money', align: 'right' },
       { key: 'balanceCents', label: 'Balance', kind: 'money', align: 'right' },
     ],
+    summaryCards: [
+      { id: 'totalCredits', label: 'Total credits', kind: 'money', metaKey: 'totalCreditsCents' },
+      { id: 'totalDebits', label: 'Total debits', kind: 'money', metaKey: 'totalDebitsCents' },
+      { id: 'endingBalance', label: 'Ending balance', kind: 'money', metaKey: 'endingBalanceCents' },
+    ],
   },
   {
     id: 'wip',
     title: 'Work in Progress',
     description: 'Unbilled time and expenses by matter.',
     icon: 'clock',
-    phase: 3,
+    phase: 2,
     filters: [DATE_RANGE_FILTER],
     columns: [
       { key: 'matterTitle', label: 'Matter', kind: 'text', isPrimary: true },
       { key: 'unbilledHours', label: 'Unbilled hrs', kind: 'hours', align: 'right' },
       { key: 'unbilledAmountCents', label: 'Unbilled amount', kind: 'money', align: 'right' },
+    ],
+    summaryCards: [
+      { id: 'totalUnbilledHours', label: 'Total unbilled hrs', kind: 'hours', metaKey: 'totalUnbilledHours' },
+      { id: 'totalUnbilledAmount', label: 'Total unbilled', kind: 'money', metaKey: 'totalUnbilledAmountCents' },
+      { id: 'matterCount', label: 'Matters with WIP', kind: 'number', metaKey: 'matterCount' },
     ],
   },
   {
@@ -198,12 +208,16 @@ export const REPORT_DEFINITIONS: ReportDefinition[] = [
     title: 'Originating Attorney',
     description: 'Revenue and matters attributed to each originating attorney.',
     icon: 'users',
-    phase: 3,
+    phase: 2,
     filters: [DATE_RANGE_FILTER],
     columns: [
       { key: 'attorneyName', label: 'Attorney', kind: 'text', isPrimary: true },
       { key: 'matterCount', label: 'Matters', kind: 'number', align: 'right' },
       { key: 'revenueCents', label: 'Revenue', kind: 'money', align: 'right' },
+    ],
+    summaryCards: [
+      { id: 'totalRevenue', label: 'Total revenue', kind: 'money', metaKey: 'totalRevenueCents' },
+      { id: 'totalMatters', label: 'Total matters', kind: 'number', metaKey: 'totalMatterCount' },
     ],
   },
   {
@@ -211,7 +225,7 @@ export const REPORT_DEFINITIONS: ReportDefinition[] = [
     title: 'Matters by Attorney',
     description: 'Matter counts and status by responsible attorney.',
     icon: 'users',
-    phase: 3,
+    phase: 2,
     filters: [DATE_RANGE_FILTER],
     columns: [
       { key: 'attorneyName', label: 'Attorney', kind: 'text', isPrimary: true },
@@ -219,19 +233,29 @@ export const REPORT_DEFINITIONS: ReportDefinition[] = [
       { key: 'openCount', label: 'Open', kind: 'number', align: 'right' },
       { key: 'closedCount', label: 'Closed', kind: 'number', align: 'right' },
     ],
+    summaryCards: [
+      { id: 'totalMatters', label: 'Total matters', kind: 'number', metaKey: 'totalMatterCount' },
+      { id: 'totalOpen', label: 'Open', kind: 'number', metaKey: 'totalOpenCount' },
+      { id: 'totalClosed', label: 'Closed', kind: 'number', metaKey: 'totalClosedCount' },
+    ],
   },
   {
     id: 'task-productivity',
     title: 'Task Productivity',
     description: 'Completed task counts and cycle time.',
     icon: 'chart',
-    phase: 3,
+    phase: 2,
     filters: [DATE_RANGE_FILTER],
     columns: [
       { key: 'assigneeName', label: 'Assignee', kind: 'text', isPrimary: true },
       { key: 'completed', label: 'Completed', kind: 'number', align: 'right' },
       { key: 'pending', label: 'Pending', kind: 'number', align: 'right' },
       { key: 'avgCycleDays', label: 'Avg cycle (days)', kind: 'days', align: 'right' },
+    ],
+    summaryCards: [
+      { id: 'totalCompleted', label: 'Completed', kind: 'number', metaKey: 'totalCompleted' },
+      { id: 'totalPending', label: 'Pending', kind: 'number', metaKey: 'totalPending' },
+      { id: 'avgCycle', label: 'Avg cycle (days)', kind: 'days', metaKey: 'averageCycleDays' },
     ],
   },
 ];

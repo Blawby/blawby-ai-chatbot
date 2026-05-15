@@ -23,6 +23,26 @@ import {
   type BackendMatter,
   type BackendMatterTimeEntry,
 } from '../types/wire/matter.js';
+import {
+  BackendTrustTransactionSchema,
+  BackendWipMatterSchema,
+  BackendPracticeTaskSchema,
+  type BackendTrustTransaction,
+  type BackendWipMatter,
+  type BackendPracticeTask,
+} from '../types/wire/reports.js';
+import { RemoteApiService } from './RemoteApiService.js';
+
+/**
+ * Railway paths for the endpoints introduced in blawby-backend#233.
+ * Keep the URLs here so they can be updated in one place when backend
+ * confirms the final shape.
+ */
+export const RAILWAY_REPORT_PATHS = {
+  trustLedger: (practiceId: string) => `/api/trust-ledger/${encodeURIComponent(practiceId)}`,
+  wip: (practiceId: string) => `/api/matters/${encodeURIComponent(practiceId)}/wip`,
+  tasks: (practiceId: string) => `/api/tasks/${encodeURIComponent(practiceId)}`,
+} as const;
 
 export const MAX_LIST_PAGES = 20;
 export const MAX_LIST_PAGE_SIZE = 100;
@@ -466,6 +486,319 @@ export const groupUtilizationByUser = (
   };
 };
 
+// ─── trust ledger ─────────────────────────────────────────────────────────
+
+export interface TrustLedgerAggregateRow {
+  id: string;
+  occurredAt: string;
+  clientName: string | null;
+  description: string | null;
+  amountCents: number;
+  balanceCents: number;
+  type: string | null;
+}
+
+export interface TrustLedgerAggregate {
+  rows: TrustLedgerAggregateRow[];
+  totalCreditsCents: number;
+  totalDebitsCents: number;
+  endingBalanceCents: number;
+  transactionCount: number;
+}
+
+const resolveClientName = (raw: BackendTrustTransaction): string | null => {
+  if (raw.client_name) return raw.client_name;
+  if (raw.client && typeof raw.client === 'object') {
+    const c = raw.client as Record<string, unknown>;
+    if (typeof c.name === 'string') return c.name;
+    if (typeof c.full_name === 'string') return c.full_name;
+  }
+  return null;
+};
+
+export const aggregateTrustLedger = (
+  transactions: readonly BackendTrustTransaction[],
+  range: ResolvedDateRange
+): TrustLedgerAggregate => {
+  const filtered: TrustLedgerAggregateRow[] = [];
+  let credits = 0;
+  let debits = 0;
+  for (const txn of transactions) {
+    const ms = parseDateMs(txn.occurred_at);
+    if (ms == null || ms < range.startMs || ms > range.endMs) continue;
+    const amount = toCents(txn.amount);
+    const balance = toCents(txn.balance_after);
+    filtered.push({
+      id: txn.id,
+      occurredAt: new Date(ms).toISOString(),
+      clientName: resolveClientName(txn),
+      description: txn.description ?? null,
+      amountCents: amount,
+      balanceCents: balance,
+      type: txn.type ?? null,
+    });
+    if (amount >= 0) credits += amount;
+    else debits += Math.abs(amount);
+  }
+  // Newest first for display; ending balance reads the latest row.
+  filtered.sort((a, b) => b.occurredAt.localeCompare(a.occurredAt));
+  const endingBalanceCents = filtered.length > 0 ? filtered[0].balanceCents : 0;
+  return {
+    rows: filtered,
+    totalCreditsCents: credits,
+    totalDebitsCents: debits,
+    endingBalanceCents,
+    transactionCount: filtered.length,
+  };
+};
+
+// ─── work in progress ─────────────────────────────────────────────────────
+
+export interface WipAggregateRow {
+  matterId: string;
+  matterTitle: string;
+  unbilledHours: number;
+  unbilledAmountCents: number;
+}
+
+export interface WipAggregate {
+  rows: WipAggregateRow[];
+  totalUnbilledHours: number;
+  totalUnbilledAmountCents: number;
+  matterCount: number;
+}
+
+export const aggregateWip = (rows: readonly BackendWipMatter[]): WipAggregate => {
+  const out: WipAggregateRow[] = [];
+  let totalHours = 0;
+  let totalAmount = 0;
+  for (const r of rows) {
+    const seconds = typeof r.unbilled_seconds === 'number' ? r.unbilled_seconds : 0;
+    const hours = Number((seconds / 3600).toFixed(2));
+    const amount = toCents(r.unbilled_amount);
+    if (hours <= 0 && amount <= 0) continue;
+    out.push({
+      matterId: r.matter_id,
+      matterTitle: r.matter_title ?? r.matter_id,
+      unbilledHours: hours,
+      unbilledAmountCents: amount,
+    });
+    totalHours += hours;
+    totalAmount += amount;
+  }
+  out.sort((a, b) => b.unbilledAmountCents - a.unbilledAmountCents);
+  return {
+    rows: out,
+    totalUnbilledHours: Number(totalHours.toFixed(2)),
+    totalUnbilledAmountCents: totalAmount,
+    matterCount: out.length,
+  };
+};
+
+// ─── originating attorney ────────────────────────────────────────────────
+
+export interface OriginatingAttorneyAggregateRow {
+  attorneyId: string;
+  attorneyName: string;
+  matterCount: number;
+  revenueCents: number;
+}
+
+export interface OriginatingAttorneyAggregate {
+  rows: OriginatingAttorneyAggregateRow[];
+  totalRevenueCents: number;
+  totalMatterCount: number;
+}
+
+const UNASSIGNED_ATTORNEY_ID = 'unassigned';
+const UNASSIGNED_ATTORNEY_LABEL = 'Unassigned';
+
+export const groupByOriginatingAttorney = (
+  matters: readonly BackendMatter[],
+  invoices: readonly BackendInvoice[],
+  range: ResolvedDateRange,
+  attorneyNamesById: ReadonlyMap<string, string>
+): OriginatingAttorneyAggregate => {
+  const revenueByMatter = new Map<string, number>();
+  for (const inv of invoices) {
+    if (!inv.matter_id) continue;
+    const eventMs = parseDateMs(inv.paid_at) ?? parseDateMs(inv.created_at);
+    if (eventMs == null || eventMs < range.startMs || eventMs > range.endMs) continue;
+    const paid = toCents(inv.amount_paid);
+    if (paid <= 0) continue;
+    revenueByMatter.set(inv.matter_id, (revenueByMatter.get(inv.matter_id) ?? 0) + paid);
+  }
+
+  const byAttorney = new Map<string, OriginatingAttorneyAggregateRow>();
+  let totalRevenue = 0;
+  for (const m of matters) {
+    const attorneyId = m.originating_attorney_id ?? UNASSIGNED_ATTORNEY_ID;
+    const matterRevenue = revenueByMatter.get(m.id) ?? 0;
+    let row = byAttorney.get(attorneyId);
+    if (!row) {
+      row = {
+        attorneyId,
+        attorneyName: attorneyId === UNASSIGNED_ATTORNEY_ID
+          ? UNASSIGNED_ATTORNEY_LABEL
+          : attorneyNamesById.get(attorneyId) ?? attorneyId,
+        matterCount: 0,
+        revenueCents: 0,
+      };
+      byAttorney.set(attorneyId, row);
+    }
+    row.matterCount += 1;
+    row.revenueCents += matterRevenue;
+    totalRevenue += matterRevenue;
+  }
+  const rows = Array.from(byAttorney.values()).sort((a, b) => b.revenueCents - a.revenueCents);
+  return {
+    rows,
+    totalRevenueCents: totalRevenue,
+    totalMatterCount: matters.length,
+  };
+};
+
+// ─── matters by attorney ─────────────────────────────────────────────────
+
+export interface MattersByAttorneyAggregateRow {
+  attorneyId: string;
+  attorneyName: string;
+  matterCount: number;
+  openCount: number;
+  closedCount: number;
+}
+
+export interface MattersByAttorneyAggregate {
+  rows: MattersByAttorneyAggregateRow[];
+  totalMatterCount: number;
+  totalOpenCount: number;
+  totalClosedCount: number;
+}
+
+const CLOSED_MATTER_STATUSES = new Set(['closed', 'declined', 'conflicted', 'referred']);
+
+export const groupByResponsibleAttorney = (
+  matters: readonly BackendMatter[],
+  attorneyNamesById: ReadonlyMap<string, string>
+): MattersByAttorneyAggregate => {
+  const byAttorney = new Map<string, MattersByAttorneyAggregateRow>();
+  let totalOpen = 0;
+  let totalClosed = 0;
+  for (const m of matters) {
+    const attorneyId = m.responsible_attorney_id ?? UNASSIGNED_ATTORNEY_ID;
+    let row = byAttorney.get(attorneyId);
+    if (!row) {
+      row = {
+        attorneyId,
+        attorneyName: attorneyId === UNASSIGNED_ATTORNEY_ID
+          ? UNASSIGNED_ATTORNEY_LABEL
+          : attorneyNamesById.get(attorneyId) ?? attorneyId,
+        matterCount: 0,
+        openCount: 0,
+        closedCount: 0,
+      };
+      byAttorney.set(attorneyId, row);
+    }
+    row.matterCount += 1;
+    const status = (m.status ?? '').toLowerCase();
+    if (CLOSED_MATTER_STATUSES.has(status)) {
+      row.closedCount += 1;
+      totalClosed += 1;
+    } else {
+      row.openCount += 1;
+      totalOpen += 1;
+    }
+  }
+  const rows = Array.from(byAttorney.values()).sort((a, b) => b.matterCount - a.matterCount);
+  return {
+    rows,
+    totalMatterCount: matters.length,
+    totalOpenCount: totalOpen,
+    totalClosedCount: totalClosed,
+  };
+};
+
+// ─── task productivity ──────────────────────────────────────────────────
+
+export interface TaskProductivityAggregateRow {
+  assigneeId: string;
+  assigneeName: string;
+  completed: number;
+  pending: number;
+  avgCycleDays: number;
+}
+
+export interface TaskProductivityAggregate {
+  rows: TaskProductivityAggregateRow[];
+  totalCompleted: number;
+  totalPending: number;
+  averageCycleDays: number;
+}
+
+const COMPLETED_TASK_STATUS = 'completed';
+
+export const aggregateTaskProductivity = (
+  tasks: readonly BackendPracticeTask[],
+  range: ResolvedDateRange,
+  assigneeNamesById: ReadonlyMap<string, string>
+): TaskProductivityAggregate => {
+  type Bucket = { completed: number; pending: number; cycleDaysSum: number; cycleDaysCount: number };
+  const byAssignee = new Map<string, Bucket>();
+  let totalCompleted = 0;
+  let totalPending = 0;
+  let cycleDaysSum = 0;
+  let cycleDaysCount = 0;
+
+  for (const t of tasks) {
+    const assigneeId = t.assignee_id ?? UNASSIGNED_ATTORNEY_ID;
+    let bucket = byAssignee.get(assigneeId);
+    if (!bucket) {
+      bucket = { completed: 0, pending: 0, cycleDaysSum: 0, cycleDaysCount: 0 };
+      byAssignee.set(assigneeId, bucket);
+    }
+    const status = (t.status ?? '').toLowerCase();
+    if (status === COMPLETED_TASK_STATUS) {
+      const createdMs = parseDateMs(t.created_at);
+      const completedMs = parseDateMs(t.completed_at) ?? parseDateMs(t.updated_at);
+      if (completedMs == null) continue;
+      if (completedMs < range.startMs || completedMs > range.endMs) continue;
+      bucket.completed += 1;
+      totalCompleted += 1;
+      if (createdMs != null && completedMs >= createdMs) {
+        const days = (completedMs - createdMs) / 86_400_000;
+        bucket.cycleDaysSum += days;
+        bucket.cycleDaysCount += 1;
+        cycleDaysSum += days;
+        cycleDaysCount += 1;
+      }
+    } else if (status !== '') {
+      bucket.pending += 1;
+      totalPending += 1;
+    }
+  }
+
+  const rows: TaskProductivityAggregateRow[] = [];
+  for (const [assigneeId, b] of byAssignee) {
+    if (b.completed === 0 && b.pending === 0) continue;
+    rows.push({
+      assigneeId,
+      assigneeName: assigneeId === UNASSIGNED_ATTORNEY_ID
+        ? UNASSIGNED_ATTORNEY_LABEL
+        : assigneeNamesById.get(assigneeId) ?? assigneeId,
+      completed: b.completed,
+      pending: b.pending,
+      avgCycleDays: b.cycleDaysCount > 0 ? Number((b.cycleDaysSum / b.cycleDaysCount).toFixed(2)) : 0,
+    });
+  }
+  rows.sort((a, b) => b.completed - a.completed);
+  return {
+    rows,
+    totalCompleted,
+    totalPending,
+    averageCycleDays: cycleDaysCount > 0 ? Number((cycleDaysSum / cycleDaysCount).toFixed(2)) : 0,
+  };
+};
+
 // ─── service class ────────────────────────────────────────────────────────
 
 export interface ListResult<T> {
@@ -666,9 +999,158 @@ export class ReportService {
     return groupUtilizationByUser(allEntries, truncated);
   }
 
-  // Phase 3 forwarders. Real Railway paths are TBD; we throw
-  // BackendUnavailableError so the route handler can return 503.
-  async forwardPhase3(reportType: string): Promise<never> {
-    throw new BackendUnavailableError(reportType);
+  // ─── Phase 3 (blawby-backend#233) ──────────────────────────────────────
+
+  /**
+   * Returns a `Map<userId, displayName>` for the practice's team. Used to
+   * resolve `originating_attorney_id` / `responsible_attorney_id` /
+   * `assignee_id` to human-readable names. Falls back to an empty map if
+   * the team endpoint is unavailable — display will fall back to the id.
+   */
+  private async fetchAttorneyNames(
+    practiceId: string,
+    request: Request
+  ): Promise<Map<string, string>> {
+    try {
+      const team = await RemoteApiService.getPracticeTeam(this.env, practiceId, request);
+      const map = new Map<string, string>();
+      for (const m of team.members) {
+        if (m.userId && m.name) map.set(m.userId, m.name);
+        else if (m.userId) map.set(m.userId, m.email || m.userId);
+      }
+      return map;
+    } catch (err) {
+      Logger.warn('reports: practice team fetch failed', {
+        practiceId,
+        error: err instanceof Error ? err.message : String(err),
+      });
+      return new Map();
+    }
+  }
+
+  async trustLedger(
+    practiceId: string,
+    headers: Record<string, string>,
+    options: { range: ResolvedDateRange }
+  ): Promise<TrustLedgerAggregate> {
+    const path = RAILWAY_REPORT_PATHS.trustLedger(practiceId);
+    const params = new URLSearchParams({
+      start: options.range.startIso,
+      end: options.range.endIso,
+    });
+    const url = `${this.backendUrl}${path}?${params.toString()}`;
+    let resp: Response;
+    try {
+      resp = await fetch(url, { headers });
+    } catch (err) {
+      throw new BackendUnavailableError('trust-ledger', err instanceof Error ? err.message : 'network error');
+    }
+    if (resp.status === 404 || resp.status === 501) {
+      throw new BackendUnavailableError('trust-ledger');
+    }
+    if (!resp.ok) {
+      throw new Error(`trust-ledger upstream returned ${resp.status}`);
+    }
+    const json = await resp.json();
+    const rawItems = extractListArray(json, ['transactions', 'items', 'data']);
+    const parsed: BackendTrustTransaction[] = [];
+    for (const raw of rawItems) {
+      const result = BackendTrustTransactionSchema.safeParse(raw);
+      if (result.success) parsed.push(result.data);
+    }
+    return aggregateTrustLedger(parsed, options.range);
+  }
+
+  async wip(
+    practiceId: string,
+    headers: Record<string, string>
+  ): Promise<WipAggregate> {
+    const path = RAILWAY_REPORT_PATHS.wip(practiceId);
+    const url = `${this.backendUrl}${path}`;
+    let resp: Response;
+    try {
+      resp = await fetch(url, { headers });
+    } catch (err) {
+      throw new BackendUnavailableError('wip', err instanceof Error ? err.message : 'network error');
+    }
+    if (resp.status === 404 || resp.status === 501) {
+      throw new BackendUnavailableError('wip');
+    }
+    if (!resp.ok) {
+      throw new Error(`wip upstream returned ${resp.status}`);
+    }
+    const json = await resp.json();
+    const rawItems = extractListArray(json, ['matters', 'items', 'data']);
+    const parsed: BackendWipMatter[] = [];
+    for (const raw of rawItems) {
+      const result = BackendWipMatterSchema.safeParse(raw);
+      if (result.success) parsed.push(result.data);
+    }
+    return aggregateWip(parsed);
+  }
+
+  async originatingAttorney(
+    practiceId: string,
+    headers: Record<string, string>,
+    request: Request,
+    options: { range: ResolvedDateRange }
+  ): Promise<OriginatingAttorneyAggregate> {
+    const [invoices, mattersResult, attorneyNames] = await Promise.all([
+      this.fetchInvoices(practiceId, headers),
+      this.fetchMatters(practiceId, headers),
+      this.fetchAttorneyNames(practiceId, request),
+    ]);
+    return groupByOriginatingAttorney(mattersResult.items, invoices, options.range, attorneyNames);
+  }
+
+  async mattersByAttorney(
+    practiceId: string,
+    headers: Record<string, string>,
+    request: Request
+  ): Promise<MattersByAttorneyAggregate> {
+    const [mattersResult, attorneyNames] = await Promise.all([
+      this.fetchMatters(practiceId, headers),
+      this.fetchAttorneyNames(practiceId, request),
+    ]);
+    return groupByResponsibleAttorney(mattersResult.items, attorneyNames);
+  }
+
+  async taskProductivity(
+    practiceId: string,
+    headers: Record<string, string>,
+    request: Request,
+    options: { range: ResolvedDateRange }
+  ): Promise<TaskProductivityAggregate> {
+    const path = RAILWAY_REPORT_PATHS.tasks(practiceId);
+    const all: BackendPracticeTask[] = [];
+    for (let page = 1; page <= MAX_LIST_PAGES; page += 1) {
+      const url = `${this.backendUrl}${path}?page=${page}&limit=${MAX_LIST_PAGE_SIZE}`;
+      let resp: Response;
+      try {
+        resp = await fetch(url, { headers });
+      } catch (err) {
+        if (page === 1) {
+          throw new BackendUnavailableError('task-productivity', err instanceof Error ? err.message : 'network error');
+        }
+        break;
+      }
+      if (resp.status === 404 || resp.status === 501) {
+        if (page === 1) throw new BackendUnavailableError('task-productivity');
+        break;
+      }
+      if (!resp.ok) {
+        if (page === 1) throw new Error(`task-productivity upstream returned ${resp.status}`);
+        break;
+      }
+      const json = await resp.json();
+      const items = extractListArray(json, ['tasks', 'items', 'data']);
+      for (const raw of items) {
+        const result = BackendPracticeTaskSchema.safeParse(raw);
+        if (result.success) all.push(result.data);
+      }
+      if (items.length < MAX_LIST_PAGE_SIZE) break;
+    }
+    const attorneyNames = await this.fetchAttorneyNames(practiceId, request);
+    return aggregateTaskProductivity(all, options.range, attorneyNames);
   }
 }
