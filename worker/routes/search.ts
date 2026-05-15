@@ -328,11 +328,10 @@ async function handleSuggest(
     return SUCCESS({ suggestions: [] });
   }
 
-  // Two pools:
-  //   1. User's own MOST recent successful query (capped at 1 — keeps the
-  //      dropdown tight; users felt the previous 8-recent cap was noisy).
-  //   2. Practice-wide popular successful queries (fills the rest).
-  // Dedup, prefer user history first.
+  // Total suggestions capped at 1 — per user feedback, more than one entry
+  // here clutters the dropdown. Prefer user history when present; fall
+  // back to the single most-popular practice-wide query otherwise.
+  const SUGGESTION_LIMIT = 1;
   const userRows = await env.DB.prepare(
     `SELECT DISTINCT query
        FROM search_query_log
@@ -341,38 +340,43 @@ async function handleSuggest(
         AND result_count > 0
         AND lower(query) LIKE ?
       ORDER BY created_at DESC
-      LIMIT 1`,
+      LIMIT ?`,
   )
-    .bind(practiceId, auth.user.id, `${prefix}%`)
+    .bind(practiceId, auth.user.id, `${prefix}%`, SUGGESTION_LIMIT)
     .all<{ query: string }>();
 
-  const practiceRows = await env.DB.prepare(
-    `SELECT query, COUNT(*) as c
-       FROM search_query_log
-      WHERE practice_id = ?
-        AND result_count > 0
-        AND lower(query) LIKE ?
-      GROUP BY query
-      ORDER BY c DESC
-      LIMIT 8`,
-  )
-    .bind(practiceId, `${prefix}%`)
-    .all<{ query: string; c: number }>();
-
-  const seen = new Set<string>();
   const suggestions: Array<{ query: string; source: 'user' | 'practice' }> = [];
+  const seen = new Set<string>();
   for (const r of userRows.results ?? []) {
     const norm = r.query.trim();
     if (!norm || seen.has(norm.toLowerCase())) continue;
     seen.add(norm.toLowerCase());
     suggestions.push({ query: norm, source: 'user' });
+    if (suggestions.length >= SUGGESTION_LIMIT) break;
   }
-  for (const r of practiceRows.results ?? []) {
-    const norm = r.query.trim();
-    if (!norm || seen.has(norm.toLowerCase())) continue;
-    seen.add(norm.toLowerCase());
-    suggestions.push({ query: norm, source: 'practice' });
-    if (suggestions.length >= 8) break;
+
+  // Only query the practice pool if user history didn't fill the cap.
+  if (suggestions.length < SUGGESTION_LIMIT) {
+    const practiceRows = await env.DB.prepare(
+      `SELECT query, COUNT(*) as c
+         FROM search_query_log
+        WHERE practice_id = ?
+          AND result_count > 0
+          AND lower(query) LIKE ?
+        GROUP BY query
+        ORDER BY c DESC
+        LIMIT ?`,
+    )
+      .bind(practiceId, `${prefix}%`, SUGGESTION_LIMIT)
+      .all<{ query: string; c: number }>();
+
+    for (const r of practiceRows.results ?? []) {
+      const norm = r.query.trim();
+      if (!norm || seen.has(norm.toLowerCase())) continue;
+      seen.add(norm.toLowerCase());
+      suggestions.push({ query: norm, source: 'practice' });
+      if (suggestions.length >= SUGGESTION_LIMIT) break;
+    }
   }
 
   return SUCCESS(
