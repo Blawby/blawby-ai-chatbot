@@ -4,6 +4,8 @@ import { Suspense } from 'preact/compat';
 import { I18nextProvider } from 'react-i18next';
 import { SEOHead } from '@/app/SEOHead';
 import { ToastProvider } from '@/shared/contexts/ToastContext';
+import { CommandPalette } from '@/features/search/components/CommandPalette';
+import { useCommandPalette } from '@/features/search/hooks/useCommandPalette';
 import { SessionProvider, useSessionContext } from '@/shared/contexts/SessionContext';
 import { getSession } from '@/shared/lib/authClient';
 import type { WorkspaceView } from '@/shared/utils/workspaceShell';
@@ -393,9 +395,33 @@ function AppShell() {
     sessionPending
   ]);
 
+  const palette = useCommandPalette();
+  const paletteWorkspace: 'practice' | 'client' | 'public' =
+    location.path.startsWith('/practice/')
+      ? 'practice'
+      : location.path.startsWith('/client/')
+        ? 'client'
+        : 'public';
+  const paletteSlug = currentPractice?.slug ?? null;
+  const palettePracticeId = currentPractice?.id ?? null;
+  const paletteEligible =
+    Boolean(session?.user) &&
+    !session?.user?.is_anonymous &&
+    paletteWorkspace !== 'public' &&
+    Boolean(palettePracticeId);
+
   return (
     <ToastProvider>
       <UpdateAvailableToast />
+      {paletteEligible ? (
+        <CommandPalette
+          open={palette.open}
+          onClose={palette.closePalette}
+          practiceId={palettePracticeId}
+          practiceSlug={paletteSlug}
+          workspace={paletteWorkspace}
+        />
+      ) : null}
       <Suspense fallback={<LoadingScreen />}>
         <Router>
           <Route path="/auth" component={(props) => (

@@ -184,9 +184,30 @@ export interface Env {
   DEBUG_GEO?: string;
 
   // Global search (issue #571)
+  // Inline structural types so the Env interface resolves in both the
+  // worker tsconfig (which has @cloudflare/workers-types) and the app
+  // tsconfig (which does not, but transitively imports worker/types.ts
+  // for FileAttachment + ChatMessage shapes).
   SEARCH_INDEX_EVENTS?: Queue<import('./types/search.js').SearchIndexEvent>;
-  SEARCH_VECTORS?: VectorizeIndex;
-  AI?: Ai;
+  SEARCH_VECTORS?: {
+    upsert(vectors: Array<{
+      id: string;
+      values: number[];
+      metadata?: Record<string, unknown>;
+    }>): Promise<unknown>;
+    query(
+      values: number[],
+      options?: {
+        topK?: number;
+        filter?: Record<string, unknown>;
+        returnMetadata?: 'all' | 'none' | 'indexed';
+      },
+    ): Promise<{ matches?: Array<{ id: string; score?: number; metadata?: Record<string, unknown> }> }>;
+    deleteByIds(ids: string[]): Promise<unknown>;
+  };
+  AI?: {
+    run(model: string, input: { text: string[] }): Promise<{ data?: number[][] }>;
+  };
   SEARCH_SEMANTIC_ENABLED?: string;
   SEARCH_INDEX_CONCURRENCY?: string;
 }

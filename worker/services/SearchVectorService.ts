@@ -81,7 +81,7 @@ export class SearchVectorService {
     try {
       const result = await this.env.SEARCH_VECTORS.query(embedding, {
         topK: options.topK ?? 12,
-        filter: filter as VectorizeVectorMetadataFilter,
+        filter,
         returnMetadata: 'all',
       });
       return (result.matches ?? []).map((m) => ({
