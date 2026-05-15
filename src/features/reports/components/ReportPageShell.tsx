@@ -1,9 +1,16 @@
+import { useMemo, useState } from 'preact/hooks';
 import type { FunctionComponent } from 'preact';
-import { BarChart3 } from 'lucide-preact';
+import { AlertTriangle } from 'lucide-preact';
 
-import { WorkspacePlaceholderState } from '@/shared/ui/layout/WorkspacePlaceholderState';
+import { useToastContext } from '@/shared/contexts/ToastContext';
 import type { ReportDefinition } from '@/features/reports/config/reportCollection';
+import { useReportData } from '@/features/reports/hooks/useReportData';
+import { useReportExport } from '@/features/reports/hooks/useReportExport';
 import { BackendUnavailableState } from './BackendUnavailableState';
+import { ReportFilters, type ReportFilterValues } from './ReportFilters';
+import { ReportToolbar } from './ReportToolbar';
+import { ReportListKpiRow } from './ReportListKpiRow';
+import { ReportDataTable } from './ReportDataTable';
 
 interface ReportPageShellProps {
   definition: ReportDefinition;
@@ -11,21 +18,89 @@ interface ReportPageShellProps {
   practiceSlug: string | null;
 }
 
-export const ReportPageShell: FunctionComponent<ReportPageShellProps> = ({ definition }) => {
-  if (definition.phase === 3) {
+const defaultFilterValues = (definition: ReportDefinition): ReportFilterValues => {
+  const values: ReportFilterValues = {};
+  for (const f of definition.filters) {
+    if (f.kind === 'period') values.period = f.defaultValue ?? 'month';
+  }
+  return values;
+};
+
+export const ReportPageShell: FunctionComponent<ReportPageShellProps> = ({ definition, practiceId }) => {
+  const [filters, setFilters] = useState<ReportFilterValues>(() => defaultFilterValues(definition));
+  const { showError, showInfo } = useToastContext();
+  const { exportReport, exporting } = useReportExport();
+
+  const queryParams = useMemo(() => ({
+    period: filters.period,
+    start: filters.start,
+    end: filters.end,
+    hourlyRate: filters.hourlyRate,
+  }), [filters.period, filters.start, filters.end, filters.hourlyRate]);
+
+  const { data, loading, error, refetch } = useReportData(practiceId, definition.id, queryParams);
+
+  if (definition.phase === 3 && (!data || error)) {
     return <BackendUnavailableState definition={definition} />;
   }
+  if (error?.code === 'BACKEND_NOT_AVAILABLE') {
+    return <BackendUnavailableState definition={definition} />;
+  }
+
+  const handleExport = async () => {
+    try {
+      await exportReport(practiceId, definition.id, queryParams);
+    } catch (err) {
+      showError(err instanceof Error ? err.message : 'Export failed');
+    }
+  };
+  const handleSchedule = () => showInfo('Scheduling ships in the next milestone.');
+  const handleSendNow = () => showInfo('Send now ships in the next milestone.');
+
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4 p-4 sm:p-6">
-      <div>
-        <h1 className="text-lg font-semibold text-input-text">{definition.title}</h1>
-        <p className="mt-1 text-sm text-input-placeholder">{definition.description}</p>
-      </div>
-      <WorkspacePlaceholderState
-        icon={BarChart3}
-        title="Report data not yet wired"
-        description="The data fetch for this report ships in the next milestone."
-        className="h-full"
+      <header className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="text-lg font-semibold text-input-text">{definition.title}</h1>
+          <p className="mt-1 text-sm text-input-placeholder">{definition.description}</p>
+        </div>
+        <ReportToolbar
+          definition={definition}
+          onExport={handleExport}
+          onSchedule={handleSchedule}
+          onSendNow={handleSendNow}
+          exporting={exporting}
+        />
+      </header>
+
+      {definition.filters.length > 0 ? (
+        <ReportFilters filters={definition.filters} values={filters} onChange={setFilters} />
+      ) : null}
+
+      {definition.summaryCards?.length && data?.meta ? (
+        <ReportListKpiRow cards={definition.summaryCards} meta={data.meta} />
+      ) : null}
+
+      {error ? (
+        <div className="flex items-center justify-between rounded-md border border-red-500/30 bg-red-500/5 px-3 py-2">
+          <div className="flex items-center gap-2 text-sm text-red-400">
+            <AlertTriangle className="h-4 w-4" />
+            <span>{error.message}</span>
+          </div>
+          <button
+            type="button"
+            className="text-xs font-medium text-red-300 underline"
+            onClick={refetch}
+          >
+            Retry
+          </button>
+        </div>
+      ) : null}
+
+      <ReportDataTable
+        columns={definition.columns}
+        rows={(data?.items as Record<string, unknown>[]) ?? []}
+        loading={loading && !data}
       />
     </div>
   );

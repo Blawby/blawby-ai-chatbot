@@ -20,7 +20,7 @@ export interface RevenueRow {
   outstandingAmountCents: number;
 }
 
-export interface RevenueMeta {
+export interface RevenueMeta extends Record<string, unknown> {
   totalPaidCents: number;
   totalOutstandingCents: number;
   totalInvoiceCount: number;
@@ -34,7 +34,7 @@ export interface AgingRow {
   totalAmountCents: number;
 }
 
-export interface AgingMeta {
+export interface AgingMeta extends Record<string, unknown> {
   totalOutstandingCents: number;
   totalInvoiceCount: number;
 }
@@ -48,7 +48,7 @@ export interface ProfitabilityRow {
   billableHours: number;
 }
 
-export interface ProfitabilityMeta {
+export interface ProfitabilityMeta extends Record<string, unknown> {
   totalRevenueCents: number;
   totalCostCents: number;
   totalMarginCents: number;
@@ -63,7 +63,7 @@ export interface UtilizationRow {
   utilizationPercent: number;
 }
 
-export interface UtilizationMeta {
+export interface UtilizationMeta extends Record<string, unknown> {
   totalBillableHours: number;
   totalNonBillableHours: number;
   averageUtilizationPercent: number;
