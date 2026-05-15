@@ -15,20 +15,21 @@ export const useReportExport = (): UseReportExportResult => {
     async (practiceId: string, reportType: string, params: ReportQueryParams = {}) => {
       setExporting(true);
       setError(null);
+      let url: string | undefined;
       try {
         const { blob, filename } = await reportsApi.exportReport(practiceId, reportType, params);
-        const url = URL.createObjectURL(blob);
+        url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
         a.download = filename;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
-        URL.revokeObjectURL(url);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Export failed');
         throw err;
       } finally {
+        if (url) URL.revokeObjectURL(url);
         setExporting(false);
       }
     },

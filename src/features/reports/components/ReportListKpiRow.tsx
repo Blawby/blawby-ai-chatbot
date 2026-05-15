@@ -1,10 +1,10 @@
 import type { FunctionComponent } from 'preact';
 import { StatCard } from '@/shared/ui/cards/StatCard';
-import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import type {
   ColumnKind,
   SummaryCardSpec,
 } from '@/features/reports/config/reportCollection';
+import { formatReportValue } from '@/features/reports/utils/formatReportValue';
 
 interface ReportListKpiRowProps {
   cards: SummaryCardSpec[];
@@ -12,23 +12,7 @@ interface ReportListKpiRowProps {
 }
 
 const formatMetaValue = (kind: ColumnKind, value: unknown): string => {
-  if (value == null) return '—';
-  switch (kind) {
-    case 'money':
-      return formatCurrency(typeof value === 'number' ? value / 100 : 0);
-    case 'percent':
-      return `${typeof value === 'number' ? value.toFixed(1) : value}%`;
-    case 'hours':
-      return `${typeof value === 'number' ? value.toFixed(2) : value}h`;
-    case 'days':
-      return String(value);
-    case 'number':
-      return typeof value === 'number' ? value.toLocaleString() : String(value);
-    case 'date':
-    case 'text':
-    default:
-      return String(value);
-  }
+  return formatReportValue(kind, value, { checkEmptyString: false });
 };
 
 export const ReportListKpiRow: FunctionComponent<ReportListKpiRowProps> = ({ cards, meta }) => (

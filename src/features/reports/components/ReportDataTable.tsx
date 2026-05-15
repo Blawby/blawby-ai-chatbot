@@ -1,7 +1,7 @@
 import type { FunctionComponent, ComponentChildren } from 'preact';
 import { DataTable, type DataTableColumn, type DataTableRow } from '@/shared/ui/table/DataTable';
-import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import type { ColumnKind, ColumnSpec } from '@/features/reports/config/reportCollection';
+import { formatReportValue } from '@/features/reports/utils/formatReportValue';
 
 interface ReportDataTableProps {
   columns: ColumnSpec[];
@@ -11,27 +11,7 @@ interface ReportDataTableProps {
 }
 
 const formatValue = (kind: ColumnKind, value: unknown): ComponentChildren => {
-  if (value == null || value === '') return '—';
-  switch (kind) {
-    case 'money':
-      return formatCurrency(typeof value === 'number' ? value / 100 : 0);
-    case 'percent':
-      return `${typeof value === 'number' ? value.toFixed(1) : value}%`;
-    case 'hours':
-      return `${typeof value === 'number' ? value.toFixed(2) : value}h`;
-    case 'days':
-      return `${value}`;
-    case 'date': {
-      const d = typeof value === 'string' ? new Date(value) : value instanceof Date ? value : null;
-      if (!d || Number.isNaN(d.getTime())) return String(value);
-      return d.toLocaleDateString();
-    }
-    case 'number':
-      return typeof value === 'number' ? value.toLocaleString() : String(value);
-    case 'text':
-    default:
-      return String(value);
-  }
+  return formatReportValue(kind, value);
 };
 
 const toDataTableColumns = (columns: ColumnSpec[]): DataTableColumn[] =>

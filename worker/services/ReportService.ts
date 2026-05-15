@@ -829,6 +829,7 @@ export class ReportService {
         const resp = await fetch(url, { headers });
         if (!resp.ok) {
           Logger.warn(`reports: ${label} page ${page} returned ${resp.status}`);
+          if (all.length > 0) truncated = true;
           break;
         }
         const json = await resp.json();
@@ -841,6 +842,7 @@ export class ReportService {
         Logger.warn(`reports: ${label} page ${page} failed`, {
           error: err instanceof Error ? err.message : String(err),
         });
+        if (all.length > 0) truncated = true;
         break;
       }
     }

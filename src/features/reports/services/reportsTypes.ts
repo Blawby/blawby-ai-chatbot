@@ -79,6 +79,12 @@ export interface TrustLedgerRow {
   balanceCents: number;
 }
 
+export interface TrustLedgerMeta extends Record<string, unknown> {
+  totalCreditsCents: number;
+  totalDebitsCents: number;
+  endingBalanceCents: number;
+}
+
 export interface WipRow {
   matterId: string;
   matterTitle: string;
@@ -86,11 +92,22 @@ export interface WipRow {
   unbilledAmountCents: number;
 }
 
+export interface WipMeta extends Record<string, unknown> {
+  totalUnbilledHours: number;
+  totalUnbilledAmountCents: number;
+  matterCount: number;
+}
+
 export interface OriginatingAttorneyRow {
   attorneyId: string;
   attorneyName: string;
   matterCount: number;
   revenueCents: number;
+}
+
+export interface OriginatingAttorneyMeta extends Record<string, unknown> {
+  totalRevenueCents: number;
+  totalMatterCount: number;
 }
 
 export interface MattersByAttorneyRow {
@@ -101,12 +118,24 @@ export interface MattersByAttorneyRow {
   closedCount: number;
 }
 
+export interface MattersByAttorneyMeta extends Record<string, unknown> {
+  totalMatterCount: number;
+  totalOpenCount: number;
+  totalClosedCount: number;
+}
+
 export interface TaskProductivityRow {
   assigneeId: string;
   assigneeName: string;
   completed: number;
   pending: number;
   avgCycleDays: number;
+}
+
+export interface TaskProductivityMeta extends Record<string, unknown> {
+  totalCompleted: number;
+  totalPending: number;
+  averageCycleDays: number;
 }
 
 export type ReportRow =
