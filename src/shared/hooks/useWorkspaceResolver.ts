@@ -56,19 +56,28 @@ export function useWorkspaceResolver(options: UseWorkspaceResolverOptions = {}):
   );
   const hasPracticeAccess = canAccessPracticeWorkspace;
 
+  // Honor user.primary_workspace strictly. If the user says "practice" AND
+  // they have any practice membership at all, we route to /practice/ even
+  // when the *currently active* organization happens to be a 'client' one.
+  // The downstream route guards (PracticeAppRoute / ClientPracticeRoute) will
+  // surface access-denied if the active org's role can't reach the chosen
+  // workspace — which is preferable to silently misrouting a stated-practice
+  // user into /client/ because their active org was set to a client membership.
   const userPrimaryWorkspace = session?.user?.primary_workspace;
   const preferredWorkspace: WorkspacePreference =
     userPrimaryWorkspace === 'client' || userPrimaryWorkspace === 'public'
       ? 'client'
       : 'practice';
   const defaultWorkspace: WorkspacePreference =
-    preferredWorkspace === 'client' && canAccessClientWorkspace
-      ? 'client'
-      : canAccessPracticeWorkspace
-        ? 'practice'
-        : canAccessClientWorkspace
-          ? 'client'
-          : preferredWorkspace;
+    preferredWorkspace === 'practice' && hasPracticeMembership
+      ? 'practice'
+      : preferredWorkspace === 'client' && canAccessClientWorkspace
+        ? 'client'
+        : canAccessPracticeWorkspace
+          ? 'practice'
+          : canAccessClientWorkspace
+            ? 'client'
+            : preferredWorkspace;
 
   const resolvePracticeBySlug = useCallback((slug?: string | null): Practice | null => {
     const normalized = typeof slug === 'string' ? slug.trim() : '';

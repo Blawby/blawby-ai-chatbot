@@ -51,6 +51,7 @@ export default defineConfig({
             'src/__tests__/i18n.test.ts',
             'src/features/invoices/utils/__tests__/**/*.test.{ts,tsx}',
             'src/features/invoices/services/__tests__/**/*.test.{ts,tsx}',
+            'src/features/search/utils/__tests__/**/*.test.{ts,tsx}',
             'src/features/reports/**/__tests__/**/*.test.{ts,tsx}',
           ],
           exclude: [

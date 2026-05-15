@@ -67,9 +67,11 @@ const buildSessionContextValue = ({
 function ActiveMemberRoleBridge({
   onChange,
   activePracticeId,
+  userId,
 }: {
   onChange: (next: ActiveMemberRoleState) => void;
   activePracticeId: string | null;
+  userId: string | null;
 }) {
   useEffect(() => {
     let mounted = true;
@@ -95,7 +97,11 @@ function ActiveMemberRoleBridge({
       mounted = false;
       onChange({ role: null, loading: false, resolved: false });
     };
-  }, [onChange, activePracticeId]);
+    // Re-fetch when either the active practice OR the authenticated user
+    // changes. Two different users can share an activePracticeId (e.g. an
+    // owner and a client both members of the same org), so keying only on
+    // practice leaves the role cache stale across a sign-out / sign-in.
+  }, [onChange, activePracticeId, userId]);
 
   return null;
 }
@@ -181,6 +187,7 @@ export function SessionProvider({ children }: { children: ComponentChildren }) {
           <ActiveMemberRoleBridge
             onChange={setActiveMemberRoleState}
             activePracticeId={sessionActivePracticeId}
+            userId={currentUserId1}
           />
         ) : null}
         {children}

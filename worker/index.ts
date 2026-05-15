@@ -22,6 +22,7 @@ import {
   handleReports,
 } from './routes';
 import { handleConversations } from './routes/conversations.js';
+import { handleGlobalSearch } from './routes/search.js';
 import { handlePresence } from './routes/presence.js';
 import { handleAiChat } from './routes/aiChat.js';
 import { handleAiIntent } from './routes/aiIntent.js';
@@ -31,11 +32,14 @@ import { handleSearch } from './routes/handleSearch.js';
 import { handleStatus } from './routes/status.js';
 import { handleAutocompleteWithCORS } from './routes/api/geo/autocomplete.js';
 import { Env } from './types';
+import type { NotificationQueueMessage } from './types';
 import { handleError } from './errorHandler';
 import { withCORS, getCorsConfig } from './middleware/cors';
 import { edgeCache } from './utils/edgeCache.js';
 import type { ScheduledEvent } from '@cloudflare/workers-types';
 import { handleNotificationQueue } from './queues/notificationProcessor.js';
+import { handleSearchIndexQueue } from './queues/searchIndexConsumer.js';
+import type { SearchIndexEvent } from './types/search.js';
 
 function validateRequest(request: Request): boolean {
   const contentLength = request.headers.get('content-length');
@@ -112,7 +116,7 @@ export const routes: RouteEntry[] = [
     match: regex(/^\/api\/practice\/[^/]+\/sidebar\/counts$/),
     handler: withAuth((req, env) => handleSidebarCounts(req, env), { required: true }),
   },
-  { mode: 'proxy', match: matchesBackendProxy, handler: (req, env) => handleBackendProxy(req, env) },
+  { mode: 'proxy', match: matchesBackendProxy, handler: (req, env, ctx) => handleBackendProxy(req, env, ctx) },
   { mode: 'proxy', match: prefix('/api/practices'), handler: (req, env) => handlePractices(req, env) },
   { mode: 'owned', match: prefix('/api/paralegal'), handler: (req, env) => handleParalegal(req, env) },
   { mode: 'owned', match: prefix('/api/activity'), handler: (req, env) => handleActivity(req, env) },
@@ -191,6 +195,11 @@ export const routes: RouteEntry[] = [
     mode: 'owned',
     match: prefix('/api/tools/search'),
     handler: withAuth((req, env) => handleSearch(req, env), { required: false }),
+  },
+  {
+    mode: 'owned',
+    match: prefix('/api/search/'),
+    handler: (req, env, ctx) => handleGlobalSearch(req, env, ctx),
   },
   {
     mode: 'owned',
@@ -293,9 +302,16 @@ async function handleRequestInternal(request: Request, env: Env, ctx: ExecutionC
 
 export const handleRequest = withCORS(handleRequestInternal, getCorsConfig);
 
+async function handleQueue(batch: MessageBatch<unknown>, env: Env): Promise<void> {
+  if (batch.queue.startsWith('search-index-events')) {
+    return handleSearchIndexQueue(batch as MessageBatch<SearchIndexEvent>, env);
+  }
+  return handleNotificationQueue(batch as MessageBatch<NotificationQueueMessage>, env);
+}
+
 export default {
   fetch: handleRequest,
-  queue: handleNotificationQueue
+  queue: handleQueue
 };
 
 export async function scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
@@ -309,7 +325,20 @@ export async function scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionC
       console.error('Scheduled cleanup failed:', error);
     });
 
-  ctx.waitUntil(cleanupPromise);
+  const searchPurgeCutoff = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
+  const searchPurgePromise = env.DB.prepare(
+    `DELETE FROM search_query_log WHERE created_at < ?`,
+  )
+    .bind(searchPurgeCutoff)
+    .run()
+    .then((res) => {
+      console.log(`search_query_log purge: removed ${res.meta?.changes ?? 0} rows older than ${searchPurgeCutoff}`);
+    })
+    .catch((error) => {
+      console.error('search_query_log purge failed:', error);
+    });
+
+  ctx.waitUntil(Promise.all([cleanupPromise, searchPurgePromise]));
 }
 
 export { ChatRoom } from './durable-objects/ChatRoom';
