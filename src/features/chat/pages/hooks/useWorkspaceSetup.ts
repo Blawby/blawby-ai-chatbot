@@ -67,9 +67,17 @@ export const useWorkspaceSetup = ({
   const [onboardingConversationId, setOnboardingConversationId] = useState<string | null>(null);
   const [onboardingConversationRetryTick, setOnboardingConversationRetryTick] = useState(0);
   const onboardingConversationInitRef = useRef(false);
+  const onboardingConversationRetryAttemptRef = useRef(0);
+
+  // Cap retries when create-conversation keeps hitting SessionNotReadyError.
+  // Without the cap the original implementation re-armed a 500ms timer
+  // forever and called refreshConversations() on every failed retry.
+  const ONBOARDING_CONVERSATION_MAX_RETRIES = 5;
+  const ONBOARDING_CONVERSATION_BASE_DELAY_MS = 500;
 
   const resetForPracticeId = useCallback(() => {
     onboardingConversationInitRef.current = false;
+    onboardingConversationRetryAttemptRef.current = 0;
     setOnboardingConversationId(null);
     setOnboardingConversationRetryTick(0);
   }, []);
@@ -137,21 +145,36 @@ export const useWorkspaceSetup = ({
       try {
         const createdId = await createOnboardingConversation();
         setOnboardingConversationId(createdId);
+        onboardingConversationRetryAttemptRef.current = 0;
+        // Only refresh the conversations list on success — previously the
+        // failed-and-retrying path refetched the list on every tick.
         void refreshConversations();
       } catch (error) {
         onboardingConversationInitRef.current = false;
         const isSessionNotReady =
           (error instanceof Error && error.name === 'SessionNotReadyError') ||
           (typeof error === 'object' && error !== null && 'name' in error && (error as { name?: unknown }).name === 'SessionNotReadyError');
-        if (isSessionNotReady) {
-          // Background onboarding thread creation can race session hydration.
-          // Retry shortly on a state tick so the effect re-runs deterministically.
-          setTimeout(() => {
-            setOnboardingConversationRetryTick((tick) => tick + 1);
-          }, 500);
-        } else {
+        if (!isSessionNotReady) {
+          onboardingConversationRetryAttemptRef.current = 0;
           console.warn('[WorkspacePage] Failed to create onboarding conversation', error);
+          return;
         }
+        // Background onboarding thread creation can race session hydration.
+        // Cap retries with exponential backoff (500/1000/2000/4000/8000 ms)
+        // so a stuck session doesn't spin forever.
+        const attempt = onboardingConversationRetryAttemptRef.current;
+        if (attempt >= ONBOARDING_CONVERSATION_MAX_RETRIES) {
+          console.warn(
+            '[WorkspacePage] Onboarding conversation create exhausted retries; giving up',
+            { attempts: attempt }
+          );
+          return;
+        }
+        const delay = ONBOARDING_CONVERSATION_BASE_DELAY_MS * 2 ** attempt;
+        onboardingConversationRetryAttemptRef.current = attempt + 1;
+        setTimeout(() => {
+          setOnboardingConversationRetryTick((tick) => tick + 1);
+        }, delay);
       }
     })();
   }, [createOnboardingConversation, isAnonymous, isConversationsLoading, isPracticeWorkspace, isSessionPending, onboardingConversationFromList, onboardingConversationId, onboardingConversationRetryTick, practiceId, refreshConversations, sessionUserId, view]);
