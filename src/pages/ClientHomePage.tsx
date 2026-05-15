@@ -99,8 +99,6 @@ const ClientHomePage = () => {
       title="Home"
       onMenuClick={() => setMobileSidebarOpen(true)}
       onSearchClick={() => openCommandPalette()}
-      onSearchFocus={() => openCommandPalette()}
-      onSearchChange={(value) => openCommandPalette(value)}
     />
   );
 

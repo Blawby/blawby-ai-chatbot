@@ -24,14 +24,8 @@ export interface WorkspaceShellHeaderProps {
   onSearchClick?: () => void;
   /** Whether to render the desktop search input. Defaults to true. */
   showDesktopSearch?: boolean;
-  /** Placeholder text in the desktop search input. */
+  /** Placeholder text in the desktop search trigger. */
   searchPlaceholder?: string;
-  /** Fires on every keystroke in the desktop search input (placeholder for the
-   *  real search experience). Leave undefined to ignore input. */
-  onSearchChange?: (value: string) => void;
-  /** Fires when the desktop search input gains focus — typically used to
-   *  hand off to a command palette overlay. */
-  onSearchFocus?: () => void;
   /** Shortcut hint shown in the desktop search badge. */
   searchShortcut?: string;
   /** Right-side slot for desktop, e.g. notification bell + extras. */
@@ -57,10 +51,8 @@ export const WorkspaceShellHeader: FunctionComponent<WorkspaceShellHeaderProps> 
   breadcrumb,
   onMenuClick,
   onSearchClick,
-  onSearchFocus,
   showDesktopSearch = true,
   searchPlaceholder = 'Search...',
-  onSearchChange,
   searchShortcut = '⌘K',
   desktopActions,
   className,
@@ -100,19 +92,20 @@ export const WorkspaceShellHeader: FunctionComponent<WorkspaceShellHeaderProps> 
         </div>
         <div className="flex items-center gap-4">
           {showDesktopSearch ? (
-            <label className="flex h-9 w-[220px] items-center gap-2 rounded-lg bg-[rgb(var(--header-search-bg))] px-3 transition-colors focus-within:ring-2 focus-within:ring-accent-500/50 hover:bg-[rgb(var(--sidebar-hover-bg))]">
+            <button
+              type="button"
+              onClick={onSearchClick}
+              aria-label={`${searchPlaceholder} (${searchShortcut})`}
+              className="flex h-9 w-[220px] items-center gap-2 rounded-lg bg-[rgb(var(--header-search-bg))] px-3 text-left transition-colors hover:bg-[rgb(var(--sidebar-hover-bg))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50"
+            >
               <Icon icon={Search} className="h-4 w-4 shrink-0 text-[rgb(var(--sidebar-text-secondary))]" />
-              <input
-                type="text"
-                placeholder={searchPlaceholder}
-                onFocus={onSearchFocus}
-                onInput={onSearchChange ? (e) => onSearchChange((e.currentTarget as HTMLInputElement).value) : undefined}
-                className="min-w-0 flex-1 bg-transparent text-xs text-[rgb(var(--sidebar-text))] outline-none placeholder:text-[rgb(var(--sidebar-text-secondary))]"
-              />
+              <span className="min-w-0 flex-1 truncate text-xs text-[rgb(var(--sidebar-text-secondary))]">
+                {searchPlaceholder}
+              </span>
               <span className="shrink-0 rounded bg-[rgb(var(--header-shortcut-bg))] px-1.5 py-0.5 text-[10px] font-medium text-[rgb(var(--sidebar-text-secondary))]">
                 {searchShortcut}
               </span>
-            </label>
+            </button>
           ) : null}
           {desktopActions}
         </div>

@@ -1070,8 +1070,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       breadcrumb={headerBreadcrumb}
       onMenuClick={() => setIsMobileNavOpen(true)}
       onSearchClick={() => openCommandPalette()}
-      onSearchFocus={() => openCommandPalette()}
-      onSearchChange={(value) => openCommandPalette(value)}
     />
   ) : undefined;
 
