@@ -2,6 +2,7 @@ import type { Env } from '../types.js';
 import type { SearchIndexEvent } from '../types/search.js';
 import { SearchIndexService } from '../services/SearchIndexService.js';
 import { SearchVectorService } from '../services/SearchVectorService.js';
+import { SearchBackfillService } from '../services/SearchBackfillService.js';
 import { Logger } from '../utils/logger.js';
 
 type QueueMessage<T> = {
@@ -26,7 +27,7 @@ export async function handleSearchIndexQueue(
   for (const group of grouped) {
     const latest = pickLatest(group.messages);
     try {
-      await applyEvent(latest.body, indexService, vectorService);
+      await applyEvent(latest.body, env, indexService, vectorService);
       processed += 1;
     } catch (error) {
       failures += 1;
@@ -74,6 +75,7 @@ function pickLatest(
 
 async function applyEvent(
   event: SearchIndexEvent,
+  env: Env,
   indexService: SearchIndexService,
   vectorService: SearchVectorService,
 ): Promise<void> {
@@ -132,9 +134,11 @@ async function applyEvent(
       return;
     }
     case 'backfill': {
-      Logger.info('search index backfill received', {
+      const backfill = new SearchBackfillService(env);
+      const result = await backfill.run(event.practiceId, event.cookieKey);
+      Logger.info('search index backfill ran', {
         practiceId: event.practiceId,
-        cookieKey: event.cookieKey,
+        ...result,
       });
       return;
     }

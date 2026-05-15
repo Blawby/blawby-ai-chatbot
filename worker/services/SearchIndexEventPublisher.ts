@@ -62,6 +62,69 @@ export class SearchIndexEventPublisher {
     });
   }
 
+  /**
+   * Publish one upsert per text chunk for a file. Called after Adobe Extract
+   * (or any other extractor) produces document text. The consumer routes
+   * file_chunk upserts through both FTS5 (for keyword search inside docs)
+   * and Vectorize (for semantic search inside docs).
+   *
+   * Chunk size + overlap match SearchVectorService.chunkText defaults so the
+   * same chunks land in both indexes.
+   */
+  async publishFileChunks(params: {
+    fileId: string;
+    practiceId: string;
+    fileName: string;
+    extractedText: string;
+    clientId?: string;
+    matterId?: string;
+    chunkSize?: number;
+    overlap?: number;
+  }): Promise<number> {
+    const { fileId, practiceId, fileName, extractedText, clientId, matterId } = params;
+    if (!extractedText || extractedText.trim().length === 0) return 0;
+
+    const chunkSize = params.chunkSize ?? 1000;
+    const overlap = params.overlap ?? 400;
+    const chunks: string[] = [];
+    let start = 0;
+    while (start < extractedText.length) {
+      const end = Math.min(start + chunkSize, extractedText.length);
+      chunks.push(extractedText.slice(start, end));
+      if (end === extractedText.length) break;
+      start = end - overlap;
+      if (start < 0) start = 0;
+    }
+
+    const version = Date.now();
+    let published = 0;
+    for (let i = 0; i < chunks.length; i += 1) {
+      const chunkBody = chunks[i];
+      await this.send({
+        op: 'upsert',
+        entityType: 'file_chunk',
+        entityId: `${fileId}:${i}`,
+        practiceId,
+        payload: {
+          title: fileName,
+          subtitle: `File chunk ${i + 1}/${chunks.length}`,
+          body: chunkBody,
+          fileId,
+          clientId,
+          matterId,
+          metadata: {
+            chunkIndex: i,
+            chunkCount: chunks.length,
+            sourceFileId: fileId,
+          },
+        },
+        version: version + i, // unique per chunk so latest-wins picks the freshest publish
+      });
+      published += 1;
+    }
+    return published;
+  }
+
   private async send(event: SearchIndexEvent): Promise<void> {
     if (!this.env.SEARCH_INDEX_EVENTS) {
       Logger.warn('SEARCH_INDEX_EVENTS queue binding missing; dropping event', {

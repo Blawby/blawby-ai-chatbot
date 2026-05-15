@@ -9,6 +9,10 @@ import {
 import { SearchVectorService } from '../services/SearchVectorService.js';
 import { SearchIndexEventPublisher } from '../services/SearchIndexEventPublisher.js';
 import {
+  SearchBackfillService,
+  makeBackfillCookieKey,
+} from '../services/SearchBackfillService.js';
+import {
   parseQuery,
   type SearchScope,
 } from '../../src/features/search/utils/parseQuery.js';
@@ -409,8 +413,17 @@ async function handleReindex(
   practiceId: string,
 ): Promise<Response> {
   await requirePracticeOwner(request, env, practiceId);
+
+  const cookie = request.headers.get('Cookie') ?? '';
+  if (!cookie) {
+    throw HttpErrors.unauthorized('Missing session cookie for backfill');
+  }
+
+  const cookieKey = makeBackfillCookieKey(practiceId);
+  const backfill = new SearchBackfillService(env);
+  await backfill.storeCookie(cookieKey, cookie);
+
   const publisher = new SearchIndexEventPublisher(env);
-  const cookieKey = `backfill-cookie:${practiceId}:${crypto.randomUUID()}`;
   await publisher.publishBackfill(practiceId, cookieKey);
   return SUCCESS({ ok: true, cookieKey });
 }

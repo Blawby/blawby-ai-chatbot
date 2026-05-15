@@ -30,7 +30,11 @@ type FtsRow = {
   metadata: string | null;
 };
 
-type FtsHit = FtsRow & { rank: number };
+type FtsHit = FtsRow & {
+  rank: number;
+  body_snippet: string | null;
+  title_snippet: string | null;
+};
 
 export type SearchIndexQueryOptions = {
   practiceId: string;
@@ -163,6 +167,10 @@ export class SearchIndexService {
       ? `AND r.entity_type IN (${options.scopes.map(() => '?').join(',')})`
       : '';
 
+    // FTS5 column indexes for snippet(): match the CREATE VIRTUAL TABLE order.
+    //   0 entity_type   1 entity_id   2 practice_id (UNINDEXED)
+    //   3 title         4 subtitle    5 body        6 metadata (UNINDEXED)
+    // snippet(table, col, beforeMark, afterMark, ellipses, max_tokens)
     const stmt = this.env.DB.prepare(
       `SELECT s.rowid as rowid,
               s.entity_type,
@@ -172,7 +180,9 @@ export class SearchIndexService {
               s.subtitle,
               s.body,
               s.metadata,
-              bm25(${FTS_TABLE}) as rank
+              bm25(${FTS_TABLE}) as rank,
+              snippet(${FTS_TABLE}, 5, '<mark>', '</mark>', '…', 12) as body_snippet,
+              snippet(${FTS_TABLE}, 3, '<mark>', '</mark>', '…', 12) as title_snippet
          FROM ${FTS_TABLE} s
          JOIN ${REFS_TABLE} r
            ON r.entity_type = s.entity_type AND r.entity_id = s.entity_id
@@ -285,11 +295,22 @@ export class SearchIndexService {
       }
     }
     const archived = metadata.archived === true || metadata.status === 'archived';
+
+    // Prefer body snippet when the body had a match (contains <mark>); fall
+    // back to title snippet for title-only matches. If neither matched, omit.
+    const snippet =
+      row.body_snippet && row.body_snippet.includes('<mark>')
+        ? row.body_snippet
+        : row.title_snippet && row.title_snippet.includes('<mark>')
+          ? row.title_snippet
+          : undefined;
+
     return {
       entityType: row.entity_type as SearchEntityType,
       entityId: row.entity_id,
       title: row.title,
       subtitle: row.subtitle ?? undefined,
+      snippet,
       score: row.rank,
       metadata,
       archived,
