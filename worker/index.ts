@@ -43,12 +43,15 @@ function validateRequest(request: Request): boolean {
   }
 
   if (request.method === 'POST') {
-    const contentType = request.headers.get('content-type');
-    if (!contentType) {
-      return false;
-    }
-    if (!contentType.includes('application/json') && !contentType.includes('multipart/form-data')) {
-      return false;
+    const parsedLength = contentLength !== null ? parseInt(contentLength) : null;
+    if (parsedLength !== 0) {
+      const contentType = request.headers.get('content-type');
+      if (!contentType) {
+        return false;
+      }
+      if (!contentType.includes('application/json') && !contentType.includes('multipart/form-data')) {
+        return false;
+      }
     }
   }
 
