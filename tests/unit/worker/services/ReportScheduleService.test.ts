@@ -40,6 +40,12 @@ describe('computeNextDelivery', () => {
     expect(iso).toBe('2026-05-18T09:00:00.000Z');
   });
 
+  it('rejects invalid weekly day of week values', () => {
+    const from = new Date('2026-05-14T12:00:00Z');
+    expect(() => computeNextDelivery('weekly', 9, { dayOfWeek: 7, from }))
+      .toThrow('dayOfWeek must be an integer from 0-6');
+  });
+
   it('targets the configured day of month for monthly', () => {
     const from = new Date('2026-05-14T12:00:00Z');
     const iso = computeNextDelivery('monthly', 9, { dayOfMonth: 5, from });

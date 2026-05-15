@@ -2,6 +2,7 @@ import type { FunctionComponent } from 'preact';
 import { ArrowLeft, Download, Inbox } from 'lucide-preact';
 
 import { Button } from '@/shared/ui/Button';
+import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
 import { WorkspacePlaceholderState } from '@/shared/ui/layout/WorkspacePlaceholderState';
 import { useNavigation } from '@/shared/utils/navigation';
 import { reportsApi } from '@/features/reports/services/reportsApi';
@@ -36,8 +37,8 @@ export const DeliveryDetailView: FunctionComponent<DeliveryDetailViewProps> = ({
 
   if (loading) {
     return (
-      <div className="flex min-h-0 flex-1 flex-col gap-4 p-4 sm:p-6">
-        <p className="text-sm text-input-placeholder">Loading delivery…</p>
+      <div className="flex min-h-0 flex-1 items-center justify-center p-4 sm:p-6">
+        <LoadingSpinner size="md" ariaLabel="Loading delivery" />
       </div>
     );
   }

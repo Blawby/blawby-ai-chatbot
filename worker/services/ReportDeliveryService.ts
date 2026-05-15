@@ -34,6 +34,18 @@ const MAX_LIMIT = 100;
 const buildStorageKey = (practiceId: string, deliveryId: string, reportType: string) =>
   `report-exports/${practiceId}/${deliveryId}/${reportType}.csv`;
 
+const parseDeliveryCursor = (cursor: string | null): { createdAt: string; id: string } | null => {
+  if (!cursor) return null;
+  const separator = cursor.lastIndexOf('|');
+  if (separator <= 0 || separator === cursor.length - 1) {
+    throw new Error('Invalid delivery cursor');
+  }
+  return {
+    createdAt: cursor.slice(0, separator),
+    id: cursor.slice(separator + 1),
+  };
+};
+
 const rowToDelivery = (row: Record<string, unknown>): ReportDelivery => ({
   id: String(row.id),
   practiceId: String(row.practice_id),
@@ -150,16 +162,17 @@ export class ReportDeliveryService {
     options: { limit?: number; cursor?: string } = {}
   ): Promise<{ items: ReportDelivery[]; nextCursor: string | null }> {
     const limit = Math.min(Math.max(1, options.limit ?? DEFAULT_LIMIT), MAX_LIMIT);
-    const cursor = options.cursor ?? null;
+    const cursor = parseDeliveryCursor(options.cursor ?? null);
     const query = cursor
       ? `SELECT * FROM report_deliveries
-         WHERE practice_id = ? AND created_at < ?
-         ORDER BY created_at DESC LIMIT ?`
+         WHERE practice_id = ?
+           AND (created_at < ? OR (created_at = ? AND id < ?))
+         ORDER BY created_at DESC, id DESC LIMIT ?`
       : `SELECT * FROM report_deliveries
          WHERE practice_id = ?
-         ORDER BY created_at DESC LIMIT ?`;
+         ORDER BY created_at DESC, id DESC LIMIT ?`;
     const stmt = cursor
-      ? this.env.DB.prepare(query).bind(practiceId, cursor, limit + 1)
+      ? this.env.DB.prepare(query).bind(practiceId, cursor.createdAt, cursor.createdAt, cursor.id, limit + 1)
       : this.env.DB.prepare(query).bind(practiceId, limit + 1);
     const result = await stmt.all<Record<string, unknown>>();
     const rows = result.results ?? [];
@@ -167,7 +180,7 @@ export class ReportDeliveryService {
     const slice = hasMore ? rows.slice(0, limit) : rows;
     const items = slice.map(rowToDelivery);
     const nextCursor = hasMore && slice.length > 0
-      ? String(slice[slice.length - 1].created_at)
+      ? `${String(slice[slice.length - 1].created_at)}|${String(slice[slice.length - 1].id)}`
       : null;
     return { items, nextCursor };
   }

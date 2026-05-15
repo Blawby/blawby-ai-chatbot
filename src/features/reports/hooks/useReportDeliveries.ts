@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'preact/hooks';
+import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 import { reportsApi } from '@/features/reports/services/reportsApi';
 import type { ReportDelivery } from '@/features/reports/services/reportsTypes';
 
@@ -18,10 +18,13 @@ export const useReportDeliveries = (practiceId: string): UseReportDeliveriesResu
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tick, setTick] = useState(0);
+  const loadMoreRequestRef = useRef<{ key: string; controller: AbortController } | null>(null);
 
   useEffect(() => {
     if (!practiceId) return undefined;
     const controller = new AbortController();
+    loadMoreRequestRef.current?.controller.abort();
+    loadMoreRequestRef.current = null;
     setLoading(true);
     setError(null);
     reportsApi
@@ -38,23 +41,35 @@ export const useReportDeliveries = (practiceId: string): UseReportDeliveriesResu
         setError(err instanceof Error ? err.message : 'Failed to load deliveries');
         setLoading(false);
       });
-    return () => controller.abort();
+    return () => {
+      controller.abort();
+      loadMoreRequestRef.current?.controller.abort();
+      loadMoreRequestRef.current = null;
+    };
   }, [practiceId, tick]);
 
   const loadMore = useCallback(() => {
     if (!cursor || loading) return;
+    const controller = new AbortController();
+    const requestKey = `${practiceId}:${cursor}`;
+    loadMoreRequestRef.current?.controller.abort();
+    loadMoreRequestRef.current = { key: requestKey, controller };
     setLoading(true);
     reportsApi
-      .listDeliveries(practiceId, { cursor })
+      .listDeliveries(practiceId, { cursor, signal: controller.signal })
       .then((result) => {
+        if (controller.signal.aborted || loadMoreRequestRef.current?.key !== requestKey) return;
         setItems((prev) => [...prev, ...result.items]);
         setCursor(result.nextCursor);
         setHasMore(Boolean(result.nextCursor));
         setLoading(false);
+        loadMoreRequestRef.current = null;
       })
       .catch((err: unknown) => {
+        if (controller.signal.aborted || loadMoreRequestRef.current?.key !== requestKey) return;
         setError(err instanceof Error ? err.message : 'Failed to load deliveries');
         setLoading(false);
+        loadMoreRequestRef.current = null;
       });
   }, [practiceId, cursor, loading]);
 

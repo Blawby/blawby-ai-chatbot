@@ -409,6 +409,18 @@ const handleExport = async (
 
 const FREQUENCIES = new Set<ReportFrequency>(['daily', 'weekly', 'monthly']);
 
+const requireIntegerInRange = (
+  value: unknown,
+  field: string,
+  min: number,
+  max: number
+): number => {
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < min || value > max) {
+    throw HttpErrors.badRequest(`${field} must be an integer from ${min}-${max}`);
+  }
+  return value;
+};
+
 const handleSchedulesList = async (env: Env, practiceId: string): Promise<Response> => {
   const service = new ReportScheduleService(env);
   const schedules = await service.list(practiceId);
@@ -439,9 +451,17 @@ const handleScheduleCreate = async (
   if (!body.frequency || !FREQUENCIES.has(body.frequency as ReportFrequency)) {
     throw HttpErrors.badRequest('Invalid frequency');
   }
-  if (typeof body.hourUtc !== 'number' || body.hourUtc < 0 || body.hourUtc > 23) {
-    throw HttpErrors.badRequest('hourUtc must be 0-23');
-  }
+  const hourUtc = requireIntegerInRange(body.hourUtc, 'hourUtc', 0, 23);
+  const dayOfWeek = body.frequency === 'weekly'
+    ? requireIntegerInRange(body.dayOfWeek, 'dayOfWeek', 0, 6)
+    : body.dayOfWeek === undefined
+      ? undefined
+      : requireIntegerInRange(body.dayOfWeek, 'dayOfWeek', 0, 6);
+  const dayOfMonth = body.frequency === 'monthly'
+    ? requireIntegerInRange(body.dayOfMonth, 'dayOfMonth', 1, 31)
+    : body.dayOfMonth === undefined
+      ? undefined
+      : requireIntegerInRange(body.dayOfMonth, 'dayOfMonth', 1, 31);
   const recipients = Array.isArray(body.recipients)
     ? (body.recipients as unknown[]).filter((r): r is string => typeof r === 'string')
     : [];
@@ -455,9 +475,9 @@ const handleScheduleCreate = async (
   const created = await service.create(practiceId, {
     reportType: body.reportType,
     frequency: body.frequency as ReportFrequency,
-    dayOfWeek: body.dayOfWeek,
-    dayOfMonth: body.dayOfMonth,
-    hourUtc: body.hourUtc,
+    dayOfWeek,
+    dayOfMonth,
+    hourUtc,
     recipients,
     filters,
     active: body.active ?? true,
@@ -476,12 +496,15 @@ const handleScheduleUpdate = async (
 ): Promise<Response> => {
   const body = await parseJsonBody(request) as Record<string, unknown>;
   const patch: Record<string, unknown> = {};
-  if (typeof body.frequency === 'string' && FREQUENCIES.has(body.frequency as ReportFrequency)) {
+  if (body.frequency !== undefined) {
+    if (typeof body.frequency !== 'string' || !FREQUENCIES.has(body.frequency as ReportFrequency)) {
+      throw HttpErrors.badRequest('Invalid frequency');
+    }
     patch.frequency = body.frequency;
   }
-  if (typeof body.hourUtc === 'number') patch.hourUtc = body.hourUtc;
-  if (typeof body.dayOfWeek === 'number') patch.dayOfWeek = body.dayOfWeek;
-  if (typeof body.dayOfMonth === 'number') patch.dayOfMonth = body.dayOfMonth;
+  if (body.hourUtc !== undefined) patch.hourUtc = requireIntegerInRange(body.hourUtc, 'hourUtc', 0, 23);
+  if (body.dayOfWeek !== undefined) patch.dayOfWeek = requireIntegerInRange(body.dayOfWeek, 'dayOfWeek', 0, 6);
+  if (body.dayOfMonth !== undefined) patch.dayOfMonth = requireIntegerInRange(body.dayOfMonth, 'dayOfMonth', 1, 31);
   if (Array.isArray(body.recipients)) {
     patch.recipients = (body.recipients as unknown[]).filter((r): r is string => typeof r === 'string');
   }

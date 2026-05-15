@@ -105,6 +105,7 @@ interface WorkspacePageProps {
   settingsAppId?: string;
   settingsIntakeTemplateSlug?: string;
   routeInvoiceId?: string | null;
+  routeReportDeliveryId?: string | null;
   onStartNewConversation: (
     mode: ConversationMode,
     preferredConversationId?: string,
@@ -204,6 +205,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   settingsAppId,
   settingsIntakeTemplateSlug,
   routeInvoiceId: _,
+  routeReportDeliveryId,
   onStartNewConversation,
   activeConversationId = null,
   chatView,
@@ -1263,13 +1265,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   );
   const reportsTitle = WORKSPACE_REPORT_SECTION_TITLES[activeSecondaryFilter ?? 'all-reports'] ?? WORKSPACE_REPORT_SECTION_TITLES['all-reports'];
   const reportsReportType = activeSecondaryFilter ?? 'all-reports';
-  const reportsDeliveryId = (() => {
-    if (reportsReportType !== 'deliveries') return null;
-    const marker = `${normalizedBase}/reports/deliveries/`;
-    if (!location.path.startsWith(marker)) return null;
-    const raw = location.path.slice(marker.length).split('/')[0] ?? '';
-    return raw.length > 0 ? decodeURIComponent(raw) : null;
-  })();
+  const reportsDeliveryId = reportsReportType === 'deliveries' ? routeReportDeliveryId ?? null : null;
   const reportsContent = resolveViewContent(reportsView, [reportsTitle, reportsReportType, reportsDeliveryId] as const);
   const filesContent = resolveViewContent(filesView, [] as const);
   const settingsContent = practiceSlug ? (

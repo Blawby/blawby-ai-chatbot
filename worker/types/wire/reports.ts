@@ -15,7 +15,7 @@ import { z } from 'zod';
 
 const nullableString = () => z.string().nullable().optional();
 const nullableNumber = () => z.number().nullable().optional();
-const isoDate = () => z.string().nullable().optional();
+const isoDate = () => z.union([z.iso.datetime(), z.iso.date()]).nullable().optional();
 
 export const BackendTrustTransactionSchema = z.object({
   id: z.string(),

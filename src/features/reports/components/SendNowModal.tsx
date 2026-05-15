@@ -3,6 +3,7 @@ import type { FunctionComponent } from 'preact';
 import { Dialog, DialogBody, DialogFooter } from '@/shared/ui/dialog';
 import { Button } from '@/shared/ui/Button';
 import { Input } from '@/shared/ui/input/Input';
+import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { reportsApi } from '@/features/reports/services/reportsApi';
 
@@ -62,7 +63,14 @@ export const SendNowModal: FunctionComponent<SendNowModalProps> = ({
       </DialogBody>
       <DialogFooter>
         <Button variant="secondary" onClick={onClose} disabled={submitting}>Cancel</Button>
-        <Button onClick={handleSubmit} disabled={submitting}>{submitting ? 'Sending…' : 'Send'}</Button>
+        <Button onClick={handleSubmit} disabled={submitting}>
+          {submitting ? (
+            <span className="mr-2 inline-flex">
+              <LoadingSpinner size="sm" ariaLabel="Sending report" announce={false} />
+            </span>
+          ) : null}
+          Send
+        </Button>
       </DialogFooter>
     </Dialog>
   );

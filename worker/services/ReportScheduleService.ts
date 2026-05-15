@@ -33,6 +33,14 @@ const buildKey = (practiceId: string, scheduleId: string) =>
 
 const listPrefix = (practiceId: string) => `${KEY_PREFIX}${practiceId}:`;
 
+const requireDayOfWeek = (value: number | undefined): number => {
+  const target = value ?? 1; // Monday default
+  if (!Number.isInteger(target) || target < 0 || target > 6) {
+    throw new Error('dayOfWeek must be an integer from 0-6');
+  }
+  return target;
+};
+
 export const computeNextDelivery = (
   frequency: ReportFrequency,
   hourUtc: number,
@@ -54,7 +62,7 @@ export const computeNextDelivery = (
     return candidate.toISOString();
   }
   if (frequency === 'weekly') {
-    const target = options.dayOfWeek ?? 1; // Monday default
+    const target = requireDayOfWeek(options.dayOfWeek);
     while (candidate.getUTCDay() !== target) {
       candidate.setUTCDate(candidate.getUTCDate() + 1);
     }

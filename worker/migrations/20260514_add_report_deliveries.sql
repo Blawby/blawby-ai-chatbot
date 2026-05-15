@@ -4,7 +4,7 @@ CREATE TABLE IF NOT EXISTS report_deliveries (
   report_type TEXT NOT NULL,
   filters_json TEXT NOT NULL DEFAULT '{}',
   recipients_json TEXT NOT NULL DEFAULT '[]',
-  status TEXT NOT NULL,
+  status TEXT NOT NULL CHECK (status IN ('pending','completed','failed')),
   storage_key TEXT,
   byte_size INTEGER,
   error_message TEXT,
@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS report_deliveries (
 );
 
 CREATE INDEX IF NOT EXISTS idx_report_deliveries_practice_created
-  ON report_deliveries(practice_id, created_at DESC);
+  ON report_deliveries(practice_id, created_at DESC, id DESC);
 
 CREATE INDEX IF NOT EXISTS idx_report_deliveries_practice_status
   ON report_deliveries(practice_id, status, created_at DESC);

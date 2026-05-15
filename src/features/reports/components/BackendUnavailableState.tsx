@@ -4,11 +4,11 @@ import { Construction } from 'lucide-preact';
 import { WorkspacePlaceholderState } from '@/shared/ui/layout/WorkspacePlaceholderState';
 import type { ReportDefinition } from '@/features/reports/config/reportCollection';
 
-interface BackendUnavailableStateProps {
+interface UnavailableStateProps {
   definition: ReportDefinition;
 }
 
-export const BackendUnavailableState: FunctionComponent<BackendUnavailableStateProps> = ({ definition }) => (
+export const BackendUnavailableState: FunctionComponent<UnavailableStateProps> = ({ definition }) => (
   <div className="flex min-h-0 flex-1 flex-col gap-2 p-4 sm:p-6">
     <WorkspacePlaceholderState
       icon={Construction}
