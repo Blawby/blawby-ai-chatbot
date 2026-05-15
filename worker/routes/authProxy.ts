@@ -7,6 +7,12 @@ import { Logger } from '../utils/logger.js';
 import { redactSensitiveFields } from '../utils/redactResponse.js';
 import { policyTtlMs } from '../utils/cachePolicy.js';
 import { proxy } from '../utils/proxy.js';
+import {
+  isSearchablePath,
+  deriveOp,
+  normalizeForIndex,
+} from '../utils/normalizeForIndex.js';
+import { SearchIndexEventPublisher } from '../services/SearchIndexEventPublisher.js';
 
 const AUTH_PATH_PREFIX = '/api/auth';
 const SUBSCRIPTIONS_CURRENT_PATH = '/api/subscriptions/current';
@@ -69,7 +75,11 @@ const responseFromCache = (cached: CachedProxyResponse): Response =>
     headers: new Headers(cached.headers)
   });
 
-export async function handleBackendProxy(request: Request, env: Env): Promise<Response> {
+export async function handleBackendProxy(
+  request: Request,
+  env: Env,
+  ctx?: ExecutionContext,
+): Promise<Response> {
   const url = new URL(request.url);
   if (!isBackendProxyPath(url.pathname)) {
     throw HttpErrors.notFound('Backend proxy route not found');
@@ -185,5 +195,91 @@ export async function handleBackendProxy(request: Request, env: Env): Promise<Re
     }
   }
 
+  // Search index: capture write payload at the response boundary so the
+  // queue consumer never has to refetch. Body is parsed once and re-emitted.
+  if (
+    result.status >= 200 && result.status < 300 &&
+    method !== 'GET' && method !== 'HEAD' &&
+    isSearchablePath(url.pathname) &&
+    env.SEARCH_INDEX_EVENTS
+  ) {
+    return await dispatchSearchIndexEvent(request, env, ctx, result.response, method, url.pathname);
+  }
+
   return result.response;
+}
+
+async function dispatchSearchIndexEvent(
+  request: Request,
+  env: Env,
+  ctx: ExecutionContext | undefined,
+  upstream: Response,
+  method: string,
+  pathname: string,
+): Promise<Response> {
+  let parsedBody: unknown = null;
+  let buffer: ArrayBuffer | null = null;
+  const publisher = new SearchIndexEventPublisher(env);
+  const op = deriveOp(method);
+
+  try {
+    buffer = await upstream.clone().arrayBuffer();
+    const text = new TextDecoder().decode(buffer);
+    parsedBody = text.length > 0 ? JSON.parse(text) : null;
+  } catch (error) {
+    Logger.debug('search-index: response body not JSON; skipping enqueue', {
+      pathname,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+
+  if (op === 'delete') {
+    const entityId = pathname.split('/').filter(Boolean).pop();
+    const practiceId = readPracticeIdFromHeaders(request);
+    if (entityId && practiceId) {
+      const entityType = entityTypeForDelete(pathname);
+      if (entityType) {
+        const enqueue = publisher.publishCascadeDelete(entityType, entityId, practiceId);
+        if (ctx) ctx.waitUntil(enqueue);
+        else await enqueue;
+      }
+    }
+  } else if (parsedBody) {
+    const normalized = normalizeForIndex(pathname, parsedBody, readPracticeIdFromHeaders(request));
+    if (normalized) {
+      const enqueue = publisher.publishUpsert(
+        normalized.entityType,
+        normalized.entityId,
+        normalized.practiceId,
+        normalized.payload,
+      );
+      if (ctx) ctx.waitUntil(enqueue);
+      else await enqueue;
+    }
+  }
+
+  if (buffer) {
+    return new Response(buffer, {
+      status: upstream.status,
+      statusText: upstream.statusText,
+      headers: upstream.headers,
+    });
+  }
+  return upstream;
+}
+
+function readPracticeIdFromHeaders(request: Request): string | null {
+  return (
+    request.headers.get('x-practice-id') ||
+    request.headers.get('x-organization-id') ||
+    null
+  );
+}
+
+function entityTypeForDelete(pathname: string): import('../types/search.js').SearchEntityType | null {
+  if (pathname.startsWith('/api/clients')) return 'client';
+  if (pathname.startsWith('/api/matters')) return 'matter';
+  if (pathname.startsWith('/api/invoices')) return 'invoice';
+  if (pathname.startsWith('/api/practice-client-intakes')) return 'intake';
+  return null;
 }

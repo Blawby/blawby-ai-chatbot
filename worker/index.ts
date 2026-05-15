@@ -114,7 +114,7 @@ export const routes: RouteEntry[] = [
     match: regex(/^\/api\/practice\/[^/]+\/sidebar\/counts$/),
     handler: withAuth((req, env) => handleSidebarCounts(req, env), { required: true }),
   },
-  { mode: 'proxy', match: matchesBackendProxy, handler: (req, env) => handleBackendProxy(req, env) },
+  { mode: 'proxy', match: matchesBackendProxy, handler: (req, env, ctx) => handleBackendProxy(req, env, ctx) },
   { mode: 'proxy', match: prefix('/api/practices'), handler: (req, env) => handlePractices(req, env) },
   { mode: 'owned', match: prefix('/api/paralegal'), handler: (req, env) => handleParalegal(req, env) },
   { mode: 'owned', match: prefix('/api/activity'), handler: (req, env) => handleActivity(req, env) },
