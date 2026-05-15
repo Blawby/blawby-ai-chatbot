@@ -73,6 +73,7 @@ const workerEndpoints = [
 	'uploads',
 	'widget',
 	'presence',
+	'search',
 ];
 
 // Proxy configuration types from http-proxy-middleware
