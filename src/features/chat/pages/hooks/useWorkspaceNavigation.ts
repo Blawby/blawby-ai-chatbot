@@ -13,6 +13,7 @@ import {
   getSettingsNavConfig,
 } from '@/shared/config/navConfig';
 import type { PracticeRole } from '@/shared/utils/practiceRoles';
+import { buildReportRouteMap } from '@/features/reports/config/reportCollection';
 
 
 export type UseWorkspaceNavigationInput = {
@@ -211,12 +212,7 @@ export function useWorkspaceNavigation({
       return;
     }
     if (workspaceSection === 'reports') {
-      const reportPathById: Record<string, string> = {
-        'all-reports': `${basePath}/reports`,
-        'payroll-matter-activity': `${basePath}/reports/payroll-matter-activity`,
-        'trust-reconciliation': `${basePath}/reports/trust-reconciliation`,
-        'stale-matters': `${basePath}/reports/stale-matters`,
-      };
+      const reportPathById = buildReportRouteMap(basePath);
       navigate(reportPathById[id] ?? `${basePath}/reports`);
       setSecondaryFilterBySection((prev) => ({ ...prev, [workspaceSection]: id }));
       return;

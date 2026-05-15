@@ -19,6 +19,7 @@ import {
   handleBillingSummary,
   handleSidebarCounts,
   handleMetricsVitals,
+  handleReports,
 } from './routes';
 import { handleConversations } from './routes/conversations.js';
 import { handleGlobalSearch } from './routes/search.js';
@@ -119,6 +120,11 @@ export const routes: RouteEntry[] = [
   { mode: 'proxy', match: prefix('/api/practices'), handler: (req, env) => handlePractices(req, env) },
   { mode: 'owned', match: prefix('/api/paralegal'), handler: (req, env) => handleParalegal(req, env) },
   { mode: 'owned', match: prefix('/api/activity'), handler: (req, env) => handleActivity(req, env) },
+  {
+    mode: 'owned',
+    match: prefix('/api/reports/'),
+    handler: withAuth((req, env) => handleReports(req, env), { required: true }),
+  },
   { mode: 'owned', match: prefix('/api/files'), handler: (req, env) => handleFiles(req, env) },
   { mode: 'owned', match: exact('/api/analyze'), handler: (req, env) => handleAnalyze(req, env) },
   { mode: 'owned', match: prefix('/api/pdf'), handler: (req, env) => handlePDF(req, env) },

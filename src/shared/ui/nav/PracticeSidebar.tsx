@@ -180,6 +180,7 @@ export const PracticeSidebar = ({
                         variant={child.variant}
                         isAction={child.isAction}
                         icon={child.icon}
+                        comingSoon={child.comingSoon}
                         onClick={
                           onSecondaryItemClick
                             ? () => {

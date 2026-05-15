@@ -7,7 +7,42 @@ Worker API (Cloudflare Workers): Handles edge-local features and proxying:
 - **Media & Files**: R2 storage proxying, PDF extraction, and document analysis.
 - **Proxying & Bridges**: Routes like auth, subscriptions, core practice management, and intakes are proxied to the remote backend (see `worker/index.ts` and `worker/routes/authProxy.ts`).
 *Always check `worker/index.ts` and `worker/routes/*.ts` to confirm if a route is handled locally or proxied.*
-Local browser verification: start the app with `npm run dev:full` and open `local.blawby.com`. Do not verify auth/signup flows on the raw Vite or Wrangler localhost URLs, because those bypass the same host/proxy/cookie path the app depends on.
+Local browser verification:
+- For auth, signup, practice workspace, reports, and any feature that depends on backend proxying, run the backend API and the frontend/Worker stack together. From a checkout where this repo and the backend repo are siblings, start the backend in one terminal:
+```bash
+cd ../blawby-backend
+pnpm install
+pnpm run dev
+```
+- In this repo, start the frontend, Worker, and `local.blawby.com` tunnel in another terminal:
+```bash
+npm install
+npm run dev:full
+```
+- Open `https://local.blawby.com`. Do not verify auth/signup flows on raw Vite or Wrangler localhost URLs, because those bypass the same host/proxy/cookie path the app depends on.
+- The frontend `.env` and `worker/.dev.vars` should point backend URLs at `http://127.0.0.1:3000` for local backend testing. Alternatively, point them at staging when intentionally testing against staging, but keep the browser on `https://local.blawby.com`.
+- If a Worker feature adds a new D1 table, apply its migration locally before testing the flow:
+```bash
+npx wrangler d1 execute DB --local --config worker/wrangler.toml --env dev --file worker/migrations/<migration-file>.sql
+```
+- If a new Worker-owned API prefix is added, make sure `vite.config.ts` includes that prefix in `workerEndpoints`; otherwise local browser requests will fall through to the backend proxy and may 404.
+Browser automation:
+- Use browser-agent via the local npm package:
+```bash
+npx agent-browser open https://local.blawby.com/auth
+npx agent-browser wait --load networkidle
+npx agent-browser snapshot -i
+npx agent-browser fill @e1 "user@example.com"
+npx agent-browser fill @e2 "password"
+npx agent-browser click @e3
+```
+- Re-run `npx agent-browser snapshot -i` after navigation or modal changes, because element refs are refreshed after the page changes.
+- Prefer browser-agent for exploratory smoke tests and debugging. Use Playwright for repeatable suites:
+```bash
+npm run test:e2e
+npm run test:e2e:auth
+```
+- Playwright auth tests read E2E credentials from environment variables or `tests/e2e/fixtures/e2e-credentials.json`. Do not hardcode contributor-specific absolute paths in tests or docs.
 Remote backend API (staging/production): Use `https://staging-api.blawby.com/llms.txt` for the schema and source of truth.
 - Handles core relational data: Auth, full practice management, client-intakes (management/status), matters, subscriptions/payments, user preferences, and user details.
 *If an endpoint's logic is not explicitly defined in the worker's source code, it's a remote backend concern. Check `llms.txt` for the remote API contract.*

@@ -106,6 +106,7 @@ interface WorkspacePageProps {
   settingsAppId?: string;
   settingsIntakeTemplateSlug?: string;
   routeInvoiceId?: string | null;
+  routeReportDeliveryId?: string | null;
   onStartNewConversation: (
     mode: ConversationMode,
     preferredConversationId?: string,
@@ -141,7 +142,7 @@ interface WorkspacePageProps {
   contactsListContent?: ComponentChildren | ((statusFilter: UserDetailStatus | null, prefetchData?: WorkspacePrefetchData) => ComponentChildren);
   invoicesView?: ComponentChildren | ((statusFilter: string[], onDetailInspector?: (() => void), detailInspectorOpen?: boolean, detailHeaderLeadingAction?: ComponentChildren) => ComponentChildren);
   invoicesListContent?: ComponentChildren | ((statusFilter: string[]) => ComponentChildren);
-  reportsView?: ComponentChildren | ((title: string) => ComponentChildren);
+  reportsView?: ComponentChildren | ((title: string, reportType: string, deliveryId: string | null) => ComponentChildren);
   intakesView?: ComponentChildren | ((activeFilter: string | null) => ComponentChildren);
   engagementsView?: ComponentChildren | ((activeFilter: string | null) => ComponentChildren);
   filesView?: ComponentChildren;
@@ -205,6 +206,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   settingsAppId,
   settingsIntakeTemplateSlug,
   routeInvoiceId: _,
+  routeReportDeliveryId,
   onStartNewConversation,
   activeConversationId = null,
   chatView,
@@ -1259,7 +1261,9 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     </div>
   );
   const reportsTitle = WORKSPACE_REPORT_SECTION_TITLES[activeSecondaryFilter ?? 'all-reports'] ?? WORKSPACE_REPORT_SECTION_TITLES['all-reports'];
-  const reportsContent = resolveViewContent(reportsView, [reportsTitle] as const);
+  const reportsReportType = activeSecondaryFilter ?? 'all-reports';
+  const reportsDeliveryId = reportsReportType === 'deliveries' ? routeReportDeliveryId ?? null : null;
+  const reportsContent = resolveViewContent(reportsView, [reportsTitle, reportsReportType, reportsDeliveryId] as const);
   const filesContent = resolveViewContent(filesView, [] as const);
   const settingsContent = practiceSlug ? (
     <SettingsContent
