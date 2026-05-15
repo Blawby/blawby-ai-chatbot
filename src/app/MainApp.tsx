@@ -81,6 +81,7 @@ export function MainApp({
   chatContent,
   routeConversationId,
   routeInvoiceId,
+  routeReportDeliveryId,
   routeIntakeId: _routeIntakeId,
   routeSettingsView,
   routeSettingsAppId,
@@ -98,6 +99,7 @@ export function MainApp({
   chatContent?: ComponentChildren;
   routeConversationId?: string;
   routeInvoiceId?: string;
+  routeReportDeliveryId?: string;
   routeIntakeId?: string;
   routeSettingsView?: SettingsView;
   routeSettingsAppId?: string;
@@ -859,6 +861,7 @@ export function MainApp({
             : resolvedPublicPracticeSlug
       }
       routeInvoiceId={routeInvoiceId ?? null}
+      routeReportDeliveryId={routeReportDeliveryId ?? null}
       practiceName={resolvedPracticeName}
       practiceLogo={resolvedPracticeLogo}
       messages={messages}
@@ -1065,9 +1068,15 @@ export function MainApp({
       }
       reportsView={
         isPracticeWorkspace
-          ? (reportTitle) => (
+          ? (reportTitle, reportType, deliveryId) => (
             <LazyRouteBoundary>
-              <PracticeReportsPage title={reportTitle} />
+              <PracticeReportsPage
+                title={reportTitle}
+                reportType={reportType}
+                deliveryId={deliveryId}
+                practiceId={effectivePracticeId ?? practiceId}
+                practiceSlug={resolvedPracticeSlug ?? practiceSlug ?? null}
+              />
             </LazyRouteBoundary>
           )
           : undefined

@@ -472,6 +472,7 @@ function AppShell() {
           <Route path="/practice/:practiceSlug/engagements/:engagementId" component={PracticeAppRoute} workspaceView="engagements" />
           <Route path="/practice/:practiceSlug/files" component={PracticeAppRoute} workspaceView="files" />
           <Route path="/practice/:practiceSlug/reports" component={PracticeAppRoute} workspaceView="reports" />
+          <Route path="/practice/:practiceSlug/reports/deliveries/:reportDeliveryId" component={PracticeAppRoute} workspaceView="reports" />
           <Route path="/practice/:practiceSlug/reports/*" component={PracticeAppRoute} workspaceView="reports" />
           <Route path="/practice/:practiceSlug/invoices" component={PracticeAppRoute} workspaceView="invoices" />
           <Route path="/practice/:practiceSlug/invoices/new" component={PracticeAppRoute} workspaceView="invoices" />
@@ -704,6 +705,7 @@ function RootRoute() {
 function PracticeAppRoute({
   conversationId,
   invoiceId,
+  reportDeliveryId,
   appId,
   templateSlug,
   workspaceView = 'home',
@@ -712,6 +714,7 @@ function PracticeAppRoute({
 }: {
   conversationId?: string;
   invoiceId?: string;
+  reportDeliveryId?: string;
   appId?: string;
   templateSlug?: string;
   workspaceView?: WorkspaceView;
@@ -884,6 +887,7 @@ function PracticeAppRoute({
           workspace="practice"
           routeConversationId={conversationId}
           routeInvoiceId={invoiceId}
+          routeReportDeliveryId={reportDeliveryId}
           routeSettingsView={settingsView}
           routeSettingsAppId={appId}
           routeSettingsIntakeTemplateSlug={templateSlug}

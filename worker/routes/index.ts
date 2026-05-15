@@ -19,3 +19,4 @@ export { handlePracticeTeam } from './practiceTeam';
 export { handleBillingSummary } from './billingSummary';
 export { handleSidebarCounts } from './sidebarCounts';
 export { handleMetricsVitals } from './metrics';
+export { handleReports } from './reports';

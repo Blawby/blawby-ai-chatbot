@@ -506,6 +506,8 @@ export interface SidebarSubItemProps {
   /** Optional 14px leading icon (Pencil GtRGH settings sub-items). */
   icon?: IconComponent;
   onClick?: () => void;
+  /** Renders a small muted pill next to the label. */
+  comingSoon?: boolean;
 }
 
 const SidebarSubItem: FunctionComponent<SidebarSubItemProps> = ({
@@ -517,6 +519,7 @@ const SidebarSubItem: FunctionComponent<SidebarSubItemProps> = ({
   isAction = false,
   icon,
   onClick,
+  comingSoon = false,
 }) => {
   const ctx = useContext(SidebarContext);
   const { navigate } = useNavigation();
@@ -557,6 +560,11 @@ const SidebarSubItem: FunctionComponent<SidebarSubItemProps> = ({
       <span className="flex min-w-0 items-center gap-2.5">
         {icon ? <Icon icon={icon} className="h-3.5 w-3.5 shrink-0" /> : null}
         <span className="truncate">{label}</span>
+        {comingSoon ? (
+          <span className="ml-1 shrink-0 rounded-full bg-[rgb(var(--sidebar-hover-bg))] px-1.5 py-px text-[10px] uppercase tracking-wide text-[rgb(var(--sidebar-text-secondary))]">
+            Soon
+          </span>
+        ) : null}
       </span>
       {(() => {
         const formattedCount = formatBadgeValue(count);
