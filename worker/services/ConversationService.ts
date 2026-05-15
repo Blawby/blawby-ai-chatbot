@@ -624,9 +624,10 @@ export class ConversationService {
         const content = getNullableString(record.latest_msg_content);
         if (!content) return null;
         const roleRaw = getNullableString(record.latest_msg_role);
-        const role = roleRaw === 'user' || roleRaw === 'assistant' || roleRaw === 'system'
-          ? roleRaw
-          : 'assistant';
+        if (roleRaw !== 'user' && roleRaw !== 'assistant' && roleRaw !== 'system') {
+          throw new Error(`Invalid latest message role: ${roleRaw}`);
+        }
+        const role = roleRaw;
         const created_at = getNullableString(record.latest_msg_created_at) ?? '';
         return { content, role, created_at };
       })(),
@@ -836,16 +837,14 @@ export class ConversationService {
     const includeReadState = Boolean(options.userId);
     const latestMessageJoin = options.includeLatestMessage
       ? `
-      LEFT JOIN (
-        SELECT conversation_id, content, role, created_at
-        FROM (
-          SELECT conversation_id, content, role, created_at,
-                 ROW_NUMBER() OVER (PARTITION BY conversation_id ORDER BY seq DESC) AS rn
-          FROM chat_messages
-          WHERE role <> 'system' AND TRIM(COALESCE(content, '')) <> ''
-        ) sub
-        WHERE rn = 1
-      ) latest_msg ON latest_msg.conversation_id = conversations.id
+      LEFT JOIN chat_messages latest_msg ON latest_msg.id = (
+        SELECT m2.id FROM chat_messages m2
+        WHERE m2.conversation_id = conversations.id
+          AND m2.role <> 'system'
+          AND TRIM(COALESCE(m2.content, '')) <> ''
+        ORDER BY m2.seq DESC
+        LIMIT 1
+      )
     `
       : '';
     const latestMessageCols = options.includeLatestMessage
@@ -975,16 +974,14 @@ export class ConversationService {
     const offset = Math.max(options.offset || 0, 0);
     const latestMessageJoin = options.includeLatestMessage
       ? `
-      LEFT JOIN (
-        SELECT conversation_id, content, role, created_at
-        FROM (
-          SELECT conversation_id, content, role, created_at,
-                 ROW_NUMBER() OVER (PARTITION BY conversation_id ORDER BY seq DESC) AS rn
-          FROM chat_messages
-          WHERE role <> 'system' AND TRIM(COALESCE(content, '')) <> ''
-        ) sub
-        WHERE rn = 1
-      ) latest_msg ON latest_msg.conversation_id = conversations.id
+      LEFT JOIN chat_messages latest_msg ON latest_msg.id = (
+        SELECT m2.id FROM chat_messages m2
+        WHERE m2.conversation_id = conversations.id
+          AND m2.role <> 'system'
+          AND TRIM(COALESCE(m2.content, '')) <> ''
+        ORDER BY m2.seq DESC
+        LIMIT 1
+      )
     `
       : '';
     const latestMessageCols = options.includeLatestMessage

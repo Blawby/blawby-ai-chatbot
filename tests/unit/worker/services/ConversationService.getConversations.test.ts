@@ -100,7 +100,7 @@ describe('ConversationService.getConversations include=latest_message', () => {
       includeLatestMessage: true,
     });
 
-    expect(spy.capturedQuery.sql).toContain('ROW_NUMBER');
+    expect(spy.capturedQuery.sql).toContain('latest_msg');
     expect(spy.capturedQuery.sql).toContain('latest_msg_content');
     expect(result[0].latest_message).toEqual({
       content: 'Hello there',
@@ -127,7 +127,7 @@ describe('ConversationService.getConversations include=latest_message', () => {
     expect(result[0].latest_message).toBeNull();
   });
 
-  it('falls back to assistant role when the SQL column carries an unexpected value', async () => {
+  it('throws an error when the SQL column carries an unexpected role value', async () => {
     const spy = createSqlSpyEnv([
       baseConversationRow({
         latest_msg_content: 'response',
@@ -137,11 +137,9 @@ describe('ConversationService.getConversations include=latest_message', () => {
     ]);
     const service = new ConversationService(spy.env);
 
-    const result = await service.getConversations({
+    await expect(service.getConversations({
       practiceId: 'practice-1',
       includeLatestMessage: true,
-    });
-
-    expect(result[0].latest_message?.role).toBe('assistant');
+    })).rejects.toThrow('Invalid latest message role: tool');
   });
 });

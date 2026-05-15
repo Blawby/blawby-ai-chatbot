@@ -278,19 +278,26 @@ const affectsSidebarCounts = (url: string): boolean => {
   return SIDEBAR_COUNT_PATH_PREFIXES.some((p) => path.startsWith(p));
 };
 
+const PRACTICE_RESOURCE_ALLOWLIST = new Set([
+  'matters',
+  'practice-client-intakes',
+  'invoices',
+]);
+
 /**
- * Extract the practice id from a URL path. Most of the mutation endpoints
- * shaped like `/api/<resource>/:practiceId[/...]` carry the practice id as the
- * third path segment. Returns null when the segment doesn't look like a
- * UUID-style identifier (e.g. literal sub-resources like `/api/uploads`),
- * in which case the caller falls back to the broad prefix invalidation.
+ * Extract the practice id from a URL path. Only extracts for known resources
+ * that carry a practice id as the third segment (e.g. /api/matters/:practiceId).
+ * Returns null for other resources (like /api/conversations/:id) or when the
+ * segment doesn't look like a UUID, allowing the caller to fall back to broad
+ * invalidation.
  */
 const extractPracticeIdFromPath = (path: string): string | null => {
   const segments = path.split('/').filter(Boolean);
   if (segments.length < 3 || segments[0] !== 'api') return null;
+  const resource = segments[1];
+  if (!PRACTICE_RESOURCE_ALLOWLIST.has(resource)) return null;
   const candidate = segments[2];
-  if (!candidate) return null;
-  if (!/^[0-9a-fA-F-]{8,}$/.test(candidate)) return null;
+  if (!candidate || !/^[0-9a-fA-F-]{8,}$/.test(candidate)) return null;
   return candidate;
 };
 
