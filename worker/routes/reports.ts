@@ -17,7 +17,13 @@ import {
   resolveDateRange,
   type ResolvedDateRange,
 } from '../services/ReportService.js';
+import {
+  ReportScheduleService,
+  type ReportFrequency,
+} from '../services/ReportScheduleService.js';
+import { ReportDeliveryService } from '../services/ReportDeliveryService.js';
 import { toCsv, type CsvColumn } from '../utils/csv.js';
+import { parseJsonBody } from '../utils.js';
 
 const PRACTICE_ID_RE = /^[a-zA-Z0-9_-]{1,128}$/;
 const VALID_REPORT_TYPES = new Set<string>([
@@ -282,7 +288,254 @@ const handleExport = async (
   return csvResponse(filenameFor(reportType, practiceId), body);
 };
 
+// ─── schedules ───────────────────────────────────────────────────────────
+
+const FREQUENCIES = new Set<ReportFrequency>(['daily', 'weekly', 'monthly']);
+
+const handleSchedulesList = async (env: Env, practiceId: string): Promise<Response> => {
+  const service = new ReportScheduleService(env);
+  const schedules = await service.list(practiceId);
+  return new Response(JSON.stringify({ success: true, data: schedules }), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' },
+  });
+};
+
+const handleScheduleCreate = async (
+  request: Request,
+  env: Env,
+  practiceId: string
+): Promise<Response> => {
+  const body = await parseJsonBody(request) as {
+    reportType?: string;
+    frequency?: string;
+    dayOfWeek?: number;
+    dayOfMonth?: number;
+    hourUtc?: number;
+    recipients?: unknown;
+    filters?: unknown;
+    active?: boolean;
+  };
+  if (!body.reportType || !VALID_REPORT_TYPES.has(body.reportType)) {
+    throw HttpErrors.badRequest('Invalid reportType');
+  }
+  if (!body.frequency || !FREQUENCIES.has(body.frequency as ReportFrequency)) {
+    throw HttpErrors.badRequest('Invalid frequency');
+  }
+  if (typeof body.hourUtc !== 'number' || body.hourUtc < 0 || body.hourUtc > 23) {
+    throw HttpErrors.badRequest('hourUtc must be 0-23');
+  }
+  const recipients = Array.isArray(body.recipients)
+    ? (body.recipients as unknown[]).filter((r): r is string => typeof r === 'string')
+    : [];
+  const filters: Record<string, string> = {};
+  if (body.filters && typeof body.filters === 'object' && !Array.isArray(body.filters)) {
+    for (const [k, v] of Object.entries(body.filters as Record<string, unknown>)) {
+      if (typeof v === 'string') filters[k] = v;
+    }
+  }
+  const service = new ReportScheduleService(env);
+  const created = await service.create(practiceId, {
+    reportType: body.reportType,
+    frequency: body.frequency as ReportFrequency,
+    dayOfWeek: body.dayOfWeek,
+    dayOfMonth: body.dayOfMonth,
+    hourUtc: body.hourUtc,
+    recipients,
+    filters,
+    active: body.active ?? true,
+  });
+  return new Response(JSON.stringify({ success: true, data: created }), {
+    status: 201,
+    headers: { 'Content-Type': 'application/json' },
+  });
+};
+
+const handleScheduleUpdate = async (
+  request: Request,
+  env: Env,
+  practiceId: string,
+  scheduleId: string
+): Promise<Response> => {
+  const body = await parseJsonBody(request) as Record<string, unknown>;
+  const patch: Record<string, unknown> = {};
+  if (typeof body.frequency === 'string' && FREQUENCIES.has(body.frequency as ReportFrequency)) {
+    patch.frequency = body.frequency;
+  }
+  if (typeof body.hourUtc === 'number') patch.hourUtc = body.hourUtc;
+  if (typeof body.dayOfWeek === 'number') patch.dayOfWeek = body.dayOfWeek;
+  if (typeof body.dayOfMonth === 'number') patch.dayOfMonth = body.dayOfMonth;
+  if (Array.isArray(body.recipients)) {
+    patch.recipients = (body.recipients as unknown[]).filter((r): r is string => typeof r === 'string');
+  }
+  if (body.filters && typeof body.filters === 'object' && !Array.isArray(body.filters)) {
+    const filters: Record<string, string> = {};
+    for (const [k, v] of Object.entries(body.filters as Record<string, unknown>)) {
+      if (typeof v === 'string') filters[k] = v;
+    }
+    patch.filters = filters;
+  }
+  if (typeof body.active === 'boolean') patch.active = body.active;
+
+  const service = new ReportScheduleService(env);
+  const updated = await service.update(practiceId, scheduleId, patch);
+  if (!updated) throw HttpErrors.notFound('Schedule not found');
+  return new Response(JSON.stringify({ success: true, data: updated }), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' },
+  });
+};
+
+const handleScheduleDelete = async (
+  env: Env,
+  practiceId: string,
+  scheduleId: string
+): Promise<Response> => {
+  const service = new ReportScheduleService(env);
+  const ok = await service.delete(practiceId, scheduleId);
+  if (!ok) throw HttpErrors.notFound('Schedule not found');
+  return new Response(null, { status: 204 });
+};
+
+// ─── send-now + deliveries ───────────────────────────────────────────────
+
+const handleSendNow = async (
+  request: Request,
+  env: Env,
+  practiceId: string,
+  authUserId: string,
+  practiceSlug: string | null
+): Promise<Response> => {
+  const body = await parseJsonBody(request) as {
+    reportType?: string;
+    recipients?: unknown;
+    filters?: unknown;
+  };
+  if (!body.reportType || !VALID_REPORT_TYPES.has(body.reportType)) {
+    throw HttpErrors.badRequest('Invalid reportType');
+  }
+  if (PHASE_3_REPORTS.has(body.reportType)) {
+    throw new BackendUnavailableError(body.reportType);
+  }
+  const columns = csvColumnsFor(body.reportType);
+  if (!columns) {
+    throw HttpErrors.unprocessableEntity(`CSV export not supported for '${body.reportType}'`);
+  }
+  const recipients = Array.isArray(body.recipients)
+    ? (body.recipients as unknown[]).filter((r): r is string => typeof r === 'string')
+    : [];
+  const filters: Record<string, string> = {};
+  if (body.filters && typeof body.filters === 'object' && !Array.isArray(body.filters)) {
+    for (const [k, v] of Object.entries(body.filters as Record<string, unknown>)) {
+      if (typeof v === 'string') filters[k] = v;
+    }
+  }
+
+  // Synthesize the same query string our GET endpoint accepts so we reuse
+  // the runReport pipeline 1:1 (period, start, end, hourlyRate).
+  const synthUrl = new URL(request.url);
+  const synthSearch = new URLSearchParams();
+  for (const [k, v] of Object.entries(filters)) synthSearch.set(k, v);
+  synthUrl.search = synthSearch.toString();
+  const synthRequest = new Request(synthUrl.toString(), { method: 'GET', headers: request.headers });
+
+  const deliveryService = new ReportDeliveryService(env);
+  const delivery = await deliveryService.create({
+    practiceId,
+    reportType: body.reportType,
+    filters,
+    recipients,
+    createdBy: authUserId,
+  });
+
+  try {
+    const result = await runReport(body.reportType, synthRequest, env, practiceId);
+    const csv = toCsv(result.rows, columns);
+    const stored = await deliveryService.storeCsv(practiceId, delivery.id, body.reportType, csv);
+    await deliveryService.markCompleted(delivery.id, stored);
+    const completed = { ...delivery, status: 'completed' as const, ...stored, completedAt: new Date().toISOString() };
+    if (recipients.length > 0) {
+      await deliveryService.notifyRecipients({ practiceId, delivery: completed, practiceSlug });
+    }
+    return new Response(JSON.stringify({ success: true, data: completed }), {
+      status: 201,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Send failed';
+    await deliveryService.markFailed(delivery.id, message);
+    throw err;
+  }
+};
+
+const handleDeliveriesList = async (
+  request: Request,
+  env: Env,
+  practiceId: string
+): Promise<Response> => {
+  const url = new URL(request.url);
+  const limit = Number(url.searchParams.get('limit')) || undefined;
+  const cursor = url.searchParams.get('cursor') ?? undefined;
+  const service = new ReportDeliveryService(env);
+  const result = await service.list(practiceId, { limit, cursor });
+  return new Response(JSON.stringify({ success: true, data: result }), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' },
+  });
+};
+
+const handleDeliveryGet = async (
+  env: Env,
+  practiceId: string,
+  deliveryId: string
+): Promise<Response> => {
+  const service = new ReportDeliveryService(env);
+  const delivery = await service.get(practiceId, deliveryId);
+  if (!delivery) throw HttpErrors.notFound('Delivery not found');
+  return new Response(JSON.stringify({ success: true, data: delivery }), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' },
+  });
+};
+
+const handleDeliveryDownload = async (
+  env: Env,
+  practiceId: string,
+  deliveryId: string
+): Promise<Response> => {
+  const service = new ReportDeliveryService(env);
+  const delivery = await service.get(practiceId, deliveryId);
+  if (!delivery) throw HttpErrors.notFound('Delivery not found');
+  if (delivery.status !== 'completed') {
+    throw HttpErrors.conflict(`Delivery is ${delivery.status}, not completed`);
+  }
+  const { body, contentType, size } = await service.downloadBody(delivery);
+  if (!body) throw HttpErrors.notFound('Delivery file not found in storage');
+  const headers: Record<string, string> = {
+    'Content-Type': contentType,
+    'Content-Disposition': `attachment; filename="${filenameFor(delivery.reportType, practiceId)}"`,
+  };
+  if (size != null) headers['Content-Length'] = String(size);
+  return new Response(body, { status: 200, headers });
+};
+
 // ─── route dispatch ──────────────────────────────────────────────────────
+
+const resolvePracticeSlug = async (
+  env: Env,
+  practiceId: string,
+  forwardHeaders: Record<string, string>
+): Promise<string | null> => {
+  try {
+    const url = `${env.BACKEND_API_URL}/api/practice/details/${encodeURIComponent(practiceId)}`;
+    const resp = await fetch(url, { headers: forwardHeaders });
+    if (!resp.ok) return null;
+    const json = await resp.json() as { slug?: string; data?: { slug?: string } };
+    return json?.data?.slug ?? json?.slug ?? null;
+  } catch {
+    return null;
+  }
+};
 
 export async function handleReports(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);
@@ -303,15 +556,51 @@ export async function handleReports(request: Request, env: Env): Promise<Respons
   }
 
   try {
-    // Phase 2 endpoints (schedules / send-now / deliveries) — wired in milestone 4.
-    if (remainder.startsWith('schedules')) {
-      throw HttpErrors.notFound('Schedules ships in milestone 4');
+    if (remainder === 'schedules') {
+      if (request.method === 'GET') return await handleSchedulesList(env, practiceId);
+      if (request.method === 'POST') return await handleScheduleCreate(request, env, practiceId);
+      throw HttpErrors.methodNotAllowed('GET or POST');
     }
+    const schedMatch = /^schedules\/([^/]+)$/.exec(remainder);
+    if (schedMatch) {
+      const scheduleId = decodeURIComponent(schedMatch[1]);
+      if (request.method === 'PUT' || request.method === 'PATCH') {
+        return await handleScheduleUpdate(request, env, practiceId, scheduleId);
+      }
+      if (request.method === 'DELETE') {
+        return await handleScheduleDelete(env, practiceId, scheduleId);
+      }
+      if (request.method === 'GET') {
+        const service = new ReportScheduleService(env);
+        const schedule = await service.get(practiceId, scheduleId);
+        if (!schedule) throw HttpErrors.notFound('Schedule not found');
+        return new Response(JSON.stringify({ success: true, data: schedule }), {
+          status: 200, headers: { 'Content-Type': 'application/json' },
+        });
+      }
+      throw HttpErrors.methodNotAllowed('GET/PUT/PATCH/DELETE');
+    }
+
     if (remainder === 'send-now') {
-      throw HttpErrors.notFound('Send-now ships in milestone 4');
+      if (request.method !== 'POST') throw HttpErrors.methodNotAllowed('POST');
+      const forwardHeaders = buildForwardHeaders(request);
+      const practiceSlug = await resolvePracticeSlug(env, practiceId, forwardHeaders);
+      return await handleSendNow(request, env, practiceId, authContext.user.id, practiceSlug);
     }
-    if (remainder.startsWith('deliveries')) {
-      throw HttpErrors.notFound('Deliveries ships in milestone 4');
+
+    if (remainder === 'deliveries') {
+      if (request.method !== 'GET') throw HttpErrors.methodNotAllowed('GET');
+      return await handleDeliveriesList(request, env, practiceId);
+    }
+    const downloadMatch = /^deliveries\/([^/]+)\/download$/.exec(remainder);
+    if (downloadMatch) {
+      if (request.method !== 'GET') throw HttpErrors.methodNotAllowed('GET');
+      return await handleDeliveryDownload(env, practiceId, decodeURIComponent(downloadMatch[1]));
+    }
+    const deliveryMatch = /^deliveries\/([^/]+)$/.exec(remainder);
+    if (deliveryMatch) {
+      if (request.method !== 'GET') throw HttpErrors.methodNotAllowed('GET');
+      return await handleDeliveryGet(env, practiceId, decodeURIComponent(deliveryMatch[1]));
     }
 
     if (remainder.startsWith('export/')) {
