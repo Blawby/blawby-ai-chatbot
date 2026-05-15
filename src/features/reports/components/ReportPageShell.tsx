@@ -11,6 +11,8 @@ import { ReportFilters, type ReportFilterValues } from './ReportFilters';
 import { ReportToolbar } from './ReportToolbar';
 import { ReportListKpiRow } from './ReportListKpiRow';
 import { ReportDataTable } from './ReportDataTable';
+import { ScheduleModal } from './ScheduleModal';
+import { SendNowModal } from './SendNowModal';
 
 interface ReportPageShellProps {
   definition: ReportDefinition;
@@ -28,7 +30,9 @@ const defaultFilterValues = (definition: ReportDefinition): ReportFilterValues =
 
 export const ReportPageShell: FunctionComponent<ReportPageShellProps> = ({ definition, practiceId }) => {
   const [filters, setFilters] = useState<ReportFilterValues>(() => defaultFilterValues(definition));
-  const { showError, showInfo } = useToastContext();
+  const [scheduleOpen, setScheduleOpen] = useState(false);
+  const [sendNowOpen, setSendNowOpen] = useState(false);
+  const { showError } = useToastContext();
   const { exportReport, exporting } = useReportExport();
 
   const queryParams = useMemo(() => ({
@@ -54,8 +58,13 @@ export const ReportPageShell: FunctionComponent<ReportPageShellProps> = ({ defin
       showError(err instanceof Error ? err.message : 'Export failed');
     }
   };
-  const handleSchedule = () => showInfo('Scheduling ships in the next milestone.');
-  const handleSendNow = () => showInfo('Send now ships in the next milestone.');
+  const handleSchedule = () => setScheduleOpen(true);
+  const handleSendNow = () => setSendNowOpen(true);
+  const stringFilters: Record<string, string> = Object.fromEntries(
+    Object.entries(filters)
+      .filter(([, v]) => v != null && v !== '')
+      .map(([k, v]) => [k, String(v)])
+  );
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4 p-4 sm:p-6">
@@ -101,6 +110,21 @@ export const ReportPageShell: FunctionComponent<ReportPageShellProps> = ({ defin
         columns={definition.columns}
         rows={(data?.items as Record<string, unknown>[]) ?? []}
         loading={loading && !data}
+      />
+
+      <ScheduleModal
+        isOpen={scheduleOpen}
+        onClose={() => setScheduleOpen(false)}
+        practiceId={practiceId}
+        reportType={definition.id}
+        filters={stringFilters}
+      />
+      <SendNowModal
+        isOpen={sendNowOpen}
+        onClose={() => setSendNowOpen(false)}
+        practiceId={practiceId}
+        reportType={definition.id}
+        filters={stringFilters}
       />
     </div>
   );
