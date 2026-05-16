@@ -237,9 +237,14 @@ function AppShell() {
     }
   }, [currentPractice?.accentColor, currentPractice?.slug]);
 
-  // Public/intake/debug routes do not need the gate at all — they render for
-  // anonymous and authenticated users alike. Skipping intent computation
-  // avoids triggering the recovery hook + practice fetch on those routes.
+  // `useAuthRouteIntent` runs on every render — React's rules-of-hooks forbid
+  // gating it on a route check. The cost guards live elsewhere:
+  //   - `autoFetchPractices: shouldFetchWorkspacePractices` keeps the practice
+  //     list fetch (and the recovery hook's `setActive` round-trip) off public
+  //     and intake routes that have no use for it.
+  //   - `bypassGateForRoute` below skips rendering `<AuthenticatedRouter>` so
+  //     public/intake/debug routes never emit a redirect even though the intent
+  //     is still computed in the background.
   const isPublicIntakeRoute = isPublicRoute || isClientRoute;
   const bypassGateForRoute = isPublicIntakeRoute || isDebugRoute;
   const intent = useAuthRouteIntent({

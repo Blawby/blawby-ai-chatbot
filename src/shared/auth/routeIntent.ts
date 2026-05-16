@@ -1,4 +1,5 @@
 import type { WorkspacePreference } from '@/shared/types/workspace';
+import type { AuthSessionPayload } from '@/shared/types/user';
 
 /**
  * Discriminated union describing where an authenticated (or
@@ -57,7 +58,7 @@ export interface RouteIntentInputs {
  * stays canonical.
  */
 export function getActiveOrganizationPointer(
-  session: { session?: Record<string, unknown> | null | undefined } | null | undefined
+  session: AuthSessionPayload | null | undefined
 ): string | null {
   const value = session?.session?.active_organization_id;
   return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null;

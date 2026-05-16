@@ -56,6 +56,13 @@ export function useAuthRouteIntent(
     isSubscriptionSuccessReturn
   );
 
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
   // Post-Stripe round-trip: when ?subscription=success is present, kick the
   // recovery hook imperatively (the auto-fire path is blocked by the same URL
   // flag — that's intentional, the post-Stripe effect IS the owner of this
@@ -88,7 +95,9 @@ export function useAuthRouteIntent(
             `${newUrl.pathname}${newUrl.search}${newUrl.hash}`
           );
         }
-        setSubscriptionSyncInFlight(false);
+        if (mountedRef.current) {
+          setSubscriptionSyncInFlight(false);
+        }
       });
   }, [forceResolve, isSubscriptionSuccessReturn, refetchPractices]);
 

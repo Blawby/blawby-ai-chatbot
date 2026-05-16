@@ -124,8 +124,16 @@ export function useEnsureActiveOrganization() {
   }, []);
 
   useEffect(() => {
-    if (!eligible || !userId) return;
-    if (isSubscriptionSuccessReturn()) return;
+    // Effect owns BOTH directions of the flag. The lazy initializer above is
+    // strictly an optimization for render #1; this effect is authoritative.
+    // If ineligible (e.g. no userId yet, or on subscription-success return),
+    // make sure the flag is cleared so consumers can move on.
+    if (!eligible || !userId || isSubscriptionSuccessReturn()) {
+      if (mountedRef.current) {
+        setIsResolving(false);
+      }
+      return;
+    }
 
     setIsResolving(true);
     void runRecovery(userId).finally(() => {

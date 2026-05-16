@@ -66,6 +66,9 @@ export function usePostAuthBounce(): void {
         window.sessionStorage.removeItem('intakeAwaitingInvitePath');
         navigate(pendingPath, true);
       } else {
+        // Outside the auth-return flow, the pending path is stale by
+        // definition — the user has already navigated past the intake/invite
+        // round-trip. Consume it so it doesn't fire on subsequent navigations.
         window.sessionStorage.removeItem('intakeAwaitingInvitePath');
       }
     } catch (error) {

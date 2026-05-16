@@ -5,6 +5,13 @@ import {
   type RouteIntent,
   type RouteIntentInputs,
 } from '@/shared/auth/routeIntent';
+import type { AuthSessionPayload } from '@/shared/types/user';
+
+// `getActiveOrganizationPointer` now takes a typed `AuthSessionPayload`. The
+// helper only reads `session.session.active_organization_id`, so the tests
+// pass partial shapes via this cast to avoid the noise of full fixtures.
+const pointer = (value: unknown): string | null =>
+  getActiveOrganizationPointer(value as AuthSessionPayload | null | undefined);
 
 function inputs(overrides: Partial<RouteIntentInputs> = {}): RouteIntentInputs {
   return {
@@ -236,33 +243,23 @@ describe('computeRouteIntent', () => {
 
 describe('getActiveOrganizationPointer', () => {
   it('returns null for missing or empty values', () => {
-    expect(getActiveOrganizationPointer(null)).toBeNull();
-    expect(getActiveOrganizationPointer(undefined)).toBeNull();
-    expect(getActiveOrganizationPointer({})).toBeNull();
-    expect(getActiveOrganizationPointer({ session: null })).toBeNull();
-    expect(getActiveOrganizationPointer({ session: undefined })).toBeNull();
-    expect(getActiveOrganizationPointer({ session: {} })).toBeNull();
-    expect(getActiveOrganizationPointer({ session: { active_organization_id: '' } })).toBeNull();
-    expect(
-      getActiveOrganizationPointer({ session: { active_organization_id: '   ' } })
-    ).toBeNull();
+    expect(pointer(null)).toBeNull();
+    expect(pointer(undefined)).toBeNull();
+    expect(pointer({})).toBeNull();
+    expect(pointer({ session: null })).toBeNull();
+    expect(pointer({ session: undefined })).toBeNull();
+    expect(pointer({ session: {} })).toBeNull();
+    expect(pointer({ session: { active_organization_id: '' } })).toBeNull();
+    expect(pointer({ session: { active_organization_id: '   ' } })).toBeNull();
   });
 
   it('returns trimmed value for non-empty strings', () => {
-    expect(
-      getActiveOrganizationPointer({ session: { active_organization_id: 'org_abc' } })
-    ).toBe('org_abc');
-    expect(
-      getActiveOrganizationPointer({ session: { active_organization_id: '  org_abc  ' } })
-    ).toBe('org_abc');
+    expect(pointer({ session: { active_organization_id: 'org_abc' } })).toBe('org_abc');
+    expect(pointer({ session: { active_organization_id: '  org_abc  ' } })).toBe('org_abc');
   });
 
   it('returns null for non-string values', () => {
-    expect(
-      getActiveOrganizationPointer({ session: { active_organization_id: 123 as unknown as string } })
-    ).toBeNull();
-    expect(
-      getActiveOrganizationPointer({ session: { active_organization_id: null as unknown as string } })
-    ).toBeNull();
+    expect(pointer({ session: { active_organization_id: 123 } })).toBeNull();
+    expect(pointer({ session: { active_organization_id: null } })).toBeNull();
   });
 });
