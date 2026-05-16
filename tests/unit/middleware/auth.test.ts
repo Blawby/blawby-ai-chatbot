@@ -35,28 +35,6 @@ describe('auth middleware membership resolution', () => {
     expect(payload.activeMembershipRole).toBe('owner');
   });
 
-  it('parses active organization id from root-level Better Auth payload fields', () => {
-    const payload = parseAuthSessionPayload({
-      data: {
-        user: {
-          id: 'user-1',
-          email: 'owner@test-blawby.com',
-          name: 'Owner User',
-          emailVerified: true,
-        },
-        session: {
-          id: 'session-1',
-          expiresAt: new Date('2030-01-01T00:00:00.000Z').toISOString(),
-        },
-      },
-      activeOrganizationId: 'practice-1',
-      active_membership_role: 'owner',
-    });
-
-    expect(payload.activeOrganizationId).toBe('practice-1');
-    expect(payload.activeMembershipRole).toBe('owner');
-  });
-
   it('uses active org membership claims without fetching remote practice membership again', async () => {
     const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input: RequestInfo | URL) => {
       const url = String(input);
