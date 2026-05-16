@@ -874,7 +874,23 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
         const normalizedList = rawPracticeList
           .filter((item): item is Practice => typeof item === 'object' && item !== null)
           .map((practice) => normalizePracticeRecord(practice as unknown as Record<string, unknown>))
-          .filter((practice) => practice.id.length > 0);
+          .filter((practice) => practice.id.length > 0)
+          .filter((practice) => {
+            // Drop practices with empty/whitespace-only slugs. Routing intents
+            // build URLs from `slug`, so an empty slug would produce
+            // `/practice//...` and break navigation. Surface a warning so a
+            // backend bug populating slugs incorrectly is visible rather than
+            // silently hidden.
+            const trimmed = practice.slug?.trim() ?? '';
+            if (trimmed.length === 0) {
+              console.warn(
+                '[Workspace] dropping practice with empty slug',
+                { id: practice.id, name: practice.name }
+              );
+              return false;
+            }
+            return true;
+          });
 
         let currentPracticeNext: Practice | null = null;
         if (requestedPracticeSlug) {
