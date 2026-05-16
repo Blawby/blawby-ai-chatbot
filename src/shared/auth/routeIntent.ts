@@ -104,8 +104,9 @@ export function computeRouteIntent(inputs: RouteIntentInputs): RouteIntent {
       : { kind: 'unauthenticated' };
   }
 
-  // Anonymous users bypass onboarding/subscription gates entirely. They land in
-  // the workspace kinds; downstream guards surface access-denied if needed.
+  // Anonymous users bypass onboarding AND subscription gates entirely. They
+  // land in the workspace kinds; downstream guards surface access-denied if
+  // the route is unreachable for an anonymous identity.
   if (!user.isAnonymous && !user.onboardingComplete) {
     if (currentPath.startsWith('/onboarding')) {
       return { kind: 'loading' };
@@ -129,7 +130,8 @@ export function computeRouteIntent(inputs: RouteIntentInputs): RouteIntent {
 
   // Belt-and-braces from the convention doc: a non-null active_organization_id
   // is independent proof of membership. Never gate at /pricing while it's set.
-  if (!hasPracticeMembership && !activeOrganizationId) {
+  // Anonymous users always skip this gate.
+  if (!user.isAnonymous && !hasPracticeMembership && !activeOrganizationId) {
     return { kind: 'no-subscription' };
   }
 
