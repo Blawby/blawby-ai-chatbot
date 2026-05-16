@@ -1,0 +1,137 @@
+import { useEffect, useState, useCallback, useRef } from 'preact/hooks';
+import { useSessionContext } from '@/shared/contexts/SessionContext';
+import { authClient, getSession } from '@/shared/lib/authClient';
+
+type MembershipOrg = { id?: unknown };
+
+async function listMembershipOrgs(): Promise<MembershipOrg[]> {
+  // Better Auth's organization plugin endpoint lists EVERY org the user is a member
+  // of, regardless of which one is currently active on the session. The worker's
+  // /api/practice/list endpoint requires an active-org context and returns 403 when
+  // it is missing — using it here would defeat the purpose of the recovery.
+  try {
+    const result = await authClient.organization.list();
+    const data = (result as { data?: unknown })?.data ?? result;
+    if (Array.isArray(data)) {
+      return data as MembershipOrg[];
+    }
+  } catch {
+    // Treat any client error as "no memberships confirmed" — the gate will fall
+    // through to /pricing, which matches the conservative pre-fix behavior.
+  }
+  return [];
+}
+
+async function setActiveOrganization(organizationId: string): Promise<void> {
+  // Use Better Auth's direct setActive endpoint, NOT the worker's
+  // /api/practice/{id}/active route. The worker route requires an existing
+  // active-org context (it's middleware-gated), so it can't bootstrap one.
+  await authClient.organization.setActive({ organizationId });
+}
+
+const resolvedForUserIds = new Set<string>();
+const inFlightForUserIds = new Map<string, Promise<void>>();
+
+const dropMemo = () => {
+  resolvedForUserIds.clear();
+  inFlightForUserIds.clear();
+};
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('auth:session-cleared', dropMemo);
+}
+
+const isSubscriptionSuccessReturn = (): boolean => {
+  if (typeof window === 'undefined') return false;
+  return new URLSearchParams(window.location.search).get('subscription') === 'success';
+};
+
+const getActiveOrganizationId = (
+  session: { session?: Record<string, unknown> } | null | undefined
+): string | null => {
+  const value = session?.session?.active_organization_id;
+  return typeof value === 'string' && value.trim().length > 0 ? value : null;
+};
+
+async function runRecovery(userId: string): Promise<void> {
+  const existing = inFlightForUserIds.get(userId);
+  if (existing) return existing;
+  if (resolvedForUserIds.has(userId)) return;
+
+  const promise = (async () => {
+    try {
+      const orgs = await listMembershipOrgs();
+      const firstId = typeof orgs[0]?.id === 'string' ? (orgs[0].id as string) : null;
+      if (!firstId) {
+        return;
+      }
+      try {
+        await setActiveOrganization(firstId);
+        await getSession();
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('auth:session-updated'));
+        }
+        console.info('[Workspace] auto-activated first practice (no active_organization_id on session)');
+      } catch (error) {
+        console.warn('[Workspace] failed to auto-activate practice', error);
+      }
+    } finally {
+      resolvedForUserIds.add(userId);
+      inFlightForUserIds.delete(userId);
+    }
+  })();
+
+  inFlightForUserIds.set(userId, promise);
+  return promise;
+}
+
+export function useEnsureActiveOrganization() {
+  const { session, isPending, isAnonymous } = useSessionContext();
+  const [isResolving, setIsResolving] = useState(false);
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  const userId = session?.user?.id ?? null;
+  const onboardingComplete = session?.user?.onboarding_complete === true;
+  const activeOrgId = getActiveOrganizationId(session);
+
+  const eligible = Boolean(
+    !isPending &&
+    userId &&
+    !isAnonymous &&
+    onboardingComplete &&
+    !activeOrgId &&
+    !resolvedForUserIds.has(userId)
+  );
+
+  useEffect(() => {
+    if (!eligible || !userId) return;
+    if (isSubscriptionSuccessReturn()) return;
+
+    setIsResolving(true);
+    void runRecovery(userId).finally(() => {
+      if (mountedRef.current) {
+        setIsResolving(false);
+      }
+    });
+  }, [eligible, userId]);
+
+  const forceResolve = useCallback(async (): Promise<void> => {
+    if (!userId) return;
+    setIsResolving(true);
+    try {
+      await runRecovery(userId);
+    } finally {
+      if (mountedRef.current) {
+        setIsResolving(false);
+      }
+    }
+  }, [userId]);
+
+  return { isResolving, forceResolve };
+}

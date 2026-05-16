@@ -44,12 +44,6 @@ let isGloballyFetching = false;
 // the caller is re-rendered (e.g. during onboarding). Cleared on cache reset.
 let practicesFetchForbidden = false;
 
-const getActiveOrganizationId = (session: ReturnType<typeof useSessionContext>['session']): string | null => {
-  const sessionRecord = session?.session as Record<string, unknown> | undefined;
-  const value = sessionRecord?.active_organization_id;
-  return typeof value === 'string' && value.trim().length > 0 ? value : null;
-};
-
 // Broadcast loading state to all active hook instances so that when any
 // instance starts a fetch, ALL instances immediately see loading=true.
 const loadingSubscribers = new Set<(v: boolean) => void>();
@@ -589,6 +583,15 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
   // soft navigations (login -> /practice/:slug) where the first fetch effect
   // is delayed and no network request ever starts.
   const sessionUserId = session?.user?.id ?? null;
+  // Refetch when the active org transitions (e.g. recovery hook activates the
+  // first org for a previously-null session). The list endpoint is org-scoped,
+  // so a fetch with no active org returns 403 — we need to redo it once recovery
+  // has set one.
+  const sessionActiveOrgIdForDeps = (() => {
+    const sessionRecord = session?.session as Record<string, unknown> | undefined;
+    const value = sessionRecord?.active_organization_id;
+    return typeof value === 'string' && value.trim().length > 0 ? value : null;
+  })();
   const [isLoading, setIsLoading] = useState(() => isGloballyFetching || Boolean(
     autoFetchPractices && !sessionLoading && sessionUserId && !isAnonymous && !practicesLoaded && !practicesFetchForbidden
   ));
@@ -671,22 +674,13 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
         return;
       }
 
-      if (!getActiveOrganizationId(sessionRef.current)) {
-        setPractices([]);
-        setCurrentPractice(null);
-        setGlobalLoading(false);
-        practicesFetchedRef.current = false;
-        return;
-      }
-
-      // A previous fetch was rejected with 403 — the user had no org at that time.
-      // If the user has since gained an org (e.g. subscribed after onboarding), clear
-      // the flag so the new fetch can proceed. Otherwise bail out to avoid hammering.
+      // A previous fetch was rejected with 403 — the user had no practice
+      // memberships at that time. Allow a retry on every fresh evaluation so a
+      // user who has since gained membership (e.g. accepted an invite, or the
+      // recovery hook activated an existing org) is unblocked. The 403 handler
+      // at the bottom of this function will re-arm the flag if the user still
+      // has no memberships.
       if (practicesFetchForbidden) {
-        if (!getActiveOrganizationId(sessionRef.current)) {
-          setGlobalLoading(false);
-          return;
-        }
         practicesFetchForbidden = false;
       }
       // Check if requestedPracticeSlug has changed - if so, we need to re-select even if already fetched
@@ -1234,6 +1228,7 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
     autoFetchPractices,
     sessionLoading,
     sessionUserId,
+    sessionActiveOrgIdForDeps,
     isAnonymous,
     fetchPractices
   ]);

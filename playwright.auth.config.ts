@@ -22,6 +22,7 @@ export default defineConfig({
     /.*clients\.spec\.ts/,
     /.*intake-invite\.spec\.ts/,
     /.*notifications\.spec\.ts/,
+    /.*pricing-gate-membership\.spec\.ts/,
     /.*responsive-auth\.spec\.ts/,
     /.*responsive-screenshots\.spec\.ts/,
   ],
