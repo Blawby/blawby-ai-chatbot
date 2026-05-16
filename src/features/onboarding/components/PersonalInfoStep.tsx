@@ -65,7 +65,7 @@ const PersonalInfoStep = ({
           <Logo size="lg" />
         </div>
 
-        <h2 className="mt-6 text-center text-3xl font-extrabold text-input-text">
+        <h2 className="mt-6 text-center text-2xl font-semibold tracking-tight text-input-text">
           {t('onboarding.step1.title')}
         </h2>
         <p className="mt-2 text-center text-sm text-input-placeholder">
@@ -74,7 +74,7 @@ const PersonalInfoStep = ({
       </div>
 
       <div className="mt-8 mx-auto w-full max-w-md">
-        <div className="glass-card py-8 px-6 sm:px-10">
+        <div className="card py-8 px-6 sm:px-10">
           <Form<PersonalInfoData> 
             onSubmit={async (formData: PersonalInfoData): Promise<void> => {
               await handleSubmit(formData);

@@ -70,3 +70,5 @@ Before creating any new component, hook, or utility, search for an existing one 
 If you create something that parallels an existing system, explain why in a comment at the top of the file.
 
 At the end of every feature branch, before flagging work as complete, audit for: orphaned files with no imports, props threaded through but not consumed, and new abstractions that duplicate existing ones. Report findings before closing the branch.
+
+`docs/solutions/` — documented solutions and conventions from past problems (bugs, best practices, design patterns, workflow patterns), organized by category with YAML frontmatter (`module`, `tags`, `problem_type`, `component`). Relevant when implementing or debugging in documented areas.

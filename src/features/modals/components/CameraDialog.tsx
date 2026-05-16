@@ -44,8 +44,7 @@ const CameraDialog: FunctionComponent<CameraDialogProps> = ({
       let stream;
       try {
         stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-      } catch (envError) {
-        console.log('Environment camera not available, trying user camera:', envError);
+      } catch {
         stream = await navigator.mediaDevices.getUserMedia({ video: true });
       }
       streamRef.current = stream;
@@ -123,7 +122,7 @@ const CameraDialog: FunctionComponent<CameraDialogProps> = ({
     <Fullscreen isOpen={isOpen} onClose={onClose} showCloseButton={true}>
       <div className="relative flex h-full w-full flex-col">
         {error && (
-          <div className="p-3 bg-accent-error/10 border border-accent-error rounded text-accent-error-foreground text-sm text-center absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-10 max-w-80">
+          <div className="status-error absolute top-1/2 left-1/2 z-10 max-w-80 -translate-x-1/2 -translate-y-1/2 rounded-lg p-3 text-center text-sm">
             <p>{error}</p>
           </div>
         )}

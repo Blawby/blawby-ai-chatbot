@@ -3,79 +3,79 @@
     "free": {
       "name": "Free",
       "price": "$0 USD / month",
-      "description": "Legal AI assistance for everyday needs",
+      "description": "Legal AI for everyday questions",
       "buttonText": "Your current plan",
       "features": {
         "basicChat": {
-          "text": "Basic AI chat assistance",
-          "description": "Get help with general legal questions"
+          "text": "Basic AI chat",
+          "description": "Get help with everyday legal questions"
         },
         "documentAnalysis": {
           "text": "Document analysis",
-          "description": "Upload and analyze up to 3 documents per month"
+          "description": "Up to 3 documents per month"
         },
         "responseTime": {
           "text": "Standard response time",
-          "description": "Responses within 24 hours"
+          "description": "Replies within 24 hours"
         }
       },
       "limitations": {
-        "documentLimit": "Limited to 3 document uploads per month",
-        "noTeam": "No team collaboration features",
-        "basicAI": "Basic AI responses only",
-        "noPriority": "No priority support"
+        "documentLimit": "3 document uploads per month",
+        "noTeam": "No team collaboration",
+        "basicAI": "Basic AI responses",
+        "noPriority": "Standard support only"
       },
       "benefits": {
-        "personalUse": "Perfect for personal use",
-        "noCard": "No credit card required",
-        "fullAccess": "Full access to basic features"
+        "personalUse": "Built for personal use",
+        "noCard": "No credit card needed",
+        "fullAccess": "All core features included"
       },
       "footer": {
-        "existingPlan": "Have an existing plan?",
+        "existingPlan": "Already have a plan?",
         "billingHelp": "See billing help"
       }
     },
     "plus": {
       "name": "Plus",
-      "description": "Enhanced legal AI capabilities for professionals",
+      "description": "More AI, more documents, more answers",
       "buttonText": "Get Plus"
     },
     "business": {
       "name": "Business",
-      "description": "Secure, collaborative workspace for practices",
+      "description": "A shared workspace for the whole practice",
       "buttonText": "Get Business",
       "features": {
         "teamCollaboration": {
           "text": "Team collaboration",
-          "description": "Unlimited team members and shared workspaces"
+          "description": "Unlimited members and shared workspaces"
         },
         "unlimitedDocuments": {
           "text": "Unlimited document analysis",
-          "description": "Upload and analyze unlimited documents"
+          "description": "Upload and analyze without limits"
         },
         "advancedSecurity": {
           "text": "Advanced security",
-          "description": "Enterprise-grade security and compliance"
+          "description": "Enterprise security and compliance"
         },
         "cloudStorage": {
           "text": "Cloud storage",
-          "description": "Secure cloud storage for all documents"
+          "description": "Secure storage for every document"
         },
         "prioritySupport": {
           "text": "Priority support",
-          "description": "24/7 priority customer support"
+          "description": "Round-the-clock priority support"
         }
       },
       "benefits": {
         "unlimitedProcessing": "Unlimited document processing",
         "teamTools": "Team collaboration tools",
         "advancedAI": "Advanced AI capabilities",
-        "prioritySupport": "Priority customer support",
+        "prioritySupport": "Priority support",
         "customIntegrations": "Custom integrations available"
       },
       "footer": {
-        "billing": "For 2+ users, billed annually",
-        "unlimited": "Unlimited subject to abuse guardrails.",
+        "billing": "Two or more users, billed annually",
+        "unlimited": "Unlimited within fair-use limits.",
         "learnMore": "Learn more"
       },
       "priceUnavailable": "Pricing unavailable"
@@ -83,18 +83,18 @@
     "enterprise": {
       "name": "Enterprise",
       "price": "Contact sales",
-      "description": "Custom solutions for large practices",
-      "buttonText": "Contact Sales"
+      "description": "Custom plans for large practices",
+      "buttonText": "Contact sales"
     }
   },
   "features": {
     "aiAccess": {
-      "name": "AI Access",
+      "name": "AI access",
       "description": "Access to our legal AI models",
       "tiers": {
-        "free": "Blawby AI-1 (Limited)",
-        "plus": "Blawby AI-1 (Enhanced)",
-        "business": "Blawby AI-1 (Unlimited)"
+        "free": "Blawby AI-1 (limited)",
+        "plus": "Blawby AI-1 (enhanced)",
+        "business": "Blawby AI-1 (unlimited)"
       },
       "text": {
         "free": "Access to Blawby AI-1",
@@ -108,7 +108,7 @@
       }
     },
     "documentAnalysis": {
-      "name": "Document Analysis",
+      "name": "Document analysis",
       "description": "Upload and analyze legal documents",
       "tiers": {
         "free": "Limited",
@@ -118,17 +118,17 @@
       "text": {
         "free": "Limited document analysis",
         "plus": "Enhanced document analysis",
-        "business": "Advanced document analysis & case preparation"
+        "business": "Advanced analysis and case preparation"
       },
       "detail": {
-        "free": "Upload and analyze basic legal documents",
-        "plus": "Faster and more accurate legal document processing",
-        "business": "Full legal document processing capabilities"
+        "free": "Analyze basic legal documents",
+        "plus": "Faster, more accurate processing",
+        "business": "Full document processing capabilities"
       }
     },
     "casePreparation": {
-      "name": "Case PDF Preparation",
-      "description": "AI-powered case document preparation",
+      "name": "Case PDF preparation",
+      "description": "AI-assisted case document prep",
       "tiers": {
         "free": "Limited",
         "plus": "Enhanced",
@@ -142,11 +142,11 @@
       "detail": {
         "free": "Basic case document preparation",
         "plus": "Advanced case document preparation",
-        "business": "Full case document preparation capabilities"
+        "business": "Full case document preparation"
       }
     },
     "memoryContext": {
-      "name": "Memory & Context",
+      "name": "Memory and context",
       "description": "Conversation memory and context",
       "tiers": {
         "free": "Limited",
@@ -165,50 +165,50 @@
       }
     },
     "teamCollaboration": {
-      "name": "Team Collaboration",
+      "name": "Team collaboration",
       "description": "Shared projects and team features",
-      "text": "Tools for teams like shared projects & workflows",
+      "text": "Shared projects and workflows for teams",
       "detail": "Team collaboration and project management"
     },
     "security": {
-      "name": "Advanced Security",
+      "name": "Advanced security",
       "description": "SSO, MFA, and enterprise security",
-      "text": "Advanced security with SSO, MFA, & more",
+      "text": "Advanced security with SSO and MFA",
       "detail": "Enterprise-grade security features"
     },
     "privacy": {
-      "name": "Privacy Protection",
-      "description": "Data never used for training",
-      "text": "Privacy built in; data never used for training",
+      "name": "Privacy protection",
+      "description": "Your data is never used for training",
+      "text": "Privacy by default. Your data is never used for training.",
       "detail": "Complete data privacy protection"
     },
     "integrations": {
       "name": "Integrations",
-      "description": "SharePoint and other tools",
-      "text": "Integration with Quickbooks & other tools",
-      "detail": "Connect with your existing workflow"
+      "description": "QuickBooks, SharePoint, and more",
+      "text": "Connect QuickBooks and other tools",
+      "detail": "Plug into your existing workflow"
     },
     "billing": {
-      "name": "Simplified Billing",
-      "description": "User management and billing",
-      "text": "Simplified billing and user management",
+      "name": "Simple billing",
+      "description": "User management and billing in one place",
+      "text": "Simple billing and user management",
       "detail": "Easy team and billing management"
     },
     "transcription": {
-      "name": "Voice Transcription",
+      "name": "Voice transcription",
       "description": "Meeting and voice transcription",
       "text": "Voice transcription and analysis",
       "detail": "Voice transcription and legal analysis"
     },
     "agents": {
-      "name": "AI Agents",
-      "description": "Coding and research agents",
+      "name": "AI agents",
+      "description": "Legal research and lawyer-match agents",
       "text": "Legal research and lawyer search agents",
       "detail": "Specialized AI agents for legal research and lawyer matching"
     },
     "plusIncludes": {
       "text": "Everything in Free, with higher limits",
-      "detail": "All free features with increased usage"
+      "detail": "All free features with more usage"
     },
     "businessIncludes": {
       "text": "Everything in Plus, with even higher limits",
@@ -217,30 +217,30 @@
   },
   "limitations": {
     "free": {
-      "messagesPerDay": "Limited to 20 messages per day",
-      "documentSupport": "Basic document analysis support",
+      "messagesPerDay": "20 messages per day",
+      "documentSupport": "Basic document analysis",
       "responseTime": "Standard response times",
-      "noTeam": "No team collaboration features"
+      "noTeam": "No team collaboration"
     },
     "plus": {
-      "messagesPerDay": "Limited to 200 messages per day",
-      "noTeam": "No team collaboration features",
+      "messagesPerDay": "200 messages per day",
+      "noTeam": "No team collaboration",
       "standardSupport": "Standard support response times"
     },
     "business": {
-      "minUsers": "Requires 2+ users",
+      "minUsers": "Two or more users",
       "annualBilling": "Annual billing recommended"
     }
   },
   "benefits": {
     "free": {
-      "personal": "Perfect for personal legal needs",
-      "noCard": "No credit card required",
-      "fullAccess": "Full access to core legal AI features",
+      "personal": "Built for personal legal questions",
+      "noCard": "No credit card needed",
+      "fullAccess": "Full access to core legal AI",
       "support": "Community support"
     },
     "plus": {
-      "higherLimits": "5x higher usage limits",
+      "higherLimits": "Five times higher usage limits",
       "priorityAccess": "Priority AI model access",
       "enhanced": "Enhanced legal features",
       "support": "Email support"
@@ -259,21 +259,21 @@
       "personal": "Personal",
       "business": "Business"
     },
-    "countryLabel": "Select your country",
+    "countryLabel": "Country",
     "currentPlan": "Your current plan",
     "recommended": "Recommended",
-    "popular": "Most Popular",
+    "popular": "Most popular",
     "close": "Close",
     "manageBilling": "Manage",
     "openingBilling": "Opening…"
   },
   "footer": {
     "enterprise": {
-      "question": "Need more capabilities?",
+      "question": "Need more?",
       "link": "See Blawby Enterprise"
     },
     "country": {
-      "label": "Country/Region:"
+      "label": "Country or region:"
     }
   },
   "billing": {
@@ -283,24 +283,24 @@
     "billedMonthly": "Billed monthly. Cancel anytime.",
     "billedAnnually": "Billed annually. Cancel anytime.",
     "noPracticeSelected": "No practice selected",
-    "selectPracticeToManage": "Please select a practice to manage billing.",
-    "unableOpenPortal": "Unable to open billing portal",
-    "unknownError": "An unknown error occurred while opening the billing portal."
+    "selectPracticeToManage": "Select a practice to manage billing.",
+    "unableOpenPortal": "Couldn't open billing portal",
+    "unknownError": "Something broke opening the billing portal. Try again."
   },
   "loading": "Loading…",
   "comparison": {
-    "title": "Compare Plans",
+    "title": "Compare plans",
     "feature": "Feature",
     "included": "Included",
     "notIncluded": "Not included"
   },
   "sections": {
-    "benefits": "Benefits:",
-    "limitations": "Limitations:"
+    "benefits": "Benefits",
+    "limitations": "Limitations"
   },
   "upgradeFailed": "Upgrade failed",
   "noFeatures": "This plan has no features.",
   "upgradeButton": "Upgrade for {{price}}",
   "autoRenewsDisclaimer": "Auto-renews monthly. Cancel anytime.",
-  "errorGeneric": "Unable to load pricing information, please try again later."
+  "errorGeneric": "Couldn't load pricing. Try again."
 }

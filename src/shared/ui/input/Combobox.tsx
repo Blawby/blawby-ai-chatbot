@@ -684,11 +684,11 @@ export function Combobox({
               );
             })}
 
-            {filteredOptions.length === 0 && !showAddRow && (
+            {filteredOptions.length === 0 && !showAddRow && !resolvedFooter && (
               <p className="px-4 py-3 text-center text-sm text-input-placeholder">
                 {allowCustomValues
                   ? (trimmedQuery
-                    ? 'No matches — keep typing to add it as a new option.'
+                    ? 'No matches. Keep typing to add it.'
                     : 'No options yet. Type above to add one.')
                   : 'No options found.'}
               </p>

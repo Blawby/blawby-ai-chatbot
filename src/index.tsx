@@ -15,6 +15,7 @@ import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import type { UIPracticeConfig } from '@/shared/hooks/usePracticeConfig';
 import { handleError as _handleError } from '@/shared/utils/errorHandler';
 import { useWorkspaceResolver } from '@/shared/hooks/useWorkspaceResolver';
+import { useEnsureActiveOrganization } from '@/shared/hooks/useEnsureActiveOrganization';
 import {
   getWorkspaceHomePath,
 } from '@/shared/utils/workspace';
@@ -42,7 +43,7 @@ import { UpdateAvailableToast } from '@/shared/ui/UpdateAvailableToast';
 import { consumePostAuthConversationContext } from '@/shared/utils/anonymousIdentity';
 import { isWidgetRuntimeContext as _isWidgetRuntimeContext } from '@/shared/utils/widgetAuth';
 import { useTheme } from '@/shared/hooks/useTheme';
-import { setActivePractice, listPractices } from '@/shared/lib/apiClient';
+import { setActivePractice } from '@/shared/lib/apiClient';
 import { lazy } from 'preact/compat';
 // Top-level pages are lazy so they don't bloat the entry chunk. Each page
 // loads its own bundle on demand the first time the matching route renders.
@@ -109,13 +110,6 @@ const resolveAuthenticatedHomePath = ({
   }
 
   return getWorkspaceHomePath(defaultWorkspace, fallbackSlug);
-};
-
-const getSessionActiveOrganizationId = (
-  session: { session?: Record<string, unknown> } | null | undefined
-): string | null => {
-  const value = session?.session?.active_organization_id;
-  return typeof value === 'string' && value.trim().length > 0 ? value : null;
 };
 
 const DevDebugStylesRoute = () => {
@@ -231,28 +225,32 @@ function AppShell() {
     Boolean(session?.user) &&
     !session?.user?.is_anonymous &&
     session?.user?.onboarding_complete !== true;
-  const completedOnboarding =
-    Boolean(session?.user) &&
-    !session?.user?.is_anonymous &&
-    session?.user?.onboarding_complete === true;
-  const activeOrganizationId = getSessionActiveOrganizationId(session);
+  // active_organization_id being set is independent proof of practice membership —
+  // Better Auth only sets it after a member-link exists. Reading it directly lets
+  // the gate skip the /pricing redirect immediately when the recovery hook
+  // activates an org, without waiting for the practice-list refetch to land.
+  const sessionRecord = session?.session as Record<string, unknown> | undefined;
+  const activeOrganizationId = typeof sessionRecord?.active_organization_id === 'string'
+    && sessionRecord.active_organization_id.trim().length > 0
+    ? sessionRecord.active_organization_id
+    : null;
   const isPublicRoute = location.path.startsWith('/public/');
   const isAuthRoute = location.path.startsWith('/auth');
   const isPricingRoute = location.path.startsWith('/pricing');
   const isClientRoute = location.path.startsWith('/client/');
   const isSubscriptionSuccessReturn = location.query.subscription === 'success';
+  // Always fetch practices on authenticated, post-onboarding routes — practice-membership
+  // presence (not active_organization_id) is the source of truth for whether the user
+  // is subscribed. Public/auth/pricing routes and in-progress onboarding don't need it.
   const shouldFetchWorkspacePractices =
     !isPublicRoute &&
     !isAuthRoute &&
     !isPricingRoute &&
-    // First-run practice users do not have an organization until checkout
-    // calls /api/auth/subscription/upgrade. Avoid org-gated practice/list
-    // until onboarding is done; client routes still need their invite org data.
-    (!onboardingIncomplete || isClientRoute) &&
-    (!completedOnboarding || Boolean(activeOrganizationId) || isClientRoute);
-  const { defaultWorkspace, currentPractice, practices, hasPracticeMembership } = useWorkspaceResolver({
+    (!onboardingIncomplete || isClientRoute);
+  const { defaultWorkspace, currentPractice, practices, hasPracticeMembership, practicesLoading } = useWorkspaceResolver({
     autoFetchPractices: shouldFetchWorkspacePractices
   });
+  const { isResolving: ensuringActiveOrg } = useEnsureActiveOrganization();
 
   // Apply the active org's brand color at the shell level so routes that
   // bypass MainApp (e.g. PracticeHomePage, ClientHomePage) still get branded.
@@ -272,17 +270,21 @@ function AppShell() {
   }, [currentPractice?.accentColor, currentPractice?.slug]);
 
   const authenticatedHomePath = useMemo(() => {
-    if (completedOnboarding && !activeOrganizationId) return null;
     const fallbackSlug = currentPractice?.slug ?? practices[0]?.slug ?? null;
     return resolveAuthenticatedHomePath({
       defaultWorkspace,
       fallbackSlug,
       hasPracticeMembership,
     });
-  }, [activeOrganizationId, completedOnboarding, currentPractice?.slug, defaultWorkspace, hasPracticeMembership, practices]);
+  }, [currentPractice?.slug, defaultWorkspace, hasPracticeMembership, practices]);
 
   useEffect(() => {
     if (sessionPending) return;
+    // Suppress redirect decisions while the active-org recovery hook or the practice
+    // list is mid-flight. The gate depends on practice-membership presence, which is
+    // unknown until both resolve. Without this guard we would briefly route a paying
+    // user to /pricing before the data lands.
+    if (ensuringActiveOrg || practicesLoading) return;
     if (session?.user && !session.user.is_anonymous) {
       const pendingConversation = consumePostAuthConversationContext();
       if (
@@ -352,6 +354,10 @@ function AppShell() {
       Boolean(user) &&
       !user?.is_anonymous &&
       user?.onboarding_complete === true &&
+      !hasPracticeMembership &&
+      // Belt-and-braces: a non-null active_organization_id is independent proof
+      // that the user has at least one membership, so never gate them at /pricing
+      // even if the practice-list fetch is mid-refetch and currently returns [].
       !activeOrganizationId &&
       !bypassOnboardingForRoute &&
       !isPricingRoute &&
@@ -385,11 +391,14 @@ function AppShell() {
   }, [
     activeOrganizationId,
     authenticatedHomePath,
+    ensuringActiveOrg,
+    hasPracticeMembership,
     isPricingRoute,
     isSubscriptionSuccessReturn,
     location.path,
     location.url,
     navigate,
+    practicesLoading,
     session?.user,
     sessionPending
   ]);
@@ -593,13 +602,20 @@ function RootRoute() {
   const location = useLocation();
   const { session, isPending } = useSessionContext();
   const { refetch: refetchPractices } = usePracticeManagement({ autoFetchPractices: false });
-  const activeOrganizationId = getSessionActiveOrganizationId(session);
   const completedOnboarding = Boolean(
     session?.user &&
     !session.user.is_anonymous &&
     session.user.onboarding_complete === true
   );
-  const shouldFetchRootPractices = Boolean(completedOnboarding && activeOrganizationId);
+  const rootSessionRecord = session?.session as Record<string, unknown> | undefined;
+  const activeOrganizationId = typeof rootSessionRecord?.active_organization_id === 'string'
+    && rootSessionRecord.active_organization_id.trim().length > 0
+    ? rootSessionRecord.active_organization_id
+    : null;
+  // Always fetch practices once onboarding is complete — practice-membership is the
+  // source of truth for "is this user subscribed?", independent of whether
+  // active_organization_id has been set on the session yet.
+  const shouldFetchRootPractices = completedOnboarding;
   const {
     defaultWorkspace,
     practicesLoading,
@@ -609,6 +625,7 @@ function RootRoute() {
   } = useWorkspaceResolver({
     autoFetchPractices: shouldFetchRootPractices,
   });
+  const { isResolving: ensuringActiveOrg, forceResolve: forceEnsureActiveOrg } = useEnsureActiveOrganization();
   const { navigate } = useNavigation();
   const isMountedRef = useRef(true);
   const subscriptionSyncHandledRef = useRef(false);
@@ -616,18 +633,22 @@ function RootRoute() {
   const isSubscriptionSuccessReturn = location.query.subscription === 'success';
   const needsFirstSubscription = Boolean(
     completedOnboarding &&
+    !hasPracticeMembership &&
+    // See AppShell for the same belt-and-braces guard: an active_organization_id
+    // on the session is independent proof of membership; never gate at /pricing
+    // when it's set even if the practice list is mid-refetch.
     !activeOrganizationId &&
     !isSubscriptionSuccessReturn
   );
   const authenticatedHomePath = useMemo(() => {
-    if (!shouldFetchRootPractices) return null;
+    if (!completedOnboarding) return null;
     const fallbackSlug = currentPractice?.slug ?? practices[0]?.slug ?? null;
     return resolveAuthenticatedHomePath({
       defaultWorkspace,
       fallbackSlug,
       hasPracticeMembership,
     });
-  }, [currentPractice?.slug, defaultWorkspace, hasPracticeMembership, practices, shouldFetchRootPractices]);
+  }, [completedOnboarding, currentPractice?.slug, defaultWorkspace, hasPracticeMembership, practices]);
 
   useEffect(() => {
     return () => {
@@ -645,26 +666,12 @@ function RootRoute() {
     subscriptionSyncHandledRef.current = true;
     setSubscriptionSyncPending(true);
 
-    void getSession()
-      .then(async (freshSession) => {
-        if (typeof window !== 'undefined') {
-          window.dispatchEvent(new CustomEvent('auth:session-updated'));
-        }
-        // After a Stripe checkout the org is created by the webhook after the user's
-        // session was established, so activeOrganizationId may still be null. Use the
-        // existing backend contract to set it so routing resolves without a re-login.
-        if (!getSessionActiveOrganizationId(freshSession)) {
-          const practices = await listPractices().catch(() => []);
-          const firstId = practices[0]?.id;
-          if (firstId) {
-            await setActivePractice(firstId).catch(() => undefined);
-            await getSession().catch(() => undefined);
-            if (typeof window !== 'undefined') {
-              window.dispatchEvent(new CustomEvent('auth:session-updated'));
-            }
-          }
-        }
-      })
+    // After Stripe checkout the org is created by the webhook after the user's
+    // session was established, so active_organization_id may still be null. The
+    // shared recovery hook activates the first practice and refreshes the session;
+    // here we just kick it imperatively (bypasses the hook's `?subscription=success`
+    // URL guard, since this effect IS the owner of that round-trip).
+    void forceEnsureActiveOrg()
       .catch((error) => {
         console.warn('[RootRoute] Failed to refresh session after Stripe checkout', error);
       })
@@ -680,11 +687,11 @@ function RootRoute() {
         }
         setSubscriptionSyncPending(false);
       });
-  }, [isSubscriptionSuccessReturn, refetchPractices]);
+  }, [forceEnsureActiveOrg, isSubscriptionSuccessReturn, refetchPractices]);
 
   useEffect(() => {
     if (subscriptionSyncPending) return;
-    if (isPending || (shouldFetchRootPractices && practicesLoading)) return;
+    if (isPending || ensuringActiveOrg || (shouldFetchRootPractices && practicesLoading)) return;
 
     if (!session?.user) {
       navigate('/auth', true);
@@ -705,6 +712,7 @@ function RootRoute() {
     }
   }, [
     authenticatedHomePath,
+    ensuringActiveOrg,
     needsFirstSubscription,
     subscriptionSyncPending,
     practicesLoading,

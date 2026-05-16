@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-preact';
-import { Plus, Timer, FileText, Paperclip, MoreHorizontal, Sparkles, ChevronDown } from 'lucide-preact';
+import { Plus, Timer, FileText, Paperclip, MoreHorizontal, ChevronDown } from 'lucide-preact';
 
 import { Button } from '@/shared/ui/Button';
 import { Avatar } from '@/shared/ui/profile';
@@ -16,9 +16,9 @@ export interface MatterMoreMenuItem {
 }
 
 const URGENCY_BADGE: Record<NonNullable<MatterDetail['urgency']>, string> = {
-  routine: 'bg-[#123524] text-[#4ADE80] ring-[#166534]/80',
-  time_sensitive: 'bg-[#3A2A12] text-[#FBBF24] ring-[#854D0E]/80',
-  emergency: 'bg-[#3B1216] text-[#F87171] ring-[#7F1D1D]/80'
+  routine: 'status-success',
+  time_sensitive: 'status-warning',
+  emergency: 'status-error'
 };
 
 const URGENCY_LABEL: Record<NonNullable<MatterDetail['urgency']>, string> = {
@@ -87,14 +87,14 @@ export const MatterDetailHeader = ({
           ) : (
             <div
               aria-hidden="true"
-              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-accent-500 text-[20px] font-bold text-[rgb(var(--accent-foreground))]"
+              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-surface-card-raised text-lg font-semibold text-input-text"
             >
               {heroInitial(clientEmail, clientLabel, title)}
             </div>
           )}
 
           <div className="min-w-0 flex-1">
-            <h2 className="truncate text-lg font-semibold leading-tight text-input-text">{title}</h2>
+            <h2 className="truncate text-xl font-semibold leading-tight tracking-tight text-input-text sm:text-2xl">{title}</h2>
             {subtitle ? <p className="truncate text-[13px] text-input-placeholder">{subtitle}</p> : null}
             {teamParts.length > 0 ? (
               <p className="mt-1 truncate text-xs text-input-placeholder">{teamParts.join(' · ')}</p>
@@ -111,7 +111,7 @@ export const MatterDetailHeader = ({
               {detail.urgency ? (
                 <span
                   className={cn(
-                    'inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset',
+                    'inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold',
                     URGENCY_BADGE[detail.urgency]
                   )}
                 >
@@ -123,8 +123,11 @@ export const MatterDetailHeader = ({
         </div>
 
         <div className="flex flex-wrap items-center justify-end gap-2">
-          <Button size="sm" variant="primary" icon={Sparkles} onClick={onEngagementAction} disabled={engagementActionLoading}>
+          <Button size="sm" variant="primary" onClick={onEngagementAction} disabled={engagementActionLoading}>
             {engagementActionLoading ? 'Creating...' : engagementActionLabel}
+          </Button>
+          <Button size="sm" variant="secondary" icon={Timer} onClick={onLogTime}>
+            Log time
           </Button>
           <Popover
             side="bottom"
@@ -157,9 +160,6 @@ export const MatterDetailHeader = ({
               })}
             </ul>
           </Popover>
-          <Button size="sm" variant="secondary" icon={Timer} onClick={onLogTime}>
-            Log time
-          </Button>
           {moreMenuItems && moreMenuItems.length > 0 ? (
             <Popover
               side="bottom"

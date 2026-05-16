@@ -112,7 +112,7 @@ const OnboardingChat: FunctionComponent<OnboardingChatProps> = ({
       )}
 
       {/* Chat Panel */}
-      <section className="glass-card p-4 sm:p-5">
+      <section className="card p-4 sm:p-5">
         <div className="h-[500px] min-h-0">
           <ChatContainer
             messages={resolvedChatMessages}

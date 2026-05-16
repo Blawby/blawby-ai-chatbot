@@ -267,18 +267,14 @@
 
   body {
     @apply min-h-screen m-0;
-
     background-color: rgb(var(--surface-app));
-    background-image:
-      radial-gradient(ellipse 80% 50% at 50% -20%, rgb(var(--accent-500, 212 175 55) / 8%), transparent 50%),
-      radial-gradient(ellipse 60% 50% at 80% 50%, rgb(var(--accent-600, 202 138 4) / 5%), transparent 50%);
-    background-attachment: fixed;
   }
 
   .widget-shell-gradient {
+    /* Legacy: the 42% accent radial was deprecated as Generic-AI-tool-template
+       decoration. Class kept as a no-op so widget surfaces don't lose their
+       background color; consumers may be renamed to a plain widget shell later. */
     background-color: rgb(var(--surface-app));
-    background-image:
-      radial-gradient(ellipse 125% 95% at 18% 0%, rgb(var(--accent-500, 212 175 55) / 42%), transparent 68%);
   }
 
   /* Hide scrollbars globally */
@@ -364,8 +360,6 @@
 
   .tab-bar {
     @apply border-b px-4 sm:px-6;
-
-    background-color: rgb(var(--surface-header));
     border-color: rgb(var(--border-subtle));
   }
 
@@ -431,43 +425,8 @@
   .glass-card {
     @apply rounded-2xl border;
     position: relative;
-    overflow: visible;
-
     background-color: rgb(var(--surface-card));
-    background-image:
-      linear-gradient(135deg, rgb(255 255 255 / 0.032) 0%, transparent 38%),
-      radial-gradient(ellipse 80% 65% at 100% 0%, rgb(var(--accent-500) / 0.022), transparent 62%);
     border-color: rgb(var(--border-subtle));
-    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.03), 0 1px 2px rgb(0 0 0 / 0.16);
-  }
-
-  .card::before,
-  .card-surface::before,
-  .glass-card::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    pointer-events: none;
-    background: linear-gradient(to bottom, rgb(255 255 255 / 0.03), transparent 34%);
-    opacity: 0.35;
-    z-index: 0;
-  }
-
-  .card > *,
-  .card-surface > *,
-  .glass-card > * {
-    position: relative;
-    z-index: 1;
-  }
-
-  :root:not(.dark) .card,
-  :root:not(.dark) .card-surface,
-  :root:not(.dark) .glass-card {
-    background-image:
-      linear-gradient(135deg, rgb(255 255 255 / 0.86) 0%, transparent 42%),
-      radial-gradient(ellipse 80% 65% at 100% 0%, rgb(var(--accent-500) / 0.035), transparent 62%);
-    box-shadow: 0 1px 2px rgb(15 23 42 / 0.05);
   }
 
   .card-hover,
@@ -521,37 +480,15 @@
      primitives above. New code should use card, panel, or input-surface.
      ============================================================ */
 
-  .glass-panel::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    pointer-events: none;
-    background: linear-gradient(to bottom, rgb(255 255 255 / 0.025), transparent 30%);
-    opacity: 0.4;
-  }
-
   .dark .glass-panel {
     background-color: rgb(var(--surface-section));
     box-shadow: var(--panel-shadow);
   }
 
-  .list-panel-card-gradient {
-    /* Set to transparent at the bottom so it adopts the container's base color */
-    background-image:
-      linear-gradient(to bottom,
-        rgb(var(--accent-500) / 0.08) 0%,
-        rgb(var(--accent-600) / 0.025) 9%,
-        transparent 18%);
-  }
-
-  .dark .list-panel-card-gradient {
-    background-image:
-      linear-gradient(to bottom,
-        rgb(var(--accent-500) / 0.10) 0%,
-        rgb(var(--accent-600) / 0.035) 9%,
-        transparent 18%);
-  }
+  /* .list-panel-card-gradient: legacy accent-tinted top fade on collection list
+     panels. Deprecated as Tenant-Identity-Rule drift (the accent bleeding into
+     chrome). Class retained as a no-op so existing call sites keep resolving;
+     the panel now adopts its container's plain surface. */
 
   .input-surface:focus,
   .input-surface.isOpen,
@@ -721,12 +658,10 @@
   .btn-primary {
     background-color: rgb(var(--accent-500));
     color: rgb(var(--accent-foreground));
-    box-shadow: 0 4px 14px rgb(var(--accent-500) / 0.18);
   }
 
   .btn-primary:hover:not(:disabled) {
     background-color: rgb(var(--accent-600));
-    box-shadow: 0 6px 18px rgb(var(--accent-500) / 0.24);
   }
 
   .btn-primary:focus {
@@ -771,19 +706,22 @@
     box-shadow: none;
   }
 
-  /* Inverted — for use on dark surfaces */
+  /* Inverted — legacy glass variant. The original ship used backdrop-blur + white/20
+     tint + colored rim and glow shadows; flattened per DESIGN.md's No-Glow rule and
+     the AI-tool-template anti-ref. Now renders as a solid accent button identical in
+     feel to btn-primary so existing variant="inverted" call sites (none at the time
+     of this edit) stay viable. */
   .btn-inverted {
-    @apply bg-white/20 backdrop-blur-2xl text-[rgb(var(--accent-foreground))];
-    box-shadow: var(--glass-rim-medium), 0 4px 12px rgb(0 0 0 / 0.2);
+    background-color: rgb(var(--accent-500));
+    color: rgb(var(--accent-foreground));
   }
 
   .btn-inverted:hover:not(:disabled) {
-    @apply bg-white/30;
-    box-shadow: var(--glass-rim-strong), 0 6px 16px rgb(0 0 0 / 0.3);
+    background-color: rgb(var(--accent-600));
   }
 
   .btn-inverted:focus {
-    @apply ring-white/30;
+    @apply ring-accent-500/50;
   }
 
   /* Danger — red glass */
