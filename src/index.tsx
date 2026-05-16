@@ -1,5 +1,5 @@
 import { hydrate, prerender as ssr, Router, Route, useLocation, LocationProvider } from 'preact-iso';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
+import { useCallback, useEffect, useMemo } from 'preact/hooks';
 import { Suspense } from 'preact/compat';
 import { I18nextProvider } from 'react-i18next';
 import { SEOHead } from '@/app/SEOHead';
@@ -11,14 +11,14 @@ import type { WorkspaceView } from '@/shared/utils/workspaceShell';
 import { PublicWorkspaceRoute } from '@/app/PublicWorkspaceRoute';
 import { useNavigation } from '@/shared/utils/navigation';
 import { usePracticeConfig } from '@/shared/hooks/usePracticeConfig';
-import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import type { UIPracticeConfig } from '@/shared/hooks/usePracticeConfig';
 import { handleError as _handleError } from '@/shared/utils/errorHandler';
 import { useWorkspaceResolver } from '@/shared/hooks/useWorkspaceResolver';
-import { useEnsureActiveOrganization } from '@/shared/hooks/useEnsureActiveOrganization';
-import {
-  getWorkspaceHomePath,
-} from '@/shared/utils/workspace';
+import { useAuthRouteIntent } from '@/shared/hooks/useAuthRouteIntent';
+import { usePostAuthBounce } from '@/shared/hooks/usePostAuthBounce';
+import { AuthenticatedRouter } from '@/shared/auth/AuthenticatedRouter';
+import { Redirect } from '@/shared/auth/Redirect';
+import { assertNeverIntent, getActiveOrganizationPointer } from '@/shared/auth/routeIntent';
 import { AlertTriangle } from 'lucide-preact';
 import { AppGuard } from '@/app/AppGuard';
 import { AuthBootGate } from '@/app/AuthBootGate';
@@ -40,7 +40,6 @@ import { i18n, initI18n } from '@/shared/i18n';
 import { applyAccentColor, initializeAccentColor } from '@/shared/utils/accentColors';
 import { registerSWWithUpdatePrompt } from '@/shared/lib/swUpdate';
 import { UpdateAvailableToast } from '@/shared/ui/UpdateAvailableToast';
-import { consumePostAuthConversationContext } from '@/shared/utils/anonymousIdentity';
 import { isWidgetRuntimeContext as _isWidgetRuntimeContext } from '@/shared/utils/widgetAuth';
 import { useTheme } from '@/shared/hooks/useTheme';
 import { setActivePractice } from '@/shared/lib/apiClient';
@@ -91,26 +90,6 @@ const renderWorkspaceFailureState = (title: string, description: string) => (
     primaryAction={buildRetryAction()}
   />
 );
-
-const resolveAuthenticatedHomePath = ({
-  defaultWorkspace,
-  fallbackSlug,
-  hasPracticeMembership,
-}: {
-  defaultWorkspace: 'practice' | 'client' | 'public';
-  fallbackSlug: string | null;
-  hasPracticeMembership: boolean;
-}): string | null => {
-  if (!hasPracticeMembership) {
-    return '/client/dashboard';
-  }
-
-  if (!fallbackSlug) {
-    return null;
-  }
-
-  return getWorkspaceHomePath(defaultWorkspace, fallbackSlug);
-};
 
 const DevDebugStylesRoute = () => {
   if (!import.meta.env.DEV) return <App404 />;
@@ -219,26 +198,16 @@ export function App() {
 function AppShell() {
   useTheme();
   const location = useLocation();
-  const { navigate } = useNavigation();
-  const { session, isPending: sessionPending } = useSessionContext();
-  const onboardingIncomplete =
-    Boolean(session?.user) &&
-    !session?.user?.is_anonymous &&
-    session?.user?.onboarding_complete !== true;
-  // active_organization_id being set is independent proof of practice membership —
-  // Better Auth only sets it after a member-link exists. Reading it directly lets
-  // the gate skip the /pricing redirect immediately when the recovery hook
-  // activates an org, without waiting for the practice-list refetch to land.
-  const sessionRecord = session?.session as Record<string, unknown> | undefined;
-  const activeOrganizationId = typeof sessionRecord?.active_organization_id === 'string'
-    && sessionRecord.active_organization_id.trim().length > 0
-    ? sessionRecord.active_organization_id
-    : null;
+  const { session } = useSessionContext();
   const isPublicRoute = location.path.startsWith('/public/');
   const isAuthRoute = location.path.startsWith('/auth');
   const isPricingRoute = location.path.startsWith('/pricing');
   const isClientRoute = location.path.startsWith('/client/');
-  const isSubscriptionSuccessReturn = location.query.subscription === 'success';
+  const isDebugRoute = import.meta.env.DEV && location.path.startsWith('/debug');
+  const onboardingIncomplete =
+    Boolean(session?.user) &&
+    !session?.user?.is_anonymous &&
+    session?.user?.onboarding_complete !== true;
   // Always fetch practices on authenticated, post-onboarding routes — practice-membership
   // presence (not active_organization_id) is the source of truth for whether the user
   // is subscribed. Public/auth/pricing routes and in-progress onboarding don't need it.
@@ -247,10 +216,9 @@ function AppShell() {
     !isAuthRoute &&
     !isPricingRoute &&
     (!onboardingIncomplete || isClientRoute);
-  const { defaultWorkspace, currentPractice, practices, hasPracticeMembership, practicesLoading } = useWorkspaceResolver({
+  const { currentPractice } = useWorkspaceResolver({
     autoFetchPractices: shouldFetchWorkspacePractices
   });
-  const { isResolving: ensuringActiveOrg } = useEnsureActiveOrganization();
 
   // Apply the active org's brand color at the shell level so routes that
   // bypass MainApp (e.g. PracticeHomePage, ClientHomePage) still get branded.
@@ -269,139 +237,19 @@ function AppShell() {
     }
   }, [currentPractice?.accentColor, currentPractice?.slug]);
 
-  const authenticatedHomePath = useMemo(() => {
-    const fallbackSlug = currentPractice?.slug ?? practices[0]?.slug ?? null;
-    return resolveAuthenticatedHomePath({
-      defaultWorkspace,
-      fallbackSlug,
-      hasPracticeMembership,
-    });
-  }, [currentPractice?.slug, defaultWorkspace, hasPracticeMembership, practices]);
+  // Public/intake/debug routes do not need the gate at all — they render for
+  // anonymous and authenticated users alike. Skipping intent computation
+  // avoids triggering the recovery hook + practice fetch on those routes.
+  const isPublicIntakeRoute = isPublicRoute || isClientRoute;
+  const bypassGateForRoute = isPublicIntakeRoute || isDebugRoute;
+  const intent = useAuthRouteIntent({
+    autoFetchPractices: shouldFetchWorkspacePractices,
+  });
 
-  useEffect(() => {
-    if (sessionPending) return;
-    // Suppress redirect decisions while the active-org recovery hook or the practice
-    // list is mid-flight. The gate depends on practice-membership presence, which is
-    // unknown until both resolve. Without this guard we would briefly route a paying
-    // user to /pricing before the data lands.
-    if (ensuringActiveOrg || practicesLoading) return;
-    if (session?.user && !session.user.is_anonymous) {
-      const pendingConversation = consumePostAuthConversationContext();
-      if (
-        pendingConversation?.workspace === 'public' &&
-        pendingConversation.practiceSlug &&
-        pendingConversation.conversationId
-      ) {
-        const targetPath = `/public/${encodeURIComponent(pendingConversation.practiceSlug)}/conversations/${encodeURIComponent(pendingConversation.conversationId)}`;
-        const currentUrl = location.url.startsWith('/')
-          ? location.url
-          : `/${location.url.replace(/^\/+/, '')}`;
-        if (currentUrl !== targetPath) {
-          navigate(targetPath, true);
-          return;
-        }
-      }
-    }
-    const isDebugRoute = import.meta.env.DEV && location.path.startsWith('/debug');
-    const isPublicIntakeRoute =
-      location.path.startsWith('/public/') ||
-      location.path.startsWith('/client/');
-    const bypassOnboardingForRoute = isPublicIntakeRoute || isDebugRoute;
-
-    if (typeof window !== 'undefined') {
-      try {
-        const pendingPath = window.sessionStorage.getItem('intakeAwaitingInvitePath');
-        if (pendingPath) {
-          const currentUrl = location.url.startsWith('/')
-            ? location.url
-            : `/${location.url.replace(/^\/+/, '')}`;
-          const isValidPendingPath = pendingPath.startsWith('/') && !pendingPath.startsWith('//');
-          const isAuthReturnRoute = location.path.startsWith('/auth');
-
-          if (!isValidPendingPath) {
-            window.sessionStorage.removeItem('intakeAwaitingInvitePath');
-          } else if (pendingPath === currentUrl) {
-            // Already at the target path; consume it without triggering another navigation.
-            window.sessionStorage.removeItem('intakeAwaitingInvitePath');
-          } else if (isAuthReturnRoute) {
-            // Only auto-redirect from auth return routes to avoid flicker on normal public page refresh.
-            window.sessionStorage.removeItem('intakeAwaitingInvitePath');
-            navigate(pendingPath, true);
-            return;
-          } else {
-            // Stale pending path outside auth flow; consume it to prevent repeated soft redirects.
-            window.sessionStorage.removeItem('intakeAwaitingInvitePath');
-          }
-        }
-      } catch (error) {
-        try {
-          window.sessionStorage.removeItem('intakeAwaitingInvitePath');
-        } catch (_innerError) {
-          // Ignore secondary failure
-        }
-        if (import.meta.env.DEV) {
-          console.warn('[Workspace] Failed to read intake awaiting path', error);
-        }
-      }
-    }
-    const user = session?.user;
-    const requiresOnboarding =
-      Boolean(user) &&
-      !user?.is_anonymous &&
-      user?.onboarding_complete !== true &&
-      !bypassOnboardingForRoute;
-    const needsFirstSubscription =
-      Boolean(user) &&
-      !user?.is_anonymous &&
-      user?.onboarding_complete === true &&
-      !hasPracticeMembership &&
-      // Belt-and-braces: a non-null active_organization_id is independent proof
-      // that the user has at least one membership, so never gate them at /pricing
-      // even if the practice-list fetch is mid-refetch and currently returns [].
-      !activeOrganizationId &&
-      !bypassOnboardingForRoute &&
-      !isPricingRoute &&
-      !isSubscriptionSuccessReturn;
-
-    if (requiresOnboarding) {
-      if (!location.path.startsWith('/onboarding') && !location.path.startsWith('/auth')) {
-        const targetUrl = location.url.startsWith('/')
-          ? location.url
-          : `/${location.url.replace(/^\/+/, '')}`;
-        const encodedReturnTo = encodeURIComponent(targetUrl);
-        const onboardingUrl = encodedReturnTo
-          ? `/onboarding?returnTo=${encodedReturnTo}`
-          : '/onboarding';
-        navigate(onboardingUrl, true);
-      }
-      return;
-    }
-
-    if (needsFirstSubscription) {
-      navigate('/pricing', true);
-      return;
-    }
-
-    if (!requiresOnboarding && location.path.startsWith('/onboarding')) {
-      if (!authenticatedHomePath) {
-        return;
-      }
-      navigate(authenticatedHomePath, true);
-    }
-  }, [
-    activeOrganizationId,
-    authenticatedHomePath,
-    ensuringActiveOrg,
-    hasPracticeMembership,
-    isPricingRoute,
-    isSubscriptionSuccessReturn,
-    location.path,
-    location.url,
-    navigate,
-    practicesLoading,
-    session?.user,
-    sessionPending
-  ]);
+  // Side-effect hook for sessionStorage-based post-auth bounces (pendingConversation,
+  // intakeAwaitingInvitePath). These are NOT part of RouteIntent — they're "where
+  // the user wanted to go" pointers, not "where the system says the user belongs".
+  usePostAuthBounce();
 
   const paletteWorkspace: 'practice' | 'client' | 'public' =
     location.path.startsWith('/practice/')
@@ -426,6 +274,9 @@ function AppShell() {
         workspace={paletteWorkspace}
         enabled={paletteEligible}
       >
+      {bypassGateForRoute ? null : (
+        <AuthenticatedRouter intent={intent} currentPath={location.path} />
+      )}
       <Suspense fallback={<LoadingScreen />}>
         <Router>
           <Route path="/auth" component={(props) => (
@@ -599,150 +450,44 @@ function ClientEngagementReviewRoute({
 }
 
 function RootRoute() {
-  const location = useLocation();
-  const { session, isPending } = useSessionContext();
-  const { refetch: refetchPractices } = usePracticeManagement({ autoFetchPractices: false });
-  const completedOnboarding = Boolean(
-    session?.user &&
-    !session.user.is_anonymous &&
-    session.user.onboarding_complete === true
-  );
-  const rootSessionRecord = session?.session as Record<string, unknown> | undefined;
-  const activeOrganizationId = typeof rootSessionRecord?.active_organization_id === 'string'
-    && rootSessionRecord.active_organization_id.trim().length > 0
-    ? rootSessionRecord.active_organization_id
-    : null;
-  // Always fetch practices once onboarding is complete — practice-membership is the
-  // source of truth for "is this user subscribed?", independent of whether
-  // active_organization_id has been set on the session yet.
-  const shouldFetchRootPractices = completedOnboarding;
-  const {
-    defaultWorkspace,
-    practicesLoading,
-    currentPractice,
-    practices,
-    hasPracticeMembership,
-  } = useWorkspaceResolver({
-    autoFetchPractices: shouldFetchRootPractices,
-  });
-  const { isResolving: ensuringActiveOrg, forceResolve: forceEnsureActiveOrg } = useEnsureActiveOrganization();
-  const { navigate } = useNavigation();
-  const isMountedRef = useRef(true);
-  const subscriptionSyncHandledRef = useRef(false);
-  const [subscriptionSyncPending, setSubscriptionSyncPending] = useState(false);
-  const isSubscriptionSuccessReturn = location.query.subscription === 'success';
-  const needsFirstSubscription = Boolean(
-    completedOnboarding &&
-    !hasPracticeMembership &&
-    // See AppShell for the same belt-and-braces guard: an active_organization_id
-    // on the session is independent proof of membership; never gate at /pricing
-    // when it's set even if the practice list is mid-refetch.
-    !activeOrganizationId &&
-    !isSubscriptionSuccessReturn
-  );
-  const authenticatedHomePath = useMemo(() => {
-    if (!completedOnboarding) return null;
-    const fallbackSlug = currentPractice?.slug ?? practices[0]?.slug ?? null;
-    return resolveAuthenticatedHomePath({
-      defaultWorkspace,
-      fallbackSlug,
-      hasPracticeMembership,
-    });
-  }, [completedOnboarding, currentPractice?.slug, defaultWorkspace, hasPracticeMembership, practices]);
+  // RootRoute is the "/" route. The user should never stay here — they should
+  // be redirected to their workspace home, /auth, /pricing, or /onboarding.
+  // While the intent is computing, show a LoadingScreen rather than risking
+  // a flash. The intent hook owns the post-Stripe ?subscription=success
+  // round-trip; the URL-strip happens inside it.
+  const intent = useAuthRouteIntent({ autoFetchPractices: true });
 
-  useEffect(() => {
-    return () => {
-      isMountedRef.current = false;
-    };
-  }, []);
+  switch (intent.kind) {
+    case 'loading':
+    case 'post-stripe-syncing':
+      return <LoadingScreen />;
 
-  useEffect(() => {
-    if (!isSubscriptionSuccessReturn) {
-      subscriptionSyncHandledRef.current = false;
-      return;
-    }
-    if (subscriptionSyncHandledRef.current) return;
-
-    subscriptionSyncHandledRef.current = true;
-    setSubscriptionSyncPending(true);
-
-    // After Stripe checkout the org is created by the webhook after the user's
-    // session was established, so active_organization_id may still be null. The
-    // shared recovery hook activates the first practice and refreshes the session;
-    // here we just kick it imperatively (bypasses the hook's `?subscription=success`
-    // URL guard, since this effect IS the owner of that round-trip).
-    void forceEnsureActiveOrg()
-      .catch((error) => {
-        console.warn('[RootRoute] Failed to refresh session after Stripe checkout', error);
-      })
-      .then(() => refetchPractices())
-      .catch((error) => {
-        console.warn('[RootRoute] Failed to refresh practices after Stripe checkout', error);
-      })
-      .finally(() => {
-        if (typeof window !== 'undefined') {
-          const newUrl = new URL(window.location.href);
-          newUrl.searchParams.delete('subscription');
-          window.history.replaceState({}, '', `${newUrl.pathname}${newUrl.search}${newUrl.hash}`);
-        }
-        setSubscriptionSyncPending(false);
-      });
-  }, [forceEnsureActiveOrg, isSubscriptionSuccessReturn, refetchPractices]);
-
-  useEffect(() => {
-    if (subscriptionSyncPending) return;
-    if (isPending || ensuringActiveOrg || (shouldFetchRootPractices && practicesLoading)) return;
-
-    if (!session?.user) {
-      navigate('/auth', true);
-      return;
+    case 'unauthenticated': {
+      const target = intent.redirectAfterAuth
+        ? `/auth?redirect=${encodeURIComponent(intent.redirectAfterAuth)}`
+        : '/auth';
+      return <Redirect to={target} />;
     }
 
-    if (session.user.onboarding_complete !== true && !session.user.is_anonymous) {
-      return;
+    case 'onboarding-required': {
+      const target = intent.returnTo
+        ? `/onboarding?returnTo=${encodeURIComponent(intent.returnTo)}`
+        : '/onboarding';
+      return <Redirect to={target} />;
     }
 
-    if (needsFirstSubscription) {
-      navigate('/pricing', true);
-      return;
-    }
+    case 'no-subscription':
+      return <Redirect to="/pricing" />;
 
-    if (isMountedRef.current && authenticatedHomePath) {
-      navigate(authenticatedHomePath, true);
-    }
-  }, [
-    authenticatedHomePath,
-    ensuringActiveOrg,
-    needsFirstSubscription,
-    subscriptionSyncPending,
-    practicesLoading,
-    isPending,
-    navigate,
-    session?.user,
-    shouldFetchRootPractices,
-  ]);
+    case 'practice-workspace':
+      return <Redirect to={`/practice/${intent.slug}`} />;
 
-  if (
-    !subscriptionSyncPending &&
-    !isPending &&
-    !practicesLoading &&
-    session?.user &&
-    !session.user.is_anonymous &&
-    session.user.onboarding_complete === true &&
-    shouldFetchRootPractices &&
-    !authenticatedHomePath
-  ) {
-    return renderWorkspaceFailureState(
-      'Workspace routing failed',
-      'Authenticated workspace routing could not be resolved because no practice slug was available.'
-    );
+    case 'client-workspace':
+      return <Redirect to="/client/dashboard" />;
+
+    default:
+      return assertNeverIntent(intent);
   }
-
-  if (subscriptionSyncPending) {
-    return <LoadingScreen />;
-  }
-
-  return <LoadingScreen />;
 }
 
 
@@ -803,11 +548,7 @@ function PracticeAppRoute({
       previewUrl: null,
     },
   }), [currentPractice, normalizedPracticeSlug]);
-  const sessionRecord = session?.session as Record<string, unknown> | undefined;
-  // Use backend canonical field `active_organization_id` only
-  const backendActiveOrgId = typeof sessionRecord?.active_organization_id === 'string'
-    ? sessionRecord.active_organization_id
-    : null;
+  const backendActiveOrgId = getActiveOrganizationPointer(session);
 
   useEffect(() => {
     if (isPending || !session?.user || !resolvedPracticeId) return;

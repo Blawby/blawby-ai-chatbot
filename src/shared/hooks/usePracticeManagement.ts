@@ -23,6 +23,7 @@ import { resetPracticeDetailsStore, setPracticeDetailsEntry } from '@/shared/sto
 import { queryCache } from '@/shared/lib/queryCache';
 import { asMajor, type MajorAmount } from '@/shared/utils/money';
 import { type PracticeRole } from '@/shared/utils/practiceRoles';
+import { getActiveOrganizationPointer } from '@/shared/auth/routeIntent';
 
 const isPlainObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -587,11 +588,7 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
   // first org for a previously-null session). The list endpoint is org-scoped,
   // so a fetch with no active org returns 403 — we need to redo it once recovery
   // has set one.
-  const sessionActiveOrgIdForDeps = (() => {
-    const sessionRecord = session?.session as Record<string, unknown> | undefined;
-    const value = sessionRecord?.active_organization_id;
-    return typeof value === 'string' && value.trim().length > 0 ? value : null;
-  })();
+  const sessionActiveOrgIdForDeps = getActiveOrganizationPointer(session);
   // Loading-by-default: report `true` whenever the hook will eventually fetch,
   // including the brief window where inputs are still settling (sessionLoading
   // === true, sessionUserId not yet defined). The fetch will fire as soon as

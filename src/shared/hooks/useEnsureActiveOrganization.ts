@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'preact/hooks';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { authClient, getSession } from '@/shared/lib/authClient';
+import { getActiveOrganizationPointer } from '@/shared/auth/routeIntent';
 
 type MembershipOrg = { id?: string | null };
 
@@ -49,13 +50,6 @@ const isSubscriptionSuccessReturn = (): boolean => {
   return new URLSearchParams(window.location.search).get('subscription') === 'success';
 };
 
-const getActiveOrganizationId = (
-  session: { session?: Record<string, unknown> } | null | undefined
-): string | null => {
-  const value = session?.session?.active_organization_id;
-  return typeof value === 'string' && value.trim().length > 0 ? value : null;
-};
-
 async function runRecovery(userId: string): Promise<void> {
   const existing = inFlightForUserIds.get(userId);
   if (existing) return existing;
@@ -100,7 +94,7 @@ export function useEnsureActiveOrganization() {
   const { session, isPending, isAnonymous } = useSessionContext();
   const userId = session?.user?.id ?? null;
   const onboardingComplete = session?.user?.onboarding_complete === true;
-  const activeOrgId = getActiveOrganizationId(session);
+  const activeOrgId = getActiveOrganizationPointer(session);
 
   const eligible = Boolean(
     !isPending &&

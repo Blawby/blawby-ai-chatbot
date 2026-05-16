@@ -3,6 +3,7 @@ import { ComponentChildren } from 'preact';
 import { useSession, authClient } from '@/shared/lib/authClient';
 import { RoutePracticeContext } from '@/shared/contexts/RoutePracticeContext';
 import { rememberAnonymousUserId, rememberAnonymousSessionId } from '@/shared/utils/anonymousIdentity';
+import { getActiveOrganizationPointer } from '@/shared/auth/routeIntent';
 import type { AuthSessionPayload, BackendSession, SessionUser } from '@/shared/types/user';
 
 export interface SessionContextValue {
@@ -30,13 +31,8 @@ type ActiveMemberRoleState = {
   error?: unknown;
 };
 
-const getActivePracticeId = (sessionData: SessionData | null | undefined): string | null => {
-  const sessionRecord = sessionData?.session as BackendSession | undefined;
-  // Use backend field name only (greenfield decision)
-  return typeof sessionRecord?.active_organization_id === 'string'
-    ? sessionRecord.active_organization_id
-    : null;
-};
+const getActivePracticeId = (sessionData: SessionData | null | undefined): string | null =>
+  getActiveOrganizationPointer(sessionData);
 
 const buildSessionContextValue = ({
   sessionData,
