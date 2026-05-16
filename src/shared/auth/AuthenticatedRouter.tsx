@@ -62,17 +62,30 @@ export function AuthenticatedRouter({
     }
 
     case 'practice-workspace': {
-      // Only kick the user out of /onboarding once it's complete. Every other
-      // path is reachable — practice workspace routes match their own UIs,
-      // pricing/auth stay reachable for upgrade/sign-in flows.
-      if (currentPath.startsWith('/onboarding')) {
+      // Kick out of paths that aren't a destination for this workspace kind:
+      // `/`, `/onboarding`, and `/auth` are all transient holding routes that
+      // a settled practice user should not stay on. Every other path is
+      // reachable — practice workspace routes match their own UIs, pricing
+      // stays reachable for upgrade flows.
+      if (
+        currentPath === '/' ||
+        currentPath.startsWith('/onboarding') ||
+        currentPath.startsWith('/auth')
+      ) {
         return <Redirect to={`/practice/${intent.slug}`} />;
       }
       return null;
     }
 
     case 'client-workspace': {
-      if (currentPath.startsWith('/onboarding')) {
+      // Same kick-out rule for client-default users: leave `/`, `/onboarding`,
+      // and `/auth` and land at the client dashboard. Other client paths stay
+      // reachable.
+      if (
+        currentPath === '/' ||
+        currentPath.startsWith('/onboarding') ||
+        currentPath.startsWith('/auth')
+      ) {
         return <Redirect to="/client/dashboard" />;
       }
       return null;

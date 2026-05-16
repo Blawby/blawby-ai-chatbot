@@ -204,24 +204,19 @@ export function App() {
  * resulting intent via `useAuthRouteIntentValue()`.
  */
 function AppShellWithIntent() {
-  const location = useLocation();
   const { session } = useSessionContext();
-  const isPublicRoute = location.path.startsWith('/public/');
-  const isAuthRoute = location.path.startsWith('/auth');
-  const isPricingRoute = location.path.startsWith('/pricing');
-  const isClientRoute = location.path.startsWith('/client/');
-  const onboardingIncomplete =
-    Boolean(session?.user) &&
-    !session?.user?.is_anonymous &&
-    session?.user?.onboarding_complete !== true;
-  // Always fetch practices on authenticated, post-onboarding routes — practice-membership
-  // presence (not active_organization_id) is the source of truth for whether the user
-  // is subscribed. Public/auth/pricing routes and in-progress onboarding don't need it.
-  const shouldFetchWorkspacePractices =
-    !isPublicRoute &&
-    !isAuthRoute &&
-    !isPricingRoute &&
-    (!onboardingIncomplete || isClientRoute);
+  // Fetch practices once an authenticated, non-anonymous user has an active
+  // org context on their session. Gating on `activeOrg` matters: the worker's
+  // `/api/practice/list` endpoint requires an active-org context and 403s
+  // without one (the chicken-and-egg the convention doc explicitly warns
+  // about). Without active org we let the recovery hook activate one first;
+  // the practice fetch then fires on the next render. While recovery is in
+  // flight the intent reports `loading`, so no flash is possible during this
+  // wait either.
+  const activeOrgId = getActiveOrganizationPointer(session);
+  const shouldFetchWorkspacePractices = Boolean(
+    session?.user && !session.user.is_anonymous && activeOrgId
+  );
 
   return (
     <AuthRouteIntentProvider autoFetchPractices={shouldFetchWorkspacePractices}>

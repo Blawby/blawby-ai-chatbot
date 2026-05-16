@@ -32,11 +32,31 @@ async function setActiveOrganization(organizationId: string): Promise<void> {
   await authClient.organization.setActive({ organizationId });
 }
 
-const resolvedForUserIds = new Set<string>();
+// Split the per-user memo by recovery outcome. The distinction matters for the
+// post-recovery propagation gap: when recovery calls `setActive` successfully,
+// the cookie/server state is updated and `getSession` is invoked, but the
+// React-observed `session.active_organization_id` only updates on a subsequent
+// render. During that gap the hook must keep reporting `isResolving: true` so
+// the gate doesn't briefly see (no activeOrg + no membership + recovery done)
+// and emit a `/pricing` redirect that gets undone ~100ms later.
+//
+// `resolvedWithOrgActivatedForUserIds` — recovery succeeded AND setActive was
+// called. The user has at least one org; we're waiting for `activeOrgId` to
+// appear on the session. Treated as still-resolving until that happens.
+//
+// `resolvedNoOrgsForUserIds` — recovery succeeded with an empty membership
+// list. Terminal "no orgs" state. The gate may legitimately route to /pricing.
+const resolvedWithOrgActivatedForUserIds = new Set<string>();
+const resolvedNoOrgsForUserIds = new Set<string>();
 const inFlightForUserIds = new Map<string, Promise<void>>();
 
+const isResolvedForUser = (userId: string): boolean =>
+  resolvedWithOrgActivatedForUserIds.has(userId) ||
+  resolvedNoOrgsForUserIds.has(userId);
+
 const dropMemo = () => {
-  resolvedForUserIds.clear();
+  resolvedWithOrgActivatedForUserIds.clear();
+  resolvedNoOrgsForUserIds.clear();
   inFlightForUserIds.clear();
 };
 
@@ -52,16 +72,16 @@ const isSubscriptionSuccessReturn = (): boolean => {
 async function runRecovery(userId: string): Promise<void> {
   const existing = inFlightForUserIds.get(userId);
   if (existing) return existing;
-  if (resolvedForUserIds.has(userId)) return;
+  if (isResolvedForUser(userId)) return;
 
   const promise = (async () => {
     try {
       const orgs = await listMembershipOrgs();
       const firstId = typeof orgs[0]?.id === 'string' ? orgs[0].id : null;
       if (!firstId) {
-        // Verified-empty membership list — user genuinely has zero orgs. Memoize
-        // as a terminal "no-orgs" state so the gate stops asking on every render.
-        resolvedForUserIds.add(userId);
+        // Verified-empty membership list — user genuinely has zero orgs.
+        // Memoize as terminal "no-orgs" so the gate may route to /pricing.
+        resolvedNoOrgsForUserIds.add(userId);
         return;
       }
       await setActiveOrganization(firstId);
@@ -70,8 +90,10 @@ async function runRecovery(userId: string): Promise<void> {
         window.dispatchEvent(new CustomEvent('auth:session-updated'));
       }
       console.info('[Workspace] auto-activated first practice (no active_organization_id on session)');
-      // Verified-success — memoize as terminal so the next render skips the work.
-      resolvedForUserIds.add(userId);
+      // Verified-success — memoize as "activated, awaiting session propagation".
+      // The hook's returned `isResolving` stays true until session reflects
+      // the new activeOrg, closing the post-recovery /pricing flash.
+      resolvedWithOrgActivatedForUserIds.add(userId);
     } catch (error) {
       // Transient failure (network, 5xx, SDK envelope error, setActive rejection,
       // getSession failure). DO NOT memoize. A subsequent render with the same
@@ -101,19 +123,27 @@ export function useEnsureActiveOrganization() {
     !isAnonymous &&
     onboardingComplete &&
     !activeOrgId &&
-    !resolvedForUserIds.has(userId)
+    !isResolvedForUser(userId)
   );
 
-  // Loading-by-default: if the hook WILL fire `runRecovery` on mount, report
-  // `isResolving: true` from render #1 — before the auto-fire effect has a
-  // chance to flip the flag. The pre-fix initial value of `false` was the
-  // root cause of the verified /pricing flash: gate code read the stale `false`
-  // on render #1 and navigated to /pricing before recovery even started.
-  const [isResolving, setIsResolving] = useState(() => {
-    if (!eligible || !userId) return false;
-    if (isSubscriptionSuccessReturn()) return false;
-    return true;
-  });
+  // Post-recovery propagation gap: when `runRecovery` successfully calls
+  // setActive, the server-side cookie is updated, but `session.active_organization_id`
+  // on the React side only flips on a subsequent render. During that gap the
+  // hook MUST report `isResolving: true` so the gate doesn't see (no activeOrg
+  // + no membership + recovery done) and emit a /pricing flash. The state
+  // clears naturally once `activeOrgId` becomes truthy on the session.
+  const isAwaitingPropagation = Boolean(
+    userId && resolvedWithOrgActivatedForUserIds.has(userId) && !activeOrgId
+  );
+
+  // Tristate: state flag for "currently firing or in-flight", derived predicate
+  // for "would-fire-on-this-render". OR them together so the returned value is
+  // true the moment eligibility flips — without waiting for the auto-fire
+  // effect to run after render. This closes the post-sign-in /pricing flash:
+  // the hook mounts at app boot with session=null (eligible=false), then
+  // session resolves on a later render. The state flag is stale `false` until
+  // the effect commits; the derived predicate fills that gap synchronously.
+  const [isResolvingState, setIsResolving] = useState(false);
   const mountedRef = useRef(true);
 
   useEffect(() => {
@@ -123,10 +153,9 @@ export function useEnsureActiveOrganization() {
   }, []);
 
   useEffect(() => {
-    // Effect owns BOTH directions of the flag. The lazy initializer above is
-    // strictly an optimization for render #1; this effect is authoritative.
-    // If ineligible (e.g. no userId yet, or on subscription-success return),
-    // make sure the flag is cleared so consumers can move on.
+    // Effect owns the state flag: sets true when firing, false when done or
+    // when eligibility fails. The derived `wouldFire` predicate (below) covers
+    // the one-render gap where the effect hasn't committed yet.
     if (!eligible || !userId || isSubscriptionSuccessReturn()) {
       if (mountedRef.current) {
         setIsResolving(false);
@@ -153,6 +182,16 @@ export function useEnsureActiveOrganization() {
       }
     }
   }, [userId]);
+
+  // Synchronous "would-fire-on-this-render" predicate. Mirrors the effect's
+  // fire conditions exactly. When true and the state flag is still false (i.e.
+  // the effect hasn't run yet for this eligibility transition), the OR below
+  // reports `isResolving: true` so the gate stays in a `loading` kind during
+  // the gap render.
+  const wouldFire = Boolean(
+    eligible && userId && !isSubscriptionSuccessReturn()
+  );
+  const isResolving = isResolvingState || wouldFire || isAwaitingPropagation;
 
   return { isResolving, forceResolve };
 }

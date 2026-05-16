@@ -20,6 +20,7 @@ export type RouteLoadingReason =
   | 'session-pending'
   | 'recovery-resolving'
   | 'practices-loading'
+  | 'practices-pending'
   | 'post-stripe-syncing'
   | 'practice-slug-pending'
   | 'on-onboarding-route';
@@ -129,6 +130,16 @@ export function computeRouteIntent(inputs: RouteIntentInputs): RouteIntent {
   // Anonymous users always skip this gate.
   if (!user.isAnonymous && !hasPracticeMembership && !activeOrganizationId) {
     return { kind: 'no-subscription' };
+  }
+
+  // Inconsistency: session has activeOrg set but workspace resolver hasn't
+  // seen the practice list yet. Better Auth only sets active_organization_id
+  // after a member-link exists (per the convention doc), so this state implies
+  // the practices fetch is pending or stale. Return loading rather than
+  // emitting a client-workspace kick-out for a user who's about to be
+  // recognized as a practice member.
+  if (!user.isAnonymous && activeOrganizationId && !hasPracticeMembership) {
+    return { kind: 'loading', reason: 'practices-pending' };
   }
 
   const slug = normalizeSlug(currentPracticeSlug) ?? normalizeSlug(fallbackPracticeSlug);

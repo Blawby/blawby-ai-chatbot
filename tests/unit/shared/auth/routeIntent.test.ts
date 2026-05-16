@@ -171,7 +171,12 @@ describe('computeRouteIntent', () => {
     ).toEqual<RouteIntent>({ kind: 'no-subscription' });
   });
 
-  it('belt-and-braces: active_organization_id set => never no-subscription, even with empty membership list', () => {
+  it('belt-and-braces: active_organization_id set + empty membership list => loading (practices-pending), never no-subscription', () => {
+    // Better Auth only sets active_organization_id after a member-link exists,
+    // so this state implies practices fetch is pending or stale — not that the
+    // user is genuinely a no-membership client. Treat as transient `loading`
+    // so the gate doesn't kick the user to /client/dashboard before practices
+    // load (the post-sign-in flash this PR closes).
     expect(
       computeRouteIntent(
         inputs({
@@ -181,7 +186,7 @@ describe('computeRouteIntent', () => {
           fallbackPracticeSlug: null,
         })
       )
-    ).toEqual<RouteIntent>({ kind: 'client-workspace' });
+    ).toEqual<RouteIntent>({ kind: 'loading', reason: 'practices-pending' });
   });
 
   it('routes to client-workspace when default workspace is client', () => {
