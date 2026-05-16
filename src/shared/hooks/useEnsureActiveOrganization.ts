@@ -9,17 +9,20 @@ async function listMembershipOrgs(): Promise<MembershipOrg[]> {
   // of, regardless of which one is currently active on the session. The worker's
   // /api/practice/list endpoint requires an active-org context and returns 403 when
   // it is missing — using it here would defeat the purpose of the recovery.
-  try {
-    const result = await authClient.organization.list();
-    const data = (result as { data?: unknown })?.data ?? result;
-    if (Array.isArray(data)) {
-      return data as MembershipOrg[];
-    }
-  } catch {
-    // Treat any client error as "no memberships confirmed" — the gate will fall
-    // through to /pricing, which matches the conservative pre-fix behavior.
+  //
+  // No silent catch here on purpose: a thrown error from `authClient.organization.list`
+  // (network blip, 5xx, SDK envelope failure) must propagate so the caller can refuse
+  // to memoize the user as "resolved" and allow the next render to retry. Pre-fix
+  // versions returned `[]` on error AND unconditionally memoized in a finally block,
+  // which permanently locked users out of recovery after a single transient failure.
+  // A non-array shape is also a failure (response contract violation), so throw rather
+  // than coerce to empty.
+  const result = await authClient.organization.list();
+  const data = (result as { data?: unknown })?.data ?? result;
+  if (!Array.isArray(data)) {
+    throw new Error('authClient.organization.list returned a non-array response');
   }
-  return [];
+  return data as MembershipOrg[];
 }
 
 async function setActiveOrganization(organizationId: string): Promise<void> {
@@ -63,20 +66,28 @@ async function runRecovery(userId: string): Promise<void> {
       const orgs = await listMembershipOrgs();
       const firstId = typeof orgs[0]?.id === 'string' ? orgs[0].id : null;
       if (!firstId) {
+        // Verified-empty membership list — user genuinely has zero orgs. Memoize
+        // as a terminal "no-orgs" state so the gate stops asking on every render.
+        resolvedForUserIds.add(userId);
         return;
       }
-      try {
-        await setActiveOrganization(firstId);
-        await getSession();
-        if (typeof window !== 'undefined') {
-          window.dispatchEvent(new CustomEvent('auth:session-updated'));
-        }
-        console.info('[Workspace] auto-activated first practice (no active_organization_id on session)');
-      } catch (error) {
-        console.warn('[Workspace] failed to auto-activate practice', error);
+      await setActiveOrganization(firstId);
+      await getSession();
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('auth:session-updated'));
       }
-    } finally {
+      console.info('[Workspace] auto-activated first practice (no active_organization_id on session)');
+      // Verified-success — memoize as terminal so the next render skips the work.
       resolvedForUserIds.add(userId);
+    } catch (error) {
+      // Transient failure (network, 5xx, SDK envelope error, setActive rejection,
+      // getSession failure). DO NOT memoize. A subsequent render with the same
+      // session state is allowed to retry — the user shouldn't be permanently
+      // locked out of recovery because of one bad request.
+      console.warn('[Workspace] failed to auto-activate practice', error);
+    } finally {
+      // Always clear the in-flight tracker so future attempts (next render's effect,
+      // a forceResolve call) can run instead of awaiting a dead promise.
       inFlightForUserIds.delete(userId);
     }
   })();
