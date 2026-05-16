@@ -592,9 +592,22 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
     const value = sessionRecord?.active_organization_id;
     return typeof value === 'string' && value.trim().length > 0 ? value : null;
   })();
-  const [isLoading, setIsLoading] = useState(() => isGloballyFetching || Boolean(
-    autoFetchPractices && !sessionLoading && sessionUserId && !isAnonymous && !practicesLoaded && !practicesFetchForbidden
-  ));
+  // Loading-by-default: report `true` whenever the hook will eventually fetch,
+  // including the brief window where inputs are still settling (sessionLoading
+  // === true, sessionUserId not yet defined). The fetch will fire as soon as
+  // session resolves, so reporting `isLoading: true` is correct.
+  //
+  // Pre-fix this initializer could evaluate `false` at render #1 even when an
+  // auto-fetch was about to start, letting downstream gate code read a stale
+  // "not loading" signal and navigate prematurely (verified /pricing flash).
+  const [isLoading, setIsLoading] = useState(() => {
+    if (isGloballyFetching) return true;
+    if (!autoFetchPractices) return false;
+    if (isAnonymous) return false;
+    if (practicesLoaded) return false;
+    if (practicesFetchForbidden) return false;
+    return true;
+  });
 
   // Subscribe this instance to the global loading and snapshot broadcasters.
   // This ensures all instances (RootRoute, PracticeAppRoute, etc.) update

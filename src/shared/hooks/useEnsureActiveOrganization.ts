@@ -98,15 +98,6 @@ async function runRecovery(userId: string): Promise<void> {
 
 export function useEnsureActiveOrganization() {
   const { session, isPending, isAnonymous } = useSessionContext();
-  const [isResolving, setIsResolving] = useState(false);
-  const mountedRef = useRef(true);
-
-  useEffect(() => {
-    return () => {
-      mountedRef.current = false;
-    };
-  }, []);
-
   const userId = session?.user?.id ?? null;
   const onboardingComplete = session?.user?.onboarding_complete === true;
   const activeOrgId = getActiveOrganizationId(session);
@@ -119,6 +110,24 @@ export function useEnsureActiveOrganization() {
     !activeOrgId &&
     !resolvedForUserIds.has(userId)
   );
+
+  // Loading-by-default: if the hook WILL fire `runRecovery` on mount, report
+  // `isResolving: true` from render #1 — before the auto-fire effect has a
+  // chance to flip the flag. The pre-fix initial value of `false` was the
+  // root cause of the verified /pricing flash: gate code read the stale `false`
+  // on render #1 and navigated to /pricing before recovery even started.
+  const [isResolving, setIsResolving] = useState(() => {
+    if (!eligible || !userId) return false;
+    if (isSubscriptionSuccessReturn()) return false;
+    return true;
+  });
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!eligible || !userId) return;

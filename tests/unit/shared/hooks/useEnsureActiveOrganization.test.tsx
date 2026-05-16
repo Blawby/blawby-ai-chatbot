@@ -287,6 +287,65 @@ describe('useEnsureActiveOrganization', () => {
     expect(mocks.setActivePractice).toHaveBeenCalledTimes(1);
   });
 
+  it('initial isResolving is true on render #1 when eligible (loading-by-default)', () => {
+    // THE /pricing-flash fix. Pre-fix this initial value was always false, and
+    // gate code reading it on render #1 saw a stale "not loading" signal and
+    // navigated to /pricing before the recovery hook's effect even fired.
+    mocks.sessionValue.session = completedOwnerSession();
+    // Make orgList never resolve so isResolving stays true.
+    mocks.orgListMock.mockReturnValue(new Promise(() => undefined));
+
+    const { result } = renderHook(() => useEnsureActiveOrganization());
+
+    expect(result.current.isResolving).toBe(true);
+  });
+
+  it('initial isResolving is false when not eligible (anonymous user)', () => {
+    mocks.sessionValue.session = completedOwnerSession();
+    mocks.sessionValue.isAnonymous = true;
+
+    const { result } = renderHook(() => useEnsureActiveOrganization());
+
+    expect(result.current.isResolving).toBe(false);
+  });
+
+  it('initial isResolving is false when not eligible (onboarding incomplete)', () => {
+    mocks.sessionValue.session = completedOwnerSession({ onboarding_complete: false });
+
+    const { result } = renderHook(() => useEnsureActiveOrganization());
+
+    expect(result.current.isResolving).toBe(false);
+  });
+
+  it('initial isResolving is false when active org is already set', () => {
+    mocks.sessionValue.session = {
+      ...completedOwnerSession(),
+      session: { active_organization_id: 'existing-org' },
+    };
+
+    const { result } = renderHook(() => useEnsureActiveOrganization());
+
+    expect(result.current.isResolving).toBe(false);
+  });
+
+  it('initial isResolving is false on ?subscription=success (post-Stripe owns that path)', () => {
+    mocks.sessionValue.session = completedOwnerSession();
+    window.history.replaceState({}, '', '/?subscription=success');
+
+    const { result } = renderHook(() => useEnsureActiveOrganization());
+
+    expect(result.current.isResolving).toBe(false);
+  });
+
+  it('initial isResolving is false when session is pending', () => {
+    mocks.sessionValue.session = completedOwnerSession();
+    mocks.sessionValue.isPending = true;
+
+    const { result } = renderHook(() => useEnsureActiveOrganization());
+
+    expect(result.current.isResolving).toBe(false);
+  });
+
   it('drops memo on auth:session-cleared so a new user can be resolved', async () => {
     mocks.sessionValue.session = completedOwnerSession();
     mocks.orgListMock.mockResolvedValue([{ id: 'practice-1', slug: 'first' }]);
