@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useRef } from 'preact/hooks';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { authClient, getSession } from '@/shared/lib/authClient';
 
-type MembershipOrg = { id?: unknown };
+type MembershipOrg = { id?: string | null };
 
 async function listMembershipOrgs(): Promise<MembershipOrg[]> {
   // Better Auth's organization plugin endpoint lists EVERY org the user is a member
@@ -61,7 +61,7 @@ async function runRecovery(userId: string): Promise<void> {
   const promise = (async () => {
     try {
       const orgs = await listMembershipOrgs();
-      const firstId = typeof orgs[0]?.id === 'string' ? (orgs[0].id as string) : null;
+      const firstId = typeof orgs[0]?.id === 'string' ? orgs[0].id : null;
       if (!firstId) {
         return;
       }
