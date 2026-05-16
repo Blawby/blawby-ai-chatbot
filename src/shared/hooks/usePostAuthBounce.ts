@@ -2,6 +2,7 @@ import { useEffect } from 'preact/hooks';
 import { useLocation } from 'preact-iso';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { useNavigation } from '@/shared/utils/navigation';
+import { useAuthRouteIntentValue } from '@/shared/auth/AuthRouteIntentContext';
 import { consumePostAuthConversationContext } from '@/shared/utils/anonymousIdentity';
 
 /**
@@ -18,15 +19,30 @@ import { consumePostAuthConversationContext } from '@/shared/utils/anonymousIden
  * are pointers to "where the user wanted to go", not "where the system says
  * the user belongs".
  *
- * Preserved verbatim from the pre-refactor AppShell gate.
+ * Guarded on the intent being in a settled workspace/no-subscription kind —
+ * firing during `loading`, `unauthenticated`, or `onboarding-required` would
+ * fight the AuthenticatedRouter's redirect (the gate would push the user
+ * back to /auth or /onboarding the moment they landed on the bounce target).
  */
 export function usePostAuthBounce(): void {
   const location = useLocation();
   const { navigate } = useNavigation();
   const { session, isPending } = useSessionContext();
+  const intent = useAuthRouteIntentValue();
 
   useEffect(() => {
     if (isPending) return;
+    // Only fire after the intent has settled into a stable workspace kind.
+    // Loading/unauthenticated/onboarding-required would race the
+    // AuthenticatedRouter's redirect; bouncing the user to a target the gate
+    // is about to redirect away from creates a visible flicker.
+    if (
+      intent.kind === 'loading' ||
+      intent.kind === 'unauthenticated' ||
+      intent.kind === 'onboarding-required'
+    ) {
+      return;
+    }
 
     if (session?.user && !session.user.is_anonymous) {
       const pendingConversation = consumePostAuthConversationContext();
@@ -81,5 +97,5 @@ export function usePostAuthBounce(): void {
         console.warn('[Workspace] Failed to read intake awaiting path', error);
       }
     }
-  }, [session?.user, isPending, location.path, location.url, navigate]);
+  }, [session?.user, isPending, location.path, location.url, navigate, intent.kind]);
 }
