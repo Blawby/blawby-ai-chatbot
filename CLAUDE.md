@@ -113,7 +113,9 @@ npm run dev:full:local
 
 Open `https://local.blawby.com`.
 
-> **Why `dev:full:local`?** The default `dev:full` uses `dev:worker`, which reads `BACKEND_API_URL` from `[env.dev.vars]` in `wrangler.toml` (staging). `dev:full:local` uses `dev:worker:local`, which passes `--var BACKEND_API_URL:http://127.0.0.1:3000` to override it. `.dev.vars` alone does not override `[env.dev.vars]`.
+> **Why `dev:full:local`?** The default `dev:full` uses `dev:worker`, which reads `BACKEND_API_URL` from `[env.dev.vars]` in `wrangler.toml` (staging). `dev:full:local` uses `dev:worker:local`, which passes `--var BACKEND_API_URL:http://127.0.0.1:3000` to override it.
+
+> **Wrangler 4.x `.dev.vars` precedence (caveat for Mode A users):** if your `worker/.dev.vars` has `BACKEND_API_URL=…` set, it overrides `[env.dev.vars]` in `wrangler.toml` — even when you run `dev:full`. If you've previously experimented with Mode B and left `BACKEND_API_URL=http://localhost:3000` in `.dev.vars`, Mode A will silently break (auth proxies to a backend that's down → 500s). Comment that line out before going back to Mode A, then restart `wrangler dev` so it re-reads `.dev.vars`.
 
 If a Worker feature adds a D1 table, apply the migration locally before browser testing:
 
