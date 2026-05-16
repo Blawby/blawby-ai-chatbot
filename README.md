@@ -78,7 +78,6 @@ npm run test:e2e       # Full user workflows via Playwright
 npm run test:worker    # Worker integration tests via Miniflare
 npm run test:unit      # Pure logic, no Cloudflare bindings
 npm run test           # All non-E2E tests
-npm run lint:i18n      # Validate translation files are in sync
 ```
 
 See [docs/engineering/testing-guide.md](docs/engineering/testing-guide.md) for the full testing strategy.
