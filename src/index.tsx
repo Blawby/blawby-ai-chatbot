@@ -14,11 +14,14 @@ import { usePracticeConfig } from '@/shared/hooks/usePracticeConfig';
 import type { UIPracticeConfig } from '@/shared/hooks/usePracticeConfig';
 import { handleError as _handleError } from '@/shared/utils/errorHandler';
 import { useWorkspaceResolver } from '@/shared/hooks/useWorkspaceResolver';
-import { useAuthRouteIntent } from '@/shared/hooks/useAuthRouteIntent';
 import { usePostAuthBounce } from '@/shared/hooks/usePostAuthBounce';
 import { AuthenticatedRouter } from '@/shared/auth/AuthenticatedRouter';
 import { Redirect } from '@/shared/auth/Redirect';
 import { assertNeverIntent } from '@/shared/auth/routeIntent';
+import {
+  AuthRouteIntentProvider,
+  useAuthRouteIntentValue,
+} from '@/shared/auth/AuthRouteIntentContext';
 import { getActiveOrganizationPointer } from '@/shared/lib/authClient';
 import { AlertTriangle } from 'lucide-preact';
 import { AppGuard } from '@/app/AppGuard';
@@ -188,7 +191,7 @@ export function App() {
       <SessionProvider>
         <AuthBootGate>
           <AppGuard>
-            <AppShell />
+            <AppShellWithIntent />
           </AppGuard>
         </AuthBootGate>
       </SessionProvider>
@@ -196,15 +199,19 @@ export function App() {
   );
 }
 
-function AppShell() {
-  useTheme();
+/**
+ * Wraps `<AppShell>` in `<AuthRouteIntentProvider>` so the route intent has
+ * exactly one producer per tree. The `autoFetchPractices` cost-guard is
+ * derived here from session + location; AppShell and RootRoute both read the
+ * resulting intent via `useAuthRouteIntentValue()`.
+ */
+function AppShellWithIntent() {
   const location = useLocation();
   const { session } = useSessionContext();
   const isPublicRoute = location.path.startsWith('/public/');
   const isAuthRoute = location.path.startsWith('/auth');
   const isPricingRoute = location.path.startsWith('/pricing');
   const isClientRoute = location.path.startsWith('/client/');
-  const isDebugRoute = import.meta.env.DEV && location.path.startsWith('/debug');
   const onboardingIncomplete =
     Boolean(session?.user) &&
     !session?.user?.is_anonymous &&
@@ -217,8 +224,25 @@ function AppShell() {
     !isAuthRoute &&
     !isPricingRoute &&
     (!onboardingIncomplete || isClientRoute);
+
+  return (
+    <AuthRouteIntentProvider autoFetchPractices={shouldFetchWorkspacePractices}>
+      <AppShell />
+    </AuthRouteIntentProvider>
+  );
+}
+
+function AppShell() {
+  useTheme();
+  const location = useLocation();
+  const { session } = useSessionContext();
+  const isPublicRoute = location.path.startsWith('/public/');
+  const isClientRoute = location.path.startsWith('/client/');
+  const isDebugRoute = import.meta.env.DEV && location.path.startsWith('/debug');
+  // Practice fetching is gated upstream in `<AppShellWithIntent>`; the
+  // resolver here just reads the cached snapshot.
   const { currentPractice } = useWorkspaceResolver({
-    autoFetchPractices: shouldFetchWorkspacePractices
+    autoFetchPractices: false
   });
 
   // Apply the active org's brand color at the shell level so routes that
@@ -238,19 +262,15 @@ function AppShell() {
     }
   }, [currentPractice?.accentColor, currentPractice?.slug]);
 
-  // `useAuthRouteIntent` runs on every render — React's rules-of-hooks forbid
-  // gating it on a route check. The cost guards live elsewhere:
-  //   - `autoFetchPractices: shouldFetchWorkspacePractices` keeps the practice
-  //     list fetch (and the recovery hook's `setActive` round-trip) off public
-  //     and intake routes that have no use for it.
-  //   - `bypassGateForRoute` below skips rendering `<AuthenticatedRouter>` so
-  //     public/intake/debug routes never emit a redirect even though the intent
-  //     is still computed in the background.
+  // The route intent is produced once at `<AppShellWithIntent>` and exposed
+  // via context — single producer, many consumers (AppShell + RootRoute).
+  //   - `bypassGateForRoute` skips rendering `<AuthenticatedRouter>` so
+  //     public/intake/debug routes never emit a redirect, even though the
+  //     intent is still computed in the provider above. The provider's
+  //     `autoFetchPractices` flag is the actual fetch-cost guard.
   const isPublicIntakeRoute = isPublicRoute || isClientRoute;
   const bypassGateForRoute = isPublicIntakeRoute || isDebugRoute;
-  const intent = useAuthRouteIntent({
-    autoFetchPractices: shouldFetchWorkspacePractices,
-  });
+  const intent = useAuthRouteIntentValue();
 
   // Side-effect hook for sessionStorage-based post-auth bounces (pendingConversation,
   // intakeAwaitingInvitePath). These are NOT part of RouteIntent — they're "where
@@ -458,10 +478,10 @@ function ClientEngagementReviewRoute({
 function RootRoute() {
   // RootRoute is the "/" route. The user should never stay here — they should
   // be redirected to their workspace home, /auth, /pricing, or /onboarding.
-  // While the intent is computing, show a LoadingScreen rather than risking
-  // a flash. The intent hook owns the post-Stripe ?subscription=success
-  // round-trip; the URL-strip happens inside it.
-  const intent = useAuthRouteIntent({ autoFetchPractices: true });
+  // The intent is produced once at `<AppShellWithIntent>` and read here via
+  // context; this route is just a thin renderer that converts the intent's
+  // kind into the matching destination (or a LoadingScreen while pending).
+  const intent = useAuthRouteIntentValue();
 
   switch (intent.kind) {
     case 'loading':
