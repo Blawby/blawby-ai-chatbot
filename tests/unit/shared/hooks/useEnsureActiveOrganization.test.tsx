@@ -33,6 +33,15 @@ vi.mock('@/shared/lib/authClient', () => ({
       setActive: mocks.setActivePractice,
     },
   },
+  // The helper is a pure read of session.session.active_organization_id; the
+  // hook now imports it from authClient, so the mock must export a working
+  // version (vi.mock replaces the entire module).
+  getActiveOrganizationPointer: (
+    session: { session?: { active_organization_id?: unknown } } | null | undefined
+  ): string | null => {
+    const value = session?.session?.active_organization_id;
+    return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null;
+  },
 }));
 
 import { useEnsureActiveOrganization } from '@/shared/hooks/useEnsureActiveOrganization';
