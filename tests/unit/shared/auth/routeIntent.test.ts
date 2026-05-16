@@ -232,6 +232,22 @@ describe('computeRouteIntent', () => {
     ).toEqual<RouteIntent>({ kind: 'client-workspace' });
   });
 
+  it('anonymous user with no active org and no membership skips /pricing (gate invariant)', () => {
+    // Pins the anonymous-bypass-skips-pricing invariant: an anonymous user
+    // with nothing (no active org, no membership) must NOT be routed to
+    // /pricing. The subscription gate is for registered users only.
+    expect(
+      computeRouteIntent(
+        inputs({
+          user: { id: 'anon_1', isAnonymous: true, onboardingComplete: false },
+          defaultWorkspace: 'client',
+          hasPracticeMembership: false,
+          activeOrganizationId: null,
+        })
+      )
+    ).toEqual<RouteIntent>({ kind: 'client-workspace' });
+  });
+
   it('trims whitespace-only slugs to null', () => {
     expect(
       computeRouteIntent(
