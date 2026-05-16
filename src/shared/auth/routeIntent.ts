@@ -1,0 +1,181 @@
+import type { WorkspacePreference } from '@/shared/types/workspace';
+
+/**
+ * Discriminated union describing where an authenticated (or
+ * not-yet-authenticated) user should be in the app. Produced by
+ * `computeRouteIntent` and consumed by `AuthenticatedRouter`.
+ *
+ * Loading is an explicit kind, not an implied "all flags false" state. Any
+ * input being in-flight (session pending, practices loading, recovery
+ * resolving, post-Stripe sync) returns `kind: 'loading'` so consumers can
+ * render a loader instead of mis-routing while flags settle.
+ */
+export type RouteIntent =
+  /** Any required input is still in-flight. Render a loader; never redirect. */
+  | { kind: 'loading' }
+  /** No authenticated user. Send to /auth, optionally preserving where they were headed. */
+  | { kind: 'unauthenticated'; redirectAfterAuth?: string }
+  /** Authenticated but onboarding incomplete. Send to /onboarding. */
+  | { kind: 'onboarding-required'; userId: string; returnTo?: string }
+  /** Authenticated and onboarded but no practice membership. Send to /pricing. */
+  | { kind: 'no-subscription' }
+  /** Returning from Stripe checkout (?subscription=success) while recovery is firing. */
+  | { kind: 'post-stripe-syncing' }
+  /** Practice-default user. Send to /practice/{slug}. */
+  | { kind: 'practice-workspace'; slug: string }
+  /** Client-default user. Send to /client/dashboard. */
+  | { kind: 'client-workspace' };
+
+export interface RouteIntentInputs {
+  isSessionPending: boolean;
+  user:
+    | { id: string; isAnonymous: boolean; onboardingComplete: boolean }
+    | null;
+  activeOrganizationId: string | null;
+  isResolvingActiveOrg: boolean;
+  practicesLoading: boolean;
+  hasPracticeMembership: boolean;
+  defaultWorkspace: WorkspacePreference | null;
+  currentPracticeSlug: string | null;
+  fallbackPracticeSlug: string | null;
+  isSubscriptionSuccessReturn: boolean;
+  subscriptionSyncInFlight: boolean;
+  /** Pathname only (e.g. `/practice/foo`). Used to skip redundant redirects. */
+  currentPath: string;
+}
+
+/**
+ * The single canonical reader of `session.session.active_organization_id`.
+ *
+ * Better Auth stores the active org id as a string on `session.session` and may
+ * be missing entirely, an empty string, or whitespace-only. Treat all of those
+ * as "no active org" and only return a non-empty trimmed string.
+ *
+ * All call sites that previously read the field directly should call this
+ * helper so the pointer-vs-state distinction (see
+ * docs/solutions/conventions/better-auth-active-organization-id-pointer-2026-05-15.md)
+ * stays canonical.
+ */
+export function getActiveOrganizationPointer(
+  session: { session?: Record<string, unknown> | null | undefined } | null | undefined
+): string | null {
+  const value = session?.session?.active_organization_id;
+  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null;
+}
+
+/**
+ * Pure computation of "where should this user be?".
+ *
+ * Decision tree (early returns, evaluated top-to-bottom):
+ *   1. session pending → loading
+ *   2. no user → unauthenticated
+ *   3. anonymous user → workspace kinds (skipping onboarding/subscription gates)
+ *   4. onboarding incomplete → onboarding-required (unless already on /onboarding)
+ *   5. ?subscription=success + sync in flight → post-stripe-syncing
+ *   6. recovery resolving OR practices loading → loading (THE fix for the /pricing flash)
+ *   7. no membership AND no active org → no-subscription
+ *   8. default workspace is client (or no practice access) → client-workspace
+ *   9. otherwise → practice-workspace
+ */
+export function computeRouteIntent(inputs: RouteIntentInputs): RouteIntent {
+  const {
+    isSessionPending,
+    user,
+    activeOrganizationId,
+    isResolvingActiveOrg,
+    practicesLoading,
+    hasPracticeMembership,
+    defaultWorkspace,
+    currentPracticeSlug,
+    fallbackPracticeSlug,
+    isSubscriptionSuccessReturn,
+    subscriptionSyncInFlight,
+    currentPath,
+  } = inputs;
+
+  if (isSessionPending) {
+    return { kind: 'loading' };
+  }
+
+  if (!user) {
+    const redirectAfterAuth = computeRedirectAfterAuth(currentPath);
+    return redirectAfterAuth
+      ? { kind: 'unauthenticated', redirectAfterAuth }
+      : { kind: 'unauthenticated' };
+  }
+
+  // Anonymous users bypass onboarding/subscription gates entirely. They land in
+  // the workspace kinds; downstream guards surface access-denied if needed.
+  if (!user.isAnonymous && !user.onboardingComplete) {
+    if (currentPath.startsWith('/onboarding')) {
+      return { kind: 'loading' };
+    }
+    const returnTo = computeOnboardingReturnTo(currentPath);
+    return returnTo
+      ? { kind: 'onboarding-required', userId: user.id, returnTo }
+      : { kind: 'onboarding-required', userId: user.id };
+  }
+
+  if (isSubscriptionSuccessReturn && subscriptionSyncInFlight) {
+    return { kind: 'post-stripe-syncing' };
+  }
+
+  // THE FIX: loading is a first-class kind. Inputs in flight → loading, NOT
+  // "no-subscription". Pre-refactor the gate read `hasPracticeMembership: false`
+  // while practices were still loading and routed to /pricing.
+  if (isResolvingActiveOrg || practicesLoading) {
+    return { kind: 'loading' };
+  }
+
+  // Belt-and-braces from the convention doc: a non-null active_organization_id
+  // is independent proof of membership. Never gate at /pricing while it's set.
+  if (!hasPracticeMembership && !activeOrganizationId) {
+    return { kind: 'no-subscription' };
+  }
+
+  const slug = normalizeSlug(currentPracticeSlug) ?? normalizeSlug(fallbackPracticeSlug);
+
+  if (defaultWorkspace === 'client' || !hasPracticeMembership) {
+    return { kind: 'client-workspace' };
+  }
+
+  if (!slug) {
+    // Practice user but no resolvable slug yet — keep loading rather than
+    // emitting a `practice-workspace` with no destination.
+    return { kind: 'loading' };
+  }
+
+  return { kind: 'practice-workspace', slug };
+}
+
+const AUTH_RETURN_BLOCKED_PATHS = new Set(['/', '/auth', '/auth/accept-invitation']);
+
+function computeRedirectAfterAuth(currentPath: string): string | undefined {
+  if (!currentPath || AUTH_RETURN_BLOCKED_PATHS.has(currentPath)) return undefined;
+  if (currentPath.startsWith('/auth')) return undefined;
+  if (currentPath.startsWith('/public/')) return undefined;
+  return currentPath;
+}
+
+function computeOnboardingReturnTo(currentPath: string): string | undefined {
+  if (!currentPath) return undefined;
+  if (currentPath.startsWith('/onboarding')) return undefined;
+  if (currentPath.startsWith('/auth')) return undefined;
+  if (currentPath === '/') return undefined;
+  return currentPath;
+}
+
+function normalizeSlug(value: string | null): string | null {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+/**
+ * Exhaustiveness helper for `switch (intent.kind)`. A new kind added to
+ * `RouteIntent` without a matching case will fail to typecheck where
+ * `assertNeverIntent` is called.
+ */
+export function assertNeverIntent(value: never): never {
+  throw new Error(`Unhandled RouteIntent kind: ${JSON.stringify(value)}`);
+}
