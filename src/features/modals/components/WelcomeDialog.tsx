@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'preact/hooks';
+import { useState } from 'preact/hooks';
 import { useTranslation, Trans } from '@/shared/i18n/hooks';
 import { InfoListDialog, type InfoListDialogItem } from '@/shared/ui/dialog';
 import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
@@ -15,13 +15,6 @@ interface WelcomeDialogProps {
 const WelcomeDialog = ({ isOpen, onClose, onComplete, workspace }: WelcomeDialogProps) => {
   const { t } = useTranslation('common');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const completionControllerRef = useRef<AbortController | null>(null);
-
-  useEffect(() => {
-    return () => {
-      completionControllerRef.current?.abort();
-    };
-  }, []);
 
   const isClient = workspace === 'client';
 
@@ -84,32 +77,13 @@ const WelcomeDialog = ({ isOpen, onClose, onComplete, workspace }: WelcomeDialog
       ]) satisfies InfoListDialogItem[];
 
   const handleComplete = async () => {
-    completionControllerRef.current?.abort();
-    const controller = new AbortController();
-    completionControllerRef.current = controller;
     setIsSubmitting(true);
     try {
-      await new Promise<void>((resolve, reject) => {
-        const timeoutId = window.setTimeout(resolve, 300);
-        controller.signal.addEventListener('abort', () => {
-          window.clearTimeout(timeoutId);
-          reject(new DOMException('Operation aborted', 'AbortError'));
-        }, { once: true });
-      });
-      try {
-        await onComplete();
-      } catch (error) {
-        console.error('[WelcomeDialog] Failed to complete welcome flow', error);
-      }
+      await onComplete();
     } catch (error) {
-      if (!(error instanceof DOMException && error.name === 'AbortError')) {
-        console.error('[WelcomeDialog] Failed to resolve completion state', error);
-      }
+      console.error('[WelcomeDialog] Failed to complete welcome flow', error);
     } finally {
-      if (completionControllerRef.current === controller && !controller.signal.aborted) {
-        setIsSubmitting(false);
-        completionControllerRef.current = null;
-      }
+      setIsSubmitting(false);
     }
   };
 

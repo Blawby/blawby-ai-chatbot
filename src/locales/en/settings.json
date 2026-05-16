@@ -11,20 +11,20 @@
       "apps": "Apps",
       "security": "Security",
       "help": "Help",
-      "signOut": "Sign Out"
+      "signOut": "Sign out"
     },
     "signOut": {
-      "toastTitle": "Signed out successfully",
-      "toastBody": "You have been signed out",
+      "toastTitle": "Signed out",
+      "toastBody": "You're signed out.",
       "errorTitle": "Sign out failed",
-      "errorBody": "There was an error signing you out. Please try again."
+      "errorBody": "Couldn't sign you out. Try again."
     }
   },
-  "redirecting": "Redirecting settings...",
+  "redirecting": "Redirecting…",
   "practice": {
     "servicesNavLabel": "Services",
     "manageServices": "Manage services",
-    "team": "Team Members",
+    "team": "Team members",
     "page": {
       "title": "Practice",
       "subtitle": "Identity, brand, contact, services, and states"
@@ -37,13 +37,13 @@
       "namePlaceholder": "Smith & Associates",
       "slugLabel": "Public slug",
       "slugPlaceholder": "smith-associates",
-      "slugDescription": "This controls the workspace URL."
+      "slugDescription": "Sets the workspace URL."
     },
     "brand": {
       "title": "Brand",
-      "description": "Avatar and accent color used throughout the widget experience.",
+      "description": "Avatar and accent color used throughout the widget.",
       "avatarLabel": "Upload brand avatar",
-      "avatarDescription": "Upload a square image. Maximum 5 MB.",
+      "avatarDescription": "A square image, up to 5 MB.",
       "colorLabel": "Brand color",
       "colorAriaLabel": "Brand color",
       "currentColorAria": "Current brand color {{color}}",
@@ -52,7 +52,7 @@
     },
     "contact": {
       "title": "Contact details",
-      "description": "Website, business email, and phone number for this practice.",
+      "description": "Website, business email, and phone for this practice.",
       "websiteLabel": "Website",
       "websitePlaceholder": "https://example.com",
       "businessEmailLabel": "Business email",
@@ -62,40 +62,40 @@
     },
     "address": {
       "title": "Address",
-      "description": "Used in public practice details and intake flows.",
+      "description": "Shown in public practice details and intake flows.",
       "helper": "Leave fields blank to clear them."
     },
     "services": {
       "title": "Services",
-      "description": "Choose the legal service areas this practice accepts for routing and intake setup.",
+      "description": "Choose the legal service areas this practice accepts.",
       "addStatesHeading": "Add state",
       "servicesPerStateHeading": "Services per state"
     },
     "licensedStates": {
-      "placeholder": "Select states"
+      "placeholder": "Choose states"
     },
     "servicesByState": {
-      "empty": "No states selected. Add a state to assign services.",
-      "placeholder": "Select services offered",
+      "empty": "No states yet. Add a state to assign services.",
+      "placeholder": "Choose services offered",
       "remove": "Remove {{label}}",
       "removeShort": "Remove"
     },
     "toasts": {
       "practiceSettingsSaved": {
-        "title": "Practice settings saved",
-        "body": "Your practice settings have been saved."
+        "title": "Settings saved",
+        "body": "Your practice settings are saved."
       },
       "practiceSettingsSaveFailed": {
-        "title": "Practice settings save failed",
-        "body": "Unable to save your practice settings. Please try again."
+        "title": "Couldn't save settings",
+        "body": "Couldn't save your practice settings. Try again."
       },
       "logoUploadFailed": {
         "title": "Logo upload failed",
-        "body": "Unable to upload your logo. Please try again."
+        "body": "Couldn't upload your logo. Try again."
       },
       "brandColorInvalid": {
         "title": "Brand color",
-        "body": "Brand color must be a valid hex value."
+        "body": "Use a valid hex value."
       }
     }
   },
@@ -112,7 +112,7 @@
     "accent": {
       "label": "Accent color",
       "options": {
-        "grey": "Grey (Default)",
+        "grey": "Grey (default)",
         "gold": "Gold",
         "blue": "Blue",
         "green": "Green",
@@ -124,48 +124,48 @@
     },
     "language": {
       "label": "Language",
-      "description": "Select the language used for the interface.",
+      "description": "Sets the interface language.",
       "toastTitle": "Language updated",
-      "toastBody": "Your language preference has been applied."
+      "toastBody": "Your language preference is applied."
     },
     "spokenLanguage": {
       "label": "Spoken language",
-      "description": "For best results, select the language you mainly speak. If it's not listed, auto-detection may still work."
+      "description": "Pick the language you mostly speak. If yours isn't listed, auto-detect may still work."
     }
   },
   "apps": {
     "title": "Apps",
-    "description": "Connect third-party services to enhance your workflow",
+    "description": "Connect third-party services to fit your workflow.",
     "comingSoon": "Coming soon",
     "enabled": "Enabled",
     "copy": "Copy",
     "copied": "Copied",
     "copySnippetSuccess": {
       "title": "Code copied",
-      "body": "The widget snippet has been copied to your clipboard."
+      "body": "The widget snippet is on your clipboard."
     },
     "copySnippetError": {
-      "title": "Copy failed",
-      "body": "Unable to copy to clipboard. Please select and copy the widget snippet manually."
+      "title": "Couldn't copy",
+      "body": "Couldn't copy to clipboard. Select the widget snippet manually."
     },
     "clio": {
       "name": "Clio",
-      "description": "Connect your Clio account to sync matters, contacts, and calendar events.",
+      "description": "Connect Clio to sync matters, contacts, and calendar events.",
       "connect": "Connect",
       "disconnect": "Disconnect",
       "settings": "Settings",
       "connected": "Connected",
-      "notConnected": "Not Connected",
+      "notConnected": "Not connected",
       "connectedOn": "Connected on",
       "category": "Category",
       "developer": "Developer",
       "website": "Website",
-      "privacyPolicy": "Privacy Policy",
+      "privacyPolicy": "Privacy policy",
       "information": "Information",
       "actions": "Actions",
       "disconnectConfirm": {
-        "title": "Disconnect Clio",
-        "message": "Are you sure you want to disconnect your Clio app? This will stop syncing data.",
+        "title": "Disconnect Clio?",
+        "message": "Disconnecting will stop syncing data.",
         "confirm": "Disconnect",
         "cancel": "Cancel"
       },
@@ -175,66 +175,66 @@
         "developedBy": "Developed by {{developer}}",
         "continue": "Continue to {{app}}",
         "permissions": {
-          "title": "Permissions always respected",
-          "description": "{{app}} is strictly limited to permissions you've explicitly set. Disable access anytime to revoke permissions."
+          "title": "Permissions are always respected",
+          "description": "{{app}} is limited to permissions you've set. Revoke access anytime."
         },
         "control": {
           "title": "You're in control",
-          "description": "{{app}} always respects your training data preferences. Data from {{app}} may be used to provide you relevant and useful information.",
+          "description": "{{app}} respects your training-data preferences. Data from {{app}} may be used to give you relevant information.",
           "learnMore": "Learn more"
         },
         "risk": {
-          "title": "Connectors may introduce risk",
-          "description": "Connectors are designed to respect your privacy, but sites may attempt to steal your data.",
-          "learnMore": "Learn more on how to stay safe"
+          "title": "Connectors carry some risk",
+          "description": "Connectors are built to respect your privacy, but sites may try to misuse your data.",
+          "learnMore": "How to stay safe"
         },
         "auth": {
-          "description": "You use Google to authenticate",
-          "securityNote": "For added security, enable Multi-factor authentication (MFA) on your Google account or",
+          "description": "You sign in with Google.",
+          "securityNote": "For extra security, enable multi-factor authentication on your Google account, or",
           "mfaLink": "your account"
         }
       },
       "toasts": {
         "connectSuccess": {
           "title": "Clio connected",
-          "body": "Your Clio account has been successfully connected."
+          "body": "Your Clio account is connected."
         },
         "disconnectSuccess": {
           "title": "Clio disconnected",
-          "body": "Your Clio app has been disconnected."
+          "body": "Your Clio app is disconnected."
         },
         "error": {
           "title": "Connection error",
-          "body": "Failed to connect Clio. Please try again."
+          "body": "Couldn't connect to Clio. Try again."
         }
       }
     },
     "messenger": {
-      "placeholder": "Your snippet goes here...",
-      "missingSlugWarning": "Workspace slug missing. Please check your practice settings.",
+      "placeholder": "Your snippet goes here…",
+      "missingSlugWarning": "Workspace slug missing. Check your practice settings.",
       "integrationGuide": {
-        "title": "Integration Guide",
-        "description": "To add the chat widget to your website, copy the code snippet below and paste it into the <0>&lt;head&gt;</0> or just before the closing <1>&lt;/body&gt;</1> tag of your website."
+        "title": "Integration guide",
+        "description": "Copy the snippet below and paste it into the <0>&lt;head&gt;</0> or just before the closing <1>&lt;/body&gt;</1> tag of your website."
       }
     }
   },
   "account": {
     "title": "Account",
-    "loadingError": "Failed to load account data",
+    "loadingError": "Couldn't load account data",
     "retry": "Retry",
     "nameLabel": "Name",
     "plan": {
-      "sectionTitle": "Subscription Plan",
-      "currentPlanLabel": "Current Plan: {{tier}}",
+      "sectionTitle": "Subscription plan",
+      "currentPlanLabel": "Current plan: {{tier}}",
       "seatsLabel": "seats",
       "manageBilling": "Manage",
       "manage": "Manage",
       "upgrade": "Upgrade",
       "upgradeBusiness": "Upgrade",
       "getBusiness": "Get Business",
-      "autoRenews": "Your plan auto-renews on {{date}}",
-      "thanksForSubscribing": "Thanks for subscribing to Blawby Business! Your Business plan includes:",
-      "cancelSubscription": "Cancel Subscription",
+      "autoRenews": "Your plan auto-renews on {{date}}.",
+      "thanksForSubscribing": "Thanks for subscribing to Blawby Business. Your plan includes:",
+      "cancelSubscription": "Cancel subscription",
       "tiers": {
         "free": "Free",
         "plus": "Plus",
@@ -248,10 +248,10 @@
         "business": "Full features with unlimited usage"
       },
       "sections": {
-        "free": "Get ChatGPT Plus",
-        "plus": "Get ChatGPT Business",
-        "business": "Current Plan",
-        "default": "Current Plan"
+        "free": "Get Plus",
+        "plus": "Get Business",
+        "business": "Current plan",
+        "default": "Current plan"
       },
       "upgradeButton": "Upgrade to {{plan}}",
       "currentButton": "Current plan",
@@ -268,8 +268,8 @@
         }
       },
       "cancel": {
-        "modalTitle": "Are you sure you want to cancel?",
-        "description": "Your subscription will be cancelled immediately and you'll lose access to premium features. This action cannot be undone.",
+        "modalTitle": "Cancel your subscription?",
+        "description": "Your subscription cancels immediately. You'll lose access to premium features. This can't be undone.",
         "goBack": "Go back",
         "cancelButton": "Cancel subscription",
         "cancelling": "Cancelling…"
@@ -277,27 +277,27 @@
       "toasts": {
         "upgrade": {
           "title": "Upgrade",
-          "body": "Redirecting to upgrade page..."
+          "body": "Redirecting to upgrade…"
         },
         "upgradeWithPlan": {
           "title": "Upgrade",
-          "body": "Redirecting to upgrade to {{plan}}..."
+          "body": "Redirecting to upgrade to {{plan}}…"
         },
         "highest": {
           "title": "Account",
-          "body": "You are already on the highest tier!"
+          "body": "You're already on the highest tier."
         },
         "cartSaveError": {
-          "title": "Cart Error",
-          "body": "Unable to save cart data. Proceeding with alternative method."
+          "title": "Cart error",
+          "body": "Couldn't save cart data. Trying another way."
         },
         "planNotFound": {
-          "title": "Plan Not Found",
-          "body": "The selected plan could not be found. Please try again or contact support."
+          "title": "Plan not found",
+          "body": "Couldn't find that plan. Try again or contact support."
         },
         "planDataMissing": {
-          "title": "Plan Configuration Error",
-          "body": "The selected plan is missing required payment information. Please contact support."
+          "title": "Plan setup error",
+          "body": "That plan is missing payment info. Contact support."
         }
       }
     },
@@ -314,8 +314,8 @@
     },
     "links": {
       "title": "Links",
-      "domainLabel": "Select a domain",
-      "selectOption": "Select a domain",
+      "domainLabel": "Choose a domain",
+      "selectOption": "Choose a domain",
       "verifyNew": "Verify new domain",
       "addButton": "Add",
       "invalidDomainToast": {
@@ -323,88 +323,88 @@
       },
       "addDomainToast": {
         "title": "Domain added",
-        "body": "Domain {{domain}} has been added and is pending verification."
+        "body": "Domain {{domain}} is pending verification."
       },
       "linkedinToast": {
         "title": "LinkedIn",
-        "body": "Redirecting to LinkedIn connection..."
+        "body": "Redirecting to LinkedIn…"
       },
       "githubToast": {
         "title": "GitHub",
-        "body": "Redirecting to GitHub connection..."
+        "body": "Redirecting to GitHub…"
       },
       "verifiedToast": {
-        "title": "Domain Verified",
-        "body": "Domain {{domain}} has been successfully verified!"
+        "title": "Domain verified",
+        "body": "Domain {{domain}} is verified."
       },
       "domainPlaceholder": "example.com"
     },
     "domainErrors": {
-      "empty": "Domain cannot be empty",
-      "spaces": "Domain cannot have leading or trailing spaces",
-      "format": "Please enter a valid domain format (e.g., example.com)",
-      "duplicate": "This domain has already been added"
+      "empty": "Domain can't be empty.",
+      "spaces": "Domains can't have leading or trailing spaces.",
+      "format": "Use a valid domain format, like example.com.",
+      "duplicate": "This domain is already added."
     },
     "email": {
       "title": "Email",
       "receiveFeedback": "Receive feedback emails",
       "addPasswordFirst": "Add a password first",
-      "oauthGatingExplanation": "Your account was created with Google, Microsoft, or Apple. To change your email, first add a password in Settings -> Security -> Password -> Add.",
+      "oauthGatingExplanation": "Your account was created with Google, Microsoft, or Apple. To change your email, add a password in Settings, then Security, then Password.",
       "changeSuccess": {
         "title": "Check your email",
-        "body": "We sent instructions to confirm your new email address."
+        "body": "We sent instructions to confirm your new email."
       },
       "modal": {
         "notNow": "Not now",
         "goToSecurity": "Go to Security",
         "cancel": "Cancel",
-        "sending": "Sending...",
+        "sending": "Sending…",
         "changeEmail": "Change email"
       }
     },
     "delete": {
       "sectionTitle": "Delete account",
       "button": "Delete",
-      "modalTitle": "Delete Account",
-      "heading": "Are you sure you want to delete your account?",
-      "description": "This action cannot be undone. All your data, conversations, and settings will be permanently deleted.",
-      "listIntro": "This will permanently delete:",
+      "modalTitle": "Delete account",
+      "heading": "Delete your account?",
+      "description": "This can't be undone. All your data, conversations, and settings will be deleted.",
+      "listIntro": "This permanently deletes:",
       "listItems": [
         "All your conversations and chat history",
         "Your account settings and preferences",
         "Any uploaded files and documents",
         "Your subscription and billing information"
       ],
-      "confirmLabel": "To confirm, type your email address:",
-      "confirmLabelOAuth": "To confirm, type your email address:",
-      "inputPlaceholder": "Type your email address here",
-      "errorMismatch": "Please type your email address exactly as shown to confirm deletion.",
-      "errorFailed": "Failed to delete account. Please try again.",
-      "toastFailedTitle": "Account deletion failed",
-      "toastFailedBody": "There was an error deleting your account. Please try again.",
+      "confirmLabel": "Type your email to confirm:",
+      "confirmLabelOAuth": "Type your email to confirm:",
+      "inputPlaceholder": "Your email address",
+      "errorMismatch": "Type your email exactly as shown to confirm.",
+      "errorFailed": "Couldn't delete your account. Try again.",
+      "toastFailedTitle": "Couldn't delete account",
+      "toastFailedBody": "Couldn't delete your account. Try again.",
       "toastSuccessTitle": "Account deleted",
-      "toastSuccessBody": "Your account has been permanently deleted.",
+      "toastSuccessBody": "Your account is deleted.",
       "verificationSentTitle": "Verification email sent",
-      "verificationSentBody": "Please check your email and click the confirmation link to complete account deletion.",
-      "checkYourEmail": "Please check your email for a confirmation link to complete the deletion process.",
+      "verificationSentBody": "Check your email and click the confirmation link to finish deletion.",
+      "checkYourEmail": "Check your email for a confirmation link to finish the deletion.",
       "cancel": "Cancel",
-      "confirmButton": "Delete Account"
+      "confirmButton": "Delete account"
     },
     "domainModal": {
-      "title": "Add New Domain",
+      "title": "Add domain",
       "label": "Domain",
       "cancel": "Cancel",
-      "submit": "Add Domain"
+      "submit": "Add"
     }
   },
   "notifications": {
     "title": "Notifications",
-    "loadError": "Failed to load notification settings",
-    "toastBody": "Your notification preferences have been updated.",
+    "loadError": "Couldn't load notification settings",
+    "toastBody": "Your notification preferences are updated.",
     "categories": {
       "messages": {
         "title": "Messages",
-        "description": "Message notifications for new conversation activity."
+        "description": "New conversation activity."
       },
       "system": {
         "title": "System",
@@ -430,11 +430,11 @@
       "permissionButton": "Enable",
       "permissionDeniedButton": "Blocked",
       "permissionGrantedTitle": "Desktop notifications enabled",
-      "permissionGrantedBody": "You will receive desktop alerts when Blawby sends updates.",
+      "permissionGrantedBody": "You'll get desktop alerts when Blawby sends updates.",
       "permissionDeniedTitle": "Permission blocked",
-      "permissionDeniedBody": "Enable notifications in your browser settings to receive alerts.",
+      "permissionDeniedBody": "Enable notifications in your browser settings to get alerts.",
       "permissionErrorTitle": "Permission failed",
-      "permissionErrorBody": "We could not enable desktop notifications."
+      "permissionErrorBody": "Couldn't enable desktop notifications."
     },
     "systemRequiredLabel": "Required",
     "systemRequiredHint": "System notifications are required for all members.",
@@ -444,9 +444,9 @@
       "description": "Set defaults for your team. Members can customize unless a channel is locked.",
       "defaultsLabel": "Defaults",
       "allowedLabel": "Allowed",
-      "systemRequired": "System notifications are required and cannot be disabled.",
+      "systemRequired": "System notifications are required and can't be turned off.",
       "toastBody": "Organization notification defaults updated.",
-      "toastErrorBody": "Unable to update organization notification settings."
+      "toastErrorBody": "Couldn't update organization notification settings."
     },
     "channels": {
       "push": "Push",
@@ -455,7 +455,7 @@
     },
     "mentions": {
       "title": "Mentions only",
-      "description": "Only notify me when I am @mentioned in a conversation.",
+      "description": "Only notify me when I'm @mentioned.",
       "toastBody": "Mention preferences updated."
     },
     "inApp": {
@@ -488,147 +488,147 @@
   },
   "security": {
     "title": "Security",
-    "loadError": "Failed to load security settings",
-    "fallback": "Failed to load security settings",
+    "loadError": "Couldn't load security settings",
+    "fallback": "Couldn't load security settings",
     "toasts": {
-      "settingsUpdated": "Your security settings have been updated"
+      "settingsUpdated": "Your security settings are updated."
     },
     "password": {
       "sectionTitle": "Password",
-      "description": "Change your account password or reset it if you've forgotten it.",
+      "description": "Change your password, or reset it if you've forgotten it.",
       "changeButton": "Change password",
       "cancelButton": "Cancel",
       "resetButton": "Reset password",
       "fields": {
         "current": {
-          "label": "Current Password",
+          "label": "Current password",
           "placeholder": "Enter current password"
         },
         "new": {
-          "label": "New Password",
+          "label": "New password",
           "placeholder": "Enter new password"
         },
         "confirm": {
-          "label": "Confirm New Password",
+          "label": "Confirm new password",
           "placeholder": "Confirm new password"
         }
       },
-      "submit": "Change Password",
-      "addDescription": "Add a password to manage sensitive account changes after signing in with Google, Microsoft, or Apple.",
+      "submit": "Change password",
+      "addDescription": "Add a password so you can make sensitive account changes after signing in with Google, Microsoft, or Apple.",
       "addPassword": "Add password",
       "errorEmailUnavailable": {
-        "add": "Unable to add a password because your email is unavailable.",
-        "reset": "Unable to reset password because your email is unavailable."
+        "add": "Can't add a password because your email is unavailable.",
+        "reset": "Can't reset your password because your email is unavailable."
       },
       "errors": {
         "missing": {
           "title": "Missing fields",
-          "body": "Please fill in all password fields"
+          "body": "Fill in all password fields."
         },
         "mismatch": {
           "title": "Password mismatch",
-          "body": "New password and confirmation do not match"
+          "body": "New password and confirmation don't match."
         },
         "weak": {
           "title": "Weak password",
-          "body": "Password must be at least 8 characters long"
+          "body": "At least 8 characters."
         },
         "failed": {
-          "title": "Failed to change password",
-          "body": "Please try again"
+          "title": "Couldn't change password",
+          "body": "Try again."
         }
       },
       "success": {
         "title": "Password changed",
-        "body": "Your password has been updated successfully"
+        "body": "Your password is updated."
       },
       "reset": {
         "title": "Reset email sent",
-        "body": "Check your email for password reset instructions"
+        "body": "Check your email for reset instructions."
       }
     },
     "mfa": {
       "title": "Multi-factor authentication",
-      "description": "Require an extra security challenge when logging in. If you are unable to pass this challenge, you will have the option to recover your account via email.",
+      "description": "Adds a security challenge at sign-in. If you can't pass it, you can recover your account by email.",
       "toastEnabled": {
         "title": "MFA enabled",
-        "body": "Multi-factor authentication has been successfully enabled"
+        "body": "Multi-factor authentication is on."
       },
       "disable": {
-        "modalTitle": "Disable Multi-Factor Authentication",
-        "heading": "Are you sure you want to disable MFA?",
-        "description": "Disabling multi-factor authentication will make your account less secure. You will no longer be required to provide a second authentication factor when signing in.",
+        "modalTitle": "Disable multi-factor authentication?",
+        "heading": "Turn off MFA?",
+        "description": "Turning off MFA makes your account less secure. You won't need a second factor when signing in.",
         "cancel": "Cancel",
         "confirm": "Disable MFA",
         "toastTitle": "MFA disabled",
-        "toastBody": "Multi-factor authentication has been disabled"
+        "toastBody": "Multi-factor authentication is off."
       }
     },
     "trustedDevices": {
-      "title": "Trusted Devices",
-      "description": "When you sign in on another device, it will be added here and can automatically receive device prompts for signing in."
+      "title": "Trusted devices",
+      "description": "When you sign in on another device, it shows up here. It can get device prompts for future sign-ins."
     },
     "logout": {
       "current": {
         "title": "Log out of this device",
         "button": "Log out",
         "toastTitle": "Logged out",
-        "toastBody": "You have been logged out of this device"
+        "toastBody": "You're logged out of this device."
       },
       "all": {
         "title": "Log out of all devices",
-        "description": "Log out of all active sessions across all devices, including your current session. It may take up to 30 minutes for other devices to be logged out.",
+        "description": "Logs out all active sessions, including this one. Other devices may take up to 30 minutes.",
         "button": "Log out all",
         "toastTitle": "Logged out",
-        "toastBody": "You have been logged out of all devices"
+        "toastBody": "You're logged out of all devices."
       }
     }
   },
   "mfa": {
     "back": "← Back to Security",
     "title": "Secure your account",
-    "instructions": "Scan the QR Code below using your preferred authenticator app and then enter the provided one-time code below.",
-    "qrLabel": "QR Code",
+    "instructions": "Scan the QR code with your authenticator app, then enter the code below.",
+    "qrLabel": "QR code",
     "troubleScanning": "Trouble scanning?",
     "then": "Then",
     "codeLabel": "Enter your one-time code*",
     "codePlaceholder": "000000",
     "verifyButton": "Continue",
-    "verifying": "Verifying...",
+    "verifying": "Verifying…",
     "errors": {
       "codeRequired": {
         "title": "Code required",
-        "body": "Please enter the verification code from your authenticator app"
+        "body": "Enter the verification code from your authenticator app."
       },
       "codeInvalid": {
         "title": "Invalid code",
-        "body": "Please enter a valid 6-digit code"
+        "body": "Enter a valid 6-digit code."
       },
       "verifyFailed": {
         "title": "Verification failed",
-        "body": "Invalid code. Please try again."
+        "body": "Invalid code. Try again."
       },
       "configurationError": {
         "title": "MFA not configured",
-        "body": "Multi-factor authentication is not configured on this account. Please contact support or check your account settings."
+        "body": "Multi-factor authentication isn't set up on this account. Contact support or check your account settings."
       },
       "clipboardUnsupported": {
         "title": "Clipboard not supported",
-        "body": "Your browser does not support copying to clipboard. Please manually copy the code."
+        "body": "Your browser doesn't support copying. Copy the code manually."
       },
       "copyFailed": {
-        "title": "Copy failed",
-        "body": "Failed to copy code to clipboard: {{message}}",
+        "title": "Couldn't copy",
+        "body": "Couldn't copy code to clipboard: {{message}}",
         "unknown": "Unknown error"
       }
     },
     "copied": {
       "title": "Copied",
-      "body": "Manual code copied to clipboard"
+      "body": "Manual code copied to clipboard."
     },
     "footer": {
-      "terms": "Terms of Use",
-      "privacy": "Privacy Policy"
+      "terms": "Terms of use",
+      "privacy": "Privacy policy"
     }
   },
   "help": {
@@ -636,36 +636,36 @@
     "sections": {
       "helpCenter": {
         "title": "Help Center",
-        "description": "Get help and find answers to common questions",
+        "description": "Find answers to common questions.",
         "cta": "Visit",
-        "ariaLabel": "Visit Blawby help — opens in a new tab"
+        "ariaLabel": "Visit Blawby help, opens in a new tab"
       },
       "releaseNotes": {
-        "title": "Release Notes",
-        "description": "See what's new in the latest updates",
+        "title": "Release notes",
+        "description": "See what's new in the latest updates.",
         "cta": "View",
-        "ariaLabel": "View release notes — opens in a new tab"
+        "ariaLabel": "View release notes, opens in a new tab"
       },
       "terms": {
-        "title": "Terms & Policies",
-        "description": "Read our terms of service and privacy policy",
+        "title": "Terms and policies",
+        "description": "Read our terms of service and privacy policy.",
         "cta": "Read",
-        "ariaLabel": "Read terms and policies — opens in a new tab"
+        "ariaLabel": "Read terms and policies, opens in a new tab"
       },
       "bug": {
-        "title": "Report Bug",
-        "description": "Help us improve by reporting issues",
+        "title": "Report a bug",
+        "description": "Help us improve by reporting issues.",
         "cta": "Report"
       },
       "downloads": {
-        "title": "Download Apps",
-        "description": "Get our mobile and desktop applications",
+        "title": "Download apps",
+        "description": "Get the mobile and desktop apps.",
         "cta": "Download",
-        "ariaLabel": "Download Blawby apps — opens in a new tab"
+        "ariaLabel": "Download Blawby apps, opens in a new tab"
       },
       "shortcuts": {
-        "title": "Keyboard Shortcuts",
-        "description": "Learn keyboard shortcuts to work faster",
+        "title": "Keyboard shortcuts",
+        "description": "Learn shortcuts to work faster.",
         "cta": "View"
       }
     }

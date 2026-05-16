@@ -92,7 +92,7 @@ const ConversationalCorrection: FunctionComponent<ConversationalCorrectionProps>
   return (
     <div className="conversational-corrections space-y-4">
       {correctionRequests.map((request, index) => (
-        <div key={request.field} className="glass-card p-4">
+        <div key={request.field} className="card p-4">
           <div className="flex items-start gap-3">
             <div className="w-8 h-8 bg-accent-100 rounded-full flex items-center justify-center flex-shrink-0">
               <span className="text-accent-600 font-semibold text-sm">{index + 1}</span>

@@ -79,7 +79,7 @@ const OnboardingActions: FunctionComponent<OnboardingActionsProps> = ({
   return (
     <div className="space-y-6">
       {/* Progress Overview */}
-      <section className="glass-card p-4 sm:p-5">
+      <section className="card p-4 sm:p-5">
         <div className="flex items-center justify-between mb-4">
           <div>
             <h3 className="text-lg font-semibold text-input-text">Setup Progress</h3>
@@ -117,7 +117,7 @@ const OnboardingActions: FunctionComponent<OnboardingActionsProps> = ({
       </section>
 
       {/* Action Buttons */}
-      <section className="glass-card p-4 sm:p-5">
+      <section className="card p-4 sm:p-5">
         <h3 className="text-lg font-semibold text-input-text mb-4">Quick Actions</h3>
         <div className="flex flex-wrap gap-4">
           {onEditBasics && (
@@ -191,13 +191,13 @@ const OnboardingActions: FunctionComponent<OnboardingActionsProps> = ({
 
       {/* Additional Slots */}
       {servicesSlot && (
-        <section className="glass-card p-4 sm:p-5">
+        <section className="card p-4 sm:p-5">
           {servicesSlot}
         </section>
       )}
 
       {payoutsSlot && (
-        <section className="glass-card p-4 sm:p-5">
+        <section className="card p-4 sm:p-5">
           {payoutsSlot}
         </section>
       )}

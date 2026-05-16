@@ -8,8 +8,7 @@ import { CurrencyInput, Input } from '@/shared/ui/input';
 import { DataTable, type DataTableColumn, type DataTableRow } from '@/shared/ui/table/DataTable';
 import { type TimelineItem, type TimelinePerson } from '@/shared/ui/activity/ActivityTimeline';
 import { Dialog, DialogBody } from '@/shared/ui/dialog';
-import { Popover } from '@/shared/ui/overlays';
-import { Folder, SquarePen, Plus, Search, SlidersHorizontal } from 'lucide-preact';
+import { Folder, SquarePen, Plus, Search } from 'lucide-preact';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
 
 import { MATTER_STATUS_LABELS, type MatterStatus } from '@/shared/types/matterStatus';
@@ -126,10 +125,13 @@ const ACTIVE_STATUSES: ReadonlySet<MatterStatus> = new Set([
 const CLOSING_STATUSES: ReadonlySet<MatterStatus> = new Set(['engagement_pending', 'order_entered', 'appeal_pending']);
 const DECLINED_STATUSES: ReadonlySet<MatterStatus> = new Set(['declined', 'conflicted']);
 
-const matterStatusToneClass = (status: MatterStatus): string => {
-  if (ACTIVE_STATUSES.has(status)) return 'text-emerald-600 dark:text-emerald-400';
-  if (status === 'closed' || DECLINED_STATUSES.has(status)) return 'text-input-placeholder';
-  return 'text-amber-600 dark:text-amber-400';
+const matterStatusBadgeClass = (status: MatterStatus): string => {
+  const base = 'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium';
+  if (ACTIVE_STATUSES.has(status)) return `${base} status-success`;
+  if (status === 'closed' || DECLINED_STATUSES.has(status)) {
+    return `${base} border border-line-subtle bg-surface-card-hover text-input-placeholder`;
+  }
+  return `${base} status-warning`;
 };
 
 type MatterFilterCategory = 'all' | 'new' | 'active' | 'closing' | 'closed' | 'declined';
@@ -374,7 +376,61 @@ export const PracticeMattersPage = ({
   // ── List view state ──────────────────────────────────────────────────────
   const [matterSearchQuery, setMatterSearchQuery] = useState('');
   const [matterCategoryFilter, setMatterCategoryFilter] = useState<MatterFilterCategory>('all');
-  const [filterPopoverOpen, setFilterPopoverOpen] = useState(false);
+  const [isShortcutsHelpOpen, setIsShortcutsHelpOpen] = useState(false);
+
+  // ── Keyboard shortcuts ───────────────────────────────────────────────────
+  // N = new matter, / = focus search, Esc = clear search/filter, ? = show help.
+  // Esc bubbles even from inside the search input (clear-and-blur). Other shortcuts
+  // are skipped while the user is typing so character entry isn't hijacked.
+  // Mirrors the Cmd+K pattern in CommandPaletteContext.
+  useEffect(() => {
+    const handler = (event: KeyboardEvent) => {
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
+
+      if (event.key === 'Escape') {
+        if (matterSearchQuery) {
+          event.preventDefault();
+          setMatterSearchQuery('');
+          const active = document.activeElement as HTMLElement | null;
+          if (active && active.getAttribute('aria-label') === 'Search matters') active.blur();
+          return;
+        }
+        if (matterCategoryFilter !== 'all') {
+          event.preventDefault();
+          setMatterCategoryFilter('all');
+          return;
+        }
+        return;
+      }
+
+      const target = event.target as HTMLElement | null;
+      if (target) {
+        const tag = target.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || target.isContentEditable) return;
+      }
+
+      if (event.key === 'n' || event.key === 'N') {
+        if (!activePracticeId) return;
+        event.preventDefault();
+        navigate(`${basePath}/new?returnTo=${encodeURIComponent(location.url)}`);
+        return;
+      }
+      if (event.key === '/') {
+        const searchInput = document.querySelector<HTMLInputElement>('input[aria-label="Search matters"]');
+        if (searchInput) {
+          event.preventDefault();
+          searchInput.focus();
+        }
+        return;
+      }
+      if (event.key === '?') {
+        event.preventDefault();
+        setIsShortcutsHelpOpen(true);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [activePracticeId, navigate, basePath, location.url, matterSearchQuery, matterCategoryFilter]);
 
   // ── Activity / notes ──────────────────────────────────────────────────────
   const [activityRecords, setActivityRecords] = useState<BackendMatterActivity[]>([]);
@@ -2042,15 +2098,13 @@ export const PracticeMattersPage = ({
         || (matter.practiceArea?.toLowerCase().includes(normalizedSearch) ?? false)
     )
     : filteredByCategory;
-  const activeCategoryFilterCount = matterCategoryFilter === 'all' ? 0 : 1;
 
-  const headerCellClassName = 'text-xs font-semibold uppercase tracking-wide text-input-placeholder';
+  const headerCellClassName = 'text-xs font-medium text-input-placeholder';
   const tableColumns: DataTableColumn[] = [
     { id: 'title', label: 'Matter Name', isPrimary: true, headerClassName: headerCellClassName },
     { id: 'client', label: 'Client', hideAt: 'sm', headerClassName: headerCellClassName },
     { id: 'practiceArea', label: 'Practice Area', hideAt: 'md', headerClassName: headerCellClassName },
     { id: 'status', label: 'Status', headerClassName: headerCellClassName },
-    { id: 'stage', label: 'Stage', hideAt: 'lg', headerClassName: headerCellClassName },
     { id: 'created', label: 'Created', align: 'right', hideAt: 'sm', headerClassName: headerCellClassName },
   ];
 
@@ -2064,11 +2118,10 @@ export const PracticeMattersPage = ({
         client: <span className="truncate">{matter.clientName}</span>,
         practiceArea: matter.practiceArea ?? '—',
         status: (
-          <span className={cn('font-medium', matterStatusToneClass(matter.status))}>
+          <span className={matterStatusBadgeClass(matter.status)}>
             {statusLabel}
           </span>
         ),
-        stage: statusLabel,
         created: <span className="tabular-nums">{formatRelativeTime(matter.createdAt)}</span>,
       },
     };
@@ -2078,7 +2131,16 @@ export const PracticeMattersPage = ({
   const showFilteredEmpty = !showLoading && !mattersError && sortedMatterSummaries.length > 0 && filteredMatterSummaries.length === 0;
   const filteredEmptyMessage = normalizedSearch
     ? `No matters match “${matterSearchQuery}”.`
-    : 'No matters match the selected filter.';
+    : (() => {
+      switch (matterCategoryFilter) {
+        case 'new': return 'No new matters waiting.';
+        case 'active': return 'No active matters right now. Quiet day.';
+        case 'closing': return 'No matters in closing.';
+        case 'closed': return 'No closed matters yet.';
+        case 'declined': return 'No declined matters — clean intake.';
+        default: return 'No matters match the selected filter.';
+      }
+    })();
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -2098,24 +2160,34 @@ export const PracticeMattersPage = ({
 
       <header className="flex flex-wrap items-center justify-between gap-3 px-6 py-4">
         <div className="flex items-baseline gap-2">
-          <h1 className="font-display text-xl font-semibold tracking-tight text-input-text">Matters</h1>
+          <h1 className="text-2xl font-semibold tracking-tight text-input-text">Matters</h1>
           <span className="text-sm tabular-nums text-input-placeholder">
             {sortedMatterSummaries.length}
           </span>
         </div>
-        <Button
-          size="sm"
-          variant="primary"
-          icon={Plus}
-          onClick={handleNewMatter}
-          disabled={!activePracticeId}
-          className="!rounded-full"
-        >
-          New Matter
-        </Button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setIsShortcutsHelpOpen(true)}
+            aria-label="Show keyboard shortcuts"
+            className="hidden h-8 w-8 items-center justify-center rounded-full text-input-placeholder transition-colors hover:bg-surface-card-hover hover:text-input-text md:inline-flex"
+          >
+            <span className="text-sm font-semibold">?</span>
+          </button>
+          <Button
+            size="sm"
+            variant="primary"
+            icon={Plus}
+            onClick={handleNewMatter}
+            disabled={!activePracticeId}
+          >
+            New Matter
+            <kbd className="ml-2 hidden rounded border border-line-utility bg-surface-card-hover px-1.5 py-0.5 text-[10px] font-medium text-input-placeholder md:inline">
+              N
+            </kbd>
+          </Button>
+        </div>
       </header>
-
-      <div className="h-px w-full bg-card-border" />
 
       <div className="flex flex-wrap items-center gap-3 px-6 py-3">
         <div className="relative min-w-0 flex-1">
@@ -2132,74 +2204,33 @@ export const PracticeMattersPage = ({
             aria-hidden="true"
             className="pointer-events-none absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-input-text/80"
           />
+          <kbd className="pointer-events-none absolute right-3 top-1/2 z-10 hidden -translate-y-1/2 rounded border border-line-utility bg-surface-card-hover px-1.5 py-0.5 text-[10px] font-medium text-input-placeholder md:inline">
+            /
+          </kbd>
         </div>
-        <Popover
-          side="bottom"
-          align="end"
-          open={filterPopoverOpen}
-          onOpenChange={setFilterPopoverOpen}
-          trigger={
-            <Button
-              size="sm"
-              variant="secondary"
-              icon={SlidersHorizontal}
-              aria-label="Filter matters"
-              aria-expanded={filterPopoverOpen}
-            >
-              Filters
-              {activeCategoryFilterCount > 0 ? (
-                <span className="ml-1 inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-accent-500 px-1 text-[10px] font-semibold leading-none text-[rgb(var(--accent-foreground))]">
-                  {activeCategoryFilterCount}
-                </span>
-              ) : null}
-            </Button>
-          }
-        >
-          <div className="w-[320px] space-y-3">
-            <div className="text-[11px] font-semibold uppercase tracking-wider text-input-placeholder">
-              Status
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {MATTER_FILTER_CATEGORIES.map((category) => {
-                const isSelected = matterCategoryFilter === category.id;
-                return (
-                  <button
-                    key={category.id}
-                    type="button"
-                    onClick={() => setMatterCategoryFilter(category.id)}
-                    aria-pressed={isSelected}
-                    className={cn(
-                      'rounded-md px-3 py-1.5 text-sm font-medium transition-colors duration-150',
-                      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50',
-                      isSelected
-                        ? 'border border-accent-border bg-surface-card-raised text-input-text shadow-[inset_0_0_0_1px_rgb(var(--accent-border))]'
-                        : 'border border-card-border bg-surface-card-raised text-input-text hover:bg-surface-card-hover'
-                    )}
-                  >
-                    {category.label}
-                  </button>
-                );
-              })}
-            </div>
-            <div className="flex justify-end gap-2 border-t border-card-border pt-3">
-              <Button
-                size="xs"
-                variant="ghost"
-                onClick={() => setMatterCategoryFilter('all')}
-                disabled={matterCategoryFilter === 'all'}
+        <div role="tablist" aria-label="Filter matters by status" className="flex flex-wrap items-center gap-1.5">
+          {MATTER_FILTER_CATEGORIES.map((category) => {
+            const isSelected = matterCategoryFilter === category.id;
+            return (
+              <button
+                key={category.id}
+                type="button"
+                role="tab"
+                aria-selected={isSelected}
+                onClick={() => setMatterCategoryFilter(category.id)}
+                className={cn(
+                  'inline-flex items-center rounded-full px-3 py-1.5 text-sm font-medium transition-colors duration-150',
+                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50',
+                  isSelected
+                    ? 'bg-accent-soft text-input-text shadow-[inset_0_0_0_1px_rgb(var(--accent-border))]'
+                    : 'text-input-placeholder hover:bg-surface-card-hover hover:text-input-text'
+                )}
               >
-                Clear
-              </Button>
-              <Button
-                size="xs"
-                variant="primary"
-                onClick={() => setFilterPopoverOpen(false)}
-              >
-                Done
-              </Button>
-            </div>
-          </div>
-        </Popover>
+                {category.label}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       <div className="min-h-0 flex-1 overflow-auto px-6 pb-6">
@@ -2220,6 +2251,34 @@ export const PracticeMattersPage = ({
           />
         )}
       </div>
+
+      {isShortcutsHelpOpen && (
+        <Dialog
+          isOpen
+          onClose={() => setIsShortcutsHelpOpen(false)}
+          title="Keyboard shortcuts"
+          contentClassName="max-w-md"
+        >
+          <DialogBody>
+            <ul className="space-y-2.5">
+              {[
+                { key: 'N', desc: 'Create a new matter' },
+                { key: '/', desc: 'Focus search' },
+                { key: 'Esc', desc: 'Clear search or reset filter' },
+                { key: '?', desc: 'Show this help' },
+                { key: '⌘ K', desc: 'Open command palette (or Ctrl + K)' },
+              ].map((s) => (
+                <li key={s.key} className="flex items-center justify-between gap-4">
+                  <span className="text-sm text-input-text">{s.desc}</span>
+                  <kbd className="rounded border border-line-utility bg-surface-card-hover px-2 py-0.5 text-xs font-medium text-input-placeholder">
+                    {s.key}
+                  </kbd>
+                </li>
+              ))}
+            </ul>
+          </DialogBody>
+        </Dialog>
+      )}
     </div>
   );
 };

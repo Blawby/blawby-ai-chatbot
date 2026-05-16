@@ -170,7 +170,7 @@ const OnboardingDialogs = forwardRef<OnboardingDialogsRef, OnboardingDialogsProp
         isOpen={basicsModalOpen}
         onClose={isModalSaving ? () => {} : () => setBasicsModalOpen(false)}
         title="Edit Practice Basics"
-        contentClassName="glass-panel"
+        contentClassName="panel"
         disableBackdropClick={isModalSaving}
         showCloseButton={!isModalSaving}
       >
@@ -243,7 +243,7 @@ const OnboardingDialogs = forwardRef<OnboardingDialogsRef, OnboardingDialogsProp
         isOpen={contactModalOpen}
         onClose={isModalSaving ? () => {} : () => setContactModalOpen(false)}
         title="Edit Contact Information"
-        contentClassName="glass-panel"
+        contentClassName="panel"
         disableBackdropClick={isModalSaving}
         showCloseButton={!isModalSaving}
       >

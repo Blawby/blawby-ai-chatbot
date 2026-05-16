@@ -2,7 +2,7 @@
   "common": {
     "back": "Back",
     "errors": {
-      "tryAgainLater": "Please try again later."
+      "tryAgainLater": "Try again later."
     }
   },
   "app": {
@@ -10,9 +10,9 @@
   },
   "notifications": {
     "settingsSavedTitle": "Settings saved",
-    "settingsSavedBody": "Your preferences have been updated.",
-    "settingsSaveErrorTitle": "Settings save failed",
-    "settingsSaveErrorBody": "Unable to save your settings. Please try again."
+    "settingsSavedBody": "Your preferences are updated.",
+    "settingsSaveErrorTitle": "Couldn't save settings",
+    "settingsSaveErrorBody": "Couldn't save your settings. Try again."
   },
   "language": {
     "auto": "Auto-detect",
@@ -38,53 +38,53 @@
   },
   "forms": {
     "labels": {
-      "name": "Full Name",
-      "email": "Email Address",
-      "phone": "Phone Number",
+      "name": "Full name",
+      "email": "Email",
+      "phone": "Phone",
       "password": "Password",
-      "confirmPassword": "Confirm Password",
+      "confirmPassword": "Confirm password",
       "birthday": "Birthday",
-      "terms": "Terms and Conditions",
-      "privacy": "Privacy Policy",
+      "terms": "Terms and conditions",
+      "privacy": "Privacy policy",
       "search": "Search",
-      "select": "Select an option",
-      "upload": "Upload File",
+      "select": "Choose an option",
+      "upload": "Upload file",
       "message": "Message",
       "subject": "Subject"
     },
     "placeholders": {
-      "name": "Enter your full name",
-      "email": "Enter your email address",
-      "phone": "Enter your phone number",
-      "password": "Enter your password",
-      "confirmPassword": "Confirm your password",
-      "birthday": "Select your birthday",
-      "search": "Search...",
-      "select": "Select an option",
-      "message": "Enter your message",
-      "subject": "Enter your subject"
+      "name": "Jane Doe",
+      "email": "you@example.com",
+      "phone": "+1 555 0100",
+      "password": "At least 8 characters",
+      "confirmPassword": "Re-enter password",
+      "birthday": "MM/DD/YYYY",
+      "search": "Search…",
+      "select": "Choose an option",
+      "message": "What's on your mind?",
+      "subject": "What's this about?"
     },
     "descriptions": {
       "optional": "Optional",
       "required": "Required",
-      "passwordHelp": "Must be at least 8 characters long",
-      "phoneHelp": "Include country code for international numbers",
-      "fileHelp": "Supported formats: PDF, DOC, DOCX"
+      "passwordHelp": "At least 8 characters",
+      "phoneHelp": "Include the country code for international numbers",
+      "fileHelp": "PDF, DOC, or DOCX"
     },
     "validation": {
-      "required": "This field is required",
-      "email": "Please enter a valid email address",
-      "phone": "Please enter a valid phone number",
-      "password": "Password must be at least 8 characters",
-      "confirmPassword": "Passwords do not match",
-      "date": "Please enter a valid date (MM/DD/YYYY)",
-      "futureDate": "Date cannot be in the future",
-      "fileType": "Please select a valid file type",
-      "fileSize": "File size must be less than 10MB",
-      "termsRequired": "You must agree to the terms"
+      "required": "Required",
+      "email": "Needs an @. Try name@example.com.",
+      "phone": "Use a valid phone number.",
+      "password": "At least 8 characters.",
+      "confirmPassword": "Passwords don't match.",
+      "date": "Use MM/DD/YYYY.",
+      "futureDate": "Pick a date in the past.",
+      "fileType": "Use a supported file type.",
+      "fileSize": "Up to 10MB.",
+      "termsRequired": "Agree to the terms to continue."
     },
     "accessibility": {
-      "togglePassword": "Toggle password visibility",
+      "togglePassword": "Show or hide password",
       "clearSearch": "Clear search",
       "selectOption": "Select option",
       "removeOption": "Remove option",
@@ -95,137 +95,137 @@
     },
     "actions": {
       "submit": "Submit",
-      "submitting": "Submitting...",
+      "submitting": "Submitting…",
       "reset": "Reset",
       "cancel": "Cancel",
       "save": "Save",
-      "saving": "Saving..."
+      "saving": "Saving…"
     },
     "examples": {
       "validatedForm": {
-        "title": "Validated Form Example"
+        "title": "Validated form example"
       }
     },
     "contactForm": {
       "location": "Location",
-      "opposingParty": "Opposing Party (Optional)",
-      "description": "Case Details (Optional)",
-      "submit": "Submit Contact Information",
+      "opposingParty": "Opposing party (optional)",
+      "description": "Case details (optional)",
+      "submit": "Submit",
       "placeholders": {
-        "location": "City, State (e.g., New York, NY)",
-        "opposingParty": "Name of the other party involved (if any)",
-        "description": "Please describe your legal situation and any relevant details"
+        "location": "City, state (e.g., New York, NY)",
+        "opposingParty": "Other party's name, if any",
+        "description": "Describe your situation and anything relevant"
       }
     }
   },
   "onboarding": {
-    "title": "Welcome to Blawby AI",
-    "subtitle": "Let's get you set up",
+    "title": "Welcome to Blawby",
+    "subtitle": "A quick setup gets you started.",
     "step1": {
       "title": "Tell us about you",
-      "subtitle": "Help us personalize your experience",
+      "subtitle": "We'll use this to personalize your experience.",
       "fullName": "Full name",
-      "fullNamePlaceholder": "Enter your full name",
+      "fullNamePlaceholder": "Jane Doe",
       "birthday": "Birthday",
       "birthdayPlaceholder": "MM/DD/YYYY",
-      "termsAgreement": "By clicking \"Continue\", you agree to our <termsLink>Terms</termsLink> and have read our <privacyLink>Privacy Policy</privacyLink>.",
+      "termsAgreement": "By clicking \"Continue\" you agree to our <termsLink>Terms</termsLink> and acknowledge our <privacyLink>Privacy Policy</privacyLink>.",
       "continue": "Continue",
       "back": "Back",
-      "required": "This field is required"
+      "required": "Required"
     },
     "step2": {
-      "title": "What do you want to use Blawby AI for?",
-      "subtitle": "This helps us provide more relevant suggestions",
+      "title": "What will you use Blawby for?",
+      "subtitle": "This shapes the suggestions we surface.",
       "options": {
         "other": "Other",
         "messaging": "Messaging",
-        "legal_payments": "Legal Payments",
-        "matter_management": "Matter Management",
-        "intake_forms": "Intake Forms"
+        "legal_payments": "Legal payments",
+        "matter_management": "Matter management",
+        "intake_forms": "Intake forms"
       },
-      "otherPlaceholder": "Tell us more...",
+      "otherPlaceholder": "Tell us more…",
       "next": "Next",
       "skip": "Skip"
     },
     "welcome": {
-      "title": "Blawby AI",
-      "subtitle": "Tips for getting started",
+      "title": "Blawby",
+      "subtitle": "A few things to know",
       "tips": {
         "askAway": {
           "title": "Ask away",
-          "description": "Blawby AI can answer legal questions, help you understand legal concepts, review documents, and much more."
+          "description": "Blawby can answer legal questions, explain concepts, review documents, and more."
         },
         "privacy": {
           "title": "Don't share sensitive info",
-          "description": "Chat history may be reviewed or used to improve our services. Learn more about your choices in our <helpCenterLink>Help Center</helpCenterLink>."
+          "description": "Chat history may be reviewed to improve our service. Learn more in our <helpCenterLink>Help Center</helpCenterLink>."
         },
         "accuracy": {
-          "title": "Check your facts",
-          "description": "While we have safeguards, Blawby AI may give you inaccurate information. It's not intended to give legal advice."
+          "title": "Check the facts",
+          "description": "Blawby can be wrong. It's not legal advice."
         }
       },
       "helpCenter": "Help Center",
-      "letsGo": "Okay, let's go",
-      "getStarted": "Get Started"
+      "letsGo": "Let's go",
+      "getStarted": "Get started"
     }
   },
   "welcome": {
     "lawyer": {
-      "title": "Welcome, Counselor",
+      "title": "Welcome back",
       "subtitle": "Set up your practice to start receiving and managing client intakes.",
-      "getStarted": "Get Started"
+      "getStarted": "Get started"
     },
     "client": {
-      "title": "Welcome to your Legal Portal",
-      "subtitle": "Everything you need to manage your legal situation in one secure place.",
+      "title": "Your legal portal",
+      "subtitle": "Everything you need to manage your case, in one secure place.",
       "tips": {
         "messaging": {
-          "title": "Message your Lawyers",
-          "description": "Communicate directly with your legal team to ask questions and share updates instantly."
+          "title": "Message your lawyers",
+          "description": "Talk directly with your legal team. Ask questions, share updates."
         },
         "matters": {
-          "title": "Manage your Case",
-          "description": "Access case documents, view milestones, and monitor the progress of your legal matters."
+          "title": "Manage your case",
+          "description": "Find documents, see milestones, and track progress."
         },
         "payments": {
-          "title": "Secure Payments",
-          "description": "Pay retainer fees and settle invoices directly via our integrated Stripe portal."
+          "title": "Pay securely",
+          "description": "Pay retainers and invoices through Stripe."
         }
       }
     }
   },
   "businessWelcome": {
-    "title": "Welcome to your Business Practice!",
-    "subtitle": "Your organization is now ready to scale. Here are the tools at your fingertips:",
+    "title": "Welcome to your business practice",
+    "subtitle": "Your organization is ready. Here are the tools at your fingertips:",
     "features": {
       "intake": {
-        "title": "Client Intake",
-        "description": "Share your public link to accept automated intake forms and capture new leads effortlessly."
+        "title": "Client intake",
+        "description": "Share your public link to accept intake forms and capture new leads."
       },
       "messaging": {
-        "title": "Client Messaging",
-        "description": "Message your clients directly through our secure interface to keep them updated on their case."
+        "title": "Client messaging",
+        "description": "Message clients directly to keep them in the loop on their case."
       },
       "matters": {
-        "title": "Matter Management",
-        "description": "Organize case details, store legal documents, and track milestones from a single workspace."
+        "title": "Matter management",
+        "description": "Organize case details, store documents, and track milestones in one workspace."
       },
       "billing": {
-        "title": "Billing & Finance",
-        "description": "Set up custom billing plans and manage payments and payouts securely via Stripe."
+        "title": "Billing and finance",
+        "description": "Set up billing plans and manage payments and payouts through Stripe."
       }
     },
-    "goToSettings": "Go to Practice Settings"
+    "goToSettings": "Go to practice settings"
   },
   "workspace": {
     "home": {
-      "greeting": "Hi there 👋",
+      "greeting": "Hi there",
       "helpPrompt": "How can we help?",
       "recentMessage": "Recent message",
       "sendMessage": "Send us a message",
       "consultation": {
         "title": "Need to speak to a lawyer?",
-        "description": "Share a few details and we will connect you with the right attorney for your situation."
+        "description": "Share a few details and we'll connect you with the right attorney."
       },
       "poweredBy": "Powered by"
     },
@@ -239,7 +239,7 @@
     },
     "conversationList": {
       "title": "Messages",
-      "loading": "Loading conversations...",
+      "loading": "Loading conversations…",
       "empty": "No conversations yet.",
       "previewPlaceholder": "Open to view messages.",
       "sendMessage": "Send us a message"
@@ -247,7 +247,7 @@
     "empty": {
       "matter": {
         "title": "Select a matter",
-        "description": "Choose a matter from the list to view its details."
+        "description": "Pick a matter from the list to see its details."
       },
       "matterEmpty": {
         "title": "No matters yet",
@@ -255,7 +255,7 @@
       },
       "invoice": {
         "title": "Select an invoice",
-        "description": "Choose an invoice from the list to view details."
+        "description": "Pick an invoice from the list to see details."
       },
       "invoiceEmpty": {
         "title": "No invoices yet",
@@ -264,7 +264,7 @@
     },
     "error": {
       "title": "Practice details unavailable",
-      "description": "We could not load the name and logo for practice \"{{slug}}\". Please refresh or contact the practice to confirm their public settings.",
+      "description": "Couldn't load the name and logo for practice \"{{slug}}\". Refresh, or contact the practice to confirm their public settings.",
       "retry": "Try again"
     },
     "header": {
@@ -280,55 +280,55 @@
     "openInspector": "Open inspector"
   },
   "chat": {
-    "publicIntro": "Ask us anything, or share your feedback.",
-    "paymentDetailsMissing": "Payment details missing or unavailable.",
+    "publicIntro": "Ask anything, or share your feedback.",
+    "paymentDetailsMissing": "Payment details are missing.",
     "continue": "Continue",
     "submitRequest": "Submit request",
-    "payAndSubmit": "Pay & submit",
+    "payAndSubmit": "Pay and submit",
     "submitNow": "Submit now",
-    "buildStrongerBrief": "Build stronger brief",
+    "buildStrongerBrief": "Strengthen this brief",
     "askQuestion": "Ask a question",
-    "requestConsultation": "Request Consultation",
-    "provideContactDetails": "Please provide your contact details to begin.",
+    "requestConsultation": "Request consultation",
+    "provideContactDetails": "Share a few contact details to start.",
     "retry": "Retry",
-    "retrying": "Retrying...",
+    "retrying": "Retrying…",
     "replyingTo": "Replying to <name>{{name}}</name>",
     "cta": {
       "submit": "Submit request",
       "submitConsultationRequest": "Submit consultation request",
-      "reviewSubmit": "Review & submit",
+      "reviewSubmit": "Review and submit",
       "keepAnswering": "Keep answering",
       "continue": "Continue",
       "addMore": "Add more",
       "notYet": "Not yet"
     },
     "attachments": {
-      "disabled": "Chat attachments are currently disabled."
+      "disabled": "Chat attachments are off right now."
     },
     "card": {
       "disclaimer": {
-        "title": "Legal Disclaimer",
-        "description": "Please acknowledge that this conversation is not legal advice and agree to the terms of use to continue.",
-        "acceptButton": "Accept and Continue",
-        "starting": "Starting..."
+        "title": "Legal disclaimer",
+        "description": "This conversation is not legal advice. Accept the terms of use to continue.",
+        "acceptButton": "Accept and continue",
+        "starting": "Starting…"
       }
     }
   },
   "contact": {
     "city": "City",
     "state": "State",
-    "matterMessage": "Tell us about your case and we will follow up shortly."
+    "matterMessage": "Tell us about your case. We'll follow up shortly."
   },
   "intake": {
     "authTitle": "You're almost done",
-    "authDescription": "Create a free account to continue your intake and get updates from {{practice}}. We'll email you a confirmation link.",
-    "authDescriptionFallback": "Create a free account to continue your intake and get updates. We'll email you a confirmation link."
+    "authDescription": "Create a free account to finish your intake and get updates from {{practice}}. We'll email you a confirmation link.",
+    "authDescriptionFallback": "Create a free account to finish your intake and get updates. We'll email you a confirmation link."
   },
   "leadReview": {
     "accept": "Accept",
     "decline": "Decline",
     "convert": "Convert to matter",
-    "noPermission": "You don't have permission to review this lead"
+    "noPermission": "You can't review this lead."
   },
   "leadIntake": {
     "newIntake": "New intake",
@@ -346,6 +346,6 @@
     "tabsLabel": "Public preview tabs"
   },
   "widget": {
-    "persistIntakePathError": "Unable to save your return path."
+    "persistIntakePathError": "Couldn't save your place. You may need to start over."
   }
 }
