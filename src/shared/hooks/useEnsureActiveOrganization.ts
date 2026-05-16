@@ -1,7 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'preact/hooks';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
-import { authClient, getSession } from '@/shared/lib/authClient';
-import { getActiveOrganizationPointer } from '@/shared/auth/routeIntent';
+import { authClient, getSession, getActiveOrganizationPointer } from '@/shared/lib/authClient';
 
 type MembershipOrg = { id?: string | null };
 

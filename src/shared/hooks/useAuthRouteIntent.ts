@@ -4,9 +4,9 @@ import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { useEnsureActiveOrganization } from '@/shared/hooks/useEnsureActiveOrganization';
 import { useWorkspaceResolver } from '@/shared/hooks/useWorkspaceResolver';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
+import { getActiveOrganizationPointer } from '@/shared/lib/authClient';
 import {
   computeRouteIntent,
-  getActiveOrganizationPointer,
   type RouteIntent,
   type RouteIntentInputs,
 } from '@/shared/auth/routeIntent';
@@ -30,7 +30,7 @@ interface UseAuthRouteIntentOptions {
  * matched UI or a `<Redirect>` based on the returned `RouteIntent.kind`.
  *
  * Also owns post-Stripe sync state (was previously RootRoute-local): when the
- * URL carries `?subscription=success`, the hook holds `subscriptionSyncInFlight`
+ * URL carries `?subscription=success`, the hook holds `isSubscriptionSyncInFlight`
  * while the recovery hook auto-activates the new org, then strips the query
  * param from the URL once the sync resolves.
  */
@@ -119,13 +119,13 @@ export function useAuthRouteIntent(
         : null,
       activeOrganizationId,
       isResolvingActiveOrg,
-      practicesLoading,
+      isPracticesLoading: practicesLoading,
       hasPracticeMembership,
       defaultWorkspace,
       currentPracticeSlug,
       fallbackPracticeSlug,
       isSubscriptionSuccessReturn,
-      subscriptionSyncInFlight,
+      isSubscriptionSyncInFlight: subscriptionSyncInFlight,
       currentPath: location.path,
     }),
     [

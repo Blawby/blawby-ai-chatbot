@@ -23,7 +23,7 @@ import { resetPracticeDetailsStore, setPracticeDetailsEntry } from '@/shared/sto
 import { queryCache } from '@/shared/lib/queryCache';
 import { asMajor, type MajorAmount } from '@/shared/utils/money';
 import { type PracticeRole } from '@/shared/utils/practiceRoles';
-import { getActiveOrganizationPointer } from '@/shared/auth/routeIntent';
+import { getActiveOrganizationPointer } from '@/shared/lib/authClient';
 
 const isPlainObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);

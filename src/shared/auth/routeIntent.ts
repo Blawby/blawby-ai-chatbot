@@ -1,5 +1,4 @@
 import type { WorkspacePreference } from '@/shared/types/workspace';
-import type { AuthSessionPayload } from '@/shared/types/user';
 
 /**
  * Discriminated union describing where an authenticated (or
@@ -34,34 +33,15 @@ export interface RouteIntentInputs {
     | null;
   activeOrganizationId: string | null;
   isResolvingActiveOrg: boolean;
-  practicesLoading: boolean;
+  isPracticesLoading: boolean;
   hasPracticeMembership: boolean;
   defaultWorkspace: WorkspacePreference | null;
   currentPracticeSlug: string | null;
   fallbackPracticeSlug: string | null;
   isSubscriptionSuccessReturn: boolean;
-  subscriptionSyncInFlight: boolean;
+  isSubscriptionSyncInFlight: boolean;
   /** Pathname only (e.g. `/practice/foo`). Used to skip redundant redirects. */
   currentPath: string;
-}
-
-/**
- * The single canonical reader of `session.session.active_organization_id`.
- *
- * Better Auth stores the active org id as a string on `session.session` and may
- * be missing entirely, an empty string, or whitespace-only. Treat all of those
- * as "no active org" and only return a non-empty trimmed string.
- *
- * All call sites that previously read the field directly should call this
- * helper so the pointer-vs-state distinction (see
- * docs/solutions/conventions/better-auth-active-organization-id-pointer-2026-05-15.md)
- * stays canonical.
- */
-export function getActiveOrganizationPointer(
-  session: AuthSessionPayload | null | undefined
-): string | null {
-  const value = session?.session?.active_organization_id;
-  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null;
 }
 
 /**
@@ -84,13 +64,13 @@ export function computeRouteIntent(inputs: RouteIntentInputs): RouteIntent {
     user,
     activeOrganizationId,
     isResolvingActiveOrg,
-    practicesLoading,
+    isPracticesLoading,
     hasPracticeMembership,
     defaultWorkspace,
     currentPracticeSlug,
     fallbackPracticeSlug,
     isSubscriptionSuccessReturn,
-    subscriptionSyncInFlight,
+    isSubscriptionSyncInFlight,
     currentPath,
   } = inputs;
 
@@ -118,14 +98,14 @@ export function computeRouteIntent(inputs: RouteIntentInputs): RouteIntent {
       : { kind: 'onboarding-required', userId: user.id };
   }
 
-  if (isSubscriptionSuccessReturn && subscriptionSyncInFlight) {
+  if (isSubscriptionSuccessReturn && isSubscriptionSyncInFlight) {
     return { kind: 'post-stripe-syncing' };
   }
 
   // THE FIX: loading is a first-class kind. Inputs in flight → loading, NOT
   // "no-subscription". Pre-refactor the gate read `hasPracticeMembership: false`
   // while practices were still loading and routed to /pricing.
-  if (isResolvingActiveOrg || practicesLoading) {
+  if (isResolvingActiveOrg || isPracticesLoading) {
     return { kind: 'loading' };
   }
 

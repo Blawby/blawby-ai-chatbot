@@ -1,10 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import {
   computeRouteIntent,
-  getActiveOrganizationPointer,
   type RouteIntent,
   type RouteIntentInputs,
 } from '@/shared/auth/routeIntent';
+import { getActiveOrganizationPointer } from '@/shared/lib/authClient';
 import type { AuthSessionPayload } from '@/shared/types/user';
 
 // `getActiveOrganizationPointer` now takes a typed `AuthSessionPayload`. The
@@ -23,13 +23,13 @@ function inputs(overrides: Partial<RouteIntentInputs> = {}): RouteIntentInputs {
     },
     activeOrganizationId: 'org_abc',
     isResolvingActiveOrg: false,
-    practicesLoading: false,
+    isPracticesLoading: false,
     hasPracticeMembership: true,
     defaultWorkspace: 'practice',
     currentPracticeSlug: 'demo-owner',
     fallbackPracticeSlug: 'demo-owner',
     isSubscriptionSuccessReturn: false,
-    subscriptionSyncInFlight: false,
+    isSubscriptionSyncInFlight: false,
     currentPath: '/practice/demo-owner',
     ...overrides,
   };
@@ -38,7 +38,7 @@ function inputs(overrides: Partial<RouteIntentInputs> = {}): RouteIntentInputs {
 describe('computeRouteIntent', () => {
   it('returns loading while the session is pending — overrides everything else', () => {
     expect(
-      computeRouteIntent(inputs({ isSessionPending: true, practicesLoading: true }))
+      computeRouteIntent(inputs({ isSessionPending: true, isPracticesLoading: true }))
     ).toEqual<RouteIntent>({ kind: 'loading' });
   });
 
@@ -113,7 +113,7 @@ describe('computeRouteIntent', () => {
       computeRouteIntent(
         inputs({
           isSubscriptionSuccessReturn: true,
-          subscriptionSyncInFlight: true,
+          isSubscriptionSyncInFlight: true,
           hasPracticeMembership: false,
           activeOrganizationId: null,
         })
@@ -126,7 +126,7 @@ describe('computeRouteIntent', () => {
       computeRouteIntent(
         inputs({
           isSubscriptionSuccessReturn: true,
-          subscriptionSyncInFlight: false,
+          isSubscriptionSyncInFlight: false,
           hasPracticeMembership: true,
           activeOrganizationId: 'org_abc',
         })
@@ -150,7 +150,7 @@ describe('computeRouteIntent', () => {
     expect(
       computeRouteIntent(
         inputs({
-          practicesLoading: true,
+          isPracticesLoading: true,
           hasPracticeMembership: false,
           activeOrganizationId: null,
         })
@@ -164,7 +164,7 @@ describe('computeRouteIntent', () => {
         inputs({
           hasPracticeMembership: false,
           activeOrganizationId: null,
-          practicesLoading: false,
+          isPracticesLoading: false,
           isResolvingActiveOrg: false,
         })
       )

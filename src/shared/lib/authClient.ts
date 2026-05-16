@@ -109,6 +109,26 @@ export function getClient(): AuthClientType {
   return getAuthClient();
 }
 
+/**
+ * The single canonical reader of `session.session.active_organization_id`.
+ *
+ * Better Auth stores the active org id as a string on `session.session` and
+ * may be missing entirely, an empty string, or whitespace-only. Treat all of
+ * those as "no active org" and only return a non-empty trimmed string.
+ *
+ * Lives next to the auth-client normalization (`unwrapSessionData`) so the
+ * pointer-vs-state distinction (see
+ * docs/solutions/conventions/better-auth-active-organization-id-pointer-2026-05-15.md)
+ * stays canonical to this module. All call sites that previously read the
+ * field directly should call this helper.
+ */
+export function getActiveOrganizationPointer(
+  session: AuthSessionPayload | null | undefined
+): string | null {
+  const value = session?.session?.active_organization_id;
+  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null;
+}
+
 // Lazily forwards to the cached auth client so module-level imports don't
 // trigger client creation during SSR/build before window is available.
 export const authClient = new Proxy({} as AuthClientType, {

@@ -1,9 +1,8 @@
 import { createContext, useContext, useEffect, useRef, useMemo, useState } from 'preact/compat';
 import { ComponentChildren } from 'preact';
-import { useSession, authClient } from '@/shared/lib/authClient';
+import { useSession, authClient, getActiveOrganizationPointer } from '@/shared/lib/authClient';
 import { RoutePracticeContext } from '@/shared/contexts/RoutePracticeContext';
 import { rememberAnonymousUserId, rememberAnonymousSessionId } from '@/shared/utils/anonymousIdentity';
-import { getActiveOrganizationPointer } from '@/shared/auth/routeIntent';
 import type { AuthSessionPayload, BackendSession, SessionUser } from '@/shared/types/user';
 
 export interface SessionContextValue {

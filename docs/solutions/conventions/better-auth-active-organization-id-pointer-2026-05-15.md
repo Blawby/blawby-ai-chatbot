@@ -153,7 +153,7 @@ The "wait for flags" gate above was rebuilt as a discriminated union to eliminat
 
 The consumer is a side-effect-only emitter at [src/shared/auth/AuthenticatedRouter.tsx](src/shared/auth/AuthenticatedRouter.tsx) that returns `<Redirect>` for the kinds that need it and `null` otherwise. AppShell mounts it as a sibling of the Router; RootRoute switches on the kind directly.
 
-**All raw reads of `session.session.active_organization_id` are now routed through [`getActiveOrganizationPointer`](src/shared/auth/routeIntent.ts) — the single canonical reader.** New code should not read the field directly. Adding a new gate state means extending `RouteIntent` (TypeScript will fail the consumer's exhaustive switch until every kind is handled), which is more discoverable than reading `session.session.active_organization_id` correctly.
+**All raw reads of `session.session.active_organization_id` are now routed through [`getActiveOrganizationPointer`](src/shared/lib/authClient.ts) — the single canonical reader, exported from the auth-client module so it lives next to `unwrapSessionData` and the rest of the session normalization.** New code should not read the field directly. Adding a new gate state means extending `RouteIntent` (TypeScript will fail the consumer's exhaustive switch until every kind is handled), which is more discoverable than reading `session.session.active_organization_id` correctly.
 
 The relevant work: [PR #577](https://github.com/Blawby/blawby-ai-chatbot/pull/577) (membership-signal fix), [PR #580](https://github.com/Blawby/blawby-ai-chatbot/pull/580) (memoization-of-failure fix), [docs/plans/2026-05-16-002-refactor-route-intent-consolidation-plan.md](docs/plans/2026-05-16-002-refactor-route-intent-consolidation-plan.md) (this refactor).
 
