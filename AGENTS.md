@@ -55,6 +55,7 @@ Cloudflare Pages `public/_redirects` must include:
 ```
 No internal <a href="/..."> for in-app routes. Use preact-iso Link or location.route()/navigate().
 Only use hard navigations for cross-origin URLs, Stripe checkout, or external auth redirects.
+When an internal API returns errors, nulls, or malformed data, fix the API contract/source of truth first; do not add frontend fallbacks, guards, or workaround logic unless the API behavior is intentionally nullable and documented.
 Avoid manual path parsing in MainApp; prefer Router routes for /practice/* and /client/*.
 Keep Workbox/PWA navigation denylist for /api/*; index.html fallback only for document navigations.
 Greenfield app: no backward-compat/legacy support. Do not add other fallbacks or shims. Frontend + Worker proxy must speak directly to the Railway backend; surface backend errors rather than masking them.

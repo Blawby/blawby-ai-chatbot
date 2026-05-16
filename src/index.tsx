@@ -42,7 +42,7 @@ import { UpdateAvailableToast } from '@/shared/ui/UpdateAvailableToast';
 import { consumePostAuthConversationContext } from '@/shared/utils/anonymousIdentity';
 import { isWidgetRuntimeContext as _isWidgetRuntimeContext } from '@/shared/utils/widgetAuth';
 import { useTheme } from '@/shared/hooks/useTheme';
-import { setActivePractice } from '@/shared/lib/apiClient';
+import { setActivePractice, listPractices } from '@/shared/lib/apiClient';
 import { lazy } from 'preact/compat';
 // Top-level pages are lazy so they don't bloat the entry chunk. Each page
 // loads its own bundle on demand the first time the matching route renders.
@@ -646,9 +646,23 @@ function RootRoute() {
     setSubscriptionSyncPending(true);
 
     void getSession()
-      .then(() => {
+      .then(async (freshSession) => {
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new CustomEvent('auth:session-updated'));
+        }
+        // After a Stripe checkout the org is created by the webhook after the user's
+        // session was established, so activeOrganizationId may still be null. Use the
+        // existing backend contract to set it so routing resolves without a re-login.
+        if (!getSessionActiveOrganizationId(freshSession)) {
+          const practices = await listPractices().catch(() => []);
+          const firstId = practices[0]?.id;
+          if (firstId) {
+            await setActivePractice(firstId).catch(() => undefined);
+            await getSession().catch(() => undefined);
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(new CustomEvent('auth:session-updated'));
+            }
+          }
         }
       })
       .catch((error) => {
