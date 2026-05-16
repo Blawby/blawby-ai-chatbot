@@ -1,16 +1,25 @@
+import type { ComponentChildren } from 'preact';
 import { assertNeverIntent, type RouteIntent } from '@/shared/auth/routeIntent';
 import { Redirect } from '@/shared/auth/Redirect';
 
 interface AuthenticatedRouterProps {
   intent: RouteIntent;
   currentPath: string;
+  /**
+   * What to render while the intent is in `loading`. Defaults to `null` so
+   * AppShell (which mounts AuthenticatedRouter as a side-effect-only sibling
+   * of the Router) doesn't paint anything during the brief loading window.
+   * RootRoute passes `<LoadingScreen />` because it's the entire page body.
+   */
+  loadingFallback?: ComponentChildren;
 }
 
 /**
  * Side-effect-only consumer for a `RouteIntent`. Mounted as a sibling of the
  * application's `<Router>`. Emits a `<Redirect>` when the intent requires
- * routing the user away from the current path; otherwise renders `null` and
- * lets the matched route render normally.
+ * routing the user away from the current path; otherwise renders
+ * `loadingFallback` (defaults to `null`) and lets the matched route render
+ * normally.
  *
  * Routes like `/auth`, `/pricing`, and `/onboarding` are kept reachable by
  * design — if the user is already on the destination of a redirect kind,
@@ -22,11 +31,14 @@ interface AuthenticatedRouterProps {
  * "wandered into /onboarding after completing it" case — preserved verbatim
  * from the previous AppShell gate.
  */
-export function AuthenticatedRouter({ intent, currentPath }: AuthenticatedRouterProps) {
+export function AuthenticatedRouter({
+  intent,
+  currentPath,
+  loadingFallback = null,
+}: AuthenticatedRouterProps) {
   switch (intent.kind) {
     case 'loading':
-    case 'post-stripe-syncing':
-      return null;
+      return <>{loadingFallback}</>;
 
     case 'unauthenticated': {
       if (currentPath.startsWith('/auth')) return null;

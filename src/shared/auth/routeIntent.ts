@@ -10,17 +10,29 @@ import type { WorkspacePreference } from '@/shared/types/workspace';
  * resolving, post-Stripe sync) returns `kind: 'loading'` so consumers can
  * render a loader instead of mis-routing while flags settle.
  */
+/**
+ * Why the intent is in `loading`. Carried as a tag so observability (logs,
+ * tests) can distinguish a session that's still resolving from one that's
+ * processing the post-Stripe round-trip — without the consumer having to
+ * branch on a separate kind.
+ */
+export type RouteLoadingReason =
+  | 'session-pending'
+  | 'recovery-resolving'
+  | 'practices-loading'
+  | 'post-stripe-syncing'
+  | 'practice-slug-pending'
+  | 'on-onboarding-route';
+
 export type RouteIntent =
   /** Any required input is still in-flight. Render a loader; never redirect. */
-  | { kind: 'loading' }
+  | { kind: 'loading'; reason?: RouteLoadingReason }
   /** No authenticated user. Send to /auth, optionally preserving where they were headed. */
   | { kind: 'unauthenticated'; redirectAfterAuth?: string }
   /** Authenticated but onboarding incomplete. Send to /onboarding. */
   | { kind: 'onboarding-required'; userId: string; returnTo?: string }
   /** Authenticated and onboarded but no practice membership. Send to /pricing. */
   | { kind: 'no-subscription' }
-  /** Returning from Stripe checkout (?subscription=success) while recovery is firing. */
-  | { kind: 'post-stripe-syncing' }
   /** Practice-default user. Send to /practice/{slug}. */
   | { kind: 'practice-workspace'; slug: string }
   /** Client-default user. Send to /client/dashboard. */
@@ -75,7 +87,7 @@ export function computeRouteIntent(inputs: RouteIntentInputs): RouteIntent {
   } = inputs;
 
   if (isSessionPending) {
-    return { kind: 'loading' };
+    return { kind: 'loading', reason: 'session-pending' };
   }
 
   if (!user) {
@@ -90,7 +102,7 @@ export function computeRouteIntent(inputs: RouteIntentInputs): RouteIntent {
   // the route is unreachable for an anonymous identity.
   if (!user.isAnonymous && !user.onboardingComplete) {
     if (currentPath.startsWith('/onboarding')) {
-      return { kind: 'loading' };
+      return { kind: 'loading', reason: 'on-onboarding-route' };
     }
     const returnTo = computeOnboardingReturnTo(currentPath);
     return returnTo
@@ -99,14 +111,17 @@ export function computeRouteIntent(inputs: RouteIntentInputs): RouteIntent {
   }
 
   if (isSubscriptionSuccessReturn && isSubscriptionSyncInFlight) {
-    return { kind: 'post-stripe-syncing' };
+    return { kind: 'loading', reason: 'post-stripe-syncing' };
   }
 
   // THE FIX: loading is a first-class kind. Inputs in flight → loading, NOT
   // "no-subscription". Pre-refactor the gate read `hasPracticeMembership: false`
   // while practices were still loading and routed to /pricing.
-  if (isResolvingActiveOrg || isPracticesLoading) {
-    return { kind: 'loading' };
+  if (isResolvingActiveOrg) {
+    return { kind: 'loading', reason: 'recovery-resolving' };
+  }
+  if (isPracticesLoading) {
+    return { kind: 'loading', reason: 'practices-loading' };
   }
 
   // Belt-and-braces from the convention doc: a non-null active_organization_id
@@ -125,7 +140,7 @@ export function computeRouteIntent(inputs: RouteIntentInputs): RouteIntent {
   if (!slug) {
     // Practice user but no resolvable slug yet — keep loading rather than
     // emitting a `practice-workspace` with no destination.
-    return { kind: 'loading' };
+    return { kind: 'loading', reason: 'practice-slug-pending' };
   }
 
   return { kind: 'practice-workspace', slug };

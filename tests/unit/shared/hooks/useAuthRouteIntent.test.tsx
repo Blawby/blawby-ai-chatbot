@@ -131,7 +131,7 @@ describe('useAuthRouteIntent', () => {
 
     const { result } = renderHook(() => useAuthRouteIntent());
 
-    expect(result.current).toEqual({ kind: 'loading' });
+    expect(result.current).toEqual({ kind: 'loading', reason: 'session-pending' });
   });
 
   it('returns unauthenticated when no user', () => {
@@ -164,7 +164,7 @@ describe('useAuthRouteIntent', () => {
 
     const { result } = renderHook(() => useAuthRouteIntent());
 
-    expect(result.current).toEqual({ kind: 'loading' });
+    expect(result.current).toEqual({ kind: 'loading', reason: 'recovery-resolving' });
   });
 
   it('cold sign-in: returns loading while practices are mid-fetch', () => {
@@ -173,7 +173,7 @@ describe('useAuthRouteIntent', () => {
 
     const { result } = renderHook(() => useAuthRouteIntent());
 
-    expect(result.current).toEqual({ kind: 'loading' });
+    expect(result.current).toEqual({ kind: 'loading', reason: 'practices-loading' });
   });
 
   it('returns no-subscription only when everything is settled and membership is empty', () => {
@@ -202,7 +202,7 @@ describe('useAuthRouteIntent', () => {
     await waitFor(() => {
       expect(mocks.ensureValue.forceResolve).toHaveBeenCalled();
     });
-    expect(result.current).toEqual({ kind: 'post-stripe-syncing' });
+    expect(result.current).toEqual({ kind: 'loading', reason: 'post-stripe-syncing' });
   });
 
   it('post-stripe: transitions to authenticated kind once sync completes and URL is stripped', async () => {
@@ -245,7 +245,7 @@ describe('useAuthRouteIntent', () => {
 
     const { result } = renderHook(() => useAuthRouteIntent());
 
-    expect(result.current).toEqual({ kind: 'loading' });
+    expect(result.current).toEqual({ kind: 'loading', reason: 'on-onboarding-route' });
   });
 
   it('routes anonymous users to a workspace kind, bypassing onboarding/subscription gates', () => {

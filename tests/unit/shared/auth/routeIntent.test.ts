@@ -39,7 +39,7 @@ describe('computeRouteIntent', () => {
   it('returns loading while the session is pending — overrides everything else', () => {
     expect(
       computeRouteIntent(inputs({ isSessionPending: true, isPracticesLoading: true }))
-    ).toEqual<RouteIntent>({ kind: 'loading' });
+    ).toEqual<RouteIntent>({ kind: 'loading', reason: 'session-pending' });
   });
 
   it('returns unauthenticated when no user', () => {
@@ -105,10 +105,10 @@ describe('computeRouteIntent', () => {
           currentPath: '/onboarding',
         })
       )
-    ).toEqual<RouteIntent>({ kind: 'loading' });
+    ).toEqual<RouteIntent>({ kind: 'loading', reason: 'on-onboarding-route' });
   });
 
-  it('returns post-stripe-syncing while ?subscription=success is being processed', () => {
+  it('returns loading with reason=post-stripe-syncing while ?subscription=success is being processed', () => {
     expect(
       computeRouteIntent(
         inputs({
@@ -118,7 +118,7 @@ describe('computeRouteIntent', () => {
           activeOrganizationId: null,
         })
       )
-    ).toEqual<RouteIntent>({ kind: 'post-stripe-syncing' });
+    ).toEqual<RouteIntent>({ kind: 'loading', reason: 'post-stripe-syncing' });
   });
 
   it('falls through to the right kind once post-stripe sync completes', () => {
@@ -143,7 +143,7 @@ describe('computeRouteIntent', () => {
           activeOrganizationId: null,
         })
       )
-    ).toEqual<RouteIntent>({ kind: 'loading' });
+    ).toEqual<RouteIntent>({ kind: 'loading', reason: 'recovery-resolving' });
   });
 
   it('returns loading when the practice list is still in-flight', () => {
@@ -155,7 +155,7 @@ describe('computeRouteIntent', () => {
           activeOrganizationId: null,
         })
       )
-    ).toEqual<RouteIntent>({ kind: 'loading' });
+    ).toEqual<RouteIntent>({ kind: 'loading', reason: 'practices-loading' });
   });
 
   it('returns no-subscription only when membership AND active org are both definitively absent', () => {
@@ -216,7 +216,7 @@ describe('computeRouteIntent', () => {
       computeRouteIntent(
         inputs({ currentPracticeSlug: null, fallbackPracticeSlug: null })
       )
-    ).toEqual<RouteIntent>({ kind: 'loading' });
+    ).toEqual<RouteIntent>({ kind: 'loading', reason: 'practice-slug-pending' });
   });
 
   it('anonymous user skips onboarding gate entirely', () => {

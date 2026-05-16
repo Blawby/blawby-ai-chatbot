@@ -16,8 +16,6 @@ import { handleError as _handleError } from '@/shared/utils/errorHandler';
 import { useWorkspaceResolver } from '@/shared/hooks/useWorkspaceResolver';
 import { usePostAuthBounce } from '@/shared/hooks/usePostAuthBounce';
 import { AuthenticatedRouter } from '@/shared/auth/AuthenticatedRouter';
-import { Redirect } from '@/shared/auth/Redirect';
-import { assertNeverIntent } from '@/shared/auth/routeIntent';
 import {
   AuthRouteIntentProvider,
   useAuthRouteIntentValue,
@@ -479,41 +477,17 @@ function RootRoute() {
   // RootRoute is the "/" route. The user should never stay here — they should
   // be redirected to their workspace home, /auth, /pricing, or /onboarding.
   // The intent is produced once at `<AppShellWithIntent>` and read here via
-  // context; this route is just a thin renderer that converts the intent's
-  // kind into the matching destination (or a LoadingScreen while pending).
+  // context; AuthenticatedRouter owns the kind → destination switch and
+  // renders LoadingScreen via `loadingFallback` while pending.
   const intent = useAuthRouteIntentValue();
-
-  switch (intent.kind) {
-    case 'loading':
-    case 'post-stripe-syncing':
-      return <LoadingScreen />;
-
-    case 'unauthenticated': {
-      const target = intent.redirectAfterAuth
-        ? `/auth?redirect=${encodeURIComponent(intent.redirectAfterAuth)}`
-        : '/auth';
-      return <Redirect to={target} />;
-    }
-
-    case 'onboarding-required': {
-      const target = intent.returnTo
-        ? `/onboarding?returnTo=${encodeURIComponent(intent.returnTo)}`
-        : '/onboarding';
-      return <Redirect to={target} />;
-    }
-
-    case 'no-subscription':
-      return <Redirect to="/pricing" />;
-
-    case 'practice-workspace':
-      return <Redirect to={`/practice/${intent.slug}`} />;
-
-    case 'client-workspace':
-      return <Redirect to="/client/dashboard" />;
-
-    default:
-      return assertNeverIntent(intent);
-  }
+  const location = useLocation();
+  return (
+    <AuthenticatedRouter
+      intent={intent}
+      currentPath={location.path}
+      loadingFallback={<LoadingScreen />}
+    />
+  );
 }
 
 

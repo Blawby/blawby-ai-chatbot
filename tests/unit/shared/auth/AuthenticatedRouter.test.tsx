@@ -27,8 +27,22 @@ describe('<AuthenticatedRouter />', () => {
     expect(navigateMock).not.toHaveBeenCalled();
   });
 
-  it('renders null and does not navigate for post-stripe-syncing intent', () => {
-    const intent: RouteIntent = { kind: 'post-stripe-syncing' };
+  it('renders the loadingFallback when provided', () => {
+    const intent: RouteIntent = { kind: 'loading', reason: 'session-pending' };
+    const { container } = render(
+      <AuthenticatedRouter
+        intent={intent}
+        currentPath="/"
+        loadingFallback={<div data-testid="loader">loading…</div>}
+      />
+    );
+    expect(container.textContent).toContain('loading…');
+    expect(navigateMock).not.toHaveBeenCalled();
+  });
+
+  it('renders null and does not navigate for loading + post-stripe-syncing reason', () => {
+    // Post-stripe sync is now a loading reason, not a separate kind.
+    const intent: RouteIntent = { kind: 'loading', reason: 'post-stripe-syncing' };
     render(<AuthenticatedRouter intent={intent} currentPath="/" />);
     expect(navigateMock).not.toHaveBeenCalled();
   });
