@@ -62,17 +62,32 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 
 ## 5. Local Browser Verification
 
-For this app, verify browser/auth/signup flows through `https://local.blawby.com`, not raw Vite or Wrangler localhost URLs. The local host matters because auth cookies, Worker proxying, and app routing depend on the same origin/path shape used in real deployments.
+Always verify browser/auth/signup flows through `https://local.blawby.com`, not raw Vite or Wrangler localhost URLs. Auth cookies, Worker proxying, and app routing all depend on the same origin/path shape as real deployments.
 
-Recommended local layout for contributors:
+### Mode A — Staging backend (default, no local backend needed)
+
+Most frontend contributors use this. Auth, preferences, and API calls all go to the staging backend.
+
+```bash
+npm install
+npm run dev:full
+```
+
+Open `https://local.blawby.com`. Done.
+
+### Mode B — Local backend
+
+Use this when your change touches the backend, or you need to test the full stack locally.
+
+Recommended layout:
 
 ```text
 your-workspace/
-  blawby-ai-chatbot/
-  blawby-backend/
+  blawby-ai-chatbot/   ← this repo
+  blawby-backend/      ← backend repo
 ```
 
-Start the backend API from the backend repo:
+**Terminal 1** — backend API:
 
 ```bash
 cd ../blawby-backend
@@ -80,20 +95,23 @@ pnpm install
 pnpm run dev
 ```
 
-Start the frontend, Worker, and tunnel from this repo:
+**Terminal 2** — event worker (required — without this, new-user preferences are never initialized and onboarding always fails):
+
+```bash
+cd ../blawby-backend
+pnpm run event-worker:dev
+```
+
+**Terminal 3** — frontend + Worker pointing at local backend:
 
 ```bash
 npm install
-npm run dev:full
+npm run dev:full:local
 ```
 
-Then open:
+Open `https://local.blawby.com`.
 
-```text
-https://local.blawby.com
-```
-
-The frontend `.env` and `worker/.dev.vars` should point backend URLs at `http://127.0.0.1:3000` when using the local backend. If intentionally testing against staging, point those backend URLs at staging, but still drive the app through `https://local.blawby.com`.
+> **Why `dev:full:local`?** The default `dev:full` uses `dev:worker`, which reads `BACKEND_API_URL` from `[env.dev.vars]` in `wrangler.toml` (staging). `dev:full:local` uses `dev:worker:local`, which passes `--var BACKEND_API_URL:http://127.0.0.1:3000` to override it. `.dev.vars` alone does not override `[env.dev.vars]`.
 
 If a Worker feature adds a D1 table, apply the migration locally before browser testing:
 

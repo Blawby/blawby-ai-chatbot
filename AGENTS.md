@@ -20,7 +20,7 @@ npm install
 npm run dev:full
 ```
 - Open `https://local.blawby.com`. Do not verify auth/signup flows on raw Vite or Wrangler localhost URLs, because those bypass the same host/proxy/cookie path the app depends on.
-- The frontend `.env` and `worker/.dev.vars` should point backend URLs at `http://127.0.0.1:3000` for local backend testing. Alternatively, point them at staging when intentionally testing against staging, but keep the browser on `https://local.blawby.com`.
+- To use a local backend, run `npm run dev:full:local` (not `dev:full`). This passes `--var BACKEND_API_URL:http://127.0.0.1:3000` to Wrangler, overriding the staging URL in `[env.dev.vars]`. Setting `BACKEND_API_URL` in `worker/.dev.vars` alone does NOT work — `[env.dev.vars]` takes precedence when using `--env dev`.
 - If a Worker feature adds a new D1 table, apply its migration locally before testing the flow:
 ```bash
 npx wrangler d1 execute DB --local --config worker/wrangler.toml --env dev --file worker/migrations/<migration-file>.sql

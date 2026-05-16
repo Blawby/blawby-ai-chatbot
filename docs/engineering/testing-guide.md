@@ -34,7 +34,8 @@ Our testing strategy follows a pragmatic approach that maximizes confidence whil
 **Setup Requirements**:
 - `BETTER_AUTH_SECRET` must be set in `worker/.dev.vars` (minimum 32 characters)
 - Worker must be running on `http://localhost:8787`
-- Frontend must be running on `http://localhost:5173`
+- Frontend must be running on `http://localhost:5137` (Vite dev server)
+- Auth/signup tests must be driven through `https://local.blawby.com`, not raw localhost URLs
 
 **Route Baselines**:
 - Practice workspace routes live under `/practice/*` (home: `/practice/home`, leads: `/practice/leads`).

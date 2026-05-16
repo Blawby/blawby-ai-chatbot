@@ -168,6 +168,18 @@ export const OnboardingFlow = ({
         });
       }
 
+      // Save preferences first — if this fails (e.g. backend hasn't initialized
+      // the row yet), the catch block shows an error and keeps the user on the
+      // onboarding page. Only on success do we mark onboardingComplete, which
+      // updates the session and triggers the redirect away from onboarding.
+      await updatePreferencesCategory('onboarding', {
+        birthday: sourceData.personalInfo.birthday,
+        primary_use_case: sourceData.useCase.primaryUseCase,
+        use_case_additional_info: sourceData.useCase.additionalInfo,
+        product_usage: sourceData.useCase.productUsage,
+        completed: true
+      });
+
       const trimmedName = sourceData.personalInfo.fullName?.trim() ?? '';
       const updatePayload: Record<string, unknown> = {
         onboardingComplete: true
@@ -180,14 +192,6 @@ export const OnboardingFlow = ({
       }
 
       await updateUser(updatePayload);
-
-      await updatePreferencesCategory('onboarding', {
-        birthday: sourceData.personalInfo.birthday,
-        primary_use_case: sourceData.useCase.primaryUseCase,
-        use_case_additional_info: sourceData.useCase.additionalInfo,
-        product_usage: sourceData.useCase.productUsage,
-        completed: true
-      });
 
       await getSession().catch(() => undefined);
 
