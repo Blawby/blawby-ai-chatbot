@@ -316,3 +316,40 @@ No backend touch surface. No widget / public-route / client-route behavior chang
 - **Pre-merge:** Manual `?subscription=success` round-trip works end-to-end.
 - **Post-deploy:** Watch logs for `[Workspace] auto-activated first practice (no active_organization_id on session)`. If the rate spikes far above the rate of fresh logins, that's a signal of a deeper session-handling bug worth investigating (out of scope here).
 - **Rollback:** Single-commit revert. No feature flag, no database state.
+
+---
+
+## Implementation Notes & Follow-Up (post-merge)
+
+### Deviation from planned endpoints
+
+Plan called for the recovery hook to use `listPractices()` and `setActivePractice()` from `src/shared/lib/apiClient.ts`. **Discovered mid-implementation via live Playwright repro** that those calls route through the worker's `/api/practice/list` and `/api/practice/{id}/active` endpoints, both of which are middleware-gated on active-org context and 403 from a null state — exactly the state the recovery is trying to bootstrap from. Chicken-and-egg.
+
+**Swapped to Better Auth's direct endpoints** mid-implementation: `authClient.organization.list()` and `authClient.organization.setActive({ organizationId })`. These hit `/api/auth/organization/*` via Better Auth's plugin client, which the worker passes through verbatim without org-context middleware. Tests, types, and the recovery body were updated to match. The deviation is captured in [src/shared/hooks/useEnsureActiveOrganization.ts](src/shared/hooks/useEnsureActiveOrganization.ts) comments and in the new convention doc [docs/solutions/conventions/better-auth-active-organization-id-pointer-2026-05-15.md](docs/solutions/conventions/better-auth-active-organization-id-pointer-2026-05-15.md).
+
+### Belt-and-braces guard added during self-review
+
+The plan's gate signal was `!hasPracticeMembership` alone. Self-review identified a race where the practice-list refetch effect and the gate effect could run in the same commit phase after recovery completes, with `practicesLoading` and `hasPracticeMembership` both reading stale values for one render. Added `!activeOrganizationId` as a co-required condition — a non-null active org is independent proof of membership regardless of practice-list staleness. Lives in both AppShell and RootRoute gates ([src/index.tsx](src/index.tsx)).
+
+### Code review residuals (PR #577, ce-code-review autofix run)
+
+Multi-agent code review on PR #577 surfaced 13 findings that did not block the production-fire merge but are tracked here as follow-up work. Full synthesis at the run artifact (`/tmp/compound-engineering/ce-code-review/20260515-220925-a8861688/synthesis.md`). Highest-priority items:
+
+- **#1 P0 — Memoization-of-failure (6 reviewers converged).** `resolvedForUserIds.add(userId)` in the outer `finally` of `runRecovery` runs regardless of success. Any transient error in `listMembershipOrgs` / `setActiveOrganization` / `getSession` permanently marks the user "resolved with no org" for the session. Fix: move the `add` call inside the success branch; let failures retry on the next render.
+- **#2 P0 — Post-Stripe userId-null race (3 reviewers).** If `useSession()` is still pending when the post-Stripe effect fires, `forceResolve()` short-circuits but the surrounding `.then(refetchPractices).finally(stripUrl)` chain runs anyway. `subscriptionSyncHandledRef.current = true` then permanently blocks re-entry. Fix: guard the effect on `userId` resolving before kicking the chain.
+- **#3 P1 — `/client/dashboard` misroute race.** Even with the belt-and-braces guard, a render frame after recovery completes can route a paying practice-owner to `/client/dashboard` because `practicesLoading` flips false before the refetch's `setGlobalLoading(true)` lands. Fix: gate the transient state with `if (activeOrganizationId && !hasPracticeMembership) return;`.
+- **#4 P1 — No timeouts on Better Auth calls.** Backend hang → `isResolving` stuck true forever → infinite `LoadingScreen`. Trades the original wrong-redirect bug for a worse stuck-on-loader bug. Fix: `Promise.race` against an N-second timeout in `useEnsureActiveOrganization`.
+- **#5 P1 — `BackendSessionSchema` doesn't declare `active_organization_id`.** Forces the four `as Record<string, unknown>` casts that the helper-dedup follow-up depends on. Fix: add `active_organization_id: z.string().nullable().optional()` to [worker/types/wire/auth.ts](worker/types/wire/auth.ts).
+- **#6 P1 — Cancelled-subscription strand.** Stale `active_organization_id` pointing at a deleted org doesn't redirect to `/pricing` but also has no workspace to land in.
+- **#7 P1 — `usePracticeManagement` has zero unit coverage for U2/U3 changes.** A future maintainer could re-add the deleted guard with no test feedback.
+- **#8 P1 — E2E may not exercise the bug repro.** The Playwright spec asserts `active_organization_id` is truthy post-login but doesn't assert it was `null` pre-login.
+- **#9 P2 — Helper duplication.** `useSessionContext().activePracticeId` already exposes the same field; the diff re-implements the read in 4 places (`active_organization_id` plus 3 inline casts). Consolidating drops the casts.
+- Plus P2/P3 items: post-Stripe `.catch()` unreachable, `getSession` failure misleading log, non-403 errors fall through silently, multi-org `practices[0]` non-deterministic ordering, redundant 403 fetch on every new mount, module-level event listener never removed.
+
+### Pre-existing test failure (not introduced by this PR)
+
+`tests/unit/middleware/auth.test.ts > parses active organization id from root-level Better Auth payload fields` fails on the staging baseline and is in a worker module (`worker/middleware/auth.ts`) untouched by this branch. Investigation deferred — separate concern.
+
+### Surfaced into convention doc
+
+The pointer-vs-state insight from this fix was captured as durable knowledge in [docs/solutions/conventions/better-auth-active-organization-id-pointer-2026-05-15.md](docs/solutions/conventions/better-auth-active-organization-id-pointer-2026-05-15.md), seeding the previously-nonexistent `docs/solutions/` knowledge store for this repo.

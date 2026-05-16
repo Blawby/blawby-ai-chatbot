@@ -57,6 +57,12 @@ Canonical session user contract is snake_case at the app boundary:
 Rule:
 - CamelCase fields from SDK/backends are normalization input only, not canonical app-facing session fields.
 
+### `active_organization_id` is a pointer, not a subscription signal
+
+`active_organization_id` is **the currently-selected org pointer for this session**, set by `authClient.organization.setActive({ organizationId })`. It is `null` whenever no one has called `setActive` for the current session (fresh login, cookie rotation between deploys, multi-org user with none active, post-Stripe webhook race) — independent of whether the user has any practice memberships. Do not read this field as proof of subscription, plan tier, or "user has a workspace". For those questions, derive from practice-membership presence (`practices.length > 0` via `useWorkspaceResolver().hasPracticeMembership`).
+
+See [docs/solutions/conventions/better-auth-active-organization-id-pointer-2026-05-15.md](../solutions/conventions/better-auth-active-organization-id-pointer-2026-05-15.md) for the full convention, the legitimate `null` states, and the recovery shape (`useEnsureActiveOrganization`) that bootstraps an active org for users who have memberships but no active selection on the session.
+
 ## Frontend Auth Boundary
 
 File: `src/shared/lib/authClient.ts`

@@ -104,3 +104,13 @@ These are the files involved. Exact structure (shared hook vs inlined effects) i
 ## Handoff
 
 Next step is implementation. Recommended driver: `/ce-plan` for a precise file-by-file plan, then `/ce-work` to execute — or `/ce-work` directly if you want to skip the plan step given the touchpoints above are already enumerated.
+
+---
+
+## Outcomes (post-shipping)
+
+- **Plan**: [docs/plans/2026-05-15-001-fix-pricing-gate-membership-signal-plan.md](../plans/2026-05-15-001-fix-pricing-gate-membership-signal-plan.md) (status: completed).
+- **PR**: [Blawby/blawby-ai-chatbot#577](https://github.com/Blawby/blawby-ai-chatbot/pull/577) — `fix(routing): gate /pricing on practice membership, not active org`.
+- **Mid-implementation course correction**: the brainstorm and plan both assumed `listPractices()` / `setActivePractice()` from `apiClient` would work as the recovery endpoints. Live Playwright repro showed both routes require active-org context and 403 from the null state we're recovering from — chicken-and-egg. Swapped to Better Auth's direct endpoints (`authClient.organization.list` / `setActive`) which the worker auth proxy passes through without org-context middleware. See plan's `Implementation Notes & Follow-Up` section for details.
+- **Durable learning**: [docs/solutions/conventions/better-auth-active-organization-id-pointer-2026-05-15.md](../solutions/conventions/better-auth-active-organization-id-pointer-2026-05-15.md) captures the pointer-vs-state principle so future agents don't re-derive it.
+- **Open follow-up from code review**: 13 residual findings tracked in the plan, including 2 P0 issues (memoization-of-failure, post-Stripe userId-null race) that recreate the same bug class under transient backend errors. These were judged non-blocking for the immediate production fire but should be addressed before extending the recovery logic further.
