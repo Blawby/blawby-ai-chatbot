@@ -138,6 +138,25 @@ if (firstId) {
 
 **Gate-evaluation race to avoid** — even with the correct signal, the gate must not fire while the recovery is in flight or while the practices list is mid-refetch. In this codebase, suppress redirects when `isResolving || practicesLoading || subscriptionSyncPending` is true (see [src/index.tsx](src/index.tsx) for the full wait condition). Otherwise a render frame between "recovery succeeded" and "practices refetch lands" can fire `/pricing` or misroute a practice-owner to `/client/dashboard`.
 
+## Routing intent (canonical pattern as of 2026-05-16)
+
+The "wait for flags" gate above was rebuilt as a discriminated union to eliminate the flag race at the type level. The canonical answer to *"where should this user be right now?"* now lives in [src/shared/auth/routeIntent.ts](src/shared/auth/routeIntent.ts) as a pure function `computeRouteIntent(inputs): RouteIntent`. The React side is a thin wrapper at [src/shared/hooks/useAuthRouteIntent.ts](src/shared/hooks/useAuthRouteIntent.ts) that gathers inputs from the existing primitives (session, recovery hook, workspace resolver, post-Stripe sync) and delegates.
+
+`RouteIntent` kinds encode the legitimate gate states by name:
+
+- `loading` — any input in-flight (session pending, practice list mid-fetch, recovery resolving, post-Stripe sync). **Loading is first-class, not implied by stale-false flags.**
+- `unauthenticated` — no user; the consumer redirects to `/auth`.
+- `onboarding-required` — authenticated user with `onboarding_complete: false`; consumer redirects to `/onboarding`.
+- `no-subscription` — authenticated, onboarded, but `!hasPracticeMembership && !active_organization_id` (the belt-and-braces above is enforced *inside* the union).
+- `post-stripe-syncing` — `?subscription=success` is present and the post-Stripe recovery is firing.
+- `practice-workspace` / `client-workspace` — settled; carries the destination data.
+
+The consumer is a side-effect-only emitter at [src/shared/auth/AuthenticatedRouter.tsx](src/shared/auth/AuthenticatedRouter.tsx) that returns `<Redirect>` for the kinds that need it and `null` otherwise. AppShell mounts it as a sibling of the Router; RootRoute switches on the kind directly.
+
+**All raw reads of `session.session.active_organization_id` are now routed through [`getActiveOrganizationPointer`](src/shared/auth/routeIntent.ts) — the single canonical reader.** New code should not read the field directly. Adding a new gate state means extending `RouteIntent` (TypeScript will fail the consumer's exhaustive switch until every kind is handled), which is more discoverable than reading `session.session.active_organization_id` correctly.
+
+The relevant work: [PR #577](https://github.com/Blawby/blawby-ai-chatbot/pull/577) (membership-signal fix), [PR #580](https://github.com/Blawby/blawby-ai-chatbot/pull/580) (memoization-of-failure fix), [docs/plans/2026-05-16-002-refactor-route-intent-consolidation-plan.md](docs/plans/2026-05-16-002-refactor-route-intent-consolidation-plan.md) (this refactor).
+
 ## Related
 
 - Brainstorm: [docs/brainstorms/2026-05-15-pricing-gate-active-org-signal-requirements.md](docs/brainstorms/2026-05-15-pricing-gate-active-org-signal-requirements.md)
