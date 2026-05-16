@@ -146,6 +146,87 @@ describe('useEnsureActiveOrganization', () => {
     expect(mocks.setActivePractice).not.toHaveBeenCalled();
   });
 
+  it('does NOT memoize when authClient.organization.list throws — retry must remain possible', async () => {
+    mocks.sessionValue.session = completedOwnerSession();
+    mocks.orgListMock.mockRejectedValueOnce(new Error('network blip'));
+
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    const first = renderHook(() => useEnsureActiveOrganization());
+    await waitFor(() => {
+      expect(warnSpy).toHaveBeenCalled();
+    });
+    expect(mocks.setActivePractice).not.toHaveBeenCalled();
+    first.unmount();
+
+    // A second consumer for the same user must be allowed to retry — the failed
+    // call must not have memoized userId as "resolved". This is the regression
+    // guard for ce-code-review finding #1 (memoization-of-failure / 6-reviewer
+    // convergence): a transient error should not permanently lock the user out
+    // of recovery.
+    mocks.orgListMock.mockResolvedValueOnce([{ id: 'practice-1', slug: 'first' }]);
+    mocks.setActivePractice.mockResolvedValue(undefined);
+    mocks.getSession.mockResolvedValue(null);
+
+    renderHook(() => useEnsureActiveOrganization());
+    await waitFor(() => {
+      expect(mocks.setActivePractice).toHaveBeenCalledWith({ organizationId: 'practice-1' });
+    });
+
+    warnSpy.mockRestore();
+  });
+
+  it('does NOT memoize when authClient.organization.list returns a non-array shape', async () => {
+    mocks.sessionValue.session = completedOwnerSession();
+    mocks.orgListMock.mockResolvedValueOnce({ unexpected: 'shape' } as unknown as unknown[]);
+
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    const first = renderHook(() => useEnsureActiveOrganization());
+    await waitFor(() => {
+      expect(warnSpy).toHaveBeenCalled();
+    });
+    expect(mocks.setActivePractice).not.toHaveBeenCalled();
+    first.unmount();
+
+    // Retry path: same user, well-formed response, must succeed.
+    mocks.orgListMock.mockResolvedValueOnce([{ id: 'practice-1', slug: 'first' }]);
+    mocks.setActivePractice.mockResolvedValue(undefined);
+    mocks.getSession.mockResolvedValue(null);
+
+    renderHook(() => useEnsureActiveOrganization());
+    await waitFor(() => {
+      expect(mocks.setActivePractice).toHaveBeenCalledWith({ organizationId: 'practice-1' });
+    });
+
+    warnSpy.mockRestore();
+  });
+
+  it('does NOT memoize when setActive rejects mid-recovery — retry must remain possible', async () => {
+    mocks.sessionValue.session = completedOwnerSession();
+    mocks.orgListMock.mockResolvedValue([{ id: 'practice-1', slug: 'first' }]);
+    mocks.setActivePractice.mockRejectedValueOnce(new Error('setActive backend 500'));
+
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    const first = renderHook(() => useEnsureActiveOrganization());
+    await waitFor(() => {
+      expect(warnSpy).toHaveBeenCalled();
+    });
+    first.unmount();
+
+    // Retry path: setActive resolves successfully on the next attempt.
+    mocks.setActivePractice.mockResolvedValueOnce(undefined);
+    mocks.getSession.mockResolvedValue(null);
+
+    renderHook(() => useEnsureActiveOrganization());
+    await waitFor(() => {
+      expect(mocks.setActivePractice).toHaveBeenCalledTimes(2);
+    });
+
+    warnSpy.mockRestore();
+  });
+
   it('does not double-fetch for the same userId across consumers', async () => {
     mocks.sessionValue.session = completedOwnerSession();
     mocks.orgListMock.mockResolvedValue([{ id: 'practice-1', slug: 'first' }]);
