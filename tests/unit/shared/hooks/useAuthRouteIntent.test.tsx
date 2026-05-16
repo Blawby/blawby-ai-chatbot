@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { renderHook, act, waitFor } from '@testing-library/preact';
+import { renderHook, waitFor } from '@testing-library/preact';
 
 const mocks = vi.hoisted(() => ({
   sessionValue: {
@@ -33,6 +33,7 @@ const mocks = vi.hoisted(() => ({
     path: '/',
     query: {} as Record<string, string>,
     url: '/',
+    route: vi.fn(),
   },
 }));
 
@@ -87,7 +88,7 @@ vi.mock('preact-iso', () => ({
     path: mocks.locationValue.path,
     query: mocks.locationValue.query,
     url: mocks.locationValue.url,
-    route: vi.fn(),
+    route: mocks.locationValue.route,
   }),
 }));
 
@@ -121,6 +122,7 @@ beforeEach(() => {
   mocks.locationValue.path = '/';
   mocks.locationValue.query = {};
   mocks.locationValue.url = '/';
+  mocks.locationValue.route = vi.fn();
 });
 
 describe('useAuthRouteIntent', () => {
@@ -210,15 +212,15 @@ describe('useAuthRouteIntent', () => {
     mocks.resolverValue.practices = [{ id: 'p1', slug: 'demo-owner' }];
     mocks.locationValue.query = { subscription: 'success' };
     mocks.locationValue.url = '/?subscription=success';
-    window.history.replaceState({}, '', '/?subscription=success');
 
     const { result, rerender } = renderHook(() => useAuthRouteIntent());
 
     await waitFor(() => {
       expect(mocks.ensureValue.forceResolve).toHaveBeenCalled();
       expect(mocks.practiceManagementValue.refetch).toHaveBeenCalled();
-      // URL was stripped (the .finally() callback runs after both promises chain).
-      expect(window.location.search).toBe('');
+      // URL was stripped via preact-iso's `route()` (replace=true), not via
+      // a raw replaceState — keeps useLocation's reactive query in sync.
+      expect(mocks.locationValue.route).toHaveBeenCalledWith('/', true);
     });
 
     // Simulate the URL being stripped — flip the location mock and re-render.
