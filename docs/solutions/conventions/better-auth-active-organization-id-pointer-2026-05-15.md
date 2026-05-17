@@ -1,6 +1,7 @@
 ---
 title: "Better Auth `active_organization_id` is a session pointer, not a subscription signal"
 date: 2026-05-15
+last_updated: 2026-05-16
 category: conventions
 module: auth
 problem_type: convention
@@ -11,8 +12,9 @@ applies_when:
   - Reading `session.session.active_organization_id` to drive UI decisions
   - Designing recovery for cold-login or post-checkout flows where the session may be valid but no org is yet active
   - Wiring data fetches that depend on org-scoped backend endpoints (the worker `/api/practice/*` routes that 403 when no active org is set)
+  - Splitting "input in-flight" from "input settled empty" in any async resolver that backs a routing gate
 related_components: ["payments", "development_workflow"]
-tags: ["better-auth", "organization-plugin", "session", "active-organization-id", "pricing-gate", "multi-tenant", "recovery-hook"]
+tags: ["better-auth", "organization-plugin", "session", "active-organization-id", "pricing-gate", "multi-tenant", "recovery-hook", "route-intent", "propagation-race"]
 ---
 
 # Better Auth `active_organization_id` is a session pointer, not a subscription signal
@@ -144,23 +146,75 @@ The "wait for flags" gate above was rebuilt as a discriminated union to eliminat
 
 `RouteIntent` kinds encode the legitimate gate states by name:
 
-- `loading` — any input in-flight (session pending, practice list mid-fetch, recovery resolving, post-Stripe sync). **Loading is first-class, not implied by stale-false flags.**
+- `loading` — any input in-flight; carries a `reason: RouteLoadingReason` (`session-pending`, `practices-pending`, `recovery-resolving`, `post-stripe-syncing`). **Loading is first-class, not implied by stale-false flags.** Post-Stripe sync is now a loading *reason*, not a sibling kind — the consumer waits the same way.
 - `unauthenticated` — no user; the consumer redirects to `/auth`.
 - `onboarding-required` — authenticated user with `onboarding_complete: false`; consumer redirects to `/onboarding`.
 - `no-subscription` — authenticated, onboarded, but `!hasPracticeMembership && !active_organization_id` (the belt-and-braces above is enforced *inside* the union).
-- `post-stripe-syncing` — `?subscription=success` is present and the post-Stripe recovery is firing.
 - `practice-workspace` / `client-workspace` — settled; carries the destination data.
 
-The consumer is a side-effect-only emitter at [src/shared/auth/AuthenticatedRouter.tsx](src/shared/auth/AuthenticatedRouter.tsx) that returns `<Redirect>` for the kinds that need it and `null` otherwise. AppShell mounts it as a sibling of the Router; RootRoute switches on the kind directly.
+The consumer is a side-effect-only emitter at [src/shared/auth/AuthenticatedRouter.tsx](src/shared/auth/AuthenticatedRouter.tsx) that returns `<Redirect>` for the kinds that need it and `null` otherwise. It accepts a `loadingFallback` prop so the RootRoute branch can render `<LoadingScreen />` while AppShell renders `null`. It also kicks settled workspace users away from `/`, `/onboarding`, **and `/auth`** — so a signed-in user who navigates back to `/auth` is bounced to their workspace.
 
-**All raw reads of `session.session.active_organization_id` are now routed through [`getActiveOrganizationPointer`](src/shared/lib/authClient.ts) — the single canonical reader, exported from the auth-client module so it lives next to `unwrapSessionData` and the rest of the session normalization.** New code should not read the field directly. Adding a new gate state means extending `RouteIntent` (TypeScript will fail the consumer's exhaustive switch until every kind is handled), which is more discoverable than reading `session.session.active_organization_id` correctly.
+`useAuthRouteIntent` is hoisted to a single producer in [src/shared/auth/AuthRouteIntentContext.tsx](src/shared/auth/AuthRouteIntentContext.tsx): `AuthRouteIntentProvider` runs the hook once at the AppShell root; `useAuthRouteIntentValue()` is the consumer hook (it throws if used outside the provider). This guarantees AppShell and RootRoute see the same intent in the same render frame — running the hook twice would otherwise produce per-call closures that drift mid-recovery.
 
-The relevant work: [PR #577](https://github.com/Blawby/blawby-ai-chatbot/pull/577) (membership-signal fix), [PR #580](https://github.com/Blawby/blawby-ai-chatbot/pull/580) (memoization-of-failure fix), [docs/plans/2026-05-16-002-refactor-route-intent-consolidation-plan.md](docs/plans/2026-05-16-002-refactor-route-intent-consolidation-plan.md) (this refactor).
+**All raw reads of `session.session.active_organization_id` are now routed through [`getActiveOrganizationPointer`](src/shared/lib/authClient.ts) — the single canonical reader, exported from the auth-client module so it lives next to `unwrapSessionData` and the rest of the session normalization.** New code should not read the field directly. Adding a new gate state means extending `RouteIntent` (TypeScript will fail the consumer's exhaustive switch via `assertNeverIntent` until every kind is handled), which is more discoverable than reading `session.session.active_organization_id` correctly.
+
+### Two propagation traps closed by the consolidation
+
+Even with the discriminated union, the same gate-vs-async-input race can re-emerge inside any input that feeds it. Two specific traps from this refactor are worth naming so they don't get re-introduced in a future hook.
+
+**1. Lazy `useState` initializer trap (eligibility-flip-after-mount).** Lazy initializers (`useState(() => …)`) only evaluate once at mount. If the resolver's eligibility depends on `session.user` and session resolves *after* the component mounts (sign-in flow, hydration), the initial `false` state stays stuck — the gate sees "resolving=false + activeOrg=null + hasMembership=false" and fires `no-subscription` → `/pricing` flash.
+
+The fix in [src/shared/hooks/useEnsureActiveOrganization.ts](src/shared/hooks/useEnsureActiveOrganization.ts) is a synchronous `wouldFire` predicate folded into `isResolving`:
+
+```ts
+const wouldFire = Boolean(eligible && userId && !isSubscriptionSuccessReturn());
+const isResolving = isResolvingState || wouldFire || isAwaitingPropagation;
+```
+
+`wouldFire` re-evaluates every render against fresh inputs, so the gate stays in `loading` until the effect actually starts. Same pattern applies to [src/shared/hooks/usePracticeManagement.ts](src/shared/hooks/usePracticeManagement.ts): the lazy `isLoading` initializer returns `true` whenever `autoFetchPractices && !isAnonymous && !practicesLoaded && !practicesFetchForbidden` — never `false` by default at mount.
+
+**2. Recovery-completion propagation gap.** After `setActive({ organizationId })` succeeds and `getSession()` returns, there's a ~100ms window where React has not yet observed the new `active_organization_id` on `useSession()`'s subscription. The recovery hook's local "resolved" flag is `true`, but the session subscription still reads `null`. Gate sees resolving=false + activeOrg=null + hasMembership=false → `no-subscription` → `/pricing` flash (or `/client/dashboard` flash for practice users whose membership list hasn't refetched yet).
+
+The fix splits the resolver's terminal-state memo into two sets:
+
+```ts
+// useEnsureActiveOrganization.ts
+const resolvedWithOrgActivatedForUserIds = useRef(new Set<string>());  // awaiting propagation
+const resolvedNoOrgsForUserIds          = useRef(new Set<string>());  // terminal: no orgs
+
+const isAwaitingPropagation = Boolean(
+  userId && resolvedWithOrgActivatedForUserIds.has(userId) && !activeOrgId
+);
+const isResolving = isResolvingState || wouldFire || isAwaitingPropagation;
+```
+
+`isAwaitingPropagation` keeps the gate in `loading` until React's `useSession()` subscription observes the new `active_organization_id`. The terminal `resolvedNoOrgsForUserIds` set is the only path back to `no-subscription` — proof that the membership list is *settled empty*, not *pending after recovery*. This is the bug behind [#582](https://github.com/Blawby/blawby-ai-chatbot/issues/582) (recovery transient failure routes user to /pricing).
+
+**3. Chicken-and-egg on practice fetching.** `shouldFetchWorkspacePractices` in [src/index.tsx](src/index.tsx) must be gated on `activeOrgId` being set, not just on `session?.user && !isAnonymous`. The worker's `/api/practice/list` 403s without active-org context; firing it before recovery activates the org returns 403 → fetch marked as "forbidden" → `hasMembership=false` → `/client/dashboard` flash for practice users (or worse, `no-subscription` for the same root reason as trap #2).
+
+```ts
+const activeOrgId = getActiveOrganizationPointer(session);
+const shouldFetchWorkspacePractices = Boolean(
+  session?.user && !session.user.is_anonymous && activeOrgId
+);
+```
+
+### Cross-repo dependency: backend defaults-on-no-row
+
+A separate but related front-of-funnel trap: the backend's `/api/preferences` and `/api/preferences/{category}` endpoints previously returned 404 for users whose preferences row had not been created yet. AccountPage observed the 404 as a thrown `HttpError`, and an effect's dep churn re-fired the GET → re-threw → re-rendered, producing a 260+ console-error render loop. The fix lives in `blawby-backend` ([PR #267](https://github.com/Blawby/blawby-backend/pull/267)), not this repo: `preferences.service.ts` now returns synthetic defaults (`id: '00000000-0000-0000-0000-000000000000'`, empty per-category objects, applied notification/onboarding defaults) when no row exists. "User has never set any preferences" is a normal empty state, not a 404.
+
+This is a concrete instance of the [CLAUDE.md rule](CLAUDE.md#1-think-before-coding) "fix the API contract / source of truth first; do not add frontend fallbacks". The frontend's job is to render the empty state, not to swallow a 404 the backend should not have thrown.
+
+The relevant work for this consolidation: [PR #577](https://github.com/Blawby/blawby-ai-chatbot/pull/577) (membership-signal fix), [PR #580](https://github.com/Blawby/blawby-ai-chatbot/pull/580) (memoization-of-failure fix), [PR #581](https://github.com/Blawby/blawby-ai-chatbot/pull/581) (route-intent consolidation + propagation-gap fix), [blawby-backend PR #267](https://github.com/Blawby/blawby-backend/pull/267) (preferences-defaults backend), [docs/plans/2026-05-16-002-refactor-route-intent-consolidation-plan.md](docs/plans/2026-05-16-002-refactor-route-intent-consolidation-plan.md) (plan), [#582](https://github.com/Blawby/blawby-ai-chatbot/issues/582) (recovery transient failure issue).
 
 ## Related
 
 - Brainstorm: [docs/brainstorms/2026-05-15-pricing-gate-active-org-signal-requirements.md](docs/brainstorms/2026-05-15-pricing-gate-active-org-signal-requirements.md)
 - Plan: [docs/plans/2026-05-15-001-fix-pricing-gate-membership-signal-plan.md](docs/plans/2026-05-15-001-fix-pricing-gate-membership-signal-plan.md)
+- Plan (consolidation): [docs/plans/2026-05-16-002-refactor-route-intent-consolidation-plan.md](docs/plans/2026-05-16-002-refactor-route-intent-consolidation-plan.md)
+- Audit: [docs/audits/2026-05-16-session-auth-surface-audit.md](docs/audits/2026-05-16-session-auth-surface-audit.md)
 - Auth architecture: [docs/engineering/AUTHENTICATION_ARCHITECTURE.md](docs/engineering/AUTHENTICATION_ARCHITECTURE.md) (codifies `active_organization_id` as canonical snake_case session field, anti-fallback rule)
-- Loading-states convention: [docs/engineering/loading-states.md](docs/engineering/loading-states.md) (informs the `isResolving` design)
-- PR: [Blawby/blawby-ai-chatbot#577](https://github.com/Blawby/blawby-ai-chatbot/pull/577)
+- Loading-states convention: [docs/engineering/loading-states.md](docs/engineering/loading-states.md) (informs the `isResolving` design and `RouteLoadingReason` enum)
+- PRs: [Blawby/blawby-ai-chatbot#577](https://github.com/Blawby/blawby-ai-chatbot/pull/577) (membership-signal), [#580](https://github.com/Blawby/blawby-ai-chatbot/pull/580) (memoization-of-failure), [#581](https://github.com/Blawby/blawby-ai-chatbot/pull/581) (consolidation + propagation gap)
+- Cross-repo PR: [Blawby/blawby-backend#267](https://github.com/Blawby/blawby-backend/pull/267) (preferences defaults-on-no-row)
+- Issue: [#582](https://github.com/Blawby/blawby-ai-chatbot/issues/582) (recovery transient failure → /pricing) — root cause is the recovery-completion propagation gap closed in this work
