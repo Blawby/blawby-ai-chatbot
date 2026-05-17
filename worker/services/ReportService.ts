@@ -34,12 +34,25 @@ import {
 import { RemoteApiService } from './RemoteApiService.js';
 
 /**
- * Railway paths for the endpoints introduced in blawby-backend#233.
- * Keep the URLs here so they can be updated in one place when backend
- * confirms the final shape.
+ * Backend paths for report aggregations.
+ *
+ * `trustLedger` points at the live `/api/trust/{practiceId}/report` endpoint
+ * (modules/trust/routes.ts in blawby-backend). The historical
+ * `/api/trust-ledger/...` path referenced in blawby-backend#233 was never
+ * shipped — leaving the worker pointed at it produces a 400 from the matters
+ * `/api/matters/{practice_id}/{matter_id}` route's matter_id UUID validation,
+ * which then surfaces as a 500 to the UI.
+ *
+ * `wip` has no backend endpoint yet — the matters module exposes
+ * `/api/matters/{matter_id}/unbilled` per-matter, but no practice-wide
+ * aggregate. The worker treats this as `BackendUnavailableError` so the UI
+ * can show a "report unavailable" empty state instead of a hard error. When
+ * the backend ships a real endpoint, update the path here.
+ *
+ * `tasks` is unchanged pending a backend audit.
  */
 export const RAILWAY_REPORT_PATHS = {
-  trustLedger: (practiceId: string) => `/api/trust-ledger/${encodeURIComponent(practiceId)}`,
+  trustLedger: (practiceId: string) => `/api/trust/${encodeURIComponent(practiceId)}/report`,
   wip: (practiceId: string) => `/api/matters/${encodeURIComponent(practiceId)}/wip`,
   tasks: (practiceId: string) => `/api/tasks/${encodeURIComponent(practiceId)}`,
 } as const;
@@ -1036,9 +1049,12 @@ export class ReportService {
     options: { range: ResolvedDateRange }
   ): Promise<TrustLedgerAggregate> {
     const path = RAILWAY_REPORT_PATHS.trustLedger(practiceId);
+    // Backend (modules/trust/routes.ts) expects `start_date` / `end_date` ISO
+    // datetimes; the worker's older code used `start` / `end` which the
+    // backend silently ignored.
     const params = new URLSearchParams({
-      start: options.range.startIso,
-      end: options.range.endIso,
+      start_date: options.range.startIso,
+      end_date: options.range.endIso,
     });
     const url = `${this.backendUrl}${path}?${params.toString()}`;
     let resp: Response;
@@ -1047,7 +1063,13 @@ export class ReportService {
     } catch (err) {
       throw new BackendUnavailableError('trust-ledger', err instanceof Error ? err.message : 'network error');
     }
-    if (resp.status === 404 || resp.status === 501) {
+    // 404/501 → endpoint not deployed. 400 → URL pattern mismatch upstream
+    // (e.g. the backend's matters route accidentally catches `/api/...../wip`
+    // and complains about UUID format). All three signal "backend doesn't
+    // support this report yet"; surface as `BackendUnavailableError` so the
+    // route returns a graceful 503 with `BACKEND_NOT_AVAILABLE` rather than a
+    // generic 500.
+    if (resp.status === 404 || resp.status === 501 || resp.status === 400) {
       throw new BackendUnavailableError('trust-ledger');
     }
     if (!resp.ok) {
@@ -1075,7 +1097,12 @@ export class ReportService {
     } catch (err) {
       throw new BackendUnavailableError('wip', err instanceof Error ? err.message : 'network error');
     }
-    if (resp.status === 404 || resp.status === 501) {
+    // Same "backend doesn't have this yet" signals as trustLedger above.
+    // The wip endpoint specifically has never shipped — the matters module
+    // only exposes per-matter `/api/matters/{matter_id}/unbilled`, no
+    // practice-wide aggregate — so this branch is the steady state until a
+    // backend PR adds one.
+    if (resp.status === 404 || resp.status === 501 || resp.status === 400) {
       throw new BackendUnavailableError('wip');
     }
     if (!resp.ok) {
