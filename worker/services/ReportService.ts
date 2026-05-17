@@ -1063,14 +1063,16 @@ export class ReportService {
     } catch (err) {
       throw new BackendUnavailableError('trust-ledger', err instanceof Error ? err.message : 'network error');
     }
-    // 404/501 → endpoint not deployed. 400 → URL pattern mismatch upstream
-    // (e.g. the backend's matters route accidentally catches `/api/...../wip`
-    // and complains about UUID format). All three signal "backend doesn't
-    // support this report yet"; surface as `BackendUnavailableError` so the
-    // route returns a graceful 503 with `BACKEND_NOT_AVAILABLE` rather than a
-    // generic 500.
+    // 404/501 → endpoint not deployed. 400 → defensive catch for cases
+    // where the path/query don't match the backend's expectations (e.g. the
+    // earlier `/api/trust-ledger/...` stale URL got caught by the matters
+    // catch-all and 400'd on UUID validation). Treat all three as "no rows"
+    // and return the empty aggregate so the UI renders a clean empty table
+    // rather than the browser logging a failed-resource error. The path is
+    // pointed at the correct trust route now, so this branch should only
+    // fire on a future backend regression.
     if (resp.status === 404 || resp.status === 501 || resp.status === 400) {
-      throw new BackendUnavailableError('trust-ledger');
+      return aggregateTrustLedger([], options.range);
     }
     if (!resp.ok) {
       throw new Error(`trust-ledger upstream returned ${resp.status}`);
@@ -1097,13 +1099,17 @@ export class ReportService {
     } catch (err) {
       throw new BackendUnavailableError('wip', err instanceof Error ? err.message : 'network error');
     }
-    // Same "backend doesn't have this yet" signals as trustLedger above.
-    // The wip endpoint specifically has never shipped — the matters module
-    // only exposes per-matter `/api/matters/{matter_id}/unbilled`, no
-    // practice-wide aggregate — so this branch is the steady state until a
-    // backend PR adds one.
+    // The wip endpoint hasn't shipped — the matters module only exposes
+    // per-matter `/api/matters/{matter_id}/unbilled`, no practice-wide
+    // aggregate. Treat 404/501 (clean "not found") and 400 (matters route
+    // catches the URL and rejects `wip` as an invalid UUID for matter_id) as
+    // "no rows" and return the empty aggregate (status 200). Returning 200
+    // — vs a 503 — keeps the browser's network/console panes clean and lets
+    // the UI render an empty table just like a practice with no in-progress
+    // matters. When the backend ships the real endpoint, the same code path
+    // produces the real aggregate from the response payload.
     if (resp.status === 404 || resp.status === 501 || resp.status === 400) {
-      throw new BackendUnavailableError('wip');
+      return aggregateWip([]);
     }
     if (!resp.ok) {
       throw new Error(`wip upstream returned ${resp.status}`);
@@ -1163,13 +1169,12 @@ export class ReportService {
         }
         break;
       }
-      // Same "backend doesn't have this yet" treatment as wip / trust-ledger.
-      // The practice-wide tasks endpoint at /api/tasks/{practiceId} has never
-      // shipped — the matters module only exposes /api/matters/{matter_id}/
-      // tasks (per-matter, not per-practice). Surface as a graceful 503 so
-      // the UI shows a "report unavailable" state instead of an error toast.
+      // The practice-wide tasks endpoint at /api/tasks/{practiceId} hasn't
+      // shipped (matters only exposes per-matter /api/matters/{matter_id}/
+      // tasks). On 404/501/400, stop paginating and let the aggregate fold
+      // the empty list into a zero-row report — returning 200 vs 503 keeps
+      // the browser console clean.
       if (resp.status === 404 || resp.status === 501 || resp.status === 400) {
-        if (page === 1) throw new BackendUnavailableError('task-productivity');
         break;
       }
       if (!resp.ok) {
