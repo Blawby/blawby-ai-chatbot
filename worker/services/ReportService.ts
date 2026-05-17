@@ -1163,7 +1163,12 @@ export class ReportService {
         }
         break;
       }
-      if (resp.status === 404 || resp.status === 501) {
+      // Same "backend doesn't have this yet" treatment as wip / trust-ledger.
+      // The practice-wide tasks endpoint at /api/tasks/{practiceId} has never
+      // shipped — the matters module only exposes /api/matters/{matter_id}/
+      // tasks (per-matter, not per-practice). Surface as a graceful 503 so
+      // the UI shows a "report unavailable" state instead of an error toast.
+      if (resp.status === 404 || resp.status === 501 || resp.status === 400) {
         if (page === 1) throw new BackendUnavailableError('task-productivity');
         break;
       }
