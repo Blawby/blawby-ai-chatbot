@@ -1032,13 +1032,8 @@ function ClientPracticeRoute({
     sessionIsPending,
   ]);
 
-  useEffect(() => {
-    if (!slug || sessionIsPending) return;
-    if (!canAccessClientWorkspace) return;
-    if (workspaceView === 'home') {
-      navigate(`/client/${encodeURIComponent(slug)}/conversations`, true);
-    }
-  }, [canAccessClientWorkspace, workspaceView, slug, navigate, sessionIsPending]);
+  // Home tab renders the client dashboard (src/features/client-dashboard).
+  // Previously redirected to /conversations because no dashboard existed.
 
   if (sessionIsPending || practicesLoading || rolePending) {
     return <LoadingScreen />;
