@@ -2,7 +2,7 @@ import { Sparkles } from 'lucide-preact';
 import { Sidebar } from '@/shared/ui/nav/Sidebar';
 import { SidebarProfileMenu } from '@/shared/ui/nav/SidebarProfileMenu';
 import { useNavigation } from '@/shared/utils/navigation';
-import { signOut } from '@/shared/lib/authClient';
+import { signOut } from '@/shared/utils/auth';
 import {
   buildSidebarConfig,
   getClientNavConfig,
