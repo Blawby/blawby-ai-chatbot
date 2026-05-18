@@ -27,6 +27,8 @@ export const AddContactDialog = ({
   const submitLabel = createContact.submitting ? 'Sending...' : submitText;
 
   const handleClose = () => {
+    // Reset on dialog close — cancelled workflow starts fresh next open.
+    // See docs/solutions/conventions/form-reset-pattern-2026-05-18.md.
     createContact.reset();
     onClose();
   };

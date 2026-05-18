@@ -21,3 +21,6 @@ export type { DialogFooterProps } from './DialogFooter';
 
 export { InfoListDialog } from './InfoListDialog';
 export type { InfoListDialogProps, InfoListDialogItem } from './InfoListDialog';
+
+export { useDialogFormReset } from './useDialogFormReset';
+export type { UseDialogFormResetOptions } from './useDialogFormReset';

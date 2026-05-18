@@ -7,7 +7,7 @@ import { Button } from '@/shared/ui/Button';
 import { Input, Textarea, Combobox, Switch, type ComboboxOption } from '@/shared/ui/input';
 import { Tabs, type TabItem } from '@/shared/ui/tabs/Tabs';
 import { DataTable, type DataTableColumn, type DataTableRow } from '@/shared/ui/table/DataTable';
-import { Dialog, DialogBody, DialogFooter } from '@/shared/ui/dialog';
+import { Dialog, DialogBody, DialogFooter, useDialogFormReset } from '@/shared/ui/dialog';
 import { WorkspacePlaceholderState } from '@/shared/ui/layout/WorkspacePlaceholderState';
 import { InfiniteScroll } from '@/shared/ui/layout/InfiniteScroll';
 import { usePaginatedList } from '@/shared/hooks/usePaginatedList';
@@ -288,15 +288,21 @@ const CreateEngagementDialog: FunctionComponent<CreateEngagementDialogProps> = (
   const [isLoadingIntakes, setIsLoadingIntakes] = useState(false);
   const [intakesError, setIntakesError] = useState<string | null>(null);
 
-  // Reset state each time the dialog opens.
-  useEffect(() => {
-    if (!isOpen) return;
-    setForm(EMPTY_FORM);
-    setErrors({});
-    setHasAttemptedSubmit(false);
-    setSubmitting(false);
-    setSubmitError(null);
-  }, [isOpen]);
+  // Note: fee-structure tab switches inside this form must NOT clear fields —
+  // those are handled by `updateField('feeStructure', …)` which preserves all
+  // other form state.
+  useDialogFormReset({
+    isOpen,
+    trigger: 'on-open',
+    reason: 'Each open starts a fresh draft; clears any stale submit error or in-flight flag from a previously-interrupted attempt.',
+    reset: () => {
+      setForm(EMPTY_FORM);
+      setErrors({});
+      setHasAttemptedSubmit(false);
+      setSubmitting(false);
+      setSubmitError(null);
+    },
+  });
 
   // Fetch accepted intakes (client-side search filtering) on dialog open.
   useEffect(() => {

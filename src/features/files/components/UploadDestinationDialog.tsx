@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from 'preact/hooks';
+import { useMemo, useState } from 'preact/hooks';
 import { Briefcase, Inbox } from 'lucide-preact';
 
-import { Dialog, DialogBody, DialogFooter } from '@/shared/ui/dialog';
+import { Dialog, DialogBody, DialogFooter, useDialogFormReset } from '@/shared/ui/dialog';
 import { Combobox, type ComboboxOption } from '@/shared/ui/input/Combobox';
 import { Button } from '@/shared/ui/Button';
 import { Icon } from '@/shared/ui/Icon';
@@ -55,14 +55,14 @@ export const UploadDestinationDialog = ({
     enabled: isOpen,
   });
 
-  // Reset selection whenever the dialog reopens so a stale prior pick doesn't
-  // bleed into the new session.
-  useEffect(() => {
-    if (!isOpen) {
+  useDialogFormReset({
+    isOpen,
+    reason: 'Stale prior pick or in-flight upload list must not bleed into the next open.',
+    reset: () => {
       setDestinationValue('');
       setUploadingFiles([]);
-    }
-  }, [isOpen]);
+    },
+  });
 
   const options: ComboboxOption[] = useMemo(() => {
     const matterOptions = matters.map((matter) => ({

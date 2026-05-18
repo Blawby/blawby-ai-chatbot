@@ -51,6 +51,8 @@ export const MatterExpensesPanel = ({
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState<MatterExpense | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<MatterExpense | null>(null);
+  // Increment-on-record-switch + `key={formKey}` remount. See
+  // docs/solutions/conventions/form-reset-pattern-2026-05-18.md.
   const [formKey, setFormKey] = useState(0);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);

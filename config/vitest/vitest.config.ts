@@ -82,6 +82,7 @@ export default defineConfig({
             'src/__tests__/RTLSupport.test.tsx',
             'src/components/settings/**/__tests__/**/*.{test,spec}.{js,ts,jsx,tsx}',
             'src/shared/ui/**/__tests__/**/*.{test,spec}.{js,ts,jsx,tsx}',
+            'src/shared/components/**/__tests__/**/*.{test,spec}.{js,ts,jsx,tsx}',
             'src/features/invoices/components/**/__tests__/**/*.{test,spec}.{js,ts,jsx,tsx}',
             'tests/component/**/*.{test,spec}.{js,ts,jsx,tsx}',
           ],

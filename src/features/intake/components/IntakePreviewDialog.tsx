@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'preact/hooks';
+import { useState } from 'preact/hooks';
 import { ExternalLink } from 'lucide-preact';
 
-import { Dialog, DialogBody, DialogFooter } from '@/shared/ui/dialog';
+import { Dialog, DialogBody, DialogFooter, useDialogFormReset } from '@/shared/ui/dialog';
 import { Button } from '@/shared/ui/Button';
 import { WidgetPreviewFrame } from '@/features/settings/components/WidgetPreviewFrame';
 import { getPublicFormUrl } from '@/features/intake/components/EmbedCodeBlock';
@@ -37,12 +37,14 @@ export const IntakePreviewDialog = ({
   const [isPublishing, setIsPublishing] = useState(false);
   const [publishError, setPublishError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!isOpen) {
+  useDialogFormReset({
+    isOpen,
+    reason: 'Cancelled publish flow — clear in-flight + error state on close.',
+    reset: () => {
       setIsPublishing(false);
       setPublishError(null);
-    }
-  }, [isOpen]);
+    },
+  });
 
   const previewConfig: WidgetPreviewConfig = {
     name: practiceName ?? undefined,

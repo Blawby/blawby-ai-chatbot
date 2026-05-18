@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'preact/hooks';
-import { Dialog, DialogBody, DialogFooter } from '@/shared/ui/dialog';
+import { useState } from 'preact/hooks';
+import { Dialog, DialogBody, DialogFooter, useDialogFormReset } from '@/shared/ui/dialog';
 import { Button } from '@/shared/ui/Button';
 import { CurrencyInput, Textarea } from '@/shared/ui/input';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
@@ -25,13 +25,15 @@ export const RefundRequestDialog = ({
   const [reason, setReason] = useState('');
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!isOpen) {
+  useDialogFormReset({
+    isOpen,
+    reason: 'Cancelled refund workflow — clear draft on close.',
+    reset: () => {
       setAmount(undefined);
       setReason('');
       setError(null);
-    }
-  }, [isOpen]);
+    },
+  });
 
   const handleSubmit = () => {
     if (loading) return;

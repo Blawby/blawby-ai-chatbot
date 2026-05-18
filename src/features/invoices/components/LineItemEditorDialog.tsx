@@ -34,6 +34,9 @@ export const LineItemEditorDialog = ({
   const step = (billingIncrementMinutes && billingIncrementMinutes > 0)
     ? billingIncrementMinutes / 60
     : 0.1;
+  // Lazy init from the `item` prop. Parents remount this dialog per record
+  // (key={item.id} or unmount-on-close), so no re-sync effect is needed.
+  // See docs/solutions/conventions/form-reset-pattern-2026-05-18.md.
   const [formData, setFormData] = useState<InvoiceLineItem>(() => item ?? newLineItem());
 
   const updateField = useCallback((patch: Partial<InvoiceLineItem>) => {
@@ -55,6 +58,7 @@ export const LineItemEditorDialog = ({
   const handleSaveAndAddAnother = useCallback(() => {
     if (item !== null || !canSave) return;
     onSave(formData);
+    // Reset on successful submit — user explicitly requested to add another.
     setFormData(newLineItem());
   }, [item, canSave, formData, onSave]);
 
