@@ -458,11 +458,12 @@ function AppShell() {
           <Route path="/debug/conversations" component={DevDebugConversationsRoute} />
           <Route path="/debug/matters" component={DevDebugMatterRoute} />
           <Route path="/pay" component={PayRedirect} />
-          <Route path="/public/:practiceSlug/intake/:templateSlug" component={(props) => <PublicWorkspaceRoute {...props} variant="card" />} />
-          <Route path="/public/:practiceSlug" component={(props) => <PublicWorkspaceRoute {...props} variant="widget" />} />
-          <Route path="/public/:practiceSlug/conversations" component={(props) => <PublicWorkspaceRoute {...props} variant="widget" />} />
-          <Route path="/public/:practiceSlug/conversations/:conversationId" component={(props) => <PublicWorkspaceRoute {...props} variant="widget" />} />
-          <Route path="/public/:practiceSlug/matters" component={(props) => <PublicWorkspaceRoute {...props} variant="widget" />} />
+          <Route path="/public/:practiceSlug/welcome" component={(props) => <PublicWorkspaceRoute {...props} shell="marketing" />} />
+          <Route path="/public/:practiceSlug/intake/:templateSlug" component={PublicWorkspaceRoute} />
+          <Route path="/public/:practiceSlug" component={PublicWorkspaceRoute} />
+          <Route path="/public/:practiceSlug/conversations" component={PublicWorkspaceRoute} />
+          <Route path="/public/:practiceSlug/conversations/:conversationId" component={PublicWorkspaceRoute} />
+          <Route path="/public/:practiceSlug/matters" component={PublicWorkspaceRoute} />
           <Route path="/client" component={App404} />
           <Route path="/client/dashboard" component={ClientDashboardRoute} />
           <Route path="/client/:practiceSlug" component={ClientPracticeRoute} workspaceView="home" />
@@ -1032,13 +1033,8 @@ function ClientPracticeRoute({
     sessionIsPending,
   ]);
 
-  useEffect(() => {
-    if (!slug || sessionIsPending) return;
-    if (!canAccessClientWorkspace) return;
-    if (workspaceView === 'home') {
-      navigate(`/client/${encodeURIComponent(slug)}/conversations`, true);
-    }
-  }, [canAccessClientWorkspace, workspaceView, slug, navigate, sessionIsPending]);
+  // Home tab renders the client dashboard (src/features/client-dashboard).
+  // Previously redirected to /conversations because no dashboard existed.
 
   if (sessionIsPending || practicesLoading || rolePending) {
     return <LoadingScreen />;

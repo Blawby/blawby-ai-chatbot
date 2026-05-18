@@ -2,7 +2,7 @@ import { useState } from 'preact/hooks';
 import { Sidebar } from '@/shared/ui/nav/Sidebar';
 import { SidebarProfileMenu } from '@/shared/ui/nav/SidebarProfileMenu';
 import { useNavigation } from '@/shared/utils/navigation';
-import { signOut } from '@/shared/lib/authClient';
+import { signOut } from '@/shared/utils/auth';
 import {
   buildSidebarConfig,
   getPracticeNavConfig,
@@ -154,6 +154,7 @@ export const PracticeSidebar = ({
                 isAction={item.isAction}
                 onClick={item.onClick}
                 expandable={item.expandable || children.length > 0}
+                expandOnly={item.expandOnly}
                 persistKey={`practice:${item.id}`}
               >
                 {(() => {
@@ -184,8 +185,12 @@ export const PracticeSidebar = ({
                         onClick={
                           onSecondaryItemClick
                             ? () => {
-                                const matched = findSecondaryItem(child.id);
-                                if (matched) onSecondaryItemClick(child.id, matched);
+                                // findSecondaryItem only walks navConfig.secondary, so
+                                // children under primary items (e.g. Settings sub-items)
+                                // miss. Fall back to the rendered child — handler reads
+                                // item.href to navigate.
+                                const matched = findSecondaryItem(child.id) ?? child;
+                                onSecondaryItemClick(child.id, matched);
                               }
                             : undefined
                         }
@@ -248,7 +253,7 @@ export const PracticeSidebar = ({
             user={user}
             collapsed={isCollapsed}
             onAccount={() => navigate(`${basePath}/settings/account`)}
-            onInvoices={() => navigate(`${basePath}/invoices`)}
+            onSettings={() => navigate(`${basePath}/settings/general`)}
             onSignOut={() => void signOut({ navigate })}
           />
         </Sidebar.Footer>

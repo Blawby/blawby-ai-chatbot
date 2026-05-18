@@ -7,9 +7,10 @@ import { LoadingScreen } from '@/shared/ui/layout/LoadingScreen';
 import { App404 } from '@/features/practice/components/404';
 import { WidgetApp } from '@/app/WidgetApp';
 import { WidgetPreviewApp } from '@/app/WidgetPreviewApp';
-import PublicIntakeCard from '@/shared/ui/layout/PublicIntakeCard';
+import EmbedShell from '@/shared/ui/layout/EmbedShell';
+import DirectShell from '@/shared/ui/layout/DirectShell';
+import MarketingShell from '@/shared/ui/layout/MarketingShell';
 import { SEOHead } from '@/app/SEOHead';
-import { setWidgetRuntimeContext } from '@/shared/utils/widgetAuth';
 import { normalizePracticeDetailsResponse } from '@/shared/lib/apiClient';
 import { setPracticeDetailsEntry } from '@/shared/stores/practiceDetailsStore';
 import type { WidgetPreviewConfig, WidgetPreviewMessage, WidgetPreviewScenario } from '@/shared/types/widgetPreview';
@@ -19,56 +20,51 @@ interface PublicWorkspaceRouteProps {
   practiceSlug?: string;
   templateSlug?: string;
   conversationId?: string;
-  variant?: 'widget' | 'card' | 'preview';
+  shell?: 'marketing';
 }
+
+const isEmbedQuery = (search: URLSearchParams): boolean => search.get('v') === 'widget';
+
+const isPreviewQuery = (search: URLSearchParams): boolean => search.get('preview') === '1';
+
+const getSearchParams = (locationUrl: string | undefined): URLSearchParams => {
+  if (typeof window !== 'undefined') {
+    return new URLSearchParams(window.location.search);
+  }
+  const queryPart = (locationUrl ?? '').split('?')[1] ?? '';
+  return new URLSearchParams(queryPart);
+};
 
 export const PublicWorkspaceRoute: FunctionComponent<PublicWorkspaceRouteProps> = ({
   practiceSlug,
-  templateSlug,
+  // templateSlug is consumed downstream via bootstrap data, not by this component directly.
+  templateSlug: _templateSlug,
   conversationId,
-  variant = 'widget'
+  shell,
 }) => {
   const location = useLocation();
   const slug = (practiceSlug ?? '').trim();
+  const searchParams = getSearchParams(location.url);
 
-  // variant="preview" implies we are in widget mode.
-  // Otherwise, check if we should be in widget mode based on the URL.
-  const isWidget = variant === 'preview' || variant === 'card' || (() => {
-    const isWidgetParam = (location.query?.v === 'widget' || (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('v') === 'widget'));
-    const hasTemplate = !!templateSlug || !!location.query?.template || (typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('template'));
-    return isWidgetParam || hasTemplate;
-  })();
+  // Bootstrap always loads for public widget routes — the widget body needs
+  // practice config + session regardless of which shell wraps it.
+  const isWidget = true;
 
   const { data, isLoading, error } = useWidgetBootstrap(slug, isWidget);
 
-  // --- Preview State ---
-  // Only used if variant is 'preview' or if the URL explicitly requests preview mode.
-  const isPreviewRequested = isWidget && (
-    variant === 'preview' ||
-    (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('preview') === '1') ||
-    location.query?.preview === '1'
-  );
+  const isPreviewRequested = isPreviewQuery(searchParams);
+  const isEmbed = isEmbedQuery(searchParams);
 
   const initialScenario = useMemo<WidgetPreviewScenario>(() => {
-    const raw = typeof location.query?.scenario === 'string'
-      ? location.query.scenario
-      : new URLSearchParams((location.url ?? '').split('?')[1] ?? '').get('scenario');
-    // Accept only allowed scenarios, fallback to 'messenger-start'
+    const params = getSearchParams(location.url);
+    const raw = params.get('scenario');
     return raw === 'consultation-payment' || raw === 'service-routing' || raw === 'messenger-start' || raw === 'intake-template'
       ? raw
       : 'messenger-start';
-  }, [location.query?.scenario, location.url]);
+  }, [location.url]);
 
   const [previewScenario, setPreviewScenario] = useState<WidgetPreviewScenario>(initialScenario);
   const [previewConfig, setPreviewConfig] = useState<WidgetPreviewConfig>({});
-
-  useEffect(() => {
-    if (!isWidget) return;
-    setWidgetRuntimeContext(true);
-    return () => {
-      setWidgetRuntimeContext(false);
-    };
-  }, [isWidget]);
 
   useEffect(() => {
     if (!isPreviewRequested) return;
@@ -143,24 +139,34 @@ export const PublicWorkspaceRoute: FunctionComponent<PublicWorkspaceRouteProps> 
     />
   );
 
-  return (
-    <>
-      <SEOHead
-        practiceConfig={practiceConfig}
-        currentUrl={currentUrl}
-      />
-      {isPreviewRequested ? (
+  // Preview takes precedence — it owns its own shell internally (EmbedShell).
+  if (isPreviewRequested) {
+    return (
+      <>
+        <SEOHead practiceConfig={practiceConfig} currentUrl={currentUrl} />
         <WidgetPreviewApp
           practiceId={resolvedPracticeId}
           practiceConfig={practiceConfig}
           scenario={previewScenario}
           previewConfig={previewConfig}
         />
-      ) : (variant === 'card' || !!templateSlug || typeof location.query?.template === 'string') ? (
-        <PublicIntakeCard>
-          {widgetApp}
-        </PublicIntakeCard>
-      ) : widgetApp}
+      </>
+    );
+  }
+
+  // Shell selection:
+  //   shell="marketing"  → MarketingShell (opt-in, /public/:slug/welcome route)
+  //   ?v=widget          → EmbedShell (iframe embed, set by widget-loader.js)
+  //   default            → DirectShell (full-viewport direct visit)
+  // Path-param :templateSlug intentionally does NOT imply EmbedShell — the
+  // template is a data choice, not a layout choice. /public/:slug/intake/:tpl
+  // gets DirectShell so direct visitors see a full-viewport experience.
+  const Shell = shell === 'marketing' ? MarketingShell : isEmbed ? EmbedShell : DirectShell;
+
+  return (
+    <>
+      <SEOHead practiceConfig={practiceConfig} currentUrl={currentUrl} />
+      <Shell>{widgetApp}</Shell>
     </>
   );
 };

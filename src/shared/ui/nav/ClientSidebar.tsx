@@ -2,7 +2,7 @@ import { Sparkles } from 'lucide-preact';
 import { Sidebar } from '@/shared/ui/nav/Sidebar';
 import { SidebarProfileMenu } from '@/shared/ui/nav/SidebarProfileMenu';
 import { useNavigation } from '@/shared/utils/navigation';
-import { signOut } from '@/shared/lib/authClient';
+import { signOut } from '@/shared/utils/auth';
 import {
   buildSidebarConfig,
   getClientNavConfig,
@@ -120,6 +120,7 @@ export const ClientSidebar = ({
                 isAction={item.isAction}
                 onClick={item.onClick}
                 expandable={item.expandable || children.length > 0}
+                expandOnly={item.expandOnly}
                 persistKey={`client:${item.id}`}
               >
                 {(() => {
@@ -148,8 +149,12 @@ export const ClientSidebar = ({
                         onClick={
                           onSecondaryItemClick
                             ? () => {
-                                const matched = findSecondaryItem(child.id);
-                                if (matched) onSecondaryItemClick(child.id, matched);
+                                // findSecondaryItem only walks navConfig.secondary, so
+                                // children that live under a primary item (e.g. Settings
+                                // sub-items) miss. Fall back to the rendered child — it
+                                // already carries the href the handler navigates with.
+                                const matched = findSecondaryItem(child.id) ?? child;
+                                onSecondaryItemClick(child.id, matched);
                               }
                             : undefined
                         }
@@ -176,6 +181,7 @@ export const ClientSidebar = ({
             user={user}
             collapsed={isCollapsed}
             onAccount={() => navigate(`${basePath}/settings/account`)}
+            onSettings={() => navigate(`${basePath}/settings/general`)}
             onSignOut={() => void signOut({ navigate })}
           />
         </Sidebar.Footer>

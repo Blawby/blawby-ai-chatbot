@@ -96,6 +96,11 @@ export type NavRailItem = {
   /** If true, the unified Sidebar renders an expand chevron even when the item
    *  currently has no children attached (e.g. another section is active). */
   expandable?: boolean;
+  /** If true, clicking the item in the desktop Sidebar only toggles its dropdown
+   *  and does NOT navigate to `href`. Useful for "container" items whose only
+   *  purpose is to reveal sub-items (e.g. Settings). Mobile bottom nav (NavRail)
+   *  still navigates to `href` as usual. */
+  expandOnly?: boolean;
   /** Fired on hover/focus — preload code chunk + seed data so the click
    *  feels instant. Idempotent. */
   prefetch?: () => void;
@@ -125,6 +130,10 @@ export type NavSection = {
 export type NavConfig = {
   rail: NavRailItem[];
   secondary?: NavSection[];
+  /** Pre-computed Settings secondary, always attached to the Settings rail item
+   *  in buildSidebarConfig regardless of current section — so clicking Settings
+   *  expands inline instead of waiting for a navigation to attach children. */
+  settingsChildren?: SidebarChild[];
 };
 
 export const MATTERS_FILTER_MAP: Record<string, string[]> = {
@@ -246,19 +255,13 @@ const buildPracticeRail = (basePath: string): NavRailItem[] => [
     prefetch: prefetchReportsChunk,
   },
   {
-    id: 'coverage',
-    label: 'Coverage',
-    icon: Map,
-    href: `${basePath}/coverage`,
-    matchHrefs: [`${basePath}/coverage`],
-  },
-  {
     id: 'settings',
     label: 'Settings',
     icon: SettingsNavIcon,
     href: `${basePath}/settings/general`,
-    matchHrefs: [`${basePath}/settings`],
+    matchHrefs: [`${basePath}/settings`, `${basePath}/coverage`],
     expandable: true,
+    expandOnly: true,
     prefetch: prefetchSettingsLanding,
   },
 ];
@@ -314,6 +317,7 @@ const buildClientRail = (basePath: string): NavRailItem[] => [
     href: `${basePath}/settings/general`,
     matchHrefs: [`${basePath}/settings`],
     expandable: true,
+    expandOnly: true,
     prefetch: prefetchSettingsLanding,
   },
 ];
@@ -456,6 +460,7 @@ const buildSettingsSecondary = (basePath: string, canAccessPractice: boolean): N
         { id: 'practice', label: 'Practice', href: `${basePath}/settings/practice`, icon: Building2 },
         { id: 'practice-payouts', label: 'Payouts', href: `${basePath}/settings/practice/payouts`, icon: CreditCard },
         { id: 'practice-team', label: 'Team', href: `${basePath}/settings/practice/team`, icon: Users },
+        { id: 'coverage', label: 'Coverage', href: `${basePath}/coverage`, icon: Map },
         { id: 'intake-forms', label: 'Intake Forms', href: `${basePath}/settings/intake-forms`, icon: FileText },
         { id: 'apps', label: 'Apps', href: `${basePath}/settings/apps`, icon: Puzzle },
       ],
@@ -508,6 +513,7 @@ export function getPracticeNavConfig(ctx: NavCtx, section: WorkspaceSection = 'h
   return {
     rail: buildPracticeRail(basePath),
     secondary: buildSecondary(basePath, section, 'practice', true),
+    settingsChildren: flattenSecondary(buildSettingsSecondary(basePath, true)),
   };
 }
 
@@ -516,6 +522,7 @@ export function getClientNavConfig(ctx: NavCtx, section: WorkspaceSection = 'hom
   return {
     rail: buildClientRail(basePath),
     secondary: buildSecondary(basePath, section, 'client', false),
+    settingsChildren: flattenSecondary(buildSettingsSecondary(basePath, false)),
   };
 }
 
@@ -528,6 +535,7 @@ export function getSettingsNavConfig(ctx: NavCtx): NavConfig {
   return {
     rail: usePracticeBase ? buildPracticeRail(basePath) : buildClientRail(basePath),
     secondary: buildSettingsSecondary(basePath, usePracticeBase),
+    settingsChildren: flattenSecondary(buildSettingsSecondary(basePath, usePracticeBase)),
   };
 }
 
@@ -578,7 +586,6 @@ const RAIL_ID_TO_SECTION: Record<string, WorkspaceSection> = {
   invoices: 'invoices',
   reports: 'reports',
   settings: 'settings',
-  coverage: 'coverage',
 };
 
 /**
@@ -632,9 +639,17 @@ export function buildSidebarConfig(navConfig: NavConfig, currentSection: Workspa
   const items: SidebarItem[] = navConfig.rail.map((railItem) => {
     const railSection = RAIL_ID_TO_SECTION[railItem.id];
     const isCurrent = railSection === currentSection;
-    return isCurrent && secondaryChildren.length
-      ? { ...railItem, children: secondaryChildren }
-      : railItem;
+    if (isCurrent && secondaryChildren.length) {
+      return { ...railItem, children: secondaryChildren };
+    }
+    // The Settings rail item always carries its full child list so a click
+    // expands the dropdown inline (instead of forcing a navigation just to
+    // reveal the children). Other rail items keep the current behavior:
+    // children only appear once that section is active.
+    if (railItem.id === 'settings' && navConfig.settingsChildren?.length) {
+      return { ...railItem, children: navConfig.settingsChildren };
+    }
+    return railItem;
   });
   return { sections: [{ label: 'Platform', items }] };
 }

@@ -1,8 +1,11 @@
 import { FunctionComponent } from 'preact';
-import { useEffect, useRef, useCallback } from 'preact/hooks';
+import { createPortal } from 'preact/compat';
+import { useEffect, useRef, useCallback, useState } from 'preact/hooks';
 import { FileText, Image, MessageSquare } from 'lucide-preact';
 
 import { Icon } from '@/shared/ui/Icon';
+import { THEME } from '@/shared/utils/constants';
+import { resolveOverlayMount } from '@/shared/ui/overlays/WidgetOverlayRoot';
 
 interface DragDropOverlayProps {
   isVisible: boolean;
@@ -16,6 +19,11 @@ interface DragDropOverlayProps {
  */
 const DragDropOverlay: FunctionComponent<DragDropOverlayProps> = ({ isVisible, onClose }) => {
   const overlayRef = useRef<HTMLDivElement>(null);
+  const [portalTarget, setPortalTarget] = useState<Element | null>(null);
+
+  useEffect(() => {
+    setPortalTarget(resolveOverlayMount());
+  }, []);
 
   useEffect(() => {
     if (isVisible && overlayRef.current) {
@@ -36,13 +44,14 @@ const DragDropOverlay: FunctionComponent<DragDropOverlayProps> = ({ isVisible, o
     }
   }, [isVisible, onClose, handleKeyDown]);
 
-  if (!isVisible) return null;
+  if (!isVisible || !portalTarget) return null;
 
-  return (
+  return createPortal(
     <div
       ref={overlayRef}
       tabIndex={-1}
-      className="pointer-events-none fixed inset-0 z-[9999] flex items-center justify-center bg-surface-app-frame/40 backdrop-blur-[2px]"
+      className="pointer-events-none fixed inset-0 flex items-center justify-center bg-surface-app-frame/40 backdrop-blur-[2px]"
+      style={{ zIndex: THEME.zIndex.modal }}
       role="status"
       aria-label="Drop files to add to the conversation"
       aria-live="polite"
@@ -69,7 +78,8 @@ const DragDropOverlay: FunctionComponent<DragDropOverlayProps> = ({ isVisible, o
           </p>
         </div>
       </div>
-    </div>
+    </div>,
+    portalTarget,
   );
 };
 

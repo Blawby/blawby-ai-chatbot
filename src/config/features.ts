@@ -25,6 +25,12 @@ interface FeatureFlags {
     enableFileAttachments: boolean;
 
     /**
+     * Enable in-composer camera capture ("Take Photo" menu item)
+     * When false, the camera item is hidden from the file menu.
+     */
+    enableCameraCapture: boolean;
+
+    /**
      * Enable AI feedback and copy buttons on messages
      * When false, feedback UI and copy functionality will be hidden from messages
      */
@@ -115,6 +121,7 @@ const baseFeatureConfig: FeatureFlags = {
     enableAudioRecording: true, // Voice memo button shown inside the composer pill
     enableVideoRecording: false, // Not implemented yet
     enableFileAttachments: true, // Enabled for authenticated (client/practice) workspaces only
+    enableCameraCapture: false, // Hide "Take Photo" menu item — not supported at this time
     enableMessageFeedback: false, // Disable feedback and copy buttons on messages
     enableDisclaimerText: false, // Disable disclaimer text below input
     enableLearnServicesButton: false, // Hide learn services button

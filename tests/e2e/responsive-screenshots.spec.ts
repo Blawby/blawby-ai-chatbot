@@ -3,10 +3,20 @@ import type { Page } from '@playwright/test';
 
 const PRACTICE_SLUG = process.env.E2E_PRACTICE_SLUG ?? 'paul-yahoo';
 const PRACTICE_BASE = `/practice/${encodeURIComponent(PRACTICE_SLUG)}`;
-const PUBLIC_WIDGET = `/public/${encodeURIComponent(PRACTICE_SLUG)}?v=widget`;
+const PUBLIC_BASE = `/public/${encodeURIComponent(PRACTICE_SLUG)}`;
+const PUBLIC_WIDGET = `${PUBLIC_BASE}?v=widget`;
+const PUBLIC_DIRECT = PUBLIC_BASE;
+const PUBLIC_WELCOME = `${PUBLIC_BASE}/welcome`;
+const INTAKE_TEMPLATE = process.env.E2E_INTAKE_TEMPLATE ?? 'family-law';
+const PUBLIC_INTAKE = `${PUBLIC_BASE}/intake/${encodeURIComponent(INTAKE_TEMPLATE)}`;
 
 const ROUTES: Array<{ name: string; path: string }> = [
-  { name: 'public-widget', path: PUBLIC_WIDGET },
+  // Public widget — three shells + intake-template path-param (was card, now Direct)
+  { name: 'public-widget-embed', path: PUBLIC_WIDGET },
+  { name: 'public-widget-direct', path: PUBLIC_DIRECT },
+  { name: 'public-widget-intake', path: PUBLIC_INTAKE },
+  { name: 'public-widget-welcome', path: PUBLIC_WELCOME },
+  // Practice (authenticated)
   { name: 'practice-home', path: PRACTICE_BASE },
   { name: 'practice-matters', path: `${PRACTICE_BASE}/matters` },
 ];

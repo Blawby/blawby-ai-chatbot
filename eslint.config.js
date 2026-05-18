@@ -10,6 +10,7 @@ import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const loadingConsistency = require('./config/eslint-rules/loading-consistency.cjs');
 const noInlineContextValue = require('./config/eslint-rules/no-inline-context-value.cjs');
+const noFixedInWidgetInterior = require('./config/eslint-rules/no-fixed-in-widget-interior.cjs');
 
 export default [
   // Base JavaScript configuration
@@ -86,6 +87,7 @@ export default [
         rules: {
           'loading-consistency': loadingConsistency,
           'no-inline-context-value': noInlineContextValue,
+          'no-fixed-in-widget-interior': noFixedInWidgetInterior,
           'no-hardcoded-colors': {
             create(context) {
               const COLORS_REGEX = /text-white|text-black|bg-white|bg-black|\b(gray|zinc|neutral|stone|blue|indigo|purple|slate)-/;
@@ -225,7 +227,16 @@ export default [
     }
   },
 
-  
+  // Widget interior — overlays must portal via WidgetOverlayRoot.
+  // Scope is intentionally narrow to widget-exclusive directories;
+  // chat/pages and chat/components are dual-use under AppShell.
+  {
+    files: ['src/features/chat/views/**/*.{ts,tsx}', 'src/features/intake/**/*.{ts,tsx}'],
+    rules: {
+      'custom/no-fixed-in-widget-interior': 'error',
+    },
+  },
+
   // Worker files (Cloudflare Workers runtime)
   {
     files: ['worker/**/*.{ts,js}'],

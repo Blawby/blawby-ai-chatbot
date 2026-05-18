@@ -276,6 +276,11 @@ export interface SidebarItemProps {
   onClick?: () => void;
   /** Renders a chevron and toggles children visibility. Auto-expands when a child is active. */
   expandable?: boolean;
+  /** When true, clicking the item only toggles expansion — `href` is ignored for
+   *  navigation purposes. The href can still be used by `matchHrefs` consumers
+   *  (active highlight, mobile bottom nav) so this only affects the desktop
+   *  Sidebar click behavior. */
+  expandOnly?: boolean;
   /** Initial expanded state (uncontrolled). */
   defaultExpanded?: boolean;
   /** Controlled expanded state. */
@@ -314,6 +319,7 @@ const SidebarItem: FunctionComponent<SidebarItemProps> = ({
   isAction = false,
   onClick,
   expandable = false,
+  expandOnly = false,
   defaultExpanded,
   expanded: controlledExpanded,
   onExpandedChange,
@@ -351,12 +357,16 @@ const SidebarItem: FunctionComponent<SidebarItemProps> = ({
   // rail item itself nor any of its children is active). Without this, the
   // persisted expanded state would re-open the dropdown on return — leaking
   // expansion across sections so multiple rail items appear "open" at once.
+  //
+  // expandOnly items are exempt: their whole point is that the user can open
+  // them from anywhere without an accompanying navigation, so the auto-collapse
+  // would immediately close the dropdown the user just opened.
   useEffect(() => {
-    if (!expandable || controlledExpanded !== undefined) return;
+    if (!expandable || controlledExpanded !== undefined || expandOnly) return;
     if (!isActive && !childActiveAuto && uncontrolledExpanded) {
       setUncontrolledExpanded(false);
     }
-  }, [expandable, controlledExpanded, isActive, childActiveAuto, uncontrolledExpanded]);
+  }, [expandable, expandOnly, controlledExpanded, isActive, childActiveAuto, uncontrolledExpanded]);
 
   // Persist uncontrolled expand state so a manual collapse/expand survives a
   // refresh. Only writes when the item has children (otherwise the state has no
@@ -395,7 +405,7 @@ const SidebarItem: FunctionComponent<SidebarItemProps> = ({
     }
     if (hasChildren) {
       setExpanded(!isExpanded);
-      if (href) {
+      if (!expandOnly && href) {
         if (onClick) onClick();
         else navigate(href);
         ctx.onItemActivate?.();
@@ -411,7 +421,7 @@ const SidebarItem: FunctionComponent<SidebarItemProps> = ({
       navigate(href);
       ctx.onItemActivate?.();
     }
-  }, [isAction, hasChildren, href, onClick, isExpanded, setExpanded, navigate, ctx]);
+  }, [isAction, hasChildren, expandOnly, href, onClick, isExpanded, setExpanded, navigate, ctx]);
 
   // Render the chevron whenever the item is conceptually expandable, even if no
   // children are currently attached (e.g. a different section is active).

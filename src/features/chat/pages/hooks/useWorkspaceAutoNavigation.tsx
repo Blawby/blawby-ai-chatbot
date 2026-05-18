@@ -119,9 +119,12 @@ export function useWorkspaceAutoNavigation(
     workspaceSection,
   ]);
 
-  // Client workspace on desktop: pick the first conversation if none is active.
+  // Client workspace on desktop, conversations section: pick the first
+  // conversation if none is active. Gated on workspaceSection so the home tab
+  // can render the client dashboard instead of bouncing straight to messages.
   useEffect(() => {
     if (!isClientWorkspace || layoutMode !== 'desktop') return;
+    if (workspaceSection !== 'conversations') return;
     if (activeConversationId || hasAutoNavigatedRef.current) return;
     if (resolvedConversationsLoading) return;
     if (navigationInitiatedRef.current) return;
@@ -135,6 +138,7 @@ export function useWorkspaceAutoNavigation(
   }, [
     isClientWorkspace,
     layoutMode,
+    workspaceSection,
     activeConversationId,
     resolvedConversationsLoading,
     filteredConversations,
