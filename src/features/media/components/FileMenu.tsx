@@ -6,6 +6,7 @@ import { Icon } from '@/shared/ui/Icon';
 import { Button } from '@/shared/ui/Button';
 import CameraDialog from '@/features/modals/components/CameraDialog';
 import { THEME } from '@/shared/utils/constants';
+import { features } from '@/config/features';
 
 interface FileMenuProps {
   onFileSelect: (files: File[]) => void;
@@ -175,17 +176,19 @@ const FileMenu: FunctionComponent<FileMenuProps> = ({
             <Icon icon={Image} className="w-5 h-5" aria-hidden="true"  />
           </Button>
 
-          <Button
-            type="button"
-            variant="menu-item"
-            role="menuitem"
-            onClick={openCamera}
-            onMouseDown={preventPointerFocus}
-            className="file-menu-item py-3 border-t border-line-glass/10 text-xs sm:text-sm"
-          >
-            <span>Take Photo</span>
-            <Icon icon={Camera} className="w-5 h-5" aria-hidden="true"  />
-          </Button>
+          {features.enableCameraCapture && (
+            <Button
+              type="button"
+              variant="menu-item"
+              role="menuitem"
+              onClick={openCamera}
+              onMouseDown={preventPointerFocus}
+              className="file-menu-item py-3 border-t border-line-glass/10 text-xs sm:text-sm"
+            >
+              <span>Take Photo</span>
+              <Icon icon={Camera} className="w-5 h-5" aria-hidden="true"  />
+            </Button>
+          )}
         </div>
       )}
 
