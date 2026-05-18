@@ -47,6 +47,10 @@ export const MatterMilestonesPanel = ({
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingMilestone, setEditingMilestone] = useState<MatterMilestone | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<MatterMilestone | null>(null);
+  // `formKey` increments when switching to a different milestone to edit.
+  // `key={formKey}` on the <form> remounts it so the previous record's input
+  // doesn't bleed in. Triggered only by record switch / open / cancel — never
+  // by a tab/mode toggle. See docs/solutions/conventions/form-reset-pattern-2026-05-18.md.
   const [formKey, setFormKey] = useState(0);
   const [formState, setFormState] = useState({
     description: '',

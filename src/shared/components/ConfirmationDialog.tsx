@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'preact/hooks';
+import { useState } from 'preact/hooks';
 import { useId } from 'preact/hooks';
 import { AlertTriangle } from 'lucide-preact';
 
 import { Icon } from '@/shared/ui/Icon';
-import { Dialog, DialogBody, DialogFooter } from '@/shared/ui/dialog';
+import { Dialog, DialogBody, DialogFooter, useDialogFormReset } from '@/shared/ui/dialog';
 import { FormActions } from '@/shared/ui/form';
 import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
 import { handleError } from '@/shared/utils/errorHandler';
@@ -58,15 +58,17 @@ export default function ConfirmationDialog({
   const [passwordError, setPasswordError] = useState<string | null>(null);
 
   // Clear input and error when modal closes
-  useEffect(() => {
-    if (!isOpen) {
+  useDialogFormReset({
+    isOpen,
+    reason: 'Cancelled confirmation — clear typed confirmation text, password, and any errors on close.',
+    reset: () => {
       setInputValue('');
       setError(null);
       setIsLoading(false);
       setPasswordValue('');
       setPasswordError(null);
-    }
-  }, [isOpen]);
+    },
+  });
 
   const handleSubmit = async (e: Event) => {
     e.preventDefault();

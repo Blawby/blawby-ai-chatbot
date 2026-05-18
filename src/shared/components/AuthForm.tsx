@@ -247,14 +247,11 @@ const AuthForm = ({
     if (onModeChange) {
       onModeChange(nextMode);
     }
+    // Do NOT clear formData here — email/password (and name/confirmPassword)
+    // must survive a mode toggle so users don't have to retype shared fields.
+    // See docs/solutions/conventions/form-reset-pattern-2026-05-18.md.
     setError('');
     setMessage('');
-    setFormData({
-      name: initialName ?? '',
-      email: initialEmail ?? '',
-      password: '',
-      confirmPassword: ''
-    });
   };
 
   return (
