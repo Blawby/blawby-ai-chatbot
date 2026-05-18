@@ -233,8 +233,6 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(({
 
   useEffect(() => {
     if (isDropdownOpen) {
-      setFilterText('');
-      setFocusedIndex(0);
       // Focus the search input on the next tick so the dropdown has mounted.
       const handle = window.setTimeout(() => searchInputRef.current?.focus(), 0);
       return () => window.clearTimeout(handle);
@@ -304,6 +302,8 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(({
   const handleTriggerKeyDown = useCallback((event: KeyboardEvent) => {
     if (event.key === 'Enter' || event.key === ' ' || event.key === 'ArrowDown') {
       event.preventDefault();
+      setFilterText('');
+      setFocusedIndex(0);
       setIsDropdownOpen(true);
     }
   }, []);
@@ -406,7 +406,11 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(({
             <button
               ref={buttonRef}
               type="button"
-              onClick={() => setIsDropdownOpen((open) => !open)}
+              onClick={() => {
+                setFilterText('');
+                setFocusedIndex(0);
+                setIsDropdownOpen((open) => !open);
+              }}
               onKeyDown={handleTriggerKeyDown}
               disabled={disabled}
               aria-expanded={isDropdownOpen}
