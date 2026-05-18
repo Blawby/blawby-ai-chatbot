@@ -26,6 +26,8 @@ export interface EmailInputProps {
   errorKey?: string;
   namespace?: string;
   'data-testid'?: string;
+  onBlur?: (e: FocusEvent) => void;
+  onKeyDown?: (e: KeyboardEvent) => void;
 }
 
 export const EmailInput = forwardRef<HTMLInputElement, EmailInputProps>(({
@@ -48,7 +50,9 @@ export const EmailInput = forwardRef<HTMLInputElement, EmailInputProps>(({
   placeholderKey: _placeholderKey,
   errorKey: _errorKey,
   namespace: _namespace = 'common',
-  'data-testid': dataTestId
+  'data-testid': dataTestId,
+  onBlur,
+  onKeyDown
 }, ref) => {
   // Generate stable unique IDs for accessibility
   const generatedInputId = useUniqueId('email-input');
@@ -156,6 +160,8 @@ export const EmailInput = forwardRef<HTMLInputElement, EmailInputProps>(({
           aria-describedby={ariaDescribedBy}
           className={inputClasses}
           data-testid={dataTestId}
+          onBlur={onBlur}
+          onKeyDown={onKeyDown}
         />
         
         {showValidationIcon && (
