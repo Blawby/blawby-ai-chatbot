@@ -28,10 +28,15 @@ const criticalCssPlugin = (): Plugin => ({
 		}
 		try {
 			const Beasties = (await import('beasties')).default;
+			// pruneSource MUST stay false. Beasties only "uses" a rule if a matching
+			// selector exists in the prerendered DOM — which renders at 0 viewport, so
+			// every `sm:`/`md:`/`lg:` rule looks unused and gets stripped, leaving
+			// empty `@media(min-width:Npx){}` blocks. That silently breaks every
+			// responsive breakpoint app-wide.
 			const beasties = new Beasties({
 				preload: 'media',
 				inlineFonts: true,
-				pruneSource: true,
+				pruneSource: false,
 				compress: true,
 				mergeStylesheets: true,
 				minimumExternalSize: 4096,
