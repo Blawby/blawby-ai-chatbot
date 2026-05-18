@@ -1,7 +1,7 @@
 // Codifies the production regression: a subscribed user with `active_organization_id`
-// null on the session was hard-redirected to /pricing on cold login. The fix gates
-// the redirect on practice-membership presence and auto-activates the first practice
-// via the shared `useEnsureActiveOrganization` hook.
+// null on the session was hard-redirected to /pricing on cold login. The expected
+// contract is that the backend Better Auth session includes a valid active org for
+// subscribed owners, so frontend routing can trust the session instead of repairing it.
 //
 // SC2 (zero-practice user STILL routes to /pricing) is verified manually rather
 // than automated here. Building a "completed onboarding + zero practices" fixture
@@ -14,7 +14,7 @@ import { loadE2EConfig } from './helpers/e2eConfig';
 
 const e2eConfig = loadE2EConfig();
 
-test.describe('Pricing gate uses practice membership', () => {
+test.describe('Pricing gate trusts backend active organization', () => {
   test.skip(!e2eConfig, 'E2E credentials are not configured.');
   test.describe.configure({ mode: 'serial', timeout: 60000 });
 
@@ -50,7 +50,7 @@ test.describe('Pricing gate uses practice membership', () => {
     const pricingHits = visitedUrls.filter((url) => new URL(url).pathname === '/pricing');
     expect(pricingHits, `unexpected /pricing in navigation history: ${visitedUrls.join(', ')}`).toHaveLength(0);
 
-    // The recovery hook should have populated active_organization_id on the session.
+    // The backend Better Auth session should include active_organization_id.
     const cookies = await unauthContext.cookies(baseURL);
     const cookieHeader = cookies.map((c) => `${c.name}=${c.value}`).join('; ');
     const sessionResponse = await unauthContext.request.get('/api/auth/get-session', {
@@ -58,7 +58,7 @@ test.describe('Pricing gate uses practice membership', () => {
     });
     expect(sessionResponse.ok()).toBe(true);
     const sessionBody = await sessionResponse.json();
-    expect(sessionBody?.session?.active_organization_id, 'recovery hook should have set active_organization_id').toBeTruthy();
+    expect(sessionBody?.session?.active_organization_id, 'backend session should include active_organization_id').toBeTruthy();
 
     await page.close();
   });

@@ -46,6 +46,7 @@ export default defineConfig({
             'tests/unit/**/*.test-d.ts',
             'src/hooks/__tests__/useMattersSidebar.test.ts',
             'src/hooks/__tests__/useOrganizationManagement.test.ts',
+            'src/shared/hooks/__tests__/**/*.test.{ts,tsx}',
             'src/utils/__tests__/deepEqual.test.ts',
             'src/utils/__tests__/errorHandler.test.ts',
             'src/__tests__/i18n.test.ts',
