@@ -92,6 +92,10 @@ export const AccountPage = ({
   const { session, isPending } = useSessionContext();
   const { activeMemberRole } = useMemberRoleContext();
   const { canAccessPractice: _canAccessPractice, workspaceFromPath } = useWorkspace();
+  // Clients don't subscribe to or pay Blawby, so Subscription/Plan/Payments
+  // sections (and the underlying /current-subscription fetch) are hidden in
+  // the client workspace.
+  const isClientWorkspace = workspaceFromPath === 'client';
   const {
     members
   } = usePracticeTeam(
@@ -208,7 +212,6 @@ export const AccountPage = ({
 
   const isOwner = resolvedRole === 'owner';
   const canManageBilling = isOwner;
-  const isClientWorkspace = workspaceFromPath === 'client';
 
   const subscriptionStatus = (currentSubscription?.status ?? 'none').toLowerCase();
   const subscriptionEnd = parsePeriodEndDate(currentSubscription?.currentPeriodEnd) || 
@@ -245,7 +248,7 @@ export const AccountPage = ({
   }, [session?.user]);
 
   useEffect(() => {
-    if (!session?.user) {
+    if (!session?.user || isClientWorkspace) {
       setCurrentSubscription(null);
       setSubscriptionError(null);
       setSubscriptionLoading(false);
@@ -254,11 +257,11 @@ export const AccountPage = ({
     const controller = new AbortController();
     void refreshSubscription(controller.signal);
     return () => controller.abort();
-  }, [refreshSubscription, session?.user]);
+  }, [refreshSubscription, session?.user, isClientWorkspace]);
 
   // Refetch after return from Stripe portal or checkout
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (typeof window === 'undefined' || isClientWorkspace) return;
     const params = new URLSearchParams(window.location.search);
     if (params.get('sync') === '1' && currentPractice?.id) {
       const controller = new AbortController();
@@ -292,7 +295,7 @@ export const AccountPage = ({
 
       return () => controller.abort();
     }
-  }, [currentPractice?.id, refetch, refreshSubscription, showSuccess, location]);
+  }, [currentPractice?.id, refetch, refreshSubscription, showSuccess, location, isClientWorkspace]);
 
   // Cleanup verification timeout on unmount
   useEffect(() => {
@@ -786,8 +789,9 @@ export const AccountPage = ({
   // Show loading state while session or practice is loading
   // Add timeout protection - if loading for more than 10 seconds, show error with retry
   const [loadingTimeout, setLoadingTimeout] = useState(false);
+  const effectiveSubscriptionLoading = isClientWorkspace ? false : subscriptionLoading;
   useEffect(() => {
-    if (isPending || practiceLoading || subscriptionLoading || authAccountsLoading) {
+    if (isPending || practiceLoading || effectiveSubscriptionLoading || authAccountsLoading) {
       const timeout = setTimeout(() => {
         setLoadingTimeout(true);
       }, 10000); // 10 second timeout
@@ -795,9 +799,9 @@ export const AccountPage = ({
     } else {
       setLoadingTimeout(false);
     }
-  }, [isPending, practiceLoading, subscriptionLoading, authAccountsLoading]);
+  }, [isPending, practiceLoading, effectiveSubscriptionLoading, authAccountsLoading]);
 
-  if ((isPending || practiceLoading || subscriptionLoading || authAccountsLoading) && !loadingTimeout) {
+  if ((isPending || practiceLoading || effectiveSubscriptionLoading || authAccountsLoading) && !loadingTimeout) {
     return <AccountPageSkeleton className={className} />;
   }
 
@@ -863,7 +867,9 @@ export const AccountPage = ({
         </SettingRow>
       </button>
 
-      <SectionDivider />
+      {!isClientWorkspace && (
+        <>
+          <SectionDivider />
 
           {/* Subscription Plan Section */}
           <SettingRow
@@ -919,15 +925,13 @@ export const AccountPage = ({
                   </DropdownMenu>
                 ) : null
               ) : (
-                isClientWorkspace ? null : (
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => navigateToPricing()}
-                  >
-                    {t('settings:account.plan.upgrade')}
-                  </Button>
-                )
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => navigateToPricing()}
+                >
+                  {t('settings:account.plan.upgrade')}
+                </Button>
               )}
             </div>
           </SettingRow>
@@ -952,7 +956,7 @@ export const AccountPage = ({
             }
           />
 
-      <SectionDivider />
+          <SectionDivider />
 
           <SettingRow
             label={t('settings:account.payments.sectionTitle')}
@@ -979,6 +983,8 @@ export const AccountPage = ({
               {t('settings:account.payments.manage')}
             </Button>
           </SettingRow>
+        </>
+      )}
 
       <SectionDivider />
 
