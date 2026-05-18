@@ -8,7 +8,6 @@ import {
   FileText,
   Folder,
   Home,
-  LayoutDashboard,
   LifeBuoy,
   Map,
   MessageSquare,
@@ -438,12 +437,6 @@ const buildInvoicesSecondary = (basePath: string, workspace: 'practice' | 'clien
 const buildSettingsSecondary = (basePath: string, canAccessPractice: boolean): NavSection[] => {
   // Pencil GtRGH > settingsSubItems: PERSONAL / ACCOUNT / PRACTICE / SUPPORT
   const sections: NavSection[] = [
-    {
-      label: 'Overview',
-      items: [
-        { id: 'overview', label: 'Overview', href: `${basePath}/settings/general`, icon: LayoutDashboard },
-      ],
-    },
     {
       label: 'Personal',
       items: [
