@@ -374,3 +374,57 @@ export async function handleWidgetBootstrap(request: Request, env: Env): Promise
     headers: responseHeaders
   });
 }
+
+export async function handlePublicPracticeIntakeSettings(request: Request, env: Env): Promise<Response> {
+  if (request.method !== 'GET') {
+    throw HttpErrors.methodNotAllowed('Method not allowed');
+  }
+
+  const url = new URL(request.url);
+  const match = url.pathname.match(/^\/api\/practice-client-intakes\/([^/]+)\/intake$/);
+  const slug = match?.[1] ? decodeURIComponent(match[1]).trim() : '';
+  if (!slug) {
+    throw HttpErrors.badRequest('Practice slug is required');
+  }
+
+  const res = await RemoteApiService.getPublicPracticeDetails(env, slug, request);
+  if (!res.ok) {
+    if (res.status === 404) {
+      throw HttpErrors.notFound('Practice not found');
+    }
+    const text = await res.text().catch(() => 'No body');
+    throw HttpErrors.badGateway(`[Public intake settings] Error fetching practice details: ${res.status} - ${text}`);
+  }
+
+  const practiceDetails = await res.json().catch(() => null) as Record<string, unknown> | null;
+  if (!practiceDetails) {
+    throw HttpErrors.badGateway('Failed to parse public practice details');
+  }
+
+  const settings = {
+    paymentLinkEnabled: Boolean(practiceDetails.payment_link_enabled),
+    payment_link_enabled: Boolean(practiceDetails.payment_link_enabled),
+    consultationFee: typeof practiceDetails.consultation_fee === 'number' ? practiceDetails.consultation_fee : undefined,
+    consultation_fee: typeof practiceDetails.consultation_fee === 'number' ? practiceDetails.consultation_fee : undefined,
+  };
+
+  const organization = {
+    id: typeof practiceDetails.organization_id === 'string' ? practiceDetails.organization_id : undefined,
+    slug: typeof practiceDetails.slug === 'string' ? practiceDetails.slug : slug,
+    name: typeof practiceDetails.name === 'string' ? practiceDetails.name : undefined,
+    logo: typeof practiceDetails.logo === 'string' ? practiceDetails.logo : undefined,
+  };
+
+  return new Response(JSON.stringify({
+    success: true,
+    settings,
+    organization,
+    data: { settings, organization },
+  }), {
+    status: 200,
+    headers: {
+      'Content-Type': 'application/json',
+      'Cache-Control': 'no-store',
+    },
+  });
+}

@@ -10,7 +10,6 @@ import { validateWire } from '../utils/validateWire.js';
 import { PracticeSchema, ConversationConfigPermissiveSchema } from '../types/wire/practice.js';
 import {
   BackendIntakeConvertResponseSchema,
-  BackendPracticeIntakeSettingsResponseSchema,
 } from '../types/wire/intake.js';
 import { canAssignTeamMemberToMatter, isTeamRole, type PracticeTeamResponse } from '../../src/shared/types/team.js';
 
@@ -941,39 +940,27 @@ export class RemoteApiService {
   } | null> {
     if (!practiceSlug) return null;
     try {
-      const response = await this.fetchFromRemoteApi(
-        env,
-        `/api/practice-client-intakes/${encodeURIComponent(practiceSlug)}/intake`,
-        request
-      );
+      const response = await this.getPublicPracticeDetails(env, practiceSlug, request);
       const json = await response.json().catch(() => null);
       if (!json) return null;
-      const parsed = validateWire(
-        BackendPracticeIntakeSettingsResponseSchema,
-        json,
-        'getPracticeClientIntakeSettings.response',
-        { strict: false },
-      );
-      if (parsed.success === false) return null;
+      const details = json && typeof json === 'object' && !Array.isArray(json)
+        ? json as Record<string, unknown>
+        : null;
+      if (!details) return null;
 
-      // Tolerate both nested ({data: {settings, organization}}) and flat shapes.
-      const settings = parsed.data?.settings ?? parsed.settings;
-      if (!settings) return null;
-      const orgRecord = parsed.data?.organization ?? parsed.organization;
-
-      const consultationFee = settings.consultationFee ?? settings.consultation_fee;
+      const consultationFee = typeof details.consultation_fee === 'number'
+        ? details.consultation_fee
+        : undefined;
       warnIfNotMinorUnits(consultationFee, 'remote.intakeSettings.consultationFee');
       return {
-        paymentLinkEnabled: settings.paymentLinkEnabled ?? settings.payment_link_enabled,
+        paymentLinkEnabled: details.payment_link_enabled === true,
         consultationFee,
-        organization: orgRecord
-          ? {
-              id: orgRecord.id,
-              slug: orgRecord.slug,
-              name: orgRecord.name,
-              logo: orgRecord.logo,
-            }
-          : undefined,
+        organization: {
+          id: typeof details.organization_id === 'string' ? details.organization_id : undefined,
+          slug: typeof details.slug === 'string' ? details.slug : practiceSlug,
+          name: typeof details.name === 'string' ? details.name : undefined,
+          logo: typeof details.logo === 'string' ? details.logo : undefined,
+        },
       };
     } catch (error) {
       if (error instanceof HttpError && (error.status === 404 || error.status === 401)) {
