@@ -52,7 +52,7 @@ function validateRequest(request: Request): boolean {
     const contentType = request.headers.get('content-type');
     const url = new URL(request.url);
     const isNoBodyEndpoint =
-      /\/files\/[^/]+\/confirm$/.test(url.pathname) ||
+      /^\/api\/practice-client-intakes\/[^/]+\/files\/[^/]+\/confirm$/.test(url.pathname) ||
       /^\/api\/uploads\/[^/]+\/confirm$/.test(url.pathname);
     if (!isNoBodyEndpoint && !contentType) {
       return false;
