@@ -12,6 +12,8 @@ Tracks responsive coverage of every page, layout shell, and significant primitiv
 
 Smoke specs assert no horizontal overflow at each tier (`tests/e2e/responsive-public.spec.ts`, `tests/e2e/responsive-auth.spec.ts`). Run with `npm run test:e2e:responsive` and `npm run test:e2e:responsive:auth`.
 
+> **Build-pipeline gotcha — Beasties `pruneSource` MUST stay `false`.** Beasties (`vite.config.ts` `criticalCssPlugin`) inlines critical CSS by walking the prerendered DOM. With `pruneSource: true`, it then deletes every rule whose selector didn't match that DOM — and prerender runs at zero viewport, so every `sm:`/`md:`/`lg:` rule looks unused and gets stripped from the external stylesheet, leaving empty `@media(min-width:Npx){}` blocks (issue #584). The overflow-based smoke specs above pass even in this state because mobile layouts also don't overflow, so the regression is invisible at the test layer. If you ever change the Beasties config, grep the built CSS for `@media(min-width:[0-9]+px)\{\}` — any match means responsive variants are being silently stripped.
+
 ## Conventions
 
 - **Shell + chrome** (`AppShell`, `Sidebar`, `MainApp`, routing): viewport queries (`sm:` / `md:` / `lg:`).
