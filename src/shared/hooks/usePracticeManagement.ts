@@ -1,4 +1,4 @@
-import { apiClient, isHttpError, type ApiRequestConfig } from '@/shared/lib/apiClient';
+import { apiClient, type ApiRequestConfig } from '@/shared/lib/apiClient';
 import { useState, useCallback, useEffect, useRef, useContext } from 'preact/hooks';
 import { getPracticeWorkspaceEndpoint } from '@/config/api';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
@@ -39,10 +39,6 @@ let sharedPracticeIncludesDetails = false;
 let practicesLoaded = false;
 let practicesInFlight: Promise<void> | null = null;
 let isGloballyFetching = false;
-// Treat 403 as a terminal state: a user with no org is not allowed to list
-// practices by design. Setting this flag prevents infinite retry loops when
-// the caller is re-rendered (e.g. during onboarding). Cleared on cache reset.
-let practicesFetchForbidden = false;
 
 // Broadcast loading state to all active hook instances so that when any
 // instance starts a fetch, ALL instances immediately see loading=true.
@@ -69,7 +65,6 @@ const resetSharedPracticeCache = () => {
   practicesLoaded = false;
   practicesInFlight = null;
   isGloballyFetching = false;
-  practicesFetchForbidden = false;
 };
 
 // Types
@@ -583,17 +578,15 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
   // soft navigations (login -> /practice/:slug) where the first fetch effect
   // is delayed and no network request ever starts.
   const sessionUserId = session?.user?.id ?? null;
-  // Refetch when the active org transitions (e.g. recovery hook activates the
-  // first org for a previously-null session). The list endpoint is org-scoped,
-  // so a fetch with no active org returns 403 — we need to redo it once recovery
-  // has set one.
+  // Refetch when the backend session's active org changes. The list endpoint is
+  // org-scoped, so the session field is part of the query identity.
   const sessionActiveOrgIdForDeps = (() => {
     const sessionRecord = session?.session as Record<string, unknown> | undefined;
     const value = sessionRecord?.active_organization_id;
     return typeof value === 'string' && value.trim().length > 0 ? value : null;
   })();
   const [isLoading, setIsLoading] = useState(() => isGloballyFetching || Boolean(
-    autoFetchPractices && !sessionLoading && sessionUserId && !isAnonymous && !practicesLoaded && !practicesFetchForbidden
+    autoFetchPractices && !sessionLoading && sessionUserId && !isAnonymous && !practicesLoaded
   ));
 
   // Subscribe this instance to the global loading and snapshot broadcasters.
@@ -674,15 +667,6 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
         return;
       }
 
-      // A previous fetch was rejected with 403 — the user had no practice
-      // memberships at that time. Allow a retry on every fresh evaluation so a
-      // user who has since gained membership (e.g. accepted an invite, or the
-      // recovery hook activated an existing org) is unblocked. The 403 handler
-      // at the bottom of this function will re-arm the flag if the user still
-      // has no memberships.
-      if (practicesFetchForbidden) {
-        practicesFetchForbidden = false;
-      }
       // Check if requestedPracticeSlug has changed - if so, we need to re-select even if already fetched
       const slugChanged = lastSelectedSlugRef.current !== requestedPracticeSlug;
       // applySnapshot broadcasts to all instances so every route gets updated data.
@@ -947,18 +931,8 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
       // (e.g. after subscription upgrade) are not blocked.
       applySnapshot(snapshot);
       practicesFetchedRef.current = true;
-      practicesFetchForbidden = false;
     } catch (err) {
       if (err instanceof Error && err.name === 'CanceledError') {
-        return;
-      }
-      // A 403 means the user has no org (pre-subscription or mid-onboarding).
-      // Mark as terminal so we don't hammer the endpoint on every re-render.
-      if (isHttpError(err) && err.response.status === 403) {
-        practicesFetchForbidden = true;
-        setPractices([]);
-        setCurrentPractice(null);
-        setGlobalLoading(false);
         return;
       }
       console.error('Error in fetchPractices:', err);

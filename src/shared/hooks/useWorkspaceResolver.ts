@@ -8,6 +8,7 @@ interface UseWorkspaceResolverResult {
   isPending: boolean;
   rolePending: boolean;
   practicesLoading: boolean;
+  practicesError: string | null;
   practices: Practice[];
   currentPractice: Practice | null;
   activeRole: PracticeRole | null;
@@ -33,7 +34,8 @@ export function useWorkspaceResolver(options: UseWorkspaceResolverOptions = {}):
   const {
     practices,
     currentPractice,
-    isLoading: practicesLoading
+    isLoading: practicesLoading,
+    error: practicesError,
   } = usePracticeManagement({ autoFetchPractices, fetchOnboardingStatus, practiceSlug });
 
   const practiceBySlug = useMemo(() => {
@@ -89,6 +91,7 @@ export function useWorkspaceResolver(options: UseWorkspaceResolverOptions = {}):
     isPending,
     rolePending: activeMemberRoleLoading,
     practicesLoading,
+    practicesError,
     practices,
     currentPractice,
     activeRole,
