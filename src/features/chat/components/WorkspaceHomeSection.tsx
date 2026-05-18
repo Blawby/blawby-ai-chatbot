@@ -4,6 +4,7 @@ import { RecentActivityTable } from '@/features/practice-dashboard/components/Re
 import { RecentIntakesGrid } from '@/features/practice-dashboard/components/RecentIntakesGrid';
 import { DashboardHero } from '@/features/practice-dashboard/components/DashboardHero';
 import type { BillingWindow } from '@/features/practice-dashboard/hooks/usePracticeBillingData';
+import { ClientDashboard } from '@/features/client-dashboard/ClientDashboard';
 
 type RecentMessage = {
   preview: string;
@@ -15,6 +16,8 @@ type RecentMessage = {
 
 type WorkspaceHomeSectionProps = {
   workspace: 'public' | 'practice' | 'client';
+  practiceId?: string | null;
+  practiceSlug?: string | null;
   practiceName?: string | null;
   practiceLogo?: string | null;
   recentMessage: RecentMessage;
@@ -37,6 +40,8 @@ type WorkspaceHomeSectionProps = {
 
 export const WorkspaceHomeSection: FunctionComponent<WorkspaceHomeSectionProps> = ({
   workspace,
+  practiceId,
+  practiceSlug,
   practiceName,
   practiceLogo,
   recentMessage,
@@ -56,6 +61,17 @@ export const WorkspaceHomeSection: FunctionComponent<WorkspaceHomeSectionProps> 
   onViewAllIntakes,
   onViewIntake,
 }) => {
+  if (workspace === 'client') {
+    return (
+      <ClientDashboard
+        practiceId={practiceId ?? null}
+        practiceSlug={practiceSlug ?? null}
+        practiceName={practiceName}
+        practiceLogo={practiceLogo}
+        onSendMessage={onSendMessage}
+      />
+    );
+  }
   if (workspace === 'practice') {
     return (
       <div className="flex h-full min-h-0 flex-1 flex-col gap-5">

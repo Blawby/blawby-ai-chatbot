@@ -890,6 +890,8 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   const homeContent = (
     <WorkspaceHomeSection
       workspace={workspace}
+      practiceId={practiceId}
+      practiceSlug={practiceSlug}
       practiceName={practiceName}
       practiceLogo={practiceLogo}
       recentMessage={recentMessage}
