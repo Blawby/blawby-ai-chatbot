@@ -25,7 +25,9 @@ export const DirectShell: FunctionComponent<DirectShellProps> = ({ children }) =
   return (
     <>
       <div className="relative flex min-h-[100dvh] w-full flex-col bg-surface-app-frame">
-        {children}
+        <div className="relative mx-auto flex w-full max-w-3xl flex-1 flex-col">
+          {children}
+        </div>
       </div>
       <WidgetOverlayRoot />
     </>
