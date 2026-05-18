@@ -271,10 +271,13 @@
   }
 
   .widget-shell-gradient {
-    /* Legacy: the 42% accent radial was deprecated as Generic-AI-tool-template
-       decoration. Class kept as a no-op so widget surfaces don't lose their
-       background color; consumers may be renamed to a plain widget shell later. */
+    /* Class kept for background color + widget-scoped container query.
+       Interior layout (inspector aside, future shell-aware chrome) keys off
+       @container widget instead of viewport, so the same widget renders
+       correctly at 380px (embed iframe) and at full direct-mode viewport. */
     background-color: rgb(var(--surface-app));
+    container-type: inline-size;
+    container-name: widget;
   }
 
   /* Hide scrollbars globally */

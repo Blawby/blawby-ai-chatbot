@@ -1,8 +1,12 @@
 import type { ComponentChildren } from 'preact';
-import { useEffect, useCallback } from 'preact/hooks';
+import { createPortal } from 'preact/compat';
+import { useEffect, useId, useRef, useState } from 'preact/hooks';
 import { cn } from '@/shared/utils/cn';
 import { X } from 'lucide-preact';
-import { lockBodyScroll, unlockBodyScroll } from '@/shared/utils/modalStack';
+import { THEME } from '@/shared/utils/constants';
+import { isTopmostModal, lockBodyScroll, registerModal, unlockBodyScroll, unregisterModal } from '@/shared/utils/modalStack';
+import { focusInitialElement, trapFocusWithin } from '@/shared/ui/dialog/focusUtils';
+import { resolveOverlayMount } from '@/shared/ui/overlays/WidgetOverlayRoot';
 
 export interface DrawerProps {
   open: boolean;
@@ -38,30 +42,63 @@ export function Drawer({
   size = 'md',
   className,
 }: DrawerProps) {
-  const handleKeyDown = useCallback(
-    (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    },
-    [onClose],
-  );
+  const drawerRef = useRef<HTMLDivElement | null>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
+  const overlayId = `drawer-${useId()}`;
+  const [portalTarget, setPortalTarget] = useState<Element | null>(null);
 
   useEffect(() => {
-    if (open) {
-      document.addEventListener('keydown', handleKeyDown);
-      lockBodyScroll();
-      return () => {
-        document.removeEventListener('keydown', handleKeyDown);
-        unlockBodyScroll();
-      };
-    }
-  }, [open, handleKeyDown]);
+    setPortalTarget(resolveOverlayMount());
+  }, []);
 
-  return (
+  useEffect(() => {
+    if (!open) return;
+
+    previousFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    registerModal(overlayId);
+    lockBodyScroll();
+
+    const surface = drawerRef.current;
+    if (surface) {
+      focusInitialElement(surface);
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (!isTopmostModal(overlayId)) return;
+
+      if (event.key === 'Escape') {
+        event.stopPropagation();
+        onClose();
+        return;
+      }
+
+      if (event.key === 'Tab' && drawerRef.current) {
+        trapFocusWithin(event, drawerRef.current);
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      unregisterModal(overlayId);
+      unlockBodyScroll();
+      if (previousFocusRef.current?.isConnected) {
+        previousFocusRef.current.focus();
+      }
+      previousFocusRef.current = null;
+    };
+  }, [open, onClose, overlayId]);
+
+  if (!portalTarget) return null;
+
+  return createPortal(
     <div
       className={cn(
-        'fixed inset-0 z-[300] transition-opacity duration-200',
+        'fixed inset-0 transition-opacity duration-200',
         open ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none',
       )}
+      style={{ zIndex: THEME.zIndex.modal }}
       aria-hidden={!open}
     >
       <div
@@ -70,9 +107,11 @@ export function Drawer({
         onClick={onClose}
       />
       <div
+        ref={drawerRef}
         role="dialog"
         aria-modal="true"
         aria-label={title}
+        tabIndex={-1}
         className={cn(
           'fixed flex flex-col glass-panel rounded-none',
           positionClasses[side],
@@ -99,6 +138,7 @@ export function Drawer({
         )}
         <div className="flex-1 overflow-y-auto p-5">{children}</div>
       </div>
-    </div>
+    </div>,
+    portalTarget,
   );
 }
