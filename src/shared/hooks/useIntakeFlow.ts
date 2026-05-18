@@ -555,11 +555,17 @@ export function useIntakeFlow({
       if (templateHasPaymentConfig) {
         consultationFee = typeof storedTemplate?.consultationFee === 'number' ? storedTemplate.consultationFee : 0;
       }
+      let practicePaymentLinkEnabled = false;
 
       try {
         if (!templateHasPaymentConfig) {
           try {
-            type SettingsRecord = { consultationFee?: number; consultation_fee?: number };
+            type SettingsRecord = {
+              consultationFee?: number;
+              consultation_fee?: number;
+              paymentLinkEnabled?: boolean;
+              payment_link_enabled?: boolean;
+            };
             const { data: settingsPayload } = await apiClient.get<{
               success?: boolean;
               settings?: SettingsRecord;
@@ -572,6 +578,9 @@ export function useIntakeFlow({
             consultationFee =
               (typeof settings?.consultationFee === 'number' ? settings.consultationFee : 0) ||
               (typeof settings?.consultation_fee === 'number' ? settings.consultation_fee : 0);
+            practicePaymentLinkEnabled =
+              settings?.paymentLinkEnabled === true ||
+              settings?.payment_link_enabled === true;
           } catch (apiError) {
             // Non-2xx silently falls through to the catch below; preserves prior `if (settingsRes.ok)` behavior.
             if (!isHttpError(apiError)) throw apiError;
@@ -597,9 +606,10 @@ export function useIntakeFlow({
 
       const paymentRequired = templateHasPaymentConfig
         ? storedTemplate?.paymentLinkEnabled === true && consultationFee > 0
-        : consultationFee > 0;
+        : practicePaymentLinkEnabled && consultationFee > 0;
       quickActionDebugLog('payment gate evaluated', {
         consultationFee,
+        paymentLinkEnabled: templateHasPaymentConfig ? storedTemplate?.paymentLinkEnabled === true : practicePaymentLinkEnabled,
         paymentRequired,
         effectivePracticeSlug,
         source: templateHasPaymentConfig ? 'template' : 'practice_settings',

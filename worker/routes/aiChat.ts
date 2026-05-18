@@ -90,13 +90,11 @@ const resolvePracticeRequiresPaymentBeforeSubmission = (details: Record<string, 
     'consultationFee',
     'consultation_fee',
   ]);
-  if (consultationFee !== null && consultationFee > 0) return true;
-
   const paymentLinkEnabled = readBooleanField(details, [
     'paymentLinkEnabled',
     'payment_link_enabled',
   ]);
-  return paymentLinkEnabled === true;
+  return paymentLinkEnabled === true && consultationFee !== null && consultationFee > 0;
 };
 
 const resolveTemplatePaymentConfig = (template: IntakeTemplate | null): {

@@ -176,7 +176,9 @@ const TRANSCRIPT_MESSAGE_LIMIT = 30;
 
 /**
  * Assembles a plain-text conversation transcript from D1.
- * Pulls the last TRANSCRIPT_MESSAGE_LIMIT user/assistant messages (excludes system).
+ * Pulls the last TRANSCRIPT_MESSAGE_LIMIT user/assistant messages.
+ * Widget AI bubbles are persisted as system messages with metadata.source = "ai",
+ * so include those while still excluding operational system/contact rows.
  * Returns null silently if the query fails — submission must not be blocked.
  */
 async function buildTranscriptSummary(
@@ -186,17 +188,21 @@ async function buildTranscriptSummary(
 ): Promise<string | null> {
   try {
     const records = await env.DB.prepare(`
-      SELECT role, content
+      SELECT role, content, metadata
       FROM chat_messages
       WHERE conversation_id = ?
         AND practice_id = ?
-        AND role IN ('user', 'assistant')
+        AND (
+          role IN ('user', 'assistant')
+          OR (role = 'system' AND metadata LIKE '%"source":"ai"%')
+        )
         AND TRIM(COALESCE(content, '')) <> ''
       ORDER BY seq DESC
       LIMIT ?
     `).bind(conversationId, practiceId, TRANSCRIPT_MESSAGE_LIMIT).all<{
       role: string;
       content: string;
+      metadata: string | null;
     }>();
 
     if (!records.results || records.results.length === 0) return null;
@@ -830,7 +836,7 @@ export async function handleSubmitIntake(
   });
   const paymentRequiredBeforeSubmit = templateHasPaymentConfig
     ? templatePaymentConfig?.paymentLinkEnabled === true && resolvedAmountMinor > 0
-    : settingsPaymentLinkEnabled || resolvedAmountMinor > 0;
+    : settingsPaymentLinkEnabled && resolvedAmountMinor > 0;
   const paymentReceived = consultation?.submission?.paymentReceived === true;
   const generatePaymentLinkOnly = new URL(request.url).searchParams.get('generatePaymentLinkOnly') === 'true';
   const caseInfoComplete = isCaseInfoComplete(intake, draft);
