@@ -60,7 +60,7 @@ export const FilesInspectorPanel = ({ file, practiceSlug, scope, onClose }: File
   const { url: previewUrl, isLoading: previewLoading } = useUploadPreviewUrl(
     file.uploadId,
     file.publicUrl,
-    file.mimeType,
+    isImage,
   );
   const href = associationHref(file, practiceSlug, scope);
 

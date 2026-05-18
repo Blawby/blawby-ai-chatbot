@@ -42,7 +42,7 @@ const FileDetailContent = ({ file }: { file: OrgFile }) => {
   const { url: previewUrl, isLoading: previewLoading } = useUploadPreviewUrl(
     file.uploadId,
     file.publicUrl,
-    file.mimeType,
+    isImage,
   );
 
   return (

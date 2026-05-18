@@ -2,7 +2,6 @@ import { useEffect, useState } from 'preact/hooks';
 
 import { apiClient } from '@/shared/lib/apiClient';
 import { uploadDownloadPath } from '@/config/urls';
-import { isImageFile } from '@/shared/utils/fileTypeUtils';
 
 interface DownloadResponse {
   download_url: string;
@@ -45,22 +44,21 @@ export const fetchUploadDownloadUrl = async (uploadId: string, signal?: AbortSig
 };
 
 /**
- * Resolves a renderable URL for an upload's thumbnail / preview. When the
- * record carries a `public_url`, pass through. Otherwise call /download to
- * mint a 15-min presigned URL and cache it.
+ * Resolves a renderable URL for an upload. When the record carries a
+ * `public_url`, pass through. Otherwise call /download to mint a 15-min
+ * presigned URL and cache it.
  *
- * Returns `null` (no fetch) for non-image mime types so the consumer can fall
- * back to a file-type icon without spending a round trip.
+ * The `enabled` flag lets the consumer skip the fetch when no URL is needed
+ * (e.g. a document tile that only resolves on click). Defaults to true.
  */
 export const useUploadPreviewUrl = (
   uploadId: string,
   publicUrl: string | null,
-  mimeType: string,
+  enabled: boolean = true,
 ): { url: string | null; isLoading: boolean } => {
-  const isImage = isImageFile(mimeType);
-  const initial = publicUrl ?? (isImage ? readCache(uploadId) : null);
+  const initial = publicUrl ?? (enabled ? readCache(uploadId) : null);
   const [url, setUrl] = useState<string | null>(initial);
-  const [isLoading, setIsLoading] = useState<boolean>(!initial && isImage);
+  const [isLoading, setIsLoading] = useState<boolean>(!initial && enabled);
 
   useEffect(() => {
     if (publicUrl) {
@@ -68,7 +66,7 @@ export const useUploadPreviewUrl = (
       setIsLoading(false);
       return;
     }
-    if (!isImage || !uploadId) {
+    if (!enabled || !uploadId) {
       setUrl(null);
       setIsLoading(false);
       return;
@@ -96,7 +94,7 @@ export const useUploadPreviewUrl = (
       });
 
     return () => controller.abort();
-  }, [uploadId, publicUrl, mimeType, isImage]);
+  }, [uploadId, publicUrl, enabled]);
 
   return { url, isLoading };
 };

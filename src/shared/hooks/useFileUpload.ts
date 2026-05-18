@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { apiClient, isAbortError } from '@/shared/lib/apiClient';
-import { uploadDownloadPath } from '@/config/urls';
 import { uploadIntakeFile } from '@/features/intake/api/intakeFilesApi';
 import type { FileAttachment } from '../../../worker/types';
 import type { UploadingFile } from '@/shared/types/upload';
@@ -125,7 +124,7 @@ export const useFileUpload = ({ practiceId, conversationId, enabled, intakeUuid 
         name: result.fileName,
         size: result.fileSize,
         type: result.mimeType ?? file.type ?? 'application/octet-stream',
-        url: uploadDownloadPath(result.uploadId),
+        url: result.publicUrl ?? '',
         storageKey: result.storageKey ?? undefined,
         uploadId: result.uploadId,
         source: 'intake',
