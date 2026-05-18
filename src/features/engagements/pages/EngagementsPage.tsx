@@ -4,7 +4,7 @@ import { useLocation } from 'preact-iso';
 import { Briefcase, Plus, Search } from 'lucide-preact';
 
 import { Button } from '@/shared/ui/Button';
-import { Input, Textarea, Combobox, Switch, type ComboboxOption } from '@/shared/ui/input';
+import { Input, Textarea, Combobox, Switch, EmailInput, type ComboboxOption } from '@/shared/ui/input';
 import { Tabs, type TabItem } from '@/shared/ui/tabs/Tabs';
 import { DataTable, type DataTableColumn, type DataTableRow } from '@/shared/ui/table/DataTable';
 import { Dialog, DialogBody, DialogFooter, useDialogFormReset } from '@/shared/ui/dialog';
@@ -543,9 +543,8 @@ const CreateEngagementDialog: FunctionComponent<CreateEngagementDialogProps> = (
           />
           {form.sendToClient && (
             <div className="space-y-3 pl-1">
-              <Input
+              <EmailInput
                 label="Recipient email"
-                type="email"
                 placeholder="client@example.com"
                 value={form.recipientEmail}
                 onChange={(value) => updateField('recipientEmail', value)}

@@ -1,7 +1,7 @@
 import type { ComponentChildren } from 'preact';
 import { Dialog } from '../dialog/Dialog';
 import { FormActions } from '../form/FormActions';
-import { Input } from '../input/Input';
+import { EmailInput } from '../input/EmailInput';
 import { useCreateContact } from '../../hooks/useCreateContact';
 import { useToastContext } from '../../contexts/ToastContext';
 
@@ -69,15 +69,14 @@ export const AddContactDialog = ({
       contentClassName="!max-w-2xl"
     >
       <div className="space-y-5 px-6 pb-6">
-        <Input
+        <EmailInput
           label="Contact email"
-          type="email"
           value={createContact.form.email}
           onChange={(value: string) => createContact.updateField('email', value)}
           placeholder="jane@lawfirm.com"
           required
           disabled={createContact.submitting || !practiceId}
-          autoComplete="email"
+          showValidation
         />
         <FormActions
           className="justify-end gap-2"

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'preact/hooks';
 import { Button } from '@/shared/ui/Button';
-import { Input, LogoUploadInput } from '@/shared/ui/input';
+import { Input, LogoUploadInput, EmailInput } from '@/shared/ui/input';
 import { Combobox } from '@/shared/ui/input/Combobox';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/shared/ui/dropdown';
 import { SectionDivider } from '@/shared/ui/layout/SectionDivider';
@@ -1151,9 +1151,8 @@ export const AccountPage = ({
               feedbackLabel={t('settings:account.email.receiveFeedback')}
               showFeedbackToggle={showFeedbackToggle}
             />
-            <Input
+            <EmailInput
               id="account-email-change"
-              type="email"
               label="New email"
               value={newEmail}
               onChange={(value) => {
@@ -1162,6 +1161,7 @@ export const AccountPage = ({
               }}
               placeholder="Enter your new email address"
               error={emailChangeError ?? undefined}
+              showValidation
             />
             <FormActions
               className="justify-end"

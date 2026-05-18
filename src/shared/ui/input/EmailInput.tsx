@@ -26,6 +26,8 @@ export interface EmailInputProps {
   errorKey?: string;
   namespace?: string;
   'data-testid'?: string;
+  onBlur?: (e: FocusEvent) => void;
+  onKeyDown?: (e: KeyboardEvent) => void;
 }
 
 export const EmailInput = forwardRef<HTMLInputElement, EmailInputProps>(({
@@ -48,7 +50,9 @@ export const EmailInput = forwardRef<HTMLInputElement, EmailInputProps>(({
   placeholderKey: _placeholderKey,
   errorKey: _errorKey,
   namespace: _namespace = 'common',
-  'data-testid': dataTestId
+  'data-testid': dataTestId,
+  onBlur,
+  onKeyDown
 }, ref) => {
   // Generate stable unique IDs for accessibility
   const generatedInputId = useUniqueId('email-input');
@@ -82,7 +86,10 @@ export const EmailInput = forwardRef<HTMLInputElement, EmailInputProps>(({
   };
 
   const isValidEmail = (email: string) => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    // Conservative but practical: ASCII local part, single @, host with a
+    // dot-separated TLD of at least two letters. Rejects `a@b.c`,
+    // `..@x.com`, `a@b..c`, and trailing/leading dots.
+    const emailRegex = /^(?!\.)(?!.*\.\.)[A-Za-z0-9._%+-]+(?<!\.)@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,24}$/;
     return emailRegex.test(email);
   };
 
@@ -140,6 +147,9 @@ export const EmailInput = forwardRef<HTMLInputElement, EmailInputProps>(({
           id={inputId}
           name={name}
           type="email"
+          autoComplete="email"
+          inputMode="email"
+          autoCapitalize="none"
           value={value}
           onInput={(e) => onChange?.((e.target as HTMLInputElement).value)}
           placeholder={displayPlaceholder}
@@ -150,6 +160,8 @@ export const EmailInput = forwardRef<HTMLInputElement, EmailInputProps>(({
           aria-describedby={ariaDescribedBy}
           className={inputClasses}
           data-testid={dataTestId}
+          onBlur={onBlur}
+          onKeyDown={onKeyDown}
         />
         
         {showValidationIcon && (
