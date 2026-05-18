@@ -185,8 +185,12 @@ export const PracticeSidebar = ({
                         onClick={
                           onSecondaryItemClick
                             ? () => {
-                                const matched = findSecondaryItem(child.id);
-                                if (matched) onSecondaryItemClick(child.id, matched);
+                                // findSecondaryItem only walks navConfig.secondary, so
+                                // children under primary items (e.g. Settings sub-items)
+                                // miss. Fall back to the rendered child — handler reads
+                                // item.href to navigate.
+                                const matched = findSecondaryItem(child.id) ?? child;
+                                onSecondaryItemClick(child.id, matched);
                               }
                             : undefined
                         }

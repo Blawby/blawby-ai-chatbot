@@ -149,8 +149,12 @@ export const ClientSidebar = ({
                         onClick={
                           onSecondaryItemClick
                             ? () => {
-                                const matched = findSecondaryItem(child.id);
-                                if (matched) onSecondaryItemClick(child.id, matched);
+                                // findSecondaryItem only walks navConfig.secondary, so
+                                // children that live under a primary item (e.g. Settings
+                                // sub-items) miss. Fall back to the rendered child — it
+                                // already carries the href the handler navigates with.
+                                const matched = findSecondaryItem(child.id) ?? child;
+                                onSecondaryItemClick(child.id, matched);
                               }
                             : undefined
                         }
