@@ -51,6 +51,9 @@ export const getWorkspaceSection = (view: WorkspaceView): WorkspaceSection => {
   // /engagements lives under Matters in the unified sidebar; route + breadcrumb still drive
   // the engagements view, but the rail/active state belongs to Matters.
   if (view === 'engagements') return 'matters';
+  // Coverage lives under Settings in the sidebar; route stays at /coverage but the
+  // rail/active state belongs to Settings so its dropdown auto-expands.
+  if (view === 'coverage') return 'settings';
   return view as WorkspaceSection;
 };
 

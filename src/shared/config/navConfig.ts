@@ -250,18 +250,11 @@ const buildPracticeRail = (basePath: string): NavRailItem[] => [
     prefetch: prefetchReportsChunk,
   },
   {
-    id: 'coverage',
-    label: 'Coverage',
-    icon: Map,
-    href: `${basePath}/coverage`,
-    matchHrefs: [`${basePath}/coverage`],
-  },
-  {
     id: 'settings',
     label: 'Settings',
     icon: SettingsNavIcon,
     href: `${basePath}/settings/general`,
-    matchHrefs: [`${basePath}/settings`],
+    matchHrefs: [`${basePath}/settings`, `${basePath}/coverage`],
     expandable: true,
     prefetch: prefetchSettingsLanding,
   },
@@ -460,6 +453,7 @@ const buildSettingsSecondary = (basePath: string, canAccessPractice: boolean): N
         { id: 'practice', label: 'Practice', href: `${basePath}/settings/practice`, icon: Building2 },
         { id: 'practice-payouts', label: 'Payouts', href: `${basePath}/settings/practice/payouts`, icon: CreditCard },
         { id: 'practice-team', label: 'Team', href: `${basePath}/settings/practice/team`, icon: Users },
+        { id: 'coverage', label: 'Coverage', href: `${basePath}/coverage`, icon: Map },
         { id: 'intake-forms', label: 'Intake Forms', href: `${basePath}/settings/intake-forms`, icon: FileText },
         { id: 'apps', label: 'Apps', href: `${basePath}/settings/apps`, icon: Puzzle },
       ],
@@ -585,7 +579,6 @@ const RAIL_ID_TO_SECTION: Record<string, WorkspaceSection> = {
   invoices: 'invoices',
   reports: 'reports',
   settings: 'settings',
-  coverage: 'coverage',
 };
 
 /**
