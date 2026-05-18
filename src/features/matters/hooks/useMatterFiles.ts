@@ -52,8 +52,8 @@ export const useMatterFiles = (practiceId: string | null, matterId: string | nul
     try {
       const uploaded = await uploadFileViaBackend({
         file,
-        uploadContext: 'matter',
-        matterId,
+        scopeType: 'matter',
+        scopeId: matterId,
         onProgress: (progress) => {
           setUploadingFiles((prev) => prev.map((entry) => (
             entry.id === uploadStateId

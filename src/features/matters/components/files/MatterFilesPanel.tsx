@@ -6,7 +6,7 @@ import { UploadQueueRow } from '@/shared/ui/upload/molecules/UploadQueueRow';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { WorkspacePlaceholderState } from '@/shared/ui/layout/WorkspacePlaceholderState';
 import {
-  listMatterUploads,
+  listUploadsByScope,
   uploadFileViaBackend,
   type BackendUploadRecord,
 } from '@/shared/lib/uploadsApi';
@@ -41,12 +41,12 @@ const makeUploadId = (): string => (
 );
 
 const recordToOrgFile = (record: BackendUploadRecord, matterId: string, matterTitle: string | null): OrgFile => ({
-  id: `matter:${matterId}:${record.id}`,
+  id: `matter:${matterId}:${record.upload_id}`,
   fileName: record.file_name,
   mimeType: record.mime_type || 'application/octet-stream',
   fileSize: typeof record.file_size === 'number' ? record.file_size : 0,
-  publicUrl: record.public_url ?? uploadDownloadPath(record.id),
-  uploadId: record.id,
+  publicUrl: record.public_url ?? uploadDownloadPath(record.upload_id),
+  uploadId: record.upload_id,
   createdAt: record.created_at ?? null,
   matterId,
   matterTitle,
@@ -73,7 +73,7 @@ export function MatterFilesPanel({ matterId, matterTitle = null, isPrivilegedUpl
     setLoading(true);
     setError(null);
 
-    listMatterUploads({ matterId, signal: controller.signal })
+    listUploadsByScope({ scopeType: 'matter', scopeId: matterId, signal: controller.signal })
       .then((records) => {
         setUploads(records.filter((record) => record.status === 'verified'));
         setLoading(false);
@@ -96,8 +96,8 @@ export function MatterFilesPanel({ matterId, matterTitle = null, isPrivilegedUpl
       try {
         await uploadFileViaBackend({
           file,
-          uploadContext: 'matter',
-          matterId,
+          scopeType: 'matter',
+          scopeId: matterId,
           isPrivileged: isPrivilegedUploads,
           onProgress: (progress) => {
             setUploadingFiles((prev) => prev.map((entry) => (

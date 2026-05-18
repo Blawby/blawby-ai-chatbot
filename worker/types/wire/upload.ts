@@ -8,18 +8,23 @@
 import { z } from 'zod';
 
 export const BackendUploadRecordSchema = z.object({
-  id: z.string(),
-  upload_context: z.string(),
+  upload_id: z.string(),
+  scope_type: z.string().nullable().optional(),
+  scope_id: z.string().nullable().optional(),
   sub_context: z.string().nullable().optional(),
-  entity_id: z.string().nullable().optional(),
-  matter_id: z.string().nullable().optional(),
   file_name: z.string(),
+  file_type: z.string().nullable().optional(),
   mime_type: z.string(),
   file_size: z.number(),
+  storage_provider: z.string().nullable().optional(),
   storage_key: z.string(),
   public_url: z.string().nullable(),
   status: z.enum(['pending', 'verified', 'rejected']),
+  is_privileged: z.boolean().nullable().optional(),
+  retention_until: z.string().nullable().optional(),
   created_at: z.string(),
+  verified_at: z.string().nullable().optional(),
   updated_at: z.string().nullable().optional(),
+  uploaded_by: z.string().nullable().optional(),
 }).passthrough();
 export type BackendUploadRecord = z.infer<typeof BackendUploadRecordSchema>;

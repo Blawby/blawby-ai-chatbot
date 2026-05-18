@@ -115,8 +115,8 @@ export const UploadDestinationDialog = ({
         if (destination.kind === 'matter') {
           await uploadFileViaBackend({
             file,
-            uploadContext: 'matter',
-            matterId: destination.matterId,
+            scopeType: 'matter',
+            scopeId: destination.matterId,
             isPrivileged: true,
             onProgress: (progress) => {
               setUploadingFiles((prev) => prev.map((entry) => (
