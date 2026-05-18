@@ -226,8 +226,8 @@ export const MarkdownUploadTextarea = ({
       try {
         const uploaded = await uploadFileViaBackend({
           file,
-          uploadContext: 'matter',
-          matterId: resolvedMatterId,
+          scopeType: 'matter',
+          scopeId: resolvedMatterId,
           subContext: 'documents',
           onProgress: (progress) => {
             setUploadItems((prev) =>

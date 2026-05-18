@@ -388,7 +388,7 @@ export const AccountPage = ({
     try {
       const uploaded = await uploadFileViaBackend({
         file,
-        uploadContext: 'profile',
+        scopeType: 'profile',
         onProgress: (progress) => setAvatarUploadProgress(progress.percentage),
       });
       if (!uploaded.publicUrl) {

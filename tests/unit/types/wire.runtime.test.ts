@@ -83,18 +83,23 @@ describe('wire schemas — runtime parse fixtures', () => {
 
   it('parses a BackendUploadRecord', () => {
     const parsed = BackendUploadRecordSchema.parse({
-      id: 'u-1',
-      upload_context: 'matter',
-      matter_id: 'm-1',
+      upload_id: 'u-1',
+      scope_type: 'matter',
+      scope_id: 'm-1',
       file_name: 'discovery.pdf',
+      file_type: 'pdf',
       mime_type: 'application/pdf',
       file_size: 102400,
+      storage_provider: 'r2',
       storage_key: 'uploads/matter/m-1/discovery.pdf',
       public_url: null,
       status: 'verified',
+      is_privileged: true,
       created_at: '2024-02-01T12:00:00Z',
+      verified_at: '2024-02-01T12:00:05Z',
     });
     expect(parsed.status).toBe('verified');
+    expect(parsed.upload_id).toBe('u-1');
   });
 
   it('parses a BackendSession (open-shape passthrough)', () => {

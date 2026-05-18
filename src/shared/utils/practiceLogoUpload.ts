@@ -25,8 +25,8 @@ export const uploadPracticeLogo = async (
 
   const result = await uploadFileViaBackend({
     file,
-    uploadContext: 'asset',
-    entityId: practiceId,
+    scopeType: 'asset',
+    scopeId: practiceId,
     onProgress: (progress) => {
       onProgress?.(progress.percentage);
     },

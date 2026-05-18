@@ -50,10 +50,14 @@ function validateRequest(request: Request): boolean {
 
   if (request.method === 'POST') {
     const contentType = request.headers.get('content-type');
-    if (!contentType) {
+    const url = new URL(request.url);
+    const isNoBodyEndpoint =
+      /^\/api\/practice-client-intakes\/[^/]+\/files\/[^/]+\/confirm$/.test(url.pathname) ||
+      /^\/api\/uploads\/[^/]+\/confirm$/.test(url.pathname);
+    if (!isNoBodyEndpoint && !contentType) {
       return false;
     }
-    if (!contentType.includes('application/json') && !contentType.includes('multipart/form-data')) {
+    if (contentType && !contentType.includes('application/json') && !contentType.includes('multipart/form-data')) {
       return false;
     }
   }

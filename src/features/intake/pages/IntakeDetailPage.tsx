@@ -45,7 +45,6 @@ import {
 import { useIntakeDetail } from '@/features/intake/hooks/useIntakeDetail';
 import { useIntakeFiles } from '@/features/intake/hooks/useIntakeFiles';
 import { IntakeFilesPanel } from '@/features/intake/components/IntakeFilesPanel';
-import { uploadDownloadPath } from '@/config/urls';
 import { DEFAULT_INTAKE_TEMPLATE } from '@/shared/constants/intakeTemplates';
 import type { IntakeTemplate, IntakeFieldDefinition } from '@/shared/types/intake';
 import VirtualMessageList from '@/features/chat/components/VirtualMessageList';
@@ -445,7 +444,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
           name: result.fileName,
           size: result.fileSize,
           type: result.mimeType ?? file.type ?? 'application/octet-stream',
-          url: uploadDownloadPath(result.uploadId),
+          url: result.publicUrl ?? '',
           storageKey: result.storageKey ?? undefined,
           uploadId: result.uploadId,
           source: 'intake',

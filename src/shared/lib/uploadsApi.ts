@@ -4,7 +4,7 @@ import { uploadViaPresignedUrl, type UploadProgress } from '@/shared/lib/presign
 
 export type { UploadProgress };
 
-export type UploadContext = 'matter' | 'intake' | 'trust' | 'profile' | 'asset';
+export type UploadScopeType = 'matter' | 'intake' | 'trust' | 'profile' | 'asset';
 export type UploadSubContext = 'documents' | 'correspondence' | 'evidence';
 
 const MAX_UPLOAD_FILE_SIZE_BYTES = 52_428_800; // Matches backend presign schema max (50 MiB).
@@ -15,9 +15,8 @@ interface PresignUploadRequest {
   file_name: string;
   mime_type: string;
   file_size: number;
-  upload_context: UploadContext;
-  entity_id?: string;
-  matter_id?: string;
+  scope_type?: UploadScopeType;
+  scope_id?: string;
   sub_context?: UploadSubContext;
   is_privileged?: boolean;
 }
@@ -49,9 +48,8 @@ export interface UploadResult {
 
 interface UploadOptions {
   file: File;
-  uploadContext: UploadContext;
-  entityId?: string;
-  matterId?: string;
+  scopeType?: UploadScopeType;
+  scopeId?: string;
   subContext?: UploadSubContext;
   isPrivileged?: boolean;
   onProgress?: (progress: UploadProgress) => void;
@@ -59,7 +57,7 @@ interface UploadOptions {
 }
 
 const validateUploadInput = (options: UploadOptions): void => {
-  const { file, uploadContext, matterId } = options;
+  const { file, scopeType, scopeId } = options;
 
   const fileName = typeof file.name === 'string' ? file.name.trim() : '';
   if (!fileName) {
@@ -84,8 +82,8 @@ const validateUploadInput = (options: UploadOptions): void => {
     throw new Error(`File MIME type must be ${MAX_UPLOAD_MIME_LENGTH} characters or fewer.`);
   }
 
-  if (uploadContext === 'matter' && (!matterId || matterId.trim().length === 0)) {
-    throw new Error('Matter uploads require a matter ID.');
+  if (scopeType === 'matter' && (!scopeId || scopeId.trim().length === 0)) {
+    throw new Error('Matter uploads require a scope ID.');
   }
 };
 
@@ -137,25 +135,38 @@ import type { BackendUploadRecord } from '@/shared/types/wire';
 export type { BackendUploadRecord };
 
 interface ListUploadsParams {
-  matterId: string;
+  scopeType: UploadScopeType;
+  scopeId: string;
   subContext?: UploadSubContext;
   signal?: AbortSignal;
 }
 
-export const listMatterUploads = async ({
-  matterId,
+interface BackendUploadsListResponse {
+  uploads: BackendUploadRecord[];
+  total?: number;
+  page?: number;
+  limit?: number;
+}
+
+export const listUploadsByScope = async ({
+  scopeType,
+  scopeId,
   subContext,
   signal,
 }: ListUploadsParams): Promise<BackendUploadRecord[]> => {
-  const params: Record<string, string> = { matter_id: matterId };
+  const params: Record<string, string> = {
+    scope_type: scopeType,
+    scope_id: scopeId,
+  };
   if (subContext) params.sub_context = subContext;
 
   try {
-    const { data } = await apiClient.get<{ data?: BackendUploadRecord[] } | BackendUploadRecord[]>(
+    const { data } = await apiClient.get<BackendUploadsListResponse | BackendUploadRecord[]>(
       buildWorkerUrl('/api/uploads'),
       { params, signal },
     );
-    return Array.isArray(data) ? data : (data.data ?? []);
+    if (Array.isArray(data)) return data;
+    return data.uploads ?? [];
   } catch (error) {
     throw new Error(readApiErrorMessage(error, 'Failed to list uploads.'));
   }
@@ -163,9 +174,8 @@ export const listMatterUploads = async ({
 
 export const uploadFileViaBackend = async ({
   file,
-  uploadContext,
-  entityId,
-  matterId,
+  scopeType,
+  scopeId,
   subContext,
   isPrivileged = true,
   onProgress,
@@ -173,9 +183,8 @@ export const uploadFileViaBackend = async ({
 }: UploadOptions): Promise<UploadResult> => {
   validateUploadInput({
     file,
-    uploadContext,
-    entityId,
-    matterId,
+    scopeType,
+    scopeId,
     subContext,
     isPrivileged,
     onProgress,
@@ -187,9 +196,8 @@ export const uploadFileViaBackend = async ({
       file_name: file.name,
       mime_type: file.type || 'application/octet-stream',
       file_size: file.size,
-      upload_context: uploadContext,
-      ...(entityId ? { entity_id: entityId } : {}),
-      ...(matterId ? { matter_id: matterId } : {}),
+      ...(scopeType ? { scope_type: scopeType } : {}),
+      ...(scopeId ? { scope_id: scopeId } : {}),
       ...(subContext ? { sub_context: subContext } : {}),
       is_privileged: isPrivileged,
     },
