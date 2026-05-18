@@ -2,7 +2,6 @@ import { useMemo } from 'preact/hooks';
 
 import { useQuery } from '@/shared/hooks/useQuery';
 import { policyTtl } from '@/shared/lib/cachePolicy';
-import { uploadDownloadPath } from '@/config/urls';
 import type { BackendMatter } from '@/features/matters/services/mattersApi';
 import type { IntakeListItem } from '@/features/intake/api/intakesApi';
 import { resolveIntakeTitle } from '@/features/intake/utils/intakeTitle';
@@ -55,7 +54,7 @@ const collectMatterFiles = async (
         fileName: record.file_name,
         mimeType: record.mime_type || 'application/octet-stream',
         fileSize: typeof record.file_size === 'number' ? record.file_size : 0,
-        publicUrl: record.public_url ?? uploadDownloadPath(record.upload_id),
+        publicUrl: record.public_url ?? null,
         uploadId: record.upload_id,
         createdAt: record.created_at ?? null,
         matterId: matter.id,
@@ -81,7 +80,7 @@ const collectIntakeFiles = async (
         fileName: file.fileName,
         mimeType: file.mimeType || 'application/octet-stream',
         fileSize: file.fileSize,
-        publicUrl: file.publicUrl ?? uploadDownloadPath(file.uploadId),
+        publicUrl: file.publicUrl ?? null,
         uploadId: file.uploadId,
         createdAt: file.createdAt,
         matterId: null,

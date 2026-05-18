@@ -1,3 +1,4 @@
+import { useState } from 'preact/hooks';
 import { Download, ExternalLink } from 'lucide-preact';
 
 import { Dialog, DialogBody, DialogFooter } from '@/shared/ui/dialog';
@@ -5,10 +6,15 @@ import { Fullscreen } from '@/shared/ui/dialog/Fullscreen';
 import { Button } from '@/shared/ui/Button';
 import { Icon } from '@/shared/ui/Icon';
 import { useMobileDetection } from '@/shared/hooks/useMobileDetection';
+import { useToastContext } from '@/shared/contexts/ToastContext';
 import { isImageFile, getFileTypeConfig } from '@/shared/utils/fileTypeUtils';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
 import { triggerDownload, openFile } from '@/shared/utils/fileDownload';
 import { folderForFile, type OrgFile } from '@/features/files/utils/fileCategory';
+import {
+  fetchUploadDownloadUrl,
+  useUploadPreviewUrl,
+} from '@/features/files/hooks/useUploadPreviewUrl';
 
 interface FileDetailDrawerProps {
   file: OrgFile | null;
@@ -32,13 +38,20 @@ const formatBytes = (bytes: number): string => {
 const FileDetailContent = ({ file }: { file: OrgFile }) => {
   const fileType = getFileTypeConfig(file.fileName, file.mimeType);
   const association = folderForFile(file);
-  const imageUrl = isImageFile(file.mimeType) ? file.publicUrl : null;
+  const isImage = isImageFile(file.mimeType);
+  const { url: previewUrl, isLoading: previewLoading } = useUploadPreviewUrl(
+    file.uploadId,
+    file.publicUrl,
+    file.mimeType,
+  );
 
   return (
     <div className="space-y-5">
       <div className="flex aspect-[4/3] w-full items-center justify-center overflow-hidden rounded-2xl bg-surface-panel">
-        {imageUrl ? (
-          <img src={imageUrl} alt={file.fileName} className="h-full w-full object-contain" />
+        {isImage && previewUrl ? (
+          <img src={previewUrl} alt={file.fileName} className="h-full w-full object-contain" />
+        ) : isImage && previewLoading ? (
+          <div className="h-full w-full animate-pulse bg-surface-panel" />
         ) : (
           <div className={`flex h-20 w-20 items-center justify-center rounded-2xl ${fileType.color}`}>
             <Icon icon={fileType.icon} className="h-10 w-10 text-input-text" />
@@ -72,33 +85,47 @@ const FileDetailContent = ({ file }: { file: OrgFile }) => {
 };
 
 const Actions = ({ file, onClose }: { file: OrgFile; onClose: () => void }) => {
-  const publicUrl = file.publicUrl;
+  const { showError } = useToastContext();
+  const [busy, setBusy] = useState(false);
+
+  const run = async (kind: 'open' | 'download') => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const url = file.publicUrl ?? await fetchUploadDownloadUrl(file.uploadId);
+      if (kind === 'open') {
+        openFile(url);
+      } else {
+        triggerDownload(url, file.fileName);
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unable to resolve download URL.';
+      showError('Could not open file', message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <div className="flex flex-wrap gap-2">
-      {publicUrl ? (
-        <>
-          <Button
-            variant="secondary"
-            size="sm"
-            icon={ExternalLink}
-            onClick={() => {
-              openFile(publicUrl);
-            }}
-          >
-            Open
-          </Button>
-          <Button
-            variant="primary"
-            size="sm"
-            icon={Download}
-            onClick={() => {
-              triggerDownload(publicUrl, file.fileName);
-            }}
-          >
-            Download
-          </Button>
-        </>
-      ) : null}
+      <Button
+        variant="secondary"
+        size="sm"
+        icon={ExternalLink}
+        disabled={busy}
+        onClick={() => { void run('open'); }}
+      >
+        Open
+      </Button>
+      <Button
+        variant="primary"
+        size="sm"
+        icon={Download}
+        disabled={busy}
+        onClick={() => { void run('download'); }}
+      >
+        Download
+      </Button>
       <Button variant="ghost" size="sm" onClick={onClose}>Close</Button>
     </div>
   );

@@ -1,3 +1,4 @@
+import { useState } from 'preact/hooks';
 import { Download, ExternalLink, X } from 'lucide-preact';
 
 import { Button } from '@/shared/ui/Button';
@@ -6,7 +7,12 @@ import { isImageFile, getFileTypeConfig } from '@/shared/utils/fileTypeUtils';
 import { triggerDownload, openFile } from '@/shared/utils/fileDownload';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
 import { useNavigation } from '@/shared/utils/navigation';
+import { useToastContext } from '@/shared/contexts/ToastContext';
 import { folderForFile, type OrgFile } from '@/features/files/utils/fileCategory';
+import {
+  fetchUploadDownloadUrl,
+  useUploadPreviewUrl,
+} from '@/features/files/hooks/useUploadPreviewUrl';
 
 interface FilesInspectorPanelProps {
   file: OrgFile;
@@ -46,11 +52,37 @@ const associationHref = (
 
 export const FilesInspectorPanel = ({ file, practiceSlug, scope, onClose }: FilesInspectorPanelProps) => {
   const { navigate } = useNavigation();
+  const { showError } = useToastContext();
+  const [actionBusy, setActionBusy] = useState(false);
   const fileType = getFileTypeConfig(file.fileName, file.mimeType);
   const association = folderForFile(file);
-  const showImage = isImageFile(file.mimeType) && file.publicUrl;
+  const isImage = isImageFile(file.mimeType);
+  const { url: previewUrl, isLoading: previewLoading } = useUploadPreviewUrl(
+    file.uploadId,
+    file.publicUrl,
+    file.mimeType,
+  );
   const href = associationHref(file, practiceSlug, scope);
-  const publicUrl = file.publicUrl;
+
+  // Action buttons always resolve a fresh presigned URL so a near-expiry
+  // cached URL never silently 403s when the user clicks Open or Download.
+  const handleAction = async (kind: 'open' | 'download') => {
+    if (actionBusy) return;
+    setActionBusy(true);
+    try {
+      const url = file.publicUrl ?? await fetchUploadDownloadUrl(file.uploadId);
+      if (kind === 'open') {
+        openFile(url);
+      } else {
+        triggerDownload(url, file.fileName);
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unable to resolve download URL.';
+      showError('Could not open file', message);
+    } finally {
+      setActionBusy(false);
+    }
+  };
 
   return (
     <aside
@@ -71,8 +103,10 @@ export const FilesInspectorPanel = ({ file, practiceSlug, scope, onClose }: File
 
       <div className="flex-1 space-y-5 overflow-y-auto px-4 py-5">
         <div className="flex aspect-[4/3] w-full items-center justify-center overflow-hidden rounded-xl bg-surface-panel">
-          {showImage ? (
-            <img src={publicUrl ?? undefined} alt={file.fileName} className="h-full w-full object-contain" />
+          {isImage && previewUrl ? (
+            <img src={previewUrl} alt={file.fileName} className="h-full w-full object-contain" />
+          ) : isImage && previewLoading ? (
+            <div className="h-full w-full animate-pulse bg-surface-panel" />
           ) : (
             <div className={`flex h-20 w-20 items-center justify-center rounded-2xl ${fileType.color}`}>
               <Icon icon={fileType.icon} className="h-10 w-10 text-input-text" />
@@ -119,26 +153,26 @@ export const FilesInspectorPanel = ({ file, practiceSlug, scope, onClose }: File
         </dl>
       </div>
 
-      {publicUrl ? (
-        <footer className="flex gap-2 border-t border-line-glass/30 px-4 py-3">
-          <Button
-            variant="secondary"
-            size="sm"
-            icon={ExternalLink}
-            onClick={() => openFile(publicUrl)}
-          >
-            Open
-          </Button>
-          <Button
-            variant="primary"
-            size="sm"
-            icon={Download}
-            onClick={() => triggerDownload(publicUrl, file.fileName)}
-          >
-            Download
-          </Button>
-        </footer>
-      ) : null}
+      <footer className="flex gap-2 border-t border-line-glass/30 px-4 py-3">
+        <Button
+          variant="secondary"
+          size="sm"
+          icon={ExternalLink}
+          disabled={actionBusy}
+          onClick={() => { void handleAction('open'); }}
+        >
+          Open
+        </Button>
+        <Button
+          variant="primary"
+          size="sm"
+          icon={Download}
+          disabled={actionBusy}
+          onClick={() => { void handleAction('download'); }}
+        >
+          Download
+        </Button>
+      </footer>
     </aside>
   );
 };

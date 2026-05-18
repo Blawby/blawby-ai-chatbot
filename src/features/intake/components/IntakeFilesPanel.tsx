@@ -10,7 +10,6 @@ import { UploadDropzone } from '@/shared/ui/upload/organisms/UploadDropzone';
 import { UploadQueueRow } from '@/shared/ui/upload/molecules/UploadQueueRow';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { WorkspacePlaceholderState } from '@/shared/ui/layout/WorkspacePlaceholderState';
-import { uploadDownloadPath } from '@/config/urls';
 import { useIntakeFiles } from '@/features/intake/hooks/useIntakeFiles';
 import type { IntakeFile } from '@/features/intake/api/intakeFilesApi';
 
@@ -37,7 +36,7 @@ const intakeFileToOrgFile = (file: IntakeFile): OrgFile => ({
   fileName: file.fileName,
   mimeType: file.mimeType || 'application/octet-stream',
   fileSize: file.fileSize,
-  publicUrl: file.publicUrl ?? uploadDownloadPath(file.uploadId),
+  publicUrl: file.publicUrl ?? null,
   uploadId: file.uploadId,
   createdAt: file.createdAt ?? null,
   matterId: null,

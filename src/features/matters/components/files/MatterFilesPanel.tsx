@@ -10,7 +10,6 @@ import {
   uploadFileViaBackend,
   type BackendUploadRecord,
 } from '@/shared/lib/uploadsApi';
-import { uploadDownloadPath } from '@/config/urls';
 
 import { FilesGrid } from '@/features/files/components/FilesGrid';
 import { FilesList } from '@/features/files/components/FilesList';
@@ -45,7 +44,7 @@ const recordToOrgFile = (record: BackendUploadRecord, matterId: string, matterTi
   fileName: record.file_name,
   mimeType: record.mime_type || 'application/octet-stream',
   fileSize: typeof record.file_size === 'number' ? record.file_size : 0,
-  publicUrl: record.public_url ?? uploadDownloadPath(record.upload_id),
+  publicUrl: record.public_url ?? null,
   uploadId: record.upload_id,
   createdAt: record.created_at ?? null,
   matterId,
