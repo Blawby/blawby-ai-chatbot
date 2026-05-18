@@ -1,27 +1,20 @@
 import { useEffect, useMemo, useState } from 'preact/hooks';
-import { Folder, LayoutGrid, List, Upload } from 'lucide-preact';
+import { Folder, Upload } from 'lucide-preact';
 
 import { Page } from '@/shared/ui/layout/Page';
 import { PageHeader } from '@/shared/ui/layout/PageHeader';
 import { WorkspacePlaceholderState } from '@/shared/ui/layout/WorkspacePlaceholderState';
 import { Button } from '@/shared/ui/Button';
-import { Icon } from '@/shared/ui/Icon';
 import { SegmentedFilter } from '@/shared/ui/tabs/SegmentedFilter';
 import { CollectionToolbar } from '@/shared/ui/collection/CollectionToolbar';
-import { SkeletonLoader } from '@/shared/ui/layout/SkeletonLoader';
 import { useMobileDetection } from '@/shared/hooks/useMobileDetection';
-import { useNavigation } from '@/shared/utils/navigation';
-import { cn } from '@/shared/utils/cn';
 
-import { FolderTile } from './FolderTile';
-import { FoldersList } from './FoldersList';
+import { FilesGrid } from './FilesGrid';
+import { FileDetailDrawer } from './FileDetailDrawer';
+import { FilesInspectorPanel } from './FilesInspectorPanel';
 import { UploadDestinationDialog } from './UploadDestinationDialog';
-import {
-  useOrgFolders,
-  type OrgFilesScope,
-  type OrgFolder,
-} from '@/features/files/hooks/useOrgFiles';
-import { FILES_VIEW_MODE_STORAGE_KEY } from '@/features/files/constants';
+import { useOrgFiles, type OrgFilesScope } from '@/features/files/hooks/useOrgFiles';
+import type { OrgFile } from '@/features/files/utils/fileCategory';
 
 interface FilesPageViewProps {
   practiceId: string;
@@ -31,7 +24,6 @@ interface FilesPageViewProps {
 }
 
 type AssociationFilter = 'all' | 'matters' | 'intakes';
-type ViewMode = 'grid' | 'list';
 
 const ASSOCIATION_OPTIONS: ReadonlyArray<{ id: AssociationFilter; label: string }> = [
   { id: 'all', label: 'All' },
@@ -39,80 +31,41 @@ const ASSOCIATION_OPTIONS: ReadonlyArray<{ id: AssociationFilter; label: string 
   { id: 'intakes', label: 'Intakes' },
 ];
 
-const readPersistedViewMode = (): ViewMode => {
-  if (typeof window === 'undefined') return 'list';
-  try {
-    const value = window.localStorage.getItem(FILES_VIEW_MODE_STORAGE_KEY);
-    return value === 'grid' ? 'grid' : 'list';
-  } catch {
-    return 'list';
-  }
+const matchesAssociation = (file: OrgFile, filter: AssociationFilter): boolean => {
+  if (filter === 'all') return true;
+  if (filter === 'matters') return Boolean(file.matterId);
+  return Boolean(file.intakeUuid);
 };
 
-const persistViewMode = (mode: ViewMode) => {
-  if (typeof window === 'undefined') return;
-  try {
-    window.localStorage.setItem(FILES_VIEW_MODE_STORAGE_KEY, mode);
-  } catch {
-    // localStorage may be disabled (private mode, quota); persistence is best-effort.
-  }
-};
-
-const folderHref = (
-  folder: OrgFolder,
-  scope: OrgFilesScope,
-  practiceSlug: string,
-): string => {
-  const slug = encodeURIComponent(practiceSlug);
-  const id = encodeURIComponent(folder.resourceId);
-  if (folder.kind === 'matter') {
-    const base = scope === 'practice' ? '/practice' : '/client';
-    return `${base}/${slug}/matters/${id}/files`;
-  }
-  // Intakes only have a practice-side detail route today.
-  return `/practice/${slug}/intakes/responses/${id}`;
+const matchesSearch = (file: OrgFile, query: string): boolean => {
+  if (!query) return true;
+  const q = query.toLowerCase();
+  if (file.fileName.toLowerCase().includes(q)) return true;
+  if (file.matterTitle?.toLowerCase().includes(q)) return true;
+  if (file.intakeTitle?.toLowerCase().includes(q)) return true;
+  return false;
 };
 
 export const FilesPageView = ({ practiceId, practiceSlug, scope, userId = null }: FilesPageViewProps) => {
   const isMobile = useMobileDetection();
-  const { navigate } = useNavigation();
-  const { matterFolders, intakeFolders, isLoading, error, refetch } = useOrgFolders({
-    practiceId,
-    scope,
-    userId,
-  });
+  const { files, isLoading, error, refetch } = useOrgFiles({ practiceId, scope, userId });
 
   const [search, setSearch] = useState('');
   const [association, setAssociation] = useState<AssociationFilter>('all');
-  const [viewMode, setViewMode] = useState<ViewMode>(() => readPersistedViewMode());
+  const [selectedFile, setSelectedFile] = useState<OrgFile | null>(null);
   const [isUploadOpen, setIsUploadOpen] = useState(false);
 
-  useEffect(() => { persistViewMode(viewMode); }, [viewMode]);
+  // Drop selection when the file disappears from the list (e.g. after refetch).
+  useEffect(() => {
+    if (selectedFile && !files.some((f) => f.id === selectedFile.id)) {
+      setSelectedFile(null);
+    }
+  }, [files, selectedFile]);
 
-  // Mobile is cramped for tile grids — force list there regardless of saved
-  // preference, but don't mutate the persisted value.
-  const effectiveViewMode: ViewMode = isMobile ? 'list' : viewMode;
-
-  const filteredMatters = useMemo(() => {
-    if (association === 'intakes') return [] as OrgFolder[];
-    const q = search.trim().toLowerCase();
-    if (!q) return matterFolders;
-    return matterFolders.filter((folder) => folder.label.toLowerCase().includes(q));
-  }, [matterFolders, association, search]);
-
-  const filteredIntakes = useMemo(() => {
-    if (association === 'matters') return [] as OrgFolder[];
-    const q = search.trim().toLowerCase();
-    if (!q) return intakeFolders;
-    return intakeFolders.filter((folder) => folder.label.toLowerCase().includes(q));
-  }, [intakeFolders, association, search]);
-
-  const totalFolders = matterFolders.length + intakeFolders.length;
-  const totalFiltered = filteredMatters.length + filteredIntakes.length;
-
-  const handleFolderClick = (folder: OrgFolder) => {
-    navigate(folderHref(folder, scope, practiceSlug));
-  };
+  const filteredFiles = useMemo(() => {
+    const trimmed = search.trim();
+    return files.filter((file) => matchesAssociation(file, association) && matchesSearch(file, trimmed));
+  }, [files, association, search]);
 
   const headerActions = (
     <Button
@@ -141,143 +94,83 @@ export const FilesPageView = ({ practiceId, practiceSlug, scope, userId = null }
     );
   }
 
-  const folderGridClass = 'grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4';
+  const showInspector = !isMobile && selectedFile !== null;
 
   return (
     <Page className="h-full">
-      <div className="space-y-6">
-        <PageHeader
-          title="Files"
-          subtitle="Files live inside a matter or intake. Open one to view or upload."
-          actions={headerActions}
-        />
+      <div className="flex h-full gap-6">
+        <div className="min-w-0 flex-1 space-y-6">
+          <PageHeader
+            title="Files"
+            subtitle="Every file across your matters and intakes. Click one for details."
+            actions={headerActions}
+          />
 
-        <CollectionToolbar
-          searchValue={search}
-          onSearchChange={setSearch}
-          searchPlaceholder="Search matters and intakes"
-          searchLabel="Search"
-          filters={
-            <div className="flex flex-wrap items-center gap-3">
+          <CollectionToolbar
+            searchValue={search}
+            onSearchChange={setSearch}
+            searchPlaceholder="Search files, matters, intakes"
+            searchLabel="Search"
+            filters={
               <SegmentedFilter
                 items={ASSOCIATION_OPTIONS.map((opt) => ({ id: opt.id, label: opt.label }))}
                 activeId={association}
                 onChange={(id) => setAssociation(id as AssociationFilter)}
               />
-              {!isMobile ? (
-                <div
-                  className="inline-flex items-center gap-1 rounded-lg border border-line-glass/30 bg-surface-panel/60 p-1"
-                  role="group"
-                  aria-label="View mode"
-                >
-                  <button
-                    type="button"
-                    onClick={() => setViewMode('list')}
-                    aria-label="List view"
-                    aria-pressed={viewMode === 'list'}
-                    className={cn(
-                      'flex h-7 w-7 items-center justify-center rounded-md transition-colors',
-                      viewMode === 'list'
-                        ? 'bg-surface-card text-input-text shadow-sm'
-                        : 'text-input-placeholder hover:text-input-text'
-                    )}
-                  >
-                    <Icon icon={List} className="h-4 w-4" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setViewMode('grid')}
-                    aria-label="Grid view"
-                    aria-pressed={viewMode === 'grid'}
-                    className={cn(
-                      'flex h-7 w-7 items-center justify-center rounded-md transition-colors',
-                      viewMode === 'grid'
-                        ? 'bg-surface-card text-input-text shadow-sm'
-                        : 'text-input-placeholder hover:text-input-text'
-                    )}
-                  >
-                    <Icon icon={LayoutGrid} className="h-4 w-4" />
-                  </button>
-                </div>
-              ) : null}
-            </div>
-          }
-        />
+            }
+          />
 
-        {isLoading ? (
-          <div className={folderGridClass}>
-            {Array.from({ length: 8 }).map((_, idx) => (
-              <SkeletonLoader key={`folder-skel-${idx}`} className="h-16 rounded-2xl" />
-            ))}
-          </div>
-        ) : totalFolders === 0 ? (
-          <WorkspacePlaceholderState
-            icon={Folder}
-            title="No matters or intakes yet"
-            description={scope === 'client'
-              ? 'Open a conversation with the practice to start an intake — files attach there.'
-              : 'Create a matter or accept an intake first — files attach to one.'}
-            primaryAction={{
-              label: 'Upload',
-              onClick: () => setIsUploadOpen(true),
-              icon: Upload,
-            }}
-          />
-        ) : totalFiltered === 0 ? (
-          <WorkspacePlaceholderState
-            icon={Folder}
-            title="Nothing matches"
-            description={`No ${association === 'all' ? 'matters or intakes' : association} match "${search}".`}
-          />
-        ) : effectiveViewMode === 'list' ? (
-          <FoldersList
-            folders={[...filteredMatters, ...filteredIntakes]}
-            onFolderClick={handleFolderClick}
-          />
-        ) : (
-          <div className="space-y-8">
-            {filteredMatters.length > 0 ? (
-              <section>
-                <header className="mb-3 text-xs font-semibold uppercase tracking-wide text-input-placeholder">
-                  Matters · {filteredMatters.length}
-                </header>
-                <div className={folderGridClass}>
-                  {filteredMatters.map((folder) => (
-                    <FolderTile
-                      key={folder.id}
-                      folder={folder}
-                      onClick={() => handleFolderClick(folder)}
-                    />
-                  ))}
-                </div>
-              </section>
-            ) : null}
+          {!isLoading && files.length === 0 ? (
+            <WorkspacePlaceholderState
+              icon={Folder}
+              title="No files yet"
+              description={scope === 'client'
+                ? 'Open a conversation with the practice to start an intake — files attach there.'
+                : 'Create a matter or accept an intake first — files attach to one.'}
+              primaryAction={{
+                label: 'Upload',
+                onClick: () => setIsUploadOpen(true),
+                icon: Upload,
+              }}
+            />
+          ) : !isLoading && filteredFiles.length === 0 ? (
+            <WorkspacePlaceholderState
+              icon={Folder}
+              title="Nothing matches"
+              description={`No files match ${search ? `"${search}"` : 'the current filter'}.`}
+            />
+          ) : (
+            <FilesGrid
+              files={filteredFiles}
+              isLoading={isLoading}
+              onFileClick={setSelectedFile}
+            />
+          )}
+        </div>
 
-            {filteredIntakes.length > 0 ? (
-              <section>
-                <header className="mb-3 text-xs font-semibold uppercase tracking-wide text-input-placeholder">
-                  Intakes · {filteredIntakes.length}
-                </header>
-                <div className={folderGridClass}>
-                  {filteredIntakes.map((folder) => (
-                    <FolderTile
-                      key={folder.id}
-                      folder={folder}
-                      onClick={() => handleFolderClick(folder)}
-                    />
-                  ))}
-                </div>
-              </section>
-            ) : null}
+        {showInspector && selectedFile ? (
+          <div className="hidden w-[360px] shrink-0 lg:block">
+            <FilesInspectorPanel
+              file={selectedFile}
+              practiceSlug={practiceSlug}
+              scope={scope}
+              onClose={() => setSelectedFile(null)}
+            />
           </div>
-        )}
+        ) : null}
       </div>
+
+      <FileDetailDrawer
+        file={isMobile ? selectedFile : null}
+        isOpen={isMobile && selectedFile !== null}
+        onClose={() => setSelectedFile(null)}
+      />
 
       <UploadDestinationDialog
         practiceId={practiceId}
         isOpen={isUploadOpen}
         onClose={() => setIsUploadOpen(false)}
-        onUploaded={() => { /* folder list doesn't change on upload — no refetch needed */ }}
+        onUploaded={() => { void refetch(); }}
         clientUserId={scope === 'client' ? userId : null}
       />
     </Page>
