@@ -20,6 +20,7 @@ import {
   handleSidebarCounts,
   handleMetricsVitals,
   handleReports,
+  handlePublicPracticeIntakeSettings,
 } from './routes';
 import { handleConversations } from './routes/conversations.js';
 import { handleGlobalSearch } from './routes/search.js';
@@ -115,6 +116,11 @@ export const routes: RouteEntry[] = [
     mode: 'owned',
     match: regex(/^\/api\/practice\/[^/]+\/sidebar\/counts$/),
     handler: withAuth((req, env) => handleSidebarCounts(req, env), { required: true }),
+  },
+  {
+    mode: 'owned',
+    match: regex(/^\/api\/practice-client-intakes\/[^/]+\/intake$/),
+    handler: (req, env) => handlePublicPracticeIntakeSettings(req, env),
   },
   { mode: 'proxy', match: matchesBackendProxy, handler: (req, env, ctx) => handleBackendProxy(req, env, ctx) },
   { mode: 'proxy', match: prefix('/api/practices'), handler: (req, env) => handlePractices(req, env) },

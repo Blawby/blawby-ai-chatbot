@@ -363,6 +363,7 @@ export const AddressExperienceForm = ({
                   case 'email':
                     return (
                       <EmailInput
+                        name={field}
                         value={(value as string) || ''}
                         onChange={handleChange}
                         label={getLabel('email')}
@@ -378,6 +379,7 @@ export const AddressExperienceForm = ({
                   case 'phone':
                     return (
                       <PhoneInput
+                        name={field}
                         value={(value as string) || ''}
                         onChange={handleChange}
                         label={getLabel('phone')}
@@ -395,6 +397,7 @@ export const AddressExperienceForm = ({
                   case 'city':
                     return (
                       <Input
+                        name={field}
                         value={(value as string) || ''}
                         onChange={handleChange}
                         label={getLabel('city')}
@@ -409,6 +412,7 @@ export const AddressExperienceForm = ({
                   case 'state':
                     return (
                       <Input
+                        name={field}
                         value={(value as string) || ''}
                         onChange={handleChange}
                         label={getLabel('state')}
@@ -483,6 +487,7 @@ export const AddressExperienceForm = ({
                   case 'opposingParty':
                     return (
                       <Input
+                        name={field}
                         value={(value as string) || ''}
                         onChange={handleChange}
                         label={getLabel('opposingParty')}
@@ -497,6 +502,7 @@ export const AddressExperienceForm = ({
                   case 'description':
                     return (
                       <Textarea
+                        name={field}
                         value={(value as string) || ''}
                         onChange={handleChange}
                         label={getLabel('description')}
@@ -514,6 +520,7 @@ export const AddressExperienceForm = ({
                   default:
                     return (
                       <Input
+                        name={field}
                         value={(value as string) || ''}
                         onChange={handleChange}
                         label={getLabel('name')}

@@ -150,7 +150,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({
           ref={ref}
           type={type}
           value={value}
-          onChange={(e) => onChange?.((e.target as HTMLInputElement).value)}
+          onInput={(e) => onChange?.((e.target as HTMLInputElement).value)}
           placeholder={displayPlaceholder}
           disabled={disabled}
           required={required}

@@ -111,6 +111,7 @@ const getPhoneInputPlaceholder = (placeholder?: string): string | undefined => {
 
 export interface PhoneInputProps {
   id?: string;
+  name?: string;
   value?: string;
   onChange?: (value: string) => void;
   placeholder?: string;
@@ -154,7 +155,8 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(({
   placeholderKey: _placeholderKey,
   errorKey: _errorKey,
   namespace: _namespace = 'common',
-  id
+  id,
+  name
 }, ref) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [focusedIndex, setFocusedIndex] = useState(-1);
@@ -495,13 +497,14 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(({
           <input
             ref={ref}
             id={inputId}
+            name={name}
             type="tel"
             value={showCountryCode
               ? parsedPhoneValue?.kind === 'supported'
                 ? parsedPhoneValue.localValue
                 : value
               : value}
-            onChange={handleChange}
+            onInput={handleChange}
             placeholder={displayPlaceholder}
             disabled={disabled}
             required={required}

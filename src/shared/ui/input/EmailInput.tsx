@@ -7,6 +7,7 @@ import { useUniqueId } from '@/shared/hooks/useUniqueId';
 
 export interface EmailInputProps {
   id?: string;
+  name?: string;
   value?: string;
   onChange?: (value: string) => void;
   placeholder?: string;
@@ -29,6 +30,7 @@ export interface EmailInputProps {
 
 export const EmailInput = forwardRef<HTMLInputElement, EmailInputProps>(({
   id,
+  name,
   value = '',
   onChange,
   placeholder,
@@ -136,9 +138,10 @@ export const EmailInput = forwardRef<HTMLInputElement, EmailInputProps>(({
         <input
           ref={ref}
           id={inputId}
+          name={name}
           type="email"
           value={value}
-          onChange={(e) => onChange?.((e.target as HTMLInputElement).value)}
+          onInput={(e) => onChange?.((e.target as HTMLInputElement).value)}
           placeholder={displayPlaceholder}
           disabled={disabled}
           required={required}
