@@ -261,7 +261,7 @@ const buildPracticeRail = (basePath: string): NavRailItem[] => [
     id: 'settings',
     label: 'Settings',
     icon: SettingsNavIcon,
-    href: `${basePath}/settings/overview`,
+    href: `${basePath}/settings/general`,
     matchHrefs: [`${basePath}/settings`],
     expandable: true,
     prefetch: prefetchSettingsLanding,
@@ -316,7 +316,7 @@ const buildClientRail = (basePath: string): NavRailItem[] => [
     id: 'settings',
     label: 'Settings',
     icon: SettingsNavIcon,
-    href: `${basePath}/settings/overview`,
+    href: `${basePath}/settings/general`,
     matchHrefs: [`${basePath}/settings`],
     expandable: true,
     prefetch: prefetchSettingsLanding,
@@ -441,7 +441,7 @@ const buildSettingsSecondary = (basePath: string, canAccessPractice: boolean): N
     {
       label: 'Overview',
       items: [
-        { id: 'overview', label: 'Overview', href: `${basePath}/settings/overview`, icon: LayoutDashboard },
+        { id: 'overview', label: 'Overview', href: `${basePath}/settings/general`, icon: LayoutDashboard },
       ],
     },
     {

@@ -6,7 +6,6 @@ import { useSessionContext, useMemberRoleContext } from '@/shared/contexts/Sessi
 import { useWorkspace } from '@/shared/hooks/useWorkspace';
 import { normalizePracticeRole } from '@/shared/utils/practiceRoles';
 import { GeneralPage } from './GeneralPage';
-import { SettingsOverviewPage } from './SettingsOverviewPage';
 import { NotificationsPage } from './NotificationsPage';
 import { AccountPage } from './AccountPage';
 import { PayoutsPage } from './PayoutsPage';
@@ -23,7 +22,6 @@ import { getSettingsNavConfig } from '@/shared/config/navConfig';
 import { useTranslation } from '@/shared/i18n/hooks';
 
 export type SettingsView =
-  | 'overview'
   | 'general'
   | 'notifications'
   | 'account'
@@ -59,8 +57,6 @@ const SettingsRouter = ({
   handleAppUpdate,
   toSettingsPath,
   viewLabel,
-  settingsBasePath,
-  canAccessPractice,
 }: {
   view: SettingsView;
   appId?: string;
@@ -69,15 +65,11 @@ const SettingsRouter = ({
   handleAppUpdate: (targetAppId: string, updates: Partial<App>) => void;
   toSettingsPath: (subPath?: string) => string;
   viewLabel: string;
-  settingsBasePath: string;
-  canAccessPractice: boolean;
 }) => {
   const { navigate } = useNavigation();
 
   const renderViewContent = () => {
     switch (view) {
-      case 'overview':
-        return <SettingsOverviewPage basePath={settingsBasePath} canAccessPractice={canAccessPractice} />;
       case 'general':
         return <GeneralPage />;
       case 'notifications':
@@ -148,8 +140,7 @@ const SettingsRouter = ({
     }
   };
 
-  const isSelfWrappedView = view === 'overview'
-    || view === 'app-detail'
+  const isSelfWrappedView = view === 'app-detail'
     || view === 'practice'
     || view === 'practice-payouts'
     || view === 'practice-team'
@@ -270,8 +261,6 @@ export const SettingsContent = (props: SettingsContentProps) => {
         handleAppUpdate={handleAppUpdate}
         toSettingsPath={toSettingsPath}
         viewLabel={viewLabel}
-        settingsBasePath={settingsBasePath}
-        canAccessPractice={canAccessPractice}
       />
     </div>
   );

@@ -476,8 +476,7 @@ function AppShell() {
           <Route path="/client/:practiceSlug/intakes" component={ClientPracticeRoute} workspaceView="intakes" />
           <Route path="/client/:practiceSlug/intakes/:intakeId" component={ClientPracticeRoute} workspaceView="intakeDetail" />
           <Route path="/client/:practiceSlug/files" component={ClientPracticeRoute} workspaceView="files" />
-          <Route path="/client/:practiceSlug/settings" component={ClientPracticeRoute} workspaceView="settings" settingsView="overview" />
-          <Route path="/client/:practiceSlug/settings/overview" component={ClientPracticeRoute} workspaceView="settings" settingsView="overview" />
+          <Route path="/client/:practiceSlug/settings" component={ClientPracticeRoute} workspaceView="settings" settingsView="general" />
           <Route path="/client/:practiceSlug/settings/general" component={ClientPracticeRoute} workspaceView="settings" settingsView="general" />
           <Route path="/client/:practiceSlug/settings/notifications" component={ClientPracticeRoute} workspaceView="settings" settingsView="notifications" />
           <Route path="/client/:practiceSlug/settings/account" component={ClientPracticeRoute} workspaceView="settings" settingsView="account" />
@@ -512,8 +511,7 @@ function AppShell() {
           <Route path="/practice/:practiceSlug/invoices/new" component={PracticeAppRoute} workspaceView="invoices" />
           <Route path="/practice/:practiceSlug/invoices/:invoiceId/edit" component={PracticeAppRoute} workspaceView="invoiceDetail" />
           <Route path="/practice/:practiceSlug/invoices/:invoiceId" component={PracticeAppRoute} workspaceView="invoiceDetail" />
-          <Route path="/practice/:practiceSlug/settings" component={PracticeAppRoute} workspaceView="settings" settingsView="overview" />
-          <Route path="/practice/:practiceSlug/settings/overview" component={PracticeAppRoute} workspaceView="settings" settingsView="overview" />
+          <Route path="/practice/:practiceSlug/settings" component={PracticeAppRoute} workspaceView="settings" settingsView="general" />
           <Route path="/practice/:practiceSlug/settings/general" component={PracticeAppRoute} workspaceView="settings" settingsView="general" />
           <Route path="/practice/:practiceSlug/settings/notifications" component={PracticeAppRoute} workspaceView="settings" settingsView="notifications" />
           <Route path="/practice/:practiceSlug/settings/account" component={PracticeAppRoute} workspaceView="settings" settingsView="account" />
@@ -767,7 +765,7 @@ function PracticeAppRoute({
   appId?: string;
   templateSlug?: string;
   workspaceView?: WorkspaceView;
-  settingsView?: 'overview' | 'general' | 'notifications' | 'account' | 'practice' | 'practice-payouts' | 'practice-team' | 'apps' | 'app-detail' | 'intake-forms' | 'intake-forms-editor' | 'security' | 'help';
+  settingsView?: 'general' | 'notifications' | 'account' | 'practice' | 'practice-payouts' | 'practice-team' | 'apps' | 'app-detail' | 'intake-forms' | 'intake-forms-editor' | 'security' | 'help';
   practiceSlug?: string;
 }) {
   const location = useLocation();
@@ -984,7 +982,7 @@ function ClientPracticeRoute({
   intakeId?: string;
   appId?: string;
   workspaceView?: 'home' | 'list' | 'conversation' | 'matters' | 'invoices' | 'invoiceDetail' | 'intakes' | 'intakeDetail' | 'files' | 'settings';
-  settingsView?: 'overview' | 'general' | 'notifications' | 'account' | 'practice' | 'practice-payouts' | 'practice-team' | 'apps' | 'app-detail' | 'intake-forms' | 'intake-forms-editor' | 'security' | 'help';
+  settingsView?: 'general' | 'notifications' | 'account' | 'practice' | 'practice-payouts' | 'practice-team' | 'apps' | 'app-detail' | 'intake-forms' | 'intake-forms-editor' | 'security' | 'help';
 }) {
   const location = useLocation();
   const { session, isPending: sessionIsPending } = useSessionContext();
