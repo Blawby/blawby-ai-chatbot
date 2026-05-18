@@ -248,7 +248,7 @@ export const PracticeSidebar = ({
             user={user}
             collapsed={isCollapsed}
             onAccount={() => navigate(`${basePath}/settings/account`)}
-            onInvoices={() => navigate(`${basePath}/invoices`)}
+            onSettings={() => navigate(`${basePath}/settings/overview`)}
             onSignOut={() => void signOut({ navigate })}
           />
         </Sidebar.Footer>

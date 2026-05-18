@@ -176,6 +176,7 @@ export const ClientSidebar = ({
             user={user}
             collapsed={isCollapsed}
             onAccount={() => navigate(`${basePath}/settings/account`)}
+            onSettings={() => navigate(`${basePath}/settings/overview`)}
             onSignOut={() => void signOut({ navigate })}
           />
         </Sidebar.Footer>

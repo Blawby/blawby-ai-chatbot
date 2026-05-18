@@ -1,10 +1,35 @@
 import type { ComponentChildren, FunctionComponent, JSX } from 'preact';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
-import { CircleUser, LogOut, Wallet } from 'lucide-preact';
+import { CircleUser, LogOut, Monitor, Moon, Settings as SettingsIcon, Sun } from 'lucide-preact';
 import { Sidebar } from './Sidebar';
 import { Avatar } from '@/shared/ui/profile';
 import { Icon, type IconComponent } from '@/shared/ui/Icon';
 import { cn } from '@/shared/utils/cn';
+
+type ThemeChoice = 'light' | 'dark' | 'system';
+
+const readStoredTheme = (): ThemeChoice => {
+  if (typeof window === 'undefined') return 'system';
+  try {
+    const raw = window.localStorage.getItem('theme');
+    if (raw === 'light' || raw === 'dark') return raw;
+  } catch {
+    // localStorage may be disabled (private mode, quota); fall through.
+  }
+  return 'system';
+};
+
+const applyTheme = (choice: ThemeChoice) => {
+  if (typeof window === 'undefined' || typeof document === 'undefined') return;
+  if (choice === 'system') {
+    try { window.localStorage.removeItem('theme'); } catch { /* ignore */ }
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    document.documentElement.classList.toggle('dark', prefersDark);
+    return;
+  }
+  try { window.localStorage.setItem('theme', choice); } catch { /* ignore */ }
+  document.documentElement.classList.toggle('dark', choice === 'dark');
+};
 
 /**
  * Profile menu popover anchored to the sidebar's user row (Pencil `Profile Menu - Desktop`,
@@ -16,7 +41,7 @@ export interface SidebarProfileMenuProps {
    *  so labels don't truncate inside the 64px rail. */
   collapsed?: boolean;
   onAccount?: () => void;
-  onInvoices?: () => void;
+  onSettings?: () => void;
   onSignOut?: () => void;
   className?: string;
 }
@@ -25,12 +50,18 @@ export const SidebarProfileMenu: FunctionComponent<SidebarProfileMenuProps> = ({
   user,
   collapsed = false,
   onAccount,
-  onInvoices,
+  onSettings,
   onSignOut,
   className,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [theme, setThemeState] = useState<ThemeChoice>(() => readStoredTheme());
   const containerRef = useRef<HTMLDivElement>(null);
+
+  const setTheme = useCallback((next: ThemeChoice) => {
+    setThemeState(next);
+    applyTheme(next);
+  }, []);
   // When collapsed, we render the popover with position:fixed and computed coords so
   // it escapes the Sidebar's inner overflow-hidden clipping container.
   const [fixedStyle, setFixedStyle] = useState<JSX.CSSProperties>({});
@@ -111,7 +142,9 @@ export const SidebarProfileMenu: FunctionComponent<SidebarProfileMenuProps> = ({
           </div>
           <Separator />
           <ProfileMenuItem icon={CircleUser} label="Account" onClick={() => select(onAccount)} />
-          <ProfileMenuItem icon={Wallet} label="Invoices" onClick={() => select(onInvoices)} />
+          <ProfileMenuItem icon={SettingsIcon} label="Settings" onClick={() => select(onSettings)} />
+          <Separator />
+          <ThemeSelector value={theme} onChange={setTheme} />
           <Separator />
           <ProfileMenuItem
             icon={LogOut}
@@ -124,6 +157,50 @@ export const SidebarProfileMenu: FunctionComponent<SidebarProfileMenuProps> = ({
     </div>
   );
 };
+
+const THEME_OPTIONS: Array<{ value: ThemeChoice; label: string; icon: IconComponent }> = [
+  { value: 'light', label: 'Light', icon: Sun },
+  { value: 'dark', label: 'Dark', icon: Moon },
+  { value: 'system', label: 'System', icon: Monitor },
+];
+
+const ThemeSelector: FunctionComponent<{
+  value: ThemeChoice;
+  onChange: (next: ThemeChoice) => void;
+}> = ({ value, onChange }) => (
+  <div className="px-2 py-1.5">
+    <p className="mb-1.5 px-1 text-[10px] font-semibold uppercase tracking-wider text-[rgb(var(--sidebar-section-label))]">
+      Theme
+    </p>
+    <div
+      role="radiogroup"
+      aria-label="Theme"
+      className="flex items-center gap-1 rounded-md bg-[rgb(var(--sidebar-hover-bg))]/40 p-1"
+    >
+      {THEME_OPTIONS.map((option) => {
+        const active = option.value === value;
+        return (
+          <button
+            key={option.value}
+            type="button"
+            role="radio"
+            aria-checked={active}
+            onClick={() => onChange(option.value)}
+            className={cn(
+              'flex flex-1 items-center justify-center gap-1.5 rounded px-2 py-1.5 text-[12px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50',
+              active
+                ? 'bg-[rgb(var(--sidebar-menu-bg))] text-[rgb(var(--sidebar-text))] shadow-sm'
+                : 'text-[rgb(var(--sidebar-text-secondary))] hover:text-[rgb(var(--sidebar-text))]',
+            )}
+          >
+            <Icon icon={option.icon} className="h-3.5 w-3.5" aria-hidden />
+            <span>{option.label}</span>
+          </button>
+        );
+      })}
+    </div>
+  </div>
+);
 
 const Separator: FunctionComponent = () => (
   <div className="my-1 px-1">
