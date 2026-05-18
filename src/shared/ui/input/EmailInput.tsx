@@ -82,7 +82,10 @@ export const EmailInput = forwardRef<HTMLInputElement, EmailInputProps>(({
   };
 
   const isValidEmail = (email: string) => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    // Conservative but practical: ASCII local part, single @, host with a
+    // dot-separated TLD of at least two letters. Rejects `a@b.c`,
+    // `..@x.com`, `a@b..c`, and trailing/leading dots.
+    const emailRegex = /^(?!\.)(?!.*\.\.)[A-Za-z0-9._%+-]+(?<!\.)@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,24}$/;
     return emailRegex.test(email);
   };
 
@@ -140,6 +143,9 @@ export const EmailInput = forwardRef<HTMLInputElement, EmailInputProps>(({
           id={inputId}
           name={name}
           type="email"
+          autoComplete="email"
+          inputMode="email"
+          autoCapitalize="none"
           value={value}
           onInput={(e) => onChange?.((e.target as HTMLInputElement).value)}
           placeholder={displayPlaceholder}

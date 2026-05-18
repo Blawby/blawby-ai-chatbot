@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState, useCallback, useEffect } from 'preact/hooks';
 import { Button } from '@/shared/ui/Button';
-import { Input, LogoUploadInput } from '@/shared/ui/input';
+import { Input, LogoUploadInput, EmailInput } from '@/shared/ui/input';
 import { Combobox } from '@/shared/ui/input/Combobox';
 import { AddressExperienceForm } from '@/shared/ui/address/AddressExperienceForm';
 import { FormGrid, SectionDivider, EditorShell } from '@/shared/ui/layout';
@@ -674,12 +674,11 @@ export const PracticePage = ({ className, onBack }: PracticePageProps) => {
               disabled={isSaving}
               placeholder={practiceText.websitePlaceholder}
             />
-            <Input
+            <EmailInput
               label={practiceText.businessEmailLabel}
               value={contactValues.businessEmail || ''}
               onChange={(value) => setDraft((prev) => ({ ...prev, businessEmail: value }))}
               disabled={isSaving}
-              type="email"
               placeholder={practiceText.businessEmailPlaceholder}
             />
             <Input
