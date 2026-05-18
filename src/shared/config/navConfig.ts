@@ -96,6 +96,11 @@ export type NavRailItem = {
   /** If true, the unified Sidebar renders an expand chevron even when the item
    *  currently has no children attached (e.g. another section is active). */
   expandable?: boolean;
+  /** If true, clicking the item in the desktop Sidebar only toggles its dropdown
+   *  and does NOT navigate to `href`. Useful for "container" items whose only
+   *  purpose is to reveal sub-items (e.g. Settings). Mobile bottom nav (NavRail)
+   *  still navigates to `href` as usual. */
+  expandOnly?: boolean;
   /** Fired on hover/focus — preload code chunk + seed data so the click
    *  feels instant. Idempotent. */
   prefetch?: () => void;
@@ -256,6 +261,7 @@ const buildPracticeRail = (basePath: string): NavRailItem[] => [
     href: `${basePath}/settings/general`,
     matchHrefs: [`${basePath}/settings`, `${basePath}/coverage`],
     expandable: true,
+    expandOnly: true,
     prefetch: prefetchSettingsLanding,
   },
 ];
@@ -311,6 +317,7 @@ const buildClientRail = (basePath: string): NavRailItem[] => [
     href: `${basePath}/settings/general`,
     matchHrefs: [`${basePath}/settings`],
     expandable: true,
+    expandOnly: true,
     prefetch: prefetchSettingsLanding,
   },
 ];

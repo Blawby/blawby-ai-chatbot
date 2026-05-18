@@ -120,6 +120,7 @@ export const ClientSidebar = ({
                 isAction={item.isAction}
                 onClick={item.onClick}
                 expandable={item.expandable || children.length > 0}
+                expandOnly={item.expandOnly}
                 persistKey={`client:${item.id}`}
               >
                 {(() => {

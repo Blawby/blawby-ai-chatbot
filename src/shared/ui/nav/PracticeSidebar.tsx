@@ -154,6 +154,7 @@ export const PracticeSidebar = ({
                 isAction={item.isAction}
                 onClick={item.onClick}
                 expandable={item.expandable || children.length > 0}
+                expandOnly={item.expandOnly}
                 persistKey={`practice:${item.id}`}
               >
                 {(() => {
